@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.11.35312.102
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "2026_Graphics", "2026_Graphics.vcxproj", "{A0370B75-AC05-4833-A0FF-EE4F84B7BEBF}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Utility", "Utility\Utility.vcxitems", "{B7597372-03CA-406E-A6BC-80B1DDD6875E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A0370B75-AC05-4833-A0FF-EE4F84B7BEBF}.Debug|x64.ActiveCfg = Debug|x64
+		{A0370B75-AC05-4833-A0FF-EE4F84B7BEBF}.Debug|x64.Build.0 = Debug|x64
+		{A0370B75-AC05-4833-A0FF-EE4F84B7BEBF}.Debug|x86.ActiveCfg = Debug|Win32
+		{A0370B75-AC05-4833-A0FF-EE4F84B7BEBF}.Debug|x86.Build.0 = Debug|Win32
+		{A0370B75-AC05-4833-A0FF-EE4F84B7BEBF}.Release|x64.ActiveCfg = Release|x64
+		{A0370B75-AC05-4833-A0FF-EE4F84B7BEBF}.Release|x64.Build.0 = Release|x64
+		{A0370B75-AC05-4833-A0FF-EE4F84B7BEBF}.Release|x86.ActiveCfg = Release|Win32
+		{A0370B75-AC05-4833-A0FF-EE4F84B7BEBF}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {39C2F6AF-547C-47D5-A6A1-DE9E229F9ACC}
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		Utility\Utility.vcxitems*{a0370b75-ac05-4833-a0ff-ee4f84b7bebf}*SharedItemsImports = 4
+		Utility\Utility.vcxitems*{b7597372-03ca-406e-a6bc-80b1ddd6875e}*SharedItemsImports = 9
+	EndGlobalSection
+EndGlobal
