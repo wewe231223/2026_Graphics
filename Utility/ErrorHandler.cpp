@@ -67,4 +67,17 @@ namespace ErrorHandler {
             std::exit(EXIT_FAILURE);
         }
     }
+
+    void report(bool condition, std::string_view title, std::string_view message, Level level) {
+        if (condition) {
+            report(title, message, level);
+        }
+    }
+
+    void report(long hr, std::string_view title, std::string_view message, Level level) {
+        if (hr < 0) {
+            std::string formattedMessage = std::format("{} (HRESULT: 0x{:08X})", message, static_cast<unsigned long>(hr));
+            report(title, formattedMessage, level);
+        }
+    }
 }

@@ -11,6 +11,8 @@
 #include "DirectXTK12/Keyboard.h"
 #include "DirectXTK12/Mouse.h"
 
+#include "Core/DirectQueue.h"
+
 // 전역 변수:
 HINSTANCE hInst;                                // 현재 인스턴스입니다.
 WCHAR szTitle[MAX_LOADSTRING];                  // 제목 표시줄 텍스트입니다.
@@ -54,6 +56,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     MSG msg;
 
+	Core::DX::DirectQueue directQueue(hWnd);
 
     // 기본 메시지 루프입니다:
     while (true) {

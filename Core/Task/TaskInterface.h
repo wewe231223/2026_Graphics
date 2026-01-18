@@ -19,7 +19,7 @@ namespace Core {
             virtual void Process(RenderWorkerBase& worker) PURE;
         };
 
-        ID3D12PipelineState* GetTaskPSO(RenderTaskBase* task) {
+        inline ID3D12PipelineState* GetTaskPSO(RenderTaskBase* task) {
             return task->GetPSO();
         }
     }

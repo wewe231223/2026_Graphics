@@ -24,6 +24,32 @@ FrameSync::~FrameSync() {
     }
 }
 
+FrameSync::FrameSync(FrameSync&& other) noexcept {
+	if (this != &other) {
+		mFence = std::move(other.mFence);
+		mSyncEvent = other.mSyncEvent;
+		other.mSyncEvent = nullptr;
+		mFenceValues = other.mFenceValues;
+		mFrameIndex = other.mFrameIndex;
+		mValueCounter = other.mValueCounter;
+	}
+
+    other.mSyncEvent = nullptr; 
+}
+
+FrameSync& FrameSync::operator=(FrameSync&& other) noexcept {
+	if (this != &other) {
+		mFence = std::move(other.mFence);
+		mSyncEvent = other.mSyncEvent;
+		other.mSyncEvent = nullptr;
+		mFenceValues = other.mFenceValues;
+		mFrameIndex = other.mFrameIndex;
+		mValueCounter = other.mValueCounter;
+	}
+	other.mSyncEvent = nullptr;
+	return *this;
+}
+
 void FrameSync::Sync(ID3D12CommandQueue* commandQueue) {
     const uint64_t signalValue = ++mValueCounter;
     commandQueue->Signal(mFence.Get(), signalValue);

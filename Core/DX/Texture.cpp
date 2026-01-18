@@ -4,6 +4,7 @@
 
 
 using namespace DirectX;
+using namespace Core::DX;
 
 Texture::Texture(const std::string& name) : mName(name) {}
 
@@ -110,7 +111,7 @@ Texture::Ptr Texture::LoadFromFile(ID3D12Device* device, ID3D12GraphicsCommandLi
     return tex;
 }
 
-Texture::Ptr Texture::CreateTarget(ID3D12Device* device, uint32_t width, uint32_t height, DXGI_FORMAT format, TextureUsage usage, const D3D12_CLEAR_VALUE* optimizedClearValue) {
+Texture::Ptr Texture::CreateTarget(ID3D12Device* device, uint32_t width, uint32_t height, DXGI_FORMAT format, TextureUsage usage, const D3D12_CLEAR_VALUE* optimizedClearValue, uint16_t mipLevels) {
     auto tex = std::make_shared<Texture>("InternalTexture");
 
     D3D12_RESOURCE_FLAGS flags{ D3D12_RESOURCE_FLAG_NONE };
@@ -128,7 +129,7 @@ Texture::Ptr Texture::CreateTarget(ID3D12Device* device, uint32_t width, uint32_
         flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
     }
 
-    tex->mResourceDESC = CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, 1, 1, 1, 0, flags);
+    tex->mResourceDESC = CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, 1, mipLevels, 1, 0, flags);
     tex->mCurrentState = initialState;
 
     auto heapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
@@ -136,6 +137,16 @@ Texture::Ptr Texture::CreateTarget(ID3D12Device* device, uint32_t width, uint32_
     if (FAILED(device->CreateCommittedResource( &heapProp, D3D12_HEAP_FLAG_NONE, &tex->mResourceDESC, initialState, optimizedClearValue, IID_PPV_ARGS(&tex->mResource)))) {
 		ErrorHandler::report("Texture", "Failed to create target texture.", ErrorHandler::Level::Critical);
     }
+
+    return tex;
+}
+
+Texture::Ptr Texture::CreateFromResource(ID3D12Resource* externalResource, const std::string& name) {
+    auto tex = std::make_shared<Texture>(name);
+
+    tex->mResource = externalResource;
+    tex->mResourceDESC = externalResource->GetDesc();
+    tex->mCurrentState = D3D12_RESOURCE_STATE_COMMON;
 
     return tex;
 }

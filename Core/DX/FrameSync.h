@@ -10,9 +10,16 @@ namespace Core {
     namespace DX {
         class FrameSync {
         public:
+            FrameSync() = default; 
             FrameSync(ID3D12Device* device);
+            
             ~FrameSync();
 
+			FrameSync(const FrameSync& other) = delete;
+			FrameSync& operator=(const FrameSync& other) = delete;
+
+			FrameSync(FrameSync&& other) noexcept;
+			FrameSync& operator=(FrameSync&& other) noexcept;
         public:
             void Sync(ID3D12CommandQueue* commandQueue);
             uint32_t GetCurrentIndex() const;

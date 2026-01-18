@@ -7,6 +7,7 @@
 #include "Core/Task/TaskContainer.h"
 #include "Core/Task/TaskInterface.h"
 #include "Core/DX/GraphicsBuffer.h"
+#include "Utility/CompileTimeConstants.h"
 
 namespace Core {
     namespace Task {
@@ -38,12 +39,13 @@ namespace Core {
             void ExecuteInternal();
 
         private:
-            RenderFlowContext&                  mContext;
-            std::jthread                        mThread;
+            RenderFlowContext&                                                          mContext;
+            std::jthread                                                                mThread;
 
-            std::array<DX::GraphicsBuffer, 3>   mWorkerBuffers{};
+            std::array<DX::GraphicsBuffer, Constants::FrameCount<size_t>>               mWorkerBuffers{};
 
-            ComPtr<ID3D12GraphicsCommandList>   mCmdList{ nullptr };
+            ComPtr<ID3D12GraphicsCommandList>                                           mCmdList{ nullptr };
+            std::array<ComPtr<ID3D12CommandAllocator>, Constants::FrameCount<size_t>>   mCommandAllocators{};
         };
     }
 }
