@@ -15,13 +15,50 @@ namespace Core {
         }
 
         DirectQueue::~DirectQueue() {
-            for (auto& worker : mRenderWorkers) {
-                worker.RequestStop(); 
-            }
+			// 모든 워커에게 퇴근 준비
+			for (auto& worker : mRenderWorkers) {
+				worker.RequestStop();
+			}
+
+			// 잠들어 있는 워커들을 깨우기
+			mRenderContext.signalStart.release(mRenderWorkers.size());
         }
 
         void DirectQueue::Update() {
+			auto currentIndex = mFrameSync.GetCurrentIndex();
+			auto& allocator = mMainCommandAllocators[currentIndex];
+			allocator->Reset(); 
+			mCommandList->Reset(allocator.Get(), nullptr);
 
+			auto& rt = mRenderTargets[currentIndex];
+			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET); 
+
+			auto rtv = rt->GetRTV(); 
+			auto dsv = mDepthStencilBuffer->GetDSV();
+
+			mCommandList->ClearRenderTargetView(rtv, DirectX::Colors::Blue, 0, nullptr);
+
+
+			mCommandList->ClearDepthStencilView(mDepthStencilBuffer->GetDSV(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+			mCommandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv); 
+
+			mCommandList->RSSetViewports(1, &mViewport);
+			mCommandList->RSSetScissorRects(1, &mScissorRect);
+
+
+			// Execute Render Tasks
+
+
+
+			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PRESENT); 
+
+			mCommandList->Close();
+			ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
+			mDirectCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
+
+			ErrorHandler::report(mSwapChain->Present(Constants::AllowTearing ? 0 : 1, Constants::AllowTearing ? DXGI_PRESENT_ALLOW_TEARING : 0), "DirectQueue", "Failed to present SwapChain.", ErrorHandler::Level::Critical);
+
+			mFrameSync.Sync(mDirectCommandQueue.Get());
         }
 
         void DirectQueue::InitBasements() {
@@ -111,19 +148,17 @@ namespace Core {
 				ErrorHandler::report(mSwapChain->GetBuffer(static_cast<UINT>(i), IID_PPV_ARGS(backBuffer.GetAddressOf())), "DirectQueue", "Failed to get SwapChain BackBuffer.", ErrorHandler::Level::Critical);
 				rt = Texture::CreateFromResource(backBuffer.Get(), "BackBuffer_" + std::to_string(i));
 
-				DescriptorHandle handle{ mRTVHeap.Allocate() };
-				rt->CreateRTV(mDevice.Get(), handle);
+				rt->CreateRTV(mDevice.Get(), mRTVHeap);
 			}
 
 
 
 			mDSVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
 
-			CD3DX12_CLEAR_VALUE depthOptimizedClearValue{ DXGI_FORMAT_D24_UNORM_S8_UINT, 0.0f, 0 };
+			CD3DX12_CLEAR_VALUE depthOptimizedClearValue{ DXGI_FORMAT_D24_UNORM_S8_UINT, 1.0f, 0 };
 			mDepthStencilBuffer = Texture::CreateTarget(mDevice.Get(), Config::Query().Get<uint32_t>("Window_Width"), Config::Query().Get<uint32_t>("Window_Height"), DXGI_FORMAT_D24_UNORM_S8_UINT, TextureUsage::DepthStencil, &depthOptimizedClearValue);
 
-			DescriptorHandle handle{ mDSVHeap.Allocate() };
-			mDepthStencilBuffer->CreateDSV(mDevice.Get(), handle);
+			mDepthStencilBuffer->CreateDSV(mDevice.Get(), mDSVHeap);
 		}
 
         ComPtr<IDXGIAdapter1> DirectQueue::GetBestAdapter() {

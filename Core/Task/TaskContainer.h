@@ -8,9 +8,9 @@
 #include <span>
 #include "Utility/ErrorHandler.h"
 
-
-// TODO : 
-// 그 다음 Core/DX/Texture 만들기. -> 렌더 타겟 같은 내부 출력 이미지와, 외부 텍스쳐 이미지 모두 담을 수 있는 객체 만들기. 
+// TODO 
+// 실제 Task 디자인 시작. 
+// Task Graph 의 구체적인 구현 방안. 
 
 
 namespace Core {

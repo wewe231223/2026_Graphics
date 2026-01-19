@@ -14,7 +14,8 @@ namespace Core {
 				ID3D12GraphicsCommandList* cmdList = worker.GetCommandList();
 				ID3D12Device* device;
 				cmdList->GetDevice(IID_PPV_ARGS(&device));
-				worker.GetWorkerBuffer() = DX::GraphicsBuffer(device);
+				worker.GetWorkerBuffer() = DX::GraphicsBuffer(device); 
+				// 하위 task 에서 Finalize 호출이 필요함. 
 			}
 		};
 	}

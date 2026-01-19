@@ -37,9 +37,8 @@ namespace Core {
 
             void Write(const void* data, UINT64 size, UINT64 offset = 0);
 
-            // 게터
-            ID3D12Resource* GetDefault() const { return mDefaultHeap.Get(); }
-            D3D12_GPU_VIRTUAL_ADDRESS GetGPUAddress() const { return mDefaultHeap->GetGPUVirtualAddress(); }
+            ID3D12Resource* GetDefault() const; 
+            D3D12_GPU_VIRTUAL_ADDRESS GetGPUAddress() const;
             D3D12_RESOURCE_STATES GetCurrentState() const;
 
         protected:
@@ -73,8 +72,8 @@ namespace Core {
 
         public:
             GraphicsBuffer();
-            // 기본 할당 크기는 256MB
-            GraphicsBuffer(ID3D12Device* device, UINT64 capacity = 256 * 1024 * 1024);
+            // 기본 할당 크기는 128MB
+            GraphicsBuffer(ID3D12Device* device, UINT64 capacity = 128 * 1024 * 1024);
             ~GraphicsBuffer();
 
             GraphicsBuffer(const GraphicsBuffer&) = delete;

@@ -89,6 +89,14 @@ namespace Core {
             }
         }
 
+        ID3D12Resource* GraphicsResource::GetDefault() const {
+            return mDefaultHeap.Get();
+        }
+
+        D3D12_GPU_VIRTUAL_ADDRESS GraphicsResource::GetGPUAddress() const {
+            return mDefaultHeap->GetGPUVirtualAddress();
+        }
+
         D3D12_RESOURCE_STATES GraphicsResource::GetCurrentState() const {
 			return mDefaultHeapState;
         }

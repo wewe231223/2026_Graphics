@@ -3,14 +3,12 @@
 #include "Core/DX/DesciptorHeap.h"
 #include "Core/DX/GraphicsBuffer.h"
 #include "Core/DX/FrameSync.h"
-#include "Core/RenderWorker.h"
 #include "Core/DX/Texture.h"
+#include "Core/RenderWorker.h"
+#include "Core/Config.h"
 #include "Utility/DirectXInclude.h"
 #include "Utility/CompileTimeConstants.h"
 #include "Utility/FixedArray.h"
-
-// TODO 
-// Direct Queue 구현하기
 
 namespace Core {
 	namespace DX {
@@ -43,7 +41,6 @@ namespace Core {
 			ComPtr<ID3D12Debug6> mDebugController{ nullptr };
 			ComPtr<IDXGIDebug1> mDebugDXGI{ nullptr };
 		#endif 
-
 			ComPtr<ID3D12Device> mDevice{ nullptr };
 			ComPtr<ID3D12CommandQueue> mDirectCommandQueue{ nullptr };
 
@@ -64,6 +61,9 @@ namespace Core {
 			Core::Task::RenderFlowContext mRenderContext{ static_cast<int>(std::thread::hardware_concurrency() - 2) };
 
 			Cont::FixedArray<Core::Task::RenderWorker> mRenderWorkers{};
+
+			D3D12_VIEWPORT mViewport{ 0, 0, Config::Query().Get<float>("Window_Width"), Config::Query().Get<float>("Window_Height"), 0.f, 1.f };
+			D3D12_RECT mScissorRect{ 0, 0, Config::Query().Get<LONG>("Window_Width"), Config::Query().Get<LONG>("Window_Height") };
 		};
 
 	}

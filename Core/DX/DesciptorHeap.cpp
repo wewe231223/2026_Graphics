@@ -2,6 +2,42 @@
 
 using namespace	Core::DX;
 
+DescriptorHandle::DescriptorHandle(D3D12_CPU_DESCRIPTOR_HANDLE cpu, D3D12_GPU_DESCRIPTOR_HANDLE gpu, uint32_t index) : mCpuHandle(cpu), mGpuHandle(gpu), mIndex(index) {}
+
+DescriptorHandle::DescriptorHandle(DescriptorHandle&& other) noexcept : mCpuHandle(std::exchange(other.mCpuHandle, { 0 }))
+																		,mGpuHandle(std::exchange(other.mGpuHandle, { 0 }))
+																		,mIndex(std::exchange(other.mIndex, 0)) {}
+
+DescriptorHandle& DescriptorHandle::operator=(DescriptorHandle&& other) noexcept {
+	if (this != &other) {
+		mCpuHandle = std::exchange(other.mCpuHandle, { 0 });
+		mGpuHandle = std::exchange(other.mGpuHandle, { 0 });
+		mIndex = std::exchange(other.mIndex, 0);
+	}
+	return *this;
+}
+
+bool DescriptorHandle::IsValid() const {
+	return mCpuHandle.ptr != 0;
+}
+
+bool DescriptorHandle::IsShaderVisible() const {
+	return mGpuHandle.ptr != 0;
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE DescriptorHandle::GetCPU() const {
+	return mCpuHandle;
+}
+
+D3D12_GPU_DESCRIPTOR_HANDLE DescriptorHandle::GetGPU() const {
+	return mGpuHandle; 
+}
+
+uint32_t DescriptorHandle::GetIndex() const {
+	return mIndex;
+}
+
+
 DescriptorHeap::DescriptorHeap(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, bool shaderVisible) :	mHandleIncreasement(0), 
 																																		mCurrentIndex(0), 
 																																		mCapacity(numDescriptors) {
@@ -57,18 +93,22 @@ DescriptorHandle DescriptorHeap::Allocate() {
         ErrorHandler::report("DescriptorHeap", "Out of descriptors!", ErrorHandler::Level::Critical);
     }
 
-    DescriptorHandle handle;
-    handle.Index = mCurrentIndex;
-    handle.CpuHandle.ptr = mCPUStart.ptr + (mCurrentIndex * mHandleIncreasement);
+	D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle{ mCPUStart };
+	cpuHandle.ptr += static_cast<UINT64>(mCurrentIndex) * mHandleIncreasement;
 
-    if (mHeap->GetDesc().Flags & D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE) {
-        handle.GpuHandle.ptr = mGPUStart.ptr + (mCurrentIndex * mHandleIncreasement);
-    }
+	D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle{ 0 };
+	if (mGPUStart.ptr != 0) {
+		gpuHandle = mGPUStart;
+		gpuHandle.ptr += static_cast<UINT64>(mCurrentIndex) * mHandleIncreasement;
+	}
 
-    mCurrentIndex++;
-    return handle;
+	DescriptorHandle handle(cpuHandle, gpuHandle, mCurrentIndex);
+	mCurrentIndex++;
+
+	return handle;
 }
 
 ID3D12DescriptorHeap* DescriptorHeap::GetHeap() const {
 	return mHeap.Get();
 }
+

@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <stdexcept>
 
-
 using namespace DirectX;
 using namespace Core::DX;
 
@@ -151,69 +150,66 @@ Texture::Ptr Texture::CreateFromResource(ID3D12Resource* externalResource, const
     return tex;
 }
 
-void Texture::CreateSRV(ID3D12Device* device, const DescriptorHandle& handle) {
-    if (!handle.IsValid()) {
-        return;
-    }
+void Texture::CreateSRV(ID3D12Device* device, DescriptorHeap& heap) {
+    mSRVHandle = heap.Allocate();
 
-    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
-
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = TextureUtils::GetSrvFormat(mResourceDESC.Format);
-
-    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Texture2D.MipLevels = mResourceDESC.MipLevels; 
 
-    if (mResourceDESC.Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL) {
-        srvDesc.Texture2D.MipLevels = 1;
-    }
-    else {
-        srvDesc.Texture2D.MipLevels = mResourceDESC.MipLevels;
-    }
-
-    device->CreateShaderResourceView(mResource.Get(), &srvDesc, handle.CpuHandle);
+    device->CreateShaderResourceView(mResource.Get(), &srvDesc, mSRVHandle.GetCPU());
 }
 
-void Texture::CreateRTV(ID3D12Device* device, const DescriptorHandle& handle) {
-    if (!handle.IsValid()) {
-        return;
-    }
+void Texture::CreateRTV(ID3D12Device* device, DescriptorHeap& heap) {
+    mRTVHandle = heap.Allocate();
 
-    D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
-
+    D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
     rtvDesc.Format = TextureUtils::GetRtvFormat(mResourceDESC.Format);
-
     rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
     rtvDesc.Texture2D.MipSlice = 0;
 
-    device->CreateRenderTargetView(mResource.Get(), &rtvDesc, handle.CpuHandle);
+    device->CreateRenderTargetView(mResource.Get(), &rtvDesc, mRTVHandle.GetCPU());
 }
 
-void Texture::CreateDSV(ID3D12Device* device, const DescriptorHandle& handle) {
-    if (!handle.IsValid()) {
-        return;
-    }
 
-    D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
+void Texture::CreateDSV(ID3D12Device* device, DescriptorHeap& heap) {
+    mDSVHandle = heap.Allocate();
 
+    D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = TextureUtils::GetDsvFormat(mResourceDESC.Format);
-
     dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
     dsvDesc.Texture2D.MipSlice = 0;
 
-    device->CreateDepthStencilView(mResource.Get(), &dsvDesc, handle.CpuHandle);
+    device->CreateDepthStencilView(mResource.Get(), &dsvDesc, mDSVHandle.GetCPU());
 }
 
-void Texture::CreateUAV(ID3D12Device* device, const DescriptorHandle& handle, uint32_t mipSlice) {
-    if (!handle.IsValid()) {
-        return;
-    }
+void Texture::CreateUAV(ID3D12Device* device, DescriptorHeap& heap, uint32_t mipSlice) {
+    mUAVHandle = heap.Allocate();
 
-    D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc{};
-    uavDesc.Format = mResourceDESC.Format; 
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    uavDesc.Format = TextureUtils::GetUavFormat(mResourceDESC.Format);
     uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
     uavDesc.Texture2D.MipSlice = mipSlice;
 
-    device->CreateUnorderedAccessView(mResource.Get(), nullptr, &uavDesc, handle.CpuHandle);
+    device->CreateUnorderedAccessView(mResource.Get(), nullptr, &uavDesc, mUAVHandle.GetCPU());
+}
+
+D3D12_GPU_DESCRIPTOR_HANDLE Texture::GetSRV() const {
+	return mSRVHandle.IsShaderVisible() ? mSRVHandle.GetGPU() : D3D12_GPU_DESCRIPTOR_HANDLE();
+}
+
+D3D12_GPU_DESCRIPTOR_HANDLE Texture::GetUAV() const {
+	return mSRVHandle.IsShaderVisible() ? mUAVHandle.GetGPU() : D3D12_GPU_DESCRIPTOR_HANDLE();
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE Texture::GetRTV() const {
+	return mRTVHandle.IsValid() ? mRTVHandle.GetCPU() : D3D12_CPU_DESCRIPTOR_HANDLE();
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE Texture::GetDSV() const {
+	return mDSVHandle.IsValid() ? mDSVHandle.GetCPU() : D3D12_CPU_DESCRIPTOR_HANDLE();
 }
 
 void Texture::Transition(ID3D12GraphicsCommandList* cmdList, D3D12_RESOURCE_STATES newState) {

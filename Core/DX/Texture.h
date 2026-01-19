@@ -11,39 +11,69 @@
 namespace TextureUtils {
     inline DXGI_FORMAT GetSrvFormat(DXGI_FORMAT defaultFormat) {
         switch (defaultFormat) {
-        case DXGI_FORMAT_R24G8_TYPELESS: 
-            return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
-        case DXGI_FORMAT_R32_TYPELESS: 
-            return DXGI_FORMAT_R32_FLOAT;
-        case DXGI_FORMAT_R16_TYPELESS: 
-            return DXGI_FORMAT_R16_UNORM;
-        case DXGI_FORMAT_R8G8B8A8_TYPELESS: 
-            return DXGI_FORMAT_R8G8B8A8_UNORM;
-        default: 
-            return defaultFormat; 
+            case DXGI_FORMAT_R24G8_TYPELESS: 
+                return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+            case DXGI_FORMAT_R32_TYPELESS: 
+                return DXGI_FORMAT_R32_FLOAT;
+            case DXGI_FORMAT_R16_TYPELESS: 
+                return DXGI_FORMAT_R16_UNORM;
+            case DXGI_FORMAT_R8G8B8A8_TYPELESS: 
+                return DXGI_FORMAT_R8G8B8A8_UNORM;
+            default: 
+                return defaultFormat; 
         }
     }
 
     inline DXGI_FORMAT GetDsvFormat(DXGI_FORMAT defaultFormat) {
         switch (defaultFormat) {
-        case DXGI_FORMAT_R24G8_TYPELESS: 
-            return DXGI_FORMAT_D24_UNORM_S8_UINT;
-        case DXGI_FORMAT_R32_TYPELESS: 
-            return DXGI_FORMAT_D32_FLOAT;
-        case DXGI_FORMAT_R16_TYPELESS: 
-            return DXGI_FORMAT_D16_UNORM;
-        default: 
-            return defaultFormat;
+            case DXGI_FORMAT_R24G8_TYPELESS: 
+                return DXGI_FORMAT_D24_UNORM_S8_UINT;
+            case DXGI_FORMAT_R32_TYPELESS: 
+                return DXGI_FORMAT_D32_FLOAT;
+            case DXGI_FORMAT_R16_TYPELESS: 
+                return DXGI_FORMAT_D16_UNORM;
+            default: 
+                return defaultFormat;
         }
     }
 
     inline DXGI_FORMAT GetRtvFormat(DXGI_FORMAT defaultFormat) {
         switch (defaultFormat) {
-        case DXGI_FORMAT_R8G8B8A8_TYPELESS: 
-            return DXGI_FORMAT_R8G8B8A8_UNORM;
-        case DXGI_FORMAT_B8G8R8A8_TYPELESS: 
-            return DXGI_FORMAT_B8G8R8A8_UNORM;
-        default: return defaultFormat;
+            case DXGI_FORMAT_R8G8B8A8_TYPELESS: 
+                return DXGI_FORMAT_R8G8B8A8_UNORM;
+            case DXGI_FORMAT_B8G8R8A8_TYPELESS: 
+                return DXGI_FORMAT_B8G8R8A8_UNORM;
+            default: return defaultFormat;
+        }
+    }
+
+    inline DXGI_FORMAT GetUavFormat(DXGI_FORMAT defaultFormat) {
+        switch (defaultFormat) {
+            case DXGI_FORMAT_R32_TYPELESS: 
+                return DXGI_FORMAT_R32_FLOAT;
+            case DXGI_FORMAT_R32G32_TYPELESS: 
+                return DXGI_FORMAT_R32G32_FLOAT;
+            case DXGI_FORMAT_R32G32B32_TYPELESS: 
+                return DXGI_FORMAT_R32G32B32_FLOAT;
+            case DXGI_FORMAT_R32G32B32A32_TYPELESS: 
+                return DXGI_FORMAT_R32G32B32A32_FLOAT;
+
+            case DXGI_FORMAT_R16_TYPELESS: 
+                return DXGI_FORMAT_R16_FLOAT;
+            case DXGI_FORMAT_R16G16_TYPELESS: 
+                return DXGI_FORMAT_R16G16_FLOAT;
+            case DXGI_FORMAT_R16G16B16A16_TYPELESS: 
+                return DXGI_FORMAT_R16G16B16A16_FLOAT;
+
+            case DXGI_FORMAT_R8G8B8A8_TYPELESS: 
+                return DXGI_FORMAT_R8G8B8A8_UNORM;
+            case DXGI_FORMAT_B8G8R8A8_TYPELESS: 
+                return DXGI_FORMAT_B8G8R8A8_UNORM;
+            case DXGI_FORMAT_R8_TYPELESS:       
+                return DXGI_FORMAT_R8_UNORM;
+
+            default: 
+                return defaultFormat;
         }
     }
 }
@@ -75,11 +105,17 @@ namespace Core {
             static Texture::Ptr LoadFromFile(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const std::filesystem::path& path);
             static Texture::Ptr CreateTarget(ID3D12Device* device, uint32_t width, uint32_t height, DXGI_FORMAT format, TextureUsage usage, const D3D12_CLEAR_VALUE* optimizedClearValue = nullptr, uint16_t mipLevels = 1);
             static Texture::Ptr CreateFromResource(ID3D12Resource* externalResource, const std::string& name);
+
         public:
-            void CreateSRV(ID3D12Device* device, const DescriptorHandle& handle);
-            void CreateRTV(ID3D12Device* device, const DescriptorHandle& handle);
-            void CreateDSV(ID3D12Device* device, const DescriptorHandle& handle);
-            void CreateUAV(ID3D12Device* device, const DescriptorHandle& handle, uint32_t mipSlice = 0);
+            void CreateSRV(ID3D12Device* device, DescriptorHeap& heap);
+            void CreateRTV(ID3D12Device* device, DescriptorHeap& heap);
+            void CreateDSV(ID3D12Device* device, DescriptorHeap& heap);
+            void CreateUAV(ID3D12Device* device, DescriptorHeap& heap, uint32_t mipSlice = 0);
+
+            D3D12_GPU_DESCRIPTOR_HANDLE GetSRV() const;
+            D3D12_GPU_DESCRIPTOR_HANDLE GetUAV() const;
+            D3D12_CPU_DESCRIPTOR_HANDLE GetRTV() const; 
+            D3D12_CPU_DESCRIPTOR_HANDLE GetDSV() const; 
 
             void ReleaseUploadBuffer();
             void Transition(ID3D12GraphicsCommandList* cmdList, D3D12_RESOURCE_STATES newState);
@@ -96,6 +132,11 @@ namespace Core {
             D3D12_RESOURCE_DESC mResourceDESC{};
             D3D12_RESOURCE_STATES mCurrentState{ D3D12_RESOURCE_STATE_COMMON };
             std::string mName{};
+
+            DescriptorHandle mSRVHandle;
+            DescriptorHandle mRTVHandle;
+            DescriptorHandle mDSVHandle;
+            DescriptorHandle mUAVHandle;
         };
 
         using TexPtr = Texture::Ptr; 
