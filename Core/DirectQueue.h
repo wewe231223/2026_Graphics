@@ -33,6 +33,7 @@ namespace Core {
 
 			ComPtr<IDXGIAdapter1> GetBestAdapter(); 
 
+			bool CheckShaderModelSupport(D3D_SHADER_MODEL);
 		private:
 			HWND mHwnd{ nullptr };
 			ComPtr<IDXGIFactory6> mFactory{ nullptr };

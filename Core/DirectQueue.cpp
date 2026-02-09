@@ -98,6 +98,10 @@ namespace Core {
 				ErrorHandler::report(::D3D12CreateDevice(warpAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&mDevice)), "DirectQueue", "Failed to make Warp Device", ErrorHandler::Level::Critical);
 			}
 
+			if (DirectQueue::CheckShaderModelSupport(D3D_SHADER_MODEL_6_6)) {
+				OutputDebugString(L"Shader Model 6.6 is supported.\n"); 
+			}
+
 			// Direct Command Queue 
 			D3D12_COMMAND_QUEUE_DESC queueDesc{};
 			queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
@@ -202,6 +206,16 @@ namespace Core {
 
 			return bestAdapter;
         }
+		bool DirectQueue::CheckShaderModelSupport(D3D_SHADER_MODEL targetModel) {
+			D3D12_FEATURE_DATA_SHADER_MODEL shaderModel{ targetModel };
+
+			if (SUCCEEDED(mDevice->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &shaderModel, sizeof(shaderModel)))) {
+				return (shaderModel.HighestShaderModel >= targetModel);
+			}
+
+			return false;
+		}
+		
     }
 }
 

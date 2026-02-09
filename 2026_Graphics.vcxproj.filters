@@ -47,9 +47,6 @@
     <ClCompile Include="Core\DX\FrameSync.cpp">
       <Filter>Core\DX</Filter>
     </ClCompile>
-    <ClCompile Include="Core\ComputeQueue.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
     <ClCompile Include="Core\DirectQueue.cpp">
       <Filter>Core</Filter>
     </ClCompile>
@@ -57,6 +54,12 @@
       <Filter>Core\DX</Filter>
     </ClCompile>
     <ClCompile Include="Core\DX\DesciptorHeap.cpp">
+      <Filter>Core\DX</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\DX\CopyQueue.cpp">
+      <Filter>Core\DX</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\DX\ComputeQueue.cpp">
       <Filter>Core\DX</Filter>
     </ClCompile>
   </ItemGroup>
@@ -94,9 +97,6 @@
     <ClInclude Include="Core\DX\FrameSync.h">
       <Filter>Core\DX</Filter>
     </ClInclude>
-    <ClInclude Include="Core\ComputeQueue.h">
-      <Filter>Core</Filter>
-    </ClInclude>
     <ClInclude Include="Core\DirectQueue.h">
       <Filter>Core</Filter>
     </ClInclude>
@@ -104,6 +104,12 @@
       <Filter>Core\DX</Filter>
     </ClInclude>
     <ClInclude Include="Core\DX\DesciptorHeap.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DX\CopyQueue.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DX\ComputeQueue.h">
       <Filter>Core\DX</Filter>
     </ClInclude>
   </ItemGroup>
