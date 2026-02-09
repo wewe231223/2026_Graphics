@@ -3,6 +3,7 @@
 #include "Utility/Views.h"
 #include "Core/Config.h"
 
+
 namespace Core {
     namespace DX {
 		DirectQueue::DirectQueue(HWND hWnd) {
