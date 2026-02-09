@@ -1,5 +1,6 @@
 ﻿// 2026_Graphics.cpp : 애플리케이션에 대한 진입점을 정의합니다.
-//
+extern "C" { __declspec(dllexport) extern const unsigned int D3D12SDKVersion = 618; }
+extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; }
 
 #include "framework.h"
 #include "2026_Graphics.h"
@@ -10,7 +11,6 @@
 #include "Core/Config.h"
 #include "DirectXTK12/Keyboard.h"
 #include "DirectXTK12/Mouse.h"
-
 #include "Core/DirectQueue.h"
 
 // 전역 변수:
