@@ -1,6 +1,8 @@
 #include "GraphicsBuffer.h"
 #include <iomanip>
 #include <sstream>
+#include <algorithm>
+
 #include "External/Include/DirectXTK12/d3dx12.h"
 
 #ifdef min 
@@ -109,6 +111,101 @@ namespace Core {
 			}
         }
 
+
+#ifndef ALIGN_16
+#define ALIGN_16(val) (((val) + 15) & ~15)
+#endif
+
+
+        MeshBuffer::MeshBuffer(ID3D12Device* device, UINT vertexCount, UINT vertexStride, UINT indexCount, DXGI_FORMAT indexFormat) :   GraphicsResource(device, CalculateTotalSize(vertexCount, vertexStride, indexCount, indexFormat)), 
+                                                                                                                                        mIndexCount(indexCount) {
+           
+            mVertexDataSize = static_cast<UINT64>(vertexCount) * vertexStride;
+
+            // 인덱스 크기 계산 (R32=4bytes, R16=2bytes)
+            UINT indexStride{ (indexFormat == DXGI_FORMAT_R32_UINT) ? 4U : 2U };
+            mIndexDataSize = static_cast<UINT64>(indexCount) * indexStride;
+
+            // 16바이트 정렬 맞춤
+            mIndexOffset = ALIGN_16(mVertexDataSize);
+
+            // 3. 뷰(View) 생성 - 렌더링 파이프라인 바인딩용
+            D3D12_GPU_VIRTUAL_ADDRESS baseAddress{ GraphicsResource::GetGPUAddress() }; // Default Heap의 주소
+
+            // Vertex Buffer View
+            mVBV.BufferLocation = baseAddress; // 오프셋 0
+            mVBV.SizeInBytes = static_cast<UINT>(mVertexDataSize);
+            mVBV.StrideInBytes = vertexStride;
+
+            // Index Buffer View
+            mIBV.BufferLocation = baseAddress + mIndexOffset;
+            mIBV.SizeInBytes = static_cast<UINT>(mIndexDataSize);
+            mIBV.Format = indexFormat;
+        }
+
+        MeshBuffer::MeshBuffer(MeshBuffer&& other) noexcept :   GraphicsResource(std::move(other)), 
+                                                                mVertexDataSize(other.mVertexDataSize),  
+                                                                mIndexDataSize(other.mIndexDataSize), 
+                                                                mIndexOffset(other.mIndexOffset), 
+                                                                mIndexCount(other.mIndexCount), 
+                                                                mVBV(other.mVBV),  
+                                                                mIBV(other.mIBV) {
+            other.mVertexDataSize = 0;
+            other.mIndexDataSize = 0;
+            other.mIndexOffset = 0;
+            other.mIndexCount = 0;
+            other.mVBV = {};
+            other.mIBV = {};
+        }
+
+        MeshBuffer& MeshBuffer::operator=(MeshBuffer&& other) noexcept {
+            if (this != &other) {
+                GraphicsResource::operator=(std::move(other));
+
+                mVertexDataSize = other.mVertexDataSize;
+                mIndexDataSize = other.mIndexDataSize;
+                mIndexOffset = other.mIndexOffset;
+                mIndexCount = other.mIndexCount;
+                mVBV = other.mVBV;
+                mIBV = other.mIBV;
+
+                other.mVertexDataSize = 0;
+                other.mIndexDataSize = 0;
+                other.mIndexOffset = 0;
+                other.mIndexCount = 0;
+                other.mVBV = {};
+                other.mIBV = {};
+            }
+            return *this;
+        }
+
+        void MeshBuffer::UpdateVertices(const void* data, UINT64 size) {
+            if (size > mVertexDataSize) {
+                ErrorHandler::report("MeshBuffer", "Vertex data size exceeds allocated capacity", ErrorHandler::Level::Critical);
+                return;
+            }
+            Write(data, size, 0);
+        }
+
+        void MeshBuffer::UpdateIndices(const void* data, UINT64 size) {
+            if (size > mIndexDataSize) {
+                ErrorHandler::report("MeshBuffer", "Index data size exceeds allocated capacity", ErrorHandler::Level::Critical);
+                return;
+            }
+            Write(data, size, mIndexOffset);
+        }
+
+        UINT64 MeshBuffer::CalculateTotalSize(UINT vertexCount, UINT vertexStride, UINT indexCount, DXGI_FORMAT indexFormat) {
+            UINT64 vSize{ static_cast<UINT64>(vertexCount) * vertexStride };
+            UINT indexStride{ (indexFormat == DXGI_FORMAT_R32_UINT) ? 4U : 2U };
+            UINT64 iSize{ static_cast<UINT64>(indexCount) * indexStride };
+
+            UINT64 alignedVSize{ (vSize + 15) & ~15 };
+
+            return alignedVSize + iSize;
+        }
+
+ 
 
         GraphicsBuffer::GraphicsBuffer() : GraphicsResource(), mIsFinalized(false) {
         

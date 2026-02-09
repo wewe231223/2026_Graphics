@@ -52,6 +52,53 @@ namespace Core {
             UINT64 mCapacity{};
         };
 
+        class MeshBuffer : public GraphicsResource {
+        public:
+            MeshBuffer() = default;
+            MeshBuffer(ID3D12Device* device, UINT vertexCount, UINT vertexStride, UINT indexCount, DXGI_FORMAT indexFormat = DXGI_FORMAT_R32_UINT);
+
+            virtual ~MeshBuffer() = default;
+
+            // 이동 생성자 및 대입 연산자 (리소스 소유권 관리)
+            MeshBuffer(MeshBuffer&& other) noexcept;
+            MeshBuffer& operator=(MeshBuffer&& other) noexcept;
+
+            // 복사 방지
+            MeshBuffer(const MeshBuffer&) = delete;
+            MeshBuffer& operator=(const MeshBuffer&) = delete;
+
+        public:
+            void UpdateVertices(const void* data, UINT64 size);
+
+            template<typename T>
+            void UpdateVertices(const std::vector<T>& data) {
+                UpdateVertices(data.data(), data.size() * sizeof(T));
+            }
+
+            void UpdateIndices(const void* data, UINT64 size);
+
+            template<typename T>
+            void UpdateIndices(const std::vector<T>& data) {
+                UpdateIndices(data.data(), data.size() * sizeof(T));
+            }
+
+            const D3D12_VERTEX_BUFFER_VIEW& GetVBV() const { return mVBV; }
+            const D3D12_INDEX_BUFFER_VIEW& GetIBV() const { return mIBV; }
+            UINT GetIndexCount() const { return mIndexCount; }
+
+        private:
+            static UINT64 CalculateTotalSize(UINT vertexCount, UINT vertexStride, UINT indexCount, DXGI_FORMAT indexFormat = DXGI_FORMAT_R32_UINT);
+        private:
+            UINT64 mVertexDataSize = 0;
+            UINT64 mIndexDataSize = 0;
+            UINT64 mIndexOffset = 0; // 버퍼 내에서 인덱스 데이터 시작 오프셋
+
+            UINT mIndexCount = 0;
+
+            D3D12_VERTEX_BUFFER_VIEW mVBV{};
+            D3D12_INDEX_BUFFER_VIEW mIBV{};
+        };
+    
         class GraphicsBuffer : public GraphicsResource {
             using ResourceKey = uint64_t;
 
