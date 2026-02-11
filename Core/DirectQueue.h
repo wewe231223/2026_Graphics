@@ -23,6 +23,8 @@ namespace Core {
 			DirectQueue& operator=(DirectQueue&& other) = delete;
 
 		public:
+			ID3D12Device* GetDevice() const;
+
 			void Update(); 
 		private:
 			void InitBasements(); 
@@ -36,7 +38,7 @@ namespace Core {
 		private:
 			HWND mHwnd{ nullptr };
 			ComPtr<IDXGIFactory6> mFactory{ nullptr };
-
+			 
 		#if defined(DEBUG) || defined(_DEBUG)
 			ComPtr<ID3D12Debug6> mDebugController{ nullptr };
 			ComPtr<IDXGIDebug1> mDebugDXGI{ nullptr };

@@ -19,7 +19,11 @@ namespace Core {
 
         }
 
-        void DirectQueue::Update() {
+		ID3D12Device* DirectQueue::GetDevice() const {
+			return mDevice.Get(); 
+		}
+
+		void DirectQueue::Update() {
 			auto currentIndex = mFrameSync.GetCurrentIndex();
 			auto& allocator = mMainCommandAllocators[currentIndex];
 			allocator->Reset(); 

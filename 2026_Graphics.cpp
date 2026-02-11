@@ -12,6 +12,7 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "DirectXTK12/Keyboard.h"
 #include "DirectXTK12/Mouse.h"
 #include "Core/DirectQueue.h"
+#include "Core/DX/CopyQueue.h"
 
 // 전역 변수:
 HINSTANCE hInst;                                // 현재 인스턴스입니다.
@@ -57,6 +58,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     MSG msg;
 
 	Core::DX::DirectQueue directQueue(hWnd);
+	Core::DX::CopyQueue copyQueue(directQueue.GetDevice());
 
     // 기본 메시지 루프입니다:
     while (true) {
