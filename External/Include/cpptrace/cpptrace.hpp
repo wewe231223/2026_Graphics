@@ -1,4 +1,4 @@
-#ifndef CPPTRACE_HPP
+﻿#ifndef CPPTRACE_HPP
 #define CPPTRACE_HPP
 
 #include <cpptrace/basic.hpp>

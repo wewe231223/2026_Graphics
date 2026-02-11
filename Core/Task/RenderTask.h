@@ -1,9 +1,9 @@
-#pragma once 
+ï»¿#pragma once 
 #include "Core/Task/TaskInterface.h"
 
 namespace Core {
 	namespace Task {
-		// ±âº» ¿öÄ¿ ¹öÆÛ ÃÊ±âÈ­ ÀÛ¾÷. ÀÌ ÀÛ¾÷À¸·Î ÃÊ±âÈ­µÈ ¹öÆÛ´Â »ç¿ë ºÒ°¡. »ó¼ÓÇÏ¿© ¹öÆÛ ·¹ÀÌ¾Æ¿ôÀ» ³Ö¾îÁÖ°Å³ª, ¹öÆÛ¸¦ »ç¿ëÇÏÁö ¸» °Í. 
+		// ê¸°ë³¸ ì›Œì»¤ ë²„í¼ ì´ˆê¸°í™” ì‘ì—…. ì´ ì‘ì—…ìœ¼ë¡œ ì´ˆê¸°í™”ëœ ë²„í¼ëŠ” ì‚¬ìš© ë¶ˆê°€. ìƒì†í•˜ì—¬ ë²„í¼ ë ˆì´ì•„ì›ƒì„ ë„£ì–´ì£¼ê±°ë‚˜, ë²„í¼ë¥¼ ì‚¬ìš©í•˜ì§€ ë§ ê²ƒ. 
 		class WorkerInitTask : public RenderTaskBase {
 		public:
 			virtual ID3D12PipelineState* GetPSO() const override {
@@ -15,7 +15,7 @@ namespace Core {
 				ID3D12Device* device;
 				cmdList->GetDevice(IID_PPV_ARGS(&device));
 				worker.GetWorkerBuffer() = DX::GraphicsBuffer(device); 
-				// ÇÏÀ§ task ¿¡¼­ Finalize È£ÃâÀÌ ÇÊ¿äÇÔ. 
+				// í•˜ìœ„ task ì—ì„œ Finalize í˜¸ì¶œì´ í•„ìš”í•¨. 
 			}
 		};
 	}

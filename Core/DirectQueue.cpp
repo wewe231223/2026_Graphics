@@ -1,4 +1,4 @@
-#include "DirectQueue.h"
+癤�#include "DirectQueue.h"
 #include "Utility/ErrorHandler.h"
 #include "Utility/Views.h"
 #include "Core/Config.h"
@@ -16,16 +16,14 @@ namespace Core {
         }
 
         DirectQueue::~DirectQueue() {
-			// 모든 워커에게 퇴근 준비
-			for (auto& worker : mRenderWorkers) {
-				worker.RequestStop();
-			}
 
-			// 잠들어 있는 워커들을 깨우기
-			mRenderContext.signalStart.release(mRenderWorkers.size());
         }
 
-        void DirectQueue::Update() {
+		ID3D12Device* DirectQueue::GetDevice() const {
+			return mDevice.Get(); 
+		}
+
+		void DirectQueue::Update() {
 			auto currentIndex = mFrameSync.GetCurrentIndex();
 			auto& allocator = mMainCommandAllocators[currentIndex];
 			allocator->Reset(); 
@@ -132,8 +130,6 @@ namespace Core {
 
 		void DirectQueue::InitWorkers() {
 			mFrameSync = FrameSync(mDevice.Get()); 
-
-			mRenderWorkers.Init(std::thread::hardware_concurrency() - 2, mRenderContext);
 		}
 
 		void DirectQueue::InitCommandList() {

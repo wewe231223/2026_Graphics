@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Utility/DirectXInclude.h"
 #include "Utility/ErrorHandler.h"
 

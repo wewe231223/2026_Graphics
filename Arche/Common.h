@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <cstddef>
 #include <cstdint>
 #include "TypeSystem.h" 
@@ -30,7 +30,7 @@ namespace Arche {
 
     struct Chunk {
         std::uint32_t count = 0;
-        // alignas 64 ¸¦ »ç¿ëÇÏ¿´±â ¶§¹®¿¡, sizeof(uint32_t) ÀÎ 4 °¡ ¾Æ´Ñ 64 ¹ÙÀÌÆ®°¡ Â÷ÁöµÊ
+        // alignas 64 ë¥¼ ì‚¬ìš©í•˜ì˜€ê¸° ë•Œë¬¸ì—, sizeof(uint32_t) ì¸ 4 ê°€ ì•„ë‹Œ 64 ë°”ì´íŠ¸ê°€ ì°¨ì§€ë¨
         alignas(64) std::byte data[CHUNK_SIZE - 64];
     };
 
