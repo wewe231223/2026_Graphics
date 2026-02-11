@@ -1,4 +1,5 @@
 #include "CopyQueue.h"
+#include <array>
 #include "Utility/ErrorHandler.h"
 
 using namespace Core::DX;
@@ -33,12 +34,22 @@ CopyQueue::~CopyQueue() {
 }
 
 uint64_t CopyQueue::EnqueueCopy(ID3D12Resource* destinationDefaultResource, UINT64 destinationOffset, ID3D12Resource* sourceUploadResource, UINT64 sourceOffset, UINT64 copySize) {
+    std::array<CopyQueueCopyRequest, 1> copyRequests{ CopyQueueCopyRequest{ destinationDefaultResource, destinationOffset, sourceUploadResource, sourceOffset, copySize } };
+    return EnqueueCopy(copyRequests);
+}
+
+uint64_t CopyQueue::EnqueueCopy(std::span<const CopyQueueCopyRequest> copyRequests) {
     uint64_t newFenceValue{ mFenceValueCounter.fetch_add(1) + 1 };
-    CopyRequest request{ destinationDefaultResource, destinationOffset, sourceUploadResource, sourceOffset, copySize, newFenceValue };
+
+    CopyRequestBatch requestBatch{};
+    requestBatch.FenceValue = newFenceValue;
+    requestBatch.CopyRequests.assign(copyRequests.begin(), copyRequests.end());
+
     {
         std::lock_guard<std::mutex> queueGuard{ mQueueMutex };
-        mPendingRequests.push(request);
+        mPendingRequestBatches.push(std::move(requestBatch));
     }
+
     mQueueCondition.notify_one();
     return newFenceValue;
 }
@@ -52,6 +63,7 @@ void CopyQueue::WaitForFence(uint64_t fenceValue) const {
     if (IsFenceComplete(fenceValue)) {
         return;
     }
+
     std::lock_guard<std::mutex> fenceGuard{ mFenceMutex };
     ErrorHandler::report(mCopyFence->SetEventOnCompletion(fenceValue, mFenceEvent), "CopyQueue", "Failed to set copy queue fence completion event.", ErrorHandler::Level::Critical);
     WaitForSingleObjectEx(mFenceEvent, INFINITE, FALSE);
@@ -63,24 +75,30 @@ void CopyQueue::Flush() {
 
 void CopyQueue::WorkerLoop() {
     while (mIsRunning.load() == true) {
-        CopyRequest request{};
+        CopyRequestBatch requestBatch{};
+
         {
             std::unique_lock<std::mutex> queueLock{ mQueueMutex };
-            mQueueCondition.wait(queueLock, [this] { return mPendingRequests.empty() == false || mIsRunning.load() == false; });
-            if (mIsRunning.load() == false && mPendingRequests.empty() == true) {
+            mQueueCondition.wait(queueLock, [this] { return mPendingRequestBatches.empty() == false || mIsRunning.load() == false; });
+            if (mIsRunning.load() == false && mPendingRequestBatches.empty() == true) {
                 return;
             }
-            request = mPendingRequests.front();
-            mPendingRequests.pop();
+            requestBatch = std::move(mPendingRequestBatches.front());
+            mPendingRequestBatches.pop();
         }
-        ExecuteRequest(request);
+
+        ExecuteRequestBatch(requestBatch);
     }
 }
 
-void CopyQueue::ExecuteRequest(const CopyRequest& request) {
+void CopyQueue::ExecuteRequestBatch(const CopyRequestBatch& requestBatch) {
     ErrorHandler::report(mCopyCommandAllocator->Reset(), "CopyQueue", "Failed to reset copy command allocator.", ErrorHandler::Level::Critical);
     ErrorHandler::report(mCopyCommandList->Reset(mCopyCommandAllocator.Get(), nullptr), "CopyQueue", "Failed to reset copy command list.", ErrorHandler::Level::Critical);
-    mCopyCommandList->CopyBufferRegion(request.DestinationDefaultResource, request.DestinationOffset, request.SourceUploadResource, request.SourceOffset, request.CopySize);
+
+    for (const CopyQueueCopyRequest& copyRequest : requestBatch.CopyRequests) {
+        mCopyCommandList->CopyBufferRegion(copyRequest.DestinationDefaultResource, copyRequest.DestinationOffset, copyRequest.SourceUploadResource, copyRequest.SourceOffset, copyRequest.CopySize);
+    }
+
     ErrorHandler::report(mCopyCommandList->Close(), "CopyQueue", "Failed to close copy command list.", ErrorHandler::Level::Critical);
 
     ID3D12CommandList* commandLists[]{ mCopyCommandList.Get() };
@@ -88,7 +106,7 @@ void CopyQueue::ExecuteRequest(const CopyRequest& request) {
 
     {
         std::lock_guard<std::mutex> fenceGuard{ mFenceMutex };
-        ErrorHandler::report(mCopyCommandQueue->Signal(mCopyFence.Get(), request.FenceValue), "CopyQueue", "Failed to signal copy queue fence.", ErrorHandler::Level::Critical);
+        ErrorHandler::report(mCopyCommandQueue->Signal(mCopyFence.Get(), requestBatch.FenceValue), "CopyQueue", "Failed to signal copy queue fence.", ErrorHandler::Level::Critical);
     }
 }
 
