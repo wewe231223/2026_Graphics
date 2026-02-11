@@ -38,9 +38,6 @@
     <ClCompile Include="Core\Config.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="Core\RenderWorker.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
     <ClCompile Include="Core\DX\GraphicsBuffer.cpp">
       <Filter>Core\DX</Filter>
     </ClCompile>
@@ -77,9 +74,6 @@
       <Filter>main</Filter>
     </ClInclude>
     <ClInclude Include="Core\Config.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\RenderWorker.h">
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="Core\Task\RenderTask.h">

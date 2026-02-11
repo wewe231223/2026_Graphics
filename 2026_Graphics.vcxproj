@@ -154,7 +154,6 @@
     <ClCompile Include="Core\DX\FrameSync.cpp" />
     <ClCompile Include="Core\DX\GraphicsBuffer.cpp" />
     <ClCompile Include="Core\DX\Texture.cpp" />
-    <ClCompile Include="Core\RenderWorker.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="2026_Graphics.h" />
@@ -166,7 +165,6 @@
     <ClInclude Include="Core\DX\FrameSync.h" />
     <ClInclude Include="Core\DX\GraphicsBuffer.h" />
     <ClInclude Include="Core\DX\Texture.h" />
-    <ClInclude Include="Core\RenderWorker.h" />
     <ClInclude Include="Core\Task\RenderTask.h" />
     <ClInclude Include="Core\Task\TaskContainer.h" />
     <ClInclude Include="Core\Task\TaskInterface.h" />
