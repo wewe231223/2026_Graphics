@@ -2,83 +2,97 @@
 #include "Memory.h"
 #include <algorithm>
 #include <cstring>
-#include <new> 
+#include <new>
 
 using namespace Arche;
 
-Archetype::Archetype(std::vector<TypeID> types, std::vector<size_t> sizes, std::vector<size_t> aligns) : mSignature(std::move(types)) {
-    size_t bytesPerEntity{ 0 };
-
-    for (size_t s : sizes) {
-        bytesPerEntity += s;
+namespace {
+    size_t AlignUp(size_t Value, size_t Alignment) {
+        size_t Remainder{ Value % Alignment };
+        if (Remainder == 0) {
+            return Value;
+        }
+        return Value + (Alignment - Remainder);
     }
-    bytesPerEntity += sizeof(EntityID); // 헤더를 포함한 전체 Entity 크기 
 
-    size_t dataBufferSize{ sizeof(Chunk::data) };
-    if (bytesPerEntity > 0) {
-        mCapacity = static_cast<std::uint32_t>(dataBufferSize / bytesPerEntity); // 앞선 결과를 바탕으로 전체 capacity 계산 
-        if (mCapacity > 0) {
-			mCapacity--; // 안전 마진
+    size_t CalculateRequiredBytes(std::uint32_t Capacity, const std::vector<size_t>& Sizes, const std::vector<size_t>& Aligns) {
+        size_t Offset{ 0 };
+        for (size_t Index{ 0 }; Index < Sizes.size(); ++Index) {
+            Offset = AlignUp(Offset, Aligns[Index]);
+            Offset += Sizes[Index] * static_cast<size_t>(Capacity);
+        }
+        Offset = AlignUp(Offset, alignof(EntityID));
+        Offset += sizeof(EntityID) * static_cast<size_t>(Capacity);
+        return Offset;
+    }
+}
+
+Archetype::Archetype(std::vector<TypeID> types, std::vector<size_t> sizes, std::vector<size_t> aligns)
+    : mSignature(std::move(types)) {
+    TypeID MaxID{ 0 };
+    auto MaxIt{ std::max_element(mSignature.begin(), mSignature.end()) };
+    if (MaxIt != mSignature.end()) {
+        MaxID = *MaxIt;
+    }
+    mTypeColumnIndexLUT.resize(MaxID + 1, -1);
+
+    size_t DataBufferSize{ sizeof(Chunk::data) };
+    std::uint32_t LowerBound{ 0 };
+    std::uint32_t UpperBound{ static_cast<std::uint32_t>(DataBufferSize) };
+    while (LowerBound < UpperBound) {
+        std::uint32_t Mid{ static_cast<std::uint32_t>((static_cast<std::uint64_t>(LowerBound) + static_cast<std::uint64_t>(UpperBound) + 1ull) / 2ull) };
+        if (CalculateRequiredBytes(Mid, sizes, aligns) <= DataBufferSize) {
+            LowerBound = Mid;
+        }
+        else {
+            UpperBound = Mid - 1;
         }
     }
-    else {
-        mCapacity = 0;
+    mCapacity = LowerBound;
+
+    size_t CurrentOffset{ 0 };
+    for (size_t Index{ 0 }; Index < mSignature.size(); ++Index) {
+        TypeID Type{ mSignature[Index] };
+        size_t Size{ sizes[Index] };
+        size_t Align{ aligns[Index] };
+        CurrentOffset = AlignUp(CurrentOffset, Align);
+        mLayout.push_back(Column{ Type, Size, Align, CurrentOffset });
+        mTypeColumnIndexLUT[Type] = static_cast<std::int32_t>(Index);
+        CurrentOffset += Size * static_cast<size_t>(mCapacity);
     }
 
-    auto it = std::max_element(mSignature.begin(), mSignature.end());
-    TypeID maxID{ (it != mSignature.end()) ? *it : 0 };
-
-    mTypeColumnIndexLUT.resize(maxID + 1, -1); // 가장 큰 ID 에 맞게 LUT 초기화 
-
-    size_t currentOffset{ 0 };
-    for (size_t i = 0; i < mSignature.size(); ++i) {
-        TypeID tId{ mSignature[i] };
-        size_t s{ sizes[i] };                               // 크기
-		size_t a{ aligns[i] };  					        // 정렬 요구사항     
-        size_t padding{ (a - (currentOffset % a)) % a };    // 이전 타입 패딩 계산 ( aligns 사용 ) 
-        currentOffset += padding;
-
-        mLayout.emplace_back(tId, s, a, currentOffset);
-        mTypeColumnIndexLUT[tId] = static_cast<std::int32_t>(i);
-        currentOffset += s * mCapacity; // 해당 타입의 전체 크기 추가
-    }
-
-    size_t idAlign{ alignof(EntityID) };
-	// ID 필드 정렬 패딩 계산
-    size_t padding{ (idAlign - (currentOffset % idAlign)) % idAlign };
-    currentOffset += padding;
-    mEntityIDOffset = currentOffset;
+    CurrentOffset = AlignUp(CurrentOffset, alignof(EntityID));
+    mEntityIDOffset = CurrentOffset;
 }
 
 Archetype::~Archetype() {
-    for (Chunk* c : mChunks) {
-        ChunkAllocator::Instance().Deallocate(c);
+    for (Chunk* ChunkPtr : mChunks) {
+        ChunkAllocator::Instance().Deallocate(ChunkPtr);
     }
 }
 
 bool Archetype::HasType(TypeID id) const {
-    if (id >= mTypeColumnIndexLUT.size()) { // ID 가 LUT 범위 내에 있지도 않는다면 false 
+    if (id >= mTypeColumnIndexLUT.size()) {
         return false;
     }
-
-	return mTypeColumnIndexLUT[id] != -1; // 해당 ID 가 -1 이 아니라면 존재
+    return mTypeColumnIndexLUT[id] != -1;
 }
 
 size_t Archetype::GetTotalEntityCount() const {
-    std::shared_lock lock{ mRWLock }; // 읽기 락
-    size_t total{ 0 };
-    for (const auto* c : mChunks) {
-        total += c->count;
+    std::shared_lock lock{ mRWLock };
+    size_t Total{ 0 };
+    for (const Chunk* ChunkPtr : mChunks) {
+        Total += ChunkPtr->count;
     }
-    return total;
+    return Total;
 }
 
 const std::vector<Chunk*>& Arche::Archetype::GetChunks() const {
-	return mChunks;
+    return mChunks;
 }
 
 const std::vector<TypeID>& Arche::Archetype::GetSignature() const {
-	return mSignature;
+    return mSignature;
 }
 
 void* Archetype::GetBaseComponentArray(Chunk* chunk, TypeID typeID) const {
@@ -86,23 +100,22 @@ void* Archetype::GetBaseComponentArray(Chunk* chunk, TypeID typeID) const {
         return nullptr;
     }
 
-    std::int32_t colIdx{ mTypeColumnIndexLUT[typeID] };
-    if (colIdx == -1) {
+    std::int32_t ColumnIndex{ mTypeColumnIndexLUT[typeID] };
+    if (ColumnIndex == -1) {
         return nullptr;
     }
 
-    return chunk->data + mLayout[colIdx].offset;
+    return chunk->data + mLayout[ColumnIndex].offset;
 }
 
 void* Archetype::GetComponentPtr(Chunk* chunk, std::uint32_t entityIdx, TypeID typeID) const {
-    void* base{ GetBaseComponentArray(chunk, typeID) };
-    if (!base) {
+    void* Base{ GetBaseComponentArray(chunk, typeID) };
+    if (Base == nullptr) {
         return nullptr;
     }
 
-    std::int32_t colIdx{ mTypeColumnIndexLUT[typeID] };
-
-    return static_cast<std::byte*>(base) + (entityIdx * mLayout[colIdx].size);
+    std::int32_t ColumnIndex{ mTypeColumnIndexLUT[typeID] };
+    return static_cast<std::byte*>(Base) + (entityIdx * mLayout[ColumnIndex].size);
 }
 
 EntityID* Archetype::GetEntityIDs(Chunk* chunk) const {
@@ -110,48 +123,54 @@ EntityID* Archetype::GetEntityIDs(Chunk* chunk) const {
 }
 
 void Archetype::PushEntity(EntityID id, const std::vector<std::pair<TypeID, const void*>>& components) {
-    std::unique_lock<std::shared_mutex> lock{ mRWLock }; // 쓰기 락 
+    std::unique_lock<std::shared_mutex> lock{ mRWLock };
+    if (mCapacity == 0) {
+        return;
+    }
 
     if (mChunks.empty() or mChunks.back()->count >= mCapacity) {
-        void* mem{ ChunkAllocator::Instance().Allocate() };
-        mChunks.emplace_back(new (mem) Chunk()); // Placement new 
+        void* Memory{ ChunkAllocator::Instance().Allocate() };
+        mChunks.push_back(new (Memory) Chunk());
     }
 
-    Chunk* chunk{ mChunks.back() };
-    std::uint32_t idx{ chunk->count };
-    GetEntityIDs(chunk)[idx] = id;
+    Chunk* ChunkPtr{ mChunks.back() };
+    std::uint32_t Index{ ChunkPtr->count };
+    GetEntityIDs(ChunkPtr)[Index] = id;
 
-    for (const auto& [typeId, ptr] : components) { // 각 타입에 대해 
-        if (typeId < mTypeColumnIndexLUT.size()) {
-            std::int32_t colIdx{ mTypeColumnIndexLUT[typeId] };
-            if (colIdx != -1) {
-                const Column& col = mLayout[colIdx];
-                std::memcpy(chunk->data + col.offset + (idx * col.size), ptr, col.size); // 적절한 컬럼으로 memcpy 
-            }
+    for (const auto& [TypeIDValue, Ptr] : components) {
+        if (TypeIDValue >= mTypeColumnIndexLUT.size()) {
+            continue;
         }
+        std::int32_t ColumnIndex{ mTypeColumnIndexLUT[TypeIDValue] };
+        if (ColumnIndex == -1) {
+            continue;
+        }
+        const Column& ColumnInfo{ mLayout[ColumnIndex] };
+        std::memcpy(ChunkPtr->data + ColumnInfo.offset + (Index * ColumnInfo.size), Ptr, ColumnInfo.size);
     }
 
-    chunk->count++;
+    ChunkPtr->count++;
 }
 
 EntityID Archetype::PopEntity(std::uint32_t chunkIdx, std::uint32_t entityIdx) {
-    std::unique_lock<std::shared_mutex> lock{ mRWLock }; // 쓰기 락 
-	Chunk* chunk{ mChunks[chunkIdx] }; // 대상 청크
-    Chunk* lastChunk{ mChunks.back() }; // 마지막 청크 
-    std::uint32_t lastIdx{ lastChunk->count - 1 }; // 마지막 청크 마지막 컴포넌트 
+    std::unique_lock<std::shared_mutex> lock{ mRWLock };
+    Chunk* ChunkPtr{ mChunks[chunkIdx] };
+    Chunk* LastChunk{ mChunks.back() };
+    std::uint32_t LastIndex{ LastChunk->count - 1 };
 
-	EntityID movedEntityID{ GetEntityIDs(lastChunk)[lastIdx] }; // 움직일 엔티티 ID
-	if (chunk != lastChunk or entityIdx != lastIdx) { // 삭제할 놈이 마지막 놈이 아니라면 
-        for (const auto& col : mLayout) { // 각 컬럼에 대해 memcpy 
-            std::memcpy(chunk->data + col.offset + (entityIdx * col.size), lastChunk->data + col.offset + (lastIdx * col.size), col.size);
+    EntityID MovedEntityID{ GetEntityIDs(LastChunk)[LastIndex] };
+    if (ChunkPtr != LastChunk or entityIdx != LastIndex) {
+        for (const Column& ColumnInfo : mLayout) {
+            std::memcpy(ChunkPtr->data + ColumnInfo.offset + (entityIdx * ColumnInfo.size), LastChunk->data + ColumnInfo.offset + (LastIndex * ColumnInfo.size), ColumnInfo.size);
         }
-        GetEntityIDs(chunk)[entityIdx] = movedEntityID; 
+        GetEntityIDs(ChunkPtr)[entityIdx] = MovedEntityID;
     }
 
-    lastChunk->count--;
-    if (lastChunk->count == 0 && mChunks.size() > 1) { // empty 청크 삭제 
-        ChunkAllocator::Instance().Deallocate(lastChunk);
+    LastChunk->count--;
+    if (LastChunk->count == 0 and mChunks.size() > 1) {
+        ChunkAllocator::Instance().Deallocate(LastChunk);
         mChunks.pop_back();
     }
-    return movedEntityID;
+
+    return MovedEntityID;
 }
