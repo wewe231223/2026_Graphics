@@ -1,4 +1,4 @@
-#pragma once 
+ï»¿#pragma once 
 #include <array>
 #include "Core/DX/DesciptorHeap.h"
 #include "Core/DX/GraphicsBuffer.h"
@@ -56,7 +56,7 @@ namespace Core {
 			DescriptorHeap mDSVHeap{};
 			TexPtr mDepthStencilBuffer{};
 
-			// ¸ŞÀÎ ¾²·¹µå, Compute Queue ¾²·¹µå Á¦¿Ü
+			// ë©”ì¸ ì“°ë ˆë“œ, Compute Queue ì“°ë ˆë“œ ì œì™¸
 			FrameSync mFrameSync{};
 
 			D3D12_VIEWPORT mViewport{ 0, 0, Config::Query().Get<float>("Window_Width"), Config::Query().Get<float>("Window_Height"), 0.f, 1.f };

@@ -1,4 +1,4 @@
-#include "NumericTypes.h"
+﻿#include "NumericTypes.h"
 
 namespace asset {
     using namespace DirectX::SimpleMath;

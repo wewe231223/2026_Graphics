@@ -1,4 +1,4 @@
-#include "DirectQueue.h"
+﻿#include "DirectQueue.h"
 #include "Utility/ErrorHandler.h"
 #include "Utility/Views.h"
 #include "Core/Config.h"

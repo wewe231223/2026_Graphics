@@ -1,4 +1,4 @@
-#include "Archetype.h"
+﻿#include "Archetype.h"
 #include "Memory.h"
 #include <algorithm>
 #include <cstring>

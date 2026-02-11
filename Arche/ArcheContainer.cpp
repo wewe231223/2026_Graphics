@@ -1,16 +1,16 @@
-#include "ArcheContainer.h"
+ï»¿#include "ArcheContainer.h"
 
 using namespace Arche;
 
 Archetype* ArcheContainer::GetOrCreateArchetype(std::span<const TypeID> sortedIDs, std::span<const size_t> sizes, std::span<const size_t> aligns) {
-    for (auto& arch : mArcheTypes) { // ArcheType ¼øÈ¸ 
+    for (auto& arch : mArcheTypes) { // ArcheType ìˆœíšŒ 
         const auto& sig = arch->GetSignature();
-        if (sig.size() == sortedIDs.size() && std::equal(sig.begin(), sig.end(), sortedIDs.begin())) { // Ã£´Â°Ô ¸ÂÀ¸¸é? 
+        if (sig.size() == sortedIDs.size() && std::equal(sig.begin(), sig.end(), sortedIDs.begin())) { // ì°¾ëŠ”ê²Œ ë§ìœ¼ë©´? 
             return arch.get();
         }
     }
 
-    // »õ ArcheType »ı¼º °úÁ¤ 
+    // ìƒˆ ArcheType ìƒì„± ê³¼ì • 
     std::vector<TypeID> vecIDs(sortedIDs.begin(), sortedIDs.end());
     std::vector<size_t> vecSizes(sizes.begin(), sizes.end());
     std::vector<size_t> vecAligns(aligns.begin(), aligns.end());
@@ -18,7 +18,7 @@ Archetype* ArcheContainer::GetOrCreateArchetype(std::span<const TypeID> sortedID
     mArcheTypes.push_back(std::make_unique<Archetype>(std::move(vecIDs), std::move(vecSizes), std::move(vecAligns)));
     Archetype* newArch = mArcheTypes.back().get();
 
-    // Query Ä³½Ã °»½Å 
+    // Query ìºì‹œ ê°±ì‹  
     for (auto& cache : mQueryCaches) {
         const auto& as = newArch->GetSignature();
         if (std::includes(as.begin(), as.end(), cache.signature.begin(), cache.signature.end())) {
@@ -31,7 +31,7 @@ Archetype* ArcheContainer::GetOrCreateArchetype(std::span<const TypeID> sortedID
 
 
 void ArcheContainer::DestroyEntity(EntityID id) {
-    if (id.index >= mEntityTable.size()) { // ¿¡·¯ id 
+    if (id.index >= mEntityTable.size()) { // ì—ëŸ¬ id 
         return;
     }
 
@@ -41,18 +41,18 @@ void ArcheContainer::DestroyEntity(EntityID id) {
     }
 
     EntityID movedID{ record.archetype->PopEntity(record.chunkIndex, record.entityIndex) };
-    if (movedID != id) { // »èÁ¦µÈ ÀÚ¸®¿¡ µé¾î¿Â ¿£Æ¼Æ¼¿Í »èÁ¦ÇÑ ¿£Æ¼Æ¼°¡ ´Ù¸£´Ù¸é 
-		EntityRecord& movedRecord{ mEntityTable[movedID.index] }; // Ã¤¿öÁø ¿£Æ¼Æ¼·Î ·¹ÄÚµå °»½Å 
+    if (movedID != id) { // ì‚­ì œëœ ìë¦¬ì— ë“¤ì–´ì˜¨ ì—”í‹°í‹°ì™€ ì‚­ì œí•œ ì—”í‹°í‹°ê°€ ë‹¤ë¥´ë‹¤ë©´ 
+		EntityRecord& movedRecord{ mEntityTable[movedID.index] }; // ì±„ì›Œì§„ ì—”í‹°í‹°ë¡œ ë ˆì½”ë“œ ê°±ì‹  
         movedRecord.chunkIndex = record.chunkIndex; 
         movedRecord.entityIndex = record.entityIndex;
     }
 
-    // ºñÈ°¼ºÈ­ 
+    // ë¹„í™œì„±í™” 
     record.active = false; 
     record.archetype = nullptr; 
     record.generation++;
 
-    // ºóÀÚ¸® ±â·Ï 
+    // ë¹ˆìë¦¬ ê¸°ë¡ 
     mFreeIndices.push_back(id.index);
 }
 

@@ -1,4 +1,4 @@
-#pragma once 
+ï»¿#pragma once 
 #include <vector>
 #include <algorithm>
 #include <ranges>
@@ -9,8 +9,8 @@
 #include "Utility/ErrorHandler.h"
 
 // TODO 
-// ½ÇÁ¦ Task µğÀÚÀÎ ½ÃÀÛ. 
-// Task Graph ÀÇ ±¸Ã¼ÀûÀÎ ±¸Çö ¹æ¾È. 
+// ì‹¤ì œ Task ë””ìì¸ ì‹œì‘. 
+// Task Graph ì˜ êµ¬ì²´ì ì¸ êµ¬í˜„ ë°©ì•ˆ. 
 
 
 namespace Core {

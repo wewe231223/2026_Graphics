@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <wrl/client.h>
@@ -91,7 +91,7 @@ namespace Core {
         public:
             using Ptr = std::shared_ptr<Texture>;
 
-            // »ı¼ºÀÚ
+            // ìƒì„±ì
             Texture(const std::string& name = "Unnamed");
             ~Texture();
 

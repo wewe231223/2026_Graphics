@@ -1,4 +1,4 @@
-#include "AssetBinaryReader.h"
+﻿#include "AssetBinaryReader.h"
 
 #include <array>
 #include <cstring>

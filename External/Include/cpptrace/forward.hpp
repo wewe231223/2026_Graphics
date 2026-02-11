@@ -1,4 +1,4 @@
-#ifndef CPPTRACE_FORWARD_HPP
+﻿#ifndef CPPTRACE_FORWARD_HPP
 #define CPPTRACE_FORWARD_HPP
 
 #include <cstdint>
