@@ -1,4 +1,4 @@
-// Copyright 2017 The Abseil Authors.
+﻿// Copyright 2017 The Abseil Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ ABSL_NAMESPACE_BEGIN
 // A discrete distribution produces random integers i, where 0 <= i < n
 // distributed according to the discrete probability function:
 //
-//     P(i|p0,...,pn−1)=pi
+//     P(i|p0,...,pn??)=pi
 //
 // This class is an implementation of discrete_distribution (see
 // [rand.dist.samp.discrete]).

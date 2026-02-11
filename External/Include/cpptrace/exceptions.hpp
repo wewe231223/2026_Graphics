@@ -1,4 +1,4 @@
-#ifndef CPPTRACE_EXCEPTIONS_HPP
+﻿#ifndef CPPTRACE_EXCEPTIONS_HPP
 #define CPPTRACE_EXCEPTIONS_HPP
 
 #include <cpptrace/basic.hpp>

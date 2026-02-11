@@ -1,4 +1,4 @@
-#pragma once 
+ï»¿#pragma once 
 #include <wrl/client.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
@@ -17,7 +17,7 @@
 #include "External/Include/DirectXTK12/d3dx12.h"
 #include "External/Include/DirectXTK12/SimpleMath.h"
 #include "External/Include/DirectXTK12/SimpleMath.inl"
-// DirectXTex (NuGet È¤Àº ¶óÀÌºê·¯¸® °æ·Î ¼³Á¤ ÇÊ¿ä)
+// DirectXTex (NuGet í˜¹ì€ ë¼ì´ë¸ŒëŸ¬ë¦¬ ê²½ë¡œ ì„¤ì • í•„ìš”)
 #include "External/Include/DirectXTEX/DirectXTex.h"
 
 

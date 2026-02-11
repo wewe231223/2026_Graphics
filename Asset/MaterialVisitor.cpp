@@ -1,4 +1,4 @@
-#include "MaterialVisitor.h"
+﻿#include "MaterialVisitor.h"
 
 #include <optional>
 #include <string>

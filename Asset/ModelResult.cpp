@@ -1,4 +1,4 @@
-#include "ModelResult.h"
+﻿#include "ModelResult.h"
 
 #include <algorithm>
 

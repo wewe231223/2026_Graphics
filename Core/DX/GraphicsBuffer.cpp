@@ -1,4 +1,4 @@
-#include "GraphicsBuffer.h"
+ï»¿#include "GraphicsBuffer.h"
 #include <iomanip>
 #include <sstream>
 #include <algorithm>
@@ -122,18 +122,18 @@ namespace Core {
            
             mVertexDataSize = static_cast<UINT64>(vertexCount) * vertexStride;
 
-            // ÀÎµ¦½º Å©±â °è»ê (R32=4bytes, R16=2bytes)
+            // ì¸ë±ìŠ¤ í¬ê¸° ê³„ì‚° (R32=4bytes, R16=2bytes)
             UINT indexStride{ (indexFormat == DXGI_FORMAT_R32_UINT) ? 4U : 2U };
             mIndexDataSize = static_cast<UINT64>(indexCount) * indexStride;
 
-            // 16¹ÙÀÌÆ® Á¤·Ä ¸ÂÃã
+            // 16ë°”ì´íŠ¸ ì •ë ¬ ë§ì¶¤
             mIndexOffset = ALIGN_16(mVertexDataSize);
 
-            // 3. ºä(View) »ı¼º - ·»´õ¸µ ÆÄÀÌÇÁ¶óÀÎ ¹ÙÀÎµù¿ë
-            D3D12_GPU_VIRTUAL_ADDRESS baseAddress{ GraphicsResource::GetGPUAddress() }; // Default HeapÀÇ ÁÖ¼Ò
+            // 3. ë·°(View) ìƒì„± - ë Œë”ë§ íŒŒì´í”„ë¼ì¸ ë°”ì¸ë”©ìš©
+            D3D12_GPU_VIRTUAL_ADDRESS baseAddress{ GraphicsResource::GetGPUAddress() }; // Default Heapì˜ ì£¼ì†Œ
 
             // Vertex Buffer View
-            mVBV.BufferLocation = baseAddress; // ¿ÀÇÁ¼Â 0
+            mVBV.BufferLocation = baseAddress; // ì˜¤í”„ì…‹ 0
             mVBV.SizeInBytes = static_cast<UINT>(mVertexDataSize);
             mVBV.StrideInBytes = vertexStride;
 

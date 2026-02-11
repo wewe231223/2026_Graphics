@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <vector>
 #include <shared_mutex>
 #include <atomic>
@@ -13,7 +13,7 @@ namespace Arche {
         struct Column {
             TypeID id;
             size_t size;
-            size_t align; // °¢ Column ÀÇ Á¤·Ä Å©±â ¿ä±¸»çÇ×. 
+            size_t align; // ê° Column ì˜ ì •ë ¬ í¬ê¸° ìš”êµ¬ì‚¬í•­. 
             size_t offset;
         };
 

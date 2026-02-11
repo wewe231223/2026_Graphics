@@ -1,4 +1,4 @@
-#include "FrameSync.h"
+﻿#include "FrameSync.h"
 #include <Windows.h>
 #include <stdexcept>
 #include "Utility/ErrorHandler.h"

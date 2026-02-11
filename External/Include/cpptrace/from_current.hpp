@@ -1,4 +1,4 @@
-#ifndef CPPTRACE_FROM_CURRENT_HPP
+﻿#ifndef CPPTRACE_FROM_CURRENT_HPP
 #define CPPTRACE_FROM_CURRENT_HPP
 
 #include <exception>

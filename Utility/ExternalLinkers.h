@@ -1,4 +1,4 @@
-#pragma once 
+﻿#pragma once 
 #define CPPTRACE_STATIC_DEFINE
 #ifdef _WIN32
 #pragma comment(lib, "dbghelp.lib")

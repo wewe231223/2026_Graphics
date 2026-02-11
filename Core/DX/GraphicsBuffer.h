@@ -1,4 +1,4 @@
-#pragma once 
+ï»¿#pragma once 
 #include <unordered_map>
 #include <vector>
 #include <typeindex>
@@ -11,9 +11,9 @@
 
 // TODO 
 /*
- VRAM(ºñµğ¿À ¸Ş¸ğ¸®) ³¶ºñ:
-ÀÏ¹İÀûÀÎ ´õºí ¹öÆÛ¸µÀº Upload Heap(½Ã½ºÅÛ ¸Ş¸ğ¸®)¸¸ ÇÁ·¹ÀÓ ¼ö¸¸Å­ ´Ã¸®°í, Default Heap(VRAM)Àº ÇÏ³ª¸¸ À¯ÁöÇÕ´Ï´Ù.
-Áú¹®ÇÏ½Å ¹æ½Ä´ë·Î Å¬·¡½º¸¦ ÅëÂ°·Î º¹Á¦ÇÏ¸é VRAM¿¡ ÀÖ´Â ¹öÆÛµµ ¶È°°ÀÌ º¹Á¦µË´Ï´Ù. ¹öÆÛ Å©±â°¡ ÀÛ´Ù¸é(¸î MB ´ÜÀ§) »ó°ü¾øÁö¸¸, Å©±â°¡ Å©´Ù¸é ºñÈ¿À²ÀûÀÔ´Ï´Ù.
+ VRAM(ë¹„ë””ì˜¤ ë©”ëª¨ë¦¬) ë‚­ë¹„:
+ì¼ë°˜ì ì¸ ë”ë¸” ë²„í¼ë§ì€ Upload Heap(ì‹œìŠ¤í…œ ë©”ëª¨ë¦¬)ë§Œ í”„ë ˆì„ ìˆ˜ë§Œí¼ ëŠ˜ë¦¬ê³ , Default Heap(VRAM)ì€ í•˜ë‚˜ë§Œ ìœ ì§€í•©ë‹ˆë‹¤.
+ì§ˆë¬¸í•˜ì‹  ë°©ì‹ëŒ€ë¡œ í´ë˜ìŠ¤ë¥¼ í†µì§¸ë¡œ ë³µì œí•˜ë©´ VRAMì— ìˆëŠ” ë²„í¼ë„ ë˜‘ê°™ì´ ë³µì œë©ë‹ˆë‹¤. ë²„í¼ í¬ê¸°ê°€ ì‘ë‹¤ë©´(ëª‡ MB ë‹¨ìœ„) ìƒê´€ì—†ì§€ë§Œ, í¬ê¸°ê°€ í¬ë‹¤ë©´ ë¹„íš¨ìœ¨ì ì…ë‹ˆë‹¤.
  */
 
 namespace Core {
@@ -59,11 +59,11 @@ namespace Core {
 
             virtual ~MeshBuffer() = default;
 
-            // ÀÌµ¿ »ı¼ºÀÚ ¹× ´ëÀÔ ¿¬»êÀÚ (¸®¼Ò½º ¼ÒÀ¯±Ç °ü¸®)
+            // ì´ë™ ìƒì„±ì ë° ëŒ€ì… ì—°ì‚°ì (ë¦¬ì†ŒìŠ¤ ì†Œìœ ê¶Œ ê´€ë¦¬)
             MeshBuffer(MeshBuffer&& other) noexcept;
             MeshBuffer& operator=(MeshBuffer&& other) noexcept;
 
-            // º¹»ç ¹æÁö
+            // ë³µì‚¬ ë°©ì§€
             MeshBuffer(const MeshBuffer&) = delete;
             MeshBuffer& operator=(const MeshBuffer&) = delete;
 
@@ -91,7 +91,7 @@ namespace Core {
         private:
             UINT64 mVertexDataSize = 0;
             UINT64 mIndexDataSize = 0;
-            UINT64 mIndexOffset = 0; // ¹öÆÛ ³»¿¡¼­ ÀÎµ¦½º µ¥ÀÌÅÍ ½ÃÀÛ ¿ÀÇÁ¼Â
+            UINT64 mIndexOffset = 0; // ë²„í¼ ë‚´ì—ì„œ ì¸ë±ìŠ¤ ë°ì´í„° ì‹œì‘ ì˜¤í”„ì…‹
 
             UINT mIndexCount = 0;
 
@@ -119,7 +119,7 @@ namespace Core {
 
         public:
             GraphicsBuffer();
-            // ±âº» ÇÒ´ç Å©±â´Â 128MB
+            // ê¸°ë³¸ í• ë‹¹ í¬ê¸°ëŠ” 128MB
             GraphicsBuffer(ID3D12Device* device, UINT64 capacity = 128 * 1024 * 1024);
             ~GraphicsBuffer();
 
