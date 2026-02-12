@@ -41,13 +41,13 @@ namespace Core {
         public:
             uint64_t EnqueueCopy(const ComPtr<ID3D12Resource>& destinationDefaultResource, UINT64 destinationOffset, const ComPtr<ID3D12Resource>& sourceUploadResource, UINT64 sourceOffset, UINT64 copySize);
             uint64_t EnqueueCopy(std::span<const CopyQueueCopyRequest> copyRequests);
+            void DispatchCopies(); 
 
             bool IsFenceComplete(uint64_t fenceValue) const;
             void WaitForFence(uint64_t fenceValue) const;
             void Flush();
 
         private:
-            struct CopyRequestBatch;
             void WorkerLoop();
             void ExecuteRequestBatch(const CopyRequestBatch& requestBatch);
             void StopWorker();
@@ -65,6 +65,7 @@ namespace Core {
             mutable std::mutex mFenceMutex{};
             std::condition_variable mQueueCondition{};
             std::queue<CopyRequestBatch> mPendingRequestBatches{};
+            bool mDispatchRequested{}; 
 
             std::thread mWorkerThread{};
             std::atomic_bool mIsRunning{};

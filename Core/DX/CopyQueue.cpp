@@ -8,7 +8,8 @@ CopyQueue::CopyQueue(ID3D12Device* device)
     : mIsRunning{ true },
     mFenceValueCounter{ 0 },
     mAllocatorCursor{ 0 },
-    mAllocatorFenceValues{} {
+    mAllocatorFenceValues{},
+    mDispatchRequested{ false } {
     D3D12_COMMAND_QUEUE_DESC queueDescription{};
     queueDescription.Type = D3D12_COMMAND_LIST_TYPE_COPY;
     queueDescription.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
@@ -58,8 +59,16 @@ uint64_t CopyQueue::EnqueueCopy(std::span<const CopyQueueCopyRequest> copyReques
         mPendingRequestBatches.push(std::move(requestBatch));
     }
 
-    mQueueCondition.notify_one();
     return newFenceValue;
+}
+
+void CopyQueue::DispatchCopies() {
+    {
+        std::lock_guard<std::mutex> queueGuard{ mQueueMutex };
+        mDispatchRequested = true;
+    }
+
+    mQueueCondition.notify_one();
 }
 
 bool CopyQueue::IsFenceComplete(uint64_t fenceValue) const {
@@ -78,6 +87,7 @@ void CopyQueue::WaitForFence(uint64_t fenceValue) const {
 }
 
 void CopyQueue::Flush() {
+    DispatchCopies(); 
     WaitForQueueIdle();
 }
 
@@ -87,12 +97,22 @@ void CopyQueue::WorkerLoop() {
 
         {
             std::unique_lock<std::mutex> queueLock{ mQueueMutex };
-            mQueueCondition.wait(queueLock, [this] { return mPendingRequestBatches.empty() == false || mIsRunning.load() == false; });
-            if (mIsRunning.load() == false && mPendingRequestBatches.empty() == true) {
+            
+            mQueueCondition.wait(queueLock, [this] { 
+                return mIsRunning.load() == false or (mDispatchRequested == true and mPendingRequestBatches.empty() == false); 
+                }
+            );
+
+            if (mIsRunning.load() == false and mPendingRequestBatches.empty() == true) {
                 return;
             }
+            
             requestBatch = std::move(mPendingRequestBatches.front());
             mPendingRequestBatches.pop();
+
+            if (mPendingRequestBatches.empty() == true) {
+                mDispatchRequested = false;
+            }
         }
 
         ExecuteRequestBatch(requestBatch);
@@ -128,12 +148,13 @@ void CopyQueue::ExecuteRequestBatch(const CopyRequestBatch& requestBatch) {
 
 void CopyQueue::StopWorker() {
     bool expectedRunning{ true };
-    if (mIsRunning.compare_exchange_strong(expectedRunning, false) == true) {
+    if (mIsRunning.load() == true) {
+        Flush(); 
+		mIsRunning.store(false);
         mQueueCondition.notify_all();
         if (mWorkerThread.joinable() == true) {
             mWorkerThread.join();
         }
-        WaitForQueueIdle();
     }
 }
 
