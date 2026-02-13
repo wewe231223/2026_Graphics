@@ -68,8 +68,8 @@ bool AllocationHandle::IsValid() const {
     return mResource != nullptr && mSize > 0;
 }
 
-ID3D12Resource* AllocationHandle::GetResource() const {
-    return mResource.Get();
+const ComPtr<ID3D12Resource>& AllocationHandle::GetResource() const {
+    return mResource;
 }
 
 AllocationHandle::OffsetType AllocationHandle::GetOffset() const {

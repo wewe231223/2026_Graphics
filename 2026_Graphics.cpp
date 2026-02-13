@@ -13,16 +13,14 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "DirectXTK12/Mouse.h"
 #include "Core/DX/DirectQueue.h"
 #include "Core/DX/CopyQueue.h"
+#include "Core/DX/GraphicsAllocator.h"
+#include "Utility/ErrorHandler.h"
 
 // 전역 변수:
 HINSTANCE hInst;                                // 현재 인스턴스입니다.
 WCHAR szTitle[MAX_LOADSTRING];                  // 제목 표시줄 텍스트입니다.
 WCHAR szWindowClass[MAX_LOADSTRING];            // 기본 창 클래스 이름입니다.
 HWND hWnd; 
-
-// 01-15 TODO
-// RenderQueue, ComputeQueue 따로 분리할 생각 해보기 -> Renderer 이런거 만들지 않기. 
-// ComputeTask 같은건 좀 복잡할 거 같은데? Compute Shader 를 위한 파이프라인 생각해보기. 
 
 // 이 코드 모듈에 포함된 함수의 선언을 전달합니다:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -58,7 +56,19 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     MSG msg;
 
 	Core::DX::DirectQueue directQueue(hWnd);
-	Core::DX::CopyQueue copyQueue(directQueue.GetDevice());
+
+	D3D12_HEAP_PROPERTIES defaultHeapProperties{};
+	defaultHeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+	defaultHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	defaultHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	defaultHeapProperties.CreationNodeMask = 1;
+	defaultHeapProperties.VisibleNodeMask = 1;
+
+	Core::DX::GraphicsAllocator defaultHeapAllocator{};
+	bool defaultHeapAllocatorInitializeResult{ defaultHeapAllocator.Initialize(directQueue.GetDevice(), Core::DX::CopyQueue::GetRequiredUploadBufferSize(), defaultHeapProperties, D3D12_HEAP_FLAG_NONE) };
+	ErrorHandler::report(defaultHeapAllocatorInitializeResult == false, "Main", "Failed to initialize default heap allocator.", ErrorHandler::Level::Critical);
+
+	Core::DX::CopyQueue copyQueue{ directQueue.GetDevice() };
 
     // 기본 메시지 루프입니다:
     while (true) {

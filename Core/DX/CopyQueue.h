@@ -1,15 +1,15 @@
 #pragma once
 #define WIN32_LEAN_AND_MEAN
-#include <cstdint>
-#include <mutex>
-#include <thread>
-#include <queue>
-#include <atomic>
-#include <vector>
-#include <cstddef>
-#include <span>
 #include <array>
+#include <atomic>
+#include <cstddef>
+#include <cstdint>
 #include <condition_variable>
+#include <mutex>
+#include <queue>
+#include <span>
+#include <thread>
+#include <vector>
 #include <Windows.h>
 #include "Utility/DirectXInclude.h"
 
@@ -22,14 +22,6 @@ namespace Core {
         };
 
         class CopyQueue {
-            struct CopyRequestBatch {
-                std::vector<CopyQueueCopyRequest> CopyRequests;
-                uint64_t FenceValue;
-                size_t AllocatorIndex;
-            };
-
-            static constexpr size_t CopyAllocatorCount{ 3 };
-            static constexpr UINT64 UploadHeapSize{ 32ull * 1024ull * 1024ull };
         public:
             CopyQueue(ID3D12Device* device);
             ~CopyQueue();
@@ -39,27 +31,40 @@ namespace Core {
             CopyQueue& operator=(CopyQueue&& other) = delete;
 
         public:
-            uint64_t EnqueueCopy(const ComPtr<ID3D12Resource>& destinationDefaultResource, UINT64 destinationOffset, std::span<const std::byte> sourceData);
+            bool Initialize(ID3D12Device* device);
+            uint64_t EnqueueCopy(const CopyQueueCopyRequest& copyRequest);
             uint64_t EnqueueCopy(std::span<const CopyQueueCopyRequest> copyRequests);
-            void DispatchCopies(); 
 
+            void DispatchCopies();
             bool IsFenceComplete(uint64_t fenceValue) const;
             void WaitForFence(uint64_t fenceValue) const;
             void Flush();
 
+            static UINT64 GetRequiredUploadBufferSize();
+
         private:
+            struct CopyRequestBatch {
+                std::vector<CopyQueueCopyRequest> CopyRequests;
+                uint64_t FenceValue;
+                size_t AllocatorIndex;
+            };
+
             void WorkerLoop();
             void ExecuteRequestBatch(const CopyRequestBatch& requestBatch);
             void StopWorker();
             void WaitForQueueIdle() const;
 
         private:
+            static constexpr size_t CopyAllocatorCount{ 3 };
+            static constexpr UINT64 DefaultUploadBufferSize{ 32ull * 1024ull * 1024ull };
+
             ComPtr<ID3D12CommandQueue> mCopyCommandQueue{};
             std::array<ComPtr<ID3D12CommandAllocator>, CopyAllocatorCount> mCopyCommandAllocators{};
             ComPtr<ID3D12GraphicsCommandList> mCopyCommandList{};
             ComPtr<ID3D12Fence> mCopyFence{};
             ComPtr<ID3D12Resource> mUploadHeapResource{};
             std::byte* mUploadHeapMappedData{};
+            UINT64 mUploadBufferSize{};
 
             HANDLE mFenceEvent{};
 
@@ -67,7 +72,7 @@ namespace Core {
             mutable std::mutex mFenceMutex{};
             std::condition_variable mQueueCondition{};
             std::queue<CopyRequestBatch> mPendingRequestBatches{};
-            bool mDispatchRequested{}; 
+            bool mDispatchRequested{};
 
             std::thread mWorkerThread{};
             std::atomic_bool mIsRunning{};
