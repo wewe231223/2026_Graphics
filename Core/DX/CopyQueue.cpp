@@ -1,5 +1,7 @@
 #include "CopyQueue.h"
 #include <array>
+#include <cstring>
+#include <utility>
 #include "Utility/ErrorHandler.h"
 
 using namespace Core::DX;
@@ -9,14 +11,16 @@ CopyQueue::CopyQueue(ID3D12Device* device)
     mFenceValueCounter{ 0 },
     mAllocatorCursor{ 0 },
     mAllocatorFenceValues{},
-    mDispatchRequested{ false } {
-    D3D12_COMMAND_QUEUE_DESC queueDescription{};
-    queueDescription.Type = D3D12_COMMAND_LIST_TYPE_COPY;
-    queueDescription.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-    queueDescription.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-    queueDescription.NodeMask = 0;
+    mDispatchRequested{ false },
+    mUploadHeapMappedData{} {
 
-    ErrorHandler::report(device->CreateCommandQueue(&queueDescription, IID_PPV_ARGS(mCopyCommandQueue.GetAddressOf())), "CopyQueue", "Failed to create copy command queue.", ErrorHandler::Level::Critical);
+    D3D12_COMMAND_QUEUE_DESC QueueDescription{};
+    QueueDescription.Type = D3D12_COMMAND_LIST_TYPE_COPY;
+    QueueDescription.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+    QueueDescription.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+    QueueDescription.NodeMask = 0;
+
+    ErrorHandler::report(device->CreateCommandQueue(&QueueDescription, IID_PPV_ARGS(mCopyCommandQueue.GetAddressOf())), "CopyQueue", "Failed to create copy command queue.", ErrorHandler::Level::Critical);
 
     for (size_t allocatorIndex{ 0 }; allocatorIndex < CopyAllocatorCount; allocatorIndex++) {
         ErrorHandler::report(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(mCopyCommandAllocators[allocatorIndex].GetAddressOf())), "CopyQueue", "Failed to create copy command allocator.", ErrorHandler::Level::Critical);
@@ -26,6 +30,30 @@ CopyQueue::CopyQueue(ID3D12Device* device)
     ErrorHandler::report(mCopyCommandList->Close(), "CopyQueue", "Failed to close initial copy command list.", ErrorHandler::Level::Critical);
     ErrorHandler::report(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(mCopyFence.GetAddressOf())), "CopyQueue", "Failed to create copy queue fence.", ErrorHandler::Level::Critical);
 
+    D3D12_HEAP_PROPERTIES UploadHeapProperties{};
+    UploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+    UploadHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+    UploadHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+    UploadHeapProperties.CreationNodeMask = 1;
+    UploadHeapProperties.VisibleNodeMask = 1;
+
+    D3D12_RESOURCE_DESC UploadResourceDescription{};
+    UploadResourceDescription.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    UploadResourceDescription.Alignment = 0;
+    UploadResourceDescription.Width = UploadHeapSize;
+    UploadResourceDescription.Height = 1;
+    UploadResourceDescription.DepthOrArraySize = 1;
+    UploadResourceDescription.MipLevels = 1;
+    UploadResourceDescription.Format = DXGI_FORMAT_UNKNOWN;
+    UploadResourceDescription.SampleDesc.Count = 1;
+    UploadResourceDescription.SampleDesc.Quality = 0;
+    UploadResourceDescription.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    UploadResourceDescription.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+    ErrorHandler::report(device->CreateCommittedResource(&UploadHeapProperties, D3D12_HEAP_FLAG_NONE, &UploadResourceDescription, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(mUploadHeapResource.GetAddressOf())), "CopyQueue", "Failed to create copy queue upload heap resource.", ErrorHandler::Level::Critical);
+    ErrorHandler::report(mUploadHeapResource->Map(0, nullptr, reinterpret_cast<void**>(&mUploadHeapMappedData)), "CopyQueue", "Failed to map copy queue upload heap resource.", ErrorHandler::Level::Critical);
+
+
     mFenceEvent = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
     ErrorHandler::report(mFenceEvent == nullptr, "CopyQueue", "Failed to create copy queue fence event.", ErrorHandler::Level::Critical);
 
@@ -34,14 +62,26 @@ CopyQueue::CopyQueue(ID3D12Device* device)
 
 CopyQueue::~CopyQueue() {
     StopWorker();
+    
+    if (mUploadHeapResource != nullptr) {
+        mUploadHeapResource->Unmap(0, nullptr);
+        mUploadHeapMappedData = nullptr;
+    }
+
     if (mFenceEvent != nullptr) {
         CloseHandle(mFenceEvent);
         mFenceEvent = nullptr;
     }
 }
 
-uint64_t CopyQueue::EnqueueCopy(const ComPtr<ID3D12Resource>& destinationDefaultResource, UINT64 destinationOffset, const ComPtr<ID3D12Resource>& sourceUploadResource, UINT64 sourceOffset, UINT64 copySize) {
-    std::array<CopyQueueCopyRequest, 1> copyRequests{ CopyQueueCopyRequest{ destinationDefaultResource, destinationOffset, sourceUploadResource, sourceOffset, copySize } };
+uint64_t CopyQueue::EnqueueCopy(const ComPtr<ID3D12Resource>& destinationDefaultResource, UINT64 destinationOffset, std::span<const std::byte> sourceData) {
+
+    CopyQueueCopyRequest CopyRequest{};
+    CopyRequest.DestinationDefaultResource = destinationDefaultResource;
+    CopyRequest.DestinationOffset = destinationOffset;
+    CopyRequest.SourceData.assign(sourceData.begin(), sourceData.end());
+    std::array<CopyQueueCopyRequest, 1> copyRequests{ std::move(CopyRequest) };
+
     return EnqueueCopy(copyRequests);
 }
 
@@ -129,8 +169,16 @@ void CopyQueue::ExecuteRequestBatch(const CopyRequestBatch& requestBatch) {
     ErrorHandler::report(commandAllocator->Reset(), "CopyQueue", "Failed to reset copy command allocator.", ErrorHandler::Level::Critical);
     ErrorHandler::report(mCopyCommandList->Reset(commandAllocator.Get(), nullptr), "CopyQueue", "Failed to reset copy command list.", ErrorHandler::Level::Critical);
 
-    for (const CopyQueueCopyRequest& copyRequest : requestBatch.CopyRequests) {
-        mCopyCommandList->CopyBufferRegion(copyRequest.DestinationDefaultResource.Get(), copyRequest.DestinationOffset, copyRequest.SourceUploadResource.Get(), copyRequest.SourceOffset, copyRequest.CopySize);
+    for (const CopyQueueCopyRequest& CopyRequest : requestBatch.CopyRequests) {
+        UINT64 RemainingSize{ static_cast<UINT64>(CopyRequest.SourceData.size()) };
+        UINT64 SourceOffset{};
+        while (RemainingSize > 0) {
+            UINT64 ChunkSize{ RemainingSize > UploadHeapSize ? UploadHeapSize : RemainingSize };
+            std::memcpy(mUploadHeapMappedData, CopyRequest.SourceData.data() + SourceOffset, static_cast<size_t>(ChunkSize));
+            mCopyCommandList->CopyBufferRegion(CopyRequest.DestinationDefaultResource.Get(), CopyRequest.DestinationOffset + SourceOffset, mUploadHeapResource.Get(), 0, ChunkSize);
+            SourceOffset += ChunkSize;
+            RemainingSize -= ChunkSize;
+        }
     }
 
     ErrorHandler::report(mCopyCommandList->Close(), "CopyQueue", "Failed to close copy command list.", ErrorHandler::Level::Critical);
@@ -147,7 +195,6 @@ void CopyQueue::ExecuteRequestBatch(const CopyRequestBatch& requestBatch) {
 }
 
 void CopyQueue::StopWorker() {
-    bool expectedRunning{ true };
     if (mIsRunning.load() == true) {
         Flush(); 
 		mIsRunning.store(false);
