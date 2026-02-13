@@ -149,22 +149,26 @@
   <ItemGroup>
     <ClCompile Include="2026_Graphics.cpp" />
     <ClCompile Include="Core\Config.cpp" />
+    <ClCompile Include="Core\DX\AllocationHandle.cpp" />
     <ClCompile Include="Core\DX\ComputeQueue.cpp" />
     <ClCompile Include="Core\DX\CopyQueue.cpp" />
     <ClCompile Include="Core\DX\DesciptorHeap.cpp" />
     <ClCompile Include="Core\DX\DirectQueue.cpp" />
     <ClCompile Include="Core\DX\FrameSync.cpp" />
+    <ClCompile Include="Core\DX\GraphicsAllocator.cpp" />
     <ClCompile Include="Core\DX\GraphicsBuffer.cpp" />
     <ClCompile Include="Core\DX\Texture.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="2026_Graphics.h" />
     <ClInclude Include="Core\Config.h" />
+    <ClInclude Include="Core\DX\AllocationHandle.h" />
     <ClInclude Include="Core\DX\ComputeQueue.h" />
     <ClInclude Include="Core\DX\CopyQueue.h" />
     <ClInclude Include="Core\DX\DesciptorHeap.h" />
     <ClInclude Include="Core\DX\DirectQueue.h" />
     <ClInclude Include="Core\DX\FrameSync.h" />
+    <ClInclude Include="Core\DX\GraphicsAllocator.h" />
     <ClInclude Include="Core\DX\GraphicsBuffer.h" />
     <ClInclude Include="Core\DX\Texture.h" />
     <ClInclude Include="Core\Task\RenderTask.h" />

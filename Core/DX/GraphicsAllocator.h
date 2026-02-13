@@ -3,44 +3,15 @@
 #include <cstdint>
 #include <vector>
 #include "Utility/DirectXInclude.h"
+#include "AllocationHandle.h"
 
 namespace Core {
     namespace DX {
         class GraphicsAllocator {
+			friend AllocationHandle;
         public:
             using OffsetType = uint64_t;
-            using SizeType = uint64_t;
-
-            class AllocationHandle {
-            public:
-                AllocationHandle();
-                ~AllocationHandle();
-
-                AllocationHandle(const AllocationHandle& other) = delete;
-                AllocationHandle& operator=(const AllocationHandle& other) = delete;
-                
-                AllocationHandle(AllocationHandle&& other) noexcept;
-                AllocationHandle& operator=(AllocationHandle&& other) noexcept;
-
-            public:
-                void Reset();
-
-                bool IsValid() const;
-
-                ID3D12Resource* GetResource() const;
-                OffsetType GetOffset() const;
-                SizeType GetSize() const;
-            private:
-                friend class GraphicsAllocator;
-                AllocationHandle(GraphicsAllocator* allocator, ComPtr<ID3D12Resource>&& resource, OffsetType offset, SizeType size);
-
-            private:
-                GraphicsAllocator* mAllocator{};
-                ComPtr<ID3D12Resource> mResource{};
-                OffsetType mOffset{};
-                SizeType mSize{};
-            };
-
+            using SizeType = uint64_t; 
         private:
             static constexpr uint32_t FlCount = 32;
             static constexpr uint32_t SlCount = 8;

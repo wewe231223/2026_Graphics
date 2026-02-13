@@ -9,83 +9,6 @@
 
 using namespace Core::DX;
 
-GraphicsAllocator::AllocationHandle::AllocationHandle()
-    : mAllocator{},
-    mResource{},
-    mOffset{},
-    mSize{} {
-}
-
-GraphicsAllocator::AllocationHandle::~AllocationHandle() {
-    Reset();
-}
-
-GraphicsAllocator::AllocationHandle::AllocationHandle(AllocationHandle&& other) noexcept
-    : mAllocator{ other.mAllocator },
-    mResource{ std::move(other.mResource) },
-    mOffset{ other.mOffset },
-    mSize{ other.mSize } {
-
-    other.mAllocator = nullptr;
-    other.mOffset = 0;
-    other.mSize = 0;
-}
-
-GraphicsAllocator::AllocationHandle& GraphicsAllocator::AllocationHandle::operator=(AllocationHandle&& other) noexcept {
-    if (this == &other) {
-        return *this;
-    }
-
-    Reset();
-    mAllocator = other.mAllocator;
-    mResource = std::move(other.mResource);
-    mOffset = other.mOffset;
-    mSize = other.mSize;
-    other.mAllocator = nullptr;
-    other.mOffset = 0;
-    other.mSize = 0;
-    return *this;
-}
-
-void GraphicsAllocator::AllocationHandle::Reset() {
-    ComPtr<ID3D12Resource> releasedResource{ std::move(mResource) };
-    if (releasedResource != nullptr) {
-        releasedResource.Reset();
-    }
-
-    if (mAllocator != nullptr && mSize > 0) {
-        mAllocator->FreeAllocation(mOffset, mSize);
-    }
-
-    mAllocator = nullptr;
-    mOffset = 0;
-    mSize = 0;
-}
-
-bool GraphicsAllocator::AllocationHandle::IsValid() const {
-    return mResource != nullptr && mSize > 0;
-}
-
-ID3D12Resource* GraphicsAllocator::AllocationHandle::GetResource() const {
-    return mResource.Get();
-}
-
-GraphicsAllocator::OffsetType GraphicsAllocator::AllocationHandle::GetOffset() const {
-    return mOffset;
-}
-
-GraphicsAllocator::SizeType GraphicsAllocator::AllocationHandle::GetSize() const {
-    return mSize;
-}
-
-GraphicsAllocator::AllocationHandle::AllocationHandle(GraphicsAllocator* allocator, ComPtr<ID3D12Resource>&& resource, OffsetType offset, SizeType size)
-    : mAllocator{ allocator },
-
-    mResource{ std::move(resource) },
-    mOffset{ offset },
-    mSize{ size } {
-}
-
 GraphicsAllocator::GraphicsAllocator()
     : mDevice{},
     mHeap{},
@@ -224,7 +147,7 @@ bool GraphicsAllocator::CanAllocate(const D3D12_RESOURCE_DESC& resourceDesc) con
     return false;
 }
 
-GraphicsAllocator::AllocationHandle GraphicsAllocator::AllocatePlacedResource(const D3D12_RESOURCE_DESC& resourceDesc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE* optimizedClearValue) {
+AllocationHandle GraphicsAllocator::AllocatePlacedResource(const D3D12_RESOURCE_DESC& resourceDesc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE* optimizedClearValue) {
 
     AllocationHandle emptyHandle{};
     if (mDevice == nullptr || mHeap == nullptr) {
