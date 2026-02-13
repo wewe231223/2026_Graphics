@@ -16,6 +16,13 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Core/DX/GraphicsAllocator.h"
 #include "Utility/ErrorHandler.h"
 
+#include "Arche/ArcheContainer.h"
+
+#ifdef _DEBUG
+#pragma comment(lib, "out/debug/Arche.lib")
+#else 
+#pragma comment(lib, "out/relase/Arche.lib")
+#endif 
 // 전역 변수:
 HINSTANCE hInst;                                // 현재 인스턴스입니다.
 WCHAR szTitle[MAX_LOADSTRING];                  // 제목 표시줄 텍스트입니다.
@@ -69,6 +76,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	ErrorHandler::report(defaultHeapAllocatorInitializeResult == false, "Main", "Failed to initialize default heap allocator.", ErrorHandler::Level::Critical);
 
 	Core::DX::CopyQueue copyQueue{ directQueue.GetDevice() };
+
+
+    Arche::ArcheContainer archeContainer{};
 
     // 기본 메시지 루프입니다:
     while (true) {
