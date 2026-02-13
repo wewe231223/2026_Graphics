@@ -11,7 +11,7 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Core/Config.h"
 #include "DirectXTK12/Keyboard.h"
 #include "DirectXTK12/Mouse.h"
-#include "Core/DirectQueue.h"
+#include "Core/DX/DirectQueue.h"
 #include "Core/DX/CopyQueue.h"
 
 // 전역 변수:
