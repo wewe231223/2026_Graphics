@@ -1,4 +1,4 @@
-#include "Core/DX/GraphicsAllocator.h"
+﻿#include "Core/DX/GraphicsAllocator.h"
 #include <algorithm>
 #include <bit>
 #include "Utility/ErrorHandler.h"

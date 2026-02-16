@@ -1,10 +1,12 @@
-#pragma once
+﻿#pragma once
 #include <array>
 #include <cstdint>
 #include <vector>
 #include "Utility/DirectXInclude.h"
 #include "AllocationHandle.h"
 
+
+//가나다라마바사 
 namespace Core {
     namespace DX {
         class GraphicsAllocator {

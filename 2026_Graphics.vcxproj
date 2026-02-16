@@ -124,8 +124,12 @@
     </Link>
     <PostBuildEvent>
       <Command>copy $(SolutionDir)Core\Config.prop $(TargetDir) /Y
+copy $(SolutionDir)dxcompiler.dll $(TargetDir) /Y
 
 robocopy $(SolutionDir)D3D $(TargetDir)D3D /E
+exit 0
+
+robocopy $(SolutionDir)Shader $(TargetDir)Shader /E
 exit 0
 </Command>
     </PostBuildEvent>
@@ -149,8 +153,12 @@ exit 0
     </Link>
     <PostBuildEvent>
       <Command>copy $(SolutionDir)Core\Config.prop $(TargetDir) /Y
+copy $(SolutionDir)dxcompiler.dll $(TargetDir) /Y
 
 robocopy $(SolutionDir)D3D $(TargetDir)D3D /E
+exit 0
+
+robocopy $(SolutionDir)Shader $(TargetDir)Shader /E
 exit 0
 </Command>
     </PostBuildEvent>

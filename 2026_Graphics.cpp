@@ -17,12 +17,18 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Utility/ErrorHandler.h"
 
 #include "Arche/ArcheContainer.h"
+#include "Game/Base/Shader.h"
+
 
 #ifdef _DEBUG
 #pragma comment(lib, "out/debug/Arche.lib")
+#pragma comment(lib, "out/debug/Game.lib")
 #else 
 #pragma comment(lib, "out/relase/Arche.lib")
+#pragma comment(lib, "out/release/Game.lib")
 #endif 
+
+
 // 전역 변수:
 HINSTANCE hInst;                                // 현재 인스턴스입니다.
 WCHAR szTitle[MAX_LOADSTRING];                  // 제목 표시줄 텍스트입니다.
@@ -73,12 +79,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	Core::DX::GraphicsAllocator defaultHeapAllocator{};
 	bool defaultHeapAllocatorInitializeResult{ defaultHeapAllocator.Initialize(directQueue.GetDevice(), Core::DX::CopyQueue::GetRequiredUploadBufferSize(), defaultHeapProperties, D3D12_HEAP_FLAG_NONE) };
-	ErrorHandler::report(defaultHeapAllocatorInitializeResult == false, "Main", "Failed to initialize default heap allocator.", ErrorHandler::Level::Critical);
+	ErrorHandler::report(defaultHeapAllocatorInitializeResult == false, "WinMain", "Failed to initialize default heap allocator.", ErrorHandler::Level::Critical);
 
 	Core::DX::CopyQueue copyQueue{ directQueue.GetDevice() };
 
 
     Arche::ArcheContainer archeContainer{};
+
+    Game::Base::CompileShadersFromMetadata(); 
+
+	Game::Base::Shader s{ "BasicShader.hlsl" };
 
     // 기본 메시지 루프입니다:
     while (true) {

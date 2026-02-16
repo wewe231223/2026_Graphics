@@ -1,4 +1,4 @@
-#include "CopyQueue.h"
+﻿#include "CopyQueue.h"
 #include <array>
 #include <cstring>
 #include <utility>

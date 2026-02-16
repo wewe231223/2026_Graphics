@@ -1,4 +1,4 @@
-#include "AllocationHandle.h"
+﻿#include "AllocationHandle.h"
 #include "GraphicsAllocator.h"
 
 using namespace Core::DX;
