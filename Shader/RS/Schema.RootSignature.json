@@ -1,0 +1,87 @@
+{
+  "SchemaName": "RootSignature",
+  "Description": "RootSignature JSON 값 사전",
+  "CompileExcludedByPrefix": "Schema",
+  "TopLevel": {
+    "Name": "string",
+    "Flags": [
+      "AllowInputAssemblerInputLayout",
+      "DenyVertexShaderRootAccess",
+      "DenyHullShaderRootAccess",
+      "DenyDomainShaderRootAccess",
+      "DenyGeometryShaderRootAccess",
+      "DenyPixelShaderRootAccess",
+      "AllowStreamOutput",
+      "LocalRootSignature",
+      "DenyAmplificationShaderRootAccess",
+      "DenyMeshShaderRootAccess",
+      "CBVSRVUAVHeapDirectlyIndexed",
+      "SamplerHeapDirectlyIndexed"
+    ],
+    "Parameters": [
+      {
+        "Type": "DescriptorTable | CBV | SRV | UAV | Constants",
+        "ShaderVisibility": "All | Vertex | Hull | Domain | Geometry | Pixel | Amplification | Mesh",
+        "DescriptorTable": {
+          "Ranges": [
+            {
+              "RangeType": "SRV | UAV | CBV | Sampler",
+              "NumDescriptors": "uint",
+              "BaseShaderRegister": "uint",
+              "RegisterSpace": "uint",
+              "OffsetInDescriptorsFromTableStart": "uint | 4294967295",
+              "Flags": [
+                "DescriptorsVolatile",
+                "DataVolatile",
+                "DataStaticWhileSetAtExecute",
+                "DataStatic",
+                "DescriptorsStaticKeepingBufferBoundsChecks"
+              ]
+            }
+          ]
+        },
+        "Descriptor": {
+          "ShaderRegister": "uint",
+          "RegisterSpace": "uint",
+          "Flags": [
+            "DataVolatile",
+            "DataStaticWhileSetAtExecute",
+            "DataStatic"
+          ]
+        },
+        "Constants": {
+          "ShaderRegister": "uint",
+          "RegisterSpace": "uint",
+          "Num32BitValues": "uint"
+        }
+      }
+    ],
+    "StaticSamplers": [
+      {
+        "Filter": [
+          "MinMagMipPoint",
+          "MinMagPointMipLinear",
+          "MinPointMagLinearMipPoint",
+          "MinPointMagMipLinear",
+          "MinLinearMagMipPoint",
+          "MinLinearMagPointMipLinear",
+          "MinMagLinearMipPoint",
+          "MinMagMipLinear",
+          "Anisotropic"
+        ],
+        "AddressU": "Wrap | Mirror | Clamp | Border | MirrorOnce",
+        "AddressV": "Wrap | Mirror | Clamp | Border | MirrorOnce",
+        "AddressW": "Wrap | Mirror | Clamp | Border | MirrorOnce",
+        "MipLODBias": "float",
+        "MaxAnisotropy": "uint",
+        "ComparisonFunc": "Never | Less | Equal | LessEqual | Greater | NotEqual | GreaterEqual | Always",
+        "BorderColor": "TransparentBlack | OpaqueBlack | OpaqueWhite",
+        "MinLOD": "float",
+        "MaxLOD": "float",
+        "ShaderRegister": "uint",
+        "RegisterSpace": "uint",
+        "ShaderVisibility": "All | Vertex | Hull | Domain | Geometry | Pixel | Amplification | Mesh"
+      }
+    ]
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "Name": "DefaultRootSignature",
+  "Flags": ["AllowInputAssemblerInputLayout"],
+  "Parameters": [
+    {
+      "Type": "CBV",
+      "ShaderVisibility": "Vertex",
+      "Descriptor": {
+        "ShaderRegister": 0,
+        "RegisterSpace": 0,
+        "Flags": ["DataStaticWhileSetAtExecute"]
+      }
+    },
+    {
+      "Type": "DescriptorTable",
+      "ShaderVisibility": "Pixel",
+      "DescriptorTable": {
+        "Ranges": [
+          {
+            "RangeType": "SRV",
+            "NumDescriptors": 1,
+            "BaseShaderRegister": 0,
+            "RegisterSpace": 0,
+            "OffsetInDescriptorsFromTableStart": 0,
+            "Flags": ["DataStatic"]
+          },
+          {
+            "RangeType": "Sampler",
+            "NumDescriptors": 1,
+            "BaseShaderRegister": 0,
+            "RegisterSpace": 0,
+            "OffsetInDescriptorsFromTableStart": 1,
+            "Flags": []
+          }
+        ]
+      }
+    },
+    {
+      "Type": "Constants",
+      "ShaderVisibility": "Pixel",
+      "Constants": {
+        "ShaderRegister": 1,
+        "RegisterSpace": 0,
+        "Num32BitValues": 4
+      }
+    }
+  ],
+  "StaticSamplers": [
+    {
+      "Filter": "MinMagMipLinear",
+      "AddressU": "Wrap",
+      "AddressV": "Wrap",
+      "AddressW": "Wrap",
+      "MipLODBias": 0.0,
+      "MaxAnisotropy": 1,
+      "ComparisonFunc": "Always",
+      "BorderColor": "OpaqueBlack",
+      "MinLOD": 0.0,
+      "MaxLOD": 1000.0,
+      "ShaderRegister": 0,
+      "RegisterSpace": 0,
+      "ShaderVisibility": "Pixel"
+    }
+  ]
+}

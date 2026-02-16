@@ -16,9 +16,21 @@
     <ClInclude Include="Base\Shader.h">
       <Filter>Base</Filter>
     </ClInclude>
+    <ClInclude Include="Base\RootSignature.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Base\Pipeline.h">
+      <Filter>Base</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Shader.cpp">
+      <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Base\RootSignature.cpp">
+      <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Base\Pipeline.cpp">
       <Filter>Base</Filter>
     </ClCompile>
   </ItemGroup>

@@ -19,14 +19,16 @@ namespace Game {
 			};
 
 		public:
-			Shader(const fs::path& sourceFileName);
-			~Shader();
+			Shader() = default;
+			~Shader() = default;
 			Shader(const Shader& other);
 			Shader& operator=(const Shader& other);
 			Shader(Shader&& other) noexcept;
 			Shader& operator=(Shader&& other) noexcept;
 
 		public:
+			void Initialize(const fs::path& sourceFileName); 
+
 			const std::wstring& GetSourceFileName() const;
 			bool HasByteCode(const std::string& identifier) const;
 			D3D12_SHADER_BYTECODE GetByteCode(const std::string& identifier) const;
@@ -41,7 +43,7 @@ namespace Game {
 			std::unordered_map<std::string, std::size_t> mIdentifierToIndex{};
 		};
 
-		bool CompileShadersFromMetadata();
+		bool PreCompileShaders();
 
 
 	}

@@ -367,14 +367,6 @@ namespace {
 }
 
 
-Shader::Shader(const fs::path& sourceFileName)
-	: mSourceFileName(sourceFileName.wstring()) {
-	InitializeFromCompiledStorage();
-}
-
-Shader::~Shader() {
-}
-
 Shader::Shader(const Shader& other)
 	: mSourceFileName(other.mSourceFileName),
 	mShaderByteCodes(other.mShaderByteCodes),
@@ -407,6 +399,11 @@ Shader& Shader::operator=(Shader&& other) noexcept {
 	mShaderByteCodes = std::move(other.mShaderByteCodes);
 	mIdentifierToIndex = std::move(other.mIdentifierToIndex);
 	return *this;
+}
+
+void Shader::Initialize(const fs::path& sourceFileName) {
+	mSourceFileName = sourceFileName.wstring();
+	InitializeFromCompiledStorage();
 }
 
 const std::wstring& Shader::GetSourceFileName() const {
@@ -455,7 +452,7 @@ void Shader::InitializeFromCompiledStorage() {
 
 namespace Game {
 	namespace Base {
-		bool CompileShadersFromMetadata() {
+		bool PreCompileShaders() {
 			std::unordered_map<std::wstring, std::vector<ShaderCompileOption>> optionsBySource{ ParseMetadataFile() };
 			if (optionsBySource.empty()) {
 				return true;

@@ -18,6 +18,8 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 
 #include "Arche/ArcheContainer.h"
 #include "Game/Base/Shader.h"
+#include "Game/Base/RootSignature.h"
+#include "Game/Base/Pipeline.h"
 
 
 #ifdef _DEBUG
@@ -41,17 +43,17 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
-                     _In_opt_ HINSTANCE hPrevInstance,
-                     _In_ LPWSTR    lpCmdLine,
-                     _In_ int       nCmdShow)
+    _In_opt_ HINSTANCE hPrevInstance,
+    _In_ LPWSTR    lpCmdLine,
+    _In_ int       nCmdShow)
 {
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
     // TODO: 여기에 코드를 입력합니다.
 
-	FileConfig config("Core/config.prop");
-	Config::Init(&config);
+    FileConfig config("Core/config.prop");
+    Config::Init(&config);
 
     // 전역 문자열을 초기화합니다.
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -59,7 +61,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     MyRegisterClass(hInstance);
 
     // 애플리케이션 초기화를 수행합니다:
-    if (!InitInstance (hInstance, nCmdShow))
+    if (!InitInstance(hInstance, nCmdShow))
     {
         return FALSE;
     }
@@ -68,27 +70,32 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     MSG msg;
 
-	Core::DX::DirectQueue directQueue(hWnd);
+    Core::DX::DirectQueue directQueue(hWnd);
 
-	D3D12_HEAP_PROPERTIES defaultHeapProperties{};
-	defaultHeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
-	defaultHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-	defaultHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-	defaultHeapProperties.CreationNodeMask = 1;
-	defaultHeapProperties.VisibleNodeMask = 1;
+    D3D12_HEAP_PROPERTIES defaultHeapProperties{};
+    defaultHeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+    defaultHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+    defaultHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+    defaultHeapProperties.CreationNodeMask = 1;
+    defaultHeapProperties.VisibleNodeMask = 1;
 
-	Core::DX::GraphicsAllocator defaultHeapAllocator{};
-	bool defaultHeapAllocatorInitializeResult{ defaultHeapAllocator.Initialize(directQueue.GetDevice(), Core::DX::CopyQueue::GetRequiredUploadBufferSize(), defaultHeapProperties, D3D12_HEAP_FLAG_NONE) };
-	ErrorHandler::report(defaultHeapAllocatorInitializeResult == false, "WinMain", "Failed to initialize default heap allocator.", ErrorHandler::Level::Critical);
+    Core::DX::GraphicsAllocator defaultHeapAllocator{};
+    bool defaultHeapAllocatorInitializeResult{ defaultHeapAllocator.Initialize(directQueue.GetDevice(), Core::DX::CopyQueue::GetRequiredUploadBufferSize(), defaultHeapProperties, D3D12_HEAP_FLAG_NONE) };
+    ErrorHandler::report(defaultHeapAllocatorInitializeResult == false, "WinMain", "Failed to initialize default heap allocator.", ErrorHandler::Level::Critical);
 
-	Core::DX::CopyQueue copyQueue{ directQueue.GetDevice() };
+    Core::DX::CopyQueue copyQueue{ directQueue.GetDevice() };
 
 
     Arche::ArcheContainer archeContainer{};
 
-    Game::Base::CompileShadersFromMetadata(); 
+    Game::Base::PreCompileShaders();
+    Game::Base::PreCompileRootSignatures(directQueue.GetDevice());
+    Game::Base::PreCompilePipelines(directQueue.GetDevice());
 
-	Game::Base::Shader s{ "BasicShader.hlsl" };
+    Game::Base::Shader s{};
+    s.Initialize("BasicShader.hlsl");
+    Game::Base::Pipeline p{}; 
+    p.Initialize("BasicPipeline"); 
 
     // 기본 메시지 루프입니다:
     while (true) {
