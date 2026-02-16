@@ -610,6 +610,10 @@ namespace {
 		InitializeDefaultPipelineDescription(pipelineData);
 		pipelineData.Name = ReadOptionalString(document, "Name", path.stem().string());
 		pipelineData.Type = ReadOptionalString(document, "Type", "Graphics");
+		if (pipelineData.Type != "Graphics" && pipelineData.Type != "Compute") {
+			return false;
+		}
+
 		pipelineData.RootSignatureName = ReadOptionalString(document, "RootSignature", {});
 		if (pipelineData.RootSignatureName.empty() == true) {
 			return false;
@@ -772,7 +776,7 @@ namespace {
 		shaderByteCode = D3D12_SHADER_BYTECODE{};
 
 		if (shaderData.Source.empty() == true || shaderData.Identifier.empty() == true) {
-			return true;
+			return false;
 		}
 
 		shader.Initialize(shaderData.Source);
@@ -846,6 +850,7 @@ namespace {
 
 		if (pipelineData.Type == "Compute") {
 			if (ResolveShaderByteCode(pipelineData.Cs, computeShader, computeShaderByteCode) == false) {
+				ErrorHandler::report("Failed to resolve compute shader byte code.", "Pipeline: " + pipelineData.Name, ErrorHandler::Level::Critical);
 				return false;
 			}
 
@@ -862,8 +867,30 @@ namespace {
 			}
 
 		} else {
-			if (ResolveShaderByteCode(pipelineData.Vs, vertexShader, vertexShaderByteCode) == false || ResolveShaderByteCode(pipelineData.Ps, pixelShader, pixelShaderByteCode) == false || ResolveShaderByteCode(pipelineData.Ds, domainShader, domainShaderByteCode) == false || ResolveShaderByteCode(pipelineData.Hs, hullShader, hullShaderByteCode) == false || ResolveShaderByteCode(pipelineData.Gs, geometryShader, geometryShaderByteCode) == false) {
+			if (ResolveShaderByteCode(pipelineData.Vs, vertexShader, vertexShaderByteCode) == false || ResolveShaderByteCode(pipelineData.Ps, pixelShader, pixelShaderByteCode) == false) {
+				ErrorHandler::report("Failed to resolve required graphics shader byte code.", "Pipeline: " + pipelineData.Name, ErrorHandler::Level::Critical);
 				return false;
+			}
+
+			if (pipelineData.Ds.Source.empty() == false || pipelineData.Ds.Identifier.empty() == false) {
+				if (ResolveShaderByteCode(pipelineData.Ds, domainShader, domainShaderByteCode) == false) {
+					ErrorHandler::report("Failed to resolve domain shader byte code.", "Pipeline: " + pipelineData.Name, ErrorHandler::Level::Critical);
+					return false;
+				}
+			}
+
+			if (pipelineData.Hs.Source.empty() == false || pipelineData.Hs.Identifier.empty() == false) {
+				if (ResolveShaderByteCode(pipelineData.Hs, hullShader, hullShaderByteCode) == false) {
+					ErrorHandler::report("Failed to resolve hull shader byte code.", "Pipeline: " + pipelineData.Name, ErrorHandler::Level::Critical);
+					return false;
+				}
+			}
+
+			if (pipelineData.Gs.Source.empty() == false || pipelineData.Gs.Identifier.empty() == false) {
+				if (ResolveShaderByteCode(pipelineData.Gs, geometryShader, geometryShaderByteCode) == false) {
+					ErrorHandler::report("Failed to resolve geometry shader byte code.", "Pipeline: " + pipelineData.Name, ErrorHandler::Level::Critical);
+					return false;
+				}
 			}
 
 			D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsDesc{};
@@ -904,6 +931,11 @@ namespace {
 			}
 		}
 
+		if (pipelines.contains(pipelineData.Name) == true) {
+			ErrorHandler::report("Duplicated pipeline name detected.", "Pipeline: " + pipelineData.Name + ", Path: " + path.string(), ErrorHandler::Level::Critical);
+			return false;
+		}
+
 		pipelines[pipelineData.Name] = pipelineState;
 		return true;
 	}
@@ -920,6 +952,8 @@ namespace Game {
 				return false;
 			}
 
+			std::scoped_lock<std::mutex> lock{ GetCompiledPipelinesMutex() };
+
 			const std::unordered_map<std::string, ComPtr<ID3D12PipelineState>>& pipelines{ GetCompiledPipelinesStorage() };
 			auto iterator{ pipelines.find(pipelineName) };
 			if (iterator == pipelines.end()) {
@@ -935,6 +969,7 @@ namespace Game {
 		}
 
 		bool Pipeline::HasCompiledPipeline(const std::string& pipelineName) {
+			std::scoped_lock<std::mutex> lock{ GetCompiledPipelinesMutex() };
 			const std::unordered_map<std::string, ComPtr<ID3D12PipelineState>>& pipelines{ GetCompiledPipelinesStorage() };
 			return pipelines.contains(pipelineName);
 		}
@@ -946,7 +981,7 @@ namespace Game {
 
 			std::filesystem::path folderPath{ std::filesystem::current_path() / "Shader" / "PSO" };
 			if (std::filesystem::exists(folderPath) == false) {
-				return false;
+				return true;
 			}
 
 			std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> pipelines{};

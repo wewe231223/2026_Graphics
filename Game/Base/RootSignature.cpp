@@ -492,6 +492,10 @@ namespace {
 			rootSignatureName = jsonPath.stem().string();
 		}
 
+		if (rootSignatures.contains(rootSignatureName) == true) {
+			return false;
+		}
+
 		RootSignatureDescriptionData descriptionData{};
 		if (ParseRootSignatureDescription(document, descriptionData) == false) {
 			return false;
@@ -546,9 +550,7 @@ namespace Game {
 				return false;
 			}
 
-			if (HasCompiledRootSignature(rootSignatureName) == false) {
-				return false;
-			}
+			std::scoped_lock<std::mutex> lock{ GetCompiledRootSignaturesMutex() };
 
 			const std::unordered_map<std::string, ComPtr<ID3D12RootSignature>>& rootSignatures{ GetCompiledRootSignaturesStorage() };
 			auto iterator{ rootSignatures.find(rootSignatureName) };
@@ -565,6 +567,7 @@ namespace Game {
 		}
 
 		bool RootSignature::HasCompiledRootSignature(const std::string& rootSignatureName) {
+			std::scoped_lock<std::mutex> lock{ GetCompiledRootSignaturesMutex() };
 			const std::unordered_map<std::string, ComPtr<ID3D12RootSignature>>& rootSignatures{ GetCompiledRootSignaturesStorage() };
 			return rootSignatures.contains(rootSignatureName);
 		}
