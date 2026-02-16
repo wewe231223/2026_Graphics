@@ -1,8 +1,5 @@
 {
   "$schema": "./Schema.RootSignature.json",
-  "name": "2026_Graphics_RS",
-  "version": 1.0,
-
   "Name": "DefaultRootSignature",
   "Flags": [
     "AllowInputAssemblerInputLayout"

@@ -1,8 +1,5 @@
 {
   "$schema": "./Schema.Pipeline.json",
-  "name": "2026_Graphics_PSO",
-  "version": 1.0,
-
   "Name": "DefaultGraphics",
   "Type": "Graphics",
   "RootSignature": "DefaultRootSignature",
@@ -25,13 +22,13 @@
       "InstanceDataStepRate": 0
     },
     {
-      "AlignedByteOffset": 12,
+      "SemanticName": "NORMAL",
+      "SemanticIndex": 0,
       "Format": "R32G32B32_FLOAT",
       "InputSlot": 0,
+      "AlignedByteOffset": 12,
       "InputSlotClass": "PerVertexData",
-      "InstanceDataStepRate": 0,
-      "SemanticIndex": 0,
-      "SemanticName": "NORMAL"
+      "InstanceDataStepRate": 0
     }
   ],
   "BlendState": {
@@ -39,7 +36,7 @@
     "IndependentBlendEnable": false,
     "RenderTargets": [
       {
-        "BlendEnable":  false,
+        "BlendEnable": false,
         "BlendOp": "Add",
         "BlendOpAlpha": "Add",
         "DestBlend": "Zero",
@@ -88,7 +85,9 @@
   },
   "IBStripCutValue": "Disabled",
   "PrimitiveTopologyType": "Triangle",
-  "RTVFormats": [ "R8G8B8A8_UNORM", ],
+  "RTVFormats": [
+    "R8G8B8A8_UNORM"
+  ],
   "DSVFormat": "D24_UNORM_S8_UINT",
   "SampleDesc": {
     "Count": 1,

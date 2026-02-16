@@ -766,19 +766,21 @@ namespace {
 		return true;
 	}
 
-	D3D12_SHADER_BYTECODE ResolveShaderByteCode(const PipelineShaderData& shaderData) {
+	bool ResolveShaderByteCode(const PipelineShaderData& shaderData, Game::Base::Shader& shader, D3D12_SHADER_BYTECODE& shaderByteCode) {
+		shaderByteCode = D3D12_SHADER_BYTECODE{};
+
 		if (shaderData.Source.empty() == true || shaderData.Identifier.empty() == true) {
-			return D3D12_SHADER_BYTECODE{};
+			return true;
 		}
 
-		Game::Base::Shader shader{}; 
 		shader.Initialize(shaderData.Source);
 
 		if (shader.HasByteCode(shaderData.Identifier) == false) {
-			return D3D12_SHADER_BYTECODE{};
+			return false;
 		}
 
-		return shader.GetByteCode(shaderData.Identifier);
+		shaderByteCode = shader.GetByteCode(shaderData.Identifier);
+		return shaderByteCode.pShaderBytecode != nullptr && shaderByteCode.BytecodeLength > 0;
 	}
 
 	bool CreatePipelineFromFile(ID3D12Device* device, const std::filesystem::path& path, std::unordered_map<std::string, ComPtr<ID3D12PipelineState>>& pipelines) {
@@ -826,10 +828,28 @@ namespace {
 		}
 
 		ComPtr<ID3D12PipelineState> pipelineState{ nullptr };
+		Game::Base::Shader vertexShader{};
+		Game::Base::Shader pixelShader{};
+		Game::Base::Shader domainShader{};
+		Game::Base::Shader hullShader{};
+		Game::Base::Shader geometryShader{};
+		Game::Base::Shader computeShader{};
+
+		D3D12_SHADER_BYTECODE vertexShaderByteCode{};
+		D3D12_SHADER_BYTECODE pixelShaderByteCode{};
+		D3D12_SHADER_BYTECODE domainShaderByteCode{};
+		D3D12_SHADER_BYTECODE hullShaderByteCode{};
+		D3D12_SHADER_BYTECODE geometryShaderByteCode{};
+		D3D12_SHADER_BYTECODE computeShaderByteCode{};
+
 		if (pipelineData.Type == "Compute") {
+			if (ResolveShaderByteCode(pipelineData.Cs, computeShader, computeShaderByteCode) == false) {
+				return false;
+			}
+
 			D3D12_COMPUTE_PIPELINE_STATE_DESC computeDesc{};
 			computeDesc.pRootSignature = rootSignature.Get();
-			computeDesc.CS = ResolveShaderByteCode(pipelineData.Cs);
+			computeDesc.CS = computeShaderByteCode;
 			computeDesc.NodeMask = pipelineData.NodeMask;
 			computeDesc.CachedPSO = pipelineData.CachedPso;
 			computeDesc.Flags = pipelineData.Flags;
@@ -838,15 +858,19 @@ namespace {
 			if (FAILED(result) == true || pipelineState == nullptr) {
 				return false;
 			}
-		}
-		else {
+
+		} else {
+			if (ResolveShaderByteCode(pipelineData.Vs, vertexShader, vertexShaderByteCode) == false || ResolveShaderByteCode(pipelineData.Ps, pixelShader, pixelShaderByteCode) == false || ResolveShaderByteCode(pipelineData.Ds, domainShader, domainShaderByteCode) == false || ResolveShaderByteCode(pipelineData.Hs, hullShader, hullShaderByteCode) == false || ResolveShaderByteCode(pipelineData.Gs, geometryShader, geometryShaderByteCode) == false) {
+				return false;
+			}
+
 			D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsDesc{};
 			graphicsDesc.pRootSignature = rootSignature.Get();
-			graphicsDesc.VS = ResolveShaderByteCode(pipelineData.Vs);
-			graphicsDesc.PS = ResolveShaderByteCode(pipelineData.Ps);
-			graphicsDesc.DS = ResolveShaderByteCode(pipelineData.Ds);
-			graphicsDesc.HS = ResolveShaderByteCode(pipelineData.Hs);
-			graphicsDesc.GS = ResolveShaderByteCode(pipelineData.Gs);
+			graphicsDesc.VS = vertexShaderByteCode;
+			graphicsDesc.PS = pixelShaderByteCode;
+			graphicsDesc.DS = domainShaderByteCode;
+			graphicsDesc.HS = hullShaderByteCode;
+			graphicsDesc.GS = geometryShaderByteCode;
 			graphicsDesc.BlendState = pipelineData.BlendState;
 			graphicsDesc.SampleMask = pipelineData.SampleMask;
 			graphicsDesc.RasterizerState = pipelineData.RasterizerState;
@@ -856,6 +880,7 @@ namespace {
 			graphicsDesc.IBStripCutValue = pipelineData.IBStripCutValue;
 			graphicsDesc.PrimitiveTopologyType = pipelineData.PrimitiveTopologyType;
 			graphicsDesc.NumRenderTargets = pipelineData.NumRenderTargets;
+
 			for (std::size_t index{ 0 }; index < pipelineData.RtvFormats.size(); index += 1) {
 				graphicsDesc.RTVFormats[index] = pipelineData.RtvFormats[index];
 			}
