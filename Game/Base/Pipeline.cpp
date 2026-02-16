@@ -1,5 +1,6 @@
 #include "Pipeline.h"
 #include <array>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <mutex>
@@ -21,11 +22,12 @@
 
 namespace {
 	struct PipelineInputLayoutData {
-		std::vector<std::string> SemanticNames{};
+		std::deque<std::string> SemanticNames{};
 		std::vector<D3D12_INPUT_ELEMENT_DESC> Elements{};
 	};
 
 	struct PipelineStreamOutputData {
+		std::deque<std::string> SemanticNames{};
 		std::vector<D3D12_SO_DECLARATION_ENTRY> Entries{};
 		std::vector<UINT> BufferStrides{};
 	};
@@ -644,10 +646,10 @@ namespace {
 						continue;
 					}
 
-					pipelineData.InputLayout.SemanticNames.emplace_back(ReadOptionalString(entryValue, "SemanticName", ""));
+					pipelineData.StreamOutput.SemanticNames.emplace_back(ReadOptionalString(entryValue, "SemanticName", ""));
 					D3D12_SO_DECLARATION_ENTRY soEntry{};
 					soEntry.Stream = ReadOptionalUint(entryValue, "Stream", 0);
-					soEntry.SemanticName = pipelineData.InputLayout.SemanticNames.back().c_str();
+					soEntry.SemanticName = pipelineData.StreamOutput.SemanticNames.back().c_str();
 					soEntry.SemanticIndex = ReadOptionalUint(entryValue, "SemanticIndex", 0);
 					soEntry.StartComponent = static_cast<BYTE>(ReadOptionalUint(entryValue, "StartComponent", 0));
 					soEntry.ComponentCount = static_cast<BYTE>(ReadOptionalUint(entryValue, "ComponentCount", 4));
