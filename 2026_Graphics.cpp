@@ -92,7 +92,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     Game::Base::PreCompileShaders();
     
-    if(Game::Base::PreCompileRootSignatures(directQueue.GetDevice())) {
+    if(not Game::Base::PreCompileRootSignatures(directQueue.GetDevice())) {
 		ErrorHandler::report(true, "WinMain", "Failed to pre-compile root signatures.", ErrorHandler::Level::Critical);
     }
     

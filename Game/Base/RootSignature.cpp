@@ -465,14 +465,24 @@ namespace {
 	}
 
 	bool CreateRootSignatureFromFile(ID3D12Device* device, const std::filesystem::path& jsonPath, std::unordered_map<std::string, ComPtr<ID3D12RootSignature>>& rootSignatures) {
-		std::ifstream inputStream{ jsonPath };
-		if (inputStream.is_open() == false) {
+		std::ifstream input{ jsonPath, std::ios::binary };
+		if (input.is_open() == false) {
 			return false;
 		}
 
-		rapidjson::IStreamWrapper streamWrapper{ inputStream };
+		std::string jsonText{ std::istreambuf_iterator<char>{ input }, std::istreambuf_iterator<char>{} };
+		if (jsonText.empty() == true) {
+			return false;
+		}
+
+		if (jsonText.size() >= 3 && static_cast<unsigned char>(jsonText[0]) == 0xEF && static_cast<unsigned char>(jsonText[1]) == 0xBB && static_cast<unsigned char>(jsonText[2]) == 0xBF) {
+			jsonText.erase(0, 3);
+		}
+
+		rapidjson::StringStream stream{ jsonText.c_str() };
 		rapidjson::Document document{};
-		document.ParseStream(streamWrapper);
+		document.ParseStream<rapidjson::kParseCommentsFlag | rapidjson::kParseTrailingCommasFlag>(stream);
+
 		if (document.HasParseError() == true || document.IsObject() == false) {
 			return false;
 		}

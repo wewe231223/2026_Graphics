@@ -2,6 +2,7 @@
   "$schema": "./Schema.RootSignature.json",
   "name": "2026_Graphics_RS",
   "version": 1.0,
+
   "Name": "DefaultRootSignature",
   "Flags": [
     "AllowInputAssemblerInputLayout"
@@ -32,14 +33,6 @@
             "Flags": [
               "DataStatic"
             ]
-          },
-          {
-            "RangeType": "Sampler",
-            "NumDescriptors": 1,
-            "BaseShaderRegister": 0,
-            "RegisterSpace": 0,
-            "OffsetInDescriptorsFromTableStart": 1,
-            "Flags": []
           }
         ]
       }

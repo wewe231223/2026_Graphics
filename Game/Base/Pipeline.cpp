@@ -16,6 +16,7 @@
 #undef min
 #endif 
 #include "rapidjson/document.h"
+#include "rapidjson/error/en.h"
 #include "rapidjson/istreamwrapper.h"
 
 namespace {
@@ -781,25 +782,41 @@ namespace {
 	}
 
 	bool CreatePipelineFromFile(ID3D12Device* device, const std::filesystem::path& path, std::unordered_map<std::string, ComPtr<ID3D12PipelineState>>& pipelines) {
-		std::ifstream input{ path };
+		std::ifstream input{ path, std::ios::binary };
 		if (input.is_open() == false) {
 			return false;
 		}
 
-		rapidjson::IStreamWrapper wrapper{ input };
+		std::string jsonText{ std::istreambuf_iterator<char>{ input }, std::istreambuf_iterator<char>{} };
+		if (jsonText.empty() == true) {
+			return false;
+		}
+
+		if (jsonText.size() >= 3 && static_cast<unsigned char>(jsonText[0]) == 0xEF && static_cast<unsigned char>(jsonText[1]) == 0xBB && static_cast<unsigned char>(jsonText[2]) == 0xBF) {
+			jsonText.erase(0, 3);
+		}
+
+		rapidjson::StringStream stream{ jsonText.c_str() };
 		rapidjson::Document document{};
-		document.ParseStream(wrapper);
+		document.ParseStream<rapidjson::kParseCommentsFlag | rapidjson::kParseTrailingCommasFlag>(stream);
+		
 		if (document.HasParseError() == true || document.IsObject() == false) {
-			ErrorHandler::report("Failed to parse pipeline description file: " + path.string()," Error: " + std::to_string(document.GetParseError()), ErrorHandler::Level::Critical);
+			std::string errorMessage{ rapidjson::GetParseError_En(document.GetParseError()) };
+			std::string pathString{ path.string() };
+			std::string parseCode{ std::to_string(document.GetParseError()) };
+			std::string parseOffset{ std::to_string(document.GetErrorOffset()) };
+			ErrorHandler::report("Failed to parse pipeline description file. Path: " + pathString, "Code: " + parseCode + ", Offset: " + parseOffset + ", Message: " + errorMessage, ErrorHandler::Level::Critical); 
 			return false;
 		}
 
 		PipelineDescriptionData pipelineData{};
 		if (ParsePipelineDescription(document, path, pipelineData) == false) {
+			ErrorHandler::report("Failed to parse pipeline description data.", "Path: " + path.string(), ErrorHandler::Level::Critical);
 			return false;
 		}
 
 		if (Game::Base::RootSignature::HasCompiledRootSignature(pipelineData.RootSignatureName) == false) {
+			ErrorHandler::report("Root signature specified in pipeline description does not exist.", "Pipeline: " + pipelineData.Name + ", Root Signature: " + pipelineData.RootSignatureName, ErrorHandler::Level::Critical);
 			return false;
 		}
 
