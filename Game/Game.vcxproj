@@ -29,6 +29,19 @@
     <ClCompile Include="Base\RootSignature.cpp" />
     <ClCompile Include="Base\Pipeline.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="..\Shader\Source\BasicShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Shader\PSO\DefaultGraphics.json" />
+    <None Include="..\Shader\PSO\Schema.Pipeline.json" />
+    <None Include="..\Shader\RS\DefaultRootSignature.json" />
+    <None Include="..\Shader\RS\Schema.RootSignature.json" />
+    <None Include="..\Shader\Source\Common.hlsli" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

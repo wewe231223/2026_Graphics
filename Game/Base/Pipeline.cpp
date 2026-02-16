@@ -5,6 +5,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <vector>
+#include "Utility/ErrorHandler.h"
 #include "Shader.h"
 
 #ifdef max
@@ -789,6 +790,7 @@ namespace {
 		rapidjson::Document document{};
 		document.ParseStream(wrapper);
 		if (document.HasParseError() == true || document.IsObject() == false) {
+			ErrorHandler::report("Failed to parse pipeline description file: " + path.string()," Error: " + std::to_string(document.GetParseError()), ErrorHandler::Level::Critical);
 			return false;
 		}
 
@@ -898,13 +900,9 @@ namespace Game {
 				return false;
 			}
 
-			if (PreCompileRootSignatures(device) == false) {
-				return false;
-			}
-
 			std::filesystem::path folderPath{ std::filesystem::current_path() / "Shader" / "PSO" };
 			if (std::filesystem::exists(folderPath) == false) {
-				return true;
+				return false;
 			}
 
 			std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> pipelines{};

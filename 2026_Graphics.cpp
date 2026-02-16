@@ -42,6 +42,8 @@ ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 
+#include <fstream>
+
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     _In_opt_ HINSTANCE hPrevInstance,
     _In_ LPWSTR    lpCmdLine,
@@ -89,13 +91,22 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     Arche::ArcheContainer archeContainer{};
 
     Game::Base::PreCompileShaders();
-    Game::Base::PreCompileRootSignatures(directQueue.GetDevice());
-    Game::Base::PreCompilePipelines(directQueue.GetDevice());
+    
+    if(Game::Base::PreCompileRootSignatures(directQueue.GetDevice())) {
+		ErrorHandler::report(true, "WinMain", "Failed to pre-compile root signatures.", ErrorHandler::Level::Critical);
+    }
+    
+    if (not Game::Base::PreCompilePipelines(directQueue.GetDevice())) {
+		ErrorHandler::report(true, "WinMain", "Failed to pre-compile pipelines.", ErrorHandler::Level::Critical);
+    }
+
+
+
 
     Game::Base::Shader s{};
     s.Initialize("BasicShader.hlsl");
     Game::Base::Pipeline p{}; 
-    p.Initialize("BasicPipeline"); 
+    p.Initialize("DefaultGraphics"); 
 
     // 기본 메시지 루프입니다:
     while (true) {

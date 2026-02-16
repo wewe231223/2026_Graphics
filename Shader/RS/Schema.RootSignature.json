@@ -1,87 +1,378 @@
 {
-  "SchemaName": "RootSignature",
-  "Description": "RootSignature JSON 값 사전",
-  "CompileExcludedByPrefix": "Schema",
-  "TopLevel": {
-    "Name": "string",
-    "Flags": [
-      "AllowInputAssemblerInputLayout",
-      "DenyVertexShaderRootAccess",
-      "DenyHullShaderRootAccess",
-      "DenyDomainShaderRootAccess",
-      "DenyGeometryShaderRootAccess",
-      "DenyPixelShaderRootAccess",
-      "AllowStreamOutput",
-      "LocalRootSignature",
-      "DenyAmplificationShaderRootAccess",
-      "DenyMeshShaderRootAccess",
-      "CBVSRVUAVHeapDirectlyIndexed",
-      "SamplerHeapDirectlyIndexed"
-    ],
-    "Parameters": [
-      {
-        "Type": "DescriptorTable | CBV | SRV | UAV | Constants",
-        "ShaderVisibility": "All | Vertex | Hull | Domain | Geometry | Pixel | Amplification | Mesh",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "./Schema.RootSignature.json",
+  "title": "RootSignature Schema",
+  "description": "D3D12 RootSignature JSON Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "number"
+    },
+    "Name": {
+      "type": "string"
+    },
+    "Flags": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "AllowInputAssemblerInputLayout",
+          "DenyVertexShaderRootAccess",
+          "DenyHullShaderRootAccess",
+          "DenyDomainShaderRootAccess",
+          "DenyGeometryShaderRootAccess",
+          "DenyPixelShaderRootAccess",
+          "AllowStreamOutput",
+          "LocalRootSignature",
+          "DenyAmplificationShaderRootAccess",
+          "DenyMeshShaderRootAccess",
+          "CBVSRVUAVHeapDirectlyIndexed",
+          "SamplerHeapDirectlyIndexed"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "Parameters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/RootParameter"
+      }
+    },
+    "StaticSamplers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/StaticSampler"
+      }
+    }
+  },
+  "required": [
+    "Name"
+  ],
+  "definitions": {
+    "ShaderVisibility": {
+      "type": "string",
+      "enum": [
+        "All",
+        "Vertex",
+        "Hull",
+        "Domain",
+        "Geometry",
+        "Pixel",
+        "Amplification",
+        "Mesh"
+      ]
+    },
+    "RootParameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "Type": {
+          "enum": [
+            "DescriptorTable",
+            "CBV",
+            "SRV",
+            "UAV",
+            "Constants"
+          ]
+        },
+        "ShaderVisibility": {
+          "$ref": "#/definitions/ShaderVisibility"
+        },
         "DescriptorTable": {
-          "Ranges": [
+          "$ref": "#/definitions/DescriptorTable"
+        },
+        "Descriptor": {
+          "$ref": "#/definitions/RootDescriptor"
+        },
+        "Constants": {
+          "$ref": "#/definitions/RootConstants"
+        }
+      },
+      "required": [
+        "Type",
+        "ShaderVisibility"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "Type": {
+                "const": "DescriptorTable"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "DescriptorTable"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "Type": {
+                "enum": [
+                  "CBV",
+                  "SRV",
+                  "UAV"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "Descriptor"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "Type": {
+                "const": "Constants"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "Constants"
+            ]
+          }
+        }
+      ]
+    },
+    "DescriptorTable": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "Ranges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DescriptorRange"
+          }
+        }
+      },
+      "required": [
+        "Ranges"
+      ]
+    },
+    "DescriptorRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "RangeType": {
+          "enum": [
+            "SRV",
+            "UAV",
+            "CBV",
+            "Sampler"
+          ]
+        },
+        "NumDescriptors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "BaseShaderRegister": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "RegisterSpace": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "OffsetInDescriptorsFromTableStart": {
+          "oneOf": [
             {
-              "RangeType": "SRV | UAV | CBV | Sampler",
-              "NumDescriptors": "uint",
-              "BaseShaderRegister": "uint",
-              "RegisterSpace": "uint",
-              "OffsetInDescriptorsFromTableStart": "uint | 4294967295",
-              "Flags": [
-                "DescriptorsVolatile",
-                "DataVolatile",
-                "DataStaticWhileSetAtExecute",
-                "DataStatic",
-                "DescriptorsStaticKeepingBufferBoundsChecks"
-              ]
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": 4294967295
             }
           ]
         },
-        "Descriptor": {
-          "ShaderRegister": "uint",
-          "RegisterSpace": "uint",
-          "Flags": [
-            "DataVolatile",
-            "DataStaticWhileSetAtExecute",
-            "DataStatic"
+        "Flags": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "DescriptorsVolatile",
+              "DataVolatile",
+              "DataStaticWhileSetAtExecute",
+              "DataStatic",
+              "DescriptorsStaticKeepingBufferBoundsChecks"
+            ]
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "RangeType",
+        "NumDescriptors",
+        "BaseShaderRegister",
+        "RegisterSpace"
+      ]
+    },
+    "RootDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ShaderRegister": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "RegisterSpace": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "Flags": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "DataVolatile",
+              "DataStaticWhileSetAtExecute",
+              "DataStatic"
+            ]
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "ShaderRegister",
+        "RegisterSpace"
+      ]
+    },
+    "RootConstants": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ShaderRegister": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "RegisterSpace": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "Num32BitValues": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "ShaderRegister",
+        "RegisterSpace",
+        "Num32BitValues"
+      ]
+    },
+    "StaticSampler": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "Filter": {
+          "enum": [
+            "MinMagMipPoint",
+            "MinMagPointMipLinear",
+            "MinPointMagLinearMipPoint",
+            "MinPointMagMipLinear",
+            "MinLinearMagMipPoint",
+            "MinLinearMagPointMipLinear",
+            "MinMagLinearMipPoint",
+            "MinMagMipLinear",
+            "Anisotropic"
           ]
         },
-        "Constants": {
-          "ShaderRegister": "uint",
-          "RegisterSpace": "uint",
-          "Num32BitValues": "uint"
+        "AddressU": {
+          "enum": [
+            "Wrap",
+            "Mirror",
+            "Clamp",
+            "Border",
+            "MirrorOnce"
+          ]
+        },
+        "AddressV": {
+          "enum": [
+            "Wrap",
+            "Mirror",
+            "Clamp",
+            "Border",
+            "MirrorOnce"
+          ]
+        },
+        "AddressW": {
+          "enum": [
+            "Wrap",
+            "Mirror",
+            "Clamp",
+            "Border",
+            "MirrorOnce"
+          ]
+        },
+        "MipLODBias": {
+          "type": "number"
+        },
+        "MaxAnisotropy": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ComparisonFunc": {
+          "enum": [
+            "Never",
+            "Less",
+            "Equal",
+            "LessEqual",
+            "Greater",
+            "NotEqual",
+            "GreaterEqual",
+            "Always"
+          ]
+        },
+        "BorderColor": {
+          "enum": [
+            "TransparentBlack",
+            "OpaqueBlack",
+            "OpaqueWhite"
+          ]
+        },
+        "MinLOD": {
+          "type": "number"
+        },
+        "MaxLOD": {
+          "type": "number"
+        },
+        "ShaderRegister": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "RegisterSpace": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ShaderVisibility": {
+          "$ref": "#/definitions/ShaderVisibility"
         }
-      }
-    ],
-    "StaticSamplers": [
-      {
-        "Filter": [
-          "MinMagMipPoint",
-          "MinMagPointMipLinear",
-          "MinPointMagLinearMipPoint",
-          "MinPointMagMipLinear",
-          "MinLinearMagMipPoint",
-          "MinLinearMagPointMipLinear",
-          "MinMagLinearMipPoint",
-          "MinMagMipLinear",
-          "Anisotropic"
-        ],
-        "AddressU": "Wrap | Mirror | Clamp | Border | MirrorOnce",
-        "AddressV": "Wrap | Mirror | Clamp | Border | MirrorOnce",
-        "AddressW": "Wrap | Mirror | Clamp | Border | MirrorOnce",
-        "MipLODBias": "float",
-        "MaxAnisotropy": "uint",
-        "ComparisonFunc": "Never | Less | Equal | LessEqual | Greater | NotEqual | GreaterEqual | Always",
-        "BorderColor": "TransparentBlack | OpaqueBlack | OpaqueWhite",
-        "MinLOD": "float",
-        "MaxLOD": "float",
-        "ShaderRegister": "uint",
-        "RegisterSpace": "uint",
-        "ShaderVisibility": "All | Vertex | Hull | Domain | Geometry | Pixel | Amplification | Mesh"
-      }
-    ]
+      },
+      "required": [
+        "Filter",
+        "AddressU",
+        "AddressV",
+        "AddressW",
+        "MipLODBias",
+        "MaxAnisotropy",
+        "ComparisonFunc",
+        "BorderColor",
+        "MinLOD",
+        "MaxLOD",
+        "ShaderRegister",
+        "RegisterSpace",
+        "ShaderVisibility"
+      ]
+    }
   }
 }

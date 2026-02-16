@@ -1,6 +1,11 @@
 {
+  "$schema": "./Schema.RootSignature.json",
+  "name": "2026_Graphics_RS",
+  "version": 1.0,
   "Name": "DefaultRootSignature",
-  "Flags": ["AllowInputAssemblerInputLayout"],
+  "Flags": [
+    "AllowInputAssemblerInputLayout"
+  ],
   "Parameters": [
     {
       "Type": "CBV",
@@ -8,7 +13,9 @@
       "Descriptor": {
         "ShaderRegister": 0,
         "RegisterSpace": 0,
-        "Flags": ["DataStaticWhileSetAtExecute"]
+        "Flags": [
+          "DataStaticWhileSetAtExecute"
+        ]
       }
     },
     {
@@ -22,7 +29,9 @@
             "BaseShaderRegister": 0,
             "RegisterSpace": 0,
             "OffsetInDescriptorsFromTableStart": 0,
-            "Flags": ["DataStatic"]
+            "Flags": [
+              "DataStatic"
+            ]
           },
           {
             "RangeType": "Sampler",
