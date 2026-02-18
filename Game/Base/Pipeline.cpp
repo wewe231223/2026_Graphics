@@ -3,6 +3,7 @@
 #include <deque>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
@@ -67,8 +68,13 @@ namespace {
 		D3D12_PIPELINE_STATE_FLAGS Flags{};
 	};
 
-	std::unordered_map<std::string, ComPtr<ID3D12PipelineState>>& GetCompiledPipelinesStorage() {
-		static std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> pipelines{};
+	struct CompiledPipelineData {
+		ComPtr<ID3D12RootSignature> RootSignature{};
+		ComPtr<ID3D12PipelineState> PipelineState{};
+	};
+
+	std::unordered_map<std::string, CompiledPipelineData>& GetCompiledPipelinesStorage() {
+		static std::unordered_map<std::string, CompiledPipelineData> pipelines{};
 		return pipelines;
 	}
 
@@ -789,7 +795,7 @@ namespace {
 		return shaderByteCode.pShaderBytecode != nullptr && shaderByteCode.BytecodeLength > 0;
 	}
 
-	bool CreatePipelineFromFile(ID3D12Device* device, const std::filesystem::path& path, std::unordered_map<std::string, ComPtr<ID3D12PipelineState>>& pipelines) {
+	bool CreatePipelineFromFile(ID3D12Device* device, const std::filesystem::path& path, std::unordered_map<std::string, CompiledPipelineData>& pipelines) {
 		std::ifstream input{ path, std::ios::binary };
 		if (input.is_open() == false) {
 			return false;
@@ -936,7 +942,10 @@ namespace {
 			return false;
 		}
 
-		pipelines[pipelineData.Name] = pipelineState;
+		CompiledPipelineData compiledPipelineData{};
+		compiledPipelineData.RootSignature = rootSignature.Get();
+		compiledPipelineData.PipelineState = pipelineState;
+		pipelines[pipelineData.Name] = compiledPipelineData;
 		return true;
 	}
 }
@@ -954,23 +963,66 @@ namespace Game {
 
 			std::scoped_lock<std::mutex> lock{ GetCompiledPipelinesMutex() };
 
-			const std::unordered_map<std::string, ComPtr<ID3D12PipelineState>>& pipelines{ GetCompiledPipelinesStorage() };
+			const std::unordered_map<std::string, CompiledPipelineData>& pipelines{ GetCompiledPipelinesStorage() };
 			auto iterator{ pipelines.find(pipelineName) };
 			if (iterator == pipelines.end()) {
 				return false;
 			}
 
-			mPipelineState = iterator->second;
+			mRootSignature = iterator->second.RootSignature;
+			mPipelineState = iterator->second.PipelineState;
 			return true;
+		}
+
+		Pipeline* Pipeline::Set(Pipeline* pipeline, ID3D12GraphicsCommandList* commandList) {
+			if (commandList == nullptr) {
+				return this;
+			}
+
+			if (pipeline == nullptr || pipeline->GetRootSignature() != GetRootSignature()) {
+				commandList->SetGraphicsRootSignature(mRootSignature.Get());
+			}
+
+			if (pipeline == nullptr || pipeline->Get() != Get()) {
+				commandList->SetPipelineState(mPipelineState.Get());
+			}
+
+			return this;
 		}
 
 		ID3D12PipelineState* Pipeline::Get() const {
 			return mPipelineState.Get();
 		}
 
+		ID3D12RootSignature* Pipeline::GetRootSignature() const {
+			return mRootSignature.Get();
+		}
+
+		bool Pipeline::operator==(const Pipeline& other) const {
+			return GetRootSignature() == other.GetRootSignature() && Get() == other.Get();
+		}
+
+		bool Pipeline::operator!=(const Pipeline& other) const {
+			return (*this == other) == false;
+		}
+
+		bool Pipeline::operator<(const Pipeline& other) const {
+			std::less<ID3D12RootSignature*> rootSignatureComparator{};
+			if (rootSignatureComparator(GetRootSignature(), other.GetRootSignature()) == true) {
+				return true;
+			}
+
+			if (rootSignatureComparator(other.GetRootSignature(), GetRootSignature()) == true) {
+				return false;
+			}
+
+			std::less<ID3D12PipelineState*> pipelineStateComparator{};
+			return pipelineStateComparator(Get(), other.Get());
+		}
+
 		bool Pipeline::HasCompiledPipeline(const std::string& pipelineName) {
 			std::scoped_lock<std::mutex> lock{ GetCompiledPipelinesMutex() };
-			const std::unordered_map<std::string, ComPtr<ID3D12PipelineState>>& pipelines{ GetCompiledPipelinesStorage() };
+			const std::unordered_map<std::string, CompiledPipelineData>& pipelines{ GetCompiledPipelinesStorage() };
 			return pipelines.contains(pipelineName);
 		}
 
@@ -984,7 +1036,7 @@ namespace Game {
 				return true;
 			}
 
-			std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> pipelines{};
+			std::unordered_map<std::string, CompiledPipelineData> pipelines{};
 			for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(folderPath)) {
 				if (entry.is_regular_file() == false || entry.path().extension() != ".json") {
 					continue;

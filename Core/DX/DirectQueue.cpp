@@ -48,7 +48,6 @@ namespace Core {
 			// Execute Render Tasks
 
 
-
 			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PRESENT); 
 
 			mCommandList->Close();
