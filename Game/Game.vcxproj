@@ -23,11 +23,15 @@
     <ClInclude Include="Base\Shader.h" />
     <ClInclude Include="Base\RootSignature.h" />
     <ClInclude Include="Base\Pipeline.h" />
+    <ClInclude Include="Model\AssetRegistry.h" />
+    <ClInclude Include="Model\Model.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Shader.cpp" />
     <ClCompile Include="Base\RootSignature.cpp" />
     <ClCompile Include="Base\Pipeline.cpp" />
+    <ClCompile Include="Model\AssetRegistry.cpp" />
+    <ClCompile Include="Model\Model.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shader\Source\BasicShader.hlsl">

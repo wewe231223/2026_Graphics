@@ -1,0 +1,122 @@
+#pragma once
+#include <cstddef>
+#include <cstdint>
+#include <span>
+#include <string>
+#include <unordered_map>
+#include <vector>
+#include "Utility/DirectXInclude.h"
+#include "Asset/AssetBundle.h"
+#include "Core/DX/AllocationHandle.h"
+#include "Core/DX/CopyQueue.h"
+#include "Core/DX/GraphicsAllocator.h"
+
+namespace Game {
+    enum class VertexAttributeKind : std::uint32_t {
+        Position,
+        Normal,
+        TexCoord0,
+        TexCoord1,
+        TexCoord2,
+        TexCoord3,
+        Color,
+        Tangent,
+        Bitangent,
+        BoneIndices,
+        BoneWeights
+    };
+
+    struct ModelSubMesh final {
+        std::size_t IndexOffset{ 0 };
+        std::size_t IndexCount{ 0 };
+        std::size_t MaterialIndex{ 0 };
+    };
+
+    class ModelNode final {
+    public:
+        using Matrix = DirectX::SimpleMath::Matrix;
+
+    public:
+        ModelNode();
+        ~ModelNode();
+        ModelNode(const ModelNode& Other) = delete;
+        ModelNode& operator=(const ModelNode& Other) = delete;
+        ModelNode(ModelNode&& Other) noexcept;
+        ModelNode& operator=(ModelNode&& Other) noexcept;
+
+    public:
+        std::uint32_t GetId() const;
+        const std::string& GetName() const;
+        const Matrix& GetNodeToParent() const;
+        const Matrix& GetGeometryToNode() const;
+        const std::vector<std::uint32_t>& GetChildren() const;
+        const std::vector<ModelSubMesh>& GetSubMeshes() const;
+
+        bool HasVertexData() const;
+        const std::vector<D3D12_VERTEX_BUFFER_VIEW>& GetVertexBufferViews() const;
+        const D3D12_INDEX_BUFFER_VIEW& GetIndexBufferView() const;
+
+        std::size_t GetVertexAttributeBufferCount() const;
+        VertexAttributeKind GetVertexAttributeKind(std::size_t AttributeIndex) const;
+        std::span<const std::byte> GetVertexAttributeRawData(std::size_t AttributeIndex) const;
+
+    private:
+        struct VertexAttributeRange final {
+            VertexAttributeKind Kind{};
+            std::size_t Offset{ 0 };
+            std::size_t Size{ 0 };
+            UINT StrideInBytes{ 0 };
+        };
+
+    private:
+        friend class Model;
+        void SetBasicData(std::uint32_t IdValue, std::string NameValue, const Matrix& NodeToParentValue, const Matrix& GeometryToNodeValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue);
+        void SetVertexData(std::vector<std::byte> VertexRawDataValue, std::vector<VertexAttributeRange> VertexAttributeRangesValue, Core::DX::AllocationHandle VertexAllocationValue, std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViewsValue);
+        void SetIndexData(std::vector<std::byte> IndexRawDataValue, Core::DX::AllocationHandle IndexAllocationValue, const D3D12_INDEX_BUFFER_VIEW& IndexBufferViewValue);
+
+    private:
+        std::uint32_t mId{ 0 };
+        std::string mName{};
+        Matrix mNodeToParent{};
+        Matrix mGeometryToNode{};
+        std::vector<std::uint32_t> mChildren{};
+        std::vector<ModelSubMesh> mSubMeshes{};
+
+        std::vector<std::byte> mVertexRawData{};
+        std::vector<VertexAttributeRange> mVertexAttributeRanges{};
+        Core::DX::AllocationHandle mVertexAllocation{};
+        std::vector<D3D12_VERTEX_BUFFER_VIEW> mVertexBufferViews{};
+
+        std::vector<std::byte> mIndexRawData{};
+        Core::DX::AllocationHandle mIndexAllocation{};
+        D3D12_INDEX_BUFFER_VIEW mIndexBufferView{};
+
+        bool mHasVertexData{ false };
+    };
+
+    class Model final {
+    public:
+        Model();
+        ~Model();
+        Model(const Model& Other) = delete;
+        Model& operator=(const Model& Other) = delete;
+        Model(Model&& Other) noexcept;
+        Model& operator=(Model&& Other) noexcept;
+
+    public:
+        bool InitializeFromAssetBundle(const asset::AssetBundle& Bundle, const std::vector<std::size_t>& MaterialIndexRemap, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue);
+        const ModelNode* GetRootNode() const;
+        const ModelNode* FindNodeByName(const std::string& NodeName) const;
+        const std::vector<ModelNode>& GetNodes() const;
+
+    private:
+        bool UploadVertexData(const asset::VertexAttributes& Vertices, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, Core::DX::AllocationHandle& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews) const;
+        bool UploadIndexData(const std::vector<std::uint32_t>& Indices, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue, std::vector<std::byte>& OutRawData, Core::DX::AllocationHandle& OutAllocation, D3D12_INDEX_BUFFER_VIEW& OutView) const;
+
+    private:
+        std::vector<ModelNode> mNodes{};
+        std::unordered_map<std::string, std::uint32_t> mNodeNameLookup{};
+        std::uint32_t mRootNodeIndex{ 0 };
+        bool mHasRootNode{ false };
+    };
+}

@@ -5,7 +5,7 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 2 };
+    constexpr std::uint32_t FormatVersion{ 3 };
     constexpr char FormatMagic[4]{ 'F', 'B', 'X', 'B' };
 }
 
@@ -35,6 +35,7 @@ void AssetBinaryWriter::WriteMaterials(const std::vector<Material>& Materials) {
 }
 
 void AssetBinaryWriter::WriteMaterial(const Material& MaterialData) {
+    WriteString(MaterialData.Name);
     WriteBool(MaterialData.PBR);
     WriteUint64(static_cast<std::uint64_t>(MaterialData.Properties.size()));
     for (const MaterialProperty& Property : MaterialData.Properties) {

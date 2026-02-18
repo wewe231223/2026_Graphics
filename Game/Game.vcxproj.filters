@@ -13,6 +13,9 @@
     <Filter Include="Shader">
       <UniqueIdentifier>{dd1173a2-8046-4643-94d2-13d37ac2b816}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Model">
+      <UniqueIdentifier>{5f17697c-b1e0-406f-a5b2-8903b7fef6e0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Base\Common.h">
@@ -27,6 +30,12 @@
     <ClInclude Include="Base\Pipeline.h">
       <Filter>Base</Filter>
     </ClInclude>
+    <ClInclude Include="Model\Model.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\AssetRegistry.h">
+      <Filter>Model</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Shader.cpp">
@@ -37,6 +46,12 @@
     </ClCompile>
     <ClCompile Include="Base\Pipeline.cpp">
       <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\Model.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\AssetRegistry.cpp">
+      <Filter>Model</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

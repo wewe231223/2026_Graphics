@@ -6,7 +6,7 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 2 };
+    constexpr std::uint32_t FormatVersion{ 3 };
     constexpr std::array<char, 4> FormatMagic{ 'F', 'B', 'X', 'B' };
 }
 
@@ -33,7 +33,7 @@ bool AssetBinaryReader::ReadHeader() {
         return false;
     }
     const std::uint32_t Version{ ReadUint32() };
-    if (Version != 1 && Version != FormatVersion) {
+    if (Version != 1 && Version != 2 && Version != FormatVersion) {
         return false;
     }
     mFormatVersion = Version;
@@ -51,6 +51,9 @@ void AssetBinaryReader::ReadMaterials(std::vector<Material>& Materials) {
 
 Material AssetBinaryReader::ReadMaterial() {
     Material MaterialData{};
+    if (mFormatVersion >= 3) {
+        MaterialData.Name = ReadString();
+    }
     MaterialData.PBR = ReadBool();
     const std::uint64_t PropertyCount{ ReadUint64() };
     MaterialData.Properties.reserve(static_cast<std::size_t>(PropertyCount));

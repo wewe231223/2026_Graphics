@@ -2,9 +2,9 @@
 
 #include <cstdint>
 
-#if __has_include("SimpleMath.h")
+#if __has_include("DirectXTK12/SimpleMath.h")
     #define _DIRECTX_MATH_ENABLE
-    #include "SimpleMath.h"
+    #include "DirectXTK12/SimpleMath.h"
     #pragma comment(lib, "DirectXTK12.lib")
 #endif 
 
