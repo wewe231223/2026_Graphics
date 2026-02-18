@@ -56,9 +56,15 @@
     <ClCompile Include="Core\DX\ComputeQueue.cpp">
       <Filter>Core\DX</Filter>
     </ClCompile>
-    <ClCompile Include="Core\DX\AllocationHandle.cpp" />
-    <ClCompile Include="Core\DX\DirectQueue.cpp" />
-    <ClCompile Include="Core\DX\GraphicsAllocator.cpp" />
+    <ClCompile Include="Core\DX\DirectQueue.cpp">
+      <Filter>Core\DX</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\DX\AllocationHandle.cpp">
+      <Filter>Core\DX</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\DX\GraphicsAllocator.cpp">
+      <Filter>Core\DX</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="2026_Graphics.h">
@@ -103,9 +109,15 @@
     <ClInclude Include="Core\DX\ComputeQueue.h">
       <Filter>Core\DX</Filter>
     </ClInclude>
-    <ClInclude Include="Core\DX\AllocationHandle.h" />
-    <ClInclude Include="Core\DX\DirectQueue.h" />
-    <ClInclude Include="Core\DX\GraphicsAllocator.h" />
+    <ClInclude Include="Core\DX\DirectQueue.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DX\AllocationHandle.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DX\GraphicsAllocator.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Core\Config.prop">
