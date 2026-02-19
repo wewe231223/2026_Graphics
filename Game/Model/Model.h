@@ -5,33 +5,14 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include "Utility/DirectXInclude.h"
+#include "Game/Base/Common.h"
 #include "Asset/AssetBundle.h"
+#include "Utility/DirectXInclude.h"
 #include "Core/DX/AllocationHandle.h"
 #include "Core/DX/CopyQueue.h"
 #include "Core/DX/GraphicsAllocator.h"
 
 namespace Game {
-    enum class VertexAttributeKind : std::uint32_t {
-        Position,
-        Normal,
-        TexCoord0,
-        TexCoord1,
-        TexCoord2,
-        TexCoord3,
-        Color,
-        Tangent,
-        Bitangent,
-        BoneIndices,
-        BoneWeights
-    };
-
-    struct ModelSubMesh final {
-        std::size_t IndexOffset{ 0 };
-        std::size_t IndexCount{ 0 };
-        std::size_t MaterialIndex{ 0 };
-    };
-
     class ModelNode final {
     public:
         using Matrix = DirectX::SimpleMath::Matrix;
@@ -51,6 +32,7 @@ namespace Game {
         const Matrix& GetGeometryToNode() const;
         const std::vector<std::uint32_t>& GetChildren() const;
         const std::vector<ModelSubMesh>& GetSubMeshes() const;
+        const ModelSubMesh& GetSubMesh(std::size_t index) const; 
 
         bool HasVertexData() const;
         const std::vector<D3D12_VERTEX_BUFFER_VIEW>& GetVertexBufferViews() const;

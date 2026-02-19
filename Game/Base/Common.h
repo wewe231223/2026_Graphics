@@ -1,23 +1,67 @@
-﻿#pragma once 
-#include "Utility/DirectXInclude.h"
+﻿#pragma once
+#include <string>
+#include <cstdint>
+#include <vector>
+#include <span>
+#include <cstddef>
+#include <d3d12.h>
 
-struct ModelContext {
-    SimpleMath::Matrix world;      
-    SimpleMath::Matrix prevWorld;  
+namespace Game {
+    namespace Interface {
+        struct IPipeline {
+            virtual ~IPipeline() = default;
 
-    DirectX::XMFLOAT4 bbCenter;    
-    DirectX::XMFLOAT4 bbExtents;   
+            virtual bool Initialize(const std::string& pipelineName)                                PURE;
+            virtual IPipeline* Set(IPipeline* pipeline, ID3D12GraphicsCommandList* commandList)     PURE;
+            virtual ID3D12PipelineState* Get() const                                                PURE;
+            virtual ID3D12RootSignature* GetRootSignature() const                                   PURE;
+        };
+    }
+}
 
-    uint32_t material;
-    uint32_t flags;
-    uint32_t boneIndexStart;
-    uint32_t objectID;             
+namespace Game {
+    enum class VertexAttributeKind : std::uint32_t {
+        Position,
+        Normal,
+        TexCoord0,
+        TexCoord1,
+        TexCoord2,
+        TexCoord3,
+        Color,
+        Tangent,
+        Bitangent,
+        BoneIndices,
+        BoneWeights
+    };
 
-    DirectX::XMFLOAT4 custom0;     
-    DirectX::XMFLOAT4 custom1;     
-};
+    struct ModelSubMesh final {
+        std::size_t IndexOffset{ 0 };
+        std::size_t IndexCount{ 0 };
+        std::size_t MaterialIndex{ 0 };
+    };
+}
 
-static_assert(sizeof(ModelContext) % 16 == 0);
+namespace Game {
+    namespace Interface {
+        struct IModelNode {
+            using Matrix = DirectX::SimpleMath::Matrix;
+            virtual ~IModelNode() = default;
 
+            virtual std::uint32_t GetId() const                                                             PURE;
+            virtual const std::string& GetName() const                                                      PURE;
+            virtual const Matrix& GetNodeToParent() const                                                   PURE;
+            virtual const Matrix& GetGeometryToNode() const                                                 PURE;
+            virtual const std::vector<std::uint32_t>& GetChildren() const                                   PURE;
+            virtual const std::vector<ModelSubMesh>& GetSubMeshes() const                                   PURE;
+            virtual const ModelSubMesh& GetSubMesh(std::size_t index) const                                 PURE;
 
-// 가나다라마사사
+            virtual bool HasVertexData() const                                                              PURE;
+            virtual const std::vector<D3D12_VERTEX_BUFFER_VIEW>& GetVertexBufferViews() const               PURE;
+            virtual const D3D12_INDEX_BUFFER_VIEW& GetIndexBufferView() const                               PURE;
+
+            virtual std::size_t GetVertexAttributeBufferCount() const                                       PURE;
+            virtual VertexAttributeKind GetVertexAttributeKind(std::size_t AttributeIndex) const            PURE;
+            virtual std::span<const std::byte> GetVertexAttributeRawData(std::size_t AttributeIndex) const  PURE;
+        };
+    }
+}
