@@ -16,7 +16,7 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Core/DX/GraphicsAllocator.h"
 #include "Utility/ErrorHandler.h"
 
-#include "Arche/ArcheContainer.h"
+#include "Arche/World.h"
 #include "Game/Base/Shader.h"
 #include "Game/Base/RootSignature.h"
 #include "Game/Base/Pipeline.h"
@@ -88,7 +88,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     Core::DX::CopyQueue copyQueue{ directQueue.GetDevice() };
 
 
-    Arche::ArcheContainer archeContainer{};
+    Arche::World archeContainer{};
 
     Game::Base::PreCompileShaders();
     

@@ -5,10 +5,19 @@
 #include <span>
 #include <cstddef>
 #include <d3d12.h>
+#include "DirectXTK12/SimpleMath.h"
+
+#ifndef PURE 
+#define PURE = 0
+#endif 
+
+
+namespace SimpleMath = DirectX::SimpleMath;
 
 namespace Game {
     namespace Interface {
-        struct IPipeline {
+        class IPipeline abstract {
+        public:
             virtual ~IPipeline() = default;
 
             virtual bool Initialize(const std::string& pipelineName)                                PURE;
@@ -43,14 +52,14 @@ namespace Game {
 
 namespace Game {
     namespace Interface {
-        struct IModelNode {
-            using Matrix = DirectX::SimpleMath::Matrix;
+        class IModelNode abstract {
+        public:
             virtual ~IModelNode() = default;
 
             virtual std::uint32_t GetId() const                                                             PURE;
             virtual const std::string& GetName() const                                                      PURE;
-            virtual const Matrix& GetNodeToParent() const                                                   PURE;
-            virtual const Matrix& GetGeometryToNode() const                                                 PURE;
+            virtual const SimpleMath::Matrix& GetNodeToParent() const                                       PURE;
+            virtual const SimpleMath::Matrix& GetGeometryToNode() const                                     PURE;
             virtual const std::vector<std::uint32_t>& GetChildren() const                                   PURE;
             virtual const std::vector<ModelSubMesh>& GetSubMeshes() const                                   PURE;
             virtual const ModelSubMesh& GetSubMesh(std::size_t index) const                                 PURE;

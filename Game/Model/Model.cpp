@@ -126,11 +126,11 @@ namespace Game {
         return mName;
     }
 
-    const ModelNode::Matrix& ModelNode::GetNodeToParent() const {
+    const SimpleMath::Matrix& ModelNode::GetNodeToParent() const {
         return mNodeToParent;
     }
 
-    const ModelNode::Matrix& ModelNode::GetGeometryToNode() const {
+    const SimpleMath::Matrix& ModelNode::GetGeometryToNode() const {
         return mGeometryToNode;
     }
 
@@ -140,6 +140,10 @@ namespace Game {
 
     const std::vector<ModelSubMesh>& ModelNode::GetSubMeshes() const {
         return mSubMeshes;
+    }
+
+    const ModelSubMesh& ModelNode::GetSubMesh(std::size_t index) const {
+        return mSubMeshes[index];
     }
 
     bool ModelNode::HasVertexData() const {
@@ -167,7 +171,7 @@ namespace Game {
         return std::span<const std::byte>{ mVertexRawData.data() + Range.Offset, Range.Size };
     }
 
-    void ModelNode::SetBasicData(std::uint32_t IdValue, std::string NameValue, const Matrix& NodeToParentValue, const Matrix& GeometryToNodeValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue) {
+    void ModelNode::SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, const SimpleMath::Matrix& GeometryToNodeValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue) {
         mId = IdValue;
         mName = std::move(NameValue);
         mNodeToParent = NodeToParentValue;

@@ -1,8 +1,8 @@
-﻿#include "ArcheContainer.h"
+﻿#include "World.h"
 
 using namespace Arche;
 
-Archetype* ArcheContainer::GetOrCreateArchetype(std::span<const TypeID> sortedIDs, std::span<const size_t> sizes, std::span<const size_t> aligns) {
+Archetype* World::GetOrCreateArchetype(std::span<const TypeID> sortedIDs, std::span<const size_t> sizes, std::span<const size_t> aligns) {
     for (auto& arch : mArcheTypes) { // ArcheType 순회 
         const auto& sig = arch->GetSignature();
         if (sig.size() == sortedIDs.size() && std::equal(sig.begin(), sig.end(), sortedIDs.begin())) { // 찾는게 맞으면? 
@@ -30,7 +30,7 @@ Archetype* ArcheContainer::GetOrCreateArchetype(std::span<const TypeID> sortedID
 }
 
 
-void ArcheContainer::DestroyEntity(EntityID id) {
+void World::DestroyEntity(EntityID id) {
     if (id.index >= mEntityTable.size()) { // 에러 id 
         return;
     }
@@ -56,7 +56,7 @@ void ArcheContainer::DestroyEntity(EntityID id) {
     mFreeIndices.push_back(id.index);
 }
 
-void ArcheContainer::GetArchetypeInfo(Archetype* arch, std::vector<TypeID>& outIds, std::vector<size_t>& outSizes, std::vector<size_t>& outAligns) {
+void World::GetArchetypeInfo(Archetype* arch, std::vector<TypeID>& outIds, std::vector<size_t>& outSizes, std::vector<size_t>& outAligns) {
     outIds.reserve(arch->mLayout.size());
     outSizes.reserve(arch->mLayout.size());
     outAligns.reserve(arch->mLayout.size());

@@ -19,13 +19,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ArcheContainer.cpp" />
+    <ClCompile Include="World.cpp" />
     <ClCompile Include="ArcheType.cpp" />
     <ClCompile Include="Memory.cpp" />
     <ClCompile Include="TypeSystem.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ArcheContainer.h" />
+    <ClInclude Include="World.h" />
     <ClInclude Include="ArcheType.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="Memory.h" />

@@ -16,6 +16,9 @@
     <Filter Include="Model">
       <UniqueIdentifier>{5f17697c-b1e0-406f-a5b2-8903b7fef6e0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Scene">
+      <UniqueIdentifier>{90865894-c1ea-4192-aea0-6b95f8b15d45}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Base\Common.h">
@@ -35,6 +38,9 @@
     </ClInclude>
     <ClInclude Include="Model\AssetRegistry.h">
       <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Base\RenderFrameData.h">
+      <Filter>Base</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

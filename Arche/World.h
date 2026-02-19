@@ -10,7 +10,7 @@
 #include "Archetype.h"
 
 namespace Arche {
-    class ArcheContainer {
+    class World {
     private:
         std::vector<EntityRecord> mEntityTable{};
         std::vector<std::uint32_t> mFreeIndices{};
@@ -24,14 +24,14 @@ namespace Arche {
         void GetArchetypeInfo(Archetype* arch, std::vector<TypeID>& outIds, std::vector<size_t>& outSizes, std::vector<size_t>& outAligns);
 
     public:
-        ArcheContainer() = default;
-        ~ArcheContainer() = default;
+        World() = default;
+        ~World() = default;
 
-		ArcheContainer(const ArcheContainer&) = delete;
-		ArcheContainer& operator=(const ArcheContainer&) = delete;
+		World(const World&) = delete;
+		World& operator=(const World&) = delete;
 
-		ArcheContainer(ArcheContainer&&) noexcept = default;
-		ArcheContainer& operator=(ArcheContainer&&) noexcept = default;
+		World(World&&) noexcept = default;
+		World& operator=(World&&) noexcept = default;
 
     public:
         template <typename... Ts>
@@ -195,7 +195,7 @@ namespace Arche {
         
         template <typename... Ts, typename Func>
         void ForEach(Func&& func) {
-            for (Archetype* arch : *ArcheContainer::GetTargetArchetypes()) {
+            for (Archetype* arch : *World::GetTargetArchetypes()) {
                 for (Chunk* chunk : arch->GetChunks()) {
                     std::tuple<Ts*...> pointers = { static_cast<Ts*>(arch->GetBaseComponentArray(chunk, TypeInfo<Ts>::ID))... };
                     size_t count{ chunk->count };
@@ -365,7 +365,6 @@ namespace Arche {
 
         template <typename... Ts>
         QueryView<Ts...> Query() {
-            
             return QueryView<Ts...>(GetTargetArchetypes<Ts...>());
         }
 

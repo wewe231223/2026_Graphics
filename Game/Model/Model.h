@@ -13,10 +13,7 @@
 #include "Core/DX/GraphicsAllocator.h"
 
 namespace Game {
-    class ModelNode final {
-    public:
-        using Matrix = DirectX::SimpleMath::Matrix;
-
+    class ModelNode final : public Interface::IModelNode {
     public:
         ModelNode();
         ~ModelNode();
@@ -28,8 +25,8 @@ namespace Game {
     public:
         std::uint32_t GetId() const;
         const std::string& GetName() const;
-        const Matrix& GetNodeToParent() const;
-        const Matrix& GetGeometryToNode() const;
+        const SimpleMath::Matrix& GetNodeToParent() const;
+        const SimpleMath::Matrix& GetGeometryToNode() const;
         const std::vector<std::uint32_t>& GetChildren() const;
         const std::vector<ModelSubMesh>& GetSubMeshes() const;
         const ModelSubMesh& GetSubMesh(std::size_t index) const; 
@@ -52,15 +49,15 @@ namespace Game {
 
     private:
         friend class Model;
-        void SetBasicData(std::uint32_t IdValue, std::string NameValue, const Matrix& NodeToParentValue, const Matrix& GeometryToNodeValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue);
+        void SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, const SimpleMath::Matrix& GeometryToNodeValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue);
         void SetVertexData(std::vector<std::byte> VertexRawDataValue, std::vector<VertexAttributeRange> VertexAttributeRangesValue, Core::DX::AllocationHandle VertexAllocationValue, std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViewsValue);
         void SetIndexData(std::vector<std::byte> IndexRawDataValue, Core::DX::AllocationHandle IndexAllocationValue, const D3D12_INDEX_BUFFER_VIEW& IndexBufferViewValue);
 
     private:
         std::uint32_t mId{ 0 };
         std::string mName{};
-        Matrix mNodeToParent{};
-        Matrix mGeometryToNode{};
+        SimpleMath::Matrix mNodeToParent{};
+        SimpleMath::Matrix mGeometryToNode{};
         std::vector<std::uint32_t> mChildren{};
         std::vector<ModelSubMesh> mSubMeshes{};
 

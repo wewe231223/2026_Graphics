@@ -974,7 +974,7 @@ namespace Game {
 			return true;
 		}
 
-		Pipeline* Pipeline::Set(Pipeline* pipeline, ID3D12GraphicsCommandList* commandList) {
+		Interface::IPipeline* Pipeline::Set(Interface::IPipeline* pipeline, ID3D12GraphicsCommandList* commandList) {
 			if (commandList == nullptr) {
 				return this;
 			}

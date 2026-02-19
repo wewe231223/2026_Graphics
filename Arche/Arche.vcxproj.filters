@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ArcheContainer.cpp">
+    <ClCompile Include="World.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="ArcheType.cpp">
@@ -41,7 +41,7 @@
     <ClInclude Include="ArcheType.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="ArcheContainer.h">
+    <ClInclude Include="World.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,10 +1,11 @@
 #pragma once
 #include <string>
+#include "Game/Base/Common.h"
 #include "RootSignature.h"
 
 namespace Game {
 	namespace Base {
-		class Pipeline {
+		class Pipeline : public Interface::IPipeline {
 		public:
 			Pipeline() = default;
 			~Pipeline() = default;
@@ -15,7 +16,7 @@ namespace Game {
 
 		public:
 			bool Initialize(const std::string& pipelineName);
-			Pipeline* Set(Pipeline* pipeline, ID3D12GraphicsCommandList* commandList);
+			Interface::IPipeline* Set(Interface::IPipeline* pipeline, ID3D12GraphicsCommandList* commandList);
 			ID3D12PipelineState* Get() const;
 			ID3D12RootSignature* GetRootSignature() const;
 
@@ -31,6 +32,5 @@ namespace Game {
 		};
 
 		bool PreCompilePipelines(ID3D12Device* device);
-
 	}
 }

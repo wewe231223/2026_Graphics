@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Base\Common.h" />
+    <ClInclude Include="Base\RenderFrameData.h" />
     <ClInclude Include="Base\Shader.h" />
     <ClInclude Include="Base\RootSignature.h" />
     <ClInclude Include="Base\Pipeline.h" />
