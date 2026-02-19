@@ -26,6 +26,9 @@
     <ClInclude Include="Base\Pipeline.h" />
     <ClInclude Include="Model\AssetRegistry.h" />
     <ClInclude Include="Model\Model.h" />
+    <ClInclude Include="Scene\Scene.h" />
+    <ClInclude Include="Scene\System.h" />
+    <ClInclude Include="Scene\SystemSceduler.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Shader.cpp" />
@@ -33,6 +36,9 @@
     <ClCompile Include="Base\Pipeline.cpp" />
     <ClCompile Include="Model\AssetRegistry.cpp" />
     <ClCompile Include="Model\Model.cpp" />
+    <ClCompile Include="Scene\Scene.cpp" />
+    <ClCompile Include="Scene\System.cpp" />
+    <ClCompile Include="Scene\SystemSceduler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shader\Source\BasicShader.hlsl">
