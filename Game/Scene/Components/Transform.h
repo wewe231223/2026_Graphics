@@ -12,8 +12,6 @@ namespace Game {
 		SimpleMath::Vector3 rotationEuler{};
 		SimpleMath::Quaternion rotation{};
 		SimpleMath::Vector3 scale{ 1.0f, 1.0f, 1.0f };
-
-		std::string a{}; 
 	EndComponent(Transform)
 
 }
