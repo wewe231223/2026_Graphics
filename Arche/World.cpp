@@ -1,69 +1,100 @@
-﻿#include "World.h"
+#include "World.h"
 
 using namespace Arche;
 
-Archetype* World::GetOrCreateArchetype(std::span<const TypeID> sortedIDs, std::span<const size_t> sizes, std::span<const size_t> aligns) {
-    for (auto& arch : mArcheTypes) { // ArcheType 순회 
-        const auto& sig = arch->GetSignature();
-        if (sig.size() == sortedIDs.size() && std::equal(sig.begin(), sig.end(), sortedIDs.begin())) { // 찾는게 맞으면? 
-            return arch.get();
+World::World() = default;
+
+World::~World() = default;
+
+Archetype* World::GetOrCreateArchetype(std::span<const TypeID> SortedIDs, std::span<const size_t> Sizes, std::span<const size_t> Aligns) {
+    for (const std::unique_ptr<Archetype>& Arch : mArcheTypes) {
+        const std::vector<TypeID>& Signature{ Arch->GetSignature() };
+
+        if (Signature.size() == SortedIDs.size() && std::equal(Signature.begin(), Signature.end(), SortedIDs.begin())) {
+            return Arch.get();
         }
     }
 
-    // 새 ArcheType 생성 과정 
-    std::vector<TypeID> vecIDs(sortedIDs.begin(), sortedIDs.end());
-    std::vector<size_t> vecSizes(sizes.begin(), sizes.end());
-    std::vector<size_t> vecAligns(aligns.begin(), aligns.end());
+    std::vector<TypeID> VecIDs{ SortedIDs.begin(), SortedIDs.end() };
+    std::vector<size_t> VecSizes{ Sizes.begin(), Sizes.end() };
+    std::vector<size_t> VecAligns{ Aligns.begin(), Aligns.end() };
 
-    mArcheTypes.push_back(std::make_unique<Archetype>(std::move(vecIDs), std::move(vecSizes), std::move(vecAligns)));
-    Archetype* newArch = mArcheTypes.back().get();
+    mArcheTypes.push_back(std::make_unique<Archetype>(std::move(VecIDs), std::move(VecSizes), std::move(VecAligns)));
+    Archetype* NewArch{ mArcheTypes.back().get() };
 
-    // Query 캐시 갱신 
-    for (auto& cache : mQueryCaches) {
-        const auto& as = newArch->GetSignature();
-        if (std::includes(as.begin(), as.end(), cache.signature.begin(), cache.signature.end())) {
-            cache.archetypes.push_back(newArch);
+    for (QueryCache& Cache : mQueryCaches) {
+        const std::vector<TypeID>& Signature{ NewArch->GetSignature() };
+
+        if (std::includes(Signature.begin(), Signature.end(), Cache.mSignature.begin(), Cache.mSignature.end())) {
+            Cache.mArchetypes.push_back(NewArch);
         }
     }
 
-    return newArch;
+    return NewArch;
 }
 
+void World::DestroyEntity(EntityID Id) {
+    std::unique_lock<std::shared_mutex> Lock{ mWorldRwLock };
+    DestroyEntityInternal(Id);
+}
 
-void World::DestroyEntity(EntityID id) {
-    if (id.index >= mEntityTable.size()) { // 에러 id 
+void World::DestroyEntityInternal(EntityID Id) {
+    if (Id.index >= mEntityTable.size()) {
         return;
     }
 
-    EntityRecord& record{ mEntityTable[id.index] };
-    if (!record.active or record.generation != id.generation) { // invalid id 
+    EntityRecord& Record{ mEntityTable[Id.index] };
+
+    if (!Record.active || Record.generation != Id.generation) {
         return;
     }
 
-    EntityID movedID{ record.archetype->PopEntity(record.chunkIndex, record.entityIndex) };
-    if (movedID != id) { // 삭제된 자리에 들어온 엔티티와 삭제한 엔티티가 다르다면 
-		EntityRecord& movedRecord{ mEntityTable[movedID.index] }; // 채워진 엔티티로 레코드 갱신 
-        movedRecord.chunkIndex = record.chunkIndex; 
-        movedRecord.entityIndex = record.entityIndex;
+    EntityID MovedID{ Record.archetype->PopEntity(Record.chunkIndex, Record.entityIndex) };
+
+    if (MovedID != Id) {
+        EntityRecord& MovedRecord{ mEntityTable[MovedID.index] };
+        MovedRecord.chunkIndex = Record.chunkIndex;
+        MovedRecord.entityIndex = Record.entityIndex;
     }
 
-    // 비활성화 
-    record.active = false; 
-    record.archetype = nullptr; 
-    record.generation++;
+    Record.active = false;
+    Record.archetype = nullptr;
+    ++Record.generation;
 
-    // 빈자리 기록 
-    mFreeIndices.push_back(id.index);
+    mFreeIndices.push_back(Id.index);
 }
 
-void World::GetArchetypeInfo(Archetype* arch, std::vector<TypeID>& outIds, std::vector<size_t>& outSizes, std::vector<size_t>& outAligns) {
-    outIds.reserve(arch->mLayout.size());
-    outSizes.reserve(arch->mLayout.size());
-    outAligns.reserve(arch->mLayout.size());
+void World::GetArchetypeInfo(Archetype* Arch, std::vector<TypeID>& OutIds, std::vector<size_t>& OutSizes, std::vector<size_t>& OutAligns) {
+    OutIds.reserve(Arch->mLayout.size());
+    OutSizes.reserve(Arch->mLayout.size());
+    OutAligns.reserve(Arch->mLayout.size());
 
-    for (const auto& col : arch->mLayout) {
-        outIds.push_back(col.id);
-        outSizes.push_back(col.size);
-        outAligns.push_back(col.align);
+    for (const Archetype::Column& Value : Arch->mLayout) {
+        OutIds.push_back(Value.id);
+        OutSizes.push_back(Value.size);
+        OutAligns.push_back(Value.align);
+    }
+}
+
+void World::DeferDestroyEntity(EntityID Id) {
+    std::lock_guard<std::mutex> Lock{ mDeferredQueueLock };
+
+    mDeferredStructuralCommands.emplace_back([Id](World& TargetWorld) {
+        TargetWorld.DestroyEntityInternal(Id);
+    });
+}
+
+void World::FlushDeferredStructuralChanges() {
+    std::deque<std::function<void(World&)>> Commands{};
+
+    {
+        std::lock_guard<std::mutex> Lock{ mDeferredQueueLock };
+        Commands.swap(mDeferredStructuralCommands);
+    }
+
+    std::unique_lock<std::shared_mutex> Lock{ mWorldRwLock };
+
+    for (std::function<void(World&)>& Command : Commands) {
+        Command(*this);
     }
 }

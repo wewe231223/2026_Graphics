@@ -26,9 +26,13 @@
     <ClInclude Include="Base\Pipeline.h" />
     <ClInclude Include="Model\AssetRegistry.h" />
     <ClInclude Include="Model\Model.h" />
+    <ClInclude Include="Scene\Components\Camera.h" />
+    <ClInclude Include="Scene\Components\StaticMeshRenderer.h" />
+    <ClInclude Include="Scene\Components\Transform.h" />
     <ClInclude Include="Scene\Scene.h" />
     <ClInclude Include="Scene\System.h" />
     <ClInclude Include="Scene\SystemSceduler.h" />
+    <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Shader.cpp" />
@@ -39,6 +43,7 @@
     <ClCompile Include="Scene\Scene.cpp" />
     <ClCompile Include="Scene\System.cpp" />
     <ClCompile Include="Scene\SystemSceduler.cpp" />
+    <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shader\Source\BasicShader.hlsl">

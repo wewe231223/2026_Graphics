@@ -19,6 +19,12 @@
     <Filter Include="Scene">
       <UniqueIdentifier>{90865894-c1ea-4192-aea0-6b95f8b15d45}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Scene\Systems">
+      <UniqueIdentifier>{da518e6d-61b2-4bda-9554-c317d5a33a1b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Scene\Components">
+      <UniqueIdentifier>{b183f548-2f68-4399-9a93-420a6518d846}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Base\Common.h">
@@ -51,6 +57,18 @@
     <ClInclude Include="Scene\SystemSceduler.h">
       <Filter>Scene</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Systems\StaticRenderSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\Camera.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\StaticMeshRenderer.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\Transform.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Shader.cpp">
@@ -76,6 +94,9 @@
     </ClCompile>
     <ClCompile Include="Scene\SystemSceduler.cpp">
       <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp">
+      <Filter>Scene\Systems</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

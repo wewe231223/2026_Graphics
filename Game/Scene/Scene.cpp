@@ -11,25 +11,6 @@ namespace Game {
     Scene::~Scene() {
     }
 
-    Scene::Scene(Scene&& Other) noexcept
-        : mWorld{ std::move(Other.mWorld) },
-        mFrameContext{ std::move(Other.mFrameContext) },
-        mSystems{ std::move(Other.mSystems) },
-        mSystemSceduler{ std::move(Other.mSystemSceduler) } {
-    }
-
-    Scene& Scene::operator=(Scene&& Other) noexcept {
-        if (this == &Other) {
-            return *this;
-        }
-
-        mWorld = std::move(Other.mWorld);
-        mFrameContext = std::move(Other.mFrameContext);
-        mSystems = std::move(Other.mSystems);
-        mSystemSceduler = std::move(Other.mSystemSceduler);
-        return *this;
-    }
-
     Arche::World& Scene::GetWorld() {
         return mWorld;
     }

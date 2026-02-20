@@ -38,10 +38,10 @@ namespace Game {
         virtual ~ISystem() = default;
 
     public:
-        virtual const std::string& Name() const = 0;
-        virtual Phase GetPhase() const = 0;
-        virtual std::span<const ComponentAccess> ComponentAccesses() const = 0;
-        virtual std::span<const ResourceAccess> ResourceAccesses() const = 0;
-        virtual void Execute(Arche::World& World, FrameContext& Ctx, float Dt) = 0;
+        virtual const std::string& Name() const                                 PURE;
+        virtual Phase GetPhase() const                                          PURE;
+        virtual std::span<const ComponentAccess> ComponentAccesses() const      PURE;
+        virtual std::span<const ResourceAccess> ResourceAccesses() const        PURE;
+        virtual void Execute(Arche::World& World, FrameContext& Ctx, float Dt)  PURE;
     };
 }

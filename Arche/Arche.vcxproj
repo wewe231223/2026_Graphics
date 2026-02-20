@@ -31,6 +31,9 @@
     <ClInclude Include="Memory.h" />
     <ClInclude Include="TypeSystem.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="World.inl" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

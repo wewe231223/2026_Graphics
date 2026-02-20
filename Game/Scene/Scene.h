@@ -10,10 +10,12 @@ namespace Game {
     public:
         Scene();
         ~Scene();
+
         Scene(const Scene& Other) = delete;
         Scene& operator=(const Scene& Other) = delete;
-        Scene(Scene&& Other) noexcept;
-        Scene& operator=(Scene&& Other) noexcept;
+
+        Scene(Scene&& Other) noexcept = delete;
+        Scene& operator=(Scene&& Other) noexcept = delete;
 
     public:
         Arche::World& GetWorld();
