@@ -6,6 +6,11 @@ if(NOT WIN32)
     message(FATAL_ERROR "My2026Graphics 는 Windows 환경에서만 빌드할 수 있습니다.")
 endif()
 
+if(MSVC)
+    # 한글 깨짐 방지 및 UTF-8 소스 처리 옵션
+    add_compile_options(/utf-8)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)

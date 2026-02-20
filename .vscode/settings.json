@@ -7,5 +7,14 @@
     "files.associations": {
         "*.hlsli": "hlsl",
         "*.hlsl": "hlsl"
+    },
+
+    "cmake.buildEnvironment": {
+    "LC_ALL": "ko_KR.UTF-8"
+    },
+
+    "cmake.configureEnvironment": {
+        "LC_ALL": "ko_KR.UTF-8"
     }
+    
 }
