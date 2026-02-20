@@ -1,11 +1,11 @@
-#pragma once 
+﻿#pragma once 
 #include "Game/Scene/System.h"
 
 namespace Game {
 	class StaticRenderSystem final : public ISystem {
 	public:
-		StaticRenderSystem();
-		~StaticRenderSystem() override;
+		StaticRenderSystem() = default;
+		~StaticRenderSystem() override = default;
 
 		StaticRenderSystem(const StaticRenderSystem&) = default;
 		StaticRenderSystem& operator=(const StaticRenderSystem&) = default;

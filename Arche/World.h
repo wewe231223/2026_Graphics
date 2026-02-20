@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <algorithm>
 #include <array>
 #include <deque>
@@ -13,11 +13,9 @@
 #include <vector>
 #include "Common.h"
 #include "ArcheType.h"
+#include "Utility/ComponentRestraint.h"
 
 namespace Arche {
-    template <typename T>
-    concept TrivialComponent = std::is_trivially_copyable_v<T> && std::is_trivially_destructible_v<T>;
-
     class World {
     public:
         template <TrivialComponent... Ts>

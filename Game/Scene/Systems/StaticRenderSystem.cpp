@@ -1,5 +1,6 @@
-#include "StaticRenderSystem.h"
-
+﻿#include "StaticRenderSystem.h"
+#include "Game/Scene/Components/StaticMeshRenderer.h"
+#include "Game/Scene/Components/Transform.h" 
 
 namespace Game {
     const std::string& Game::StaticRenderSystem::Name() const {
@@ -11,6 +12,10 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> Game::StaticRenderSystem::ComponentAccesses() const {
+		//static std::array<ComponentAccess, 2> accesses{
+  //          {typeid(Transform), Access::Read},
+		//	{typeid(StaticMeshRenderer), Access::Read}
+  //      };
         return std::span<const ComponentAccess>();
     }
 

@@ -1,4 +1,4 @@
-#include "RootSignature.h"
+﻿#include "RootSignature.h"
 #include <array>
 #include <filesystem>
 #include <fstream>

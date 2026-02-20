@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <string>
 #include "Game/Base/Common.h"
 #include "RootSignature.h"

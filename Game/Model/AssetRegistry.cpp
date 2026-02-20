@@ -1,4 +1,4 @@
-#include "AssetRegistry.h"
+﻿#include "AssetRegistry.h"
 
 namespace Game {
     AssetRegistry::AssetRegistry()

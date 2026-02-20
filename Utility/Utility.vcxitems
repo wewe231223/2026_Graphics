@@ -18,6 +18,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)CompileTimeConstants.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)ComponentRestraint.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)DirectXInclude.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)ErrorHandler.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)ExternalLinkers.h" />

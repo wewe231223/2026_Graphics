@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <cstdint>
 #include <vector>
 #include <DirectXTK12/SimpleMath.h>
@@ -9,7 +9,7 @@ namespace SimpleMath = DirectX::SimpleMath;
 namespace Game {
     namespace RFD {
         // ------------------------------------------------------------
-        // 1) ÇÁ·¹ÀÓ °øÅë
+        // 1) í”„ë ˆì„ ê³µí†µ
         // ------------------------------------------------------------
         struct alignas(16) FrameGlobals {
             SimpleMath::Matrix view = {};
@@ -24,8 +24,8 @@ namespace Game {
         };
 
         // ------------------------------------------------------------
-        // 2) ¿ÀºêÁ§Æ® °øÅë ÄÁÅØ½ºÆ® (¿ÀºêÁ§Æ®´ç 1°³)
-        //    - ÀÌ ¹è¿­Àº SRV(StructuredBuffer)·Î ¿Ã·Á¼­ ¼ÎÀÌ´õ°¡ ÀÎµ¦½Ì
+        // 2) ì˜¤ë¸Œì íŠ¸ ê³µí†µ ì»¨í…ìŠ¤íŠ¸ (ì˜¤ë¸Œì íŠ¸ë‹¹ 1ê°œ)
+        //    - ì´ ë°°ì—´ì€ SRV(StructuredBuffer)ë¡œ ì˜¬ë ¤ì„œ ì…°ì´ë”ê°€ ì¸ë±ì‹±
         // ------------------------------------------------------------
         struct alignas(16) ModelContext {
             SimpleMath::Matrix world {};
@@ -44,36 +44,36 @@ namespace Game {
         };
 
         // ------------------------------------------------------------
-        // 3) µå·Î¿ì ÀÎ½ºÅÏ½º ·¹ÄÚµå (submesh µå·Î¿ì¸¦ À§ÇÑ ÃÖ¼Ò ´ÜÀ§)
-        //    - ÀÌ ¹è¿­µµ SRV·Î ¿Ã·Á¼­ ¼ÎÀÌ´õ°¡ ÀÎµ¦½Ì
-        //    - materialIndex´Â ¼ÎÀÌ´õ¿¡¼­ ÀçÁú µ¥ÀÌÅÍ(»ó¼ö/ÅØ½ºÃ³ ÀÎµ¦½º)¿¡ Á¢±ÙÇÏ±â À§ÇÑ ÀÎµ¦½º
+        // 3) ë“œë¡œìš° ì¸ìŠ¤í„´ìŠ¤ ë ˆì½”ë“œ (submesh ë“œë¡œìš°ë¥¼ ìœ„í•œ ìµœì†Œ ë‹¨ìœ„)
+        //    - ì´ ë°°ì—´ë„ SRVë¡œ ì˜¬ë ¤ì„œ ì…°ì´ë”ê°€ ì¸ë±ì‹±
+        //    - materialIndexëŠ” ì…°ì´ë”ì—ì„œ ì¬ì§ˆ ë°ì´í„°(ìƒìˆ˜/í…ìŠ¤ì²˜ ì¸ë±ìŠ¤)ì— ì ‘ê·¼í•˜ê¸° ìœ„í•œ ì¸ë±ìŠ¤
         // ------------------------------------------------------------
         struct DrawInstance {
-            uint32_t objectIndex{ 0 };          // ModelContext ÀÎµ¦½º
-            uint32_t materialIndex{ 0 };        // Material µ¥ÀÌÅÍ ¹è¿­(¶Ç´Â bindless Å×ÀÌºí) ÀÎµ¦½º
-            uint32_t flags{ 0 };                // (¼±ÅÃ) alpha-test/transparent µî
+            uint32_t objectIndex{ 0 };          // ModelContext ì¸ë±ìŠ¤
+            uint32_t materialIndex{ 0 };        // Material ë°ì´í„° ë°°ì—´(ë˜ëŠ” bindless í…Œì´ë¸”) ì¸ë±ìŠ¤
+            uint32_t flags{ 0 };                // (ì„ íƒ) alpha-test/transparent ë“±
             uint32_t pad0{ 0 };
         };
 
         // ------------------------------------------------------------
-        // 4) ¹èÄ¡ = DrawIndexedInstanced 1È¸ È£Ãâ ´ÜÀ§ (CPU°¡ ¼Òºñ)
-        //    - µ¥ÀÌÅÍ¸¦ °®´Â´Ù: PSO*, Mesh*, submeshIndex
-        //    - instanceOffset/count´Â DrawInstance ¹è¿­À» ÂüÁ¶
+        // 4) ë°°ì¹˜ = DrawIndexedInstanced 1íšŒ í˜¸ì¶œ ë‹¨ìœ„ (CPUê°€ ì†Œë¹„)
+        //    - ë°ì´í„°ë¥¼ ê°–ëŠ”ë‹¤: PSO*, Mesh*, submeshIndex
+        //    - instanceOffset/countëŠ” DrawInstance ë°°ì—´ì„ ì°¸ì¡°
         // ------------------------------------------------------------
         struct DrawBatch {
             const Interface::IPipeline* pso{ nullptr };
             const Interface::IModelNode* mesh{ nullptr };
-            uint32_t    submesh{ 0 };           // mesh->submeshes[submesh]·Î indexStart/indexCount È¹µæ
+            uint32_t    submesh{ 0 };           // mesh->submeshes[submesh]ë¡œ indexStart/indexCount íšë“
             uint32_t    pass{ 0 };              // optional (Opaque/Shadow/etc)
 
-            uint32_t    instanceOffset{ 0 };    // DrawInstance ½ÃÀÛ ÀÎµ¦½º
+            uint32_t    instanceOffset{ 0 };    // DrawInstance ì‹œì‘ ì¸ë±ìŠ¤
             uint32_t    instanceCount{ 0 };
         };
 
         // ------------------------------------------------------------
-        // 5) Scene -> Renderer ÇÁ·¹ÀÓ ÆĞÅ¶
-        //    - Renderer´Â batches·Î Ä¿¸Çµå »ı¼º
-        //    - modelContexts/drawInstances´Â GPU¿¡ ¾÷·Îµå ÈÄ ¼ÎÀÌ´õ°¡ ÀÎµ¦½Ì
+        // 5) Scene -> Renderer í”„ë ˆì„ íŒ¨í‚·
+        //    - RendererëŠ” batchesë¡œ ì»¤ë§¨ë“œ ìƒì„±
+        //    - modelContexts/drawInstancesëŠ” GPUì— ì—…ë¡œë“œ í›„ ì…°ì´ë”ê°€ ì¸ë±ì‹±
         // ------------------------------------------------------------
         struct RenderFrameData {
             FrameGlobals globals{};
