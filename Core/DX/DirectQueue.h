@@ -35,6 +35,8 @@ namespace Core {
 			ComPtr<IDXGIAdapter1> GetBestAdapter(); 
 
 			bool CheckShaderModelSupport(D3D_SHADER_MODEL);
+
+			void DrainDebugMessages();
 		private:
 			HWND mHwnd{ nullptr };
 			ComPtr<IDXGIFactory6> mFactory{ nullptr };
@@ -42,6 +44,8 @@ namespace Core {
 		#if defined(DEBUG) || defined(_DEBUG)
 			ComPtr<ID3D12Debug6> mDebugController{ nullptr };
 			ComPtr<IDXGIDebug1> mDebugDXGI{ nullptr };
+			ComPtr<IDXGIInfoQueue> mDxgiInfoQueue{ nullptr };
+			ComPtr<ID3D12InfoQueue> mD3D12InfoQueue{ nullptr };
 		#endif 
 			ComPtr<ID3D12Device> mDevice{ nullptr };
 			ComPtr<ID3D12CommandQueue> mDirectCommandQueue{ nullptr };

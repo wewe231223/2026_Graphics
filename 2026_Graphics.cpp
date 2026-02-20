@@ -22,14 +22,6 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Game/Base/Pipeline.h"
 
 
-#ifdef _DEBUG
-#pragma comment(lib, "out/debug/Arche.lib")
-#pragma comment(lib, "out/debug/Game.lib")
-#else 
-#pragma comment(lib, "out/relase/Arche.lib")
-#pragma comment(lib, "out/release/Game.lib")
-#endif 
-
 
 // 전역 변수:
 HINSTANCE hInst;                                // 현재 인스턴스입니다.

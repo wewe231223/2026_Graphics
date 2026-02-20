@@ -2,6 +2,8 @@
 #include "Utility/ErrorHandler.h"
 #include "Utility/Views.h"
 #include "Core/Config.h"
+#include <fstream>
+#include <vector>
 
 
 namespace Core {
@@ -56,6 +58,8 @@ namespace Core {
 
 			ErrorHandler::report(mSwapChain->Present(Constants::AllowTearing ? 0 : 1, Constants::AllowTearing ? DXGI_PRESENT_ALLOW_TEARING : 0), "DirectQueue", "Failed to present SwapChain.", ErrorHandler::Level::Critical);
 
+			DirectQueue::DrainDebugMessages();
+
 			mFrameSync.Sync(mDirectCommandQueue.Get());
         }
 
@@ -80,6 +84,11 @@ namespace Core {
 
 			mDebugDXGI->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
             mDebugDXGI->EnableLeakTrackingForThread(); 
+
+			if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(mDxgiInfoQueue.GetAddressOf())))) {
+				mDxgiInfoQueue->SetBreakOnSeverity(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_ERROR, true);
+				mDxgiInfoQueue->SetBreakOnSeverity(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_CORRUPTION, true);
+			}
 #endif 
             // Device
 			ComPtr<IDXGIAdapter1> adapter = GetBestAdapter();
@@ -95,6 +104,14 @@ namespace Core {
 				ErrorHandler::report(mFactory->EnumWarpAdapter(IID_PPV_ARGS(&warpAdapter)),"DirectQueue", "Falied to make WarpAdapter", ErrorHandler::Level::Critical);
 				ErrorHandler::report(::D3D12CreateDevice(warpAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&mDevice)), "DirectQueue", "Failed to make Warp Device", ErrorHandler::Level::Critical);
 			}
+
+#if defined(DEBUG) || defined(_DEBUG)
+			mDevice->QueryInterface(IID_PPV_ARGS(mD3D12InfoQueue.GetAddressOf()));
+			if (mD3D12InfoQueue != nullptr) {
+				mD3D12InfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
+				mD3D12InfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
+			}
+#endif
 
 			if (DirectQueue::CheckShaderModelSupport(D3D_SHADER_MODEL_6_6)) {
 				OutputDebugString(L"Shader Model 6.6 is supported.\n"); 
@@ -202,6 +219,69 @@ namespace Core {
 
 			return bestAdapter;
         }
+
+		void DirectQueue::DrainDebugMessages() {
+#if defined(DEBUG) || defined(_DEBUG)
+			std::ofstream logFile{ "DxDebugLayer.log", std::ios::app };
+
+			if (mDxgiInfoQueue != nullptr) {
+				const UINT64 dxgiMessageCount{ mDxgiInfoQueue->GetNumStoredMessagesAllowedByRetrievalFilters(DXGI_DEBUG_ALL) };
+				for (UINT64 index{ 0 }; index < dxgiMessageCount; ++index) {
+					SIZE_T messageLength{};
+					if (FAILED(mDxgiInfoQueue->GetMessage(DXGI_DEBUG_ALL, index, nullptr, &messageLength))) {
+						continue;
+					}
+
+					std::vector<unsigned char> messageBuffer{};
+					messageBuffer.resize(messageLength);
+					DXGI_INFO_QUEUE_MESSAGE* message{ reinterpret_cast<DXGI_INFO_QUEUE_MESSAGE*>(messageBuffer.data()) };
+					if (FAILED(mDxgiInfoQueue->GetMessage(DXGI_DEBUG_ALL, index, message, &messageLength))) {
+						continue;
+					}
+
+					if (message->pDescription == nullptr) {
+						continue;
+					}
+
+					OutputDebugStringA(message->pDescription);
+					OutputDebugStringA("\n");
+					if (logFile.is_open()) {
+						logFile << "DXGI: " << message->pDescription << std::endl;
+					}
+				}
+				mDxgiInfoQueue->ClearStoredMessages(DXGI_DEBUG_ALL);
+			}
+
+			if (mD3D12InfoQueue != nullptr) {
+				const UINT64 d3d12MessageCount{ mD3D12InfoQueue->GetNumStoredMessagesAllowedByRetrievalFilter() };
+				for (UINT64 index{ 0 }; index < d3d12MessageCount; ++index) {
+					SIZE_T messageLength{};
+					if (FAILED(mD3D12InfoQueue->GetMessage(index, nullptr, &messageLength))) {
+						continue;
+					}
+
+					std::vector<unsigned char> messageBuffer{};
+					messageBuffer.resize(messageLength);
+					D3D12_MESSAGE* message{ reinterpret_cast<D3D12_MESSAGE*>(messageBuffer.data()) };
+					if (FAILED(mD3D12InfoQueue->GetMessage(index, message, &messageLength))) {
+						continue;
+					}
+
+					if (message->pDescription == nullptr) {
+						continue;
+					}
+
+					OutputDebugStringA(message->pDescription);
+					OutputDebugStringA("\n");
+					if (logFile.is_open()) {
+						logFile << "D3D12: " << message->pDescription << std::endl;
+					}
+				}
+				mD3D12InfoQueue->ClearStoredMessages();
+			}
+#endif
+		}
+
 		bool DirectQueue::CheckShaderModelSupport(D3D_SHADER_MODEL targetModel) {
 			D3D12_FEATURE_DATA_SHADER_MODEL shaderModel{ targetModel };
 
