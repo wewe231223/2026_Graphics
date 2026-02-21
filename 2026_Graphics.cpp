@@ -7,7 +7,6 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 
 #define MAX_LOADSTRING 100
 
-
 #include "Core/Config.h"
 #include "DirectXTK12/Keyboard.h"
 #include "DirectXTK12/Mouse.h"
@@ -15,12 +14,20 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Core/DX/CopyQueue.h"
 #include "Core/DX/GraphicsAllocator.h"
 #include "Utility/ErrorHandler.h"
-
 #include "Arche/World.h"
 #include "Game/Base/Shader.h"
 #include "Game/Base/RootSignature.h"
 #include "Game/Base/Pipeline.h"
 
+#ifdef _MSC_VER
+    #ifdef _DEBUG
+        #pragma comment(lib, "out/debug/Arche.lib")
+        #pragma comment(lib, "out/debug/Game.lib")
+    #else 
+        #pragma comment(lib, "out/relase/Arche.lib")
+        #pragma comment(lib, "out/release/Game.lib")
+    #endif 
+#endif 
 
 
 // 전역 변수:
@@ -46,7 +53,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     // TODO: 여기에 코드를 입력합니다.
 
-    FileConfig config("config.prop");
+    FileConfig config("Config.prop");
     Config::Init(&config);
 
     // 전역 문자열을 초기화합니다.
@@ -92,13 +99,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		ErrorHandler::report(true, "WinMain", "Failed to pre-compile pipelines.", ErrorHandler::Level::Critical);
     }
 
-
-
-
-    Game::Base::Shader s{};
-    s.Initialize("BasicShader.hlsl");
-    Game::Base::Pipeline p{}; 
-    p.Initialize("DefaultGraphics"); 
 
     // 기본 메시지 루프입니다:
     while (true) {

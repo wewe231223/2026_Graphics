@@ -1,10 +1,11 @@
 ﻿#pragma once 
 
 #include "Utility/ComponentRestraint.h"
-#include "Game/Base/Common.h"
+#include "Game/Model/Model.h"
 
 namespace Game {
 	Component(StaticMeshRenderer)
-		Interface::IModelNode* modelNode{ nullptr };
+		Model* modelNode{ nullptr };
 	EndComponent(StaticMeshRenderer)
 }
+
