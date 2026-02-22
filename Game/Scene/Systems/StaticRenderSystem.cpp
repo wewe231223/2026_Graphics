@@ -1,10 +1,10 @@
 #include "StaticRenderSystem.h"
 #include <array>
 #include <cstdint>
-#include <iterator>
 #include <vector>
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
+#include "Game/Scene/Components/Material.h"
 
 namespace {
     SimpleMath::Matrix BuildWorldMatrix(const Game::Transform& transform) {
@@ -24,9 +24,10 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> StaticRenderSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 2> accesses{ {
-           {typeid(Transform), Access::Read},
-            {typeid(StaticMeshRenderer), Access::Read}
+        static std::array<ComponentAccess, 3> accesses{ {
+            {typeid(Transform), Access::Read},
+            {typeid(StaticMeshRenderer), Access::Read},
+			{typeid(Material), Access::Read}
         } };
         return accesses;
     }
@@ -43,10 +44,8 @@ namespace Game {
 
         RFD::RenderFrameData& renderData{ Ctx.RenderData };
 
-        InstanceBucketMap drawInstanceBuckets{};
-        std::vector<DrawBatchKey> batchOrder{};
-
-        for (auto [renderer, transform] : World.Query<StaticMeshRenderer, Transform>()) {
+        // submesh 마다 다른 pso 를 사용하는 방법은..? 
+        for (auto [renderer, transform, material] : World.Query<StaticMeshRenderer, Transform, Material>()) {
             if (renderer.modelNode == nullptr) {
                 continue;
             }
@@ -59,65 +58,31 @@ namespace Game {
 
             const std::vector<ModelNode>& nodes{ model->GetNodes() };
             const SimpleMath::Matrix entityWorld{ BuildWorldMatrix(transform) };
-            TraverseNode(*rootNode, nodes, entityWorld, renderData, drawInstanceBuckets, batchOrder);
-        }
-
-        for (const DrawBatchKey& key : batchOrder) {
-            const auto foundBucket{ drawInstanceBuckets.find(key) };
-            if (foundBucket == drawInstanceBuckets.end()) {
-                continue;
-            }
-
-            std::vector<RFD::DrawInstance>& bucket{ foundBucket->second };
-            if (bucket.empty()) {
-                continue;
-            }
-
-            RFD::DrawBatch batch{};
-            batch.pso = key.pso;
-            batch.mesh = key.mesh;
-            batch.submesh = key.submesh;
-            batch.pass = key.pass;
-            batch.instanceOffset = static_cast<std::uint32_t>(renderData.drawInstances.size());
-            batch.instanceCount = static_cast<std::uint32_t>(bucket.size());
-
-            renderData.drawInstances.insert(
-                renderData.drawInstances.end(),
-                std::make_move_iterator(bucket.begin()),
-                std::make_move_iterator(bucket.end()));
-
-            renderData.batches.push_back(batch);
+            TraverseNode(*rootNode, nodes, entityWorld, renderData);
         }
     }
 
-    void StaticRenderSystem::TraverseNode(const ModelNode& node, const std::vector<ModelNode>& nodes, const SimpleMath::Matrix& parentWorld, RFD::RenderFrameData& renderData, InstanceBucketMap& drawInstanceBuckets, std::vector<DrawBatchKey>& batchOrder) const { const SimpleMath::Matrix nodeWorld{ node.GetNodeToParent() * parentWorld };
+    void StaticRenderSystem::TraverseNode(const ModelNode& node, const std::vector<ModelNode>& nodes, const SimpleMath::Matrix& parentWorld, RFD::RenderFrameData& renderData) const {
+        const SimpleMath::Matrix nodeWorld{ node.GetNodeToParent() * parentWorld };
 
         RFD::ModelContext context{};
         context.world = node.GetGeometryToNode() * nodeWorld;
         context.prevWorld = context.world;
         context.objectID = static_cast<std::uint32_t>(renderData.modelContexts.size());
-        const std::uint32_t objectIndex{ context.objectID };
         renderData.modelContexts.push_back(context);
 
         const std::vector<ModelSubMesh>& subMeshes{ node.GetSubMeshes() };
         for (std::size_t subMeshIndex{ 0 }; subMeshIndex < subMeshes.size(); ++subMeshIndex) {
             const ModelSubMesh& subMesh{ subMeshes[subMeshIndex] };
 
-            DrawBatchKey key{};
-            key.pso = nullptr;
-            key.mesh = &node;
-            key.submesh = static_cast<std::uint32_t>(subMeshIndex);
-            key.pass = 0;
+            RFD::DrawBatch batch{};
+            batch.pso = nullptr;
+            batch.mesh = &node;
+            batch.submesh = static_cast<std::uint32_t>(subMeshIndex);
+            batch.pass = 0;
 
-            auto [bucketIt, inserted] = drawInstanceBuckets.try_emplace(key, InstanceBucket{});
-            if (inserted) {
-                batchOrder.push_back(key);
-            }
-
-            RFD::DrawInstance instance{};
-            instance.objectIndex = objectIndex;
-            instance.materialIndex = static_cast<std::uint32_t>(subMesh.MaterialIndex);
-            bucketIt->second.push_back(instance);
+            renderData.batches.push_back(batch);
+            renderData.drawInstances.emplace_back(context.objectID, static_cast<std::uint32_t>(subMesh.MaterialIndex));
         }
 
         for (std::uint32_t childIndex : node.GetChildren()) {
@@ -125,7 +90,7 @@ namespace Game {
                 continue;
             }
 
-            TraverseNode(nodes[childIndex], nodes, nodeWorld, renderData, drawInstanceBuckets, batchOrder);
+            TraverseNode(nodes[childIndex], nodes, nodeWorld, renderData);
         }
     }
 }

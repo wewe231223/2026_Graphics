@@ -65,9 +65,6 @@ namespace Game {
             const Interface::IModelNode* mesh{ nullptr };
             uint32_t    submesh{ 0 };           // mesh->submeshes[submesh]로 indexStart/indexCount 획득
             uint32_t    pass{ 0 };              // optional (Opaque/Shadow/etc)
-
-            uint32_t    instanceOffset{ 0 };    // DrawInstance 시작 인덱스
-            uint32_t    instanceCount{ 0 };
         };
 
         // ------------------------------------------------------------

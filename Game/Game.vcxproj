@@ -27,6 +27,7 @@
     <ClInclude Include="Model\AssetRegistry.h" />
     <ClInclude Include="Model\Model.h" />
     <ClInclude Include="Scene\Components\Camera.h" />
+    <ClInclude Include="Scene\Components\Material.h" />
     <ClInclude Include="Scene\Components\StaticMeshRenderer.h" />
     <ClInclude Include="Scene\Components\Transform.h" />
     <ClInclude Include="Scene\Scene.h" />
