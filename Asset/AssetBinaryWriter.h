@@ -1,10 +1,8 @@
 ﻿#pragma once
-
 #include <fstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
-
 #include "AssetBundle.h"
 
 namespace asset {

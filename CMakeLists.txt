@@ -171,3 +171,24 @@ add_custom_command(TARGET 2026_Graphics POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${GraphicsRoot}/D3D $<TARGET_FILE_DIR:2026_Graphics>/D3D
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${GraphicsRoot}/Shader $<TARGET_FILE_DIR:2026_Graphics>/Shader
 )
+
+add_executable(AssetZIP
+    AssetZIP/AssetZIP.cpp
+)
+
+target_include_directories(AssetZIP PRIVATE
+    ${GraphicsRoot}
+    ${ExternalIncludeDir}
+)
+
+target_link_libraries(AssetZIP PRIVATE
+    Asset
+    Utility
+)
+
+target_compile_definitions(AssetZIP PRIVATE
+    UNICODE
+    _UNICODE
+    $<$<CONFIG:Debug>:_DEBUG>
+    $<$<NOT:$<CONFIG:Debug>>:NDEBUG>
+)

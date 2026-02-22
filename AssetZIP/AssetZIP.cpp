@@ -1,20 +1,115 @@
-﻿// AssetZIP.cpp : 이 파일에는 'main' 함수가 포함됩니다. 거기서 프로그램 실행이 시작되고 종료됩니다.
-//
-
+﻿#include <filesystem>
 #include <iostream>
+#include <string>
+#include <vector>
+#include "Asset/AssetBinaryWriter.h"
+#include "Asset/FbxAssetImporter.h"
+#include "Asset/MaterialGroupJsonSerializer.h"
+#include "Asset/ModelResult.h"
 
-int main()
-{
-    std::cout << "Hello World!\n";
+#pragma comment(lib, "Asset.lib")
+
+
+namespace {
+    std::filesystem::path GetProjectDirectoryPath() {
+        return std::filesystem::current_path();
+    }
+
+    std::filesystem::path GetAssetFilePath(const std::filesystem::path& ProjectDirectoryPath, const std::string& InputFileName) {
+        return ProjectDirectoryPath / "Asset" / InputFileName;
+    }
+
+    std::filesystem::path GetBinDirectoryPath(const std::filesystem::path& ProjectDirectoryPath) {
+        return ProjectDirectoryPath / "Bin";
+    }
+
+    std::filesystem::path GetBinaryOutputPath(const std::filesystem::path& BinDirectoryPath, const std::filesystem::path& AssetFilePath) {
+        return BinDirectoryPath / (AssetFilePath.stem().string() + ".bin");
+    }
+
+    std::filesystem::path GetMaterialOutputPath(const std::filesystem::path& BinDirectoryPath, const std::filesystem::path& AssetFilePath) {
+        return BinDirectoryPath / (AssetFilePath.stem().string() + "_materials.json");
+    }
+
+    std::size_t CountTotalVertices(const asset::ModelResult& ModelResultData) {
+        std::size_t TotalVertices{ 0 };
+
+        ModelResultData.ForEachDfs([&TotalVertices](asset::ModelNode& Node) {
+            TotalVertices += Node.Vertices().VertexCount();
+        });
+
+        return TotalVertices;
+    }
+
+    std::size_t CountTotalIndices(const asset::ModelResult& ModelResultData) {
+        std::size_t TotalIndices{ 0 };
+
+        ModelResultData.ForEachDfs([&TotalIndices](asset::ModelNode& Node) {
+            TotalIndices += Node.Indices().size();
+        });
+
+        return TotalIndices;
+    }
+
+    int Run(const std::string& InputFileName) {
+        const std::filesystem::path ProjectDirectoryPath{ GetProjectDirectoryPath() };
+        const std::filesystem::path AssetFilePath{ GetAssetFilePath(ProjectDirectoryPath, InputFileName) };
+        const std::filesystem::path BinDirectoryPath{ GetBinDirectoryPath(ProjectDirectoryPath) };
+        const std::filesystem::path BinaryOutputPath{ GetBinaryOutputPath(BinDirectoryPath, AssetFilePath) };
+        const std::filesystem::path MaterialOutputPath{ GetMaterialOutputPath(BinDirectoryPath, AssetFilePath) };
+
+        if (!std::filesystem::exists(AssetFilePath)) {
+            std::cerr << "입력 FBX 파일을 찾을 수 없습니다 : " << AssetFilePath.string() << std::endl;
+            return 1;
+        }
+
+        std::error_code ErrorCode{};
+        std::filesystem::create_directories(BinDirectoryPath, ErrorCode);
+        if (ErrorCode) {
+            std::cerr << "Bin 폴더 생성에 실패하였습니다 : " << BinDirectoryPath.string() << std::endl;
+            return 1;
+        }
+
+        asset::FbxAssetImporter FbxAssetImporterData{ asset::GraphicsAPI::DirectX };
+        asset::AssetBundle AssetBundleData{ FbxAssetImporterData.LoadFromFile(AssetFilePath.string()) };
+
+        asset::AssetBinaryWriter AssetBinaryWriterData{};
+        const bool IsBinaryWriteSuccess{ AssetBinaryWriterData.WriteToFile(BinaryOutputPath.string(), AssetBundleData) };
+        if (!IsBinaryWriteSuccess) {
+            std::cerr << "바이너리 파일 생성에 실패하였습니다 : " << BinaryOutputPath.string() << std::endl;
+            return 1;
+        }
+
+        asset::MaterialGroupJsonSerializer MaterialGroupJsonSerializerData{};
+        const bool IsMaterialWriteSuccess{ MaterialGroupJsonSerializerData.WriteToFile(MaterialOutputPath.string(), AssetBundleData.GetMaterialGroups()) };
+        if (!IsMaterialWriteSuccess) {
+            std::cerr << "재질 JSON 파일 생성에 실패하였습니다 : " << MaterialOutputPath.string() << std::endl;
+            return 1;
+        }
+
+        const asset::ModelResult& ModelResultData{ AssetBundleData.GetModelResult() };
+        const std::size_t TotalVertices{ CountTotalVertices(ModelResultData) };
+        const std::size_t TotalIndices{ CountTotalIndices(ModelResultData) };
+        const std::size_t MaterialGroupCount{ AssetBundleData.GetMaterialGroups().size() };
+
+        std::cout << "입력 파일: " << AssetFilePath.string() << std::endl;
+        std::cout << "출력 바이너리: " << BinaryOutputPath.string() << std::endl;
+        std::cout << "출력 재질 JSON: " << MaterialOutputPath.string() << std::endl;
+        std::cout << "노드 수: " << ModelResultData.NodeCount() << std::endl;
+        std::cout << "총 정점 수:  " << TotalVertices << std::endl;
+        std::cout << "총 인덱스 수: " << TotalIndices << std::endl;
+        std::cout << "재질 그룹 개수:  " << MaterialGroupCount << std::endl;
+
+        return 0;
+    }
 }
 
-// 프로그램 실행: <Ctrl+F5> 또는 [디버그] > [디버깅하지 않고 시작] 메뉴
-// 프로그램 디버그: <F5> 키 또는 [디버그] > [디버깅 시작] 메뉴
+int main(int ArgCount, char* ArgValues[]) {
+    if (ArgCount < 2) {
+        std::cerr << "사용법: AssetZIP <FBX파일명" << std::endl;
+        return 1;
+    }
 
-// 시작을 위한 팁: 
-//   1. [솔루션 탐색기] 창을 사용하여 파일을 추가/관리합니다.
-//   2. [팀 탐색기] 창을 사용하여 소스 제어에 연결합니다.
-//   3. [출력] 창을 사용하여 빌드 출력 및 기타 메시지를 확인합니다.
-//   4. [오류 목록] 창을 사용하여 오류를 봅니다.
-//   5. [프로젝트] > [새 항목 추가]로 이동하여 새 코드 파일을 만들거나, [프로젝트] > [기존 항목 추가]로 이동하여 기존 코드 파일을 프로젝트에 추가합니다.
-//   6. 나중에 이 프로젝트를 다시 열려면 [파일] > [열기] > [프로젝트]로 이동하고 .sln 파일을 선택합니다.
+    const std::string InputFileName{ ArgValues[1] };
+    return Run(InputFileName);
+}

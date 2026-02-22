@@ -1,4 +1,4 @@
-#include "StaticRenderSystem.h"
+ï»¿#include "StaticRenderSystem.h"
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -46,7 +46,7 @@ namespace Game {
         RFD::RenderFrameData& renderData{ Ctx.RenderData };
         const std::vector<RegisteredMaterialGroup>* materialGroups{ Ctx.MaterialGroups };
 
-        // submesh ¸¶´Ù ´Ù¸¥ pso ¸¦ »ç¿ëÇÏ´Â ¹æ¹ıÀº..? 
+        // submesh ë§ˆë‹¤ ë‹¤ë¥¸ pso ë¥¼ ì‚¬ìš©í•˜ëŠ” ë°©ë²•ì€..? 
         for (auto [renderer, transform, material] : World.Query<StaticMeshRenderer, Transform, Material>()) {
             if (renderer.modelNode == nullptr) {
                 continue;
