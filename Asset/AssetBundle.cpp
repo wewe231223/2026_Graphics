@@ -12,15 +12,15 @@ const ModelResult& AssetBundle::GetModelResult() const {
     return mModelResult;
 }
 
-std::vector<Material>& AssetBundle::GetMaterials() {
-    return mMaterials;
+std::vector<MaterialGroup>& AssetBundle::GetMaterialGroups() {
+    return mMaterialGroups;
 }
 
-const std::vector<Material>& AssetBundle::GetMaterials() const {
-    return mMaterials;
+const std::vector<MaterialGroup>& AssetBundle::GetMaterialGroups() const {
+    return mMaterialGroups;
 }
 
 void AssetBundle::Clear() {
     mModelResult = ModelResult{};
-    mMaterials.clear();
+    mMaterialGroups.clear();
 }

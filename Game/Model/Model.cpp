@@ -227,7 +227,7 @@ namespace Game {
         return *this;
     }
 
-    bool Model::InitializeFromAssetBundle(const asset::AssetBundle& Bundle, const std::vector<std::size_t>& MaterialIndexRemap, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue) {
+    bool Model::InitializeFromAssetBundle(const asset::AssetBundle& Bundle, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue) {
         mNodes.clear();
         mNodeNameLookup.clear();
         mRootNodeIndex = 0;
@@ -265,10 +265,7 @@ namespace Game {
                 ModelSubMesh SubMesh{};
                 SubMesh.IndexOffset = SourceSubMesh.IndexOffset;
                 SubMesh.IndexCount = SourceSubMesh.IndexCount;
-                SubMesh.MaterialIndex = SourceSubMesh.MaterialIndex;
-                if (SourceSubMesh.MaterialIndex < MaterialIndexRemap.size()) {
-                    SubMesh.MaterialIndex = MaterialIndexRemap[SourceSubMesh.MaterialIndex];
-                }
+                SubMesh.MaterialGroupItemIndex = SourceSubMesh.MaterialGroupItemIndex;
                 SubMeshes.push_back(SubMesh);
             }
 

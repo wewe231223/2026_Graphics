@@ -1,58 +1,4 @@
-﻿/*
- * ============================================================================
- * FBXB BINARY FORMAT (v2) SPECIFICATION
- * ============================================================================
- *
- * [ HEADER ]
- * +----------+----------+---------------------------------------------------+
- * | Magic    | char[4]  | "FBXB"                                            |
- * | Version  | uint32   | 2                                                 |
- * +----------+----------+---------------------------------------------------+
- *
- * [ MATERIALS ]
- * +---------------+--------+------------------------------------------------+
- * | MaterialCount | uint64 | Total number of materials                      |
- * +---------------+--------+------------------------------------------------+
- * | [ Material Block ] x MaterialCount                                      |
- * |  +---------------+--------+---------------------------------------------+
- * |  | PbrFlag       | uint8  | Physically Based Rendering flag             |
- * |  | PropertyCount | uint64 | Number of properties in this material       |
- * |  +---------------+--------+---------------------------------------------+
- * |  | [ Property Block ] x PropertyCount                                   |
- * |  |  +----------+--------+-----------------------------------------------+
- * |  |  | Type     | uint16 | Property type identifier                     |
- * |  |  | MapKind  | uint8  | 0:None, 1:Real(f32), 2:Int(i64), 3:Bool(u8),  |
- * |  |  |          |        | 4:Vec2, 5:Vec3, 6:Vec4, 7:String(u64+char[])  |
- * |  |  | Payload  | mixed  | (Data size varies based on MapKind)          |
- * |  |  +----------+--------+-----------------------------------------------+
- *
- * [ NODES ] (DFS Order)
- * +---------------+--------+------------------------------------------------+
- * | NodeCount     | uint64 | Total number of nodes                          |
- * +---------------+--------+------------------------------------------------+
- * | [ Node Block ] x NodeCount                                              |
- * |  +------------------+----------+----------------------------------------+
- * |  | Name             | String   | (uint64 Length + char[Length])         |
- * |  | ParentIndex      | int32    | -1 if root                             |
- * |  | NodeToParent     | mat4     | 4x4 Transformation matrix              |
- * |  | GeometryToNode   | mat4     | 4x4 Offset matrix                      |
- * |  +------------------+----------+----------------------------------------+
- * |  | VertexAttributes | (Nested) | For each attribute: uint64 Count + Raw |
- * |  |                  |          | [Pos, Norm, UV[4], Col, Tan, Bitan,    |
- * |  |                  |          |  BoneIdx, BoneWeight]                  |
- * |  +------------------+----------+----------------------------------------+
- * |  | Indices          | (Nested) | uint64 Count + uint32[Count]           |
- * |  | SubMeshes        | (Nested) | uint64 Count + SubMesh[Count]          |
- * |  +------------------+----------+----------------------------------------+
- *
- * [ SubMesh ]
- * +----------------+--------+-----------------------------------------------+
- * | IndexOffset    | uint64 | Start index in the node index buffer          |
- * | IndexCount     | uint64 | Number of indices to draw                     |
- * | MaterialIndex  | uint64 | Material reference index                      |
- * +----------------+--------+-----------------------------------------------+
- */
-#pragma once
+﻿#pragma once
 
 #include <fstream>
 #include <string>
@@ -77,10 +23,6 @@ namespace asset {
 
     private:
         void WriteHeader();
-        void WriteMaterials(const std::vector<Material>& Materials);
-        void WriteMaterial(const Material& MaterialData);
-        void WriteMaterialProperty(const MaterialProperty& Property);
-        void WriteMaterialMap(const MaterialMap& Map);
         void WriteModelResult(const ModelResult& Result);
         void WriteNodes(const std::vector<const ModelNode*>& Nodes, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices);
         void WriteNode(const ModelNode& Node, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices);

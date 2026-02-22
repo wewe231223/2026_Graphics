@@ -69,6 +69,7 @@ add_library(Asset STATIC
     Asset/FbxAssetImporter.cpp
     Asset/MaterialVisitor.cpp
     Asset/MeshHierarchyBuilder.cpp
+    Asset/MaterialGroupJsonSerializer.cpp
     Asset/ModelResult.cpp
     Asset/NumericTypes.cpp
     Asset/ufbx.c

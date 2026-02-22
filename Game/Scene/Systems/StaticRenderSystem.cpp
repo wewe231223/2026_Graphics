@@ -2,6 +2,7 @@
 #include <array>
 #include <cstdint>
 #include <vector>
+#include "Game/Model/AssetRegistry.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
 #include "Game/Scene/Components/Material.h"
@@ -43,6 +44,7 @@ namespace Game {
         (void)Dt;
 
         RFD::RenderFrameData& renderData{ Ctx.RenderData };
+        const std::vector<RegisteredMaterialGroup>* materialGroups{ Ctx.MaterialGroups };
 
         // submesh 마다 다른 pso 를 사용하는 방법은..? 
         for (auto [renderer, transform, material] : World.Query<StaticMeshRenderer, Transform, Material>()) {
@@ -58,39 +60,51 @@ namespace Game {
 
             const std::vector<ModelNode>& nodes{ model->GetNodes() };
             const SimpleMath::Matrix entityWorld{ BuildWorldMatrix(transform) };
-            TraverseNode(*rootNode, nodes, entityWorld, renderData);
+            TraverseNode(*rootNode, nodes, entityWorld, material.MaterialGroupIndex, Ctx, renderData);
         }
     }
 
-    void StaticRenderSystem::TraverseNode(const ModelNode& node, const std::vector<ModelNode>& nodes, const SimpleMath::Matrix& parentWorld, RFD::RenderFrameData& renderData) const {
-        const SimpleMath::Matrix nodeWorld{ node.GetNodeToParent() * parentWorld };
+    void StaticRenderSystem::TraverseNode(const ModelNode& Node, const std::vector<ModelNode>& Nodes, const SimpleMath::Matrix& ParentWorld, std::uint32_t MaterialGroupIndex, FrameContext& Context, RFD::RenderFrameData& RenderData) const {
+        const SimpleMath::Matrix NodeWorld{ Node.GetNodeToParent() * ParentWorld };
 
-        RFD::ModelContext context{};
-        context.world = node.GetGeometryToNode() * nodeWorld;
-        context.prevWorld = context.world;
-        context.objectID = static_cast<std::uint32_t>(renderData.modelContexts.size());
-        renderData.modelContexts.push_back(context);
+        RFD::ModelContext ModelContext{};
+        ModelContext.world = Node.GetGeometryToNode() * NodeWorld;
+        ModelContext.prevWorld = ModelContext.world;
+        ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());
+        RenderData.modelContexts.push_back(ModelContext);
 
-        const std::vector<ModelSubMesh>& subMeshes{ node.GetSubMeshes() };
-        for (std::size_t subMeshIndex{ 0 }; subMeshIndex < subMeshes.size(); ++subMeshIndex) {
-            const ModelSubMesh& subMesh{ subMeshes[subMeshIndex] };
+        const std::vector<ModelSubMesh>& SubMeshes{ Node.GetSubMeshes() };
+        for (std::size_t SubMeshIndex{ 0 }; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
+            const ModelSubMesh& SubMesh{ SubMeshes[SubMeshIndex] };
 
-            RFD::DrawBatch batch{};
-            batch.pso = nullptr;
-            batch.mesh = &node;
-            batch.submesh = static_cast<std::uint32_t>(subMeshIndex);
-            batch.pass = 0;
+            RFD::DrawBatch Batch{};
+            Batch.pso = nullptr;
+            Batch.mesh = &Node;
+            Batch.submesh = static_cast<std::uint32_t>(SubMeshIndex);
+            Batch.pass = 0;
 
-            renderData.batches.push_back(batch);
-            renderData.drawInstances.emplace_back(context.objectID, static_cast<std::uint32_t>(subMesh.MaterialIndex));
-        }
-
-        for (std::uint32_t childIndex : node.GetChildren()) {
-            if (childIndex >= nodes.size()) {
-                continue;
+            std::uint32_t ResolvedMaterialIndex{ 0 };
+            if (Context.MaterialGroups != nullptr && MaterialGroupIndex < Context.MaterialGroups->size()) {
+                const RegisteredMaterialGroup& RegisteredGroup{ (*Context.MaterialGroups)[MaterialGroupIndex] };
+                if (SubMesh.MaterialGroupItemIndex < RegisteredGroup.Items.size()) {
+                    const RegisteredMaterialGroupItem& RegisteredGroupItem{ RegisteredGroup.Items[SubMesh.MaterialGroupItemIndex] };
+                    Batch.pso = RegisteredGroupItem.Pipeline;
+                    ResolvedMaterialIndex = RegisteredGroupItem.MaterialIndex;
+                }
             }
 
-            TraverseNode(nodes[childIndex], nodes, nodeWorld, renderData);
+        
+            RenderData.batches.push_back(Batch);
+            RenderData.drawInstances.emplace_back(ModelContext.objectID, ResolvedMaterialIndex);
         }
+
+
+        for (std::uint32_t ChildIndex : Node.GetChildren()) {
+            if (ChildIndex >= Nodes.size()) {
+                continue;
+            }
+            TraverseNode(Nodes[ChildIndex], Nodes, NodeWorld, MaterialGroupIndex, Context, RenderData);
+        }
+            
     }
 }

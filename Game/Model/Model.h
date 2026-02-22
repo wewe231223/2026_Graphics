@@ -83,7 +83,7 @@ namespace Game {
         Model& operator=(Model&& Other) noexcept;
 
     public:
-        bool InitializeFromAssetBundle(const asset::AssetBundle& Bundle, const std::vector<std::size_t>& MaterialIndexRemap, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue);
+        bool InitializeFromAssetBundle(const asset::AssetBundle& Bundle, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue);
         const ModelNode* GetRootNode() const;
         const ModelNode* FindNodeByName(const std::string& NodeName) const;
         const std::vector<ModelNode>& GetNodes() const;

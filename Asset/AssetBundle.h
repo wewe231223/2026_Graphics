@@ -20,13 +20,13 @@ namespace asset {
         ModelResult& GetModelResult();
         const ModelResult& GetModelResult() const;
 
-        std::vector<Material>& GetMaterials();
-        const std::vector<Material>& GetMaterials() const;
+        std::vector<MaterialGroup>& GetMaterialGroups();
+        const std::vector<MaterialGroup>& GetMaterialGroups() const;
 
         void Clear();
 
     private:
         ModelResult mModelResult{};
-        std::vector<Material> mMaterials{};
+        std::vector<MaterialGroup> mMaterialGroups{};
     };
 }

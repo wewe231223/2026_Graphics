@@ -5,7 +5,7 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 3 };
+    constexpr std::uint32_t FormatVersion{ 4 };
     constexpr char FormatMagic[4]{ 'F', 'B', 'X', 'B' };
 }
 
@@ -17,7 +17,6 @@ bool AssetBinaryWriter::WriteToFile(const std::string& Path, const AssetBundle& 
         return false;
     }
     WriteHeader();
-    WriteMaterials(Bundle.GetMaterials());
     WriteModelResult(Bundle.GetModelResult());
     return static_cast<bool>(mStream);
 }
@@ -25,63 +24,6 @@ bool AssetBinaryWriter::WriteToFile(const std::string& Path, const AssetBundle& 
 void AssetBinaryWriter::WriteHeader() {
     WriteBytes(FormatMagic, sizeof(FormatMagic));
     WriteUint32(FormatVersion);
-}
-
-void AssetBinaryWriter::WriteMaterials(const std::vector<Material>& Materials) {
-    WriteUint64(static_cast<std::uint64_t>(Materials.size()));
-    for (const Material& MaterialData : Materials) {
-        WriteMaterial(MaterialData);
-    }
-}
-
-void AssetBinaryWriter::WriteMaterial(const Material& MaterialData) {
-    WriteString(MaterialData.Name);
-    WriteBool(MaterialData.PBR);
-    WriteUint64(static_cast<std::uint64_t>(MaterialData.Properties.size()));
-    for (const MaterialProperty& Property : MaterialData.Properties) {
-        WriteMaterialProperty(Property);
-    }
-}
-
-void AssetBinaryWriter::WriteMaterialProperty(const MaterialProperty& Property) {
-    WriteUint16(static_cast<std::uint16_t>(Property.Type));
-    WriteUint8(static_cast<std::uint8_t>(Property.Data.GetKind()));
-    WriteMaterialMap(Property.Data);
-}
-
-void AssetBinaryWriter::WriteMaterialMap(const MaterialMap& Map) {
-    const MaterialMapKind Kind{ Map.GetKind() };
-    if (Kind == MaterialMapKind::None) {
-        return;
-    }
-    if (Kind == MaterialMapKind::Real) {
-        WriteFloat(Map.GetReal());
-        return;
-    }
-    if (Kind == MaterialMapKind::Int) {
-        WriteInt64(Map.GetInt());
-        return;
-    }
-    if (Kind == MaterialMapKind::Bool) {
-        WriteBool(Map.GetBool());
-        return;
-    }
-    if (Kind == MaterialMapKind::Vec2) {
-        WriteVec2(Map.GetVec2());
-        return;
-    }
-    if (Kind == MaterialMapKind::Vec3) {
-        WriteVec3(Map.GetVec3());
-        return;
-    }
-    if (Kind == MaterialMapKind::Vec4) {
-        WriteVec4(Map.GetVec4());
-        return;
-    }
-    if (Kind == MaterialMapKind::String) {
-        WriteString(Map.GetString());
-        return;
-    }
 }
 
 void AssetBinaryWriter::WriteModelResult(const ModelResult& Result) {
@@ -152,7 +94,7 @@ void AssetBinaryWriter::WriteSubMeshes(const std::vector<ModelNode::SubMesh>& Su
     for (const ModelNode::SubMesh& SubMesh : SubMeshes) {
         WriteUint64(static_cast<std::uint64_t>(SubMesh.IndexOffset));
         WriteUint64(static_cast<std::uint64_t>(SubMesh.IndexCount));
-        WriteUint64(static_cast<std::uint64_t>(SubMesh.MaterialIndex));
+        WriteUint64(static_cast<std::uint64_t>(SubMesh.MaterialGroupItemIndex));
     }
 }
 

@@ -17,6 +17,20 @@ AssetBundle FbxAssetImporter::LoadFromFile(std::string_view FilePath) {
     MeshHierarchyBuilder Builder{ Bundle.GetModelResult(), &MaterialCollector.GetMaterialLookup() };
     ISceneNodeVisitor* Visitors[]{ &MaterialCollector, &Builder };
     Loader.LoadAndTraverse(FilePath, { Visitors });
-    Bundle.GetMaterials() = MaterialCollector.GetMaterials();
+    MaterialGroup DefaultMaterialGroup{};
+    DefaultMaterialGroup.Name = "Default";
+
+    const std::vector<Material>& Materials{ MaterialCollector.GetMaterials() };
+    DefaultMaterialGroup.Items.reserve(Materials.size());
+    for (const Material& MaterialData : Materials) {
+        MaterialGroupItem MaterialGroupItemData{};
+        MaterialGroupItemData.MaterialData = MaterialData;
+        MaterialGroupItemData.PipelineName = std::string{};
+        DefaultMaterialGroup.Items.push_back(std::move(MaterialGroupItemData));
+    }
+
+    if (!DefaultMaterialGroup.Items.empty()) {
+        Bundle.GetMaterialGroups().push_back(std::move(DefaultMaterialGroup));
+    }
     return Bundle;
 }

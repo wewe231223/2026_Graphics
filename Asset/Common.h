@@ -256,6 +256,16 @@ namespace asset {
         bool PBR{ false };
     };
 
+    struct MaterialGroupItem final {
+        Material MaterialData{};
+        std::string PipelineName{};
+    };
+
+    struct MaterialGroup final {
+        std::string Name{};
+        std::vector<MaterialGroupItem> Items{};
+    };
+
 
     struct AssetError final : public std::runtime_error {
     public:

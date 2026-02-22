@@ -7,7 +7,11 @@ namespace Game {
         mAllocator{ nullptr },
         mModelCache{},
         mMaterials{},
-        mMaterialNameLookup{} {
+        mMaterialNameLookup{},
+        mMaterialGroups{},
+        mMaterialGroupNameLookup{},
+        mPipelines{},
+        mPipelineLookup{} {
     }
 
     AssetRegistry::~AssetRegistry() {
@@ -19,7 +23,11 @@ namespace Game {
         mAllocator{ Other.mAllocator },
         mModelCache{ std::move(Other.mModelCache) },
         mMaterials{ std::move(Other.mMaterials) },
-        mMaterialNameLookup{ std::move(Other.mMaterialNameLookup) } {
+        mMaterialNameLookup{ std::move(Other.mMaterialNameLookup) },
+        mMaterialGroups{ std::move(Other.mMaterialGroups) },
+        mMaterialGroupNameLookup{ std::move(Other.mMaterialGroupNameLookup) },
+        mPipelines{ std::move(Other.mPipelines) },
+        mPipelineLookup{ std::move(Other.mPipelineLookup) } {
         Other.mDevice = nullptr;
         Other.mCopyQueue = nullptr;
         Other.mAllocator = nullptr;
@@ -36,6 +44,11 @@ namespace Game {
         mModelCache = std::move(Other.mModelCache);
         mMaterials = std::move(Other.mMaterials);
         mMaterialNameLookup = std::move(Other.mMaterialNameLookup);
+        mMaterialGroups = std::move(Other.mMaterialGroups);
+        mMaterialGroupNameLookup = std::move(Other.mMaterialGroupNameLookup);
+        mPipelines = std::move(Other.mPipelines);
+        mPipelineLookup = std::move(Other.mPipelineLookup);
+
         Other.mDevice = nullptr;
         Other.mCopyQueue = nullptr;
         Other.mAllocator = nullptr;
@@ -54,17 +67,14 @@ namespace Game {
             return FoundModel->second;
         }
 
-        const std::vector<asset::Material>& SourceMaterials{ Bundle.GetMaterials() };
-        std::vector<std::size_t> MaterialIndexRemap{};
-        MaterialIndexRemap.reserve(SourceMaterials.size());
-        for (const asset::Material& SourceMaterial : SourceMaterials) {
-            const std::uint32_t RegisteredIndex{ AddMaterial(SourceMaterial) };
-            MaterialIndexRemap.push_back(static_cast<std::size_t>(RegisteredIndex));
+        const std::vector<asset::MaterialGroup>& SourceMaterialGroups{ Bundle.GetMaterialGroups() };
+        for (const asset::MaterialGroup& SourceMaterialGroup : SourceMaterialGroups) {
+            AddMaterialGroup(SourceMaterialGroup);
         }
 
         std::shared_ptr<Model> NewModel{ std::make_shared<Model>() };
         if (mDevice != nullptr && mCopyQueue != nullptr && mAllocator != nullptr) {
-            NewModel->InitializeFromAssetBundle(Bundle, MaterialIndexRemap, *mAllocator, *mCopyQueue);
+            NewModel->InitializeFromAssetBundle(Bundle, *mAllocator, *mCopyQueue);
         }
 
         mModelCache.insert_or_assign(ModelKey, NewModel);
@@ -93,6 +103,33 @@ namespace Game {
         return NewIndex;
     }
 
+    std::uint32_t AssetRegistry::AddMaterialGroup(const asset::MaterialGroup& MaterialGroupData) {
+        std::string MaterialGroupName{ MaterialGroupData.Name };
+        if (MaterialGroupName.empty()) {
+            MaterialGroupName = std::string{ "MaterialGroup_" } + std::to_string(mMaterialGroups.size());
+        }
+
+        const auto FoundMaterialGroup{ mMaterialGroupNameLookup.find(MaterialGroupName) };
+        if (FoundMaterialGroup != mMaterialGroupNameLookup.end()) {
+            return FoundMaterialGroup->second;
+        }
+
+        RegisteredMaterialGroup NewMaterialGroup{};
+        NewMaterialGroup.Name = MaterialGroupName;
+        NewMaterialGroup.Items.reserve(MaterialGroupData.Items.size());
+        for (const asset::MaterialGroupItem& MaterialGroupItemData : MaterialGroupData.Items) {
+            RegisteredMaterialGroupItem NewMaterialGroupItem{};
+            NewMaterialGroupItem.MaterialIndex = AddMaterial(MaterialGroupItemData.MaterialData);
+            NewMaterialGroupItem.Pipeline = ResolvePipelineByName(MaterialGroupItemData.PipelineName);
+            NewMaterialGroup.Items.push_back(NewMaterialGroupItem);
+        }
+
+        const std::uint32_t NewIndex{ static_cast<std::uint32_t>(mMaterialGroups.size()) };
+        mMaterialGroups.push_back(std::move(NewMaterialGroup));
+        mMaterialGroupNameLookup.insert_or_assign(mMaterialGroups.back().Name, NewIndex);
+        return NewIndex;
+    }
+
     std::uint32_t AssetRegistry::FindMaterialIndexByName(const std::string& MaterialName) const {
         const auto FoundMaterial{ mMaterialNameLookup.find(MaterialName) };
         if (FoundMaterial == mMaterialNameLookup.end()) {
@@ -104,5 +141,31 @@ namespace Game {
 
     const std::vector<RegisteredMaterial>& AssetRegistry::GetMaterials() const {
         return mMaterials;
+    }
+
+    const std::vector<RegisteredMaterialGroup>& AssetRegistry::GetMaterialGroups() const {
+        return mMaterialGroups;
+    }
+
+    Interface::IPipeline* AssetRegistry::ResolvePipelineByName(const std::string& PipelineName) {
+        if (PipelineName.empty()) {
+            return nullptr;
+        }
+
+        const auto FoundPipeline{ mPipelineLookup.find(PipelineName) };
+        if (FoundPipeline != mPipelineLookup.end()) {
+            return FoundPipeline->second;
+        }
+
+        std::unique_ptr<Base::Pipeline> NewPipeline{ std::make_unique<Base::Pipeline>() };
+        if (NewPipeline->Initialize(PipelineName) == false) {
+            mPipelineLookup.insert_or_assign(PipelineName, nullptr);
+            return nullptr;
+        }
+
+        Interface::IPipeline* PipelinePointer{ NewPipeline.get() };
+        mPipelines.push_back(std::move(NewPipeline));
+        mPipelineLookup.insert_or_assign(PipelineName, PipelinePointer);
+        return PipelinePointer;
     }
 }

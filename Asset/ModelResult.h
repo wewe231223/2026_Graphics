@@ -17,7 +17,7 @@ namespace asset {
         public:
             std::size_t IndexOffset{ 0 };
             std::size_t IndexCount{ 0 };
-            std::size_t MaterialIndex{ 0 };
+            std::size_t MaterialGroupItemIndex{ 0 };
         };
 
     public:

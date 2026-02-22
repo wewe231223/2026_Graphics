@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -27,6 +27,7 @@
     <ClCompile Include="FbxAssetImporter.cpp" />
     <ClCompile Include="MaterialVisitor.cpp" />
     <ClCompile Include="MeshHierarchyBuilder.cpp" />
+    <ClCompile Include="MaterialGroupJsonSerializer.cpp" />
     <ClCompile Include="ModelResult.cpp" />
     <ClCompile Include="NumericTypes.cpp" />
     <ClCompile Include="ufbx.c" />
@@ -41,6 +42,7 @@
     <ClInclude Include="FbxAssetImporter.h" />
     <ClInclude Include="MaterialVisitor.h" />
     <ClInclude Include="MeshHierarchyBuilder.h" />
+    <ClInclude Include="MaterialGroupJsonSerializer.h" />
     <ClInclude Include="ModelResult.h" />
     <ClInclude Include="NumericTypes.h" />
     <ClInclude Include="SceneVisitor.h" />

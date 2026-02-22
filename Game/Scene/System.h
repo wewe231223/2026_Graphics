@@ -3,10 +3,13 @@
 #include <span>
 #include <string>
 #include <typeindex>
+#include <vector>
 #include "Arche/World.h"
 #include "Game/Base/RenderFrameData.h"
 
 namespace Game {
+    struct RegisteredMaterialGroup;
+
     enum class Phase : std::uint32_t {
         PreUpdate,
         Update,
@@ -31,6 +34,7 @@ namespace Game {
 
     struct FrameContext final {
         RFD::RenderFrameData RenderData{};
+        const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
     };
 
     class ISystem abstract {

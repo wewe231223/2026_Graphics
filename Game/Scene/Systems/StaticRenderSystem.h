@@ -15,6 +15,7 @@ namespace Game {
 
 		StaticRenderSystem(StaticRenderSystem&&) noexcept = default;
 		StaticRenderSystem& operator=(StaticRenderSystem&&) noexcept = default;
+
 	public:
 		virtual const std::string& Name() const override;
 		virtual Phase GetPhase() const override;
@@ -23,8 +24,8 @@ namespace Game {
 		virtual void Execute(Arche::World& World, FrameContext& Ctx, float Dt) override;
 
 	private:
-		void TraverseNode(const ModelNode& node, const std::vector<ModelNode>& nodes, const SimpleMath::Matrix& parentWorld, RFD::RenderFrameData& renderData) const;
-	
+		void TraverseNode(const ModelNode& Node, const std::vector<ModelNode>& Nodes, const SimpleMath::Matrix& ParentWorld, std::uint32_t MaterialGroupIndex, FrameContext& Context, RFD::RenderFrameData& RenderData) const;
+
 	private:
 		const std::string mName{ "StaticRenderSystem" };
 	};
