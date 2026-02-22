@@ -1,16 +1,105 @@
 ﻿#include "MaterialGroupJsonSerializer.h"
 
+#include <array>
 #include <fstream>
 #include <sstream>
+#include <string_view>
 #include "rapidjson/document.h"
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/stringbuffer.h"
 
 namespace asset {
     namespace {
+        constexpr std::size_t MaterialTypeCount{ 152 };
+
+        const std::array<std::string_view, MaterialTypeCount>& GetMaterialTypeNames() {
+            static const std::array<std::string_view, MaterialTypeCount> MaterialTypeNames{
+                "DiffuseFactor", "DiffuseFactorMap", "DiffuseColor", "DiffuseColorMap", "SpecularFactor", "SpecularFactorMap", "SpecularColor", "SpecularColorMap", "SpecularExponent", "SpecularExponentMap", "ReflectionFactor", "ReflectionFactorMap", "ReflectionColor", "ReflectionColorMap", "TransparencyFactor", "TransparencyFactorMap", "TransparencyColor", "TransparencyColorMap", "EmissionFactor", "EmissionFactorMap", "EmissionColor", "EmissionColorMap", "AmbientFactor", "AmbientFactorMap", "AmbientColor", "AmbientColorMap", "NormalMap", "NormalMapMap", "Bump", "BumpMap", "BumpFactor", "BumpFactorMap", "DisplacementFactor", "DisplacementFactorMap", "Displacement", "DisplacementMap", "VectorDisplacementFactor", "VectorDisplacementFactorMap", "VectorDisplacement", "VectorDisplacementMap", "BaseFactor", "BaseFactorMap", "BaseColor", "BaseColorMap", "Roughness", "RoughnessMap", "Metalness", "MetalnessMap", "DiffuseRoughness", "DiffuseRoughnessMap", "SpecularFactorPbr", "SpecularFactorPbrMap", "SpecularColorPbr", "SpecularColorPbrMap", "SpecularIor", "SpecularIorMap", "SpecularAnisotropy", "SpecularAnisotropyMap", "SpecularRotation", "SpecularRotationMap", "TransmissionFactor", "TransmissionFactorMap", "TransmissionColor", "TransmissionColorMap", "TransmissionDepth", "TransmissionDepthMap", "TransmissionScatter", "TransmissionScatterMap", "TransmissionScatterAnisotropy", "TransmissionScatterAnisotropyMap", "TransmissionDispersion", "TransmissionDispersionMap", "TransmissionRoughness", "TransmissionRoughnessMap", "TransmissionExtraRoughness", "TransmissionExtraRoughnessMap", "TransmissionPriority", "TransmissionPriorityMap", "TransmissionEnableInAov", "TransmissionEnableInAovMap", "SubsurfaceFactor", "SubsurfaceFactorMap", "SubsurfaceColor", "SubsurfaceColorMap", "SubsurfaceRadius", "SubsurfaceRadiusMap", "SubsurfaceScale", "SubsurfaceScaleMap", "SubsurfaceAnisotropy", "SubsurfaceAnisotropyMap", "SubsurfaceTintColor", "SubsurfaceTintColorMap", "SubsurfaceType", "SubsurfaceTypeMap", "SheenFactor", "SheenFactorMap", "SheenColor", "SheenColorMap", "SheenRoughness", "SheenRoughnessMap", "CoatFactor", "CoatFactorMap", "CoatColor", "CoatColorMap", "CoatRoughness", "CoatRoughnessMap", "CoatIor", "CoatIorMap", "CoatAnisotropy", "CoatAnisotropyMap", "CoatRotation", "CoatRotationMap", "CoatNormal", "CoatNormalMap", "CoatAffectBaseColor", "CoatAffectBaseColorMap", "CoatAffectBaseRoughness", "CoatAffectBaseRoughnessMap", "ThinFilmFactor", "ThinFilmFactorMap", "ThinFilmThickness", "ThinFilmThicknessMap", "ThinFilmIor", "ThinFilmIorMap", "EmissionFactorPbr", "EmissionFactorPbrMap", "EmissionColorPbr", "EmissionColorPbrMap", "Opacity", "OpacityMap", "IndirectDiffuse", "IndirectDiffuseMap", "IndirectSpecular", "IndirectSpecularMap", "NormalMapPbr", "NormalMapPbrMap", "TangentMap", "TangentMapMap", "DisplacementMapPbr", "DisplacementMapPbrMap", "MatteFactor", "MatteFactorMap", "MatteColor", "MatteColorMap", "AmbientOcclusion", "AmbientOcclusionMap", "Glossiness", "GlossinessMap", "CoatGlossiness", "CoatGlossinessMap", "TransmissionGlossiness", "TransmissionGlossinessMap"
+            };
+
+            return MaterialTypeNames;
+        }
+
+        const char* MaterialMapKindToString(const MaterialMapKind Kind) {
+            switch (Kind) {
+            case MaterialMapKind::None:
+                return "None";
+            case MaterialMapKind::Real:
+                return "Real";
+            case MaterialMapKind::Vec2:
+                return "Vec2";
+            case MaterialMapKind::Vec3:
+                return "Vec3";
+            case MaterialMapKind::Vec4:
+                return "Vec4";
+            case MaterialMapKind::Int:
+                return "Int";
+            case MaterialMapKind::Bool:
+                return "Bool";
+            case MaterialMapKind::String:
+                return "String";
+            }
+
+            return "None";
+        }
+
+        MaterialMapKind MaterialMapKindFromString(const std::string_view KindName) {
+            if (KindName == "None") {
+                return MaterialMapKind::None;
+            }
+            if (KindName == "Real") {
+                return MaterialMapKind::Real;
+            }
+            if (KindName == "Vec2") {
+                return MaterialMapKind::Vec2;
+            }
+            if (KindName == "Vec3") {
+                return MaterialMapKind::Vec3;
+            }
+            if (KindName == "Vec4") {
+                return MaterialMapKind::Vec4;
+            }
+            if (KindName == "Int") {
+                return MaterialMapKind::Int;
+            }
+            if (KindName == "Bool") {
+                return MaterialMapKind::Bool;
+            }
+            if (KindName == "String") {
+                return MaterialMapKind::String;
+            }
+
+            return MaterialMapKind::None;
+        }
+
+        std::string_view MaterialTypeToString(const MaterialType Type) {
+            const std::size_t Index{ static_cast<std::size_t>(Type) };
+            const std::array<std::string_view, MaterialTypeCount>& MaterialTypeNames{ GetMaterialTypeNames() };
+            if (Index >= MaterialTypeNames.size()) {
+                return std::string_view{};
+            }
+
+            return MaterialTypeNames[Index];
+        }
+
+        bool TryParseMaterialType(const std::string_view TypeName, MaterialType& Type) {
+            const std::array<std::string_view, MaterialTypeCount>& MaterialTypeNames{ GetMaterialTypeNames() };
+            for (std::size_t Index{ 0 }; Index < MaterialTypeNames.size(); ++Index) {
+                if (MaterialTypeNames[Index] == TypeName) {
+                    Type = static_cast<MaterialType>(Index);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         rapidjson::Value SerializeMaterialMap(const MaterialMap& MaterialMapData, rapidjson::Document::AllocatorType& Allocator) {
             rapidjson::Value MaterialMapObject{ rapidjson::kObjectType };
-            MaterialMapObject.AddMember("Kind", static_cast<std::uint32_t>(MaterialMapData.GetKind()), Allocator);
+            rapidjson::Value KindValue{};
+            const char* KindName{ MaterialMapKindToString(MaterialMapData.GetKind()) };
+            KindValue.SetString(KindName, static_cast<rapidjson::SizeType>(std::char_traits<char>::length(KindName)), Allocator);
+            MaterialMapObject.AddMember("Kind", KindValue, Allocator);
 
             switch (MaterialMapData.GetKind()) {
             case MaterialMapKind::None:
@@ -63,11 +152,17 @@ namespace asset {
         }
 
         MaterialMap DeserializeMaterialMap(const rapidjson::Value& MaterialMapObject) {
-            if (!MaterialMapObject.IsObject() || !MaterialMapObject.HasMember("Kind") || !MaterialMapObject["Kind"].IsUint()) {
+            if (!MaterialMapObject.IsObject() || !MaterialMapObject.HasMember("Kind")) {
                 return MaterialMap{};
             }
 
-            const MaterialMapKind Kind{ static_cast<MaterialMapKind>(MaterialMapObject["Kind"].GetUint()) };
+            MaterialMapKind Kind{ MaterialMapKind::None };
+            if (MaterialMapObject["Kind"].IsString()) {
+                Kind = MaterialMapKindFromString(std::string_view{ MaterialMapObject["Kind"].GetString() });
+            } else if (MaterialMapObject["Kind"].IsUint()) {
+                Kind = static_cast<MaterialMapKind>(MaterialMapObject["Kind"].GetUint());
+            }
+
             switch (Kind) {
             case MaterialMapKind::None:
                 return MaterialMap{};
@@ -135,14 +230,28 @@ namespace asset {
                 MaterialObject.AddMember("Name", MaterialNameValue, Allocator);
                 MaterialObject.AddMember("PBR", MaterialData.PBR, Allocator);
 
-                rapidjson::Value PropertyArray{ rapidjson::kArrayType };
+                std::array<MaterialMap, MaterialTypeCount> PropertyValues{};
                 for (const MaterialProperty& MaterialPropertyData : MaterialData.Properties) {
-                    rapidjson::Value PropertyObject{ rapidjson::kObjectType };
-                    PropertyObject.AddMember("Type", static_cast<std::uint32_t>(MaterialPropertyData.Type), Allocator);
-                    PropertyObject.AddMember("Data", SerializeMaterialMap(MaterialPropertyData.Data, Allocator), Allocator);
-                    PropertyArray.PushBack(PropertyObject, Allocator);
+                    const std::size_t PropertyIndex{ static_cast<std::size_t>(MaterialPropertyData.Type) };
+                    if (PropertyIndex < PropertyValues.size()) {
+                        PropertyValues[PropertyIndex] = MaterialPropertyData.Data;
+                    }
                 }
-                MaterialObject.AddMember("Properties", PropertyArray, Allocator);
+
+                rapidjson::Value PropertyObject{ rapidjson::kObjectType };
+                for (std::size_t TypeIndex{ 0 }; TypeIndex < MaterialTypeCount; ++TypeIndex) {
+                    const MaterialType TypeValue{ static_cast<MaterialType>(TypeIndex) };
+                    const std::string_view TypeName{ MaterialTypeToString(TypeValue) };
+                    if (TypeName.empty()) {
+                        continue;
+                    }
+
+                    rapidjson::Value TypeNameValue{};
+                    TypeNameValue.SetString(TypeName.data(), static_cast<rapidjson::SizeType>(TypeName.size()), Allocator);
+                    PropertyObject.AddMember(TypeNameValue, SerializeMaterialMap(PropertyValues[TypeIndex], Allocator), Allocator);
+                }
+
+                MaterialObject.AddMember("Properties", PropertyObject, Allocator);
                 ItemObject.AddMember("MaterialData", MaterialObject, Allocator);
                 ItemArray.PushBack(ItemObject, Allocator);
             }
@@ -211,14 +320,43 @@ namespace asset {
                         MaterialGroupItemData.MaterialData.PBR = MaterialObject["PBR"].GetBool();
                     }
 
-                    if (MaterialObject.HasMember("Properties") && MaterialObject["Properties"].IsArray()) {
-                        for (const rapidjson::Value& PropertyObject : MaterialObject["Properties"].GetArray()) {
-                            if (!PropertyObject.IsObject() || !PropertyObject.HasMember("Type") || !PropertyObject["Type"].IsUint() || !PropertyObject.HasMember("Data") || !PropertyObject["Data"].IsObject()) {
+                    if (MaterialObject.HasMember("Properties") && MaterialObject["Properties"].IsObject()) {
+                        for (rapidjson::Value::ConstMemberIterator PropertyIterator{ MaterialObject["Properties"].MemberBegin() }; PropertyIterator != MaterialObject["Properties"].MemberEnd(); ++PropertyIterator) {
+                            MaterialType TypeValue{};
+                            if (!TryParseMaterialType(std::string_view{ PropertyIterator->name.GetString(), PropertyIterator->name.GetStringLength() }, TypeValue)) {
+                                continue;
+                            }
+
+                            if (!PropertyIterator->value.IsObject()) {
                                 continue;
                             }
 
                             MaterialProperty MaterialPropertyData{};
-                            MaterialPropertyData.Type = static_cast<MaterialType>(PropertyObject["Type"].GetUint());
+                            MaterialPropertyData.Type = TypeValue;
+                            MaterialPropertyData.Data = DeserializeMaterialMap(PropertyIterator->value);
+                            MaterialGroupItemData.MaterialData.Properties.push_back(std::move(MaterialPropertyData));
+                        }
+                    } else if (MaterialObject.HasMember("Properties") && MaterialObject["Properties"].IsArray()) {
+                        for (const rapidjson::Value& PropertyObject : MaterialObject["Properties"].GetArray()) {
+                            if (!PropertyObject.IsObject() || !PropertyObject.HasMember("Type") || !PropertyObject.HasMember("Data") || !PropertyObject["Data"].IsObject()) {
+                                continue;
+                            }
+
+                            MaterialType TypeValue{};
+                            bool IsTypeParsed{ false };
+                            if (PropertyObject["Type"].IsString()) {
+                                IsTypeParsed = TryParseMaterialType(std::string_view{ PropertyObject["Type"].GetString(), PropertyObject["Type"].GetStringLength() }, TypeValue);
+                            } else if (PropertyObject["Type"].IsUint()) {
+                                TypeValue = static_cast<MaterialType>(PropertyObject["Type"].GetUint());
+                                IsTypeParsed = true;
+                            }
+
+                            if (!IsTypeParsed) {
+                                continue;
+                            }
+
+                            MaterialProperty MaterialPropertyData{};
+                            MaterialPropertyData.Type = TypeValue;
                             MaterialPropertyData.Data = DeserializeMaterialMap(PropertyObject["Data"]);
                             MaterialGroupItemData.MaterialData.Properties.push_back(std::move(MaterialPropertyData));
                         }
