@@ -14,6 +14,7 @@ namespace Game {
         PreUpdate,
         Update,
         Render,
+        PostRender, 
         Count
     };
 

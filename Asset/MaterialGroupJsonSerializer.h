@@ -1,4 +1,5 @@
-﻿//{ "MaterialGroups": [...] }
+﻿// Material Group JSON Serializer
+//{ "MaterialGroups": [...] }
 //          │
 //          ▼
 //┌───────────────────────────────────────────────────────────────────────────┐
@@ -42,7 +43,6 @@
 //└───────────────────────────────────────────────────────────────────────────┘
 
 #pragma once
-
 #include <string>
 #include <vector>
 #include "Common.h"

@@ -72,6 +72,12 @@
     <ClInclude Include="Scene\Components\Material.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\Intents.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\IntentClentUpSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Shader.cpp">
