@@ -58,10 +58,13 @@ namespace Game {
         Core::DX::CopyQueue* mCopyQueue{ nullptr };
         Core::DX::GraphicsAllocator* mAllocator{ nullptr };
         std::unordered_map<std::string, std::shared_ptr<Model>> mModelCache{};
+
         std::vector<RegisteredMaterial> mMaterials{};
         std::unordered_map<std::string, std::uint32_t> mMaterialNameLookup{};
+
         std::vector<RegisteredMaterialGroup> mMaterialGroups{};
         std::unordered_map<std::string, std::uint32_t> mMaterialGroupNameLookup{};
+
         std::vector<std::unique_ptr<Base::Pipeline>> mPipelines{};
         std::unordered_map<std::string, Interface::IPipeline*> mPipelineLookup{};
     };

@@ -44,9 +44,8 @@ namespace Game {
         (void)Dt;
 
         RFD::RenderFrameData& renderData{ Ctx.RenderData };
-        const std::vector<RegisteredMaterialGroup>* materialGroups{ Ctx.MaterialGroups };
+        const std::vector<RegisteredMaterialGroup>& materialGroups{ *Ctx.MaterialGroups };
 
-        // submesh 마다 다른 pso 를 사용하는 방법은..? 
         for (auto [renderer, transform, material] : World.Query<StaticMeshRenderer, Transform, Material>()) {
             if (renderer.modelNode == nullptr) {
                 continue;
@@ -60,11 +59,11 @@ namespace Game {
 
             const std::vector<ModelNode>& nodes{ model->GetNodes() };
             const SimpleMath::Matrix entityWorld{ BuildWorldMatrix(transform) };
-            TraverseNode(*rootNode, nodes, entityWorld, material.MaterialGroupIndex, Ctx, renderData);
+            TraverseNode(*rootNode, nodes, entityWorld, material.MaterialGroupIndex, materialGroups, renderData);
         }
     }
 
-    void StaticRenderSystem::TraverseNode(const ModelNode& Node, const std::vector<ModelNode>& Nodes, const SimpleMath::Matrix& ParentWorld, std::uint32_t MaterialGroupIndex, FrameContext& Context, RFD::RenderFrameData& RenderData) const {
+    void StaticRenderSystem::TraverseNode(const ModelNode& Node, const std::vector<ModelNode>& Nodes, const SimpleMath::Matrix& ParentWorld, std::uint32_t MaterialGroupIndex, const std::vector<RegisteredMaterialGroup>& matGroups, RFD::RenderFrameData& RenderData) const {
         const SimpleMath::Matrix NodeWorld{ Node.GetNodeToParent() * ParentWorld };
 
         RFD::ModelContext ModelContext{};
@@ -84,8 +83,8 @@ namespace Game {
             Batch.pass = 0;
 
             std::uint32_t ResolvedMaterialIndex{ 0 };
-            if (Context.MaterialGroups != nullptr && MaterialGroupIndex < Context.MaterialGroups->size()) {
-                const RegisteredMaterialGroup& RegisteredGroup{ (*Context.MaterialGroups)[MaterialGroupIndex] };
+            if (not matGroups.empty() && MaterialGroupIndex < matGroups.size()) {
+                const RegisteredMaterialGroup& RegisteredGroup{ matGroups[MaterialGroupIndex] };
                 if (SubMesh.MaterialGroupItemIndex < RegisteredGroup.Items.size()) {
                     const RegisteredMaterialGroupItem& RegisteredGroupItem{ RegisteredGroup.Items[SubMesh.MaterialGroupItemIndex] };
                     Batch.pso = RegisteredGroupItem.Pipeline;
@@ -103,7 +102,7 @@ namespace Game {
             if (ChildIndex >= Nodes.size()) {
                 continue;
             }
-            TraverseNode(Nodes[ChildIndex], Nodes, NodeWorld, MaterialGroupIndex, Context, RenderData);
+            TraverseNode(Nodes[ChildIndex], Nodes, NodeWorld, MaterialGroupIndex, matGroups, RenderData);
         }
             
     }

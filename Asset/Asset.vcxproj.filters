@@ -58,6 +58,9 @@
     <ClCompile Include="NumericTypes.cpp">
       <Filter>Defines</Filter>
     </ClCompile>
+    <ClCompile Include="MaterialGroupJsonSerializer.cpp">
+      <Filter>Serializer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssetBinaryReader.h">
@@ -98,6 +101,9 @@
     </ClInclude>
     <ClInclude Include="SceneVisitor.h">
       <Filter>Visitor</Filter>
+    </ClInclude>
+    <ClInclude Include="MaterialGroupJsonSerializer.h">
+      <Filter>Serializer</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
