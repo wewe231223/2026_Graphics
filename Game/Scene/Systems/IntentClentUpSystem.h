@@ -12,16 +12,26 @@ namespace Game {
     template<Resettable... TIntents>
     class CleanUpSystem : public ISystem {
     public:
+		CleanUpSystem() = default;
+		virtual ~CleanUpSystem() = default;
+
+		CleanUpSystem(const CleanUpSystem&) = default;
+		CleanUpSystem& operator=(const CleanUpSystem&) = default;
+
+		CleanUpSystem(CleanUpSystem&&) = default;
+		CleanUpSystem& operator=(CleanUpSystem&&) = default;
+
+    public:
         // 시스템 이름 정의
-        const std::string& Name() const override {
+        virtual const std::string& Name() const override {
             return mName;
         }
 
-        Phase GetPhase() const override {
+        virtual Phase GetPhase() const override {
             return Phase::PostRender;
         }
 
-        std::span<const ComponentAccess> ComponentAccesses() const override {
+        virtual std::span<const ComponentAccess> ComponentAccesses() const override {
             static std::vector<ComponentAccess> accesses = {
                 { typeid(TIntents), Access::Write }...
             };
@@ -29,11 +39,11 @@ namespace Game {
         }
 
         // 리소스 접근 (필요 없다면 빈 값)
-        std::span<const ResourceAccess> ResourceAccesses() const override {
+        virtual std::span<const ResourceAccess> ResourceAccesses() const override {
             return {};
         }
 
-        void Execute(Arche::World& World, FrameContext& Ctx, float Dt) override {
+        virtual void Execute(Arche::World& World, FrameContext& Ctx, float Dt) override {
             // Fold Expression을 사용하여 각 Intent의 Reset() 호출
             ([&] {
                 auto view = World.Query<TIntents>();
