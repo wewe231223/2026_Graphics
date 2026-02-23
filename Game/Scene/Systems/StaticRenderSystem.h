@@ -1,8 +1,8 @@
 ﻿#pragma once
 #include <cstddef>
 #include <cstdint>
-#include "Game/Scene/System.h"
 #include "Game/Model/Model.h"
+#include "Game/Scene/System.h"
 
 namespace Game {
 	class StaticRenderSystem final : public ISystem {
@@ -24,7 +24,7 @@ namespace Game {
 		virtual void Execute(Arche::World& World, FrameContext& Ctx, float Dt) override;
 
 	private:
-		void TraverseNode(const ModelNode& Node, const std::vector<ModelNode>& Nodes, const SimpleMath::Matrix& ParentWorld, std::uint32_t MaterialGroupIndex, const std::vector<RegisteredMaterialGroup>& matGroups, RFD::RenderFrameData& RenderData) const;
+		void TraverseNode(const ModelNode& Node, const std::vector<ModelNode>& Nodes, const SimpleMath::Matrix& ParentWorld, std::uint32_t MaterialGroupIndex, const std::vector<RegisteredMaterialGroup>& MaterialGroups, RFD::RenderFrameData& RenderData) const;
 
 	private:
 		const std::string mName{ "StaticRenderSystem" };

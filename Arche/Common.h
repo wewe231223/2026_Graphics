@@ -4,6 +4,10 @@
 #include <limits>
 #include "TypeSystem.h" 
 
+#ifdef max 
+#undef max 
+#endif 
+
 namespace Arche {
 
     struct NullEntityIDTag {};

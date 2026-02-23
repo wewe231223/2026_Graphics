@@ -57,7 +57,7 @@ namespace Game {
         };
 
         /// @brief 현재 카메라에 설정된 동작 플래그
-        uint32_t cameraFlags{ Flags::None };
+        uint32_t cameraFlags{ Flags::FreeLook };
 
 
         // ---------------------------------------------------------------------------------------

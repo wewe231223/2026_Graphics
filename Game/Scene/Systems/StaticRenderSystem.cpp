@@ -3,15 +3,13 @@
 #include <cstdint>
 #include <vector>
 #include "Game/Model/AssetRegistry.h"
+#include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
-#include "Game/Scene/Components/Material.h"
 
 namespace {
-    SimpleMath::Matrix BuildWorldMatrix(const Game::Transform& transform) {
-        return SimpleMath::Matrix::CreateScale(transform.scale)
-            * SimpleMath::Matrix::CreateFromQuaternion(transform.rotation)
-            * SimpleMath::Matrix::CreateTranslation(transform.position);
+    SimpleMath::Matrix BuildWorldMatrix(const Game::Transform& Transform) {
+        return SimpleMath::Matrix::CreateScale(Transform.scale) * SimpleMath::Matrix::CreateFromQuaternion(Transform.rotation) * SimpleMath::Matrix::CreateTranslation(Transform.position);
     }
 }
 
@@ -25,45 +23,39 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> StaticRenderSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 3> accesses{ {
-            {typeid(Transform), Access::Read},
-            {typeid(StaticMeshRenderer), Access::Read},
-			{typeid(Material), Access::Read}
-        } };
+        static std::array<ComponentAccess, 3> accesses{ { { typeid(Transform), Access::Read }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(Material), Access::Read } } };
         return accesses;
     }
 
     std::span<const ResourceAccess> StaticRenderSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 1> accesses{ {
-            {typeid(RFD::RenderFrameData), Access::Write}
-        } };
+        static std::array<ResourceAccess, 1> accesses{ { { typeid(RFD::RenderFrameData), Access::Write } } };
         return accesses;
     }
 
     void StaticRenderSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
         (void)Dt;
 
-        RFD::RenderFrameData& renderData{ Ctx.RenderData };
-        const std::vector<RegisteredMaterialGroup>& materialGroups{ *Ctx.MaterialGroups };
+        RFD::RenderFrameData& RenderData{ Ctx.RenderData };
+        const std::vector<RegisteredMaterialGroup>& MaterialGroups{ *Ctx.MaterialGroups };
 
-        for (auto [renderer, transform, material] : World.Query<StaticMeshRenderer, Transform, Material>()) {
-            if (renderer.modelNode == nullptr) {
+        for (auto [Renderer, Transform, Material] : World.Query<StaticMeshRenderer, Transform, Material>()) {
+            if (Renderer.modelNode == nullptr) {
                 continue;
             }
 
-            const Model* model{ renderer.modelNode };
-            const ModelNode* rootNode{ model->GetRootNode() };
-            if (rootNode == nullptr) {
+            const Model* ModelData{ Renderer.modelNode };
+            const ModelNode* RootNode{ ModelData->GetRootNode() };
+            if (RootNode == nullptr) {
                 continue;
             }
 
-            const std::vector<ModelNode>& nodes{ model->GetNodes() };
-            const SimpleMath::Matrix entityWorld{ BuildWorldMatrix(transform) };
-            TraverseNode(*rootNode, nodes, entityWorld, material.MaterialGroupIndex, materialGroups, renderData);
+            const std::vector<ModelNode>& Nodes{ ModelData->GetNodes() };
+            const SimpleMath::Matrix EntityWorld{ BuildWorldMatrix(Transform) };
+            TraverseNode(*RootNode, Nodes, EntityWorld, Material.MaterialGroupIndex, MaterialGroups, RenderData);
         }
     }
 
-    void StaticRenderSystem::TraverseNode(const ModelNode& Node, const std::vector<ModelNode>& Nodes, const SimpleMath::Matrix& ParentWorld, std::uint32_t MaterialGroupIndex, const std::vector<RegisteredMaterialGroup>& matGroups, RFD::RenderFrameData& RenderData) const {
+    void StaticRenderSystem::TraverseNode(const ModelNode& Node, const std::vector<ModelNode>& Nodes, const SimpleMath::Matrix& ParentWorld, std::uint32_t MaterialGroupIndex, const std::vector<RegisteredMaterialGroup>& MaterialGroups, RFD::RenderFrameData& RenderData) const {
         const SimpleMath::Matrix NodeWorld{ Node.GetNodeToParent() * ParentWorld };
 
         RFD::ModelContext ModelContext{};
@@ -76,34 +68,36 @@ namespace Game {
         for (std::size_t SubMeshIndex{ 0 }; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
             const ModelSubMesh& SubMesh{ SubMeshes[SubMeshIndex] };
 
-            RFD::DrawBatch Batch{};
-            Batch.pso = nullptr;
-            Batch.mesh = &Node;
-            Batch.submesh = static_cast<std::uint32_t>(SubMeshIndex);
-            Batch.pass = 0;
-
+            const Interface::IPipeline* Pipeline{ nullptr };
             std::uint32_t ResolvedMaterialIndex{ 0 };
-            if (not matGroups.empty() && MaterialGroupIndex < matGroups.size()) {
-                const RegisteredMaterialGroup& RegisteredGroup{ matGroups[MaterialGroupIndex] };
+            if (!MaterialGroups.empty() && MaterialGroupIndex < MaterialGroups.size()) {
+                const RegisteredMaterialGroup& RegisteredGroup{ MaterialGroups[MaterialGroupIndex] };
                 if (SubMesh.MaterialGroupItemIndex < RegisteredGroup.Items.size()) {
                     const RegisteredMaterialGroupItem& RegisteredGroupItem{ RegisteredGroup.Items[SubMesh.MaterialGroupItemIndex] };
-                    Batch.pso = RegisteredGroupItem.Pipeline;
+                    Pipeline = RegisteredGroupItem.Pipeline;
                     ResolvedMaterialIndex = RegisteredGroupItem.MaterialIndex;
                 }
             }
 
-        
-            RenderData.batches.push_back(Batch);
-            RenderData.drawInstances.emplace_back(ModelContext.objectID, ResolvedMaterialIndex);
-        }
+            RFD::DrawRecord DrawRecord{};
+            DrawRecord.pso = Pipeline;
+            DrawRecord.mesh = &Node;
+            DrawRecord.submesh = static_cast<std::uint32_t>(SubMeshIndex);
+            DrawRecord.pass = 0;
+            DrawRecord.objectIndex = ModelContext.objectID;
+            DrawRecord.materialIndex = ResolvedMaterialIndex;
+            DrawRecord.flags = 0;
+            DrawRecord.pad0 = 0;
+            RenderData.drawRecords.push_back(DrawRecord);
 
+        }
 
         for (std::uint32_t ChildIndex : Node.GetChildren()) {
             if (ChildIndex >= Nodes.size()) {
                 continue;
             }
-            TraverseNode(Nodes[ChildIndex], Nodes, NodeWorld, MaterialGroupIndex, matGroups, RenderData);
+
+            TraverseNode(Nodes[ChildIndex], Nodes, NodeWorld, MaterialGroupIndex, MaterialGroups, RenderData);
         }
-            
     }
 }

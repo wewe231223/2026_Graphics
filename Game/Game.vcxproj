@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Base\Common.h" />
+    <ClInclude Include="Base\Input.h" />
     <ClInclude Include="Base\RenderFrameData.h" />
     <ClInclude Include="Base\Shader.h" />
     <ClInclude Include="Base\RootSignature.h" />
@@ -27,7 +28,7 @@
     <ClInclude Include="Model\AssetRegistry.h" />
     <ClInclude Include="Model\Model.h" />
     <ClInclude Include="Scene\Components\Camera.h" />
-    <ClInclude Include="Scene\Components\Intents.h" />
+    <ClInclude Include="Scene\Components\Intents\CameraIntent.h" />
     <ClInclude Include="Scene\Components\Material.h" />
     <ClInclude Include="Scene\Components\StaticMeshRenderer.h" />
     <ClInclude Include="Scene\Components\Tags.h" />
@@ -40,6 +41,7 @@
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Base\Input.cpp" />
     <ClCompile Include="Base\Shader.cpp" />
     <ClCompile Include="Base\RootSignature.cpp" />
     <ClCompile Include="Base\Pipeline.cpp" />

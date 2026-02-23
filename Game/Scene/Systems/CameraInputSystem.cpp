@@ -1,18 +1,22 @@
 ﻿#include "CameraInputSystem.h"
+#include "Game/Scene/Components/Camera.h"
+#include "Game/Scene/Components/Intents/CameraIntent.h"
 
 namespace Game {
     const std::string& Game::CameraInputSystem::Name() const {
         return mName; 
     }
 
-    // 내일 여기부터.. 
-    Phase Game::CameraInputSystem::GetPhase() const
-    {
-        return Phase();
+    Phase Game::CameraInputSystem::GetPhase() const {
+        return Phase::PreUpdate;
     }
 
-    std::span<const ComponentAccess> Game::CameraInputSystem::ComponentAccesses() const
-    {
+    std::span<const ComponentAccess> Game::CameraInputSystem::ComponentAccesses() const {
+		std::array<ComponentAccess, 2> accesses{ 
+            { { typeid(CameraIntent), Access::Write }, 
+            { typeid(Camera), Access::Read } 
+        } };
+
         return std::span<const ComponentAccess>();
     }
 
