@@ -32,11 +32,12 @@
 용도: 특정 시간에 이벤트를 발생시키거나, 반복적인 이벤트를 처리할 때 사용됩니다.
 */
 
+using namespace std::chrono_literals;
+
 namespace Globals {
 	template<typename T>
 	concept TimeUnit = std::chrono::_Is_duration_v<T>;
 
-	using namespace std::chrono_literals;
 
 	class Time {
 	public:
