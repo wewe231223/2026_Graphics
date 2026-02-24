@@ -15,9 +15,9 @@ GraphicsVector::GraphicsVector()
 }
 
 
-GraphicsVector::GraphicsVector(GraphicsAllocator& graphicsAllocator, ID3D12Device* device, SizeType initialSizeInBytes, D3D12_RESOURCE_FLAGS resourceFlags, D3D12_RESOURCE_STATES initialState)
+GraphicsVector::GraphicsVector(GraphicsAllocator& graphicsAllocator, SizeType initialSizeInBytes, D3D12_RESOURCE_FLAGS resourceFlags, D3D12_RESOURCE_STATES initialState)
     : GraphicsVector{} {
-    Initialize(device, graphicsAllocator, initialSizeInBytes, resourceFlags, initialState);
+    Initialize(graphicsAllocator, initialSizeInBytes, resourceFlags, initialState);
 }
 
 GraphicsVector::~GraphicsVector() {
@@ -61,12 +61,8 @@ GraphicsVector& GraphicsVector::operator=(GraphicsVector&& other) noexcept {
     return *this;
 }
 
-bool GraphicsVector::Initialize(ID3D12Device* device, GraphicsAllocator& graphicsAllocator, SizeType initialSizeInBytes, D3D12_RESOURCE_FLAGS resourceFlags, D3D12_RESOURCE_STATES initialState) {
+bool GraphicsVector::Initialize(GraphicsAllocator& graphicsAllocator, SizeType initialSizeInBytes, D3D12_RESOURCE_FLAGS resourceFlags, D3D12_RESOURCE_STATES initialState) {
     Reset();
-
-    if (device == nullptr) {
-        return false;
-    }
 
     mResourceFlags = resourceFlags;
     mResourceState = initialState;
@@ -80,16 +76,16 @@ bool GraphicsVector::Initialize(ID3D12Device* device, GraphicsAllocator& graphic
         return true;
     }
 
-    return Reallocate(graphicsAllocator, device, initialSizeInBytes);
+    return Reallocate(graphicsAllocator, initialSizeInBytes);
 }
 
-bool GraphicsVector::Copy(GraphicsAllocator& graphicsAllocator, ID3D12Device* device, void* sourceData, SizeType copySizeInBytes) {
-    if (sourceData == nullptr || device == nullptr) {
+bool GraphicsVector::Copy(GraphicsAllocator& graphicsAllocator, void* sourceData, SizeType copySizeInBytes) {
+    if (sourceData == nullptr) {
         return false;
     }
 
     if (copySizeInBytes > mCapacityInBytes) {
-        bool reallocateResult{ Reallocate(graphicsAllocator, device, copySizeInBytes) };
+        bool reallocateResult{ Reallocate(graphicsAllocator, copySizeInBytes) };
         if (reallocateResult == false) {
             return false;
         }
@@ -111,7 +107,7 @@ void GraphicsVector::Reset() {
     mCopyRequestCreationCount = 0;
 }
 
-CopyQueueCopyRequest GraphicsVector::CreateCopyQueueCopyRequest(GraphicsAllocator& graphicsAllocator, ID3D12Device* device, UINT64 destinationOffset) {
+CopyQueueCopyRequest GraphicsVector::CreateCopyQueueCopyRequest(GraphicsAllocator& graphicsAllocator, UINT64 destinationOffset) {
     CopyQueueCopyRequest copyQueueCopyRequest{};
     copyQueueCopyRequest.DestinationDefaultResource = mAllocationHandle.GetResource();
     copyQueueCopyRequest.DestinationOffset = destinationOffset;
@@ -122,7 +118,7 @@ CopyQueueCopyRequest GraphicsVector::CreateCopyQueueCopyRequest(GraphicsAllocato
     }
 
     mCopyRequestCreationCount += 1;
-    TryShrink(graphicsAllocator, device);
+    TryShrink(graphicsAllocator);
     return copyQueueCopyRequest;
 }
 
@@ -187,8 +183,8 @@ GraphicsVector::SizeType GraphicsVector::AlignCapacity(SizeType sizeInBytes) {
     return alignedSizeInBytes;
 }
 
-bool GraphicsVector::Reallocate(GraphicsAllocator& graphicsAllocator, ID3D12Device* device, SizeType requiredSizeInBytes) {
-    if (device == nullptr || requiredSizeInBytes == 0) {
+bool GraphicsVector::Reallocate(GraphicsAllocator& graphicsAllocator, SizeType requiredSizeInBytes) {
+    if (requiredSizeInBytes == 0) {
         return false;
     }
 
@@ -220,7 +216,7 @@ bool GraphicsVector::Reallocate(GraphicsAllocator& graphicsAllocator, ID3D12Devi
     return true;
 }
 
-void GraphicsVector::TryShrink(GraphicsAllocator& graphicsAllocator, ID3D12Device* device) {
+void GraphicsVector::TryShrink(GraphicsAllocator& graphicsAllocator) {
     if (mCopyRequestCreationCount == 0 || (mCopyRequestCreationCount % 16) != 0) {
         return;
     }
@@ -244,5 +240,5 @@ void GraphicsVector::TryShrink(GraphicsAllocator& graphicsAllocator, ID3D12Devic
         return;
     }
 
-    Reallocate(graphicsAllocator, device, shrinkCapacityInBytes);
+    Reallocate(graphicsAllocator, shrinkCapacityInBytes);
 }

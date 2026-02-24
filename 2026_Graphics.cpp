@@ -82,8 +82,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     defaultHeapProperties.CreationNodeMask = 1;
     defaultHeapProperties.VisibleNodeMask = 1;
 
+
+    constexpr uint64_t DefaultHeapAllocatorSize{ 256ull * 1024ull * 1024ull };
     Core::DX::GraphicsAllocator defaultHeapAllocator{};
-    bool defaultHeapAllocatorInitializeResult{ defaultHeapAllocator.Initialize(directQueue.GetDevice(), Core::DX::CopyQueue::GetRequiredUploadBufferSize(), defaultHeapProperties, D3D12_HEAP_FLAG_NONE) };
+    bool defaultHeapAllocatorInitializeResult{ defaultHeapAllocator.Initialize(directQueue.GetDevice(), DefaultHeapAllocatorSize, defaultHeapProperties, D3D12_HEAP_FLAG_NONE) };
     ErrorHandler::report(defaultHeapAllocatorInitializeResult == false, "WinMain", "Failed to initialize default heap allocator.", ErrorHandler::Level::Critical);
 
     Core::DX::CopyQueue copyQueue{ directQueue.GetDevice() };

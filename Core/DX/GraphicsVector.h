@@ -16,7 +16,7 @@ namespace Core {
 
         public:
             GraphicsVector();
-            GraphicsVector(GraphicsAllocator& graphicsAllocator, ID3D12Device* device, SizeType initialSizeInBytes, D3D12_RESOURCE_FLAGS resourceFlags = D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COPY_DEST);
+            GraphicsVector(GraphicsAllocator& graphicsAllocator, SizeType initialSizeInBytes, D3D12_RESOURCE_FLAGS resourceFlags = D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COPY_DEST);
             ~GraphicsVector();
             GraphicsVector(const GraphicsVector& other) = delete;
             GraphicsVector& operator=(const GraphicsVector& other) = delete;
@@ -24,11 +24,11 @@ namespace Core {
             GraphicsVector& operator=(GraphicsVector&& other) noexcept;
 
         public:
-            bool Initialize(ID3D12Device* device, GraphicsAllocator& graphicsAllocator, SizeType initialSizeInBytes, D3D12_RESOURCE_FLAGS resourceFlags = D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COPY_DEST);
-            bool Copy(GraphicsAllocator& graphicsAllocator, ID3D12Device* device, void* sourceData, SizeType copySizeInBytes);
+            bool Initialize(GraphicsAllocator& graphicsAllocator, SizeType initialSizeInBytes, D3D12_RESOURCE_FLAGS resourceFlags = D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COPY_DEST);
+            bool Copy(GraphicsAllocator& graphicsAllocator, void* sourceData, SizeType copySizeInBytes);
             void Reset();
 
-            CopyQueueCopyRequest CreateCopyQueueCopyRequest(GraphicsAllocator& graphicsAllocator, ID3D12Device* device, UINT64 destinationOffset = 0);
+            CopyQueueCopyRequest CreateCopyQueueCopyRequest(GraphicsAllocator& graphicsAllocator, UINT64 destinationOffset = 0);
 
             void CreateShaderResourceView(ID3D12Device* device, D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle, DXGI_FORMAT format, UINT firstElement, UINT numElements, UINT structureByteStride, D3D12_BUFFER_SRV_FLAGS bufferFlags) const;
 
@@ -45,8 +45,8 @@ namespace Core {
             static constexpr SizeType AllocationUnitSizeInBytes{ 64ull * 1024ull };
 
             static SizeType AlignCapacity(SizeType sizeInBytes);
-            bool Reallocate(GraphicsAllocator& graphicsAllocator, ID3D12Device* device, SizeType requiredSizeInBytes);
-            void TryShrink(GraphicsAllocator& graphicsAllocator, ID3D12Device* device);
+            bool Reallocate(GraphicsAllocator& graphicsAllocator, SizeType requiredSizeInBytes);
+            void TryShrink(GraphicsAllocator& graphicsAllocator);
 
         private:
             AllocationHandle mAllocationHandle{};
