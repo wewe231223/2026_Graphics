@@ -60,7 +60,7 @@ namespace Core {
 
 			DirectQueue::DrainDebugMessages();
 
-			//mFrameSync.Sync(mDirectCommandQueue.Get());
+			mFrameSync.Sync(mDirectCommandQueue.Get());
         }
 
         void DirectQueue::InitBasements() {

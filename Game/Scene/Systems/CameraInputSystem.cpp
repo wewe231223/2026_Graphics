@@ -73,23 +73,10 @@ namespace Game {
     }
 
     void CameraInputSystem::ProcessCinematicMode(CameraIntent& Intent) {
-        const Globals::Input& Input{ Globals::Input::Get() };
-        Intent.requestSkip = Input.IsKeyPressed(DirectX::Keyboard::Keys::Space) || Input.IsKeyPressed(DirectX::Keyboard::Keys::Escape);
-    }
-
-    void CameraInputSystem::ProcessFreeLookMode(CameraIntent& Intent) {
-
-    }
-
-    void CameraInputSystem::ProcessThirdPersonMode(CameraIntent& Intent) {
-
-    }
-
-    void CameraInputSystem::ProcessDefaultMode(CameraIntent& Intent) {
         (void)Intent;
     }
 
-    void CameraInputSystem::ProcessKeyboard(CameraIntent& Intent) {
+    void CameraInputSystem::ProcessFreeLookMode(CameraIntent& Intent) {
         const Globals::Input& Input{ Globals::Input::Get() };
         const float MoveSpeedScale{ Input.IsKeyDown(DirectX::Keyboard::Keys::LeftShift) ? 2.0f : 1.0f };
         SimpleMath::Vector3 MoveDirection{};
@@ -123,32 +110,23 @@ namespace Game {
         }
 
         Intent.moveDirection = MoveDirection * MoveSpeedScale;
+        Intent.lookDelta = SimpleMath::Vector2{ Input.GetMouseDeltaX(), Input.GetMouseDeltaY() };
+
+        const auto& MouseState{ Input.GetMouseState() };
+        int LastWheelValue{ MouseState.scrollWheelValue };
+
+        const int CurrentWheelValue{ MouseState.scrollWheelValue };
+        const int WheelDelta{ CurrentWheelValue - LastWheelValue };
+        LastWheelValue = CurrentWheelValue;
+
+        Intent.zoomDelta = static_cast<float>(WheelDelta) / 120.0f;
     }
 
-    void CameraInputSystem::ProcessMouse(CameraIntent& Intent) {
-        const Globals::Input& Input{ Globals::Input::Get() };
-        const DirectX::Mouse::State& MouseState{ Input.GetMouseState() };
-        static bool IsInitialized{ false };
-        static int LastMouseX{};
-        static int LastMouseY{};
-        static int LastWheel{};
+    void CameraInputSystem::ProcessThirdPersonMode(CameraIntent& Intent) {
+        (void)Intent;
+    }
 
-        if (!IsInitialized) {
-            LastMouseX = MouseState.x;
-            LastMouseY = MouseState.y;
-            LastWheel = MouseState.scrollWheelValue;
-            IsInitialized = true;
-        }
-
-        const int DeltaX{ MouseState.x - LastMouseX };
-        const int DeltaY{ MouseState.y - LastMouseY };
-        const int DeltaWheel{ MouseState.scrollWheelValue - LastWheel };
-
-        LastMouseX = MouseState.x;
-        LastMouseY = MouseState.y;
-        LastWheel = MouseState.scrollWheelValue;
-
-        Intent.lookDelta = SimpleMath::Vector2{ static_cast<float>(DeltaX), static_cast<float>(DeltaY) };
-        Intent.zoomDelta = static_cast<float>(DeltaWheel) / 120.0f;
+    void CameraInputSystem::ProcessDefaultMode(CameraIntent& Intent) {
+        (void)Intent;
     }
 }

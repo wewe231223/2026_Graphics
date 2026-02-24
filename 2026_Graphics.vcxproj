@@ -180,7 +180,7 @@ exit 0
     <ClCompile Include="Core\DX\DirectQueue.cpp" />
     <ClCompile Include="Core\DX\FrameSync.cpp" />
     <ClCompile Include="Core\DX\GraphicsAllocator.cpp" />
-    <ClCompile Include="Core\DX\GraphicsBuffer.cpp" />
+    <ClCompile Include="Core\DX\GraphicsVector.cpp" />
     <ClCompile Include="Core\DX\Texture.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -193,11 +193,8 @@ exit 0
     <ClInclude Include="Core\DX\DirectQueue.h" />
     <ClInclude Include="Core\DX\FrameSync.h" />
     <ClInclude Include="Core\DX\GraphicsAllocator.h" />
-    <ClInclude Include="Core\DX\GraphicsBuffer.h" />
+    <ClInclude Include="Core\DX\GraphicsVector.h" />
     <ClInclude Include="Core\DX\Texture.h" />
-    <ClInclude Include="Core\Task\RenderTask.h" />
-    <ClInclude Include="Core\Task\TaskContainer.h" />
-    <ClInclude Include="Core\Task\TaskInterface.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />

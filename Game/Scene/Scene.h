@@ -27,7 +27,7 @@ namespace Game {
         void AddSystem(std::unique_ptr<ISystem> NewSystem);
         void BuildSystemExecutionPlan();
         void ExecutePhase(Phase TargetPhase, float Dt);
-
+        
     private:
         Arche::World mWorld{};
         FrameContext mFrameContext{};

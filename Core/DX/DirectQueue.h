@@ -1,7 +1,7 @@
 ﻿#pragma once 
 #include <array>
 #include "Core/DX/DesciptorHeap.h"
-#include "Core/DX/GraphicsBuffer.h"
+#include "Core/DX/GraphicsVector.h"
 #include "Core/DX/FrameSync.h"
 #include "Core/DX/Texture.h"
 #include "Core/Config.h"
@@ -62,7 +62,6 @@ namespace Core {
 			DescriptorHeap mDSVHeap{};
 			TexPtr mDepthStencilBuffer{};
 
-			// 메인 쓰레드, Compute Queue 쓰레드 제외
 			FrameSync mFrameSync{};
 
 			D3D12_VIEWPORT mViewport{ 0, 0, Config::Query().Get<float>("Window_Width"), Config::Query().Get<float>("Window_Height"), 0.f, 1.f };

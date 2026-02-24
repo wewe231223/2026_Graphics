@@ -38,9 +38,6 @@
     <ClCompile Include="Core\Config.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="Core\DX\GraphicsBuffer.cpp">
-      <Filter>Core\DX</Filter>
-    </ClCompile>
     <ClCompile Include="Core\DX\FrameSync.cpp">
       <Filter>Core\DX</Filter>
     </ClCompile>
@@ -65,6 +62,9 @@
     <ClCompile Include="Core\DX\GraphicsAllocator.cpp">
       <Filter>Core\DX</Filter>
     </ClCompile>
+    <ClCompile Include="Core\DX\GraphicsVector.cpp">
+      <Filter>Core\DX</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="2026_Graphics.h">
@@ -81,18 +81,6 @@
     </ClInclude>
     <ClInclude Include="Core\Config.h">
       <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\Task\RenderTask.h">
-      <Filter>Core\Task</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\Task\TaskContainer.h">
-      <Filter>Core\Task</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\Task\TaskInterface.h">
-      <Filter>Core\Task</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\DX\GraphicsBuffer.h">
-      <Filter>Core\DX</Filter>
     </ClInclude>
     <ClInclude Include="Core\DX\FrameSync.h">
       <Filter>Core\DX</Filter>
@@ -116,6 +104,9 @@
       <Filter>Core\DX</Filter>
     </ClInclude>
     <ClInclude Include="Core\DX\GraphicsAllocator.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DX\GraphicsVector.h">
       <Filter>Core\DX</Filter>
     </ClInclude>
   </ItemGroup>

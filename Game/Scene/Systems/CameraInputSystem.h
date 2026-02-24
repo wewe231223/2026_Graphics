@@ -1,8 +1,21 @@
 #pragma once
 #include <string>
+#include <string_view>
 #include <vector>
 #include "Game/Scene/System.h"
 
+/*
++----------------------+------------------------------+
+| Input                | Action                       |
++----------------------+------------------------------+
+| W / A / S / D        | Move Forward / Left / Back   |
+| Q / E                | Move Down / Up               |
+| Left Shift           | Move Speed x2                |
+| Mouse Delta (X, Y)   | Look Yaw / Pitch             |
+| Mouse Wheel          | Zoom In / Out                |
++----------------------+------------------------------+
+
+*/
 namespace Game {
     struct CameraIntent;
     struct Camera;
@@ -39,9 +52,6 @@ namespace Game {
         void ProcessFreeLookMode(CameraIntent& Intent);
         void ProcessThirdPersonMode(CameraIntent& Intent);
         void ProcessDefaultMode(CameraIntent& Intent);
-
-        void ProcessKeyboard(CameraIntent& Intent);
-        void ProcessMouse(CameraIntent& Intent);
 
     private:
         const std::string mName{ "CameraInputSystem" };

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.26)
+﻿cmake_minimum_required(VERSION 3.26)
 
 project(My2026Graphics LANGUAGES C CXX)
 
@@ -129,7 +129,7 @@ add_executable(2026_Graphics WIN32
     Core/DX/DirectQueue.cpp
     Core/DX/FrameSync.cpp
     Core/DX/GraphicsAllocator.cpp
-    Core/DX/GraphicsBuffer.cpp
+    Core/DX/GraphicsVector.cpp
     Core/DX/Texture.cpp
 )
 
