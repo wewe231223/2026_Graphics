@@ -24,15 +24,25 @@ namespace Globals {
     public:
         void Initialize(HWND hWnd);
         void Update();
+        void Terminate(); 
+
+		void SetVirtualMouse(bool enable);
+		void ToggleVirtualMouse();
 
         const DirectX::Keyboard::State& GetKeyboardState() const;
         const DirectX::Mouse::State& GetMouseState() const;
         const DirectX::Keyboard::KeyboardStateTracker& GetKeyboardTracker() const;
         const DirectX::Mouse::ButtonStateTracker& GetMouseTracker() const;
 
+        float GetMouseDeltaX() const; 
+		float GetMouseDeltaY() const;
+
         bool IsKeyDown(DirectX::Keyboard::Keys key) const;
         bool IsKeyPressed(DirectX::Keyboard::Keys key) const;
         bool IsKeyReleased(DirectX::Keyboard::Keys key) const;
+
+    private:
+        void UpdateCursor(); 
 
     private:
         std::unique_ptr<DirectX::Keyboard> mKeyboard{ std::make_unique<DirectX::Keyboard>() };
@@ -43,5 +53,9 @@ namespace Globals {
 
         DirectX::Keyboard::KeyboardStateTracker mKeyboardTracker{};
         DirectX::Mouse::ButtonStateTracker mMouseTracker{};
+
+		HWND mhwnd{ nullptr };
+        bool mVirtualMouse{ false };
+		POINT mVirtualMousePosition{};
     };
 }

@@ -18,6 +18,8 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Game/Base/Shader.h"
 #include "Game/Base/RootSignature.h"
 #include "Game/Base/Pipeline.h"
+#include "Game/Base/Input.h"
+
 
 #ifdef _MSC_VER
     #ifdef _DEBUG
@@ -100,6 +102,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
 
 
+    Globals::Input::Get().Initialize(hWnd); 
+    Globals::Input::Get().SetVirtualMouse(true); 
+
     // 기본 메시지 루프입니다:
     while (true) {
         if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
@@ -111,6 +116,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                 DispatchMessage(&msg);
             }
         }
+        Globals::Input::Get().Update(); 
 
 
         directQueue.Update(); 
