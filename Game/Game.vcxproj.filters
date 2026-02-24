@@ -90,6 +90,9 @@
     <ClInclude Include="Base\Input.h">
       <Filter>Base</Filter>
     </ClInclude>
+    <ClInclude Include="Base\Time.h">
+      <Filter>Base</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Shader.cpp">
@@ -123,6 +126,9 @@
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Base\Input.cpp">
+      <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Base\Time.cpp">
       <Filter>Base</Filter>
     </ClCompile>
   </ItemGroup>

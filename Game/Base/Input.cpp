@@ -10,11 +10,10 @@ namespace Globals {
     void Input::Update() {
         mKeyboardState = mKeyboard->GetState();
         mMouseState = mMouse->GetState();
-
-        Input::UpdateCursor(); 
-
         mKeyboardTracker.Update(mKeyboardState);
         mMouseTracker.Update(mMouseState);
+
+        Input::UpdateCursor(); 
     }
 
     void Input::Terminate() {
@@ -94,6 +93,10 @@ namespace Globals {
     void Input::UpdateCursor() {
         if (mVirtualMouse) {
 			SetCursorPos(mVirtualMousePosition.x, mVirtualMousePosition.y);
+        }
+
+        if (Input::IsKeyPressed(DirectX::Keyboard::Keys::F7)) {
+            Input::ToggleVirtualMouse();
         }
     }
 }

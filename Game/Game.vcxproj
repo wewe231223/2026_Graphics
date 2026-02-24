@@ -25,6 +25,7 @@
     <ClInclude Include="Base\Shader.h" />
     <ClInclude Include="Base\RootSignature.h" />
     <ClInclude Include="Base\Pipeline.h" />
+    <ClInclude Include="Base\Time.h" />
     <ClInclude Include="Model\AssetRegistry.h" />
     <ClInclude Include="Model\Model.h" />
     <ClInclude Include="Scene\Components\Camera.h" />
@@ -45,6 +46,7 @@
     <ClCompile Include="Base\Shader.cpp" />
     <ClCompile Include="Base\RootSignature.cpp" />
     <ClCompile Include="Base\Pipeline.cpp" />
+    <ClCompile Include="Base\Time.cpp" />
     <ClCompile Include="Model\AssetRegistry.cpp" />
     <ClCompile Include="Model\Model.cpp" />
     <ClCompile Include="Scene\Scene.cpp" />
