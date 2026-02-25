@@ -28,6 +28,9 @@
     <Filter Include="Scene\Components\Intents">
       <UniqueIdentifier>{f9da7313-25fa-479a-b991-d9aceaf14076}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Scene\Scene YAML">
+      <UniqueIdentifier>{6bab11cf-0e16-4ef9-aed7-3729ebb82219}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Base\Common.h">

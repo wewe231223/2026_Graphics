@@ -1,6 +1,7 @@
 ﻿#include "SceneYamlSerializer.h"
 #include <array>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <memory>
 #include <sstream>
@@ -107,6 +108,15 @@ namespace {
 
         return nullptr;
     }
+
+    std::string ResolveSceneResourcePath(const std::string& SceneName, const std::string& FileName) {
+        if (SceneName.empty() || FileName.empty()) {
+            return FileName;
+        }
+
+        const std::filesystem::path ResolvedPath{ std::filesystem::path{ "Resources" } / SceneName / FileName };
+        return ResolvedPath.generic_string();
+    }
 }
 
 namespace Game {
@@ -184,9 +194,9 @@ namespace Game {
         SceneYamlLoadResult LoadResult{};
         c4::yml::Tree Tree{ c4::yml::parse_in_arena(c4::to_csubstr(YamlText)) };
         c4::yml::ConstNodeRef RootNode{ Tree.rootref() };
+        std::string SceneName{};
 
         if (RootNode.has_child("SceneName")) {
-            std::string SceneName{};
             RootNode["SceneName"] >> SceneName;
             OutScene.SetName(SceneName);
         }
@@ -257,16 +267,17 @@ namespace Game {
                     LoadResult.UndecidedItems.push_back(std::string{ "Material 컴포넌트의 materialPath 가 비어 있습니다." });
                 }
                 else {
-                    const bool IsLoaded{ Registry.LoadMaterialGroups(MaterialPath) };
+                    const std::string ResolvedMaterialPath{ ResolveSceneResourcePath(SceneName, MaterialPath) };
+                    const bool IsLoaded{ Registry.LoadMaterialGroups(ResolvedMaterialPath) };
                     if (IsLoaded == false) {
                         LoadResult.IsSuccess = false;
-                        LoadResult.UndecidedItems.push_back(std::string{ "Material 파일 로드 실패: " } + MaterialPath);
+                        LoadResult.UndecidedItems.push_back(std::string{ "Material 파일 로드 실패: " } + ResolvedMaterialPath);
                     }
                     else {
-                        const std::uint32_t MaterialGroupIndex{ Registry.FindMaterialGroupIndexBySourcePath(MaterialPath) };
+                        const std::uint32_t MaterialGroupIndex{ Registry.FindMaterialGroupIndexBySourcePath(ResolvedMaterialPath) };
                         if (MaterialGroupIndex == static_cast<std::uint32_t>(-1)) {
                             LoadResult.IsSuccess = false;
-                            LoadResult.UndecidedItems.push_back(std::string{ "Material 파일에서 MaterialGroupIndex 를 해석할 수 없습니다: " } + MaterialPath);
+                            LoadResult.UndecidedItems.push_back(std::string{ "Material 파일에서 MaterialGroupIndex 를 해석할 수 없습니다: " } + ResolvedMaterialPath);
                         }
                         else {
                             NewMaterial.MaterialGroupIndex = MaterialGroupIndex;
@@ -283,10 +294,11 @@ namespace Game {
                 if (StaticMeshRendererNode.has_child("modelPath")) {
                     std::string ModelPath{};
                     StaticMeshRendererNode["modelPath"] >> ModelPath;
-                    const std::shared_ptr<Model> ModelData{ Registry.GetModel(ModelPath) };
+                    const std::string ResolvedModelPath{ ResolveSceneResourcePath(SceneName, ModelPath) };
+                    const std::shared_ptr<Model> ModelData{ Registry.GetModel(ResolvedModelPath) };
                     if (ModelData == nullptr) {
                         LoadResult.IsSuccess = false;
-                        LoadResult.UndecidedItems.push_back(std::string{ "modelPath 로 Model 로드 실패: " } + ModelPath);
+                        LoadResult.UndecidedItems.push_back(std::string{ "modelPath 로 Model 로드 실패: " } + ResolvedModelPath);
                     }
                     else {
                         NewStaticMeshRenderer.modelNode = ModelData.get();
