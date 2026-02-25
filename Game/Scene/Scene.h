@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <memory>
+#include <string>
 #include <vector>
 #include "Arche/World.h"
 #include "System.h"
@@ -23,12 +24,15 @@ namespace Game {
 
         FrameContext& GetFrameContext();
         const FrameContext& GetFrameContext() const;
+        void SetName(const std::string& NewName);
+        const std::string& GetName() const;
 
         void AddSystem(std::unique_ptr<ISystem> NewSystem);
         void BuildSystemExecutionPlan();
         void ExecutePhase(Phase TargetPhase, float Dt);
         
     private:
+        std::string mName{};
         Arche::World mWorld{};
         FrameContext mFrameContext{};
         std::vector<std::unique_ptr<ISystem>> mSystems{};

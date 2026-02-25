@@ -13,6 +13,7 @@ namespace Game {
         mMaterialNameLookup{},
         mMaterialGroups{},
         mMaterialGroupNameLookup{},
+        mMaterialGroupSourcePaths{},
         mPipelines{},
         mPipelineLookup{} {
     }
@@ -30,6 +31,7 @@ namespace Game {
         mMaterialNameLookup{ std::move(Other.mMaterialNameLookup) },
         mMaterialGroups{ std::move(Other.mMaterialGroups) },
         mMaterialGroupNameLookup{ std::move(Other.mMaterialGroupNameLookup) },
+        mMaterialGroupSourcePaths{ std::move(Other.mMaterialGroupSourcePaths) },
         mPipelines{ std::move(Other.mPipelines) },
         mPipelineLookup{ std::move(Other.mPipelineLookup) } {
         Other.mDevice = nullptr;
@@ -51,6 +53,7 @@ namespace Game {
         mMaterialNameLookup = std::move(Other.mMaterialNameLookup);
         mMaterialGroups = std::move(Other.mMaterialGroups);
         mMaterialGroupNameLookup = std::move(Other.mMaterialGroupNameLookup);
+        mMaterialGroupSourcePaths = std::move(Other.mMaterialGroupSourcePaths);
         mPipelines = std::move(Other.mPipelines);
         mPipelineLookup = std::move(Other.mPipelineLookup);
 
@@ -100,7 +103,7 @@ namespace Game {
         }
 
         for (const asset::MaterialGroup& MaterialGroupData : MaterialGroups) {
-            AddMaterialGroup(MaterialGroupData);
+            AddMaterialGroupWithSource(MaterialGroupData, MaterialJsonPath);
         }
 
         mLoadedMaterialJsonPaths.insert(MaterialJsonPath);
@@ -130,6 +133,10 @@ namespace Game {
     }
 
     std::uint32_t AssetRegistry::AddMaterialGroup(const asset::MaterialGroup& MaterialGroupData) {
+        return AddMaterialGroupWithSource(MaterialGroupData, std::string{});
+    }
+
+    std::uint32_t AssetRegistry::AddMaterialGroupWithSource(const asset::MaterialGroup& MaterialGroupData, const std::string& SourcePath) {
         std::string MaterialGroupName{ MaterialGroupData.Name };
         if (MaterialGroupName.empty()) {
             MaterialGroupName = std::string{ "MaterialGroup_" } + std::to_string(mMaterialGroups.size());
@@ -137,7 +144,12 @@ namespace Game {
 
         const auto FoundMaterialGroup{ mMaterialGroupNameLookup.find(MaterialGroupName) };
         if (FoundMaterialGroup != mMaterialGroupNameLookup.end()) {
-            return FoundMaterialGroup->second;
+            const std::uint32_t ExistingIndex{ FoundMaterialGroup->second };
+            if (SourcePath.empty() == false && ExistingIndex < mMaterialGroupSourcePaths.size() && mMaterialGroupSourcePaths[ExistingIndex].empty()) {
+                mMaterialGroupSourcePaths[ExistingIndex] = SourcePath;
+            }
+
+            return ExistingIndex;
         }
 
         RegisteredMaterialGroup NewMaterialGroup{};
@@ -152,6 +164,7 @@ namespace Game {
 
         const std::uint32_t NewIndex{ static_cast<std::uint32_t>(mMaterialGroups.size()) };
         mMaterialGroups.push_back(std::move(NewMaterialGroup));
+        mMaterialGroupSourcePaths.push_back(SourcePath);
         mMaterialGroupNameLookup.insert_or_assign(mMaterialGroups.back().Name, NewIndex);
         return NewIndex;
     }
@@ -171,6 +184,22 @@ namespace Game {
 
     const std::vector<RegisteredMaterialGroup>& AssetRegistry::GetMaterialGroups() const {
         return mMaterialGroups;
+    }
+
+
+
+    std::uint32_t AssetRegistry::FindMaterialGroupIndexBySourcePath(const std::string& MaterialSourcePath) const {
+        if (MaterialSourcePath.empty()) {
+            return static_cast<std::uint32_t>(-1);
+        }
+
+        for (std::uint32_t MaterialGroupIndex{ 0 }; MaterialGroupIndex < mMaterialGroupSourcePaths.size(); ++MaterialGroupIndex) {
+            if (mMaterialGroupSourcePaths[MaterialGroupIndex] == MaterialSourcePath) {
+                return MaterialGroupIndex;
+            }
+        }
+
+        return static_cast<std::uint32_t>(-1);
     }
 
     Interface::IPipeline* AssetRegistry::ResolvePipelineByName(const std::string& PipelineName) {

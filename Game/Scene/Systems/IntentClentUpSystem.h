@@ -47,7 +47,7 @@ namespace Game {
             // Fold Expression을 사용하여 각 Intent의 Reset() 호출
             ([&] {
                 auto view = World.Query<TIntents>();
-                for (auto& intent : view) {
+                for (auto [intent] : view) {
                     intent.Reset();
                 }
                 }(), ...);

@@ -50,9 +50,11 @@ namespace Game {
         std::uint32_t FindMaterialIndexByName(const std::string& MaterialName) const;
         const std::vector<RegisteredMaterial>& GetMaterials() const;
         const std::vector<RegisteredMaterialGroup>& GetMaterialGroups() const;
+        std::uint32_t FindMaterialGroupIndexBySourcePath(const std::string& MaterialSourcePath) const;
 
     private:
         Interface::IPipeline* ResolvePipelineByName(const std::string& PipelineName);
+        std::uint32_t AddMaterialGroupWithSource(const asset::MaterialGroup& MaterialGroupData, const std::string& SourcePath);
         bool ReadModelData(const std::string& ModelBinaryPath, asset::ModelResult& OutModelData) const;
         bool ReadMaterialGroups(const std::string& MaterialJsonPath, std::vector<asset::MaterialGroup>& OutMaterialGroups) const;
 
@@ -69,6 +71,7 @@ namespace Game {
 
         std::vector<RegisteredMaterialGroup> mMaterialGroups{};
         std::unordered_map<std::string, std::uint32_t> mMaterialGroupNameLookup{};
+        std::vector<std::string> mMaterialGroupSourcePaths{};
 
         std::vector<std::unique_ptr<Base::Pipeline>> mPipelines{};
         std::unordered_map<std::string, Interface::IPipeline*> mPipelineLookup{};

@@ -2,7 +2,8 @@
 
 namespace Game {
     Scene::Scene()
-        : mWorld{},
+        : mName{},
+        mWorld{},
         mFrameContext{},
         mSystems{},
         mSystemSceduler{} {
@@ -27,6 +28,14 @@ namespace Game {
         return mFrameContext;
     }
 
+    void Scene::SetName(const std::string& NewName) {
+        mName = NewName;
+    }
+
+    const std::string& Scene::GetName() const {
+        return mName;
+    }
+
     void Scene::AddSystem(std::unique_ptr<ISystem> NewSystem) {
         if (NewSystem == nullptr) {
             return;
@@ -34,6 +43,7 @@ namespace Game {
 
         mSystems.push_back(std::move(NewSystem));
     }
+
 
     void Scene::BuildSystemExecutionPlan() {
         mSystemSceduler.BuildExecutionPlan(mSystems);

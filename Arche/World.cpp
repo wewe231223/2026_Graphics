@@ -6,6 +6,7 @@ World::World() = default;
 
 World::~World() = default;
 
+
 Archetype* World::GetOrCreateArchetype(std::span<const TypeID> SortedIDs, std::span<const size_t> Sizes, std::span<const size_t> Aligns) {
     for (const std::unique_ptr<Archetype>& Arch : mArcheTypes) {
         const std::vector<TypeID>& Signature{ Arch->GetSignature() };

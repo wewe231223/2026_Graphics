@@ -97,8 +97,10 @@ add_library(Game STATIC
     Game/Model/AssetRegistry.cpp
     Game/Model/Model.cpp
     Game/Scene/Scene.cpp
+    Game/Scene/SceneYamlSerializer.cpp
     Game/Scene/System.cpp
     Game/Scene/SystemSceduler.cpp
+    Game/Scene/Systems/CameraInputSystem.cpp
     Game/Scene/Systems/StaticRenderSystem.cpp
 )
 

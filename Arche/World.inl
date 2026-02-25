@@ -9,7 +9,8 @@ namespace Arche {
 
     template <TrivialComponent... Ts>
     EntityID World::CreateEntity() {
-        return CreateEntity<Ts...>(Ts{}...);
+        std::unique_lock<std::shared_mutex> Lock{ mWorldRwLock };
+        return CreateEntityInternal<Ts...>(Ts{}...);
     }
 
     template <TrivialComponent T>

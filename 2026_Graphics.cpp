@@ -20,6 +20,9 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Game/Base/Pipeline.h"
 #include "Game/Base/Input.h"
 #include "Game/Base/Time.h"
+#include "Game/Scene/Scene.h"
+#include "Game/Scene/SceneYamlSerializer.h"
+#include "Game/Model/AssetRegistry.h"
 
 #ifdef _MSC_VER
     #ifdef _DEBUG
@@ -93,6 +96,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     Arche::World archeContainer{};
 
+    Game::AssetRegistry AssetRegistry{};
+    AssetRegistry.Initialize(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator);
+
     Game::Base::PreCompileShaders();
     
     if(not Game::Base::PreCompileRootSignatures(directQueue.GetDevice())) {
@@ -115,6 +121,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         frameCount = 0;
         return true;
     });
+
+
+
+    Game::Scene SceneInstance{};
+    Game::SceneYamlSerializer SceneYamlSerializer{};
+    const Game::SceneYamlLoadResult SceneYamlLoadResult{ SceneYamlSerializer.DeserializeFromFile("Game/Scene/Examples/DefaultScene.yaml", AssetRegistry, SceneInstance) };
+    ErrorHandler::report(SceneYamlLoadResult.IsSuccess == false, "WinMain", "Failed to load scene yaml.", ErrorHandler::Level::Warning);
+
+
 
     // 기본 메시지 루프입니다:
     while (true) {

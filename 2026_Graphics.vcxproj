@@ -125,6 +125,8 @@
     <PostBuildEvent>
       <Command>copy $(SolutionDir)Config.prop $(TargetDir) /Y
 copy $(SolutionDir)dxcompiler.dll $(TargetDir) /Y
+copy $(SolutionDir)c4core.dll $(TargetDir) /Y
+copy $(SolutionDir)ryml.dll $(TargetDir) /Y
 
 robocopy $(SolutionDir)D3D $(TargetDir)D3D /E
 exit 0
@@ -154,6 +156,8 @@ exit 0
     <PostBuildEvent>
       <Command>copy $(SolutionDir)Config.prop $(TargetDir) /Y
 copy $(SolutionDir)dxcompiler.dll $(TargetDir) /Y
+copy $(SolutionDir)c4core.dll $(TargetDir) /Y
+copy $(SolutionDir)ryml.dll $(TargetDir) /Y
 
 robocopy $(SolutionDir)D3D $(TargetDir)D3D /E
 exit 0
