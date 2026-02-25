@@ -1,4 +1,4 @@
-#ifndef _C4_YML_EMIT_HPP_
+﻿#ifndef _C4_YML_EMIT_HPP_
 #define _C4_YML_EMIT_HPP_
 
 /** @file emit.hpp Utilities to emit YAML and JSON. */

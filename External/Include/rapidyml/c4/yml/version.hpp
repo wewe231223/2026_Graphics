@@ -1,4 +1,4 @@
-#ifndef _C4_YML_VERSION_HPP_
+﻿#ifndef _C4_YML_VERSION_HPP_
 #define _C4_YML_VERSION_HPP_
 
 /** @file version.hpp */

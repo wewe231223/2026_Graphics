@@ -1,4 +1,4 @@
-#ifndef C4_YML_DETAIL_CHECKS_HPP_
+﻿#ifndef C4_YML_DETAIL_CHECKS_HPP_
 #define C4_YML_DETAIL_CHECKS_HPP_
 
 #include "c4/yml/tree.hpp"

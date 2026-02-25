@@ -1,4 +1,4 @@
-#ifndef _C4_STD_VECTOR_HPP_
+﻿#ifndef _C4_STD_VECTOR_HPP_
 #define _C4_STD_VECTOR_HPP_
 
 /** @file vector.hpp provides conversion and comparison facilities

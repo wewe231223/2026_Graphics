@@ -1,4 +1,4 @@
-#ifndef _C4_YML_COMMON_HPP_
+﻿#ifndef _C4_YML_COMMON_HPP_
 #define _C4_YML_COMMON_HPP_
 
 /** @file common.hpp Common utilities and infrastructure used by ryml. */

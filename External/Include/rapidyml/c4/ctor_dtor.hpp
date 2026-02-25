@@ -1,4 +1,4 @@
-#ifndef _C4_CTOR_DTOR_HPP_
+﻿#ifndef _C4_CTOR_DTOR_HPP_
 #define _C4_CTOR_DTOR_HPP_
 
 #include "c4/preprocessor.hpp"

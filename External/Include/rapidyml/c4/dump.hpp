@@ -1,4 +1,4 @@
-#ifndef C4_DUMP_HPP_
+﻿#ifndef C4_DUMP_HPP_
 #define C4_DUMP_HPP_
 
 #include <c4/substr.hpp>

@@ -1,4 +1,4 @@
-#include "GraphicsVector.h"
+﻿#include "GraphicsVector.h"
 #include <algorithm>
 #include <cstring>
 

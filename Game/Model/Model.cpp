@@ -1,4 +1,4 @@
-#include "Model.h"
+﻿#include "Model.h"
 #include <cstring>
 #include <utility>
 #include "Asset/NumericTypes.h"

@@ -1,4 +1,4 @@
-#ifndef _C4_YML_PREPROCESS_HPP_
+﻿#ifndef _C4_YML_PREPROCESS_HPP_
 #define _C4_YML_PREPROCESS_HPP_
 
 /** @file preprocess.hpp Functions for preprocessing YAML prior to parsing. */

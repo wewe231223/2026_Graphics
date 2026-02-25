@@ -1,4 +1,4 @@
-#ifndef _C4_CONFIG_HPP_
+﻿#ifndef _C4_CONFIG_HPP_
 #define _C4_CONFIG_HPP_
 
 /** @defgroup basic_headers Basic headers

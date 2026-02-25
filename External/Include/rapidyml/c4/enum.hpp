@@ -1,4 +1,4 @@
-#ifndef _C4_ENUM_HPP_
+﻿#ifndef _C4_ENUM_HPP_
 #define _C4_ENUM_HPP_
 
 #include "c4/error.hpp"

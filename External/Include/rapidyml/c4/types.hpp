@@ -1,4 +1,4 @@
-#ifndef _C4_TYPES_HPP_
+﻿#ifndef _C4_TYPES_HPP_
 #define _C4_TYPES_HPP_
 
 #include <stdint.h>

@@ -1,4 +1,4 @@
-#ifdef _C4_PUSH_HPP_ // this must match the include guard from c4_push
+﻿#ifdef _C4_PUSH_HPP_ // this must match the include guard from c4_push
 
 /** @file c4_pop.hpp disables the macros and control directives
  * enabled in c4_push.hpp.

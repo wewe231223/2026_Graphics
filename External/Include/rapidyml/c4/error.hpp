@@ -1,4 +1,4 @@
-#ifndef _C4_ERROR_HPP_
+﻿#ifndef _C4_ERROR_HPP_
 #define _C4_ERROR_HPP_
 
 /** @file error.hpp Facilities for error reporting and runtime assertions. */

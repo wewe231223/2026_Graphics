@@ -1,4 +1,4 @@
-#ifndef _C4_PREPROCESSOR_HPP_
+﻿#ifndef _C4_PREPROCESSOR_HPP_
 #define _C4_PREPROCESSOR_HPP_
 
 /** @file preprocessor.hpp Contains basic macros and preprocessor utilities.

@@ -1,4 +1,4 @@
-#ifndef _C4_YML_REFERENCE_RESOLVER_HPP_
+﻿#ifndef _C4_YML_REFERENCE_RESOLVER_HPP_
 #define _C4_YML_REFERENCE_RESOLVER_HPP_
 
 #include "c4/yml/tree.hpp"

@@ -1,4 +1,4 @@
-#ifndef _C4_LANGUAGE_HPP_
+﻿#ifndef _C4_LANGUAGE_HPP_
 #define _C4_LANGUAGE_HPP_
 
 /** @file language.hpp Provides language standard information macros and

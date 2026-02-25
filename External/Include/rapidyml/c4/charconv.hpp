@@ -1,4 +1,4 @@
-#ifndef _C4_CHARCONV_HPP_
+﻿#ifndef _C4_CHARCONV_HPP_
 #define _C4_CHARCONV_HPP_
 
 /** @file charconv.hpp Lightweight generic type-safe wrappers for

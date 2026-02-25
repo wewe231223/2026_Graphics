@@ -1,4 +1,4 @@
-#include "SceneYamlSerializer.h"
+﻿#include "SceneYamlSerializer.h"
 #include <array>
 #include <cstdint>
 #include <fstream>
@@ -199,7 +199,7 @@ namespace Game {
                 std::unique_ptr<ISystem> NewSystem{ CreateSystemByName(SystemName) };
                 if (NewSystem == nullptr) {
                     LoadResult.IsSuccess = false;
-                    LoadResult.UndecidedItems.push_back(std::string{ "알 수 없는 System 타입: " } + SystemName);
+                    LoadResult.UndecidedItems.push_back(std::string{ "알 수 없는 System Type: " } + SystemName);
                     continue;
                 }
 

@@ -1,4 +1,4 @@
-#ifndef _C4_YML_STD_MAP_HPP_
+﻿#ifndef _C4_YML_STD_MAP_HPP_
 #define _C4_YML_STD_MAP_HPP_
 
 /** @file map.hpp write/read std::map to/from a YAML tree. */

@@ -1,4 +1,4 @@
-#ifndef _C4_SUBSTR_HPP_
+﻿#ifndef _C4_SUBSTR_HPP_
 #define _C4_SUBSTR_HPP_
 
 /** @file substr.hpp read+write string views */

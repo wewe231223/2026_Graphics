@@ -1,4 +1,4 @@
-#ifndef _C4_MEMORY_UTIL_HPP_
+﻿#ifndef _C4_MEMORY_UTIL_HPP_
 #define _C4_MEMORY_UTIL_HPP_
 
 #include "c4/config.hpp"

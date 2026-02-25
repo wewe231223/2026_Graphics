@@ -1,4 +1,4 @@
-#ifndef _C4_WINDOWS_PUSH_HPP_
+﻿#ifndef _C4_WINDOWS_PUSH_HPP_
 #define _C4_WINDOWS_PUSH_HPP_
 
 /** @file windows_push.hpp sets up macros to include windows header files

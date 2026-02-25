@@ -1,4 +1,4 @@
-#ifndef _C4_YML_EMIT_DEF_HPP_
+﻿#ifndef _C4_YML_EMIT_DEF_HPP_
 #define _C4_YML_EMIT_DEF_HPP_
 
 #ifndef _C4_YML_EMIT_HPP_

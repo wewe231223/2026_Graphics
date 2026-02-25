@@ -1,4 +1,4 @@
-#ifndef C4_UTF_HPP_
+﻿#ifndef C4_UTF_HPP_
 #define C4_UTF_HPP_
 
 #include "c4/language.hpp"

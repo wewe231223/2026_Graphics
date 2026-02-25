@@ -1,4 +1,4 @@
-#ifndef _C4_SUBSTR_FWD_HPP_
+﻿#ifndef _C4_SUBSTR_FWD_HPP_
 #define _C4_SUBSTR_FWD_HPP_
 
 #include "c4/export.hpp"

@@ -1,4 +1,4 @@
-#ifndef _C4_MEMORY_RESOURCE_HPP_
+﻿#ifndef _C4_MEMORY_RESOURCE_HPP_
 #define _C4_MEMORY_RESOURCE_HPP_
 
 /** @file memory_resource.hpp Provides facilities to allocate typeless

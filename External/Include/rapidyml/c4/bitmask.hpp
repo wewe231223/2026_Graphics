@@ -1,4 +1,4 @@
-#ifndef _C4_BITMASK_HPP_
+﻿#ifndef _C4_BITMASK_HPP_
 #define _C4_BITMASK_HPP_
 
 /** @file bitmask.hpp bitmask utilities */

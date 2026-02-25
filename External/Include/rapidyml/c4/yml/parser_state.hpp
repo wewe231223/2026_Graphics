@@ -1,4 +1,4 @@
-#ifndef _C4_YML_PARSER_STATE_HPP_
+﻿#ifndef _C4_YML_PARSER_STATE_HPP_
 #define _C4_YML_PARSER_STATE_HPP_
 
 #ifndef _C4_YML_COMMON_HPP_

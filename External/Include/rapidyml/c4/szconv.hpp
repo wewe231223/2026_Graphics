@@ -1,4 +1,4 @@
-#ifndef _C4_SZCONV_HPP_
+﻿#ifndef _C4_SZCONV_HPP_
 #define _C4_SZCONV_HPP_
 
 /** @file szconv.hpp utilities to deal safely with narrowing conversions */

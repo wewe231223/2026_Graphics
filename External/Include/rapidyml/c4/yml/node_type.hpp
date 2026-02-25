@@ -1,4 +1,4 @@
-#ifndef C4_YML_NODE_TYPE_HPP_
+﻿#ifndef C4_YML_NODE_TYPE_HPP_
 #define C4_YML_NODE_TYPE_HPP_
 
 #ifndef _C4_YML_COMMON_HPP_

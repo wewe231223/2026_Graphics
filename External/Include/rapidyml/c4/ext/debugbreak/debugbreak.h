@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2021, Scott Tsai
+﻿/* Copyright (c) 2011-2021, Scott Tsai
  * 
  * All rights reserved.
  * 

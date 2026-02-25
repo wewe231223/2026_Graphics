@@ -1,4 +1,4 @@
-#ifndef _C4_YML_TAG_HPP_
+﻿#ifndef _C4_YML_TAG_HPP_
 #define _C4_YML_TAG_HPP_
 
 #include <c4/yml/common.hpp>

@@ -1,4 +1,4 @@
-#ifndef _C4_STD_STRING_HPP_
+﻿#ifndef _C4_STD_STRING_HPP_
 #define _C4_STD_STRING_HPP_
 
 /** @file string.hpp */

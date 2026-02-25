@@ -1,4 +1,4 @@
-#ifndef _C4_SPAN_HPP_
+﻿#ifndef _C4_SPAN_HPP_
 #define _C4_SPAN_HPP_
 
 /** @file span.hpp Provides span classes. */

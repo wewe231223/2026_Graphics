@@ -1,4 +1,4 @@
-#ifndef _C4_YML_STD_STD_HPP_
+﻿#ifndef _C4_YML_STD_STD_HPP_
 #define _C4_YML_STD_STD_HPP_
 
 #include "c4/yml/std/string.hpp"

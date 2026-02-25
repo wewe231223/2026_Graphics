@@ -1,4 +1,4 @@
-#ifndef _C4_FORMAT_HPP_
+﻿#ifndef _C4_FORMAT_HPP_
 #define _C4_FORMAT_HPP_
 
 /** @file format.hpp provides type-safe facilities for formatting arguments

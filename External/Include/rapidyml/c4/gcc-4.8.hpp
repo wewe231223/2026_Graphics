@@ -1,4 +1,4 @@
-#ifndef _C4_GCC_4_8_HPP_
+﻿#ifndef _C4_GCC_4_8_HPP_
 #define _C4_GCC_4_8_HPP_
 
 #if __GNUC__ == 4 && __GNUC_MINOR__ >= 8

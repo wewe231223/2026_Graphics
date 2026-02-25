@@ -1,4 +1,4 @@
-#ifndef _C4_CPU_HPP_
+﻿#ifndef _C4_CPU_HPP_
 #define _C4_CPU_HPP_
 
 /** @file cpu.hpp Provides processor information macros

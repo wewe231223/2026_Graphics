@@ -1,4 +1,4 @@
-#ifndef _C4_STD_STRING_FWD_HPP_
+﻿#ifndef _C4_STD_STRING_FWD_HPP_
 #define _C4_STD_STRING_FWD_HPP_
 
 /** @file string_fwd.hpp */

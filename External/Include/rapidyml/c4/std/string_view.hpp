@@ -1,4 +1,4 @@
-#ifndef _C4_STD_STRING_VIEW_HPP_
+﻿#ifndef _C4_STD_STRING_VIEW_HPP_
 #define _C4_STD_STRING_VIEW_HPP_
 
 /** @file string_view.hpp */

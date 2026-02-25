@@ -1,4 +1,4 @@
-#ifndef _C4_ALLOCATOR_HPP_
+﻿#ifndef _C4_ALLOCATOR_HPP_
 #define _C4_ALLOCATOR_HPP_
 
 #include "c4/memory_resource.hpp"

@@ -1,4 +1,4 @@
-#ifndef C4_EXPORT_HPP_
+﻿#ifndef C4_EXPORT_HPP_
 #define C4_EXPORT_HPP_
 
 #ifdef _WIN32

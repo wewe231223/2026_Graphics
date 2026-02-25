@@ -1,4 +1,4 @@
-#ifndef _C4_STD_VECTOR_FWD_HPP_
+﻿#ifndef _C4_STD_VECTOR_FWD_HPP_
 #define _C4_STD_VECTOR_FWD_HPP_
 
 /** @file vector_fwd.hpp */

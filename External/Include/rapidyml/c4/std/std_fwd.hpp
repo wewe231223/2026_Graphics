@@ -1,4 +1,4 @@
-#ifndef _C4_STD_STD_FWD_HPP_
+﻿#ifndef _C4_STD_STD_FWD_HPP_
 #define _C4_STD_STD_FWD_HPP_
 
 /** @file std_fwd.hpp includes all c4-std interop fwd files */

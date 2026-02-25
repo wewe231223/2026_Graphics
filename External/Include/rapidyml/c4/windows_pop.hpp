@@ -1,4 +1,4 @@
-#ifndef _C4_WINDOWS_POP_HPP_
+﻿#ifndef _C4_WINDOWS_POP_HPP_
 #define _C4_WINDOWS_POP_HPP_
 
 #if defined(_WIN64) || defined(_WIN32)

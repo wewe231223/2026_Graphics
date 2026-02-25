@@ -1,4 +1,4 @@
-#ifndef _C4_YML_PARSE_ENGINE_DEF_HPP_
+﻿#ifndef _C4_YML_PARSE_ENGINE_DEF_HPP_
 #define _C4_YML_PARSE_ENGINE_DEF_HPP_
 
 #include "c4/yml/parse_engine.hpp"
@@ -2666,7 +2666,7 @@ void ParseEngine<EventHandler>::_filter_dquoted_backslash(FilterProcessor &C4_RE
     {
         proc.translate_esc('\\');
     }
-    else if(next == 'x') // 2-digit Unicode escape (\xXX), code point 0x00–0xFF
+    else if(next == 'x') // 2-digit Unicode escape (\xXX), code point 0x00-0xFF
     {
         if(C4_UNLIKELY(proc.rpos + 1u + 2u >= proc.src.len))
             _c4err_("\\x requires 2 hex digits. scalar pos={}", proc.rpos);
@@ -2683,7 +2683,7 @@ void ParseEngine<EventHandler>::_filter_dquoted_backslash(FilterProcessor &C4_RE
         proc.translate_esc_bulk(readbuf, numbytes, /*nread*/3u);
         _c4dbgfdq("utf8 after rpos={} rem=~~~{}~~~", proc.rpos, proc.src.sub(proc.rpos));
     }
-    else if(next == 'u') // 4-digit Unicode escape (\uXXXX), code point 0x0000–0xFFFF
+    else if(next == 'u') // 4-digit Unicode escape (\uXXXX), code point 0x0000-0xFFFF
     {
         if(C4_UNLIKELY(proc.rpos + 1u + 4u >= proc.src.len))
             _c4err_("\\u requires 4 hex digits. scalar pos={}", proc.rpos);

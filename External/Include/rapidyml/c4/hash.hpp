@@ -1,4 +1,4 @@
-#ifndef _C4_HASH_HPP_
+﻿#ifndef _C4_HASH_HPP_
 #define _C4_HASH_HPP_
 
 #include "c4/config.hpp"

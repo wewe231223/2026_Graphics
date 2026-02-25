@@ -1,4 +1,4 @@
-#ifndef _C4_YML_FWD_HPP_
+﻿#ifndef _C4_YML_FWD_HPP_
 #define _C4_YML_FWD_HPP_
 
 /** @file fwd.hpp forward declarations */

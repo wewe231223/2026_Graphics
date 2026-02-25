@@ -1,4 +1,4 @@
-#ifndef _C4_COMPILER_HPP_
+﻿#ifndef _C4_COMPILER_HPP_
 #define _C4_COMPILER_HPP_
 
 /** @file compiler.hpp Provides compiler information macros

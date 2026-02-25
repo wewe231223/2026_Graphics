@@ -1,4 +1,4 @@
-#ifndef _C4_BASE64_HPP_
+﻿#ifndef _C4_BASE64_HPP_
 #define _C4_BASE64_HPP_
 
 /** @file base64.hpp encoding/decoding for base64.

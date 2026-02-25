@@ -1,4 +1,4 @@
-#ifndef _C4_YML_STD_VECTOR_HPP_
+﻿#ifndef _C4_YML_STD_VECTOR_HPP_
 #define _C4_YML_STD_VECTOR_HPP_
 
 #include "c4/yml/node.hpp"

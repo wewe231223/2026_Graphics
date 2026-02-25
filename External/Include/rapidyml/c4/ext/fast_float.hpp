@@ -1,4 +1,4 @@
-#ifndef _C4_EXT_FAST_FLOAT_HPP_
+﻿#ifndef _C4_EXT_FAST_FLOAT_HPP_
 #define _C4_EXT_FAST_FLOAT_HPP_
 
 #if defined(_MSC_VER) && !defined(__clang__)

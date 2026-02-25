@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 Arvid Gerstmann.
+﻿/* Copyright (c) 2018 Arvid Gerstmann.
  *
  * https://arvid.io/2018/07/02/better-cxx-prng/
  *

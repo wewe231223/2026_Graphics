@@ -1,4 +1,4 @@
-#ifndef _C4_RESTRICT_HPP_
+﻿#ifndef _C4_RESTRICT_HPP_
 #define _C4_RESTRICT_HPP_
 
 /** @file restrict.hpp macros defining shorthand symbols for restricted

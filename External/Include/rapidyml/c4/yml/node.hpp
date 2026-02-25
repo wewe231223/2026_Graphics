@@ -1,4 +1,4 @@
-#ifndef _C4_YML_NODE_HPP_
+﻿#ifndef _C4_YML_NODE_HPP_
 #define _C4_YML_NODE_HPP_
 
 /** @file node.hpp Node classes */

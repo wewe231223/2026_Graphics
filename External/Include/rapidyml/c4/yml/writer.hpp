@@ -1,4 +1,4 @@
-#ifndef _C4_YML_WRITER_HPP_
+﻿#ifndef _C4_YML_WRITER_HPP_
 #define _C4_YML_WRITER_HPP_
 
 #ifndef _C4_YML_COMMON_HPP_

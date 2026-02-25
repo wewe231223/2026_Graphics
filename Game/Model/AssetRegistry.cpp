@@ -1,4 +1,4 @@
-#include "AssetRegistry.h"
+﻿#include "AssetRegistry.h"
 #include "Asset/AssetBinaryReader.h"
 #include "Asset/MaterialGroupJsonSerializer.h"
 

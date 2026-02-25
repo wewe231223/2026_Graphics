@@ -1,4 +1,4 @@
-#ifndef _C4_BLOB_HPP_
+﻿#ifndef _C4_BLOB_HPP_
 #define _C4_BLOB_HPP_
 
 #include "c4/types.hpp"
