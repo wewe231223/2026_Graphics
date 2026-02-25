@@ -27,10 +27,12 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #ifdef _MSC_VER
     #ifdef _DEBUG
         #pragma comment(lib, "out/debug/Arche.lib")
-        #pragma comment(lib, "out/debug/Game.lib")
+        #pragma comment(lib, "out/debug/Game.lib")  
+        #pragma comment(lib, "out/debug/Asset.lib")
     #else 
         #pragma comment(lib, "out/relase/Arche.lib")
         #pragma comment(lib, "out/release/Game.lib")
+        #pragma comment(lib, "out/release/Asset.lib")
     #endif 
 #endif 
 
