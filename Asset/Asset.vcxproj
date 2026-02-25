@@ -21,7 +21,6 @@
   <ItemGroup>
     <ClCompile Include="AssetBinaryReader.cpp" />
     <ClCompile Include="AssetBinaryWriter.cpp" />
-    <ClCompile Include="AssetBundle.cpp" />
     <ClCompile Include="Common.cpp" />
     <ClCompile Include="DataList.cpp" />
     <ClCompile Include="FbxAssetImporter.cpp" />
@@ -36,7 +35,6 @@
   <ItemGroup>
     <ClInclude Include="AssetBinaryReader.h" />
     <ClInclude Include="AssetBinaryWriter.h" />
-    <ClInclude Include="AssetBundle.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="DataList.h" />
     <ClInclude Include="FbxAssetImporter.h" />

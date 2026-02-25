@@ -1,9 +1,10 @@
 ﻿#pragma once
 
 #include <string_view>
+#include <vector>
 
-#include "AssetBundle.h"
 #include "Common.h"
+#include "ModelResult.h"
 
 namespace asset {
     class FbxAssetImporter final {
@@ -17,7 +18,7 @@ namespace asset {
         FbxAssetImporter& operator=(FbxAssetImporter&& Other) noexcept = default;
 
     public:
-        AssetBundle LoadFromFile(std::string_view FilePath);
+        void LoadFromFile(std::string_view FilePath, ModelResult& OutModelData, std::vector<MaterialGroup>& OutMaterialGroups);
 
     private:
         GraphicsAPI mApi{ GraphicsAPI::DirectX };

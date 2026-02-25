@@ -1,4 +1,6 @@
 ﻿#include "AssetRegistry.h"
+#include "Asset/AssetBinaryReader.h"
+#include "Asset/MaterialGroupJsonSerializer.h"
 
 namespace Game {
     AssetRegistry::AssetRegistry()
@@ -6,6 +8,7 @@ namespace Game {
         mCopyQueue{ nullptr },
         mAllocator{ nullptr },
         mModelCache{},
+        mLoadedMaterialJsonPaths{},
         mMaterials{},
         mMaterialNameLookup{},
         mMaterialGroups{},
@@ -22,6 +25,7 @@ namespace Game {
         mCopyQueue{ Other.mCopyQueue },
         mAllocator{ Other.mAllocator },
         mModelCache{ std::move(Other.mModelCache) },
+        mLoadedMaterialJsonPaths{ std::move(Other.mLoadedMaterialJsonPaths) },
         mMaterials{ std::move(Other.mMaterials) },
         mMaterialNameLookup{ std::move(Other.mMaterialNameLookup) },
         mMaterialGroups{ std::move(Other.mMaterialGroups) },
@@ -42,6 +46,7 @@ namespace Game {
         mCopyQueue = Other.mCopyQueue;
         mAllocator = Other.mAllocator;
         mModelCache = std::move(Other.mModelCache);
+        mLoadedMaterialJsonPaths = std::move(Other.mLoadedMaterialJsonPaths);
         mMaterials = std::move(Other.mMaterials);
         mMaterialNameLookup = std::move(Other.mMaterialNameLookup);
         mMaterialGroups = std::move(Other.mMaterialGroups);
@@ -61,24 +66,45 @@ namespace Game {
         mAllocator = Allocator;
     }
 
-    std::shared_ptr<Model> AssetRegistry::GetModel(const std::string& ModelKey, const asset::AssetBundle& Bundle) {
-        const auto FoundModel{ mModelCache.find(ModelKey) };
+    std::shared_ptr<Model> AssetRegistry::GetModel(const std::string& ModelBinaryPath) {
+        const auto FoundModel{ mModelCache.find(ModelBinaryPath) };
         if (FoundModel != mModelCache.end()) {
             return FoundModel->second;
         }
 
-        const std::vector<asset::MaterialGroup>& SourceMaterialGroups{ Bundle.GetMaterialGroups() };
-        for (const asset::MaterialGroup& SourceMaterialGroup : SourceMaterialGroups) {
-            AddMaterialGroup(SourceMaterialGroup);
+        asset::ModelResult ModelData{};
+        if (ReadModelData(ModelBinaryPath, ModelData) == false) {
+            return nullptr;
         }
 
         std::shared_ptr<Model> NewModel{ std::make_shared<Model>() };
         if (mDevice != nullptr && mCopyQueue != nullptr && mAllocator != nullptr) {
-            NewModel->InitializeFromAssetBundle(Bundle, *mAllocator, *mCopyQueue);
+            const bool IsInitialized{ NewModel->InitializeFromModelResult(ModelData, *mAllocator, *mCopyQueue) };
+            if (IsInitialized == false) {
+                return nullptr;
+            }
         }
 
-        mModelCache.insert_or_assign(ModelKey, NewModel);
+        mModelCache.insert_or_assign(ModelBinaryPath, NewModel);
         return NewModel;
+    }
+
+    bool AssetRegistry::LoadMaterialGroups(const std::string& MaterialJsonPath) {
+        if (mLoadedMaterialJsonPaths.find(MaterialJsonPath) != mLoadedMaterialJsonPaths.end()) {
+            return true;
+        }
+
+        std::vector<asset::MaterialGroup> MaterialGroups{};
+        if (ReadMaterialGroups(MaterialJsonPath, MaterialGroups) == false) {
+            return false;
+        }
+
+        for (const asset::MaterialGroup& MaterialGroupData : MaterialGroups) {
+            AddMaterialGroup(MaterialGroupData);
+        }
+
+        mLoadedMaterialJsonPaths.insert(MaterialJsonPath);
+        return true;
     }
 
     std::uint32_t AssetRegistry::AddMaterial(const asset::Material& MaterialData) {
@@ -167,5 +193,15 @@ namespace Game {
         mPipelines.push_back(std::move(NewPipeline));
         mPipelineLookup.insert_or_assign(PipelineName, PipelinePointer);
         return PipelinePointer;
+    }
+
+    bool AssetRegistry::ReadModelData(const std::string& ModelBinaryPath, asset::ModelResult& OutModelData) const {
+        asset::AssetBinaryReader Reader{};
+        return Reader.ReadFromFile(ModelBinaryPath, OutModelData);
+    }
+
+    bool AssetRegistry::ReadMaterialGroups(const std::string& MaterialJsonPath, std::vector<asset::MaterialGroup>& OutMaterialGroups) const {
+        asset::MaterialGroupJsonSerializer Serializer{};
+        return Serializer.ReadFromFile(MaterialJsonPath, OutMaterialGroups);
     }
 }

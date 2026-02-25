@@ -71,26 +71,28 @@ namespace {
         }
 
         asset::FbxAssetImporter FbxAssetImporterData{ asset::GraphicsAPI::DirectX };
-        asset::AssetBundle AssetBundleData{ FbxAssetImporterData.LoadFromFile(AssetFilePath.string()) };
+        asset::ModelResult ModelData{};
+        std::vector<asset::MaterialGroup> MaterialGroups{};
+        FbxAssetImporterData.LoadFromFile(AssetFilePath.string(), ModelData, MaterialGroups);
 
         asset::AssetBinaryWriter AssetBinaryWriterData{};
-        const bool IsBinaryWriteSuccess{ AssetBinaryWriterData.WriteToFile(BinaryOutputPath.string(), AssetBundleData) };
+        const bool IsBinaryWriteSuccess{ AssetBinaryWriterData.WriteToFile(BinaryOutputPath.string(), ModelData) };
         if (!IsBinaryWriteSuccess) {
             std::cerr << "바이너리 파일 생성에 실패하였습니다 : " << BinaryOutputPath.string() << std::endl;
             return 1;
         }
 
         asset::MaterialGroupJsonSerializer MaterialGroupJsonSerializerData{};
-        const bool IsMaterialWriteSuccess{ MaterialGroupJsonSerializerData.WriteToFile(MaterialOutputPath.string(), AssetBundleData.GetMaterialGroups()) };
+        const bool IsMaterialWriteSuccess{ MaterialGroupJsonSerializerData.WriteToFile(MaterialOutputPath.string(), MaterialGroups) };
         if (!IsMaterialWriteSuccess) {
             std::cerr << "재질 JSON 파일 생성에 실패하였습니다 : " << MaterialOutputPath.string() << std::endl;
             return 1;
         }
 
-        const asset::ModelResult& ModelResultData{ AssetBundleData.GetModelResult() };
+        const asset::ModelResult& ModelResultData{ ModelData };
         const std::size_t TotalVertices{ CountTotalVertices(ModelResultData) };
         const std::size_t TotalIndices{ CountTotalIndices(ModelResultData) };
-        const std::size_t MaterialGroupCount{ AssetBundleData.GetMaterialGroups().size() };
+        const std::size_t MaterialGroupCount{ MaterialGroups.size() };
 
         std::cout << "입력 파일: " << AssetFilePath.string() << std::endl;
         std::cout << "출력 바이너리: " << BinaryOutputPath.string() << std::endl;

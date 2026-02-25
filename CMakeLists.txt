@@ -63,7 +63,6 @@ target_compile_definitions(Arche PRIVATE
 add_library(Asset STATIC
     Asset/AssetBinaryReader.cpp
     Asset/AssetBinaryWriter.cpp
-    Asset/AssetBundle.cpp
     Asset/Common.cpp
     Asset/DataList.cpp
     Asset/FbxAssetImporter.cpp

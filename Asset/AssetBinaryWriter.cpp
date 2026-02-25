@@ -11,13 +11,13 @@ namespace {
 
 AssetBinaryWriter::AssetBinaryWriter() = default;
 
-bool AssetBinaryWriter::WriteToFile(const std::string& Path, const AssetBundle& Bundle) {
+bool AssetBinaryWriter::WriteToFile(const std::string& Path, const ModelResult& ModelData) {
     mStream = std::ofstream{ Path, std::ios::binary };
     if (!mStream.is_open()) {
         return false;
     }
     WriteHeader();
-    WriteModelResult(Bundle.GetModelResult());
+    WriteModelResult(ModelData);
     return static_cast<bool>(mStream);
 }
 

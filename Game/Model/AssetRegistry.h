@@ -4,9 +4,10 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <utility>
-#include "Asset/AssetBundle.h"
+#include "Asset/ModelResult.h"
 #include "Core/DX/CopyQueue.h"
 #include "Core/DX/GraphicsAllocator.h"
 #include "Model.h"
@@ -41,7 +42,8 @@ namespace Game {
     public:
         void Initialize(ID3D12Device* Device, Core::DX::CopyQueue* CopyQueue, Core::DX::GraphicsAllocator* Allocator);
 
-        std::shared_ptr<Model> GetModel(const std::string& ModelKey, const asset::AssetBundle& Bundle);
+        std::shared_ptr<Model> GetModel(const std::string& ModelBinaryPath);
+        bool LoadMaterialGroups(const std::string& MaterialJsonPath);
 
         std::uint32_t AddMaterial(const asset::Material& MaterialData);
         std::uint32_t AddMaterialGroup(const asset::MaterialGroup& MaterialGroupData);
@@ -51,6 +53,8 @@ namespace Game {
 
     private:
         Interface::IPipeline* ResolvePipelineByName(const std::string& PipelineName);
+        bool ReadModelData(const std::string& ModelBinaryPath, asset::ModelResult& OutModelData) const;
+        bool ReadMaterialGroups(const std::string& MaterialJsonPath, std::vector<asset::MaterialGroup>& OutMaterialGroups) const;
 
     private:
 
@@ -58,6 +62,7 @@ namespace Game {
         Core::DX::CopyQueue* mCopyQueue{ nullptr };
         Core::DX::GraphicsAllocator* mAllocator{ nullptr };
         std::unordered_map<std::string, std::shared_ptr<Model>> mModelCache{};
+        std::unordered_set<std::string> mLoadedMaterialJsonPaths{};
 
         std::vector<RegisteredMaterial> mMaterials{};
         std::unordered_map<std::string, std::uint32_t> mMaterialNameLookup{};

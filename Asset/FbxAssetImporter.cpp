@@ -10,11 +10,12 @@ FbxAssetImporter::FbxAssetImporter(GraphicsAPI Api)
     : mApi{ Api } {
 }
 
-AssetBundle FbxAssetImporter::LoadFromFile(std::string_view FilePath) {
+void FbxAssetImporter::LoadFromFile(std::string_view FilePath, ModelResult& OutModelData, std::vector<MaterialGroup>& OutMaterialGroups) {
     UfbxAssetLoader Loader{ mApi };
     MaterialVisitor MaterialCollector{};
-    AssetBundle Bundle{};
-    MeshHierarchyBuilder Builder{ Bundle.GetModelResult(), &MaterialCollector.GetMaterialLookup() };
+    OutModelData = ModelResult{};
+    OutMaterialGroups.clear();
+    MeshHierarchyBuilder Builder{ OutModelData, &MaterialCollector.GetMaterialLookup() };
     ISceneNodeVisitor* Visitors[]{ &MaterialCollector, &Builder };
     Loader.LoadAndTraverse(FilePath, { Visitors });
     MaterialGroup DefaultMaterialGroup{};
@@ -30,7 +31,6 @@ AssetBundle FbxAssetImporter::LoadFromFile(std::string_view FilePath) {
     }
 
     if (!DefaultMaterialGroup.Items.empty()) {
-        Bundle.GetMaterialGroups().push_back(std::move(DefaultMaterialGroup));
+        OutMaterialGroups.push_back(std::move(DefaultMaterialGroup));
     }
-    return Bundle;
 }

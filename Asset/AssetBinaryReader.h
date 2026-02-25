@@ -51,7 +51,7 @@
 #include <string>
 #include <vector>
 
-#include "AssetBundle.h"
+#include "ModelResult.h"
 
 namespace asset {
     class AssetBinaryReader final {
@@ -65,7 +65,7 @@ namespace asset {
         AssetBinaryReader& operator=(AssetBinaryReader&& Other) noexcept = delete;
 
     public:
-        bool ReadFromFile(const std::string& Path, AssetBundle& Bundle);
+        bool ReadFromFile(const std::string& Path, ModelResult& ModelData);
 
     private:
         bool ReadHeader();

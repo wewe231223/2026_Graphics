@@ -49,9 +49,6 @@
     <ClCompile Include="Common.cpp">
       <Filter>Defines</Filter>
     </ClCompile>
-    <ClCompile Include="AssetBundle.cpp">
-      <Filter>Defines</Filter>
-    </ClCompile>
     <ClCompile Include="ModelResult.cpp">
       <Filter>Defines</Filter>
     </ClCompile>
@@ -88,9 +85,6 @@
       <Filter>Visitor</Filter>
     </ClInclude>
     <ClInclude Include="Common.h">
-      <Filter>Defines</Filter>
-    </ClInclude>
-    <ClInclude Include="AssetBundle.h">
       <Filter>Defines</Filter>
     </ClInclude>
     <ClInclude Include="ModelResult.h">

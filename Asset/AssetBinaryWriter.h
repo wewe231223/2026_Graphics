@@ -51,7 +51,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include "AssetBundle.h"
+#include "ModelResult.h"
 
 namespace asset {
     class AssetBinaryWriter final {
@@ -65,7 +65,7 @@ namespace asset {
         AssetBinaryWriter& operator=(AssetBinaryWriter&& Other) noexcept = delete;
 
     public:
-        bool WriteToFile(const std::string& Path, const AssetBundle& Bundle);
+        bool WriteToFile(const std::string& Path, const ModelResult& ModelData);
 
     private:
         void WriteHeader();

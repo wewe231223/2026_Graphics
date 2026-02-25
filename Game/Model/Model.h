@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <vector>
 #include "Game/Base/Common.h"
-#include "Asset/AssetBundle.h"
+#include "Asset/ModelResult.h"
 #include "Utility/DirectXInclude.h"
 #include "Core/DX/AllocationHandle.h"
 #include "Core/DX/CopyQueue.h"
@@ -83,7 +83,7 @@ namespace Game {
         Model& operator=(Model&& Other) noexcept;
 
     public:
-        bool InitializeFromAssetBundle(const asset::AssetBundle& Bundle, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue);
+        bool InitializeFromModelResult(const asset::ModelResult& ModelData, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue);
         const ModelNode* GetRootNode() const;
         const ModelNode* FindNodeByName(const std::string& NodeName) const;
         const std::vector<ModelNode>& GetNodes() const;

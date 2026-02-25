@@ -12,16 +12,16 @@ namespace {
 
 AssetBinaryReader::AssetBinaryReader() = default;
 
-bool AssetBinaryReader::ReadFromFile(const std::string& Path, AssetBundle& Bundle) {
+bool AssetBinaryReader::ReadFromFile(const std::string& Path, ModelResult& ModelData) {
     mStream = std::ifstream{ Path, std::ios::binary };
     if (!mStream.is_open()) {
         return false;
     }
-    Bundle.Clear();
+    ModelData = ModelResult{};
     if (!ReadHeader()) {
         return false;
     }
-    ReadModelResult(Bundle.GetModelResult());
+    ReadModelResult(ModelData);
     return static_cast<bool>(mStream);
 }
 

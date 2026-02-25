@@ -227,14 +227,13 @@ namespace Game {
         return *this;
     }
 
-    bool Model::InitializeFromAssetBundle(const asset::AssetBundle& Bundle, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue) {
+    bool Model::InitializeFromModelResult(const asset::ModelResult& ModelData, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue) {
         mNodes.clear();
         mNodeNameLookup.clear();
         mRootNodeIndex = 0;
         mHasRootNode = false;
 
-        const asset::ModelResult& Result{ Bundle.GetModelResult() };
-        const std::vector<std::unique_ptr<asset::ModelNode>>& SourceNodes{ Result.Nodes() };
+        const std::vector<std::unique_ptr<asset::ModelNode>>& SourceNodes{ ModelData.Nodes() };
         mNodes.resize(SourceNodes.size());
 
         std::unordered_map<const asset::ModelNode*, std::uint32_t> SourceToIndex{};

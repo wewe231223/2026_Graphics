@@ -47,6 +47,18 @@ namespace Game {
         // 3) CPU 드로우 레코드
         //    - 렌더 루프에서 상태 설정에 필요한 핸들/포인터 보관
         // ------------------------------------------------------------
+        /*
+        MaterialGroup -> DrawRecord 매핑 체계
+
+        Material(MaterialGroupIndex)
+            └─ RegisteredMaterialGroup = MaterialGroups[MaterialGroupIndex]
+                   └─ RegisteredGroupItem = RegisteredMaterialGroup.Items[SubMesh.MaterialGroupItemIndex]
+                          ├─ Pipeline      -> DrawRecord.pso
+                          └─ MaterialIndex -> DrawRecord.materialIndex
+
+        핵심: Model/SubMesh 는 MaterialGroup 내부 인덱스만 보관하고,
+        DrawRecord 생성 시점에 전역 Material 인덱스로 매핑한다.
+        */
         struct DrawRecord {
             const Interface::IPipeline* pso{ nullptr };
             const Interface::IModelNode* mesh{ nullptr };
