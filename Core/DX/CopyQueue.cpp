@@ -1,4 +1,4 @@
-﻿#include "CopyQueue.h"
+#include "CopyQueue.h"
 #include <array>
 #include <cstring>
 #include <utility>
@@ -101,12 +101,12 @@ bool CopyQueue::Initialize(ID3D12Device* device) {
     return true;
 }
 
-uint64_t CopyQueue::EnqueueCopy(const CopyQueueCopyRequest& copyRequest) {
-    std::array<CopyQueueCopyRequest, 1> CopyRequests{ copyRequest };
+uint64_t CopyQueue::EnqueueCopy(const Interface::CopyQueueCopyRequest& copyRequest) {
+    std::array<Interface::CopyQueueCopyRequest, 1> CopyRequests{ copyRequest };
     return EnqueueCopy(CopyRequests);
 }
 
-uint64_t CopyQueue::EnqueueCopy(std::span<const CopyQueueCopyRequest> copyRequests) {
+uint64_t CopyQueue::EnqueueCopy(std::span<const Interface::CopyQueueCopyRequest> copyRequests) {
     uint64_t RequestedFenceValue{ mRequestedFenceValueCounter.fetch_add(1) + 1 };
 
     CopyRequestBatch RequestBatch{};
@@ -150,7 +150,7 @@ void CopyQueue::Flush() {
     WaitForQueueIdle();
 }
 
-UINT64 CopyQueue::GetRequiredUploadBufferSize() {
+uint64_t CopyQueue::GetRequiredUploadBufferSize() const {
     return DefaultUploadBufferSize;
 }
 
@@ -193,7 +193,7 @@ void CopyQueue::ExecuteRequestBatch(const CopyRequestBatch& requestBatch) {
     ErrorHandler::report(mCopyCommandList->Reset(mCopyCommandAllocators[AllocatorIndex].Get(), nullptr), "CopyQueue", "Failed to reset copy command list.", ErrorHandler::Level::Critical);
 
     for (size_t RequestIndex{ 0 }; RequestIndex < requestBatch.CopyRequests.size(); RequestIndex++) {
-        const CopyQueueCopyRequest& CopyRequest{ requestBatch.CopyRequests[RequestIndex] };
+        const Interface::CopyQueueCopyRequest& CopyRequest{ requestBatch.CopyRequests[RequestIndex] };
         UINT64 RemainingSize{ static_cast<UINT64>(CopyRequest.SourceData.size()) };
         UINT64 SourceOffset{};
 
@@ -245,7 +245,7 @@ void CopyQueue::StopWorker() {
 }
 
 void CopyQueue::WaitForQueueIdle() {
-    uint64_t RequestedFenceValue{ EnqueueCopy(std::span<const CopyQueueCopyRequest>{}) };
+    uint64_t RequestedFenceValue{ EnqueueCopy(std::span<const Interface::CopyQueueCopyRequest>{}) };
     DispatchCopies();
     WaitForFence(RequestedFenceValue);
 }

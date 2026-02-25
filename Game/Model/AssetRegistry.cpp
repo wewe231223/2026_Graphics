@@ -1,4 +1,4 @@
-﻿#include "AssetRegistry.h"
+#include "AssetRegistry.h"
 #include "Asset/AssetBinaryReader.h"
 #include "Asset/MaterialGroupJsonSerializer.h"
 
@@ -63,7 +63,7 @@ namespace Game {
         return *this;
     }
 
-    void AssetRegistry::Initialize(ID3D12Device* Device, Core::DX::CopyQueue* CopyQueue, Core::DX::GraphicsAllocator* Allocator) {
+    void AssetRegistry::Initialize(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator) {
         mDevice = Device;
         mCopyQueue = CopyQueue;
         mAllocator = Allocator;
@@ -82,7 +82,7 @@ namespace Game {
 
         std::shared_ptr<Model> NewModel{ std::make_shared<Model>() };
         if (mDevice != nullptr && mCopyQueue != nullptr && mAllocator != nullptr) {
-            const bool IsInitialized{ NewModel->InitializeFromModelResult(ModelData, *mAllocator, *mCopyQueue) };
+            const bool IsInitialized{ NewModel->InitializeFromModelResult(ModelData, mAllocator, mCopyQueue) };
             if (IsInitialized == false) {
                 return nullptr;
             }

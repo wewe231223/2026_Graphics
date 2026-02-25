@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #define WIN32_LEAN_AND_MEAN
 #include <array>
 #include <atomic>
@@ -12,59 +12,55 @@
 #include <thread>
 #include <vector>
 #include <Windows.h>
+#include "Core/Common.h"
 #include "Utility/DirectXInclude.h"
 
 namespace Core {
     namespace DX {
-        struct CopyQueueCopyRequest {
-            ComPtr<ID3D12Resource> DestinationDefaultResource;
-            UINT64 DestinationOffset;
-            std::vector<std::byte> SourceData;
-        };
-
-        class CopyQueue {
+        class CopyQueue final : public Interface::ICopyQueue {
         public:
-            CopyQueue(ID3D12Device* device);
+            CopyQueue(ID3D12Device* Device);
             ~CopyQueue();
-            CopyQueue(const CopyQueue& other) = delete;
-            CopyQueue& operator=(const CopyQueue& other) = delete;
-            CopyQueue(CopyQueue&& other) = delete;
-            CopyQueue& operator=(CopyQueue&& other) = delete;
+            CopyQueue(const CopyQueue& Other) = delete;
+            CopyQueue& operator=(const CopyQueue& Other) = delete;
+            CopyQueue(CopyQueue&& Other) = delete;
+            CopyQueue& operator=(CopyQueue&& Other) = delete;
 
         public:
-            bool Initialize(ID3D12Device* device);
-            uint64_t EnqueueCopy(const CopyQueueCopyRequest& copyRequest);
-            uint64_t EnqueueCopy(std::span<const CopyQueueCopyRequest> copyRequests);
+            bool Initialize(ID3D12Device* Device) override;
+            uint64_t EnqueueCopy(const Interface::CopyQueueCopyRequest& CopyRequest) override;
+            uint64_t EnqueueCopy(std::span<const Interface::CopyQueueCopyRequest> CopyRequests) override;
 
-            void DispatchCopies();
-            bool IsFenceComplete(uint64_t fenceValue) const;
-            void WaitForFence(uint64_t fenceValue) const;
-            void Flush();
+            void DispatchCopies() override;
+            bool IsFenceComplete(uint64_t FenceValue) const override;
+            void WaitForFence(uint64_t FenceValue) const override;
+            void Flush() override;
 
-            static UINT64 GetRequiredUploadBufferSize();
+            uint64_t GetRequiredUploadBufferSize() const override;
 
         private:
             struct UploadHeapSlot {
-                ComPtr<ID3D12Resource> UploadHeapResource;
-                std::byte* UploadHeapMappedData;
-                UINT64 WriteOffset;
-                uint64_t SlotFenceValue;
+                ComPtr<ID3D12Resource> UploadHeapResource{};
+                std::byte* UploadHeapMappedData{};
+                UINT64 WriteOffset{};
+                uint64_t SlotFenceValue{};
             };
 
             struct CopyRequestBatch {
-                std::vector<CopyQueueCopyRequest> CopyRequests;
-                uint64_t RequestedFenceValue;
+                std::vector<Interface::CopyQueueCopyRequest> CopyRequests{};
+                uint64_t RequestedFenceValue{};
             };
 
+        private:
             void WorkerLoop();
-            void ExecuteRequestBatch(const CopyRequestBatch& requestBatch);
+            void ExecuteRequestBatch(const CopyRequestBatch& RequestBatch);
             void StopWorker();
             void WaitForQueueIdle();
-            bool IsSubmitFenceComplete(uint64_t fenceValue) const;
-            void WaitForSubmitFence(uint64_t fenceValue) const;
-            uint64_t ResolveRequestedFenceValue(uint64_t fenceValue) const;
-            uint64_t SubmitCurrentCommandList(size_t allocatorIndex, std::vector<bool>& requestTouchedMask, std::vector<uint64_t>& requestCompletedSubmitFenceValues);
-            bool TrySwitchUploadHeapSlot(size_t& slotIndex, size_t& allocatorIndex, std::vector<bool>& requestTouchedMask, std::vector<uint64_t>& requestCompletedSubmitFenceValues);
+            bool IsSubmitFenceComplete(uint64_t FenceValue) const;
+            void WaitForSubmitFence(uint64_t FenceValue) const;
+            uint64_t ResolveRequestedFenceValue(uint64_t FenceValue) const;
+            uint64_t SubmitCurrentCommandList(size_t AllocatorIndex, std::vector<bool>& RequestTouchedMask, std::vector<uint64_t>& RequestCompletedSubmitFenceValues);
+            bool TrySwitchUploadHeapSlot(size_t& SlotIndex, size_t& AllocatorIndex, std::vector<bool>& RequestTouchedMask, std::vector<uint64_t>& RequestCompletedSubmitFenceValues);
 
         private:
             static constexpr size_t CopyAllocatorCount{ 3 };

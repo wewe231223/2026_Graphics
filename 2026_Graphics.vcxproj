@@ -189,6 +189,7 @@ exit 0
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="2026_Graphics.h" />
+    <ClInclude Include="Core\Common.h" />
     <ClInclude Include="Core\Config.h" />
     <ClInclude Include="Core\DX\AllocationHandle.h" />
     <ClInclude Include="Core\DX\ComputeQueue.h" />

@@ -1,4 +1,4 @@
-﻿#include "Core/DX/GraphicsAllocator.h"
+#include "Core/DX/GraphicsAllocator.h"
 #include <algorithm>
 #include <bit>
 #include "Utility/ErrorHandler.h"
@@ -41,7 +41,7 @@ GraphicsAllocator::GraphicsAllocator(GraphicsAllocator&& other) noexcept
     mHeapFlags{ other.mHeapFlags },
     mFlBitmap{ other.mFlBitmap },
     mFreeBins{ other.mFreeBins },
-    mBlocks{ move(other.mBlocks) },
+    mBlocks{ std::move(other.mBlocks) },
     mHeadByOffset{ other.mHeadByOffset } {
 
     other.mDevice = nullptr;
@@ -147,14 +147,24 @@ bool GraphicsAllocator::CanAllocate(const D3D12_RESOURCE_DESC& resourceDesc) con
     return false;
 }
 
-AllocationHandle GraphicsAllocator::AllocatePlacedResource(const D3D12_RESOURCE_DESC& resourceDesc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE* optimizedClearValue) {
+std::unique_ptr<Interface::IAllocationHandle> GraphicsAllocator::AllocatePlacedResource(const D3D12_RESOURCE_DESC& resourceDesc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE* optimizedClearValue) {
+    AllocationHandle AllocationHandleValue{ AllocatePlacedResourceHandle(resourceDesc, initialState, optimizedClearValue) };
+    if (AllocationHandleValue.IsValid() == false) {
+        return nullptr;
+    }
 
-    AllocationHandle emptyHandle{};
+    std::unique_ptr<AllocationHandle> HandlePointer{ std::make_unique<AllocationHandle>(std::move(AllocationHandleValue)) };
+    return HandlePointer;
+}
+
+AllocationHandle GraphicsAllocator::AllocatePlacedResourceHandle(const D3D12_RESOURCE_DESC& resourceDesc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE* optimizedClearValue) {
+    AllocationHandle EmptyHandle{};
+
     if (mDevice == nullptr || mHeap == nullptr) {
-        return emptyHandle;
+        return EmptyHandle;
     }
     if (CanAllocate(resourceDesc) == false) {
-        return emptyHandle;
+        return EmptyHandle;
     }
 
     D3D12_RESOURCE_ALLOCATION_INFO allocationInfo{ mDevice->GetResourceAllocationInfo(0, 1, &resourceDesc) };
@@ -162,13 +172,13 @@ AllocationHandle GraphicsAllocator::AllocatePlacedResource(const D3D12_RESOURCE_
     SizeType requestedSize{ AlignUp(allocationInfo.SizeInBytes, allocationAlignment) };
     int32_t blockIndex{ FindSuitableBlock(requestedSize, allocationAlignment) };
     if (blockIndex < 0) {
-        return emptyHandle;
+        return EmptyHandle;
     }
     RemoveFromBin(blockIndex);
     int32_t allocatedBlockIndex{ SplitBlockWithAlignment(blockIndex, requestedSize, allocationAlignment) };
     if (allocatedBlockIndex < 0) {
         InsertToBin(blockIndex);
-        return emptyHandle;
+        return EmptyHandle;
     }
 
     FreeBlock& allocatedBlock = mBlocks[allocatedBlockIndex];
@@ -183,11 +193,11 @@ AllocationHandle GraphicsAllocator::AllocatePlacedResource(const D3D12_RESOURCE_
         mUsedSize -= allocatedBlock.Size;
         int32_t mergedIndex{ MergeAdjacent(allocatedBlockIndex) };
         InsertToBin(mergedIndex);
-        return emptyHandle;
+        return EmptyHandle;
     }
 
-    AllocationHandle allocationHandle{ this, std::move(resource), allocatedBlock.Offset, allocatedBlock.Size };
-    return allocationHandle;
+    AllocationHandle AllocationHandleValue{ this, std::move(resource), allocatedBlock.Offset, allocatedBlock.Size };
+    return AllocationHandleValue;
 }
 
 ID3D12Heap* GraphicsAllocator::GetHeap() const {

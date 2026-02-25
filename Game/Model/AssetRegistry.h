@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -7,9 +7,8 @@
 #include <unordered_set>
 #include <vector>
 #include <utility>
+#include "Core/Common.h"
 #include "Asset/ModelResult.h"
-#include "Core/DX/CopyQueue.h"
-#include "Core/DX/GraphicsAllocator.h"
 #include "Model.h"
 #include "Game/Base/Common.h"
 #include "Game/Base/Pipeline.h"
@@ -21,8 +20,8 @@ namespace Game {
     };
 
     struct RegisteredMaterialGroupItem final {
-        std::uint32_t MaterialIndex{ 0 };
         Interface::IPipeline* Pipeline{ nullptr };
+        std::uint32_t MaterialIndex{ 0 };
     };
 
     struct RegisteredMaterialGroup final {
@@ -40,7 +39,7 @@ namespace Game {
         AssetRegistry& operator=(AssetRegistry&& Other) noexcept;
 
     public:
-        void Initialize(ID3D12Device* Device, Core::DX::CopyQueue* CopyQueue, Core::DX::GraphicsAllocator* Allocator);
+        void Initialize(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator);
 
         std::shared_ptr<Model> GetModel(const std::string& ModelBinaryPath);
         bool LoadMaterialGroups(const std::string& MaterialJsonPath);
@@ -59,10 +58,9 @@ namespace Game {
         bool ReadMaterialGroups(const std::string& MaterialJsonPath, std::vector<asset::MaterialGroup>& OutMaterialGroups) const;
 
     private:
-
         ID3D12Device* mDevice{ nullptr };
-        Core::DX::CopyQueue* mCopyQueue{ nullptr };
-        Core::DX::GraphicsAllocator* mAllocator{ nullptr };
+        Interface::ICopyQueue* mCopyQueue{ nullptr };
+        Interface::IGraphicsAllocator* mAllocator{ nullptr };
         std::unordered_map<std::string, std::shared_ptr<Model>> mModelCache{};
         std::unordered_set<std::string> mLoadedMaterialJsonPaths{};
 

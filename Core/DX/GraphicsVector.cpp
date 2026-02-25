@@ -1,4 +1,4 @@
-﻿#include "GraphicsVector.h"
+#include "GraphicsVector.h"
 #include <algorithm>
 #include <cstring>
 
@@ -107,9 +107,9 @@ void GraphicsVector::Reset() {
     mCopyRequestCreationCount = 0;
 }
 
-CopyQueueCopyRequest GraphicsVector::CreateCopyQueueCopyRequest(GraphicsAllocator& graphicsAllocator, UINT64 destinationOffset) {
-    CopyQueueCopyRequest copyQueueCopyRequest{};
-    copyQueueCopyRequest.DestinationDefaultResource = mAllocationHandle.GetResource();
+Interface::CopyQueueCopyRequest GraphicsVector::CreateCopyQueueCopyRequest(GraphicsAllocator& graphicsAllocator, UINT64 destinationOffset) {
+    Interface::CopyQueueCopyRequest copyQueueCopyRequest{};
+    copyQueueCopyRequest.DestinationDefaultResource = mAllocationHandle.GetResourceComPtr();
     copyQueueCopyRequest.DestinationOffset = destinationOffset;
     copyQueueCopyRequest.SourceData.resize(mSizeInBytes);
 
@@ -135,7 +135,7 @@ void GraphicsVector::CreateShaderResourceView(ID3D12Device* device, D3D12_CPU_DE
     shaderResourceViewDescription.Buffer.NumElements = numElements;
     shaderResourceViewDescription.Buffer.StructureByteStride = structureByteStride;
     shaderResourceViewDescription.Buffer.Flags = bufferFlags;
-    device->CreateShaderResourceView(mAllocationHandle.GetResource().Get(), &shaderResourceViewDescription, descriptorHandle);
+    device->CreateShaderResourceView(mAllocationHandle.GetResource(), &shaderResourceViewDescription, descriptorHandle);
 }
 
 bool GraphicsVector::IsValid() const {
@@ -143,7 +143,7 @@ bool GraphicsVector::IsValid() const {
 }
 
 ID3D12Resource* GraphicsVector::GetResource() const {
-    return mAllocationHandle.GetResource().Get();
+    return mAllocationHandle.GetResource();
 }
 
 const AllocationHandle& GraphicsVector::GetAllocationHandle() const {
@@ -158,7 +158,7 @@ D3D12_RESOURCE_BARRIER GraphicsVector::CreateTransitionBarrier(D3D12_RESOURCE_ST
     D3D12_RESOURCE_BARRIER barrier{};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
     barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-    barrier.Transition.pResource = mAllocationHandle.GetResource().Get();
+    barrier.Transition.pResource = mAllocationHandle.GetResource();
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     barrier.Transition.StateBefore = mResourceState;
     barrier.Transition.StateAfter = nextState;
@@ -206,7 +206,7 @@ bool GraphicsVector::Reallocate(GraphicsAllocator& graphicsAllocator, SizeType r
     resourceDescription.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
     resourceDescription.Flags = mResourceFlags;
 
-    AllocationHandle newAllocationHandle{ graphicsAllocator.AllocatePlacedResource(resourceDescription, mResourceState, nullptr) };
+    AllocationHandle newAllocationHandle{ graphicsAllocator.AllocatePlacedResourceHandle(resourceDescription, mResourceState, nullptr) };
     if (newAllocationHandle.IsValid() == false) {
         return false;
     }

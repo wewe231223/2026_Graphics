@@ -109,6 +109,9 @@
     <ClInclude Include="Core\DX\GraphicsVector.h">
       <Filter>Core\DX</Filter>
     </ClInclude>
+    <ClInclude Include="Core\Common.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Config.prop">

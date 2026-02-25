@@ -1,4 +1,4 @@
-﻿#include "AllocationHandle.h"
+#include "AllocationHandle.h"
 #include "GraphicsAllocator.h"
 
 using namespace Core::DX;
@@ -68,7 +68,11 @@ bool AllocationHandle::IsValid() const {
     return mResource != nullptr && mSize > 0;
 }
 
-const ComPtr<ID3D12Resource>& AllocationHandle::GetResource() const {
+ID3D12Resource* AllocationHandle::GetResource() const {
+    return mResource.Get();
+}
+
+const ComPtr<ID3D12Resource>& AllocationHandle::GetResourceComPtr() const {
     return mResource;
 }
 

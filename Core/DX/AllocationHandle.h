@@ -1,11 +1,12 @@
-﻿#pragma once 
+#pragma once
+#include "Core/Common.h"
 #include "Utility/DirectXInclude.h"
 
-namespace Core{
+namespace Core {
     namespace DX {
-        class GraphicsAllocator; 
+        class GraphicsAllocator;
 
-        class AllocationHandle {
+        class AllocationHandle final : public Interface::IAllocationHandle {
             friend GraphicsAllocator;
 
         public:
@@ -15,20 +16,23 @@ namespace Core{
         public:
             AllocationHandle();
             ~AllocationHandle();
-            AllocationHandle(const AllocationHandle& other) = delete;
-            AllocationHandle& operator=(const AllocationHandle& other) = delete;
-            AllocationHandle(AllocationHandle&& other) noexcept;
-            AllocationHandle& operator=(AllocationHandle&& other) noexcept;
+            AllocationHandle(const AllocationHandle& Other) = delete;
+            AllocationHandle& operator=(const AllocationHandle& Other) = delete;
+            AllocationHandle(AllocationHandle&& Other) noexcept;
+            AllocationHandle& operator=(AllocationHandle&& Other) noexcept;
 
         public:
-            void Reset();
-            bool IsValid() const;
-            const ComPtr<ID3D12Resource>& GetResource() const;
-            OffsetType GetOffset() const;
-            SizeType GetSize() const;
+            void Reset() override;
+            bool IsValid() const override;
+            ID3D12Resource* GetResource() const override;
+            OffsetType GetOffset() const override;
+            SizeType GetSize() const override;
+
+        public:
+            const ComPtr<ID3D12Resource>& GetResourceComPtr() const;
 
         private:
-            AllocationHandle(GraphicsAllocator* allocator, ComPtr<ID3D12Resource>&& resource, OffsetType offset, SizeType size);
+            AllocationHandle(GraphicsAllocator* Allocator, ComPtr<ID3D12Resource>&& Resource, OffsetType Offset, SizeType Size);
 
         private:
             GraphicsAllocator* mAllocator{};
@@ -36,5 +40,5 @@ namespace Core{
             OffsetType mOffset{};
             SizeType mSize{};
         };
-    } 
+    }
 }

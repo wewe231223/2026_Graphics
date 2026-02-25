@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -28,7 +28,7 @@ namespace Core {
             bool Copy(GraphicsAllocator& graphicsAllocator, void* sourceData, SizeType copySizeInBytes);
             void Reset();
 
-            CopyQueueCopyRequest CreateCopyQueueCopyRequest(GraphicsAllocator& graphicsAllocator, UINT64 destinationOffset = 0);
+            Interface::CopyQueueCopyRequest CreateCopyQueueCopyRequest(GraphicsAllocator& graphicsAllocator, UINT64 destinationOffset = 0);
 
             void CreateShaderResourceView(ID3D12Device* device, D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle, DXGI_FORMAT format, UINT firstElement, UINT numElements, UINT structureByteStride, D3D12_BUFFER_SRV_FLAGS bufferFlags) const;
 

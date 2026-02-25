@@ -1,16 +1,15 @@
-﻿#pragma once
+#pragma once
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "Core/Common.h"
 #include "Game/Base/Common.h"
 #include "Asset/ModelResult.h"
 #include "Utility/DirectXInclude.h"
-#include "Core/DX/AllocationHandle.h"
-#include "Core/DX/CopyQueue.h"
-#include "Core/DX/GraphicsAllocator.h"
 
 namespace Game {
     class ModelNode final : public Interface::IModelNode {
@@ -29,7 +28,7 @@ namespace Game {
         const SimpleMath::Matrix& GetGeometryToNode() const;
         const std::vector<std::uint32_t>& GetChildren() const;
         const std::vector<ModelSubMesh>& GetSubMeshes() const;
-        const ModelSubMesh& GetSubMesh(std::size_t index) const; 
+        const ModelSubMesh& GetSubMesh(std::size_t Index) const;
 
         bool HasVertexData() const;
         const std::vector<D3D12_VERTEX_BUFFER_VIEW>& GetVertexBufferViews() const;
@@ -50,8 +49,8 @@ namespace Game {
     private:
         friend class Model;
         void SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, const SimpleMath::Matrix& GeometryToNodeValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue);
-        void SetVertexData(std::vector<std::byte> VertexRawDataValue, std::vector<VertexAttributeRange> VertexAttributeRangesValue, Core::DX::AllocationHandle VertexAllocationValue, std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViewsValue);
-        void SetIndexData(std::vector<std::byte> IndexRawDataValue, Core::DX::AllocationHandle IndexAllocationValue, const D3D12_INDEX_BUFFER_VIEW& IndexBufferViewValue);
+        void SetVertexData(std::vector<std::byte> VertexRawDataValue, std::vector<VertexAttributeRange> VertexAttributeRangesValue, std::unique_ptr<Interface::IAllocationHandle> VertexAllocationValue, std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViewsValue);
+        void SetIndexData(std::vector<std::byte> IndexRawDataValue, std::unique_ptr<Interface::IAllocationHandle> IndexAllocationValue, const D3D12_INDEX_BUFFER_VIEW& IndexBufferViewValue);
 
     private:
         std::uint32_t mId{ 0 };
@@ -63,11 +62,11 @@ namespace Game {
 
         std::vector<std::byte> mVertexRawData{};
         std::vector<VertexAttributeRange> mVertexAttributeRanges{};
-        Core::DX::AllocationHandle mVertexAllocation{};
+        std::unique_ptr<Interface::IAllocationHandle> mVertexAllocation{};
         std::vector<D3D12_VERTEX_BUFFER_VIEW> mVertexBufferViews{};
 
         std::vector<std::byte> mIndexRawData{};
-        Core::DX::AllocationHandle mIndexAllocation{};
+        std::unique_ptr<Interface::IAllocationHandle> mIndexAllocation{};
         D3D12_INDEX_BUFFER_VIEW mIndexBufferView{};
 
         bool mHasVertexData{ false };
@@ -83,14 +82,14 @@ namespace Game {
         Model& operator=(Model&& Other) noexcept;
 
     public:
-        bool InitializeFromModelResult(const asset::ModelResult& ModelData, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue);
+        bool InitializeFromModelResult(const asset::ModelResult& ModelData, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue);
         const ModelNode* GetRootNode() const;
         const ModelNode* FindNodeByName(const std::string& NodeName) const;
         const std::vector<ModelNode>& GetNodes() const;
 
     private:
-        bool UploadVertexData(const asset::VertexAttributes& Vertices, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, Core::DX::AllocationHandle& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews) const;
-        bool UploadIndexData(const std::vector<std::uint32_t>& Indices, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue, std::vector<std::byte>& OutRawData, Core::DX::AllocationHandle& OutAllocation, D3D12_INDEX_BUFFER_VIEW& OutView) const;
+        bool UploadVertexData(const asset::VertexAttributes& Vertices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews) const;
+        bool UploadIndexData(const std::vector<std::uint32_t>& Indices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, D3D12_INDEX_BUFFER_VIEW& OutView) const;
 
     private:
         std::vector<ModelNode> mNodes{};

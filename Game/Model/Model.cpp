@@ -1,4 +1,4 @@
-﻿#include "Model.h"
+#include "Model.h"
 #include <cstring>
 #include <utility>
 #include "Asset/NumericTypes.h"
@@ -11,8 +11,8 @@ namespace {
         UINT StrideInBytes{ 0 };
     };
 
-    bool AllocateBufferResource(Core::DX::GraphicsAllocator& Allocator, std::size_t ByteSize, Core::DX::AllocationHandle& OutAllocation) {
-        if (ByteSize == 0) {
+    bool AllocateBufferResource(Interface::IGraphicsAllocator* Allocator, std::size_t ByteSize, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation) {
+        if (Allocator == nullptr || ByteSize == 0) {
             return false;
         }
 
@@ -29,12 +29,16 @@ namespace {
         ResourceDescription.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         ResourceDescription.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-        if (Allocator.CanAllocate(ResourceDescription) == false) {
+        if (Allocator->CanAllocate(ResourceDescription) == false) {
             return false;
         }
 
-        OutAllocation = Allocator.AllocatePlacedResource(ResourceDescription, D3D12_RESOURCE_STATE_COPY_DEST, nullptr);
-        return OutAllocation.IsValid();
+        OutAllocation = Allocator->AllocatePlacedResource(ResourceDescription, D3D12_RESOURCE_STATE_COPY_DEST, nullptr);
+        if (OutAllocation == nullptr) {
+            return false;
+        }
+
+        return OutAllocation->IsValid();
     }
 
     void AppendAttributeSource(std::vector<AttributeUploadSource>& Sources, Game::VertexAttributeKind Kind, const void* DataPointer, std::size_t ByteSize, UINT StrideInBytes) {
@@ -180,7 +184,7 @@ namespace Game {
         mSubMeshes = std::move(SubMeshesValue);
     }
 
-    void ModelNode::SetVertexData(std::vector<std::byte> VertexRawDataValue, std::vector<VertexAttributeRange> VertexAttributeRangesValue, Core::DX::AllocationHandle VertexAllocationValue, std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViewsValue) {
+    void ModelNode::SetVertexData(std::vector<std::byte> VertexRawDataValue, std::vector<VertexAttributeRange> VertexAttributeRangesValue, std::unique_ptr<Interface::IAllocationHandle> VertexAllocationValue, std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViewsValue) {
         mVertexRawData = std::move(VertexRawDataValue);
         mVertexAttributeRanges = std::move(VertexAttributeRangesValue);
         mVertexAllocation = std::move(VertexAllocationValue);
@@ -188,7 +192,7 @@ namespace Game {
         mHasVertexData = mVertexBufferViews.empty() == false;
     }
 
-    void ModelNode::SetIndexData(std::vector<std::byte> IndexRawDataValue, Core::DX::AllocationHandle IndexAllocationValue, const D3D12_INDEX_BUFFER_VIEW& IndexBufferViewValue) {
+    void ModelNode::SetIndexData(std::vector<std::byte> IndexRawDataValue, std::unique_ptr<Interface::IAllocationHandle> IndexAllocationValue, const D3D12_INDEX_BUFFER_VIEW& IndexBufferViewValue) {
         mIndexRawData = std::move(IndexRawDataValue);
         mIndexAllocation = std::move(IndexAllocationValue);
         mIndexBufferView = IndexBufferViewValue;
@@ -227,7 +231,11 @@ namespace Game {
         return *this;
     }
 
-    bool Model::InitializeFromModelResult(const asset::ModelResult& ModelData, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue) {
+    bool Model::InitializeFromModelResult(const asset::ModelResult& ModelData, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue) {
+        if (Allocator == nullptr || CopyQueue == nullptr) {
+            return false;
+        }
+
         mNodes.clear();
         mNodeNameLookup.clear();
         mRootNodeIndex = 0;
@@ -272,13 +280,13 @@ namespace Game {
 
             std::vector<std::byte> VertexRawData{};
             std::vector<ModelNode::VertexAttributeRange> VertexRanges{};
-            Core::DX::AllocationHandle VertexAllocation{};
+            std::unique_ptr<Interface::IAllocationHandle> VertexAllocation{};
             std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{};
             UploadVertexData(SourceNode.Vertices(), Allocator, CopyQueue, VertexRawData, VertexRanges, VertexAllocation, VertexBufferViews);
             DestinationNode.SetVertexData(std::move(VertexRawData), std::move(VertexRanges), std::move(VertexAllocation), std::move(VertexBufferViews));
 
             std::vector<std::byte> IndexRawData{};
-            Core::DX::AllocationHandle IndexAllocation{};
+            std::unique_ptr<Interface::IAllocationHandle> IndexAllocation{};
             D3D12_INDEX_BUFFER_VIEW IndexBufferView{};
             UploadIndexData(SourceNode.Indices(), Allocator, CopyQueue, IndexRawData, IndexAllocation, IndexBufferView);
             DestinationNode.SetIndexData(std::move(IndexRawData), std::move(IndexAllocation), IndexBufferView);
@@ -315,7 +323,7 @@ namespace Game {
         return mNodes;
     }
 
-    bool Model::UploadVertexData(const asset::VertexAttributes& Vertices, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, Core::DX::AllocationHandle& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews) const {
+    bool Model::UploadVertexData(const asset::VertexAttributes& Vertices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews) const {
         std::vector<AttributeUploadSource> Sources{};
         AppendAttributeSource(Sources, VertexAttributeKind::Position, Vertices.Positions.data(), Vertices.Positions.size() * sizeof(asset::Vec3), sizeof(asset::Vec3));
         AppendAttributeSource(Sources, VertexAttributeKind::Normal, Vertices.Normals.data(), Vertices.Normals.size() * sizeof(asset::Vec3), sizeof(asset::Vec3));
@@ -361,7 +369,7 @@ namespace Game {
             OutRanges.push_back(Range);
 
             D3D12_VERTEX_BUFFER_VIEW View{};
-            View.BufferLocation = OutAllocation.GetResource()->GetGPUVirtualAddress() + CurrentOffset;
+            View.BufferLocation = OutAllocation->GetResource()->GetGPUVirtualAddress() + CurrentOffset;
             View.SizeInBytes = static_cast<UINT>(Source.ByteSize);
             View.StrideInBytes = Source.StrideInBytes;
             OutViews.push_back(View);
@@ -369,15 +377,15 @@ namespace Game {
             CurrentOffset += Source.ByteSize;
         }
 
-        Core::DX::CopyQueueCopyRequest Request{};
-        Request.DestinationDefaultResource = OutAllocation.GetResource();
+        Interface::CopyQueueCopyRequest Request{};
+        Request.DestinationDefaultResource = OutAllocation->GetResource();
         Request.DestinationOffset = 0;
         Request.SourceData = OutRawData;
-        CopyQueue.EnqueueCopy(Request);
+        CopyQueue->EnqueueCopy(Request);
         return true;
     }
 
-    bool Model::UploadIndexData(const std::vector<std::uint32_t>& Indices, Core::DX::GraphicsAllocator& Allocator, Core::DX::CopyQueue& CopyQueue, std::vector<std::byte>& OutRawData, Core::DX::AllocationHandle& OutAllocation, D3D12_INDEX_BUFFER_VIEW& OutView) const {
+    bool Model::UploadIndexData(const std::vector<std::uint32_t>& Indices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, D3D12_INDEX_BUFFER_VIEW& OutView) const {
         if (Indices.empty()) {
             OutView = D3D12_INDEX_BUFFER_VIEW{};
             return false;
@@ -393,13 +401,13 @@ namespace Game {
         OutRawData.resize(ByteSize);
         std::memcpy(OutRawData.data(), Indices.data(), ByteSize);
 
-        Core::DX::CopyQueueCopyRequest Request{};
-        Request.DestinationDefaultResource = OutAllocation.GetResource();
+        Interface::CopyQueueCopyRequest Request{};
+        Request.DestinationDefaultResource = OutAllocation->GetResource();
         Request.DestinationOffset = 0;
         Request.SourceData = OutRawData;
-        CopyQueue.EnqueueCopy(Request);
+        CopyQueue->EnqueueCopy(Request);
 
-        OutView.BufferLocation = OutAllocation.GetResource()->GetGPUVirtualAddress();
+        OutView.BufferLocation = OutAllocation->GetResource()->GetGPUVirtualAddress();
         OutView.SizeInBytes = static_cast<UINT>(ByteSize);
         OutView.Format = DXGI_FORMAT_R32_UINT;
         return true;
