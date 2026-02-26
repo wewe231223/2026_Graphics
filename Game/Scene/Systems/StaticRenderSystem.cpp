@@ -58,38 +58,40 @@ namespace Game {
     void StaticRenderSystem::TraverseNode(const ModelNode& Node, const std::vector<ModelNode>& Nodes, const SimpleMath::Matrix& ParentWorld, std::uint32_t MaterialGroupIndex, const std::vector<RegisteredMaterialGroup>& MaterialGroups, RFD::RenderFrameData& RenderData) const {
         const SimpleMath::Matrix NodeWorld{ Node.GetNodeToParent() * ParentWorld };
 
-        RFD::ModelContext ModelContext{};
-        ModelContext.world = Node.GetGeometryToNode() * NodeWorld;
-        ModelContext.prevWorld = ModelContext.world;
-        ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());
-        RenderData.modelContexts.push_back(ModelContext);
-
         const std::vector<ModelSubMesh>& SubMeshes{ Node.GetSubMeshes() };
-        for (std::size_t SubMeshIndex{ 0 }; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
-            const ModelSubMesh& SubMesh{ SubMeshes[SubMeshIndex] };
+        if (SubMeshes.empty() == false) {
+            RFD::ModelContext ModelContext{};
+            ModelContext.world = Node.GetGeometryToNode() * NodeWorld;
+            ModelContext.prevWorld = ModelContext.world;
+            ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());
+            RenderData.modelContexts.push_back(ModelContext);
 
-            const Interface::IPipeline* Pipeline{ nullptr };
-            std::uint32_t ResolvedMaterialIndex{ 0 };
-            if (!MaterialGroups.empty() && MaterialGroupIndex < MaterialGroups.size()) {
-                const RegisteredMaterialGroup& RegisteredGroup{ MaterialGroups[MaterialGroupIndex] };
-                if (SubMesh.MaterialGroupItemIndex < RegisteredGroup.Items.size()) {
-                    const RegisteredMaterialGroupItem& RegisteredGroupItem{ RegisteredGroup.Items[SubMesh.MaterialGroupItemIndex] };
-                    Pipeline = RegisteredGroupItem.Pipeline;
-                    ResolvedMaterialIndex = RegisteredGroupItem.MaterialIndex;
+            for (std::size_t SubMeshIndex{ 0 }; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
+                const ModelSubMesh& SubMesh{ SubMeshes[SubMeshIndex] };
+
+                const Interface::IPipeline* Pipeline{ nullptr };
+                std::uint32_t ResolvedMaterialIndex{ 0 };
+                if (!MaterialGroups.empty() && MaterialGroupIndex < MaterialGroups.size()) {
+                    const RegisteredMaterialGroup& RegisteredGroup{ MaterialGroups[MaterialGroupIndex] };
+                    if (SubMesh.MaterialGroupItemIndex < RegisteredGroup.Items.size()) {
+                        const RegisteredMaterialGroupItem& RegisteredGroupItem{ RegisteredGroup.Items[SubMesh.MaterialGroupItemIndex] };
+                        Pipeline = RegisteredGroupItem.Pipeline;
+                        ResolvedMaterialIndex = RegisteredGroupItem.MaterialIndex;
+                    }
                 }
+
+                RFD::DrawRecord DrawRecord{};
+                DrawRecord.pso = Pipeline;
+                DrawRecord.mesh = &Node;
+                DrawRecord.submesh = static_cast<std::uint32_t>(SubMeshIndex);
+                DrawRecord.pass = 0;
+                DrawRecord.objectIndex = ModelContext.objectID;
+                DrawRecord.materialIndex = ResolvedMaterialIndex;
+                DrawRecord.flags = 0;
+                DrawRecord.pad0 = 0;
+                RenderData.drawRecords.push_back(DrawRecord);
+
             }
-
-            RFD::DrawRecord DrawRecord{};
-            DrawRecord.pso = Pipeline;
-            DrawRecord.mesh = &Node;
-            DrawRecord.submesh = static_cast<std::uint32_t>(SubMeshIndex);
-            DrawRecord.pass = 0;
-            DrawRecord.objectIndex = ModelContext.objectID;
-            DrawRecord.materialIndex = ResolvedMaterialIndex;
-            DrawRecord.flags = 0;
-            DrawRecord.pad0 = 0;
-            RenderData.drawRecords.push_back(DrawRecord);
-
         }
 
         for (std::uint32_t ChildIndex : Node.GetChildren()) {
