@@ -1,5 +1,6 @@
 #include "Game/Scene/Components/Transform.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace Game {
@@ -25,6 +26,29 @@ namespace Game {
 
     void Transform::Rotate(const SimpleMath::Vector3& YawPitchRollDegrees) {
         Rotate(YawPitchRollDegrees.x, YawPitchRollDegrees.y, YawPitchRollDegrees.z);
+    }
+
+    void Transform::RotateRadians(float PitchRadians, float YawRadians, float RollRadians) {
+        rotationEuler += SimpleMath::Vector3{ PitchRadians, YawRadians, RollRadians };
+        UpdateRotationFromEulerRadians();
+    }
+
+    void Transform::ClampPitchRadians(float MinPitchRadians, float MaxPitchRadians) {
+        rotationEuler.x = std::clamp(rotationEuler.x, MinPitchRadians, MaxPitchRadians);
+        UpdateRotationFromEulerRadians();
+    }
+
+    void Transform::UpdateRotationFromEulerRadians() {
+        rotation = SimpleMath::Quaternion::CreateFromYawPitchRoll(rotationEuler.y, rotationEuler.x, rotationEuler.z);
+        rotation.Normalize();
+    }
+
+    SimpleMath::Vector3 Transform::GetForwardDirection() const {
+        return SimpleMath::Vector3::Transform(SimpleMath::Vector3::Forward, rotation);
+    }
+
+    SimpleMath::Vector3 Transform::TransformDirectionToWorld(const SimpleMath::Vector3& LocalDirection) const {
+        return SimpleMath::Vector3::Transform(LocalDirection, rotation);
     }
 
     void Transform::Scaling(float X, float Y, float Z) {
@@ -60,7 +84,7 @@ namespace Game {
 
     bool Transform::IsBehind(const SimpleMath::Vector3& Target) const {
         const SimpleMath::Vector3 ToTarget{ Target - position };
-        const SimpleMath::Vector3 ForwardDirection{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Forward, rotation) };
+        const SimpleMath::Vector3 ForwardDirection{ GetForwardDirection() };
         const float FacingDot{ ForwardDirection.Dot(ToTarget) };
 
         return FacingDot < 0.0f;
@@ -74,7 +98,7 @@ namespace Game {
             return true;
         }
 
-        SimpleMath::Vector3 ForwardDirection{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Forward, rotation) };
+        SimpleMath::Vector3 ForwardDirection{ GetForwardDirection() };
         ForwardDirection.Normalize();
 
         SimpleMath::Vector3 ToTargetNormalized{ ToTarget };

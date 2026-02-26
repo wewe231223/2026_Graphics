@@ -32,8 +32,6 @@ namespace Globals {
             GetClientRect(mhwnd, &clientRect);
 
             mVirtualMousePosition = { clientRect.right / 2, clientRect.bottom / 2 };
-
-            ClientToScreen(mhwnd, &mVirtualMousePosition);
         }
 		else {
 			ShowCursor(true);
@@ -92,7 +90,10 @@ namespace Globals {
 
     void Input::UpdateCursor() {
         if (mVirtualMouse) {
-			SetCursorPos(mVirtualMousePosition.x, mVirtualMousePosition.y);
+            POINT virtualMouseScreenPosition{ mVirtualMousePosition };
+            ClientToScreen(mhwnd, &virtualMouseScreenPosition);
+
+			SetCursorPos(virtualMouseScreenPosition.x, virtualMouseScreenPosition.y);
         }
 
         if (Input::IsKeyPressed(DirectX::Keyboard::Keys::F7)) {

@@ -46,12 +46,12 @@ namespace Game {
             ThirdPerson
         };
 
-        CameraControlMode ResolveMode(const Camera& Camera) const;
-        void ProcessMode(CameraIntent& Intent, CameraControlMode Mode);
-        void ProcessCinematicMode(CameraIntent& Intent);
-        void ProcessFreeLookMode(CameraIntent& Intent);
-        void ProcessThirdPersonMode(CameraIntent& Intent);
-        void ProcessDefaultMode(CameraIntent& Intent);
+        CameraControlMode ResolveMode(const Camera& Camera, float Dt) const;
+        void ProcessMode(CameraIntent& Intent, CameraControlMode Mode, float Dt);
+        void ProcessCinematicMode(CameraIntent& Intent, float Dt);
+        void ProcessFreeLookMode(CameraIntent& Intent, float Dt);
+        void ProcessThirdPersonMode(CameraIntent& Intent, float Dt);
+        void ProcessDefaultMode(CameraIntent& Intent, float Dt);
 
     private:
         const std::string mName{ "CameraInputSystem" };

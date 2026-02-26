@@ -13,6 +13,11 @@ namespace Game {
 
 		void Rotate(float YawDegrees, float PitchDegrees, float RollDegrees);
 		void Rotate(const SimpleMath::Vector3& YawPitchRollDegrees);
+		void RotateRadians(float PitchRadians, float YawRadians, float RollRadians);
+		void ClampPitchRadians(float MinPitchRadians, float MaxPitchRadians);
+		void UpdateRotationFromEulerRadians();
+		SimpleMath::Vector3 GetForwardDirection() const;
+		SimpleMath::Vector3 TransformDirectionToWorld(const SimpleMath::Vector3& LocalDirection) const;
 
 		void Scaling(float X, float Y, float Z);
 		void Scaling(const SimpleMath::Vector3& Scale);

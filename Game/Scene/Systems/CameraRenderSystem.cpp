@@ -6,7 +6,7 @@
 #include "Game/Scene/Components/Transform.h"
 
 namespace {
-    constexpr float LookSensitivity{ 0.0025f };
+    constexpr float LookSensitivity{ 0.7f };
     constexpr float MoveSpeedUnitsPerSecond{ 6.0f };
     constexpr float ZoomSpeedDegreesPerTick{ 2.0f };
     constexpr float MinPitchRadians{ -1.55334306f };
@@ -14,7 +14,7 @@ namespace {
     constexpr float MinFovDegrees{ 20.0f };
     constexpr float MaxFovDegrees{ 120.0f };
 
-    constexpr bool UseTemporaryFixedCamera{ true };
+    constexpr bool UseTemporaryFixedCamera{ false };
     constexpr DirectX::SimpleMath::Vector3 TemporaryFixedCameraPosition{ 0.0f, -3.0f, 3.0f };
     constexpr DirectX::SimpleMath::Vector3 TemporaryFixedCameraFocusPosition{ 0.0f, 0.0f, 0.0f };
     constexpr DirectX::SimpleMath::Vector3 TemporaryFixedCameraUpDirection{ 0.0f, 1.0f, 0.0f };
@@ -55,19 +55,17 @@ namespace Game {
         const float PitchDelta{ CameraIntentComponent.lookDelta.y * LookSensitivity };
         const float YawDelta{ CameraIntentComponent.lookDelta.x * LookSensitivity };
 
-        TransformComponent.rotationEuler.x = std::clamp(TransformComponent.rotationEuler.x + PitchDelta, MinPitchRadians, MaxPitchRadians);
-        TransformComponent.rotationEuler.y += YawDelta;
+        TransformComponent.RotateRadians(PitchDelta, YawDelta, 0.0f);
 
-        const DirectX::SimpleMath::Quaternion RotationQuaternion{ DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(TransformComponent.rotationEuler.y, TransformComponent.rotationEuler.x, TransformComponent.rotationEuler.z) };
-        TransformComponent.rotation = RotationQuaternion;
+        TransformComponent.ClampPitchRadians(MinPitchRadians, MaxPitchRadians);
 
         DirectX::SimpleMath::Vector3 LocalMoveDirection{ CameraIntentComponent.moveDirection };
         if (LocalMoveDirection.LengthSquared() > 0.0f) {
             LocalMoveDirection.Normalize();
         }
 
-        const DirectX::SimpleMath::Vector3 WorldMoveDirection{ DirectX::SimpleMath::Vector3::Transform(LocalMoveDirection, RotationQuaternion) };
-        TransformComponent.position += WorldMoveDirection * (MoveSpeedUnitsPerSecond * Dt * CameraIntentComponent.moveDirection.Length());
+        const DirectX::SimpleMath::Vector3 WorldMoveDirection{ TransformComponent.TransformDirectionToWorld(LocalMoveDirection) };
+        TransformComponent.Translate(WorldMoveDirection * (MoveSpeedUnitsPerSecond * Dt * CameraIntentComponent.moveDirection.Length()));
 
         CameraComponent.fov = std::clamp(CameraComponent.fov - (CameraIntentComponent.zoomDelta * ZoomSpeedDegreesPerTick), MinFovDegrees, MaxFovDegrees);
     }
@@ -77,7 +75,7 @@ namespace Game {
             CameraComponent.viewMatrix = DirectX::SimpleMath::Matrix::CreateLookAt(TemporaryFixedCameraPosition, TemporaryFixedCameraFocusPosition, TemporaryFixedCameraUpDirection);
         }
         else {
-            const DirectX::SimpleMath::Vector3 ForwardDirection{ DirectX::SimpleMath::Vector3::Transform(DirectX::SimpleMath::Vector3::Forward, TransformComponent.rotation) };
+            const DirectX::SimpleMath::Vector3 ForwardDirection{ DirectX::SimpleMath::Vector3::Forward };
             const DirectX::SimpleMath::Vector3 UpDirection{ DirectX::SimpleMath::Vector3::Transform(DirectX::SimpleMath::Vector3::Up, TransformComponent.rotation) };
             const DirectX::SimpleMath::Vector3 EyePosition{ TransformComponent.position };
             const DirectX::SimpleMath::Vector3 FocusPosition{ EyePosition + ForwardDirection };

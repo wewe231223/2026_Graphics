@@ -1,5 +1,6 @@
 ﻿#include "CameraInputSystem.h"
 #include <array>
+#include <format>
 #include "Game/Base/Input.h"
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/Intents/CameraIntent.h"
@@ -30,12 +31,12 @@ namespace Game {
 
             Intent.Reset();
 
-            const CameraControlMode Mode{ ResolveMode(Camera) };
-            ProcessMode(Intent, Mode);
+            const CameraControlMode Mode{ ResolveMode(Camera, Dt) };
+            ProcessMode(Intent, Mode, Dt);
         }
     }
 
-    CameraInputSystem::CameraControlMode CameraInputSystem::ResolveMode(const Camera& Camera) const {
+    CameraInputSystem::CameraControlMode CameraInputSystem::ResolveMode(const Camera& Camera, float Dt) const {
         if ((Camera.cameraFlags & Camera::Flags::Cinematic) != 0) {
             return CameraControlMode::Cinematic;
         }
@@ -51,58 +52,58 @@ namespace Game {
         return CameraControlMode::None;
     }
 
-    void CameraInputSystem::ProcessMode(CameraIntent& Intent, CameraControlMode Mode) {
+    void CameraInputSystem::ProcessMode(CameraIntent& Intent, CameraControlMode Mode, float Dt) {
         switch (Mode) {
             case CameraControlMode::Cinematic:
-                ProcessCinematicMode(Intent);
+                ProcessCinematicMode(Intent, Dt);
                 break;
 
             case CameraControlMode::FreeLook:
-                ProcessFreeLookMode(Intent);
+                ProcessFreeLookMode(Intent, Dt);
                 break;
 
             case CameraControlMode::ThirdPerson:
-                ProcessThirdPersonMode(Intent);
+                ProcessThirdPersonMode(Intent, Dt);
                 break;
 
             case CameraControlMode::None:
             default:
-                ProcessDefaultMode(Intent);
+                ProcessDefaultMode(Intent, Dt);
                 break;
         }
     }
 
-    void CameraInputSystem::ProcessCinematicMode(CameraIntent& Intent) {
+    void CameraInputSystem::ProcessCinematicMode(CameraIntent& Intent, float Dt) {
         (void)Intent;
     }
 
-    void CameraInputSystem::ProcessFreeLookMode(CameraIntent& Intent) {
+    void CameraInputSystem::ProcessFreeLookMode(CameraIntent& Intent, float Dt) {
         const Globals::Input& Input{ Globals::Input::Get() };
         const float MoveSpeedScale{ Input.IsKeyDown(DirectX::Keyboard::Keys::LeftShift) ? 2.0f : 1.0f };
         SimpleMath::Vector3 MoveDirection{};
 
         if (Input.IsKeyDown(DirectX::Keyboard::Keys::W)) {
-            MoveDirection.z += 1.0f;
+            MoveDirection += DirectX::SimpleMath::Vector3::UnitZ * Dt;
         }
 
         if (Input.IsKeyDown(DirectX::Keyboard::Keys::S)) {
-            MoveDirection.z -= 1.0f;
+            MoveDirection -= DirectX::SimpleMath::Vector3::UnitZ * Dt;
         }
 
         if (Input.IsKeyDown(DirectX::Keyboard::Keys::D)) {
-            MoveDirection.x += 1.0f;
+            MoveDirection += DirectX::SimpleMath::Vector3::UnitX * Dt;
         }
 
         if (Input.IsKeyDown(DirectX::Keyboard::Keys::A)) {
-            MoveDirection.x -= 1.0f;
+            MoveDirection -= DirectX::SimpleMath::Vector3::UnitX * Dt;
         }
 
         if (Input.IsKeyDown(DirectX::Keyboard::Keys::E)) {
-            MoveDirection.y += 1.0f;
+            MoveDirection += DirectX::SimpleMath::Vector3::UnitY * Dt;
         }
 
         if (Input.IsKeyDown(DirectX::Keyboard::Keys::Q)) {
-            MoveDirection.y -= 1.0f;
+            MoveDirection -= DirectX::SimpleMath::Vector3::UnitY * Dt;
         }
 
         if (MoveDirection.LengthSquared() > 0.0f) {
@@ -110,7 +111,9 @@ namespace Game {
         }
 
         Intent.moveDirection = MoveDirection * MoveSpeedScale;
-        Intent.lookDelta = SimpleMath::Vector2{ Input.GetMouseDeltaX(), Input.GetMouseDeltaY() };
+        Intent.lookDelta = SimpleMath::Vector2{ Input.GetMouseDeltaX() * Dt, Input.GetMouseDeltaY() * Dt};
+
+        //OutputDebugStringA(std::format("Mouse Delta: ({:.2f}, {:.2f})\n", Input.GetMouseDeltaX(), Input.GetMouseDeltaY()).c_str());
 
         const auto& MouseState{ Input.GetMouseState() };
         int LastWheelValue{ MouseState.scrollWheelValue };
@@ -122,11 +125,11 @@ namespace Game {
         Intent.zoomDelta = static_cast<float>(WheelDelta) / 120.0f;
     }
 
-    void CameraInputSystem::ProcessThirdPersonMode(CameraIntent& Intent) {
+    void CameraInputSystem::ProcessThirdPersonMode(CameraIntent& Intent, float Dt) {
         (void)Intent;
     }
 
-    void CameraInputSystem::ProcessDefaultMode(CameraIntent& Intent) {
+    void CameraInputSystem::ProcessDefaultMode(CameraIntent& Intent, float Dt) {
         (void)Intent;
     }
 }
