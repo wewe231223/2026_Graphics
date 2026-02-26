@@ -3,6 +3,7 @@ Systems:
   - CameraInputSystem
   - StaticRenderSystem
   - CleanUpSystem
+  - CameraRenderSystem
 Entities:
   - Components:
       Transform:

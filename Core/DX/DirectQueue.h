@@ -9,6 +9,8 @@
 #include "Utility/CompileTimeConstants.h"
 #include "Utility/FixedArray.h"
 
+#include "Game/Base/RenderFrameData.h"
+
 namespace Core {
 	namespace DX {
 		class DirectQueue {
@@ -25,7 +27,8 @@ namespace Core {
 		public:
 			ID3D12Device* GetDevice() const;
 
-			void Update(); 
+			void PreRender(Game::RFD::RenderFrameData& data, float Dt);
+			void Render(); 
 		private:
 			void InitBasements(); 
 			void InitWorkers();

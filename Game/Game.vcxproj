@@ -39,6 +39,7 @@
     <ClInclude Include="Scene\System.h" />
     <ClInclude Include="Scene\SystemSceduler.h" />
     <ClInclude Include="Scene\Systems\CameraInputSystem.h" />
+    <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
     <ClInclude Include="Scene\Systems\IntentClentUpSystem.h" />
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
   </ItemGroup>
@@ -55,6 +56,7 @@
     <ClCompile Include="Scene\System.cpp" />
     <ClCompile Include="Scene\SystemSceduler.cpp" />
     <ClCompile Include="Scene\Systems\CameraInputSystem.cpp" />
+    <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -64,6 +66,7 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\Resources\DefaultScene.yaml" />
     <None Include="..\Shader\PSO\DefaultGraphics.json" />
     <None Include="..\Shader\PSO\Schema.Pipeline.json" />
     <None Include="..\Shader\RS\DefaultRootSignature.json" />

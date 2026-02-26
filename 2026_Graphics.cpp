@@ -148,8 +148,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             Globals::Time::Get().AdvanceTime();
             Globals::Input::Get().Update();
 
+            SceneInstance.ExecutePhase(Game::Phase::PreUpdate, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::Update, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::Render, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::PostRender, Globals::Time::Get().GetDeltaTime<float>());
 
-            directQueue.Update();
+
+            directQueue.Render();
 
             frameCount++; 
         }

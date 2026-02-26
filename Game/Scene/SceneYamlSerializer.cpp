@@ -17,6 +17,7 @@
 #include "Game/Scene/Systems/CameraInputSystem.h"
 #include "Game/Scene/Systems/IntentClentUpSystem.h"
 #include "Game/Scene/Systems/StaticRenderSystem.h"
+#include "Game/Scene/Systems/CameraRenderSystem.h"
 
 namespace {
     constexpr const char* TransformTypeName{ "Transform" };
@@ -101,6 +102,10 @@ namespace {
         if (SystemName == "CameraInputSystem") {
             return std::make_unique<Game::CameraInputSystem>();
         }
+
+		if (SystemName == "CameraRenderSystem") {
+			return std::make_unique<Game::CameraRenderSystem>();
+		}
 
         if (SystemName == "CleanUpSystem" || SystemName == "CleanUpSystem<CameraIntent>") {
             return std::make_unique<Game::CleanUpSystem<Game::CameraIntent>>();

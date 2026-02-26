@@ -25,7 +25,11 @@ namespace Core {
 			return mDevice.Get(); 
 		}
 
-		void DirectQueue::Update() {
+		void DirectQueue::PreRender(Game::RFD::RenderFrameData& data, float Dt) {
+			
+		}
+
+		void DirectQueue::Render() {
 			auto currentIndex = mFrameSync.GetCurrentIndex();
 			auto& allocator = mMainCommandAllocators[currentIndex];
 			allocator->Reset(); 

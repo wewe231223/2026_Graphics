@@ -99,6 +99,9 @@
     <ClInclude Include="Base\Time.h">
       <Filter>Base</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Systems\CameraRenderSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Shader.cpp">
@@ -140,6 +143,9 @@
     <ClCompile Include="Base\Time.cpp">
       <Filter>Base</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Shader\Source\Common.hlsli">
@@ -156,6 +162,9 @@
     </None>
     <None Include="..\Shader\PSO\DefaultGraphics.json">
       <Filter>PSO</Filter>
+    </None>
+    <None Include="..\Resources\DefaultScene.yaml">
+      <Filter>Scene\Scene YAML</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
