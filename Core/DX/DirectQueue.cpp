@@ -26,7 +26,7 @@ namespace Core {
 		}
 
 		void DirectQueue::PreRender(Game::RFD::RenderFrameData& data, float Dt) {
-			
+			DebugBreak(); 
 		}
 
 		void DirectQueue::Render() {
