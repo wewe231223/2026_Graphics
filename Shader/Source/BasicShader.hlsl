@@ -14,8 +14,9 @@ VertexOutput VsMain(VertexInput Input, uint InstanceId : SV_InstanceID)
     const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[0];
 
     VertexOutput Output;
-    const float4 WorldPosition = mul(float4(Input.Position, 1.0f), ModelContext.World);
-    Output.Position = mul(WorldPosition, FrameGlobals.ViewProj);
+    
+    const float4 WorldPosition = mul(float4(Input.Position, 1.0f), transpose(ModelContext.World));
+    Output.Position = mul(WorldPosition, transpose(FrameGlobals.ViewProj));
     Output.Normal = normalize(mul(float4(Input.Normal, 0.0f), ModelContext.World).xyz);
     return Output;
 }

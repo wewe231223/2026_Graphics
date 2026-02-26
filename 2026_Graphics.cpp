@@ -111,7 +111,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 
     Globals::Input::Get().Initialize(hWnd); 
-    Globals::Input::Get().SetVirtualMouse(true); 
 
 
     size_t frameCount = 0;

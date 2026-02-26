@@ -13,6 +13,11 @@ namespace {
     constexpr float MaxPitchRadians{ 1.55334306f };
     constexpr float MinFovDegrees{ 20.0f };
     constexpr float MaxFovDegrees{ 120.0f };
+
+    constexpr bool UseTemporaryFixedCamera{ true };
+    constexpr DirectX::SimpleMath::Vector3 TemporaryFixedCameraPosition{ 0.0f, -3.0f, 3.0f };
+    constexpr DirectX::SimpleMath::Vector3 TemporaryFixedCameraFocusPosition{ 0.0f, 0.0f, 0.0f };
+    constexpr DirectX::SimpleMath::Vector3 TemporaryFixedCameraUpDirection{ 0.0f, 1.0f, 0.0f };
 }
 
 namespace Game {
@@ -68,12 +73,17 @@ namespace Game {
     }
 
     void CameraRenderSystem::WriteRenderGlobalsFromCamera(const Transform& TransformComponent, Camera& CameraComponent, RFD::RenderFrameData& RenderData, float Dt) const {
-        const DirectX::SimpleMath::Vector3 ForwardDirection{ DirectX::SimpleMath::Vector3::Transform(DirectX::SimpleMath::Vector3::Forward, TransformComponent.rotation) };
-        const DirectX::SimpleMath::Vector3 UpDirection{ DirectX::SimpleMath::Vector3::Transform(DirectX::SimpleMath::Vector3::Up, TransformComponent.rotation) };
-        const DirectX::SimpleMath::Vector3 EyePosition{ TransformComponent.position };
-        const DirectX::SimpleMath::Vector3 FocusPosition{ EyePosition + ForwardDirection };
+        if (UseTemporaryFixedCamera) {
+            CameraComponent.viewMatrix = DirectX::SimpleMath::Matrix::CreateLookAt(TemporaryFixedCameraPosition, TemporaryFixedCameraFocusPosition, TemporaryFixedCameraUpDirection);
+        }
+        else {
+            const DirectX::SimpleMath::Vector3 ForwardDirection{ DirectX::SimpleMath::Vector3::Transform(DirectX::SimpleMath::Vector3::Forward, TransformComponent.rotation) };
+            const DirectX::SimpleMath::Vector3 UpDirection{ DirectX::SimpleMath::Vector3::Transform(DirectX::SimpleMath::Vector3::Up, TransformComponent.rotation) };
+            const DirectX::SimpleMath::Vector3 EyePosition{ TransformComponent.position };
+            const DirectX::SimpleMath::Vector3 FocusPosition{ EyePosition + ForwardDirection };
 
-        CameraComponent.viewMatrix = DirectX::SimpleMath::Matrix::CreateLookAt(EyePosition, FocusPosition, UpDirection);
+            CameraComponent.viewMatrix = DirectX::SimpleMath::Matrix::CreateLookAt(EyePosition, FocusPosition, UpDirection);
+        }
 
         if (CameraComponent.isOrthographic) {
             const float Width{ CameraComponent.orthoSize * CameraComponent.aspectRatio * 2.0f };
@@ -87,7 +97,7 @@ namespace Game {
         RenderData.globals.prevViewProj = RenderData.globals.viewProj;
         RenderData.globals.view = CameraComponent.viewMatrix;
         RenderData.globals.proj = CameraComponent.projMatrix;
-        RenderData.globals.viewProj = CameraComponent.viewMatrix * CameraComponent.projMatrix;
+        RenderData.globals.viewProj = RenderData.globals.view * RenderData.globals.proj;
         RenderData.globals.dt = Dt;
     }
 }
