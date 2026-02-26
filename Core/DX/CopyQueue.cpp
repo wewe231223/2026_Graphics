@@ -189,8 +189,7 @@ void CopyQueue::ExecuteRequestBatch(const CopyRequestBatch& requestBatch) {
     std::vector<bool> RequestTouchedMask(requestBatch.CopyRequests.size(), false);
     std::vector<uint64_t> RequestCompletedSubmitFenceValues(requestBatch.CopyRequests.size(), 0);
 
-    ErrorHandler::report(mCopyCommandAllocators[AllocatorIndex]->Reset(), "CopyQueue", "Failed to reset copy command allocator.", ErrorHandler::Level::Critical);
-    ErrorHandler::report(mCopyCommandList->Reset(mCopyCommandAllocators[AllocatorIndex].Get(), nullptr), "CopyQueue", "Failed to reset copy command list.", ErrorHandler::Level::Critical);
+    PrepareAllocatorForRecording(AllocatorIndex);
 
     for (size_t RequestIndex{ 0 }; RequestIndex < requestBatch.CopyRequests.size(); RequestIndex++) {
         const Interface::CopyQueueCopyRequest& CopyRequest{ requestBatch.CopyRequests[RequestIndex] };
@@ -275,6 +274,16 @@ uint64_t CopyQueue::ResolveRequestedFenceValue(uint64_t fenceValue) const {
     return FoundFence->second;
 }
 
+void CopyQueue::PrepareAllocatorForRecording(size_t allocatorIndex) {
+    uint64_t AllocatorFenceValue{ mAllocatorFenceValues[allocatorIndex] };
+    if (AllocatorFenceValue > 0) {
+        WaitForSubmitFence(AllocatorFenceValue);
+    }
+
+    ErrorHandler::report(mCopyCommandAllocators[allocatorIndex]->Reset(), "CopyQueue", "Failed to reset copy command allocator.", ErrorHandler::Level::Critical);
+    ErrorHandler::report(mCopyCommandList->Reset(mCopyCommandAllocators[allocatorIndex].Get(), nullptr), "CopyQueue", "Failed to reset copy command list.", ErrorHandler::Level::Critical);
+}
+
 uint64_t CopyQueue::SubmitCurrentCommandList(size_t allocatorIndex, std::vector<bool>& requestTouchedMask, std::vector<uint64_t>& requestCompletedSubmitFenceValues) {
     ErrorHandler::report(mCopyCommandList->Close(), "CopyQueue", "Failed to close copy command list.", ErrorHandler::Level::Critical);
 
@@ -315,12 +324,6 @@ bool CopyQueue::TrySwitchUploadHeapSlot(size_t& slotIndex, size_t& allocatorInde
     NextUploadHeapSlot.WriteOffset = 0;
 
     allocatorIndex = (allocatorIndex + 1) % CopyAllocatorCount;
-    uint64_t AllocatorFenceValue{ mAllocatorFenceValues[allocatorIndex] };
-    if (AllocatorFenceValue > 0) {
-        WaitForSubmitFence(AllocatorFenceValue);
-    }
-
-    ErrorHandler::report(mCopyCommandAllocators[allocatorIndex]->Reset(), "CopyQueue", "Failed to reset copy command allocator.", ErrorHandler::Level::Critical);
-    ErrorHandler::report(mCopyCommandList->Reset(mCopyCommandAllocators[allocatorIndex].Get(), nullptr), "CopyQueue", "Failed to reset copy command list.", ErrorHandler::Level::Critical);
+    PrepareAllocatorForRecording(allocatorIndex);
     return true;
 }

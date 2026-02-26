@@ -59,6 +59,7 @@ namespace Core {
             bool IsSubmitFenceComplete(uint64_t FenceValue) const;
             void WaitForSubmitFence(uint64_t FenceValue) const;
             uint64_t ResolveRequestedFenceValue(uint64_t FenceValue) const;
+            void PrepareAllocatorForRecording(size_t AllocatorIndex);
             uint64_t SubmitCurrentCommandList(size_t AllocatorIndex, std::vector<bool>& RequestTouchedMask, std::vector<uint64_t>& RequestCompletedSubmitFenceValues);
             bool TrySwitchUploadHeapSlot(size_t& SlotIndex, size_t& AllocatorIndex, std::vector<bool>& RequestTouchedMask, std::vector<uint64_t>& RequestCompletedSubmitFenceValues);
 
