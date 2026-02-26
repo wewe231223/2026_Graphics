@@ -100,15 +100,52 @@ namespace Core {
 		void DirectQueue::UpdateShaderResourceViews(uint32_t RtvIndex, uint32_t ModelContextCount, uint32_t DrawRecordCount) {
 			GraphicsVector& ModelContextVector = mPerFrameModelContextVectors[RtvIndex];
 			GraphicsVector& DrawRecordVector = mPerFrameDrawRecordVectors[RtvIndex];
+			ID3D12Resource* ModelContextResource = ModelContextVector.GetResource();
+			ID3D12Resource* DrawRecordResource = DrawRecordVector.GetResource();
 
 			if (ModelContextVector.IsValid() == true) {
-				ModelContextVector.CreateShaderResourceView(mDevice.Get(), mModelContextSrvHandles[RtvIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, ModelContextCount, sizeof(Game::RFD::ModelContext), D3D12_BUFFER_SRV_FLAG_NONE);
+				bool IsUpdateRequired = DirectQueue::IsShaderResourceViewUpdateRequired(mModelContextSrvResources[RtvIndex], ModelContextResource, mModelContextSrvElementCounts[RtvIndex], ModelContextCount);
+				if (IsUpdateRequired == true) {
+					ModelContextVector.CreateShaderResourceView(mDevice.Get(), mModelContextSrvHandles[RtvIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, ModelContextCount, sizeof(Game::RFD::ModelContext), D3D12_BUFFER_SRV_FLAG_NONE);
+					mModelContextSrvResources[RtvIndex] = ModelContextResource;
+					mModelContextSrvElementCounts[RtvIndex] = ModelContextCount;
+				}
+			}
+			else {
+				mModelContextSrvResources[RtvIndex] = nullptr;
+				mModelContextSrvElementCounts[RtvIndex] = 0;
 			}
 
 			if (DrawRecordVector.IsValid() == true) {
-				DrawRecordVector.CreateShaderResourceView(mDevice.Get(), mDrawRecordSrvHandles[RtvIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, DrawRecordCount, sizeof(DrawRecordGPU), D3D12_BUFFER_SRV_FLAG_NONE);
+				bool IsUpdateRequired = DirectQueue::IsShaderResourceViewUpdateRequired(mDrawRecordSrvResources[RtvIndex], DrawRecordResource, mDrawRecordSrvElementCounts[RtvIndex], DrawRecordCount);
+				if (IsUpdateRequired == true) {
+					DrawRecordVector.CreateShaderResourceView(mDevice.Get(), mDrawRecordSrvHandles[RtvIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, DrawRecordCount, sizeof(DrawRecordGPU), D3D12_BUFFER_SRV_FLAG_NONE);
+					mDrawRecordSrvResources[RtvIndex] = DrawRecordResource;
+					mDrawRecordSrvElementCounts[RtvIndex] = DrawRecordCount;
+				}
+			}
+			else {
+				mDrawRecordSrvResources[RtvIndex] = nullptr;
+				mDrawRecordSrvElementCounts[RtvIndex] = 0;
 			}
 		}
+
+		bool DirectQueue::IsShaderResourceViewUpdateRequired(ID3D12Resource* CachedResource, ID3D12Resource* CurrentResource, uint32_t CachedElementCount, uint32_t CurrentElementCount) const {
+			if (CurrentResource == nullptr) {
+				return false;
+			}
+
+			if (CachedResource != CurrentResource) {
+				return true;
+			}
+
+			if (CachedElementCount != CurrentElementCount) {
+				return true;
+			}
+
+			return false;
+		}
+
 
 		// data 를 순회하며 draw call 을 commandlist 에 쌓는 함수. 루프 구성 방식은 아래를 참고한다. 
 		// Render Loop 참고 순서
@@ -176,10 +213,6 @@ namespace Core {
 			ErrorHandler::report(mCopyQueue == nullptr, "DirectQueue", "CopyQueue is not set.", ErrorHandler::Level::Critical);
 
 			auto currentIndex = mFrameSync.GetCurrentIndex();
-			uint64_t CopyFenceValue = mPerFrameCopyFenceValues[currentIndex];
-			if (CopyFenceValue != 0) {
-				mCopyQueue->WaitForFence(CopyFenceValue);
-			}
 
 			auto& allocator = mMainCommandAllocators[currentIndex];
 			allocator->Reset(); 
@@ -236,6 +269,12 @@ namespace Core {
 			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PRESENT); 
 
 			mCommandList->Close();
+
+			uint64_t CopyFenceValue = mPerFrameCopyFenceValues[currentIndex];
+			if (CopyFenceValue != 0) {
+				mCopyQueue->WaitForFence(CopyFenceValue);
+			}
+
 			ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
 			mDirectCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
 

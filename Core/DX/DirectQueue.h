@@ -47,6 +47,7 @@ namespace Core {
 
 			void DrainDebugMessages();
 			void UpdateShaderResourceViews(uint32_t RtvIndex, uint32_t ModelContextCount, uint32_t DrawRecordCount);
+			bool IsShaderResourceViewUpdateRequired(ID3D12Resource* CachedResource, ID3D12Resource* CurrentResource, uint32_t CachedElementCount, uint32_t CurrentElementCount) const;
 
 		private:
 			static bool CompareDrawRecordByPso(const Game::RFD::DrawRecord& Left, const Game::RFD::DrawRecord& Right);
@@ -82,6 +83,10 @@ namespace Core {
 			DescriptorHeap mSrvHeap{};
 			std::array<DescriptorHandle, Constants::FrameCount<size_t>> mModelContextSrvHandles{};
 			std::array<DescriptorHandle, Constants::FrameCount<size_t>> mDrawRecordSrvHandles{};
+			std::array<ID3D12Resource*, Constants::FrameCount<size_t>> mModelContextSrvResources{};
+			std::array<ID3D12Resource*, Constants::FrameCount<size_t>> mDrawRecordSrvResources{};
+			std::array<uint32_t, Constants::FrameCount<size_t>> mModelContextSrvElementCounts{};
+			std::array<uint32_t, Constants::FrameCount<size_t>> mDrawRecordSrvElementCounts{};
 
 			FrameSync mFrameSync{};
 			GraphicsAllocator* mGraphicsAllocator{ nullptr };
