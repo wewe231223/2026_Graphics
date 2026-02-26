@@ -46,7 +46,7 @@ namespace Core {
 			bool CheckShaderModelSupport(D3D_SHADER_MODEL);
 
 			void DrainDebugMessages();
-			void UpdateShaderResourceViews(uint32_t RtvIndex, uint32_t ModelContextCount, uint32_t DrawRecordCount);
+			void UpdateShaderResourceViews(uint32_t RtvIndex, uint32_t FrameGlobalsCount, uint32_t ModelContextCount, uint32_t DrawRecordCount);
 			bool IsShaderResourceViewUpdateRequired(ID3D12Resource* CachedResource, ID3D12Resource* CurrentResource, uint32_t CachedElementCount, uint32_t CurrentElementCount) const;
 
 		private:
@@ -81,10 +81,13 @@ namespace Core {
 			TexPtr mDepthStencilBuffer{};
 
 			DescriptorHeap mSrvHeap{};
+			std::array<DescriptorHandle, Constants::FrameCount<size_t>> mFrameGlobalsSrvHandles{};
 			std::array<DescriptorHandle, Constants::FrameCount<size_t>> mModelContextSrvHandles{};
 			std::array<DescriptorHandle, Constants::FrameCount<size_t>> mDrawRecordSrvHandles{};
+			std::array<ID3D12Resource*, Constants::FrameCount<size_t>> mFrameGlobalsSrvResources{};
 			std::array<ID3D12Resource*, Constants::FrameCount<size_t>> mModelContextSrvResources{};
 			std::array<ID3D12Resource*, Constants::FrameCount<size_t>> mDrawRecordSrvResources{};
+			std::array<uint32_t, Constants::FrameCount<size_t>> mFrameGlobalsSrvElementCounts{};
 			std::array<uint32_t, Constants::FrameCount<size_t>> mModelContextSrvElementCounts{};
 			std::array<uint32_t, Constants::FrameCount<size_t>> mDrawRecordSrvElementCounts{};
 
@@ -92,6 +95,7 @@ namespace Core {
 			GraphicsAllocator* mGraphicsAllocator{ nullptr };
 			Interface::ICopyQueue* mCopyQueue{ nullptr };
 
+			std::array<GraphicsVector, Constants::FrameCount<size_t>> mPerFrameFrameGlobalsVectors{};
 			std::array<GraphicsVector, Constants::FrameCount<size_t>> mPerFrameModelContextVectors{};
 			std::array<GraphicsVector, Constants::FrameCount<size_t>> mPerFrameDrawRecordVectors{};
 			std::array<uint64_t, Constants::FrameCount<size_t>> mPerFrameCopyFenceValues{};

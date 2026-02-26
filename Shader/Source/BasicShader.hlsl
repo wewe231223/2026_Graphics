@@ -1,42 +1,27 @@
 #include "Common.hlsli"
 
-cbuffer TransformConstants : register(b0)
-{
-    float4x4 WorldViewProjection;
-};
+ConstantBuffer<RootConstantsB1> RootConstants : register(b1);
 
-cbuffer PixelConstants : register(b1)
+VertexOutput VsMain(VertexInput Input, uint InstanceId : SV_InstanceID)
 {
-    float4 TintColor;
-};
+    StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
+    StructuredBuffer<ModelContextGpu> ModelContextBuffer = ResourceDescriptorHeap[RootConstants.ModelContextSrvIndex];
+    StructuredBuffer<DrawRecordGpu> DrawRecordBuffer = ResourceDescriptorHeap[RootConstants.DrawRecordSrvIndex];
 
-Texture2D DiffuseTexture : register(t0);
-SamplerState DiffuseSampler : register(s0);
+    const uint DrawIndex = RootConstants.DrawRecordBaseIndex + InstanceId;
+    const DrawRecordGpu DrawRecord = DrawRecordBuffer[DrawIndex];
+    const ModelContextGpu ModelContext = ModelContextBuffer[DrawRecord.ObjectIndex];
+    const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[0];
 
-struct VertexInput
-{
-    float3 Position : POSITION;
-    float3 Normal : NORMAL;
-};
-
-struct VertexOutput
-{
-    float4 Position : SV_POSITION;
-    float3 Normal : NORMAL;
-};
-
-VertexOutput VsMain(VertexInput Input)
-{
     VertexOutput Output;
-    Output.Position = mul(float4(Input.Position, 1.0f), WorldViewProjection);
-    Output.Normal = normalize(Input.Normal);
+    const float4 WorldPosition = mul(float4(Input.Position, 1.0f), ModelContext.World);
+    Output.Position = mul(WorldPosition, FrameGlobals.ViewProj);
+    Output.Normal = normalize(mul(float4(Input.Normal, 0.0f), ModelContext.World).xyz);
     return Output;
 }
 
 float4 PsMain(VertexOutput Input) : SV_TARGET
 {
-    float2 uv = Input.Normal.xy * 0.5f + 0.5f;
-    float4 sampledColor = DiffuseTexture.Sample(DiffuseSampler, uv);
-    float4 baseColor = float4(abs(Input.Normal), 1.0f);
-    return ApplyBaseColor(sampledColor * baseColor * TintColor);
+    const float4 BaseColor = float4(abs(Input.Normal), 1.0f);
+    return ApplyBaseColor(BaseColor * RootConstants.TintColor);
 }

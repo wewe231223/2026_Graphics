@@ -9,6 +9,18 @@
 
 namespace Core {
     namespace DX {
+		struct DrawRootConstantsB1 {
+			uint32_t FrameGlobalsSrvIndex{ 0 };
+			uint32_t ModelContextSrvIndex{ 0 };
+			uint32_t DrawRecordSrvIndex{ 0 };
+			uint32_t DrawRecordBaseIndex{ 0 };
+			float TintColor[4]{ 1.0f, 1.0f, 1.0f, 1.0f };
+			uint32_t Reserved0{ 0 };
+			uint32_t Reserved1{ 0 };
+			uint32_t Reserved2{ 0 };
+			uint32_t Reserved3{ 0 };
+		};
+
 		DirectQueue::DirectQueue(HWND hWnd) {
 			mHwnd = hWnd;
 			DirectQueue::InitBasements();
@@ -44,13 +56,19 @@ namespace Core {
 
 			GraphicsVector& ModelContextVector = mPerFrameModelContextVectors[mRTVIndex];
 			GraphicsVector& DrawRecordVector = mPerFrameDrawRecordVectors[mRTVIndex];
+			GraphicsVector& FrameGlobalsVector = mPerFrameFrameGlobalsVectors[mRTVIndex];
 
+			size_t FrameGlobalsSizeInBytes = sizeof(Game::RFD::FrameGlobals);
 			size_t ModelContextsSizeInBytes = sizeof(Game::RFD::ModelContext) * Data.modelContexts.size();
 			size_t DrawRecordsGpuSizeInBytes = sizeof(DrawRecordGPU) * mDrawRecordsGPU.size();
 
 			std::byte DummyByte{ 0 };
+			void* FrameGlobalsSourceData = FrameGlobalsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&Data.globals);
 			void* ModelContextSourceData = ModelContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.modelContexts.data());
 			void* DrawRecordSourceData = DrawRecordsGpuSizeInBytes == 0 ? &DummyByte : static_cast<void*>(mDrawRecordsGPU.data());
+
+			bool FrameGlobalsCopyResult = FrameGlobalsVector.Copy(*mGraphicsAllocator, FrameGlobalsSourceData, FrameGlobalsSizeInBytes);
+			ErrorHandler::report(FrameGlobalsCopyResult == false, "DirectQueue", "Failed to copy frame globals data.", ErrorHandler::Level::Critical);
 
 			bool ModelContextCopyResult = ModelContextVector.Copy(*mGraphicsAllocator, ModelContextSourceData, ModelContextsSizeInBytes);
 			ErrorHandler::report(ModelContextCopyResult == false, "DirectQueue", "Failed to copy model context data.", ErrorHandler::Level::Critical);
@@ -58,12 +76,12 @@ namespace Core {
 			bool DrawRecordCopyResult = DrawRecordVector.Copy(*mGraphicsAllocator, DrawRecordSourceData, DrawRecordsGpuSizeInBytes);
 			ErrorHandler::report(DrawRecordCopyResult == false, "DirectQueue", "Failed to copy draw record data.", ErrorHandler::Level::Critical);
 
-			std::array<Interface::CopyQueueCopyRequest, 2> CopyRequests{ ModelContextVector.CreateCopyQueueCopyRequest(*mGraphicsAllocator, 0), DrawRecordVector.CreateCopyQueueCopyRequest(*mGraphicsAllocator, 0) };
+			std::array<Interface::CopyQueueCopyRequest, 3> CopyRequests{ FrameGlobalsVector.CreateCopyQueueCopyRequest(*mGraphicsAllocator, 0), ModelContextVector.CreateCopyQueueCopyRequest(*mGraphicsAllocator, 0), DrawRecordVector.CreateCopyQueueCopyRequest(*mGraphicsAllocator, 0) };
 			uint64_t FenceValue = mCopyQueue->EnqueueCopy(CopyRequests);
 			mCopyQueue->DispatchCopies();
 			mPerFrameCopyFenceValues[mRTVIndex] = FenceValue;
 
-			DirectQueue::UpdateShaderResourceViews(mRTVIndex, static_cast<uint32_t>(Data.modelContexts.size()), static_cast<uint32_t>(mDrawRecordsGPU.size()));
+			DirectQueue::UpdateShaderResourceViews(mRTVIndex, 1, static_cast<uint32_t>(Data.modelContexts.size()), static_cast<uint32_t>(mDrawRecordsGPU.size()));
 		}
 
 		bool DirectQueue::CompareDrawRecordByPso(const Game::RFD::DrawRecord& Left, const Game::RFD::DrawRecord& Right) {
@@ -97,11 +115,26 @@ namespace Core {
 			}
 		}
 
-		void DirectQueue::UpdateShaderResourceViews(uint32_t RtvIndex, uint32_t ModelContextCount, uint32_t DrawRecordCount) {
+		void DirectQueue::UpdateShaderResourceViews(uint32_t RtvIndex, uint32_t FrameGlobalsCount, uint32_t ModelContextCount, uint32_t DrawRecordCount) {
+			GraphicsVector& FrameGlobalsVector = mPerFrameFrameGlobalsVectors[RtvIndex];
 			GraphicsVector& ModelContextVector = mPerFrameModelContextVectors[RtvIndex];
 			GraphicsVector& DrawRecordVector = mPerFrameDrawRecordVectors[RtvIndex];
+			ID3D12Resource* FrameGlobalsResource = FrameGlobalsVector.GetResource();
 			ID3D12Resource* ModelContextResource = ModelContextVector.GetResource();
 			ID3D12Resource* DrawRecordResource = DrawRecordVector.GetResource();
+
+			if (FrameGlobalsVector.IsValid() == true) {
+				bool IsUpdateRequired = DirectQueue::IsShaderResourceViewUpdateRequired(mFrameGlobalsSrvResources[RtvIndex], FrameGlobalsResource, mFrameGlobalsSrvElementCounts[RtvIndex], FrameGlobalsCount);
+				if (IsUpdateRequired == true) {
+					FrameGlobalsVector.CreateShaderResourceView(mDevice.Get(), mFrameGlobalsSrvHandles[RtvIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, FrameGlobalsCount, sizeof(Game::RFD::FrameGlobals), D3D12_BUFFER_SRV_FLAG_NONE);
+					mFrameGlobalsSrvResources[RtvIndex] = FrameGlobalsResource;
+					mFrameGlobalsSrvElementCounts[RtvIndex] = FrameGlobalsCount;
+				}
+			}
+			else {
+				mFrameGlobalsSrvResources[RtvIndex] = nullptr;
+				mFrameGlobalsSrvElementCounts[RtvIndex] = 0;
+			}
 
 			if (ModelContextVector.IsValid() == true) {
 				bool IsUpdateRequired = DirectQueue::IsShaderResourceViewUpdateRequired(mModelContextSrvResources[RtvIndex], ModelContextResource, mModelContextSrvElementCounts[RtvIndex], ModelContextCount);
@@ -187,6 +220,13 @@ namespace Core {
 
 				ActivePipeline = StartRecord.pso->Set(ActivePipeline, mCommandList.Get());
 
+				DrawRootConstantsB1 RootConstants{};
+				RootConstants.FrameGlobalsSrvIndex = mFrameGlobalsSrvHandles[mRTVIndex].GetIndex();
+				RootConstants.ModelContextSrvIndex = mModelContextSrvHandles[mRTVIndex].GetIndex();
+				RootConstants.DrawRecordSrvIndex = mDrawRecordSrvHandles[mRTVIndex].GetIndex();
+				RootConstants.DrawRecordBaseIndex = static_cast<uint32_t>(DrawRecordIndex);
+				mCommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
+
 				mCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews = StartRecord.mesh->GetVertexBufferViews();
 				if (VertexBufferViews.empty() == false) {
@@ -226,6 +266,12 @@ namespace Core {
 
 			GraphicsVector& ModelContextVector = mPerFrameModelContextVectors[currentIndex];
 			GraphicsVector& DrawRecordVector = mPerFrameDrawRecordVectors[currentIndex];
+			GraphicsVector& FrameGlobalsVector = mPerFrameFrameGlobalsVectors[currentIndex];
+
+			if (FrameGlobalsVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER FrameGlobalsBarrier = FrameGlobalsVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+				mCommandList->ResourceBarrier(1, &FrameGlobalsBarrier);
+			}
 
 			if (ModelContextVector.IsValid() == true) {
 				D3D12_RESOURCE_BARRIER ModelContextBarrier = ModelContextVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
@@ -261,6 +307,11 @@ namespace Core {
 			if (DrawRecordVector.IsValid() == true) {
 				D3D12_RESOURCE_BARRIER DrawRecordBarrier = DrawRecordVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST);
 				mCommandList->ResourceBarrier(1, &DrawRecordBarrier);
+			}
+
+			if (FrameGlobalsVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER FrameGlobalsBarrier = FrameGlobalsVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST);
+				mCommandList->ResourceBarrier(1, &FrameGlobalsBarrier);
 			}
 
 
@@ -385,7 +436,7 @@ namespace Core {
 
 		void DirectQueue::InitTargetResources() {
 			mRTVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, Constants::FrameCount<uint32_t>, false);
-			mSrvHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, Constants::FrameCount<uint32_t> * 2, true);
+			mSrvHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, Constants::FrameCount<uint32_t> * 3, true);
 
 			for (auto&& [i, rt] : views::enumerate(mRenderTargets)) {
 				ComPtr<ID3D12Resource> backBuffer{ nullptr };
@@ -396,6 +447,7 @@ namespace Core {
 			}
 
 			for (size_t Index = 0; Index < Constants::FrameCount<size_t>; ++Index) {
+				mFrameGlobalsSrvHandles[Index] = mSrvHeap.Allocate();
 				mModelContextSrvHandles[Index] = mSrvHeap.Allocate();
 				mDrawRecordSrvHandles[Index] = mSrvHeap.Allocate();
 			}

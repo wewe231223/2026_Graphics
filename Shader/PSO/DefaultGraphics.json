@@ -5,11 +5,11 @@
   "RootSignature": "DefaultRootSignature",
   "VS": {
     "Source": "BasicShader.hlsl",
-    "Identifier": "vs_6_0:VsMain"
+    "Identifier": "vs_6_6:VsMain"
   },
   "PS": {
     "Source": "BasicShader.hlsl",
-    "Identifier": "ps_6_0:PsMain"
+    "Identifier": "ps_6_6:PsMain"
   },
   "InputLayout": [
     {

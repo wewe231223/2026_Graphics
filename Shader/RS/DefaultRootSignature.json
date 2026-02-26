@@ -2,63 +2,19 @@
   "$schema": "./Schema.RootSignature.json",
   "Name": "DefaultRootSignature",
   "Flags": [
-    "AllowInputAssemblerInputLayout"
+    "AllowInputAssemblerInputLayout",
+    "CBVSRVUAVHeapDirectlyIndexed"
   ],
   "Parameters": [
     {
-      "Type": "CBV",
-      "ShaderVisibility": "Vertex",
-      "Descriptor": {
-        "ShaderRegister": 0,
-        "RegisterSpace": 0,
-        "Flags": [
-          "DataStaticWhileSetAtExecute"
-        ]
-      }
-    },
-    {
-      "Type": "DescriptorTable",
-      "ShaderVisibility": "Pixel",
-      "DescriptorTable": {
-        "Ranges": [
-          {
-            "RangeType": "SRV",
-            "NumDescriptors": 1,
-            "BaseShaderRegister": 0,
-            "RegisterSpace": 0,
-            "OffsetInDescriptorsFromTableStart": 0,
-            "Flags": [
-              "DataStatic"
-            ]
-          }
-        ]
-      }
-    },
-    {
       "Type": "Constants",
-      "ShaderVisibility": "Pixel",
+      "ShaderVisibility": "All",
       "Constants": {
         "ShaderRegister": 1,
         "RegisterSpace": 0,
-        "Num32BitValues": 4
+        "Num32BitValues": 12
       }
     }
   ],
-  "StaticSamplers": [
-    {
-      "Filter": "MinMagMipLinear",
-      "AddressU": "Wrap",
-      "AddressV": "Wrap",
-      "AddressW": "Wrap",
-      "MipLODBias": 0.0,
-      "MaxAnisotropy": 1,
-      "ComparisonFunc": "Always",
-      "BorderColor": "OpaqueBlack",
-      "MinLOD": 0.0,
-      "MaxLOD": 1000.0,
-      "ShaderRegister": 0,
-      "RegisterSpace": 0,
-      "ShaderVisibility": "Pixel"
-    }
-  ]
+  "StaticSamplers": []
 }

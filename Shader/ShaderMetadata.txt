@@ -1,2 +1,2 @@
-Source=BasicShader.hlsl|Entry=VsMain|Profile=vs_6_0|Arguments=-O3
-Source=BasicShader.hlsl|Entry=PsMain|Profile=ps_6_0|Arguments=-O3
+Source=BasicShader.hlsl|Entry=VsMain|Profile=vs_6_6|Arguments=-O3
+Source=BasicShader.hlsl|Entry=PsMain|Profile=ps_6_6|Arguments=-O3
