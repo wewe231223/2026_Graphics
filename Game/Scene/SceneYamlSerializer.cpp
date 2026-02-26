@@ -198,6 +198,7 @@ namespace Game {
     SceneYamlLoadResult SceneYamlSerializer::Deserialize(const std::string& YamlText, Scene& OutScene) const {
         SceneYamlLoadResult LoadResult{};
         c4::yml::Tree Tree{ c4::yml::parse_in_arena(c4::to_csubstr(YamlText)) };
+        Tree.resolve();
         c4::yml::ConstNodeRef RootNode{ Tree.rootref() };
         std::string SceneName{};
 
