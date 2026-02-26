@@ -1,17 +1,21 @@
-#pragma once
+﻿#pragma once
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <vector>
+#include "Core/Common.h"
 #include "Utility/DirectXInclude.h"
 #include "AllocationHandle.h"
 
 namespace Core {
     namespace DX {
-        class GraphicsAllocator {
-			friend AllocationHandle;
+        class GraphicsAllocator final : public Interface::IGraphicsAllocator {
+            friend AllocationHandle;
+
         public:
             using OffsetType = uint64_t;
-            using SizeType = uint64_t; 
+            using SizeType = uint64_t;
+
         private:
             static constexpr uint32_t FlCount = 32;
             static constexpr uint32_t SlCount = 8;
@@ -30,36 +34,38 @@ namespace Core {
 
         public:
             GraphicsAllocator();
-            GraphicsAllocator(ID3D12Device* device, SizeType heapSize, const D3D12_HEAP_PROPERTIES& heapProperties, D3D12_HEAP_FLAGS heapFlags = D3D12_HEAP_FLAG_NONE);
+            GraphicsAllocator(ID3D12Device* Device, SizeType HeapSize, const D3D12_HEAP_PROPERTIES& HeapProperties, D3D12_HEAP_FLAGS HeapFlags = D3D12_HEAP_FLAG_NONE);
             ~GraphicsAllocator();
-            GraphicsAllocator(const GraphicsAllocator& other) = delete;
-            GraphicsAllocator& operator=(const GraphicsAllocator& other) = delete;
-            GraphicsAllocator(GraphicsAllocator&& other) noexcept;
-            GraphicsAllocator& operator=(GraphicsAllocator&& other) noexcept;
+            GraphicsAllocator(const GraphicsAllocator& Other) = delete;
+            GraphicsAllocator& operator=(const GraphicsAllocator& Other) = delete;
+            GraphicsAllocator(GraphicsAllocator&& Other) noexcept;
+            GraphicsAllocator& operator=(GraphicsAllocator&& Other) noexcept;
 
         public:
-            bool Initialize(ID3D12Device* device, SizeType heapSize, const D3D12_HEAP_PROPERTIES& heapProperties, D3D12_HEAP_FLAGS heapFlags = D3D12_HEAP_FLAG_NONE);
-            void Reset();
+            bool Initialize(ID3D12Device* Device, SizeType HeapSize, const D3D12_HEAP_PROPERTIES& HeapProperties, D3D12_HEAP_FLAGS HeapFlags = D3D12_HEAP_FLAG_NONE) override;
+            void Reset() override;
 
-            bool CanAllocate(const D3D12_RESOURCE_DESC& resourceDesc) const;
-            AllocationHandle AllocatePlacedResource(const D3D12_RESOURCE_DESC& resourceDesc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE* optimizedClearValue = nullptr);
+            bool CanAllocate(const D3D12_RESOURCE_DESC& ResourceDesc) const override;
+            std::unique_ptr<Interface::IAllocationHandle> AllocatePlacedResource(const D3D12_RESOURCE_DESC& ResourceDesc, D3D12_RESOURCE_STATES InitialState, const D3D12_CLEAR_VALUE* OptimizedClearValue = nullptr) override;
 
-            ID3D12Heap* GetHeap() const;
-            SizeType GetHeapSize() const;
-            SizeType GetUsedSize() const;
+            AllocationHandle AllocatePlacedResourceHandle(const D3D12_RESOURCE_DESC& ResourceDesc, D3D12_RESOURCE_STATES InitialState, const D3D12_CLEAR_VALUE* OptimizedClearValue = nullptr);
+
+            ID3D12Heap* GetHeap() const override;
+            SizeType GetHeapSize() const override;
+            SizeType GetUsedSize() const override;
 
         private:
-            static OffsetType AlignUp(OffsetType value, OffsetType alignment);
-            void FreeAllocation(OffsetType offset, SizeType size);
-            uint32_t MappingInsert(SizeType size, uint32_t& firstLevel, uint32_t& secondLevel) const;
-            void InsertToBin(int32_t blockIndex);
-            void RemoveFromBin(int32_t blockIndex);
-            int32_t FindSuitableBlock(SizeType size, SizeType alignment) const;
-            int32_t CreateBlock(OffsetType offset, SizeType size, bool isFree);
-            int32_t FindBlockByOffset(OffsetType offset) const;
-            int32_t InsertBlockAfter(int32_t prevBlockIndex, OffsetType offset, SizeType size, bool isFree);
-            int32_t SplitBlockWithAlignment(int32_t blockIndex, SizeType requestedSize, SizeType alignment);
-            int32_t MergeAdjacent(int32_t blockIndex);
+            static OffsetType AlignUp(OffsetType Value, OffsetType Alignment);
+            void FreeAllocation(OffsetType Offset, SizeType Size);
+            uint32_t MappingInsert(SizeType Size, uint32_t& FirstLevel, uint32_t& SecondLevel) const;
+            void InsertToBin(int32_t BlockIndex);
+            void RemoveFromBin(int32_t BlockIndex);
+            int32_t FindSuitableBlock(SizeType Size, SizeType Alignment) const;
+            int32_t CreateBlock(OffsetType Offset, SizeType Size, bool IsFree);
+            int32_t FindBlockByOffset(OffsetType Offset) const;
+            int32_t InsertBlockAfter(int32_t PrevBlockIndex, OffsetType Offset, SizeType Size, bool IsFree);
+            int32_t SplitBlockWithAlignment(int32_t BlockIndex, SizeType RequestedSize, SizeType Alignment);
+            int32_t MergeAdjacent(int32_t BlockIndex);
 
         private:
             ID3D12Device* mDevice{};

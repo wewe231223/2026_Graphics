@@ -82,6 +82,7 @@ namespace {
 
     Material BuildMaterial(const ufbx_material& MaterialData) {
         Material OutMaterial{};
+        OutMaterial.Name = ToString(MaterialData.name);
 
         if (MaterialData.features.pbr.enabled) {
 			OutMaterial.PBR = true;

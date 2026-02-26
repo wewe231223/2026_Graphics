@@ -7,7 +7,6 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 
 #define MAX_LOADSTRING 100
 
-
 #include "Core/Config.h"
 #include "DirectXTK12/Keyboard.h"
 #include "DirectXTK12/Mouse.h"
@@ -15,14 +14,28 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Core/DX/CopyQueue.h"
 #include "Core/DX/GraphicsAllocator.h"
 #include "Utility/ErrorHandler.h"
+#include "Arche/World.h"
+#include "Game/Base/Shader.h"
+#include "Game/Base/RootSignature.h"
+#include "Game/Base/Pipeline.h"
+#include "Game/Base/Input.h"
+#include "Game/Base/Time.h"
+#include "Game/Scene/Scene.h"
+#include "Game/Scene/SceneYamlSerializer.h"
 
-#include "Arche/ArcheContainer.h"
-
-#ifdef _DEBUG
-#pragma comment(lib, "out/debug/Arche.lib")
-#else 
-#pragma comment(lib, "out/relase/Arche.lib")
+#ifdef _MSC_VER
+    #ifdef _DEBUG
+        #pragma comment(lib, "out/debug/Arche.lib")
+        #pragma comment(lib, "out/debug/Game.lib")  
+        #pragma comment(lib, "out/debug/Asset.lib")
+    #else 
+        #pragma comment(lib, "out/release/Arche.lib")
+        #pragma comment(lib, "out/release/Game.lib")
+        #pragma comment(lib, "out/release/Asset.lib")
+    #endif 
 #endif 
+
+
 // 전역 변수:
 HINSTANCE hInst;                                // 현재 인스턴스입니다.
 WCHAR szTitle[MAX_LOADSTRING];                  // 제목 표시줄 텍스트입니다.
@@ -34,18 +47,20 @@ ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 
+#include <fstream>
+
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
-                     _In_opt_ HINSTANCE hPrevInstance,
-                     _In_ LPWSTR    lpCmdLine,
-                     _In_ int       nCmdShow)
+    _In_opt_ HINSTANCE hPrevInstance,
+    _In_ LPWSTR    lpCmdLine,
+    _In_ int       nCmdShow)
 {
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
     // TODO: 여기에 코드를 입력합니다.
 
-	FileConfig config("Core/config.prop");
-	Config::Init(&config);
+    FileConfig config("Config.prop");
+    Config::Init(&config);
 
     // 전역 문자열을 초기화합니다.
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -53,7 +68,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     MyRegisterClass(hInstance);
 
     // 애플리케이션 초기화를 수행합니다:
-    if (!InitInstance (hInstance, nCmdShow))
+    if (!InitInstance(hInstance, nCmdShow))
     {
         return FALSE;
     }
@@ -62,23 +77,60 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     MSG msg;
 
-	Core::DX::DirectQueue directQueue(hWnd);
+    Core::DX::DirectQueue directQueue(hWnd);
 
-	D3D12_HEAP_PROPERTIES defaultHeapProperties{};
-	defaultHeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
-	defaultHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-	defaultHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-	defaultHeapProperties.CreationNodeMask = 1;
-	defaultHeapProperties.VisibleNodeMask = 1;
-
-	Core::DX::GraphicsAllocator defaultHeapAllocator{};
-	bool defaultHeapAllocatorInitializeResult{ defaultHeapAllocator.Initialize(directQueue.GetDevice(), Core::DX::CopyQueue::GetRequiredUploadBufferSize(), defaultHeapProperties, D3D12_HEAP_FLAG_NONE) };
-	ErrorHandler::report(defaultHeapAllocatorInitializeResult == false, "Main", "Failed to initialize default heap allocator.", ErrorHandler::Level::Critical);
-
-	Core::DX::CopyQueue copyQueue{ directQueue.GetDevice() };
+    D3D12_HEAP_PROPERTIES defaultHeapProperties{};
+    defaultHeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+    defaultHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+    defaultHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+    defaultHeapProperties.CreationNodeMask = 1;
+    defaultHeapProperties.VisibleNodeMask = 1;
 
 
-    Arche::ArcheContainer archeContainer{};
+    constexpr uint64_t DefaultHeapAllocatorSize{ 256ull * 1024ull * 1024ull };
+    Core::DX::GraphicsAllocator defaultHeapAllocator{};
+    bool defaultHeapAllocatorInitializeResult{ defaultHeapAllocator.Initialize(directQueue.GetDevice(), DefaultHeapAllocatorSize, defaultHeapProperties, D3D12_HEAP_FLAG_NONE) };
+    ErrorHandler::report(defaultHeapAllocatorInitializeResult == false, "WinMain", "Failed to initialize default heap allocator.", ErrorHandler::Level::Critical);
+
+    Core::DX::CopyQueue copyQueue{ directQueue.GetDevice() };
+    directQueue.SetUploadInfrastructure(&defaultHeapAllocator, &copyQueue);
+
+
+    Arche::World archeContainer{};
+
+
+    Game::Base::PreCompileShaders();
+    
+    if(not Game::Base::PreCompileRootSignatures(directQueue.GetDevice())) {
+		ErrorHandler::report(true, "WinMain", "Failed to pre-compile root signatures.", ErrorHandler::Level::Critical);
+    }
+    
+    if (not Game::Base::PreCompilePipelines(directQueue.GetDevice())) {
+		ErrorHandler::report(true, "WinMain", "Failed to pre-compile pipelines.", ErrorHandler::Level::Critical);
+    }
+
+
+    Globals::Input::Get().Initialize(hWnd); 
+
+
+    size_t frameCount = 0;
+    Globals::Time::Get().AddEvent(1s, [&frameCount]() {
+        std::string title = "FPS [ " + std::to_string(frameCount)+" ] ( Toggle Mouse : F7 )";
+        SetWindowTextA(hWnd, title.c_str());
+        frameCount = 0;
+        return true;
+    });
+
+
+
+    Game::Scene SceneInstance{};
+    SceneInstance.InitializeAssetRegistry(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator);
+
+    Game::SceneYamlSerializer SceneYamlSerializer{};
+    const Game::SceneYamlLoadResult SceneYamlLoadResult{ SceneYamlSerializer.DeserializeFromFile("Resources/DefaultScene.yaml", SceneInstance) };
+    ErrorHandler::report(SceneYamlLoadResult.IsSuccess == false, "WinMain", "Failed to load scene yaml.", ErrorHandler::Level::Warning);
+
+
 
     // 기본 메시지 루프입니다:
     while (true) {
@@ -91,10 +143,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                 DispatchMessage(&msg);
             }
         }
+        else {
+            Globals::Time::Get().AdvanceTime();
+            Globals::Input::Get().Update();
 
+            SceneInstance.ExecutePhase(Game::Phase::PreUpdate, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::Update, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::Render, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::PostRender, Globals::Time::Get().GetDeltaTime<float>());
 
-        directQueue.Update(); 
+            directQueue.PreRender(SceneInstance.GetRenderFrameData(), Globals::Time::Get().GetDeltaTime<float>());
+            directQueue.Render(SceneInstance.GetRenderFrameData());
 
+            frameCount++; 
+        }
     }
 
     

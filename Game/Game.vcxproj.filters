@@ -1,17 +1,178 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="소스 파일">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    <Filter Include="Base">
+      <UniqueIdentifier>{a6fe2b43-8415-4c84-965f-05ea83a9bc4d}</UniqueIdentifier>
     </Filter>
-    <Filter Include="헤더 파일">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    <Filter Include="PSO">
+      <UniqueIdentifier>{6be10d01-8862-46cd-9eb1-4cfb095dec18}</UniqueIdentifier>
     </Filter>
-    <Filter Include="리소스 파일">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    <Filter Include="RS">
+      <UniqueIdentifier>{df1a3148-170b-4256-aee9-d4f74a15b25b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shader">
+      <UniqueIdentifier>{dd1173a2-8046-4643-94d2-13d37ac2b816}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Model">
+      <UniqueIdentifier>{5f17697c-b1e0-406f-a5b2-8903b7fef6e0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Scene">
+      <UniqueIdentifier>{90865894-c1ea-4192-aea0-6b95f8b15d45}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Scene\Systems">
+      <UniqueIdentifier>{da518e6d-61b2-4bda-9554-c317d5a33a1b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Scene\Components">
+      <UniqueIdentifier>{b183f548-2f68-4399-9a93-420a6518d846}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Scene\Components\Intents">
+      <UniqueIdentifier>{f9da7313-25fa-479a-b991-d9aceaf14076}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Scene\Scene YAML">
+      <UniqueIdentifier>{6bab11cf-0e16-4ef9-aed7-3729ebb82219}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Base\Common.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Base\Shader.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Base\RootSignature.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Base\Pipeline.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\Model.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\AssetRegistry.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Base\RenderFrameData.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Scene.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYamlSerializer.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\System.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SystemSceduler.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\StaticRenderSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\Camera.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\StaticMeshRenderer.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\Transform.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\Material.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\IntentClentUpSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\Tags.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\CameraInputSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\Intents\CameraIntent.h">
+      <Filter>Scene\Components\Intents</Filter>
+    </ClInclude>
+    <ClInclude Include="Base\Input.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Base\Time.h">
+      <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\CameraRenderSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Base\Shader.cpp">
+      <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Base\RootSignature.cpp">
+      <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Base\Pipeline.cpp">
+      <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\Model.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\AssetRegistry.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Scene.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYamlSerializer.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\System.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SystemSceduler.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\Transform.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\CameraInputSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Base\Input.cpp">
+      <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Base\Time.cpp">
+      <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Shader\Source\Common.hlsli">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="..\Shader\RS\DefaultRootSignature.json">
+      <Filter>RS</Filter>
+    </None>
+    <None Include="..\Shader\RS\Schema.RootSignature.json">
+      <Filter>RS</Filter>
+    </None>
+    <None Include="..\Shader\PSO\Schema.Pipeline.json">
+      <Filter>PSO</Filter>
+    </None>
+    <None Include="..\Shader\PSO\DefaultGraphics.json">
+      <Filter>PSO</Filter>
+    </None>
+    <None Include="..\Resources\DefaultScene.yaml">
+      <Filter>Scene\Scene YAML</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="..\Shader\Source\BasicShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

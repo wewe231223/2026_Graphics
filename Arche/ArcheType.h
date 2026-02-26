@@ -5,10 +5,10 @@
 #include "Common.h"
 
 namespace Arche {
-    class ArcheContainer; 
+    class World; 
 
     class Archetype {
-        friend class ArcheContainer;
+        friend class World;
     public:
         struct Column {
             TypeID id;

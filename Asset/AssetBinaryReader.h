@@ -1,69 +1,57 @@
-﻿/*
- * ============================================================================
- * FBXB BINARY FORMAT (v2) SPECIFICATION
- * ============================================================================
- *
- * [ HEADER ]
- * +----------+----------+---------------------------------------------------+
- * | Magic    | char[4]  | "FBXB"                                            |
- * | Version  | uint32   | 2                                                 |
- * +----------+----------+---------------------------------------------------+
- *
- * [ MATERIALS ]
- * +---------------+--------+------------------------------------------------+
- * | MaterialCount | uint64 | Total number of materials                      |
- * +---------------+--------+------------------------------------------------+
- * | [ Material Block ] x MaterialCount                                      |
- * |  +---------------+--------+---------------------------------------------+
- * |  | PbrFlag       | uint8  | Physically Based Rendering flag             |
- * |  | PropertyCount | uint64 | Number of properties in this material       |
- * |  +---------------+--------+---------------------------------------------+
- * |  | [ Property Block ] x PropertyCount                                   |
- * |  |  +----------+--------+-----------------------------------------------+
- * |  |  | Type     | uint16 | Property type identifier                     |
- * |  |  | MapKind  | uint8  | 0:None, 1:Real(f32), 2:Int(i64), 3:Bool(u8),  |
- * |  |  |          |        | 4:Vec2, 5:Vec3, 6:Vec4, 7:String(u64+char[])  |
- * |  |  | Payload  | mixed  | (Data size varies based on MapKind)          |
- * |  |  +----------+--------+-----------------------------------------------+
- *
- * [ NODES ] (DFS Order)
- * +---------------+--------+------------------------------------------------+
- * | NodeCount     | uint64 | Total number of nodes                          |
- * +---------------+--------+------------------------------------------------+
- * | [ Node Block ] x NodeCount                                              |
- * |  +------------------+----------+----------------------------------------+
- * |  | Name             | String   | (uint64 Length + char[Length])         |
- * |  | ParentIndex      | int32    | -1 if root                             |
- * |  | NodeToParent     | mat4     | 4x4 Transformation matrix              |
- * |  | GeometryToNode   | mat4     | 4x4 Offset matrix                      |
- * |  +------------------+----------+----------------------------------------+
- * |  | VertexAttributes | (Nested) | For each attribute: uint64 Count + Raw |
- * |  |                  |          | [Pos, Norm, UV[4], Col, Tan, Bitan,    |
- * |  |                  |          |  BoneIdx, BoneWeight]                  |
- * |  +------------------+----------+----------------------------------------+
- * |  | Indices          | (Nested) | uint64 Count + uint32[Count]           |
- * |  | SubMeshes        | (Nested) | uint64 Count + SubMesh[Count]          |
- * |  +------------------+----------+----------------------------------------+
- *
- * [ SubMesh ]
- * +----------------+--------+-----------------------------------------------+
- * | IndexOffset    | uint64 | Start index in the node index buffer          |
- * | IndexCount     | uint64 | Number of indices to draw                     |
- * | MaterialIndex  | uint64 | Material reference index                      |
- * +----------------+--------+-----------------------------------------------+
- *
- * [ COMPATIBILITY ]
- * Version 1 stores a MaterialIndices array instead of SubMeshes. When reading
- * v1, the first material index is used to create a single SubMesh that spans
- * the full index buffer.
- */
+﻿// Asset Binary Format Specification:
+//┌─────────────────────────────────────────────────────────────────────────┐
+//│                            [HEADER SECTION]                             │
+//├──────────────┬───────────────┬──────────────────────────────────────────┤
+//│    OFFSET    │      NAME     │                DATA TYPE                 │
+//├──────────────┼───────────────┼──────────────────────────────────────────┤
+//│    0x00      │     Magic     │  char[4]("FBXB")                         │
+//│    0x04      │ FormatVersion │  uint32                                  │
+//└──────────────┴───────────────┴──────────────────────────────────────────┘
+//
+//                               │
+//                               ▼
+//
+//┌─────────────────────────────────────────────────────────────────────────┐
+//│                              [BODY SECTION]                             │
+//├──────────────┬───────────────┬──────────────────────────────────────────┤
+//│    0x08      │   NodeCount   │  uint64(Number of Node Records)          │
+//└──────────────┴───────────────┴──────────────────────────────────────────┘
+//
+//       ┌────────────────────────────────────────────────────────┐
+//       │[REPEATING NODE RECORD]                                 │
+//       │(Repeats 'NodeCount' times)                             │
+//       ├───────────────────┬────────────────────────────────────┤
+//       │ Name              │ string                             │
+//       │ ParentNodeIndex   │ int32(-1 for Root)                 │
+//       │ NodeToParent      │ Mat4(4x4 Matrix)                   │
+//       │ GeometryToNode    │ Mat4(4x4 Matrix)                   │
+//       ├───────────────────┴────────────────────────────────────┤
+//       │             < VertexAttributes >                       │
+//       ├───────────────────┬────────────────────────────────────┤
+//       │ Positions         │ Vec3[]                             │
+//       │ Normals           │ Vec3[]                             │
+//       │ TexCoords         │ Vec2[][MAX_TEXCOORDS]              │
+//       │ Colors            │ Vec4[]                             │
+//       │ Tangents          │ Vec3[]                             │
+//       │ Bitangents        │ Vec3[]                             │
+//       │ BoneIndices       │ UVec4[]                            │
+//       │ BoneWeights       │ Vec4[]                             │
+//       ├───────────────────┴────────────────────────────────────┤
+//       │ Indices           │ uint32[]                           │
+//       ├───────────────────┴────────────────────────────────────┤
+//       │                 < SubMesh[] >                          │
+//       ├───────────────────┬────────────────────────────────────┤
+//       │ IndexOffset       │ uint64                             │
+//       │ IndexCount        │ uint64                             │
+//       │ MatGroupItemIndex │ uint64                             │
+//       └───────────────────┴────────────────────────────────────┘
 #pragma once
 
 #include <fstream>
 #include <string>
 #include <vector>
 
-#include "AssetBundle.h"
+#include "ModelResult.h"
 
 namespace asset {
     class AssetBinaryReader final {
@@ -77,14 +65,10 @@ namespace asset {
         AssetBinaryReader& operator=(AssetBinaryReader&& Other) noexcept = delete;
 
     public:
-        bool ReadFromFile(const std::string& Path, AssetBundle& Bundle);
+        bool ReadFromFile(const std::string& Path, ModelResult& ModelData);
 
     private:
         bool ReadHeader();
-        void ReadMaterials(std::vector<Material>& Materials);
-        Material ReadMaterial();
-        MaterialProperty ReadMaterialProperty();
-        MaterialMap ReadMaterialMap(MaterialMapKind Kind);
         void ReadModelResult(ModelResult& Result);
         void ReadNodes(ModelResult& Result, std::uint64_t NodeCount, std::vector<ModelNode*>& Nodes);
         void ReadVertexAttributes(VertexAttributes& Attributes);

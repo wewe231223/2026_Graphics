@@ -6,23 +6,22 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 2 };
+    constexpr std::uint32_t FormatVersion{ 4 };
     constexpr std::array<char, 4> FormatMagic{ 'F', 'B', 'X', 'B' };
 }
 
 AssetBinaryReader::AssetBinaryReader() = default;
 
-bool AssetBinaryReader::ReadFromFile(const std::string& Path, AssetBundle& Bundle) {
+bool AssetBinaryReader::ReadFromFile(const std::string& Path, ModelResult& ModelData) {
     mStream = std::ifstream{ Path, std::ios::binary };
     if (!mStream.is_open()) {
         return false;
     }
-    Bundle.Clear();
+    ModelData = ModelResult{};
     if (!ReadHeader()) {
         return false;
     }
-    ReadMaterials(Bundle.GetMaterials());
-    ReadModelResult(Bundle.GetModelResult());
+    ReadModelResult(ModelData);
     return static_cast<bool>(mStream);
 }
 
@@ -33,67 +32,11 @@ bool AssetBinaryReader::ReadHeader() {
         return false;
     }
     const std::uint32_t Version{ ReadUint32() };
-    if (Version != 1 && Version != FormatVersion) {
+    if (Version != 1 && Version != 2 && Version != 3 && Version != FormatVersion) {
         return false;
     }
     mFormatVersion = Version;
     return true;
-}
-
-void AssetBinaryReader::ReadMaterials(std::vector<Material>& Materials) {
-    const std::uint64_t Count{ ReadUint64() };
-    Materials.clear();
-    Materials.reserve(static_cast<std::size_t>(Count));
-    for (std::uint64_t Index{ 0 }; Index < Count; ++Index) {
-        Materials.push_back(ReadMaterial());
-    }
-}
-
-Material AssetBinaryReader::ReadMaterial() {
-    Material MaterialData{};
-    MaterialData.PBR = ReadBool();
-    const std::uint64_t PropertyCount{ ReadUint64() };
-    MaterialData.Properties.reserve(static_cast<std::size_t>(PropertyCount));
-    for (std::uint64_t Index{ 0 }; Index < PropertyCount; ++Index) {
-        MaterialData.Properties.push_back(ReadMaterialProperty());
-    }
-    return MaterialData;
-}
-
-MaterialProperty AssetBinaryReader::ReadMaterialProperty() {
-    MaterialProperty Property{};
-    Property.Type = static_cast<MaterialType>(ReadUint16());
-    const MaterialMapKind Kind{ static_cast<MaterialMapKind>(ReadUint8()) };
-    Property.Data = ReadMaterialMap(Kind);
-    return Property;
-}
-
-MaterialMap AssetBinaryReader::ReadMaterialMap(MaterialMapKind Kind) {
-    if (Kind == MaterialMapKind::None) {
-        return MaterialMap{};
-    }
-    if (Kind == MaterialMapKind::Real) {
-        return MaterialMap{ ReadFloat() };
-    }
-    if (Kind == MaterialMapKind::Int) {
-        return MaterialMap{ ReadInt64() };
-    }
-    if (Kind == MaterialMapKind::Bool) {
-        return MaterialMap{ ReadBool() };
-    }
-    if (Kind == MaterialMapKind::Vec2) {
-        return MaterialMap{ ReadVec2() };
-    }
-    if (Kind == MaterialMapKind::Vec3) {
-        return MaterialMap{ ReadVec3() };
-    }
-    if (Kind == MaterialMapKind::Vec4) {
-        return MaterialMap{ ReadVec4() };
-    }
-    if (Kind == MaterialMapKind::String) {
-        return MaterialMap{ ReadString() };
-    }
-    return MaterialMap{};
 }
 
 void AssetBinaryReader::ReadModelResult(ModelResult& Result) {
@@ -127,7 +70,7 @@ void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, 
                 ModelNode::SubMesh SubMesh{};
                 SubMesh.IndexOffset = 0;
                 SubMesh.IndexCount = Node.Indices().size();
-                SubMesh.MaterialIndex = MaterialIndex;
+                SubMesh.MaterialGroupItemIndex = MaterialIndex;
                 SubMeshes.push_back(SubMesh);
                 Node.SetSubMeshes(std::move(SubMeshes));
             }
@@ -160,7 +103,7 @@ std::vector<ModelNode::SubMesh> AssetBinaryReader::ReadSubMeshes() {
         ModelNode::SubMesh SubMesh{};
         SubMesh.IndexOffset = static_cast<std::size_t>(ReadUint64());
         SubMesh.IndexCount = static_cast<std::size_t>(ReadUint64());
-        SubMesh.MaterialIndex = static_cast<std::size_t>(ReadUint64());
+        SubMesh.MaterialGroupItemIndex = static_cast<std::size_t>(ReadUint64());
         SubMeshes.push_back(SubMesh);
     }
     return SubMeshes;

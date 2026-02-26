@@ -1,0 +1,20 @@
+{
+    "cmake.useCMakePresets": "always",
+    "cmake.configureOnOpen": true,
+    "cmake.defaultConfigurePreset": "windows-msvc-debug",
+    "cmake.defaultBuildPreset": "build-debug",
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "files.associations": {
+        "*.hlsli": "hlsl",
+        "*.hlsl": "hlsl"
+    },
+
+    "cmake.buildEnvironment": {
+    "LC_ALL": "ko_KR.UTF-8"
+    },
+
+    "cmake.configureEnvironment": {
+        "LC_ALL": "ko_KR.UTF-8"
+    }
+    
+}

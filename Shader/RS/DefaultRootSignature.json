@@ -1,0 +1,20 @@
+{
+  "$schema": "./Schema.RootSignature.json",
+  "Name": "DefaultRootSignature",
+  "Flags": [
+    "AllowInputAssemblerInputLayout",
+    "CBVSRVUAVHeapDirectlyIndexed"
+  ],
+  "Parameters": [
+    {
+      "Type": "Constants",
+      "ShaderVisibility": "All",
+      "Constants": {
+        "ShaderRegister": 1,
+        "RegisterSpace": 0,
+        "Num32BitValues": 12
+      }
+    }
+  ],
+  "StaticSamplers": []
+}

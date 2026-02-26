@@ -38,14 +38,8 @@
     <ClCompile Include="Core\Config.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="Core\DX\GraphicsBuffer.cpp">
-      <Filter>Core\DX</Filter>
-    </ClCompile>
     <ClCompile Include="Core\DX\FrameSync.cpp">
       <Filter>Core\DX</Filter>
-    </ClCompile>
-    <ClCompile Include="Core\DirectQueue.cpp">
-      <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="Core\DX\Texture.cpp">
       <Filter>Core\DX</Filter>
@@ -57,6 +51,18 @@
       <Filter>Core\DX</Filter>
     </ClCompile>
     <ClCompile Include="Core\DX\ComputeQueue.cpp">
+      <Filter>Core\DX</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\DX\DirectQueue.cpp">
+      <Filter>Core\DX</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\DX\AllocationHandle.cpp">
+      <Filter>Core\DX</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\DX\GraphicsAllocator.cpp">
+      <Filter>Core\DX</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\DX\GraphicsVector.cpp">
       <Filter>Core\DX</Filter>
     </ClCompile>
   </ItemGroup>
@@ -76,23 +82,8 @@
     <ClInclude Include="Core\Config.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Core\Task\RenderTask.h">
-      <Filter>Core\Task</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\Task\TaskContainer.h">
-      <Filter>Core\Task</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\Task\TaskInterface.h">
-      <Filter>Core\Task</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\DX\GraphicsBuffer.h">
-      <Filter>Core\DX</Filter>
-    </ClInclude>
     <ClInclude Include="Core\DX\FrameSync.h">
       <Filter>Core\DX</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\DirectQueue.h">
-      <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="Core\DX\Texture.h">
       <Filter>Core\DX</Filter>
@@ -106,9 +97,24 @@
     <ClInclude Include="Core\DX\ComputeQueue.h">
       <Filter>Core\DX</Filter>
     </ClInclude>
+    <ClInclude Include="Core\DX\DirectQueue.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DX\AllocationHandle.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DX\GraphicsAllocator.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DX\GraphicsVector.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Common.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Core\Config.prop">
+    <None Include="Config.prop">
       <Filter>Core</Filter>
     </None>
   </ItemGroup>

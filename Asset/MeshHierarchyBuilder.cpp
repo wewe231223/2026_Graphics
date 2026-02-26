@@ -183,7 +183,7 @@ void MeshHierarchyBuilder::ReadBoneData(const ufbx_mesh& Mesh, std::uint32_t Cor
     OutWeights = Vec4{ Weights[0], Weights[1], Weights[2], Weights[3] };
 }
 
-std::size_t MeshHierarchyBuilder::ResolveMaterialIndex(const ufbx_node& Node, const ufbx_mesh& Mesh, std::size_t FaceIndex) const {
+std::size_t MeshHierarchyBuilder::ResolveMaterialGroupItemIndex(const ufbx_node& Node, const ufbx_mesh& Mesh, std::size_t FaceIndex) const {
     std::size_t MaterialIndex{ 0 };
     if (mMaterialLookup == nullptr) {
         return MaterialIndex;
@@ -306,7 +306,7 @@ void MeshHierarchyBuilder::AppendIndexedMeshUfbx(const ufbx_node& Node, const uf
         if (Face.num_indices < 3) {
             continue;
         }
-        const std::size_t MaterialIndex{ ResolveMaterialIndex(Node, Mesh, FaceIndex) };
+        const std::size_t MaterialIndex{ ResolveMaterialGroupItemIndex(Node, Mesh, FaceIndex) };
         std::vector<std::uint32_t>& MaterialIndices{ MaterialBatches[MaterialIndex] };
         const std::uint32_t NumTris{ ufbx_triangulate_face(TriCorners.data(), TriCorners.size(), &Mesh, Face) };
         for (std::uint32_t TriIndex{ 0 }; TriIndex < NumTris; ++TriIndex) {
@@ -329,7 +329,7 @@ void MeshHierarchyBuilder::AppendIndexedMeshUfbx(const ufbx_node& Node, const uf
         ModelNode::SubMesh SubMesh{};
         SubMesh.IndexOffset = IndexOffset;
         SubMesh.IndexCount = BatchIndices.size();
-        SubMesh.MaterialIndex = Pair.first;
+        SubMesh.MaterialGroupItemIndex = Pair.first;
         OutSubMeshes.push_back(SubMesh);
         IndexOffset += BatchIndices.size();
     }

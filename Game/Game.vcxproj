@@ -18,10 +18,66 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Base\Common.h" />
+    <ClInclude Include="Base\Input.h" />
+    <ClInclude Include="Base\RenderFrameData.h" />
+    <ClInclude Include="Base\Shader.h" />
+    <ClInclude Include="Base\RootSignature.h" />
+    <ClInclude Include="Base\Pipeline.h" />
+    <ClInclude Include="Base\Time.h" />
+    <ClInclude Include="Model\AssetRegistry.h" />
+    <ClInclude Include="Model\Model.h" />
+    <ClInclude Include="Scene\Components\Camera.h" />
+    <ClInclude Include="Scene\Components\Intents\CameraIntent.h" />
+    <ClInclude Include="Scene\Components\Material.h" />
+    <ClInclude Include="Scene\Components\StaticMeshRenderer.h" />
+    <ClInclude Include="Scene\Components\Tags.h" />
+    <ClInclude Include="Scene\Components\Transform.h" />
+    <ClInclude Include="Scene\Scene.h" />
+    <ClInclude Include="Scene\SceneYamlSerializer.h" />
+    <ClInclude Include="Scene\System.h" />
+    <ClInclude Include="Scene\SystemSceduler.h" />
+    <ClInclude Include="Scene\Systems\CameraInputSystem.h" />
+    <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
+    <ClInclude Include="Scene\Systems\IntentClentUpSystem.h" />
+    <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Base\Input.cpp" />
+    <ClCompile Include="Base\Shader.cpp" />
+    <ClCompile Include="Base\RootSignature.cpp" />
+    <ClCompile Include="Base\Pipeline.cpp" />
+    <ClCompile Include="Base\Time.cpp" />
+    <ClCompile Include="Model\AssetRegistry.cpp" />
+    <ClCompile Include="Model\Model.cpp" />
+    <ClCompile Include="Scene\Scene.cpp" />
+    <ClCompile Include="Scene\SceneYamlSerializer.cpp" />
+    <ClCompile Include="Scene\System.cpp" />
+    <ClCompile Include="Scene\SystemSceduler.cpp" />
+    <ClCompile Include="Scene\Components\Transform.cpp" />
+    <ClCompile Include="Scene\Systems\CameraInputSystem.cpp" />
+    <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
+    <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="..\Shader\Source\BasicShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Resources\DefaultScene.yaml" />
+    <None Include="..\Shader\PSO\DefaultGraphics.json" />
+    <None Include="..\Shader\PSO\Schema.Pipeline.json" />
+    <None Include="..\Shader\RS\DefaultRootSignature.json" />
+    <None Include="..\Shader\RS\Schema.RootSignature.json" />
+    <None Include="..\Shader\Source\Common.hlsli" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{7e26ef7a-01b1-408d-8cf1-c94932418e4e}</ProjectGuid>
+    <ProjectGuid>{be25e620-7914-415b-b62d-865e31371758}</ProjectGuid>
     <RootNamespace>Game</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
@@ -56,6 +112,7 @@
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
+    <Import Project="..\Utility\Utility.vcxitems" Label="Shared" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -71,10 +128,14 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)out\debug\</OutDir>
+    <OutDir>$(SolutionDir)\out\debug\</OutDir>
+    <IncludePath>$(SolutionDir)\External\Include;$(SolutionDir)\External\Include\rapidyml;$(SolutionDir);$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)\External\lib\debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)out\release\</OutDir>
+    <OutDir>$(SolutionDir)\out\release\</OutDir>
+    <IncludePath>$(SolutionDir)\External\Include;$(SolutionDir)\External\Include\rapidyml;$(SolutionDir);$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)\External\lib\release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -116,7 +177,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
@@ -134,7 +195,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>

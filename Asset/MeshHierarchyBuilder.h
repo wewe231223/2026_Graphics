@@ -50,7 +50,7 @@ namespace asset {
         Vec3 ReadTangent(const ufbx_mesh& Mesh, std::uint32_t Index) const;
         Vec3 ReadBitangent(const ufbx_mesh& Mesh, std::uint32_t Index) const;
         void ReadBoneData(const ufbx_mesh& Mesh, std::uint32_t CornerIndex, UVec4& OutIndices, Vec4& OutWeights) const;
-        std::size_t ResolveMaterialIndex(const ufbx_node& Node, const ufbx_mesh& Mesh, std::size_t FaceIndex) const;
+        std::size_t ResolveMaterialGroupItemIndex(const ufbx_node& Node, const ufbx_mesh& Mesh, std::size_t FaceIndex) const;
 
         void AppendIndexedMeshUfbx(const ufbx_node& Node, const ufbx_mesh& Mesh, VertexAttributes& OutVertices, std::vector<std::uint32_t>& OutIndices, std::vector<ModelNode::SubMesh>& OutSubMeshes) const;
 

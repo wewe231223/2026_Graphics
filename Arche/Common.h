@@ -1,22 +1,43 @@
 ﻿#pragma once
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include "TypeSystem.h" 
 
+#ifdef max 
+#undef max 
+#endif 
+
 namespace Arche {
+
+    struct NullEntityIDTag {};
+
+    inline constexpr NullEntityIDTag NullEntityID{};
 
     struct EntityID {
         std::uint32_t index;
         std::uint32_t generation;
 
-        bool operator==(const EntityID& other) const {
-            return index == other.index && generation == other.generation;
+        EntityID() = default;
+        EntityID(std::uint32_t Index, std::uint32_t Generation)
+            : index{ Index },
+            generation{ Generation } {
         }
 
-        bool operator!=(const EntityID& other) const {
-            return !(*this == other);
+        EntityID(NullEntityIDTag)
+            : index{ std::numeric_limits<std::uint32_t>::max() },
+            generation{ std::numeric_limits<std::uint32_t>::max() } {
+        }
+
+        bool operator==(const EntityID& Other) const {
+            return index == Other.index && generation == Other.generation;
+        }
+
+        bool operator!=(const EntityID& Other) const {
+            return !(*this == Other);
         }
     };
+
 
     struct EntityRecord {
         class Archetype* archetype = nullptr;

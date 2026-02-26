@@ -46,7 +46,6 @@ namespace asset {
 
 
     enum class MaterialType : std::uint16_t {
-        // FBX 
         DiffuseFactor                        = 0,
         DiffuseFactorMap                     = 1,
         DiffuseColor                         = 2,
@@ -88,7 +87,6 @@ namespace asset {
         VectorDisplacement                   = 38,
         VectorDisplacementMap                = 39,
 
-        // PBR 
         BaseFactor                           = 40,
         BaseFactorMap                        = 41,
         BaseColor                            = 42,
@@ -253,8 +251,19 @@ namespace asset {
     };
 
     struct Material {
-		std::vector<MaterialProperty> Properties;
+        std::string Name{};
+        std::vector<MaterialProperty> Properties;
         bool PBR{ false };
+    };
+
+    struct MaterialGroupItem final {
+        Material MaterialData{};
+        std::string PipelineName{};
+    };
+
+    struct MaterialGroup final {
+        std::string Name{};
+        std::vector<MaterialGroupItem> Items{};
     };
 
 
