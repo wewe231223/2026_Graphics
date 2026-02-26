@@ -5,6 +5,7 @@
 #include "Arche/World.h"
 #include "System.h"
 #include "SystemSceduler.h"
+#include "Game/Model/AssetRegistry.h"
 
 namespace Game {
     class Scene final {
@@ -24,6 +25,13 @@ namespace Game {
 
         FrameContext& GetFrameContext();
         const FrameContext& GetFrameContext() const;
+
+        RFD::RenderFrameData& GetRenderFrameData();
+        const RFD::RenderFrameData& GetRenderFrameData() const;
+
+        AssetRegistry& GetAssetRegistry();
+        const AssetRegistry& GetAssetRegistry() const;
+        void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator);
         void SetName(const std::string& NewName);
         const std::string& GetName() const;
 
@@ -35,6 +43,7 @@ namespace Game {
         std::string mName{};
         Arche::World mWorld{};
         FrameContext mFrameContext{};
+        AssetRegistry mAssetRegistry{};
         std::vector<std::unique_ptr<ISystem>> mSystems{};
         SystemSceduler mSystemSceduler{};
     };

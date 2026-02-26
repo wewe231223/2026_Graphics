@@ -22,7 +22,6 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Game/Base/Time.h"
 #include "Game/Scene/Scene.h"
 #include "Game/Scene/SceneYamlSerializer.h"
-#include "Game/Model/AssetRegistry.h"
 
 #ifdef _MSC_VER
     #ifdef _DEBUG
@@ -98,8 +97,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     Arche::World archeContainer{};
 
-    Game::AssetRegistry AssetRegistry{};
-    AssetRegistry.Initialize(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator);
 
     Game::Base::PreCompileShaders();
     
@@ -127,8 +124,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 
     Game::Scene SceneInstance{};
+    SceneInstance.InitializeAssetRegistry(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator);
+
     Game::SceneYamlSerializer SceneYamlSerializer{};
-    const Game::SceneYamlLoadResult SceneYamlLoadResult{ SceneYamlSerializer.DeserializeFromFile("Resources/DefaultScene.yaml", AssetRegistry, SceneInstance) };
+    const Game::SceneYamlLoadResult SceneYamlLoadResult{ SceneYamlSerializer.DeserializeFromFile("Resources/DefaultScene.yaml", SceneInstance) };
     ErrorHandler::report(SceneYamlLoadResult.IsSuccess == false, "WinMain", "Failed to load scene yaml.", ErrorHandler::Level::Warning);
 
 
@@ -153,7 +152,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             SceneInstance.ExecutePhase(Game::Phase::Render, Globals::Time::Get().GetDeltaTime<float>());
             SceneInstance.ExecutePhase(Game::Phase::PostRender, Globals::Time::Get().GetDeltaTime<float>());
 
-
+            directQueue.PreRender(SceneInstance.GetRenderFrameData(), Globals::Time::Get().GetDeltaTime<float>());
             directQueue.Render();
 
             frameCount++; 

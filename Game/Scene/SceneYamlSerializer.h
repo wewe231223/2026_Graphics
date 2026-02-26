@@ -2,7 +2,6 @@
 #include <string>
 #include <vector>
 #include "Scene.h"
-#include "Game/Model/AssetRegistry.h"
 
 #ifdef min
 #undef min
@@ -40,7 +39,7 @@ namespace Game {
         SceneYamlSerializer& operator=(SceneYamlSerializer&& Other) noexcept;
 
     public:
-        SceneYamlLoadResult Deserialize(const std::string& YamlText, AssetRegistry& Registry, Scene& OutScene) const;
-        SceneYamlLoadResult DeserializeFromFile(const std::string& YamlFilePath, AssetRegistry& Registry, Scene& OutScene) const;
+        SceneYamlLoadResult Deserialize(const std::string& YamlText, Scene& OutScene) const;
+        SceneYamlLoadResult DeserializeFromFile(const std::string& YamlFilePath, Scene& OutScene) const;
     };
 }

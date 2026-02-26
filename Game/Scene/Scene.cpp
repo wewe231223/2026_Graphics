@@ -5,6 +5,7 @@ namespace Game {
         : mName{},
         mWorld{},
         mFrameContext{},
+        mAssetRegistry{},
         mSystems{},
         mSystemSceduler{} {
     }
@@ -26,6 +27,27 @@ namespace Game {
 
     const FrameContext& Scene::GetFrameContext() const {
         return mFrameContext;
+    }
+
+    RFD::RenderFrameData& Scene::GetRenderFrameData() {
+        return mFrameContext.RenderData;
+    }
+
+    const RFD::RenderFrameData& Scene::GetRenderFrameData() const {
+        return mFrameContext.RenderData;
+    }
+
+    AssetRegistry& Scene::GetAssetRegistry() {
+        return mAssetRegistry;
+    }
+
+    const AssetRegistry& Scene::GetAssetRegistry() const {
+        return mAssetRegistry;
+    }
+
+    void Scene::InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator) {
+        mAssetRegistry.Initialize(Device, CopyQueue, Allocator);
+        mFrameContext.MaterialGroups = &mAssetRegistry.GetMaterialGroups();
     }
 
     void Scene::SetName(const std::string& NewName) {

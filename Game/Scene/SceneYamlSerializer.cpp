@@ -195,7 +195,7 @@ namespace Game {
         return *this;
     }
 
-    SceneYamlLoadResult SceneYamlSerializer::Deserialize(const std::string& YamlText, AssetRegistry& Registry, Scene& OutScene) const {
+    SceneYamlLoadResult SceneYamlSerializer::Deserialize(const std::string& YamlText, Scene& OutScene) const {
         SceneYamlLoadResult LoadResult{};
         c4::yml::Tree Tree{ c4::yml::parse_in_arena(c4::to_csubstr(YamlText)) };
         c4::yml::ConstNodeRef RootNode{ Tree.rootref() };
@@ -273,13 +273,13 @@ namespace Game {
                 }
                 else {
                     const std::string ResolvedMaterialPath{ ResolveSceneResourcePath(SceneName, MaterialPath) };
-                    const bool IsLoaded{ Registry.LoadMaterialGroups(ResolvedMaterialPath) };
+                    const bool IsLoaded{ OutScene.GetAssetRegistry().LoadMaterialGroups(ResolvedMaterialPath) };
                     if (IsLoaded == false) {
                         LoadResult.IsSuccess = false;
                         LoadResult.UndecidedItems.push_back(std::string{ "Material 파일 로드 실패: " } + ResolvedMaterialPath);
                     }
                     else {
-                        const std::uint32_t MaterialGroupIndex{ Registry.FindMaterialGroupIndexBySourcePath(ResolvedMaterialPath) };
+                        const std::uint32_t MaterialGroupIndex{ OutScene.GetAssetRegistry().FindMaterialGroupIndexBySourcePath(ResolvedMaterialPath) };
                         if (MaterialGroupIndex == static_cast<std::uint32_t>(-1)) {
                             LoadResult.IsSuccess = false;
                             LoadResult.UndecidedItems.push_back(std::string{ "Material 파일에서 MaterialGroupIndex 를 해석할 수 없습니다: " } + ResolvedMaterialPath);
@@ -300,7 +300,7 @@ namespace Game {
                     std::string ModelPath{};
                     StaticMeshRendererNode["modelPath"] >> ModelPath;
                     const std::string ResolvedModelPath{ ResolveSceneResourcePath(SceneName, ModelPath) };
-                    const std::shared_ptr<Model> ModelData{ Registry.GetModel(ResolvedModelPath) };
+                    const std::shared_ptr<Model> ModelData{ OutScene.GetAssetRegistry().GetModel(ResolvedModelPath) };
                     if (ModelData == nullptr) {
                         LoadResult.IsSuccess = false;
                         LoadResult.UndecidedItems.push_back(std::string{ "modelPath 로 Model 로드 실패: " } + ResolvedModelPath);
@@ -435,7 +435,7 @@ namespace Game {
         return LoadResult;
     }
 
-    SceneYamlLoadResult SceneYamlSerializer::DeserializeFromFile(const std::string& YamlFilePath, AssetRegistry& Registry, Scene& OutScene) const {
+    SceneYamlLoadResult SceneYamlSerializer::DeserializeFromFile(const std::string& YamlFilePath, Scene& OutScene) const {
         std::ifstream InputStream{ YamlFilePath, std::ios::in | std::ios::binary };
         SceneYamlLoadResult LoadResult{};
 
@@ -447,6 +447,6 @@ namespace Game {
 
         std::stringstream Buffer{};
         Buffer << InputStream.rdbuf();
-        return Deserialize(Buffer.str(), Registry, OutScene);
+        return Deserialize(Buffer.str(), OutScene);
     }
 }
