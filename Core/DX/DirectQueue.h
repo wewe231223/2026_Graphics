@@ -15,6 +15,8 @@
 
 namespace Core {
 	namespace DX {
+		class GraphicsAllocator;
+
 		class DirectQueue {
 		public:
 			DirectQueue(HWND hWnd);
@@ -29,8 +31,10 @@ namespace Core {
 		public:
 			ID3D12Device* GetDevice() const;
 
+			void SetUploadInfrastructure(GraphicsAllocator* GraphicsAllocator, Interface::ICopyQueue* CopyQueue);
 			void PreRender(Game::RFD::RenderFrameData& data, float Dt);
 			void Render(Game::RFD::RenderFrameData& data);
+
 		private:
 			void InitBasements(); 
 			void InitWorkers();
@@ -42,12 +46,14 @@ namespace Core {
 			bool CheckShaderModelSupport(D3D_SHADER_MODEL);
 
 			void DrainDebugMessages();
+			void UpdateShaderResourceViews(uint32_t RtvIndex, uint32_t ModelContextCount, uint32_t DrawRecordCount);
 
 		private:
 			static bool CompareDrawRecordByPso(const Game::RFD::DrawRecord& Left, const Game::RFD::DrawRecord& Right);
 			void BuildDrawRecordGpu(const Game::RFD::RenderFrameData& Data);
 
 			void DrawForward(Game::RFD::RenderFrameData& data); 
+
 		private:
 			HWND mHwnd{ nullptr };
 			ComPtr<IDXGIFactory6> mFactory{ nullptr };
@@ -73,9 +79,17 @@ namespace Core {
 			DescriptorHeap mDSVHeap{};
 			TexPtr mDepthStencilBuffer{};
 
-			FrameSync mFrameSync{};
+			DescriptorHeap mSrvHeap{};
+			std::array<DescriptorHandle, Constants::FrameCount<size_t>> mModelContextSrvHandles{};
+			std::array<DescriptorHandle, Constants::FrameCount<size_t>> mDrawRecordSrvHandles{};
 
-			std::array<GraphicsVector, Constants::FrameCount<size_t>> mPerFrameGraphicsVectors{};
+			FrameSync mFrameSync{};
+			GraphicsAllocator* mGraphicsAllocator{ nullptr };
+			Interface::ICopyQueue* mCopyQueue{ nullptr };
+
+			std::array<GraphicsVector, Constants::FrameCount<size_t>> mPerFrameModelContextVectors{};
+			std::array<GraphicsVector, Constants::FrameCount<size_t>> mPerFrameDrawRecordVectors{};
+			std::array<uint64_t, Constants::FrameCount<size_t>> mPerFrameCopyFenceValues{};
 			std::vector<DrawRecordGPU> mDrawRecordsGPU{};
 
 			D3D12_VIEWPORT mViewport{ 0, 0, Config::Query().Get<float>("Window_Width"), Config::Query().Get<float>("Window_Height"), 0.f, 1.f };

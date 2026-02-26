@@ -26,16 +26,60 @@ namespace Core {
 			return mDevice.Get(); 
 		}
 
+		void DirectQueue::SetUploadInfrastructure(GraphicsAllocator* GraphicsAllocator, Interface::ICopyQueue* CopyQueue) {
+			mGraphicsAllocator = GraphicsAllocator;
+			mCopyQueue = CopyQueue;
+		}
+
 		void DirectQueue::PreRender(Game::RFD::RenderFrameData& Data, float Dt) {
 			Data.globals.dt = Dt;
+			mRTVIndex = static_cast<uint32_t>(mFrameSync.GetCurrentIndex());
+
+			ErrorHandler::report(mGraphicsAllocator == nullptr, "DirectQueue", "GraphicsAllocator is not set.", ErrorHandler::Level::Critical);
+			ErrorHandler::report(mCopyQueue == nullptr, "DirectQueue", "CopyQueue is not set.", ErrorHandler::Level::Critical);
 
 			std::stable_sort(Data.drawRecords.begin(), Data.drawRecords.end(), DirectQueue::CompareDrawRecordByPso);
 
 			DirectQueue::BuildDrawRecordGpu(Data);
+
+			GraphicsVector& ModelContextVector = mPerFrameModelContextVectors[mRTVIndex];
+			GraphicsVector& DrawRecordVector = mPerFrameDrawRecordVectors[mRTVIndex];
+
+			size_t ModelContextsSizeInBytes = sizeof(Game::RFD::ModelContext) * Data.modelContexts.size();
+			size_t DrawRecordsGpuSizeInBytes = sizeof(DrawRecordGPU) * mDrawRecordsGPU.size();
+
+			std::byte DummyByte{ 0 };
+			void* ModelContextSourceData = ModelContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.modelContexts.data());
+			void* DrawRecordSourceData = DrawRecordsGpuSizeInBytes == 0 ? &DummyByte : static_cast<void*>(mDrawRecordsGPU.data());
+
+			bool ModelContextCopyResult = ModelContextVector.Copy(*mGraphicsAllocator, ModelContextSourceData, ModelContextsSizeInBytes);
+			ErrorHandler::report(ModelContextCopyResult == false, "DirectQueue", "Failed to copy model context data.", ErrorHandler::Level::Critical);
+
+			bool DrawRecordCopyResult = DrawRecordVector.Copy(*mGraphicsAllocator, DrawRecordSourceData, DrawRecordsGpuSizeInBytes);
+			ErrorHandler::report(DrawRecordCopyResult == false, "DirectQueue", "Failed to copy draw record data.", ErrorHandler::Level::Critical);
+
+			std::array<Interface::CopyQueueCopyRequest, 2> CopyRequests{ ModelContextVector.CreateCopyQueueCopyRequest(*mGraphicsAllocator, 0), DrawRecordVector.CreateCopyQueueCopyRequest(*mGraphicsAllocator, 0) };
+			uint64_t FenceValue = mCopyQueue->EnqueueCopy(CopyRequests);
+			mCopyQueue->DispatchCopies();
+			mPerFrameCopyFenceValues[mRTVIndex] = FenceValue;
+
+			DirectQueue::UpdateShaderResourceViews(mRTVIndex, static_cast<uint32_t>(Data.modelContexts.size()), static_cast<uint32_t>(mDrawRecordsGPU.size()));
 		}
 
 		bool DirectQueue::CompareDrawRecordByPso(const Game::RFD::DrawRecord& Left, const Game::RFD::DrawRecord& Right) {
-			return Left.pso < Right.pso;
+			if (Left.pass != Right.pass) {
+				return Left.pass < Right.pass;
+			}
+
+			if (Left.pso != Right.pso) {
+				return Left.pso < Right.pso;
+			}
+
+			if (Left.mesh != Right.mesh) {
+				return Left.mesh < Right.mesh;
+			}
+
+			return Left.submesh < Right.submesh;
 		}
 
 		void DirectQueue::BuildDrawRecordGpu(const Game::RFD::RenderFrameData& Data) {
@@ -50,6 +94,19 @@ namespace Core {
 				DrawRecordGpu.Pad0 = DrawRecord.pad0;
 
 				mDrawRecordsGPU.push_back(DrawRecordGpu);
+			}
+		}
+
+		void DirectQueue::UpdateShaderResourceViews(uint32_t RtvIndex, uint32_t ModelContextCount, uint32_t DrawRecordCount) {
+			GraphicsVector& ModelContextVector = mPerFrameModelContextVectors[RtvIndex];
+			GraphicsVector& DrawRecordVector = mPerFrameDrawRecordVectors[RtvIndex];
+
+			if (ModelContextVector.IsValid() == true) {
+				ModelContextVector.CreateShaderResourceView(mDevice.Get(), mModelContextSrvHandles[RtvIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, ModelContextCount, sizeof(Game::RFD::ModelContext), D3D12_BUFFER_SRV_FLAG_NONE);
+			}
+
+			if (DrawRecordVector.IsValid() == true) {
+				DrawRecordVector.CreateShaderResourceView(mDevice.Get(), mDrawRecordSrvHandles[RtvIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, DrawRecordCount, sizeof(DrawRecordGPU), D3D12_BUFFER_SRV_FLAG_NONE);
 			}
 		}
 
@@ -69,18 +126,83 @@ namespace Core {
 		// 8) 조회한 record.objectIndex로 modelContexts를, record.materialIndex로 머티리얼 테이블을 인덱싱한다.
 
 		void DirectQueue::DrawForward(Game::RFD::RenderFrameData& data) {
-		
+			const Interface::IPipeline* ActivePipeline = nullptr;
+
+			size_t DrawRecordIndex = 0;
+			while (DrawRecordIndex < data.drawRecords.size()) {
+				Game::RFD::DrawRecord& StartRecord = data.drawRecords[DrawRecordIndex];
+
+				if (StartRecord.pso == nullptr || StartRecord.mesh == nullptr) {
+					DrawRecordIndex += 1;
+					continue;
+				}
+
+				size_t RunEndIndex = DrawRecordIndex + 1;
+				while (RunEndIndex < data.drawRecords.size()) {
+					const Game::RFD::DrawRecord& NextRecord = data.drawRecords[RunEndIndex];
+					bool IsSameRun = NextRecord.pass == StartRecord.pass && NextRecord.pso == StartRecord.pso && NextRecord.mesh == StartRecord.mesh && NextRecord.submesh == StartRecord.submesh;
+					if (IsSameRun == false) {
+						break;
+					}
+
+					RunEndIndex += 1;
+				}
+
+				ActivePipeline = StartRecord.pso->Set(ActivePipeline, mCommandList.Get());
+
+				mCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews = StartRecord.mesh->GetVertexBufferViews();
+				if (VertexBufferViews.empty() == false) {
+					mCommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
+				}
+
+				const D3D12_INDEX_BUFFER_VIEW& IndexBufferView = StartRecord.mesh->GetIndexBufferView();
+				mCommandList->IASetIndexBuffer(&IndexBufferView);
+
+				const Game::ModelSubMesh& SubMesh = StartRecord.mesh->GetSubMesh(StartRecord.submesh);
+				UINT IndexCountPerInstance = static_cast<UINT>(SubMesh.IndexCount);
+				UINT InstanceCount = static_cast<UINT>(RunEndIndex - DrawRecordIndex);
+				UINT StartIndexLocation = static_cast<UINT>(SubMesh.IndexOffset);
+				INT BaseVertexLocation = 0;
+				UINT StartInstanceLocation = 0;
+
+				mCommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
+				DrawRecordIndex = RunEndIndex;
+			}
 
 		}
 
 		void DirectQueue::Render(Game::RFD::RenderFrameData& data) {
+			ErrorHandler::report(mCopyQueue == nullptr, "DirectQueue", "CopyQueue is not set.", ErrorHandler::Level::Critical);
+
 			auto currentIndex = mFrameSync.GetCurrentIndex();
+			uint64_t CopyFenceValue = mPerFrameCopyFenceValues[currentIndex];
+			if (CopyFenceValue != 0) {
+				mCopyQueue->WaitForFence(CopyFenceValue);
+			}
+
 			auto& allocator = mMainCommandAllocators[currentIndex];
 			allocator->Reset(); 
 			mCommandList->Reset(allocator.Get(), nullptr);
 
+			std::array<ID3D12DescriptorHeap*, 1> DescriptorHeaps{ mSrvHeap.GetHeap() };
+			mCommandList->SetDescriptorHeaps(static_cast<UINT>(DescriptorHeaps.size()), DescriptorHeaps.data());
+
 			auto& rt = mRenderTargets[currentIndex];
 			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET); 
+
+			GraphicsVector& ModelContextVector = mPerFrameModelContextVectors[currentIndex];
+			GraphicsVector& DrawRecordVector = mPerFrameDrawRecordVectors[currentIndex];
+
+			if (ModelContextVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER ModelContextBarrier = ModelContextVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+				mCommandList->ResourceBarrier(1, &ModelContextBarrier);
+			}
+
+			if (DrawRecordVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER DrawRecordBarrier = DrawRecordVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+				mCommandList->ResourceBarrier(1, &DrawRecordBarrier);
+			}
 
 			auto rtv = rt->GetRTV(); 
 			auto dsv = mDepthStencilBuffer->GetDSV();
@@ -96,7 +218,17 @@ namespace Core {
 
 
 			// Execute Render Tasks
-			
+			DirectQueue::DrawForward(data);
+
+			if (ModelContextVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER ModelContextBarrier = ModelContextVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST);
+				mCommandList->ResourceBarrier(1, &ModelContextBarrier);
+			}
+
+			if (DrawRecordVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER DrawRecordBarrier = DrawRecordVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST);
+				mCommandList->ResourceBarrier(1, &DrawRecordBarrier);
+			}
 
 
 
@@ -197,6 +329,10 @@ namespace Core {
 
 		void DirectQueue::InitWorkers() {
 			mFrameSync = FrameSync(mDevice.Get()); 
+
+			for (uint64_t& FenceValue : mPerFrameCopyFenceValues) {
+				FenceValue = 0;
+			}
 		}
 
 		void DirectQueue::InitCommandList() {
@@ -210,6 +346,7 @@ namespace Core {
 
 		void DirectQueue::InitTargetResources() {
 			mRTVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, Constants::FrameCount<uint32_t>, false);
+			mSrvHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, Constants::FrameCount<uint32_t> * 2, true);
 
 			for (auto&& [i, rt] : views::enumerate(mRenderTargets)) {
 				ComPtr<ID3D12Resource> backBuffer{ nullptr };
@@ -217,6 +354,11 @@ namespace Core {
 				rt = Texture::CreateFromResource(backBuffer.Get(), "BackBuffer_" + std::to_string(i));
 
 				rt->CreateRTV(mDevice.Get(), mRTVHeap);
+			}
+
+			for (size_t Index = 0; Index < Constants::FrameCount<size_t>; ++Index) {
+				mModelContextSrvHandles[Index] = mSrvHeap.Allocate();
+				mDrawRecordSrvHandles[Index] = mSrvHeap.Allocate();
 			}
 
 
@@ -345,4 +487,3 @@ namespace Core {
 		
     }
 }
-

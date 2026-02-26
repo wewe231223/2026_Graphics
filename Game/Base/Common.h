@@ -19,10 +19,10 @@ namespace Interface {
     public:
         virtual ~IPipeline() = default;
 
-        virtual bool Initialize(const std::string& pipelineName)                                PURE;
-        virtual IPipeline* Set(IPipeline* pipeline, ID3D12GraphicsCommandList* commandList)     PURE;
-        virtual ID3D12PipelineState* Get() const                                                PURE;
-        virtual ID3D12RootSignature* GetRootSignature() const                                   PURE;
+        virtual bool Initialize(const std::string& pipelineName)                                                    PURE;
+        virtual const IPipeline* Set(const IPipeline* pipeline, ID3D12GraphicsCommandList* commandList) const       PURE;
+        virtual ID3D12PipelineState* Get() const                                                                    PURE;
+        virtual ID3D12RootSignature* GetRootSignature() const                                                       PURE;
     };
 }
 

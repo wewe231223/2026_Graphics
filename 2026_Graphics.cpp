@@ -93,6 +93,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     ErrorHandler::report(defaultHeapAllocatorInitializeResult == false, "WinMain", "Failed to initialize default heap allocator.", ErrorHandler::Level::Critical);
 
     Core::DX::CopyQueue copyQueue{ directQueue.GetDevice() };
+    directQueue.SetUploadInfrastructure(&defaultHeapAllocator, &copyQueue);
 
 
     Arche::World archeContainer{};

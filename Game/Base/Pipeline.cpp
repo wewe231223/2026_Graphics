@@ -974,7 +974,7 @@ namespace Game {
 			return true;
 		}
 
-		Interface::IPipeline* Pipeline::Set(Interface::IPipeline* pipeline, ID3D12GraphicsCommandList* commandList) {
+		const Interface::IPipeline* Pipeline::Set(const Interface::IPipeline* pipeline, ID3D12GraphicsCommandList* commandList) const {
 			if (commandList == nullptr) {
 				return this;
 			}

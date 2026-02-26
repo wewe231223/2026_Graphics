@@ -16,7 +16,7 @@ namespace Game {
 
 		public:
 			bool Initialize(const std::string& pipelineName);
-			Interface::IPipeline* Set(Interface::IPipeline* pipeline, ID3D12GraphicsCommandList* commandList);
+			const Interface::IPipeline* Set(const Interface::IPipeline* pipeline, ID3D12GraphicsCommandList* commandList) const;
 			ID3D12PipelineState* Get() const;
 			ID3D12RootSignature* GetRootSignature() const;
 
