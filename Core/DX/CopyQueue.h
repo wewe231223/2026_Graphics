@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <condition_variable>
+#include <limits>
 #include <unordered_map>
 #include <mutex>
 #include <queue>
@@ -14,6 +15,10 @@
 #include <Windows.h>
 #include "Core/Common.h"
 #include "Utility/DirectXInclude.h"
+
+#ifdef max 
+#undef max
+#endif 
 
 namespace Core {
     namespace DX {
@@ -81,6 +86,7 @@ namespace Core {
             mutable std::mutex mQueueMutex{};
             mutable std::mutex mFenceMutex{};
             std::condition_variable mQueueCondition{};
+            mutable std::condition_variable mFenceCondition{};
             std::queue<CopyRequestBatch> mPendingRequestBatches{};
             bool mDispatchRequested{};
 
@@ -90,6 +96,8 @@ namespace Core {
             std::atomic<uint64_t> mSubmitFenceValueCounter{};
             std::array<uint64_t, CopyAllocatorCount> mAllocatorFenceValues{};
             std::unordered_map<uint64_t, uint64_t> mRequestedFenceToCompletedSubmitFence{};
+
+            static constexpr uint64_t PendingSubmitFenceValue{ std::numeric_limits<uint64_t>::max() };
         };
     }
 }

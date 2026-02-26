@@ -120,7 +120,7 @@ uint64_t CopyQueue::EnqueueCopy(std::span<const Interface::CopyQueueCopyRequest>
 
     {
         std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
-        mRequestedFenceToCompletedSubmitFence.emplace(RequestedFenceValue, mSubmitFenceValueCounter.load());
+        mRequestedFenceToCompletedSubmitFence.emplace(RequestedFenceValue, PendingSubmitFenceValue);
     }
 
     return RequestedFenceValue;
@@ -180,8 +180,12 @@ void CopyQueue::WorkerLoop() {
 
 void CopyQueue::ExecuteRequestBatch(const CopyRequestBatch& requestBatch) {
     if (requestBatch.CopyRequests.empty() == true) {
-        std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
-        mRequestedFenceToCompletedSubmitFence[requestBatch.RequestedFenceValue] = mSubmitFenceValueCounter.load();
+        {
+            std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
+            mRequestedFenceToCompletedSubmitFence[requestBatch.RequestedFenceValue] = mSubmitFenceValueCounter.load();
+        }
+
+        mFenceCondition.notify_all();
         return;
     }
 
@@ -230,6 +234,8 @@ void CopyQueue::ExecuteRequestBatch(const CopyRequestBatch& requestBatch) {
         std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
         mRequestedFenceToCompletedSubmitFence[requestBatch.RequestedFenceValue] = RequestedFenceCompletedSubmitFenceValue;
     }
+
+    mFenceCondition.notify_all();
 }
 
 void CopyQueue::StopWorker() {
@@ -265,8 +271,22 @@ void CopyQueue::WaitForSubmitFence(uint64_t fenceValue) const {
 }
 
 uint64_t CopyQueue::ResolveRequestedFenceValue(uint64_t fenceValue) const {
-    std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
+    std::unique_lock<std::mutex> FenceGuard{ mFenceMutex };
     std::unordered_map<uint64_t, uint64_t>::const_iterator FoundFence{ mRequestedFenceToCompletedSubmitFence.find(fenceValue) };
+    if (FoundFence == mRequestedFenceToCompletedSubmitFence.end()) {
+        return fenceValue;
+    }
+
+    mFenceCondition.wait(FenceGuard, [this, fenceValue] {
+        std::unordered_map<uint64_t, uint64_t>::const_iterator CurrentFence{ mRequestedFenceToCompletedSubmitFence.find(fenceValue) };
+        if (CurrentFence == mRequestedFenceToCompletedSubmitFence.end()) {
+            return true;
+        }
+
+        return CurrentFence->second != PendingSubmitFenceValue;
+    });
+
+    FoundFence = mRequestedFenceToCompletedSubmitFence.find(fenceValue);
     if (FoundFence == mRequestedFenceToCompletedSubmitFence.end()) {
         return fenceValue;
     }
