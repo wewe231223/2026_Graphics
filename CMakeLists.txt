@@ -100,6 +100,7 @@ add_library(Game STATIC
     Game/Scene/SceneYamlSerializer.cpp
     Game/Scene/System.cpp
     Game/Scene/SystemSceduler.cpp
+    Game/Scene/Components/Transform.cpp
     Game/Scene/Systems/CameraInputSystem.cpp
     Game/Scene/Systems/StaticRenderSystem.cpp
 )

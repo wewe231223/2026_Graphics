@@ -8,6 +8,24 @@ namespace SimpleMath = DirectX::SimpleMath;
 namespace Game {
 
 	Component(Transform)
+		void Translate(const SimpleMath::Vector3& Translation);
+		void Translate(float X, float Y, float Z);
+
+		void Rotate(float YawDegrees, float PitchDegrees, float RollDegrees);
+		void Rotate(const SimpleMath::Vector3& YawPitchRollDegrees);
+
+		void Scaling(float X, float Y, float Z);
+		void Scaling(const SimpleMath::Vector3& Scale);
+
+		void Look(const SimpleMath::Vector3& Target);
+
+		bool IsBehind(const SimpleMath::Vector3& Target) const;
+		bool IsFacing(const SimpleMath::Vector3& Target, float AngleDegrees) const;
+
+		float GetDistanceSquaredTo(const SimpleMath::Vector3& Target) const;
+
+		void Reset();
+
 		SimpleMath::Vector3 position{};
 		SimpleMath::Vector3 rotationEuler{};
 		SimpleMath::Quaternion rotation{};
