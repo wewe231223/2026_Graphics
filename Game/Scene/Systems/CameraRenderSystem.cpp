@@ -6,7 +6,7 @@
 #include "Game/Scene/Components/Transform.h"
 
 namespace {
-    constexpr float LookSensitivity{ 0.7f };
+    constexpr float LookSensitivity{ 0.15f };
     constexpr float MoveSpeedUnitsPerSecond{ 6.0f };
     constexpr float ZoomSpeedDegreesPerTick{ 2.0f };
     constexpr float MinPitchRadians{ -1.55334306f };
@@ -55,7 +55,7 @@ namespace Game {
         const float PitchDelta{ CameraIntentComponent.lookDelta.y * LookSensitivity };
         const float YawDelta{ CameraIntentComponent.lookDelta.x * LookSensitivity };
 
-        TransformComponent.RotateRadians(PitchDelta, YawDelta, 0.0f);
+        TransformComponent.RotateRadians(-PitchDelta, YawDelta, 0.0f);
 
         TransformComponent.ClampPitchRadians(MinPitchRadians, MaxPitchRadians);
 
@@ -75,8 +75,10 @@ namespace Game {
             CameraComponent.viewMatrix = DirectX::SimpleMath::Matrix::CreateLookAt(TemporaryFixedCameraPosition, TemporaryFixedCameraFocusPosition, TemporaryFixedCameraUpDirection);
         }
         else {
-            const DirectX::SimpleMath::Vector3 ForwardDirection{ DirectX::SimpleMath::Vector3::Forward };
-            const DirectX::SimpleMath::Vector3 UpDirection{ DirectX::SimpleMath::Vector3::Transform(DirectX::SimpleMath::Vector3::Up, TransformComponent.rotation) };
+            DirectX::SimpleMath::Vector3 ForwardDirection{ DirectX::SimpleMath::Vector3::Transform(DirectX::SimpleMath::Vector3::Forward, TransformComponent.rotation) };
+            ForwardDirection.Normalize();
+            DirectX::SimpleMath::Vector3 UpDirection{ DirectX::SimpleMath::Vector3::Transform(DirectX::SimpleMath::Vector3::Up, TransformComponent.rotation) };
+            UpDirection.Normalize();
             const DirectX::SimpleMath::Vector3 EyePosition{ TransformComponent.position };
             const DirectX::SimpleMath::Vector3 FocusPosition{ EyePosition + ForwardDirection };
 

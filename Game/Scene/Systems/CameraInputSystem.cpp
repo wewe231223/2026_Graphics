@@ -1,6 +1,5 @@
 ﻿#include "CameraInputSystem.h"
 #include <array>
-#include <format>
 #include "Game/Base/Input.h"
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/Intents/CameraIntent.h"
@@ -83,27 +82,27 @@ namespace Game {
         SimpleMath::Vector3 MoveDirection{};
 
         if (Input.IsKeyDown(DirectX::Keyboard::Keys::W)) {
-            MoveDirection += DirectX::SimpleMath::Vector3::UnitZ * Dt;
+            MoveDirection += DirectX::SimpleMath::Vector3::Forward * Dt;
         }
 
         if (Input.IsKeyDown(DirectX::Keyboard::Keys::S)) {
-            MoveDirection -= DirectX::SimpleMath::Vector3::UnitZ * Dt;
+            MoveDirection += DirectX::SimpleMath::Vector3::Backward * Dt;
         }
 
         if (Input.IsKeyDown(DirectX::Keyboard::Keys::D)) {
-            MoveDirection += DirectX::SimpleMath::Vector3::UnitX * Dt;
+            MoveDirection += DirectX::SimpleMath::Vector3::Left * Dt;
         }
 
         if (Input.IsKeyDown(DirectX::Keyboard::Keys::A)) {
-            MoveDirection -= DirectX::SimpleMath::Vector3::UnitX * Dt;
+            MoveDirection += DirectX::SimpleMath::Vector3::Right * Dt;
         }
 
         if (Input.IsKeyDown(DirectX::Keyboard::Keys::E)) {
-            MoveDirection += DirectX::SimpleMath::Vector3::UnitY * Dt;
+            MoveDirection += DirectX::SimpleMath::Vector3::Up * Dt;
         }
 
         if (Input.IsKeyDown(DirectX::Keyboard::Keys::Q)) {
-            MoveDirection -= DirectX::SimpleMath::Vector3::UnitY * Dt;
+            MoveDirection += DirectX::SimpleMath::Vector3::Down * Dt;
         }
 
         if (MoveDirection.LengthSquared() > 0.0f) {
@@ -111,12 +110,10 @@ namespace Game {
         }
 
         Intent.moveDirection = MoveDirection * MoveSpeedScale;
-        Intent.lookDelta = SimpleMath::Vector2{ Input.GetMouseDeltaX() * Dt, Input.GetMouseDeltaY() * Dt};
-
-        //OutputDebugStringA(std::format("Mouse Delta: ({:.2f}, {:.2f})\n", Input.GetMouseDeltaX(), Input.GetMouseDeltaY()).c_str());
+        Intent.lookDelta = SimpleMath::Vector2{ static_cast<float>(Input.GetMouseDeltaX()) * Dt, static_cast<float>(Input.GetMouseDeltaY()) * Dt };
 
         const auto& MouseState{ Input.GetMouseState() };
-        int LastWheelValue{ MouseState.scrollWheelValue };
+        static int LastWheelValue{ MouseState.scrollWheelValue };
 
         const int CurrentWheelValue{ MouseState.scrollWheelValue };
         const int WheelDelta{ CurrentWheelValue - LastWheelValue };
