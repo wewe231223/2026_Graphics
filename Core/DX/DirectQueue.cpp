@@ -2,6 +2,7 @@
 #include "Utility/ErrorHandler.h"
 #include "Utility/Views.h"
 #include "Core/Config.h"
+#include <algorithm>
 #include <fstream>
 #include <vector>
 
@@ -25,8 +26,31 @@ namespace Core {
 			return mDevice.Get(); 
 		}
 
-		void DirectQueue::PreRender(Game::RFD::RenderFrameData& data, float Dt) {
-			DebugBreak(); 
+		void DirectQueue::PreRender(Game::RFD::RenderFrameData& Data, float Dt) {
+			Data.globals.dt = Dt;
+
+			std::stable_sort(Data.drawRecords.begin(), Data.drawRecords.end(), DirectQueue::CompareDrawRecordByPso);
+
+			DirectQueue::BuildDrawRecordGpu(Data);
+		}
+
+		bool DirectQueue::CompareDrawRecordByPso(const Game::RFD::DrawRecord& Left, const Game::RFD::DrawRecord& Right) {
+			return Left.pso < Right.pso;
+		}
+
+		void DirectQueue::BuildDrawRecordGpu(const Game::RFD::RenderFrameData& Data) {
+			mDrawRecordsGPU.clear();
+			mDrawRecordsGPU.reserve(Data.drawRecords.size());
+
+			for (const Game::RFD::DrawRecord& DrawRecord : Data.drawRecords) {
+				DrawRecordGPU DrawRecordGpu{};
+				DrawRecordGpu.ObjectIndex = DrawRecord.objectIndex;
+				DrawRecordGpu.MaterialIndex = DrawRecord.materialIndex;
+				DrawRecordGpu.Flags = DrawRecord.flags;
+				DrawRecordGpu.Pad0 = DrawRecord.pad0;
+
+				mDrawRecordsGPU.push_back(DrawRecordGpu);
+			}
 		}
 
 		void DirectQueue::Render() {

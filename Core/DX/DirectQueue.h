@@ -1,5 +1,7 @@
 ﻿#pragma once 
 #include <array>
+#include <vector>
+#include "Core/Common.h"
 #include "Core/DX/DesciptorHeap.h"
 #include "Core/DX/GraphicsVector.h"
 #include "Core/DX/FrameSync.h"
@@ -8,8 +10,8 @@
 #include "Utility/DirectXInclude.h"
 #include "Utility/CompileTimeConstants.h"
 #include "Utility/FixedArray.h"
-
 #include "Game/Base/RenderFrameData.h"
+
 
 namespace Core {
 	namespace DX {
@@ -40,6 +42,10 @@ namespace Core {
 			bool CheckShaderModelSupport(D3D_SHADER_MODEL);
 
 			void DrainDebugMessages();
+
+		private:
+			static bool CompareDrawRecordByPso(const Game::RFD::DrawRecord& Left, const Game::RFD::DrawRecord& Right);
+			void BuildDrawRecordGpu(const Game::RFD::RenderFrameData& Data);
 		private:
 			HWND mHwnd{ nullptr };
 			ComPtr<IDXGIFactory6> mFactory{ nullptr };
@@ -66,6 +72,8 @@ namespace Core {
 			TexPtr mDepthStencilBuffer{};
 
 			FrameSync mFrameSync{};
+
+			std::vector<DrawRecordGPU> mDrawRecordsGPU{};
 
 			D3D12_VIEWPORT mViewport{ 0, 0, Config::Query().Get<float>("Window_Width"), Config::Query().Get<float>("Window_Height"), 0.f, 1.f };
 			D3D12_RECT mScissorRect{ 0, 0, Config::Query().Get<LONG>("Window_Width"), Config::Query().Get<LONG>("Window_Height") };

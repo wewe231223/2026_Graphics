@@ -59,3 +59,15 @@ namespace Interface {
         virtual std::uint64_t GetRequiredUploadBufferSize() const = 0;
     };
 }
+
+
+namespace Core {
+    namespace DX {
+        struct DrawRecordGPU {
+            std::uint32_t ObjectIndex{ 0 };
+            std::uint32_t MaterialIndex{ 0 };
+            std::uint32_t Flags{ 0 };
+            std::uint32_t Pad0{ 0 };
+        };
+    }
+}

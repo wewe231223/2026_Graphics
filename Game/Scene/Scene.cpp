@@ -75,7 +75,6 @@ namespace Game {
         if (TargetPhase == Phase::PreUpdate) {
             mFrameContext.RenderData.modelContexts.clear();
             mFrameContext.RenderData.drawRecords.clear();
-            mFrameContext.RenderData.drawRecordsGpu.clear();
         }
 
         const SystemSceduler::PhaseBatchArray* PhaseBatches{ mSystemSceduler.GetPhaseBatches(TargetPhase) };
