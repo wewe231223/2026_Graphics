@@ -153,7 +153,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             SceneInstance.ExecutePhase(Game::Phase::PostRender, Globals::Time::Get().GetDeltaTime<float>());
 
             directQueue.PreRender(SceneInstance.GetRenderFrameData(), Globals::Time::Get().GetDeltaTime<float>());
-            directQueue.Render();
+            directQueue.Render(SceneInstance.GetRenderFrameData());
 
             frameCount++; 
         }

@@ -30,7 +30,7 @@ namespace Core {
 			ID3D12Device* GetDevice() const;
 
 			void PreRender(Game::RFD::RenderFrameData& data, float Dt);
-			void Render(); 
+			void Render(Game::RFD::RenderFrameData& data);
 		private:
 			void InitBasements(); 
 			void InitWorkers();
@@ -46,6 +46,8 @@ namespace Core {
 		private:
 			static bool CompareDrawRecordByPso(const Game::RFD::DrawRecord& Left, const Game::RFD::DrawRecord& Right);
 			void BuildDrawRecordGpu(const Game::RFD::RenderFrameData& Data);
+
+			void DrawForward(Game::RFD::RenderFrameData& data); 
 		private:
 			HWND mHwnd{ nullptr };
 			ComPtr<IDXGIFactory6> mFactory{ nullptr };
@@ -73,6 +75,7 @@ namespace Core {
 
 			FrameSync mFrameSync{};
 
+			std::array<GraphicsVector, Constants::FrameCount<size_t>> mPerFrameGraphicsVectors{};
 			std::vector<DrawRecordGPU> mDrawRecordsGPU{};
 
 			D3D12_VIEWPORT mViewport{ 0, 0, Config::Query().Get<float>("Window_Width"), Config::Query().Get<float>("Window_Height"), 0.f, 1.f };

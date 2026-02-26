@@ -53,7 +53,27 @@ namespace Core {
 			}
 		}
 
-		void DirectQueue::Render() {
+		// data 를 순회하며 draw call 을 commandlist 에 쌓는 함수. 루프 구성 방식은 아래를 참고한다. 
+		// Render Loop 참고 순서
+		// 1) drawRecords를 pass, pso, mesh, submesh 키로 정렬한다.
+		// 2) 정렬된 순서에 맞춰 GPU 드로우 레코드를 재구성하고 업로드한다.
+		// 3) drawRecords를 앞에서부터 순회하며 동일 키 구간(run)을 찾는다.
+		// 4) 각 run 시작 레코드에서 pso와 mesh/submesh를 꺼내 상태를 설정한다.
+		// 5) DrawIndexedInstanced 호출 인자는 다음처럼 잡는다.
+		//    - IndexCountPerInstance: run 시작 레코드의 mesh/submesh에서 얻은 index count
+		//    - InstanceCount: run 길이
+		//    - StartIndexLocation/BaseVertexLocation: run 시작 레코드의 mesh/submesh에서 얻은 값
+		//    - StartInstanceLocation: 0
+		// 6) run 시작 인덱스는 루트 셰이더 상수(예: DrawRecordBaseIndex)로 셰이더에 전달한다.
+		// 7) 셰이더에서는 drawIndex = DrawRecordBaseIndex + SV_InstanceID로 GPU 드로우 레코드를 조회한다.
+		// 8) 조회한 record.objectIndex로 modelContexts를, record.materialIndex로 머티리얼 테이블을 인덱싱한다.
+
+		void DirectQueue::DrawForward(Game::RFD::RenderFrameData& data) {
+		
+
+		}
+
+		void DirectQueue::Render(Game::RFD::RenderFrameData& data) {
 			auto currentIndex = mFrameSync.GetCurrentIndex();
 			auto& allocator = mMainCommandAllocators[currentIndex];
 			allocator->Reset(); 
@@ -76,6 +96,9 @@ namespace Core {
 
 
 			// Execute Render Tasks
+			
+
+
 
 
 			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PRESENT); 
