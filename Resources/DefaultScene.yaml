@@ -39,7 +39,997 @@ Entities:
         shakeImpulse: 0.0
   - Components:
       Transform:
-        position: [0.0, 0.0, 0.0]
+        position: [-49.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-48.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-47.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-46.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-45.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-44.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-43.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-42.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-41.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-40.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-39.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-38.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-37.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-36.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-35.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-34.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-33.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-32.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-31.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-30.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-29.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-28.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-27.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-26.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-25.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-24.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-23.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-22.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-21.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-20.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-19.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-18.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-17.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-16.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-15.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-14.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-13.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-12.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-11.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-10.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-9.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-8.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-7.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-6.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-5.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-4.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-3.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-2.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-1.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [-0.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [0.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [1.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [2.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [3.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [4.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [5.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [6.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [7.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [8.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [9.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [10.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [11.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [12.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [13.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [14.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [15.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [16.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [17.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [18.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [19.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [20.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [21.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [22.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [23.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [24.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [25.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [26.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [27.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [28.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [29.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [30.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [31.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [32.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [33.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [34.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [35.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [36.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [37.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [38.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [39.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [40.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [41.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [42.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [43.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [44.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [45.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [46.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [47.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [48.5, 0.0, 0.0]
+        rotationEuler: [0.0, 0.0, 0.0]
+        rotation: [0.0, 0.0, 0.0, 1.0]
+        scale: [1.0, 1.0, 1.0]
+      StaticMeshRenderer:
+        modelPath: testset.bin
+      Material:
+        materialPath: testset_materials.json
+  - Components:
+      Transform:
+        position: [49.5, 0.0, 0.0]
         rotationEuler: [0.0, 0.0, 0.0]
         rotation: [0.0, 0.0, 0.0, 1.0]
         scale: [1.0, 1.0, 1.0]
