@@ -133,6 +133,9 @@ exit 0
 
 robocopy $(SolutionDir)Shader $(TargetDir)Shader /E
 exit 0
+
+robocopy $(SolutionDir)Resources $(TargetDir)Resources /E
+exit 0
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -163,6 +166,9 @@ robocopy $(SolutionDir)D3D $(TargetDir)D3D /E
 exit 0
 
 robocopy $(SolutionDir)Shader $(TargetDir)Shader /E
+exit 0
+
+robocopy $(SolutionDir)Resources $(TargetDir)Resources /E
 exit 0
 </Command>
     </PostBuildEvent>

@@ -23,13 +23,13 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> StaticRenderSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 3> accesses{ { { typeid(Transform), Access::Read }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(Material), Access::Read } } };
-        return accesses;
+        static std::array<ComponentAccess, 3> Accesses{ { { typeid(Transform), Access::Read }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(Material), Access::Read } } };
+        return Accesses;
     }
 
     std::span<const ResourceAccess> StaticRenderSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 1> accesses{ { { typeid(RFD::RenderFrameData), Access::Write } } };
-        return accesses;
+        static std::array<ResourceAccess, 2> Accesses{ { { typeid(RFD::RenderFrameData), Access::Write }, { typeid(std::vector<RegisteredMaterialGroup>), Access::Read } } };
+        return Accesses;
     }
 
     void StaticRenderSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {

@@ -1,4 +1,4 @@
-﻿#include "SystemSceduler.h"
+#include "SystemSceduler.h"
 #include <algorithm>
 #include <queue>
 
@@ -49,16 +49,25 @@ namespace Game {
 
         for (std::size_t PhaseIndex{ 0 }; PhaseIndex < PhaseToSystems.size(); ++PhaseIndex) {
             std::vector<ISystem*>& TargetPhaseSystems{ PhaseToSystems[PhaseIndex] };
+            std::vector<std::vector<bool>> PhaseConflictMatrix(TargetPhaseSystems.size(), std::vector<bool>(TargetPhaseSystems.size(), false));
+            for (std::size_t LeftIndex{ 0 }; LeftIndex < TargetPhaseSystems.size(); ++LeftIndex) {
+                for (std::size_t RightIndex{ LeftIndex + 1 }; RightIndex < TargetPhaseSystems.size(); ++RightIndex) {
+                    const bool IsConflict{ HasConflict(*TargetPhaseSystems[LeftIndex], *TargetPhaseSystems[RightIndex]) };
+                    PhaseConflictMatrix[LeftIndex][RightIndex] = IsConflict;
+                    PhaseConflictMatrix[RightIndex][LeftIndex] = IsConflict;
+                }
+            }
 
             std::vector<std::vector<std::size_t>> AdjacentIndices(TargetPhaseSystems.size());
             std::vector<std::size_t> InDegrees(TargetPhaseSystems.size(), 0);
-
             for (std::size_t LeftIndex{ 0 }; LeftIndex < TargetPhaseSystems.size(); ++LeftIndex) {
                 for (std::size_t RightIndex{ LeftIndex + 1 }; RightIndex < TargetPhaseSystems.size(); ++RightIndex) {
-                    if (HasConflict(*TargetPhaseSystems[LeftIndex], *TargetPhaseSystems[RightIndex])) {
-                        AdjacentIndices[LeftIndex].push_back(RightIndex);
-                        InDegrees[RightIndex] += 1;
+                    if (PhaseConflictMatrix[LeftIndex][RightIndex] == false) {
+                        continue;
                     }
+
+                    AdjacentIndices[LeftIndex].push_back(RightIndex);
+                    InDegrees[RightIndex] += 1;
                 }
             }
 
@@ -69,13 +78,12 @@ namespace Game {
                 }
             }
 
-            std::vector<ISystem*> TopologicallySortedSystems{};
-            TopologicallySortedSystems.reserve(TargetPhaseSystems.size());
-
+            std::vector<std::size_t> TopologicallySortedIndices{};
+            TopologicallySortedIndices.reserve(TargetPhaseSystems.size());
             while (!ReadyIndices.empty()) {
                 const std::size_t CurrentIndex{ ReadyIndices.top() };
                 ReadyIndices.pop();
-                TopologicallySortedSystems.push_back(TargetPhaseSystems[CurrentIndex]);
+                TopologicallySortedIndices.push_back(CurrentIndex);
 
                 for (const std::size_t NextIndex : AdjacentIndices[CurrentIndex]) {
                     InDegrees[NextIndex] -= 1;
@@ -85,31 +93,46 @@ namespace Game {
                 }
             }
 
-            if (TopologicallySortedSystems.size() != TargetPhaseSystems.size()) {
-                TopologicallySortedSystems = TargetPhaseSystems;
+            if (TopologicallySortedIndices.size() != TargetPhaseSystems.size()) {
+                TopologicallySortedIndices.clear();
+                TopologicallySortedIndices.reserve(TargetPhaseSystems.size());
+                for (std::size_t SystemIndex{ 0 }; SystemIndex < TargetPhaseSystems.size(); ++SystemIndex) {
+                    TopologicallySortedIndices.push_back(SystemIndex);
+                }
             }
 
-            PhaseBatchArray NewBatches{};
-            for (ISystem* TargetSystem : TopologicallySortedSystems) {
+            std::vector<std::vector<std::size_t>> BatchIndices{};
+            BatchIndices.reserve(TopologicallySortedIndices.size());
+            for (const std::size_t TargetSystemIndex : TopologicallySortedIndices) {
                 bool IsAssigned{ false };
-
-                for (SystemBatch& TargetBatch : NewBatches) {
-                    const bool IsConflictInBatch{ std::any_of(TargetBatch.begin(), TargetBatch.end(), [&](const ISystem* ExistingSystem) {
-                        return HasConflict(*ExistingSystem, *TargetSystem);
+                for (std::vector<std::size_t>& TargetBatchIndices : BatchIndices) {
+                    const bool IsConflictInBatch{ std::any_of(TargetBatchIndices.begin(), TargetBatchIndices.end(), [&](const std::size_t ExistingSystemIndex) {
+                        return PhaseConflictMatrix[ExistingSystemIndex][TargetSystemIndex];
                     }) };
 
-                    if (!IsConflictInBatch) {
-                        TargetBatch.push_back(TargetSystem);
+                    if (IsConflictInBatch == false) {
+                        TargetBatchIndices.push_back(TargetSystemIndex);
                         IsAssigned = true;
                         break;
                     }
                 }
 
-                if (!IsAssigned) {
-                    SystemBatch NewBatch{};
-                    NewBatch.push_back(TargetSystem);
-                    NewBatches.push_back(std::move(NewBatch));
+                if (IsAssigned == false) {
+                    BatchIndices.emplace_back();
+                    BatchIndices.back().push_back(TargetSystemIndex);
                 }
+            }
+
+            PhaseBatchArray NewBatches{};
+            NewBatches.reserve(BatchIndices.size());
+            for (const std::vector<std::size_t>& TargetBatchIndices : BatchIndices) {
+                SystemBatch NewBatch{};
+                NewBatch.reserve(TargetBatchIndices.size());
+                for (const std::size_t SystemIndex : TargetBatchIndices) {
+                    NewBatch.push_back(TargetPhaseSystems[SystemIndex]);
+                }
+
+                NewBatches.push_back(std::move(NewBatch));
             }
 
             mPhaseToBatches[PhaseIndex] = std::move(NewBatches);

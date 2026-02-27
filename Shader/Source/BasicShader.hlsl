@@ -15,14 +15,19 @@ VertexOutput VsMain(VertexInput Input, uint InstanceId : SV_InstanceID)
 
     VertexOutput Output;
     
-    const float4 WorldPosition = mul(float4(Input.Position, 1.0f), transpose(ModelContext.World));
+    float4x4 world = transpose(ModelContext.World);
+    
+    const float4 WorldPosition = mul(float4(Input.Position, 1.0f), world);
     Output.Position = mul(WorldPosition, transpose(FrameGlobals.ViewProj));
-    Output.Normal = normalize(mul(float4(Input.Normal, 0.0f), ModelContext.World).xyz);
+    Output.Normal = normalize(mul(Input.Normal, (float3x3) world));
     return Output;
 }
 
 float4 PsMain(VertexOutput Input) : SV_TARGET
 {
-    const float4 BaseColor = float4(abs(Input.Normal), 1.0f);
-    return ApplyBaseColor(BaseColor * RootConstants.TintColor);
+    float3 normal = normalize(Input.Normal);
+
+    float3 normalColor = Input.Normal * 0.5f + 0.5f;
+
+    return float4(normalColor, 1.0f);
 }

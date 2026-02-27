@@ -14,6 +14,7 @@ namespace Game {
         mMaterialGroups{},
         mMaterialGroupNameLookup{},
         mMaterialGroupSourcePaths{},
+        mMaterialGroupSourcePathLookup{},
         mPipelines{},
         mPipelineLookup{} {
     }
@@ -32,6 +33,7 @@ namespace Game {
         mMaterialGroups{ std::move(Other.mMaterialGroups) },
         mMaterialGroupNameLookup{ std::move(Other.mMaterialGroupNameLookup) },
         mMaterialGroupSourcePaths{ std::move(Other.mMaterialGroupSourcePaths) },
+        mMaterialGroupSourcePathLookup{ std::move(Other.mMaterialGroupSourcePathLookup) },
         mPipelines{ std::move(Other.mPipelines) },
         mPipelineLookup{ std::move(Other.mPipelineLookup) } {
         Other.mDevice = nullptr;
@@ -54,6 +56,7 @@ namespace Game {
         mMaterialGroups = std::move(Other.mMaterialGroups);
         mMaterialGroupNameLookup = std::move(Other.mMaterialGroupNameLookup);
         mMaterialGroupSourcePaths = std::move(Other.mMaterialGroupSourcePaths);
+        mMaterialGroupSourcePathLookup = std::move(Other.mMaterialGroupSourcePathLookup);
         mPipelines = std::move(Other.mPipelines);
         mPipelineLookup = std::move(Other.mPipelineLookup);
 
@@ -147,6 +150,7 @@ namespace Game {
             const std::uint32_t ExistingIndex{ FoundMaterialGroup->second };
             if (SourcePath.empty() == false && ExistingIndex < mMaterialGroupSourcePaths.size() && mMaterialGroupSourcePaths[ExistingIndex].empty()) {
                 mMaterialGroupSourcePaths[ExistingIndex] = SourcePath;
+                mMaterialGroupSourcePathLookup.insert_or_assign(SourcePath, ExistingIndex);
             }
 
             return ExistingIndex;
@@ -165,6 +169,10 @@ namespace Game {
         const std::uint32_t NewIndex{ static_cast<std::uint32_t>(mMaterialGroups.size()) };
         mMaterialGroups.push_back(std::move(NewMaterialGroup));
         mMaterialGroupSourcePaths.push_back(SourcePath);
+        if (SourcePath.empty() == false) {
+            mMaterialGroupSourcePathLookup.insert_or_assign(SourcePath, NewIndex);
+        }
+
         mMaterialGroupNameLookup.insert_or_assign(mMaterialGroups.back().Name, NewIndex);
         return NewIndex;
     }
@@ -193,13 +201,12 @@ namespace Game {
             return static_cast<std::uint32_t>(-1);
         }
 
-        for (std::uint32_t MaterialGroupIndex{ 0 }; MaterialGroupIndex < mMaterialGroupSourcePaths.size(); ++MaterialGroupIndex) {
-            if (mMaterialGroupSourcePaths[MaterialGroupIndex] == MaterialSourcePath) {
-                return MaterialGroupIndex;
-            }
+        const auto FoundMaterialGroup{ mMaterialGroupSourcePathLookup.find(MaterialSourcePath) };
+        if (FoundMaterialGroup == mMaterialGroupSourcePathLookup.end()) {
+            return static_cast<std::uint32_t>(-1);
         }
 
-        return static_cast<std::uint32_t>(-1);
+        return FoundMaterialGroup->second;
     }
 
     Interface::IPipeline* AssetRegistry::ResolvePipelineByName(const std::string& PipelineName) {

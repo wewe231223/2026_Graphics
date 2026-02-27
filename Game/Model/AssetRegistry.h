@@ -70,6 +70,7 @@ namespace Game {
         std::vector<RegisteredMaterialGroup> mMaterialGroups{};
         std::unordered_map<std::string, std::uint32_t> mMaterialGroupNameLookup{};
         std::vector<std::string> mMaterialGroupSourcePaths{};
+        std::unordered_map<std::string, std::uint32_t> mMaterialGroupSourcePathLookup{};
 
         std::vector<std::unique_ptr<Base::Pipeline>> mPipelines{};
         std::unordered_map<std::string, Interface::IPipeline*> mPipelineLookup{};
