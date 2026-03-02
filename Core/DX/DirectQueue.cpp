@@ -2,10 +2,10 @@
 #include "Utility/ErrorHandler.h"
 #include "Utility/Views.h"
 #include "Utility/StringUtils.h"
+#include "Utility/StdOutput.h"
 #include "Core/Config.h"
 #include <algorithm>
 #include <fstream>
-#include <print>
 #include <vector>
 
 
@@ -387,7 +387,7 @@ namespace Core {
 
 			mWidgetCore.Initialize(mHwnd, mDevice);
 
-			std::cout << "Console Test" << std::endl; 
+			StdOutput::PrintLine("Console Test");
 
 #if defined(DEBUG) || defined(_DEBUG)
 			mDevice->QueryInterface(IID_PPV_ARGS(mD3D12InfoQueue.GetAddressOf()));
@@ -398,7 +398,7 @@ namespace Core {
 #endif
 
 			if (DirectQueue::CheckShaderModelSupport(D3D_SHADER_MODEL_6_6)) {
-				std::println("Shader Model 6.6 is supported.");
+				StdOutput::PrintLine("Shader Model 6.6 is supported.");
 			}
 
 			// Direct Command Queue
@@ -474,7 +474,7 @@ namespace Core {
 		}
 
 		ComPtr<IDXGIAdapter1> DirectQueue::GetBestAdapter() {
-			std::println("\n\n====================Selecting Adapter====================\n");
+			StdOutput::PrintLine("\n\n====================Selecting Adapter====================\n");
 
 			ComPtr<IDXGIAdapter1> bestAdapter;
 			size_t maxVRAM = 0;
@@ -491,7 +491,7 @@ namespace Core {
 				if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) continue;
 
 				
-				std::print("Adapter{:^3} : {} | VRAM: {} MB\n", i, ConvertWstringToUtf8(desc.Description), desc.DedicatedVideoMemory / (1024 * 1024));
+				StdOutput::Print("Adapter{:^3} : {} | VRAM: {} MB\n", i, ConvertWstringToUtf8(desc.Description), desc.DedicatedVideoMemory / (1024 * 1024));
 
 				if (desc.DedicatedVideoMemory > maxVRAM) {
 					maxVRAM = desc.DedicatedVideoMemory;
@@ -502,12 +502,12 @@ namespace Core {
 			if (bestAdapter) {
 				DXGI_ADAPTER_DESC1 bestDesc;
 				bestAdapter->GetDesc1(&bestDesc);
-				std::print("Selected Adapter: {} | VRAM: {} MB\n", ConvertWstringToUtf8(bestDesc.Description), bestDesc.DedicatedVideoMemory / (1024 * 1024));
+				StdOutput::Print("Selected Adapter: {} | VRAM: {} MB\n", ConvertWstringToUtf8(bestDesc.Description), bestDesc.DedicatedVideoMemory / (1024 * 1024));
 			}
 			else {
-				std::println("No suitable GPU found.");
+				StdOutput::PrintLine("No suitable GPU found.");
 			}
-			std::println("\n=========================================================\n");
+			StdOutput::PrintLine("\n=========================================================\n");
 
 			return bestAdapter;
         }
@@ -535,7 +535,7 @@ namespace Core {
 						continue;
 					}
 
-					std::println("DXGI: {}", message->pDescription);
+					StdOutput::PrintLine("DXGI: {}", message->pDescription);
 					if (logFile.is_open()) {
 						logFile << "DXGI: " << message->pDescription << std::endl;
 					}
@@ -562,7 +562,7 @@ namespace Core {
 						continue;
 					}
 
-					std::println("D3D12: {}", message->pDescription);
+					StdOutput::PrintLine("D3D12: {}", message->pDescription);
 					if (logFile.is_open()) {
 						logFile << "D3D12: " << message->pDescription << std::endl;
 					}

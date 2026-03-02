@@ -24,6 +24,7 @@ set(ExternalLibDirRelease ${GraphicsRoot}/External/lib/release)
 
 add_library(Utility STATIC
     Utility/ErrorHandler.cpp
+    Utility/StdOutput.cpp
 )
 
 target_include_directories(Utility PUBLIC

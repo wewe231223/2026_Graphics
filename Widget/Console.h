@@ -1,43 +1,51 @@
-﻿#pragma once
-#include <iostream>
-#include <vector>
-#include <string>
+#pragma once
 #include <mutex>
+#include <string>
+#include <vector>
 #include "Common.h"
 
 namespace Widget {
-    class LogBuffer : public std::streambuf {
+    class LogBuffer {
     public:
-        static constexpr size_t MAX_LINES = 1000;
+        static constexpr std::size_t MaxLines{ 1000 };
 
-        void AddLog(const std::string& str);
-        const std::vector<std::string>& GetItems() const { return items; }
+    public:
+        LogBuffer() = default;
+        ~LogBuffer() = default;
+
+        LogBuffer(const LogBuffer&) = delete;
+        LogBuffer& operator=(const LogBuffer&) = delete;
+
+        LogBuffer(LogBuffer&&) noexcept = delete;
+        LogBuffer& operator=(LogBuffer&&) noexcept = delete;
+
+    public:
+        void AddLog(const std::string& Message);
+        std::vector<std::string> GetItemsCopy() const;
         bool CheckAndResetScroll();
 
-    protected:
-        int_type overflow(int_type v) override;
-
     private:
-        std::vector<std::string> items;
-        std::string currentLine;
-        std::mutex mtx;
-        bool scrollToBottom = false;
+        mutable std::mutex mMutex{};
+        std::vector<std::string> mItems{};
+        std::string mCurrentLine{};
+        bool mScrollToBottom{ false };
     };
 
-    // ImGui 콘솔 위젯 클래스
     class ImGuiConsole : public IWidget {
     public:
         ImGuiConsole();
         ~ImGuiConsole();
 
+        ImGuiConsole(const ImGuiConsole&) = delete;
+        ImGuiConsole& operator=(const ImGuiConsole&) = delete;
+
+        ImGuiConsole(ImGuiConsole&&) noexcept = delete;
+        ImGuiConsole& operator=(ImGuiConsole&&) noexcept = delete;
+
+    public:
         void Render() override;
 
     private:
-        LogBuffer buffer;
-        std::streambuf* oldCoutBuf;
-        int pipeFds[2];
-        int oldStdout;
-        std::thread captureThread;
-        std::atomic<bool> exitThread;
+        LogBuffer mBuffer{};
     };
 }

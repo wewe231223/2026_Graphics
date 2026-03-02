@@ -15,6 +15,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(MSBuildThisFileDirectory)ErrorHandler.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)StdOutput.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)CompileTimeConstants.h" />
@@ -24,6 +25,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)ExternalLinkers.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)FixedArray.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)StringUtils.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)StdOutput.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)Views.h" />
   </ItemGroup>
 </Project>
