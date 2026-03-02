@@ -179,9 +179,9 @@ namespace Widget {
         const std::vector<ConsoleLogEntry> Logs{ mBuffer.GetItemsCopy() };
 
         const float PrefixWidth{ ImGui::CalcTextSize("[00:00:00] WARNING > ").x + ImGui::GetStyle().ItemInnerSpacing.x };
-        ImGui::Separator();
+        const float FooterHeight{ ImGui::GetFrameHeightWithSpacing() };
 
-        ImGui::BeginChild("ConsoleScrollingRegion", ImVec2(0, 0), false, ImGuiWindowFlags_None);
+        ImGui::BeginChild("ConsoleScrollingRegion", ImVec2(0.0f, -FooterHeight), false, ImGuiWindowFlags_None);
 
         if (ImGui::BeginTable("ConsoleLogTable", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_RowBg)) {
             ImGui::TableSetupColumn("Prefix", ImGuiTableColumnFlags_WidthFixed, PrefixWidth);
@@ -195,8 +195,8 @@ namespace Widget {
                 ImGui::TextDisabled("[%s] %-7s >", Entry.Timestamp.c_str(), Entry.Level.c_str());
 
                 ImGui::TableSetColumnIndex(1);
-               
-				if (Entry.RepeatCount > 1) {
+
+                if (Entry.RepeatCount > 1) {
                     ImGui::TextWrapped("%s (%zu)", Entry.Message.c_str(), Entry.RepeatCount);
                 }
                 else {
@@ -206,12 +206,12 @@ namespace Widget {
             ImGui::EndTable();
         }
 
-        float footer_height = ImGui::GetFrameHeightWithSpacing();
-        if (ImGui::GetCursorPosY() < ImGui::GetWindowHeight() - footer_height) {
-            ImGui::SetCursorPosY(ImGui::GetWindowHeight() - footer_height);
+        if (mBuffer.CheckAndResetScroll()) {
+            ImGui::SetScrollHereY(1.0f);
         }
 
-        ImGui::Separator();
+        ImGui::EndChild();
+
         ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), ">");
         ImGui::SameLine();
 
@@ -226,11 +226,6 @@ namespace Widget {
         }
         ImGui::PopStyleColor();
 
-        if (mBuffer.CheckAndResetScroll()) {
-            ImGui::SetScrollHereY(1.0f);
-        }
-
-        ImGui::EndChild();
         ImGui::End();
     }
 
