@@ -6,27 +6,32 @@
 #include "Utility/DirectXInclude.h"
 #include "Common.h"
 
-class WidgetCore {
-public:
-	WidgetCore() = default; 
-	~WidgetCore();
+namespace Widget {
+	class WidgetCore {
+	public:
+		WidgetCore() = default;
+		~WidgetCore();
 
-	WidgetCore(const WidgetCore&) = delete;
-	WidgetCore& operator=(const WidgetCore&) = delete;
+		WidgetCore(const WidgetCore&) = delete;
+		WidgetCore& operator=(const WidgetCore&) = delete;
 
-	WidgetCore(WidgetCore&&) noexcept = default;
-	WidgetCore& operator=(WidgetCore&&) noexcept = default;
+		WidgetCore(WidgetCore&&) noexcept = default;
+		WidgetCore& operator=(WidgetCore&&) noexcept = default;
 
-public:
-	void Initialize(HWND hWnd, ComPtr<ID3D12Device>& device);
-	void Render(ComPtr<ID3D12GraphicsCommandList>& commandList);
+	public:
+		void Initialize(HWND hWnd, ComPtr<ID3D12Device>& device);
+		void Render(ComPtr<ID3D12GraphicsCommandList>& commandList);
 
-	template<std::derived_from<IWidget> T, typename... Args>
-	void MakeWidget(Args&&... args) {
-		mWidgets.emplace_back(std::make_unique<T>(std::forward<Args>(args)...));
-	}
+		template<std::derived_from<IWidget> T, typename... Args>
+		void MakeWidget(Args&&... args) {
+			mWidgets.emplace_back(std::make_unique<T>(std::forward<Args>(args)...));
+		}
 
-private:
-	ComPtr<ID3D12DescriptorHeap> mSRVHeap{ nullptr };
-	std::vector<std::unique_ptr<IWidget>> mWidgets{};
-};
+	private:
+		void BuildWidgets();
+
+	private:
+		ComPtr<ID3D12DescriptorHeap> mSRVHeap{ nullptr };
+		std::vector<std::unique_ptr<IWidget>> mWidgets{};
+	};
+}

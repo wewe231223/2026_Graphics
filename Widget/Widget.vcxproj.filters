@@ -4,6 +4,9 @@
     <Filter Include="Imgui">
       <UniqueIdentifier>{7e40c24f-1f1f-48e9-8a56-d3d246155484}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Widgets">
+      <UniqueIdentifier>{b9f4994c-7ac2-456f-b1c8-3a30c19a0143}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\External\Include\ImGui\imconfig.h">
@@ -32,6 +35,9 @@
     </ClInclude>
     <ClInclude Include="WidgetCore.h" />
     <ClInclude Include="Common.h" />
+    <ClInclude Include="Console.h">
+      <Filter>Widgets</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\External\Include\ImGui\imgui.cpp">
@@ -56,5 +62,8 @@
       <Filter>Imgui</Filter>
     </ClCompile>
     <ClCompile Include="WidgetCore.cpp" />
+    <ClCompile Include="Console.cpp">
+      <Filter>Widgets</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

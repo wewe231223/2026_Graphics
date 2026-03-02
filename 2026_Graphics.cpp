@@ -23,15 +23,20 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Game/Scene/Scene.h"
 #include "Game/Scene/SceneYamlSerializer.h"
 
+#include "External/Include/ImGui/imgui_impl_win32.h"
+
 #ifdef _MSC_VER
     #ifdef _DEBUG
         #pragma comment(lib, "out/debug/Arche.lib")
         #pragma comment(lib, "out/debug/Game.lib")  
         #pragma comment(lib, "out/debug/Asset.lib")
+        #pragma comment(lib, "out/debug/Widget.lib")
     #else 
         #pragma comment(lib, "out/release/Arche.lib")
         #pragma comment(lib, "out/release/Game.lib")
         #pragma comment(lib, "out/release/Asset.lib")
+        #pragma comment(lib, "out/release/Widget.lib")
+
     #endif 
 #endif 
 
@@ -46,6 +51,7 @@ HWND hWnd;
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 #include <fstream>
 
@@ -270,8 +276,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //  WM_DESTROY  - 종료 메시지를 게시하고 반환합니다.
 //
 //
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
+LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam);
+
     constexpr UINT keyPressedCheckBitMask = 0x60000000;
     constexpr UINT keyPressedAtTime = 0x20000000;
 

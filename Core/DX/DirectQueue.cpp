@@ -298,6 +298,9 @@ namespace Core {
 
 			// Execute Render Tasks
 			DirectQueue::DrawForward(data);
+			mWidgetCore.Render(mCommandList);
+
+
 
 			if (ModelContextVector.IsValid() == true) {
 				D3D12_RESOURCE_BARRIER ModelContextBarrier = ModelContextVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST);
@@ -319,12 +322,14 @@ namespace Core {
 
 			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PRESENT); 
 
-			mCommandList->Close();
 
+
+			mCommandList->Close();
 			uint64_t CopyFenceValue = mPerFrameCopyFenceValues[currentIndex];
 			if (CopyFenceValue != 0) {
 				mCopyQueue->WaitForFence(CopyFenceValue);
 			}
+			
 
 			ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
 			mDirectCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
@@ -415,6 +420,10 @@ namespace Core {
 			desc.Flags = Constants::AllowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
 			ErrorHandler::report(mFactory->CreateSwapChainForHwnd(mDirectCommandQueue.Get(), mHwnd, &desc, nullptr, nullptr, mSwapChain.GetAddressOf()), "DirectQueue", "Failed to create SwapChain.", ErrorHandler::Level::Critical);
+
+
+			mWidgetCore.Initialize(mHwnd, mDevice); 
+			
         }
 
 		void DirectQueue::InitWorkers() {

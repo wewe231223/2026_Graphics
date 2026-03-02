@@ -12,6 +12,7 @@
 #include "Utility/FixedArray.h"
 #include "Game/Base/RenderFrameData.h"
 
+#include "Widget/WidgetCore.h"
 
 namespace Core {
 	namespace DX {
@@ -100,6 +101,8 @@ namespace Core {
 			std::array<GraphicsVector, Constants::FrameCount<size_t>> mPerFrameDrawRecordVectors{};
 			std::array<uint64_t, Constants::FrameCount<size_t>> mPerFrameCopyFenceValues{};
 			std::vector<DrawRecordGPU> mDrawRecordsGPU{};
+
+			Widget::WidgetCore mWidgetCore{};
 
 			D3D12_VIEWPORT mViewport{ 0, 0, Config::Query().Get<float>("Window_Width"), Config::Query().Get<float>("Window_Height"), 0.f, 1.f };
 			D3D12_RECT mScissorRect{ 0, 0, Config::Query().Get<LONG>("Window_Width"), Config::Query().Get<LONG>("Window_Height") };
