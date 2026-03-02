@@ -2,8 +2,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <memory>
-#include "DirectXTK12/Keyboard.h"
-#include "DirectXTK12/Mouse.h"
+#include "External/Include/DirectXTK12/Keyboard.h"
+#include "External/Include/DirectXTK12/Mouse.h"
 
 namespace Globals {
     class Input {
@@ -25,6 +25,7 @@ namespace Globals {
         void Initialize(HWND hWnd);
         void Update();
         void Terminate(); 
+        void SetImGuiInputBlocked(bool IsBlocked);
 
 		void SetVirtualMouse(bool enable);
 		void ToggleVirtualMouse();
@@ -54,8 +55,9 @@ namespace Globals {
         DirectX::Keyboard::KeyboardStateTracker mKeyboardTracker{};
         DirectX::Mouse::ButtonStateTracker mMouseTracker{};
 
-		HWND mhwnd{ nullptr };
+        HWND mhwnd{ nullptr };
         bool mVirtualMouse{ false };
+        bool mIsImGuiInputBlocked{ false };
 		POINT mVirtualMousePosition{};
     };
 }

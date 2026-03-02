@@ -8,6 +8,7 @@
 #include <sstream>
 #include "External/Include/ImGui/imgui.h"
 #include "Utility/StdOutput.h"
+#include "Game/Base/Input.h"
 
 namespace Widget {
     void LogBuffer::AddLog(const std::string& RawMessage) {
@@ -146,9 +147,13 @@ namespace Widget {
         ImGui::SetNextWindowSize({ 700.0f, 500.0f }, ImGuiCond_FirstUseEver);
 
         if (!ImGui::Begin("Debug Console")) {
+            Globals::Input::Get().SetImGuiInputBlocked(false);
             ImGui::End();
             return;
         }
+
+        const bool IsConsoleFocused{ ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) };
+        Globals::Input::Get().SetImGuiInputBlocked(IsConsoleFocused);
 
         ImGui::TextUnformatted("Level");
         ImGui::SameLine();
@@ -173,51 +178,53 @@ namespace Widget {
 
         const std::vector<ConsoleLogEntry> Logs{ mBuffer.GetItemsCopy() };
 
+        const float PrefixWidth{ ImGui::CalcTextSize("[00:00:00] WARNING > ").x + ImGui::GetStyle().ItemInnerSpacing.x };
         ImGui::Separator();
-        ImGui::BeginChild("ConsoleLogArea", ImVec2{ 0.0f, -ImGui::GetFrameHeightWithSpacing() - 8.0f }, true, ImGuiWindowFlags_HorizontalScrollbar);
 
-        std::size_t VisibleIndex{ 0 };
+        ImGui::BeginChild("ConsoleScrollingRegion", ImVec2(0, 0), false, ImGuiWindowFlags_None);
 
-        for (std::size_t Index{ 0 }; Index < Logs.size(); ++Index) {
-            const ConsoleLogEntry& Entry{ Logs[Index] };
+        if (ImGui::BeginTable("ConsoleLogTable", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_RowBg)) {
+            ImGui::TableSetupColumn("Prefix", ImGuiTableColumnFlags_WidthFixed, PrefixWidth);
+            ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_WidthStretch);
 
-            if (!IsLogVisible(Entry)) {
-                continue;
+            for (const ConsoleLogEntry& Entry : Logs) {
+                if (!IsLogVisible(Entry)) continue;
+
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextDisabled("[%s] %-7s >", Entry.Timestamp.c_str(), Entry.Level.c_str());
+
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextWrapped("%s", Entry.Message.c_str());
             }
-
-            const ImVec2 RowMin{ ImGui::GetCursorScreenPos() };
-            const ImVec2 RowMax{ RowMin.x + ImGui::GetContentRegionAvail().x, RowMin.y + ImGui::GetTextLineHeightWithSpacing() };
-
-            if ((VisibleIndex % 2) == 0) {
-                ImGui::GetWindowDrawList()->AddRectFilled(RowMin, RowMax, IM_COL32(35, 35, 35, 90));
-            } else {
-                ImGui::GetWindowDrawList()->AddRectFilled(RowMin, RowMax, IM_COL32(22, 22, 22, 70));
-            }
-
-            const std::string PrefixText{ std::format("[{}] {:<7} > ", Entry.Timestamp, Entry.Level) };
-            const std::string MessageText{ Entry.RepeatCount > 1 ? std::format("{} ({})", Entry.Message, Entry.RepeatCount) : Entry.Message };
-            ImGui::TextUnformatted(PrefixText.c_str());
-            ImGui::SameLine();
-            const float MessageStartX{ ImGui::GetCursorPosX() };
-            ImGui::SetCursorPosX(MessageStartX);
-            ImGui::PushTextWrapPos(ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x);
-            ImGui::TextUnformatted(MessageText.c_str());
-            ImGui::PopTextWrapPos();
-            VisibleIndex += 1;
+            ImGui::EndTable();
         }
+
+        float footer_height = ImGui::GetFrameHeightWithSpacing();
+        if (ImGui::GetCursorPosY() < ImGui::GetWindowHeight() - footer_height) {
+            ImGui::SetCursorPosY(ImGui::GetWindowHeight() - footer_height);
+        }
+
+        ImGui::Separator();
+        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), ">");
+        ImGui::SameLine();
+
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+        ImGui::SetNextItemWidth(-1.0f);
+
+        if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+
+        if (ImGui::InputText("##CommandInput", mCommandInputBuffer.data(), mCommandInputBuffer.size(), ImGuiInputTextFlags_EnterReturnsTrue)) {
+            ProcessCommandInput();
+            ImGui::SetKeyboardFocusHere(-1);
+        }
+        ImGui::PopStyleColor();
 
         if (mBuffer.CheckAndResetScroll()) {
             ImGui::SetScrollHereY(1.0f);
         }
 
         ImGui::EndChild();
-
-        const bool ShouldRunOnEnter{ ImGui::InputText("Command", mCommandInputBuffer.data(), static_cast<int>(mCommandInputBuffer.size()), ImGuiInputTextFlags_EnterReturnsTrue) };
-
-        if (ShouldRunOnEnter) {
-            ProcessCommandInput();
-        }
-
         ImGui::End();
     }
 

@@ -10,6 +10,15 @@ namespace Globals {
     void Input::Update() {
         mKeyboardState = mKeyboard->GetState();
         mMouseState = mMouse->GetState();
+
+        if (mIsImGuiInputBlocked) {
+            mKeyboardState = DirectX::Keyboard::State{};
+            mMouseState = DirectX::Mouse::State{};
+            mKeyboardTracker = DirectX::Keyboard::KeyboardStateTracker{};
+            mMouseTracker = DirectX::Mouse::ButtonStateTracker{};
+            return;
+        }
+
         mKeyboardTracker.Update(mKeyboardState);
         mMouseTracker.Update(mMouseState);
 
@@ -20,6 +29,10 @@ namespace Globals {
         if (mVirtualMouse) {
 			SetVirtualMouse(false);
         }
+    }
+
+    void Input::SetImGuiInputBlocked(bool IsBlocked) {
+        mIsImGuiInputBlocked = IsBlocked;
     }
 
     void Input::SetVirtualMouse(bool enable) {
