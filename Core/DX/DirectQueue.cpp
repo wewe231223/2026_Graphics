@@ -297,6 +297,8 @@ namespace Core {
 			mCommandList->RSSetViewports(1, &mViewport);
 			mCommandList->RSSetScissorRects(1, &mScissorRect);
 
+			
+			StdOutput::PrintLine("[Render] Starting Draw Calls. DrawRecord Count: {} - {}", std::to_string(data.drawRecords.size()), std::rand());
 
 			// Execute Render Tasks
 			DirectQueue::DrawForward(data);

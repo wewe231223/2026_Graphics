@@ -195,7 +195,13 @@ namespace Widget {
                 ImGui::TextDisabled("[%s] %-7s >", Entry.Timestamp.c_str(), Entry.Level.c_str());
 
                 ImGui::TableSetColumnIndex(1);
-                ImGui::TextWrapped("%s", Entry.Message.c_str());
+               
+				if (Entry.RepeatCount > 1) {
+                    ImGui::TextWrapped("%s (%zu)", Entry.Message.c_str(), Entry.RepeatCount);
+                }
+                else {
+                    ImGui::TextWrapped("%s", Entry.Message.c_str());
+                }
             }
             ImGui::EndTable();
         }
