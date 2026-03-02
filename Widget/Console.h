@@ -35,5 +35,9 @@ namespace Widget {
     private:
         LogBuffer buffer;
         std::streambuf* oldCoutBuf;
+        int pipeFds[2];
+        int oldStdout;
+        std::thread captureThread;
+        std::atomic<bool> exitThread;
     };
 }

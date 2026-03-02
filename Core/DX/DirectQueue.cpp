@@ -1,9 +1,11 @@
 ﻿#include "DirectQueue.h"
 #include "Utility/ErrorHandler.h"
 #include "Utility/Views.h"
+#include "Utility/StringUtils.h"
 #include "Core/Config.h"
 #include <algorithm>
 #include <fstream>
+#include <print>
 #include <vector>
 
 
@@ -26,7 +28,7 @@ namespace Core {
 			DirectQueue::InitBasements();
 			DirectQueue::InitWorkers();
 			DirectQueue::InitCommandList();
-			DirectQueue::InitTargetResources(); 
+			DirectQueue::InitTargetResources();
 
         }
 
@@ -35,7 +37,7 @@ namespace Core {
         }
 
 		ID3D12Device* DirectQueue::GetDevice() const {
-			return mDevice.Get(); 
+			return mDevice.Get();
 		}
 
 		void DirectQueue::SetUploadInfrastructure(GraphicsAllocator* GraphicsAllocator, Interface::ICopyQueue* CopyQueue) {
@@ -180,7 +182,7 @@ namespace Core {
 		}
 
 
-		// data 를 순회하며 draw call 을 commandlist 에 쌓는 함수. 루프 구성 방식은 아래를 참고한다. 
+		// data 를 순회하며 draw call 을 commandlist 에 쌓는 함수. 루프 구성 방식은 아래를 참고한다.
 		// Render Loop 참고 순서
 		// 1) drawRecords를 pass, pso, mesh, submesh 키로 정렬한다.
 		// 2) 정렬된 순서에 맞춰 GPU 드로우 레코드를 재구성하고 업로드한다.
@@ -255,14 +257,14 @@ namespace Core {
 			auto currentIndex = mFrameSync.GetCurrentIndex();
 
 			auto& allocator = mMainCommandAllocators[currentIndex];
-			allocator->Reset(); 
+			allocator->Reset();
 			mCommandList->Reset(allocator.Get(), nullptr);
 
 			std::array<ID3D12DescriptorHeap*, 1> DescriptorHeaps{ mSrvHeap.GetHeap() };
 			mCommandList->SetDescriptorHeaps(static_cast<UINT>(DescriptorHeaps.size()), DescriptorHeaps.data());
 
 			auto& rt = mRenderTargets[currentIndex];
-			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET); 
+			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 
 			GraphicsVector& ModelContextVector = mPerFrameModelContextVectors[currentIndex];
 			GraphicsVector& DrawRecordVector = mPerFrameDrawRecordVectors[currentIndex];
@@ -283,14 +285,14 @@ namespace Core {
 				mCommandList->ResourceBarrier(1, &DrawRecordBarrier);
 			}
 
-			auto rtv = rt->GetRTV(); 
+			auto rtv = rt->GetRTV();
 			auto dsv = mDepthStencilBuffer->GetDSV();
 
 			mCommandList->ClearRenderTargetView(rtv, DirectX::Colors::Blue, 0, nullptr);
 
 
 			mCommandList->ClearDepthStencilView(mDepthStencilBuffer->GetDSV(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-			mCommandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv); 
+			mCommandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
 			mCommandList->RSSetViewports(1, &mViewport);
 			mCommandList->RSSetScissorRects(1, &mScissorRect);
@@ -320,7 +322,7 @@ namespace Core {
 
 
 
-			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PRESENT); 
+			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PRESENT);
 
 
 
@@ -329,7 +331,7 @@ namespace Core {
 			if (CopyFenceValue != 0) {
 				mCopyQueue->WaitForFence(CopyFenceValue);
 			}
-			
+
 
 			ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
 			mDirectCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
@@ -342,32 +344,32 @@ namespace Core {
         }
 
         void DirectQueue::InitBasements() {
-            // Factory 
+            // Factory
 			if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(mFactory.GetAddressOf())))) {
 				ErrorHandler::report("DirectQueue", "Failed to create DXGI Factory.", ErrorHandler::Level::Critical);
             }
 
 			// Debug Layer
-#if defined(DEBUG) || defined(_DEBUG) 
+#if defined(DEBUG) || defined(_DEBUG)
             if (FAILED(DXGIGetDebugInterface1(NULL, IID_PPV_ARGS(mDebugDXGI.GetAddressOf())))) {
 				ErrorHandler::report("DirectQueue", "Failed to get DXGI Debug Interface.", ErrorHandler::Level::Critical);
             }
-            
+
             if (FAILED(D3D12GetDebugInterface(IID_PPV_ARGS(mDebugController.GetAddressOf())))) {
 				ErrorHandler::report("DirectQueue", "Failed to get D3D12 Debug Interface.", ErrorHandler::Level::Critical);
             }
 
 			mDebugController->EnableDebugLayer();
-            mDebugController->SetEnableGPUBasedValidation(true); 
+            mDebugController->SetEnableGPUBasedValidation(true);
 
 			mDebugDXGI->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
-            mDebugDXGI->EnableLeakTrackingForThread(); 
+            mDebugDXGI->EnableLeakTrackingForThread();
 
 			if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(mDxgiInfoQueue.GetAddressOf())))) {
 				mDxgiInfoQueue->SetBreakOnSeverity(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_ERROR, true);
 				mDxgiInfoQueue->SetBreakOnSeverity(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_CORRUPTION, true);
 			}
-#endif 
+#endif
             // Device
 			ComPtr<IDXGIAdapter1> adapter = GetBestAdapter();
 
@@ -383,6 +385,10 @@ namespace Core {
 				ErrorHandler::report(::D3D12CreateDevice(warpAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&mDevice)), "DirectQueue", "Failed to make Warp Device", ErrorHandler::Level::Critical);
 			}
 
+			mWidgetCore.Initialize(mHwnd, mDevice);
+
+			std::cout << "Console Test" << std::endl; 
+
 #if defined(DEBUG) || defined(_DEBUG)
 			mDevice->QueryInterface(IID_PPV_ARGS(mD3D12InfoQueue.GetAddressOf()));
 			if (mD3D12InfoQueue != nullptr) {
@@ -392,10 +398,10 @@ namespace Core {
 #endif
 
 			if (DirectQueue::CheckShaderModelSupport(D3D_SHADER_MODEL_6_6)) {
-				OutputDebugString(L"Shader Model 6.6 is supported.\n"); 
+				std::println("Shader Model 6.6 is supported.");
 			}
 
-			// Direct Command Queue 
+			// Direct Command Queue
 			D3D12_COMMAND_QUEUE_DESC queueDesc{};
 			queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 			queueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
@@ -404,7 +410,7 @@ namespace Core {
 
 			ErrorHandler::report(mDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(mDirectCommandQueue.GetAddressOf())), "DirectQueue", "Failed to create Direct Command Queue.", ErrorHandler::Level::Critical);
 
-			// SwapChain 
+			// SwapChain
 			DXGI_SWAP_CHAIN_DESC1 desc{};
 			desc.Width = NULL;
 			desc.Height = NULL;
@@ -420,14 +426,10 @@ namespace Core {
 			desc.Flags = Constants::AllowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
 			ErrorHandler::report(mFactory->CreateSwapChainForHwnd(mDirectCommandQueue.Get(), mHwnd, &desc, nullptr, nullptr, mSwapChain.GetAddressOf()), "DirectQueue", "Failed to create SwapChain.", ErrorHandler::Level::Critical);
-
-
-			mWidgetCore.Initialize(mHwnd, mDevice); 
-			
         }
 
 		void DirectQueue::InitWorkers() {
-			mFrameSync = FrameSync(mDevice.Get()); 
+			mFrameSync = FrameSync(mDevice.Get());
 
 			for (uint64_t& FenceValue : mPerFrameCopyFenceValues) {
 				FenceValue = 0;
@@ -440,7 +442,7 @@ namespace Core {
 			}
 			ErrorHandler::report(mDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mMainCommandAllocators[0].Get(), nullptr, IID_PPV_ARGS(mCommandList.GetAddressOf())), "DirectQueue", "Failed to create Main Command List.", ErrorHandler::Level::Critical);
 
-			mCommandList->Close(); 
+			mCommandList->Close();
 		}
 
 		void DirectQueue::InitTargetResources() {
@@ -471,13 +473,11 @@ namespace Core {
 			mDepthStencilBuffer->CreateDSV(mDevice.Get(), mDSVHeap);
 		}
 
-        ComPtr<IDXGIAdapter1> DirectQueue::GetBestAdapter() {
-			OutputDebugString(L"\n\n====================Selecting Adapter====================\n\n");
+		ComPtr<IDXGIAdapter1> DirectQueue::GetBestAdapter() {
+			std::println("\n\n====================Selecting Adapter====================\n");
 
 			ComPtr<IDXGIAdapter1> bestAdapter;
 			size_t maxVRAM = 0;
-
-			std::wstring message{};
 
 			for (UINT i = 0; ; i++) {
 				ComPtr<IDXGIAdapter1> adapter;
@@ -489,8 +489,9 @@ namespace Core {
 				adapter->GetDesc1(&desc);
 
 				if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) continue;
-				message = std::format(L"Adapter{:^3} : {} | VRAM: {} MB\n", i, desc.Description, desc.DedicatedVideoMemory / (1024 * 1024));
-				OutputDebugString(message.c_str());
+
+				
+				std::print("Adapter{:^3} : {} | VRAM: {} MB\n", i, ConvertWstringToUtf8(desc.Description), desc.DedicatedVideoMemory / (1024 * 1024));
 
 				if (desc.DedicatedVideoMemory > maxVRAM) {
 					maxVRAM = desc.DedicatedVideoMemory;
@@ -501,14 +502,12 @@ namespace Core {
 			if (bestAdapter) {
 				DXGI_ADAPTER_DESC1 bestDesc;
 				bestAdapter->GetDesc1(&bestDesc);
-
-				message = std::format(L"Selected Adapter: {} | VRAM: {} MB\n", bestDesc.Description, bestDesc.DedicatedVideoMemory / (1024 * 1024));
-				OutputDebugString(message.c_str());
+				std::print("Selected Adapter: {} | VRAM: {} MB\n", ConvertWstringToUtf8(bestDesc.Description), bestDesc.DedicatedVideoMemory / (1024 * 1024));
 			}
 			else {
-				OutputDebugStringA("No suitable GPU found.\n");
+				std::println("No suitable GPU found.");
 			}
-			OutputDebugString(L"\n=========================================================\n\n");
+			std::println("\n=========================================================\n");
 
 			return bestAdapter;
         }
@@ -536,8 +535,7 @@ namespace Core {
 						continue;
 					}
 
-					OutputDebugStringA(message->pDescription);
-					OutputDebugStringA("\n");
+					std::println("DXGI: {}", message->pDescription);
 					if (logFile.is_open()) {
 						logFile << "DXGI: " << message->pDescription << std::endl;
 					}
@@ -564,8 +562,7 @@ namespace Core {
 						continue;
 					}
 
-					OutputDebugStringA(message->pDescription);
-					OutputDebugStringA("\n");
+					std::println("D3D12: {}", message->pDescription);
 					if (logFile.is_open()) {
 						logFile << "D3D12: " << message->pDescription << std::endl;
 					}
@@ -584,6 +581,6 @@ namespace Core {
 
 			return false;
 		}
-		
+
     }
 }

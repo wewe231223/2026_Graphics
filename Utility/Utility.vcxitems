@@ -23,6 +23,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)ErrorHandler.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)ExternalLinkers.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)FixedArray.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)StringUtils.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)Views.h" />
   </ItemGroup>
 </Project>
