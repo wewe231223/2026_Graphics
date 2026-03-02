@@ -23,6 +23,7 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Game/Scene/Scene.h"
 #include "Game/Scene/SceneYamlSerializer.h"
 
+#include "External/Include/ImGui/imgui.h"
 #include "External/Include/ImGui/imgui_impl_win32.h"
 
 #ifdef _MSC_VER
@@ -279,6 +280,14 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam);
 
+    bool IsKeyboardCaptured{ false };
+	bool IsMouseCaptured{ false };
+    if (ImGui::GetCurrentContext() != nullptr) {
+        const ImGuiIO& ImGuiIo{ ImGui::GetIO() };
+        IsKeyboardCaptured = ImGuiIo.WantCaptureKeyboard;
+        IsMouseCaptured = ImGuiIo.WantCaptureMouse;
+    }
+
     constexpr UINT keyPressedCheckBitMask = 0x60000000;
     constexpr UINT keyPressedAtTime = 0x20000000;
 
@@ -332,7 +341,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
     case WM_KEYDOWN:
     case WM_KEYUP:
     case WM_SYSKEYUP:
-        DirectX::Keyboard::ProcessMessage(message, wParam, lParam);
+        if (!IsKeyboardCaptured) {
+            DirectX::Keyboard::ProcessMessage(message, wParam, lParam);
+        }
         break;
     case WM_MENUCHAR:
         return MAKELRESULT(0, MNC_CLOSE);
@@ -349,7 +360,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
     case WM_XBUTTONDOWN:
     case WM_XBUTTONUP:
     case WM_MOUSEHOVER:
-        DirectX::Mouse::ProcessMessage(message, wParam, lParam);
+        if (!IsMouseCaptured) {
+            DirectX::Mouse::ProcessMessage(message, wParam, lParam);
+        }
         break;
     case WM_DESTROY:
         PostQuitMessage(0);

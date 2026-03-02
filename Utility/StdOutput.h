@@ -6,6 +6,13 @@
 #include <string_view>
 
 namespace StdOutput {
+    enum class LogLevel {
+        Log,
+        Info,
+        Warning,
+        Success
+    };
+
     using SinkFunction = std::function<void(const std::string&)>;
 
     void RegisterSink(SinkFunction Sink);
@@ -15,6 +22,13 @@ namespace StdOutput {
     void WriteLine(std::string_view Message);
     void WriteError(std::string_view Message);
     void WriteErrorLine(std::string_view Message);
+
+    void WriteInfo(std::string_view Message);
+    void WriteInfoLine(std::string_view Message);
+    void WriteSuccess(std::string_view Message);
+    void WriteSuccessLine(std::string_view Message);
+    void WriteWarning(std::string_view Message);
+    void WriteWarningLine(std::string_view Message);
 
     template<typename... Args>
     void Print(std::format_string<Args...> Format, Args&&... Arguments);
