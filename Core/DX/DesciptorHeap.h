@@ -11,8 +11,8 @@ namespace Core {
 
             ~DescriptorHandle() = default;
 
-            DescriptorHandle(const DescriptorHandle&) = delete;
-            DescriptorHandle& operator=(const DescriptorHandle&) = delete;
+            DescriptorHandle(const DescriptorHandle&) = default;
+            DescriptorHandle& operator=(const DescriptorHandle&) = default;
 
             DescriptorHandle(DescriptorHandle&& other) noexcept;
             DescriptorHandle& operator=(DescriptorHandle&& other) noexcept;

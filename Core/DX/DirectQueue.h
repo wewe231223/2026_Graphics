@@ -1,9 +1,9 @@
 ﻿#pragma once 
 #include <array>
-#include <vector>
 #include "Core/Common.h"
 #include "Core/DX/DesciptorHeap.h"
-#include "Core/DX/GraphicsVector.h"
+#include "Core/DX/DrawCallDispatcher.h"
+#include "Core/DX/DrawCallResourceManager.h"
 #include "Core/DX/FrameSync.h"
 #include "Core/DX/Texture.h"
 #include "Core/Config.h"
@@ -23,18 +23,18 @@ namespace Core {
 			DirectQueue(HWND hWnd);
 			~DirectQueue(); 
 
-			DirectQueue(const DirectQueue& other) = delete;
-			DirectQueue& operator=(const DirectQueue& other) = delete;
+			DirectQueue(const DirectQueue& Other) = delete;
+			DirectQueue& operator=(const DirectQueue& Other) = delete;
 
-			DirectQueue(DirectQueue&& other) = delete;
-			DirectQueue& operator=(DirectQueue&& other) = delete;
+			DirectQueue(DirectQueue&& Other) = delete;
+			DirectQueue& operator=(DirectQueue&& Other) = delete;
 
 		public:
 			ID3D12Device* GetDevice() const;
 
 			void SetUploadInfrastructure(GraphicsAllocator* GraphicsAllocator, Interface::ICopyQueue* CopyQueue);
-			void PreRender(Game::RFD::RenderFrameData& data, float Dt);
-			void Render(Game::RFD::RenderFrameData& data);
+			void PreRender(Game::RFD::RenderFrameData& Data, float Dt);
+			void Render(Game::RFD::RenderFrameData& Data);
 
 		private:
 			void InitBasements(); 
@@ -47,14 +47,6 @@ namespace Core {
 			bool CheckShaderModelSupport(D3D_SHADER_MODEL);
 
 			void DrainDebugMessages();
-			void UpdateShaderResourceViews(uint32_t RtvIndex, uint32_t FrameGlobalsCount, uint32_t ModelContextCount, uint32_t DrawRecordCount);
-			bool IsShaderResourceViewUpdateRequired(ID3D12Resource* CachedResource, ID3D12Resource* CurrentResource, uint32_t CachedElementCount, uint32_t CurrentElementCount) const;
-
-		private:
-			static bool CompareDrawRecordByPso(const Game::RFD::DrawRecord& Left, const Game::RFD::DrawRecord& Right);
-			void BuildDrawRecordGpu(const Game::RFD::RenderFrameData& Data);
-
-			void DrawForward(Game::RFD::RenderFrameData& data); 
 
 		private:
 			HWND mHwnd{ nullptr };
@@ -80,27 +72,15 @@ namespace Core {
 
 			DescriptorHeap mDSVHeap{};
 			TexPtr mDepthStencilBuffer{};
-
 			DescriptorHeap mSrvHeap{};
-			std::array<DescriptorHandle, Constants::FrameCount<size_t>> mFrameGlobalsSrvHandles{};
-			std::array<DescriptorHandle, Constants::FrameCount<size_t>> mModelContextSrvHandles{};
-			std::array<DescriptorHandle, Constants::FrameCount<size_t>> mDrawRecordSrvHandles{};
-			std::array<ID3D12Resource*, Constants::FrameCount<size_t>> mFrameGlobalsSrvResources{};
-			std::array<ID3D12Resource*, Constants::FrameCount<size_t>> mModelContextSrvResources{};
-			std::array<ID3D12Resource*, Constants::FrameCount<size_t>> mDrawRecordSrvResources{};
-			std::array<uint32_t, Constants::FrameCount<size_t>> mFrameGlobalsSrvElementCounts{};
-			std::array<uint32_t, Constants::FrameCount<size_t>> mModelContextSrvElementCounts{};
-			std::array<uint32_t, Constants::FrameCount<size_t>> mDrawRecordSrvElementCounts{};
+			DrawCallResourceManager mDrawCallResourceManager{};
+			DrawCallDispatcher mDrawCallDispatcher{};
+
 
 			FrameSync mFrameSync{};
 			GraphicsAllocator* mGraphicsAllocator{ nullptr };
 			Interface::ICopyQueue* mCopyQueue{ nullptr };
 
-			std::array<GraphicsVector, Constants::FrameCount<size_t>> mPerFrameFrameGlobalsVectors{};
-			std::array<GraphicsVector, Constants::FrameCount<size_t>> mPerFrameModelContextVectors{};
-			std::array<GraphicsVector, Constants::FrameCount<size_t>> mPerFrameDrawRecordVectors{};
-			std::array<uint64_t, Constants::FrameCount<size_t>> mPerFrameCopyFenceValues{};
-			std::vector<DrawRecordGPU> mDrawRecordsGPU{};
 
 			Widget::WidgetCore mWidgetCore{};
 
