@@ -25,6 +25,7 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 
 #include "External/Include/ImGui/imgui.h"
 #include "External/Include/ImGui/imgui_impl_win32.h"
+#include "Widget/PerformanceProvider.h"
 
 #ifdef _MSC_VER
     #ifdef _DEBUG
@@ -151,16 +152,25 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             }
         }
         else {
+            Widget::PerformanceProvider::Get().BeginFrame();
+
             Globals::Time::Get().AdvanceTime();
             Globals::Input::Get().Update();
 
+            Widget::PerformanceProvider::Get().BeginProfile("Update");
             SceneInstance.ExecutePhase(Game::Phase::PreUpdate, Globals::Time::Get().GetDeltaTime<float>());
             SceneInstance.ExecutePhase(Game::Phase::Update, Globals::Time::Get().GetDeltaTime<float>());
-            SceneInstance.ExecutePhase(Game::Phase::Render, Globals::Time::Get().GetDeltaTime<float>());
-            SceneInstance.ExecutePhase(Game::Phase::PostRender, Globals::Time::Get().GetDeltaTime<float>());
+            Widget::PerformanceProvider::Get().EndProfile();
 
+            Widget::PerformanceProvider::Get().BeginProfile("Physics");
+            SceneInstance.ExecutePhase(Game::Phase::Render, Globals::Time::Get().GetDeltaTime<float>());
+            Widget::PerformanceProvider::Get().EndProfile();
+
+            Widget::PerformanceProvider::Get().BeginProfile("Render");
+            SceneInstance.ExecutePhase(Game::Phase::PostRender, Globals::Time::Get().GetDeltaTime<float>());
             directQueue.PreRender(SceneInstance.GetRenderFrameData(), Globals::Time::Get().GetDeltaTime<float>());
             directQueue.Render(SceneInstance.GetRenderFrameData());
+            Widget::PerformanceProvider::Get().EndProfile();
 
             frameCount++; 
         }

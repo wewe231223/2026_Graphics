@@ -5,6 +5,7 @@
 #include "Utility/StdOutput.h"
 #include "Core/Config.h"
 #include <fstream>
+#include "Widget/PerformanceProvider.h"
 
 
 namespace Core {
@@ -75,8 +76,10 @@ namespace Core {
 			StdOutput::PrintLine("[Render] Starting Draw Calls. DrawRecord Count: {} - {}", std::to_string(Data.drawRecords.size()), std::rand());
 
 			// Execute Render Tasks
+			Widget::PerformanceProvider::Get().BeginProfile("DX12 GPU Task");
 			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, mDrawCallResourceManager.GetFrameGlobalsSrvHandle(static_cast<uint32_t>(currentIndex)), mDrawCallResourceManager.GetModelContextSrvHandle(static_cast<uint32_t>(currentIndex)), mDrawCallResourceManager.GetDrawRecordSrvHandle(static_cast<uint32_t>(currentIndex)));
 			mWidgetCore.Render(mCommandList);
+			Widget::PerformanceProvider::Get().EndProfile();
 
 
 
@@ -94,6 +97,7 @@ namespace Core {
 			mDirectCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
 
 			ErrorHandler::report(mSwapChain->Present(Constants::AllowTearing ? 0 : 1, Constants::AllowTearing ? DXGI_PRESENT_ALLOW_TEARING : 0), "DirectQueue", "Failed to present SwapChain.", ErrorHandler::Level::Critical);
+			Widget::PerformanceProvider::Get().EndFrame();
 
 			DirectQueue::DrainDebugMessages();
 
@@ -142,7 +146,7 @@ namespace Core {
 				ErrorHandler::report(::D3D12CreateDevice(warpAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&mDevice)), "DirectQueue", "Failed to make Warp Device", ErrorHandler::Level::Critical);
 			}
 
-			mWidgetCore.Initialize(mHwnd, mDevice);
+			mWidgetCore.Initialize(mHwnd, mDevice, adapter.Get());
 
 			StdOutput::PrintLine("[Render] Console Test");
 

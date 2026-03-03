@@ -2,6 +2,6 @@
 
 class IWidget {
 public:
-	IWidget() = default;
+	virtual ~IWidget() = default;
 	virtual void Render() = 0; 
 };
