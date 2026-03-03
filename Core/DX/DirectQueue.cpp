@@ -72,9 +72,7 @@ namespace Core {
 			mCommandList->RSSetViewports(1, &mViewport);
 			mCommandList->RSSetScissorRects(1, &mScissorRect);
 
-			
-			StdOutput::PrintLine("[Render] Starting Draw Calls. DrawRecord Count: {} - {}", std::to_string(Data.drawRecords.size()), std::rand());
-
+		
 			// Execute Render Tasks
 			Widget::PerformanceProvider::Get().BeginProfile("DX12 GPU Task");
 			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, mDrawCallResourceManager.GetFrameGlobalsSrvHandle(static_cast<uint32_t>(currentIndex)), mDrawCallResourceManager.GetModelContextSrvHandle(static_cast<uint32_t>(currentIndex)), mDrawCallResourceManager.GetDrawRecordSrvHandle(static_cast<uint32_t>(currentIndex)));
