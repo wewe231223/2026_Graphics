@@ -38,6 +38,12 @@
     <ClInclude Include="Console.h">
       <Filter>Widgets</Filter>
     </ClInclude>
+    <ClInclude Include="PerformanceProvider.h">
+      <Filter>Widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="PerformanceWidgets.h">
+      <Filter>Widgets</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\External\Include\ImGui\imgui.cpp">
@@ -63,6 +69,12 @@
     </ClCompile>
     <ClCompile Include="WidgetCore.cpp" />
     <ClCompile Include="Console.cpp">
+      <Filter>Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="PerformanceProvider.cpp">
+      <Filter>Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="PerformanceWidgets.cpp">
       <Filter>Widgets</Filter>
     </ClCompile>
   </ItemGroup>

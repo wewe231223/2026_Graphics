@@ -19,7 +19,7 @@ namespace Widget {
 		WidgetCore& operator=(WidgetCore&&) noexcept = default;
 
 	public:
-		void Initialize(HWND hWnd, ComPtr<ID3D12Device>& device);
+		void Initialize(HWND hWnd, ComPtr<ID3D12Device>& device, IDXGIAdapter1* adapter);
 		void Render(ComPtr<ID3D12GraphicsCommandList>& commandList);
 
 		template<std::derived_from<IWidget> T, typename... Args>

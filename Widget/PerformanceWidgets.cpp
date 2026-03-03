@@ -1,0 +1,201 @@
+#include "PerformanceWidgets.h"
+
+#include <algorithm>
+#include <format>
+#include <string>
+#include <vector>
+#include "External/Include/ImGui/imgui.h"
+#include "PerformanceProvider.h"
+
+#ifdef max
+#undef max
+#endif
+
+namespace Widget {
+    FrameTimeWidget::FrameTimeWidget() {
+    }
+
+    FrameTimeWidget::~FrameTimeWidget() {
+    }
+
+    void FrameTimeWidget::Render() {
+        if (!ImGui::Begin("Performance Frame Time")) {
+            ImGui::End();
+            return;
+        }
+
+        const std::vector<float> FrameTimes{ PerformanceProvider::Get().GetFrameTimeMilliseconds() };
+
+        if (!FrameTimes.empty()) {
+            ImGui::PushItemWidth(-1.0f);
+            ImGui::PlotLines("##FrameTimePlot", FrameTimes.data(), static_cast<int>(FrameTimes.size()), 0, nullptr, 0.0f, 33.3f, ImVec2(0.0f, 160.0f));
+            ImGui::PopItemWidth(); 
+
+            const ImVec2 PlotMin{ ImGui::GetItemRectMin() };
+            const ImVec2 PlotMax{ ImGui::GetItemRectMax() };
+            const float ThresholdMs{ 16.6f };
+            const float ClampedThresholdMs{ std::clamp(ThresholdMs, 0.0f, 33.3f) };
+            const float ThresholdY{ PlotMax.y - (PlotMax.y - PlotMin.y) * (ClampedThresholdMs / 33.3f) };
+            ImDrawList* DrawList{ ImGui::GetWindowDrawList() };
+            DrawList->PushClipRect(PlotMin, PlotMax, true);
+            DrawList->AddLine(ImVec2(PlotMin.x, ThresholdY), ImVec2(PlotMax.x, ThresholdY), IM_COL32(255, 64, 64, 255), 2.0f);
+            DrawList->PopClipRect();
+        }
+
+        ImGui::TextUnformatted("Frame Time (ms)");
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "Red Line: 16.6ms (60 FPS Threshold)");
+
+        ImGui::End();
+    }
+
+    DistributionWidget::DistributionWidget() {
+    }
+
+    DistributionWidget::~DistributionWidget() {
+    }
+
+    void DistributionWidget::Render() {
+        if (!ImGui::Begin("Performance Distribution")) {
+            ImGui::End();
+            return;
+        }
+
+        const std::vector<float> FrameTimes{ PerformanceProvider::Get().GetFrameTimeMilliseconds() };
+
+        if (!FrameTimes.empty()) {
+            ImGui::PushItemWidth(-1.0f);
+            ImGui::PlotHistogram("##Frame Time Histogram", FrameTimes.data(), static_cast<int>(FrameTimes.size()), 0, nullptr, 0.0f, 33.3f, ImVec2(0.0f, 140.0f));
+            ImGui::PopItemWidth();
+        }
+
+        ImGui::Columns(3, "PerformanceDistributionColumns", false);
+        ImGui::Text("Avg FPS\n%.2f", PerformanceProvider::Get().GetAverageFps());
+        ImGui::NextColumn();
+        ImGui::Text("1%% Low\n%.2f", PerformanceProvider::Get().GetOnePercentLowFps());
+        ImGui::NextColumn();
+        ImGui::Text("0.1%% Low\n%.2f", PerformanceProvider::Get().GetZeroPointOnePercentLowFps());
+        ImGui::Columns(1);
+
+        ImGui::End();
+    }
+
+    TimelineWidget::TimelineWidget() {
+    }
+
+    TimelineWidget::~TimelineWidget() {
+    }
+
+    void TimelineWidget::Render() {
+        if (!ImGui::Begin("Performance Timeline")) {
+            ImGui::End();
+            return;
+        }
+
+        const std::vector<ProfileEntry> Entries{ PerformanceProvider::Get().GetCurrentFrameProfiles() };
+
+        if (!Entries.empty()) {
+            const double MinStart{ Entries.front().StartMicroseconds };
+            double MaxEnd{ Entries.front().EndMicroseconds };
+
+            for (const ProfileEntry& Entry : Entries) {
+                MaxEnd = std::max(MaxEnd, Entry.EndMicroseconds);
+            }
+
+            const float Width{ ImGui::GetContentRegionAvail().x };
+            const float LayerHeight{ 28.0f };
+            const ImVec2 Origin{ ImGui::GetCursorScreenPos() };
+            ImDrawList* DrawList{ ImGui::GetWindowDrawList() };
+            const double Duration{ std::max(1.0, MaxEnd - MinStart) };
+
+            std::size_t MaxDepth{};
+            for (const ProfileEntry& Entry : Entries) {
+                MaxDepth = std::max(MaxDepth, Entry.Depth);
+            }
+
+            const float TotalHeight{ static_cast<float>(MaxDepth + 1) * LayerHeight };
+            ImGui::Dummy(ImVec2(Width, TotalHeight));
+
+            for (const ProfileEntry& Entry : Entries) {
+                const float X0{ Origin.x + static_cast<float>((Entry.StartMicroseconds - MinStart) / Duration) * Width };
+                const float X1{ Origin.x + static_cast<float>((Entry.EndMicroseconds - MinStart) / Duration) * Width };
+                const float Y0{ Origin.y + static_cast<float>(Entry.Depth) * LayerHeight };
+                const float Y1{ Y0 + LayerHeight - 4.0f };
+                const uint32_t Color{ GetColorByName(Entry.Name) };
+                DrawList->AddRectFilled(ImVec2(X0, Y0), ImVec2(X1, Y1), Color, 4.0f);
+            }
+        }
+
+        RenderLegendItem("Update", GetColorByName("Update"));
+        ImGui::SameLine();
+        RenderLegendItem("Render", GetColorByName("Render"));
+        ImGui::SameLine();
+        RenderLegendItem("Physics", GetColorByName("Physics"));
+        ImGui::SameLine();
+        RenderLegendItem("DX12 GPU Task", GetColorByName("DX12 GPU Task"));
+
+        ImGui::End();
+    }
+
+    void TimelineWidget::RenderLegendItem(const char* Label, uint32_t Color) const {
+        ImDrawList* DrawList{ ImGui::GetWindowDrawList() };
+        const ImVec2 Cursor{ ImGui::GetCursorScreenPos() };
+        const float BoxSize{ 12.0f };
+        DrawList->AddRectFilled(Cursor, ImVec2(Cursor.x + BoxSize, Cursor.y + BoxSize), Color, 2.0f);
+        ImGui::Dummy(ImVec2(BoxSize + 4.0f, BoxSize));
+        ImGui::SameLine();
+        ImGui::TextUnformatted(Label);
+    }
+
+    uint32_t TimelineWidget::GetColorByName(const std::string& Name) const {
+        if (Name.find("Update") != std::string::npos) {
+            return IM_COL32(102, 220, 130, 255);
+        }
+
+        if (Name.find("Render") != std::string::npos) {
+            return IM_COL32(100, 160, 255, 255);
+        }
+
+        if (Name.find("Physics") != std::string::npos) {
+            return IM_COL32(255, 220, 100, 255);
+        }
+
+        if (Name.find("DX12") != std::string::npos || Name.find("GPU") != std::string::npos) {
+            return IM_COL32(170, 100, 255, 255);
+        }
+
+        return IM_COL32(180, 180, 180, 255);
+    }
+
+    VramUsageWidget::VramUsageWidget() {
+    }
+
+    VramUsageWidget::~VramUsageWidget() {
+    }
+
+    void VramUsageWidget::Render() {
+        if (!ImGui::Begin("Performance VRAM")) {
+            ImGui::End();
+            return;
+        }
+
+        const uint64_t BudgetBytes{ PerformanceProvider::Get().GetVramBudgetBytes() };
+        const uint64_t UsageBytes{ PerformanceProvider::Get().GetVramUsageBytes() };
+        const float Ratio{ std::clamp(PerformanceProvider::Get().GetVramUsageRatio(), 0.0f, 1.0f) };
+
+        ImVec4 Color{ 0.9f, 0.85f, 0.2f, 1.0f };
+        if (Ratio > 0.85f) {
+            Color = ImVec4(0.95f, 0.2f, 0.2f, 1.0f);
+        }
+
+        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, Color);
+        ImGui::ProgressBar(Ratio, ImVec2(-1.0f, 28.0f), std::format("{:.1f}%", Ratio * 100.0f).c_str());
+        ImGui::PopStyleColor();
+
+        const double UsageMb{ static_cast<double>(UsageBytes) / (1024.0 * 1024.0) };
+        const double BudgetMb{ static_cast<double>(BudgetBytes) / (1024.0 * 1024.0) };
+        ImGui::Text("Usage %.1f MB / Budget %.1f MB", UsageMb, BudgetMb);
+
+        ImGui::End();
+    }
+}

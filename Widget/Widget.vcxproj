@@ -29,6 +29,8 @@
     <ClInclude Include="..\External\Include\ImGui\imstb_truetype.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="Console.h" />
+    <ClInclude Include="PerformanceProvider.h" />
+    <ClInclude Include="PerformanceWidgets.h" />
     <ClInclude Include="WidgetCore.h" />
   </ItemGroup>
   <ItemGroup>
@@ -40,6 +42,8 @@
     <ClCompile Include="..\External\Include\ImGui\imgui_tables.cpp" />
     <ClCompile Include="..\External\Include\ImGui\imgui_widgets.cpp" />
     <ClCompile Include="Console.cpp" />
+    <ClCompile Include="PerformanceProvider.cpp" />
+    <ClCompile Include="PerformanceWidgets.cpp" />
     <ClCompile Include="WidgetCore.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

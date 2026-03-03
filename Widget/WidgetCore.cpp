@@ -11,6 +11,8 @@ namespace fs = std::filesystem;
 
 
 #include "Console.h"
+#include "PerformanceProvider.h"
+#include "PerformanceWidgets.h"
 
 namespace Widget {
 
@@ -20,7 +22,7 @@ namespace Widget {
 		ImGui::DestroyContext();
 	}
 
-	void WidgetCore::Initialize(HWND hWnd, ComPtr<ID3D12Device>& device) {
+	void WidgetCore::Initialize(HWND hWnd, ComPtr<ID3D12Device>& device, IDXGIAdapter1* adapter) {
 		D3D12_DESCRIPTOR_HEAP_DESC desc{};
 		desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		desc.NumDescriptors = 1;
@@ -64,6 +66,8 @@ namespace Widget {
 			io.Fonts->Build();
 		}
 
+		PerformanceProvider::Get().Initialize(adapter);
+
 		WidgetCore::BuildWidgets();
 	}
 
@@ -89,6 +93,10 @@ namespace Widget {
 	}
 
 	void WidgetCore::BuildWidgets() {
+		MakeWidget<FrameTimeWidget>();
+		MakeWidget<DistributionWidget>();
+		MakeWidget<TimelineWidget>();
+		MakeWidget<VramUsageWidget>();
 		MakeWidget<ImGuiConsole>();
 	}
 }
