@@ -3,6 +3,7 @@
 #include <cstring>
 #include <limits>
 #include "Utility/ErrorHandler.h"
+#include "Utility/StdOutput.h"
 
 using namespace Core::DX;
 
@@ -239,6 +240,7 @@ void CopyQueue::WaitForSubmitFence(std::uint64_t FenceValue) const {
     }
 
     std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
+
     ErrorHandler::report(mCopyFence->SetEventOnCompletion(FenceValue, mFenceEvent), "CopyQueue", "Failed to set copy queue fence completion event.", ErrorHandler::Level::Critical);
     WaitForSingleObjectEx(mFenceEvent, INFINITE, FALSE);
 }

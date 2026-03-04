@@ -138,8 +138,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     ErrorHandler::report(SceneYamlLoadResult.IsSuccess == false, "WinMain", "Failed to load scene yaml.", ErrorHandler::Level::Warning);
 
 
-    //copyQueue.DispatchCopies();
-    //copyQueue.GuaranteeCopy(Core::DX::CopyQueueId::Model);
+    copyQueue.DispatchCopies();
+    copyQueue.GuaranteeCopy(Core::DX::CopyQueueId::Model);
+
 
     // 기본 메시지 루프입니다:
     while (true) {
