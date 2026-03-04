@@ -94,7 +94,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     defaultHeapProperties.VisibleNodeMask = 1;
 
 
-    constexpr uint64_t DefaultHeapAllocatorSize{ 256ull * 1024ull * 1024ull };
+    constexpr uint64_t DefaultHeapAllocatorSize{ 4ull * 1024ull * 1024ull * 1024ull };
     Core::DX::GraphicsAllocator defaultHeapAllocator{};
     bool defaultHeapAllocatorInitializeResult{ defaultHeapAllocator.Initialize(directQueue.GetDevice(), DefaultHeapAllocatorSize, defaultHeapProperties, D3D12_HEAP_FLAG_NONE) };
     ErrorHandler::report(defaultHeapAllocatorInitializeResult == false, "WinMain", "Failed to initialize default heap allocator.", ErrorHandler::Level::Critical);
@@ -137,7 +137,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     const Game::SceneYamlLoadResult SceneYamlLoadResult{ SceneYamlSerializer.DeserializeFromFile("Resources/DefaultScene.yaml", SceneInstance) };
     ErrorHandler::report(SceneYamlLoadResult.IsSuccess == false, "WinMain", "Failed to load scene yaml.", ErrorHandler::Level::Warning);
 
-	auto tex = Core::DX::Texture::LoadFromFile(directQueue.GetDevice(), &copyQueue, "Resources/DefaultScene/Paladin_diffuse.DDS");
+	auto tex = Core::DX::Texture::LoadFromFile(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator, "Resources/DefaultScene/Paladin_diffuse.DDS");
 
 
     copyQueue.DispatchCopies();

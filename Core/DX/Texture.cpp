@@ -11,6 +11,7 @@ using namespace Core::DX;
 
 Texture::Texture(const std::string& name)
     : mResource{ nullptr },
+    mAllocationHandle{},
     mResourceDESC{},
     mCurrentState{ D3D12_RESOURCE_STATE_COMMON },
     mName{ name },
@@ -25,6 +26,7 @@ Texture::~Texture() {
 
 Texture::Texture(Texture&& other) noexcept
     : mResource(std::move(other.mResource)),
+    mAllocationHandle(std::move(other.mAllocationHandle)),
     mResourceDESC(std::move(other.mResourceDESC)),
     mCurrentState(other.mCurrentState),
     mName(std::move(other.mName)),
@@ -37,6 +39,7 @@ Texture::Texture(Texture&& other) noexcept
 Texture& Texture::operator=(Texture&& other) noexcept {
     if (this != &other) {
         mResource = std::move(other.mResource);
+        mAllocationHandle = std::move(other.mAllocationHandle);
         mResourceDESC = std::move(other.mResourceDESC);
         mCurrentState = other.mCurrentState;
         mName = std::move(other.mName);
@@ -49,8 +52,8 @@ Texture& Texture::operator=(Texture&& other) noexcept {
     return *this;
 }
 
-Texture::Ptr Texture::LoadFromFile(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, const std::filesystem::path& SourcePath) {
-    if (Device == nullptr or CopyQueue == nullptr) {
+Texture::Ptr Texture::LoadFromFile(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, const std::filesystem::path& SourcePath) {
+    if (Device == nullptr or CopyQueue == nullptr or Allocator == nullptr) {
         return nullptr;
     }
 
@@ -70,14 +73,20 @@ Texture::Ptr Texture::LoadFromFile(ID3D12Device* Device, Interface::ICopyQueue* 
 
     Texture::Ptr NewTexture{ std::make_shared<Texture>(SourcePath.string()) };
     NewTexture->mResourceDESC = CD3DX12_RESOURCE_DESC::Tex2D(Metadata.format, static_cast<UINT64>(Metadata.width), static_cast<UINT>(Metadata.height), static_cast<UINT16>(Metadata.arraySize), static_cast<UINT16>(Metadata.mipLevels), 1, 0, D3D12_RESOURCE_FLAG_NONE);
-    NewTexture->mCurrentState = D3D12_RESOURCE_STATE_COPY_DEST;
+    NewTexture->mCurrentState = D3D12_RESOURCE_STATE_COMMON;
 
-    CD3DX12_HEAP_PROPERTIES HeapProperties{ D3D12_HEAP_TYPE_DEFAULT };
-    HRESULT CreateResourceResult{ Device->CreateCommittedResource(&HeapProperties, D3D12_HEAP_FLAG_NONE, &NewTexture->mResourceDESC, NewTexture->mCurrentState, nullptr, IID_PPV_ARGS(&NewTexture->mResource)) };
-    if (FAILED(CreateResourceResult)) {
+    if (Allocator->CanAllocate(NewTexture->mResourceDESC) == false) {
+        ErrorHandler::report("Texture", "Graphics allocator cannot allocate texture resource: " + SourcePath.string(), ErrorHandler::Level::Critical);
+        return nullptr;
+    }
+
+    NewTexture->mAllocationHandle = Allocator->AllocatePlacedResource(NewTexture->mResourceDESC, NewTexture->mCurrentState, nullptr);
+    if (NewTexture->mAllocationHandle == nullptr or NewTexture->mAllocationHandle->IsValid() == false) {
         ErrorHandler::report("Texture", "Failed to create texture resource: " + SourcePath.string(), ErrorHandler::Level::Critical);
         return nullptr;
     }
+
+    NewTexture->mResource = NewTexture->mAllocationHandle->GetResource();
 
     NewTexture->mResource->SetName(SourcePath.c_str());
 
