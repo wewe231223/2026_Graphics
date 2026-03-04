@@ -8,6 +8,11 @@
 #include <d3d12.h>
 
 namespace Interface {
+    enum class GraphicsAllocationType {
+        Buffer,
+        Texture
+    };
+
     class IAllocationHandle {
     public:
         virtual ~IAllocationHandle() = default;
@@ -26,20 +31,37 @@ namespace Interface {
 
     public:
         virtual bool Initialize(ID3D12Device* Device, std::uint64_t HeapSize, const D3D12_HEAP_PROPERTIES& HeapProperties, D3D12_HEAP_FLAGS HeapFlags = D3D12_HEAP_FLAG_NONE) = 0;
+        virtual bool Initialize(ID3D12Device* Device, std::uint64_t BufferHeapSize, std::uint64_t TextureHeapSize, const D3D12_HEAP_PROPERTIES& BufferHeapProperties, const D3D12_HEAP_PROPERTIES& TextureHeapProperties, D3D12_HEAP_FLAGS BufferHeapFlags = D3D12_HEAP_FLAG_NONE, D3D12_HEAP_FLAGS TextureHeapFlags = D3D12_HEAP_FLAG_NONE) = 0;
         virtual void Reset() = 0;
 
         virtual bool CanAllocate(const D3D12_RESOURCE_DESC& ResourceDesc) const = 0;
         virtual std::unique_ptr<IAllocationHandle> AllocatePlacedResource(const D3D12_RESOURCE_DESC& ResourceDesc, D3D12_RESOURCE_STATES InitialState, const D3D12_CLEAR_VALUE* OptimizedClearValue = nullptr) = 0;
+        virtual std::unique_ptr<IAllocationHandle> AllocatePlacedResource(GraphicsAllocationType AllocationType, const D3D12_RESOURCE_DESC& ResourceDesc, D3D12_RESOURCE_STATES InitialState, const D3D12_CLEAR_VALUE* OptimizedClearValue = nullptr) = 0;
 
         virtual ID3D12Heap* GetHeap() const = 0;
+        virtual ID3D12Heap* GetHeap(GraphicsAllocationType AllocationType) const = 0;
         virtual std::uint64_t GetHeapSize() const = 0;
+        virtual std::uint64_t GetHeapSize(GraphicsAllocationType AllocationType) const = 0;
         virtual std::uint64_t GetUsedSize() const = 0;
+        virtual std::uint64_t GetUsedSize(GraphicsAllocationType AllocationType) const = 0;
     };
 
-    struct CopyQueueCopyRequest final {
+    struct CopyQueueTextureCopySubresource final {
+        D3D12_PLACED_SUBRESOURCE_FOOTPRINT Footprint{};
+        std::uint32_t DestinationSubresourceIndex{};
+    };
+
+    enum class CopyQueueCopyType {
+        Buffer,
+        Texture
+    };
+
+    struct CopyRequest final {
+        CopyQueueCopyType CopyType{ CopyQueueCopyType::Buffer };
         Microsoft::WRL::ComPtr<ID3D12Resource> DestinationDefaultResource{};
         std::uint64_t DestinationOffset{};
         std::vector<std::byte> SourceData{};
+        std::vector<CopyQueueTextureCopySubresource> TextureSubresources{};
     };
 
     class ICopyQueue {
@@ -48,8 +70,8 @@ namespace Interface {
 
     public:
         virtual bool Initialize(ID3D12Device* Device) = 0;
-        virtual std::uint64_t EnqueueCopy(const CopyQueueCopyRequest& CopyRequest) = 0;
-        virtual std::uint64_t EnqueueCopy(std::span<const CopyQueueCopyRequest> CopyRequests) = 0;
+        virtual std::uint64_t EnqueueCopy(const CopyRequest& CopyRequest) = 0;
+        virtual std::uint64_t EnqueueCopy(std::span<const CopyRequest> CopyRequests) = 0;
 
         virtual void DispatchCopies() = 0;
         virtual bool IsFenceComplete(std::uint64_t FenceValue) const = 0;
@@ -57,6 +79,7 @@ namespace Interface {
         virtual void Flush() = 0;
 
         virtual std::uint64_t GetRequiredUploadBufferSize() const = 0;
+        virtual std::uint64_t GetRequiredTextureUploadBufferSize() const = 0;
     };
 }
 

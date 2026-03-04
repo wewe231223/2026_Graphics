@@ -16,9 +16,9 @@
 #include "Core/Common.h"
 #include "Utility/DirectXInclude.h"
 
-#ifdef max 
+#ifdef max
 #undef max
-#endif 
+#endif
 
 namespace Core {
     namespace DX {
@@ -33,8 +33,8 @@ namespace Core {
 
         public:
             bool Initialize(ID3D12Device* Device) override;
-            uint64_t EnqueueCopy(const Interface::CopyQueueCopyRequest& CopyRequest) override;
-            uint64_t EnqueueCopy(std::span<const Interface::CopyQueueCopyRequest> CopyRequests) override;
+            uint64_t EnqueueCopy(const Interface::CopyRequest& CopyRequest) override;
+            uint64_t EnqueueCopy(std::span<const Interface::CopyRequest> CopyRequests) override;
 
             void DispatchCopies() override;
             bool IsFenceComplete(uint64_t FenceValue) const override;
@@ -42,6 +42,7 @@ namespace Core {
             void Flush() override;
 
             uint64_t GetRequiredUploadBufferSize() const override;
+            uint64_t GetRequiredTextureUploadBufferSize() const override;
 
         private:
             struct UploadHeapSlot {
@@ -51,35 +52,47 @@ namespace Core {
                 uint64_t SlotFenceValue{};
             };
 
+            struct UploadHeapCollection {
+                std::array<UploadHeapSlot, 2> Slots{};
+                UINT64 BufferSize{};
+                size_t CurrentSlotIndex{};
+            };
+
             struct CopyRequestBatch {
-                std::vector<Interface::CopyQueueCopyRequest> CopyRequests{};
+                std::vector<Interface::CopyRequest> CopyRequests{};
                 uint64_t RequestedFenceValue{};
             };
 
         private:
             void WorkerLoop();
             void ExecuteRequestBatch(const CopyRequestBatch& RequestBatch);
+            bool ProcessBufferCopyRequest(const Interface::CopyRequest& CopyRequest, size_t RequestIndex, size_t& AllocatorIndex, std::vector<bool>& RequestTouchedMask, std::vector<uint64_t>& RequestCompletedSubmitFenceValues);
+            bool ProcessTextureCopyRequest(const Interface::CopyRequest& CopyRequest, size_t RequestIndex, size_t& AllocatorIndex, std::vector<bool>& RequestTouchedMask, std::vector<uint64_t>& RequestCompletedSubmitFenceValues);
+            bool WriteUploadBytes(UploadHeapCollection& Collection, ID3D12Resource* DestinationResource, uint64_t DestinationOffset, const std::byte* SourceData, uint64_t Size, size_t RequestIndex, size_t& AllocatorIndex, std::vector<bool>& RequestTouchedMask, std::vector<uint64_t>& RequestCompletedSubmitFenceValues);
+
             void StopWorker();
             void WaitForQueueIdle();
+
             bool IsSubmitFenceComplete(uint64_t FenceValue) const;
             void WaitForSubmitFence(uint64_t FenceValue) const;
             uint64_t ResolveRequestedFenceValue(uint64_t FenceValue) const;
             void PrepareAllocatorForRecording(size_t AllocatorIndex);
             uint64_t SubmitCurrentCommandList(size_t AllocatorIndex, std::vector<bool>& RequestTouchedMask, std::vector<uint64_t>& RequestCompletedSubmitFenceValues);
-            bool TrySwitchUploadHeapSlot(size_t& SlotIndex, size_t& AllocatorIndex, std::vector<bool>& RequestTouchedMask, std::vector<uint64_t>& RequestCompletedSubmitFenceValues);
+            bool TrySwitchUploadHeapSlot(UploadHeapCollection& Collection, size_t& AllocatorIndex, std::vector<bool>& RequestTouchedMask, std::vector<uint64_t>& RequestCompletedSubmitFenceValues);
+            bool InitializeUploadHeapCollection(ID3D12Device* Device, UploadHeapCollection& Collection, UINT64 BufferSize);
+            void ResetUploadHeapCollection(UploadHeapCollection& Collection);
 
         private:
             static constexpr size_t CopyAllocatorCount{ 3 };
-            static constexpr size_t UploadHeapSlotCount{ 2 };
             static constexpr UINT64 DefaultUploadBufferSize{ 32ull * 1024ull * 1024ull };
+            static constexpr UINT64 DefaultTextureUploadBufferSize{ 64ull * 1024ull * 1024ull };
 
             ComPtr<ID3D12CommandQueue> mCopyCommandQueue{};
             std::array<ComPtr<ID3D12CommandAllocator>, CopyAllocatorCount> mCopyCommandAllocators{};
             ComPtr<ID3D12GraphicsCommandList> mCopyCommandList{};
             ComPtr<ID3D12Fence> mCopyFence{};
-            std::array<UploadHeapSlot, UploadHeapSlotCount> mUploadHeapSlots{};
-            UINT64 mUploadBufferSize{};
-            size_t mCurrentUploadHeapSlotIndex{};
+            UploadHeapCollection mBufferUploadHeapCollection{};
+            UploadHeapCollection mTextureUploadHeapCollection{};
 
             HANDLE mFenceEvent{};
 

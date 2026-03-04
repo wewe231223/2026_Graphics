@@ -49,7 +49,7 @@ namespace Core {
 			bool DrawRecordCopyResult = DrawRecordVector.Copy(GraphicsAllocator, DrawRecordSourceData, DrawRecordsGpuSizeInBytes);
 			ErrorHandler::report(DrawRecordCopyResult == false, "DrawCallResourceManager", "Failed to copy draw record data.", ErrorHandler::Level::Critical);
 
-			std::array<Interface::CopyQueueCopyRequest, 3> CopyRequests{ FrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), ModelContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), DrawRecordVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
+			std::array<Interface::CopyRequest, 3> CopyRequests{ FrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), ModelContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), DrawRecordVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
 			uint64_t FenceValue = CopyQueue.EnqueueCopy(CopyRequests);
 			CopyQueue.DispatchCopies();
 			mPerFrameCopyFenceValues[RtvIndex] = FenceValue;

@@ -107,8 +107,8 @@ void GraphicsVector::Reset() {
     mCopyRequestCreationCount = 0;
 }
 
-Interface::CopyQueueCopyRequest GraphicsVector::CreateCopyQueueCopyRequest(GraphicsAllocator& graphicsAllocator, UINT64 destinationOffset) {
-    Interface::CopyQueueCopyRequest copyQueueCopyRequest{};
+Interface::CopyRequest GraphicsVector::CreateCopyQueueCopyRequest(GraphicsAllocator& graphicsAllocator, UINT64 destinationOffset) {
+    Interface::CopyRequest copyQueueCopyRequest{};
     copyQueueCopyRequest.DestinationDefaultResource = mAllocationHandle.GetResourceComPtr();
     copyQueueCopyRequest.DestinationOffset = destinationOffset;
     copyQueueCopyRequest.SourceData.resize(mSizeInBytes);

@@ -32,10 +32,11 @@ namespace Core {
             const ComPtr<ID3D12Resource>& GetResourceComPtr() const;
 
         private:
-            AllocationHandle(GraphicsAllocator* Allocator, ComPtr<ID3D12Resource>&& Resource, OffsetType Offset, SizeType Size);
+            AllocationHandle(GraphicsAllocator* Allocator, Interface::GraphicsAllocationType AllocationType, ComPtr<ID3D12Resource>&& Resource, OffsetType Offset, SizeType Size);
 
         private:
             GraphicsAllocator* mAllocator{};
+            Interface::GraphicsAllocationType mAllocationType{ Interface::GraphicsAllocationType::Buffer };
             ComPtr<ID3D12Resource> mResource{};
             OffsetType mOffset{};
             SizeType mSize{};

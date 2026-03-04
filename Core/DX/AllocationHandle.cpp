@@ -5,14 +5,15 @@ using namespace Core::DX;
 
 AllocationHandle::AllocationHandle()
     : mAllocator{},
+    mAllocationType{ Interface::GraphicsAllocationType::Buffer },
     mResource{},
     mOffset{},
     mSize{} {
 }
 
-AllocationHandle::AllocationHandle(GraphicsAllocator* allocator, ComPtr<ID3D12Resource>&& resource, OffsetType offset, SizeType size)
+AllocationHandle::AllocationHandle(GraphicsAllocator* allocator, Interface::GraphicsAllocationType allocationType, ComPtr<ID3D12Resource>&& resource, OffsetType offset, SizeType size)
     : mAllocator{ allocator },
-
+    mAllocationType{ allocationType },
     mResource{ std::move(resource) },
     mOffset{ offset },
     mSize{ size } {
@@ -24,11 +25,13 @@ AllocationHandle::~AllocationHandle() {
 
 AllocationHandle::AllocationHandle(AllocationHandle&& other) noexcept
     : mAllocator{ other.mAllocator },
+    mAllocationType{ other.mAllocationType },
     mResource{ std::move(other.mResource) },
     mOffset{ other.mOffset },
     mSize{ other.mSize } {
 
     other.mAllocator = nullptr;
+    other.mAllocationType = Interface::GraphicsAllocationType::Buffer;
     other.mOffset = 0;
     other.mSize = 0;
 }
@@ -40,10 +43,12 @@ AllocationHandle& AllocationHandle::operator=(AllocationHandle&& other) noexcept
 
     Reset();
     mAllocator = other.mAllocator;
+    mAllocationType = other.mAllocationType;
     mResource = std::move(other.mResource);
     mOffset = other.mOffset;
     mSize = other.mSize;
     other.mAllocator = nullptr;
+    other.mAllocationType = Interface::GraphicsAllocationType::Buffer;
     other.mOffset = 0;
     other.mSize = 0;
     return *this;
@@ -56,10 +61,11 @@ void AllocationHandle::Reset() {
     }
 
     if (mAllocator != nullptr && mSize > 0) {
-        mAllocator->FreeAllocation(mOffset, mSize);
+        mAllocator->FreeAllocation(mAllocationType, mOffset, mSize);
     }
 
     mAllocator = nullptr;
+    mAllocationType = Interface::GraphicsAllocationType::Buffer;
     mOffset = 0;
     mSize = 0;
 }
