@@ -76,8 +76,9 @@ namespace Core {
 			// Execute Render Tasks
 			Widget::PerformanceProvider::Get().BeginProfile("DX12 GPU Task");
 			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, mDrawCallResourceManager.GetFrameGlobalsSrvHandle(static_cast<uint32_t>(currentIndex)), mDrawCallResourceManager.GetModelContextSrvHandle(static_cast<uint32_t>(currentIndex)), mDrawCallResourceManager.GetDrawRecordSrvHandle(static_cast<uint32_t>(currentIndex)));
-			mWidgetCore.Render(mCommandList);
 			Widget::PerformanceProvider::Get().EndProfile();
+			Widget::PerformanceProvider::Get().EndProfile();
+			mWidgetCore.Render(mCommandList);
 
 
 
