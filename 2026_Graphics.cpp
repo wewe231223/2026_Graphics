@@ -137,9 +137,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     const Game::SceneYamlLoadResult SceneYamlLoadResult{ SceneYamlSerializer.DeserializeFromFile("Resources/DefaultScene.yaml", SceneInstance) };
     ErrorHandler::report(SceneYamlLoadResult.IsSuccess == false, "WinMain", "Failed to load scene yaml.", ErrorHandler::Level::Warning);
 
+	auto tex = Core::DX::Texture::LoadFromFile(directQueue.GetDevice(), &copyQueue, "Resources/DefaultScene/Paladin_diffuse.DDS");
+
 
     copyQueue.DispatchCopies();
     copyQueue.GuaranteeCopy(Core::DX::CopyQueueId::Model);
+	copyQueue.GuaranteeCopy(Core::DX::CopyQueueId::Texture);
 
 
     // 기본 메시지 루프입니다:

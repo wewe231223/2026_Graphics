@@ -7,6 +7,7 @@ namespace Core {
             static constexpr std::uint64_t DrawCallBegin{ 0 };
             static constexpr std::uint64_t DrawCallEnd{ 10 };
             static constexpr std::uint64_t Model{ 11 };
+            static constexpr std::uint64_t Texture{ 100 };
         }
     }
 }

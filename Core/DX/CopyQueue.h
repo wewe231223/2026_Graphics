@@ -37,6 +37,8 @@ namespace Core {
             bool Initialize(ID3D12Device* Device) override;
             bool EnqueueCopy(std::uint64_t CopyId, const Interface::CopyQueueCopyRequest& CopyRequest) override;
             bool EnqueueCopy(std::uint64_t CopyId, std::span<const Interface::CopyQueueCopyRequest> CopyRequests) override;
+            bool EnqueueTextureCopy(std::uint64_t CopyId, const Interface::CopyQueueTextureCopyRequest& CopyRequest) override;
+            bool EnqueueTextureCopy(std::uint64_t CopyId, std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests) override;
 
             void DispatchCopies() override;
             bool IsFenceComplete(std::uint64_t CopyId) const override;
@@ -51,9 +53,11 @@ namespace Core {
             };
 
             struct PreparedCopyRequest final {
+                bool IsTextureCopy{};
                 Microsoft::WRL::ComPtr<ID3D12Resource> DestinationDefaultResource{};
                 std::uint64_t DestinationOffset{};
                 std::uint64_t CopySize{};
+                std::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> Layouts{};
                 UploadAllocation Upload{};
             };
 
@@ -81,6 +85,7 @@ namespace Core {
             void WaitForSubmitFence(std::uint64_t FenceValue) const;
             std::uint64_t ResolveCopyIdToFenceValue(std::uint64_t CopyId) const;
             bool PrepareCopyRequests(std::span<const Interface::CopyQueueCopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests);
+            bool PrepareTextureCopyRequests(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests);
             void CollectCompletedUploads();
 
         private:

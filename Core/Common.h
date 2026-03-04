@@ -42,6 +42,12 @@ namespace Interface {
         std::vector<std::byte> SourceData{};
     };
 
+    struct CopyQueueTextureCopyRequest final {
+        Microsoft::WRL::ComPtr<ID3D12Resource> DestinationTextureResource{};
+        std::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> SourceLayouts{};
+        std::vector<std::byte> SourceData{};
+    };
+
     class ICopyQueue {
     public:
         virtual ~ICopyQueue() = default;
@@ -50,6 +56,8 @@ namespace Interface {
         virtual bool Initialize(ID3D12Device* Device) = 0;
         virtual bool EnqueueCopy(std::uint64_t CopyId, const CopyQueueCopyRequest& CopyRequest) = 0;
         virtual bool EnqueueCopy(std::uint64_t CopyId, std::span<const CopyQueueCopyRequest> CopyRequests) = 0;
+        virtual bool EnqueueTextureCopy(std::uint64_t CopyId, const CopyQueueTextureCopyRequest& CopyRequest) = 0;
+        virtual bool EnqueueTextureCopy(std::uint64_t CopyId, std::span<const CopyQueueTextureCopyRequest> CopyRequests) = 0;
 
         virtual void DispatchCopies() = 0;
         virtual bool IsFenceComplete(std::uint64_t CopyId) const = 0;

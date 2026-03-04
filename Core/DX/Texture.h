@@ -6,6 +6,7 @@
 #include <memory>
 #include <filesystem>
 #include "External/Include/DirectXTK12/d3dx12.h"
+#include "Core/Common.h"
 #include "Core/DX/DesciptorHeap.h" 
 
 namespace TextureUtils {
@@ -102,9 +103,9 @@ namespace Core {
             Texture& operator=(Texture&&) noexcept;
 
         public:
-            static Texture::Ptr LoadFromFile(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const std::filesystem::path& path);
             static Texture::Ptr CreateTarget(ID3D12Device* device, uint32_t width, uint32_t height, DXGI_FORMAT format, TextureUsage usage, const D3D12_CLEAR_VALUE* optimizedClearValue = nullptr, uint16_t mipLevels = 1);
             static Texture::Ptr CreateFromResource(ID3D12Resource* externalResource, const std::string& name);
+            static Texture::Ptr LoadFromFile(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, const std::filesystem::path& SourcePath);
 
         public:
             void CreateSRV(ID3D12Device* device, DescriptorHeap& heap);
@@ -117,7 +118,6 @@ namespace Core {
             D3D12_CPU_DESCRIPTOR_HANDLE GetRTV() const; 
             D3D12_CPU_DESCRIPTOR_HANDLE GetDSV() const; 
 
-            void ReleaseUploadBuffer();
             void Transition(ID3D12GraphicsCommandList* cmdList, D3D12_RESOURCE_STATES newState);
 
             ID3D12Resource* GetResource() const { return mResource.Get(); }
@@ -127,8 +127,6 @@ namespace Core {
 
         private:
             ComPtr<ID3D12Resource> mResource{ nullptr };
-            ComPtr<ID3D12Resource> mUploadHeap{ nullptr };
-
             D3D12_RESOURCE_DESC mResourceDESC{};
             D3D12_RESOURCE_STATES mCurrentState{ D3D12_RESOURCE_STATE_COMMON };
             std::string mName{};

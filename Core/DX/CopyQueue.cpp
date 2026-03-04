@@ -2,6 +2,7 @@
 #include <array>
 #include <cstring>
 #include <limits>
+#include <vector>
 #include "Utility/ErrorHandler.h"
 #include "Utility/StdOutput.h"
 
@@ -99,6 +100,34 @@ bool CopyQueue::EnqueueCopy(std::uint64_t CopyId, std::span<const Interface::Cop
     return true;
 }
 
+bool CopyQueue::EnqueueTextureCopy(std::uint64_t CopyId, const Interface::CopyQueueTextureCopyRequest& CopyRequest) {
+    std::array<Interface::CopyQueueTextureCopyRequest, 1> CopyRequests{ CopyRequest };
+    return EnqueueTextureCopy(CopyId, CopyRequests);
+}
+
+bool CopyQueue::EnqueueTextureCopy(std::uint64_t CopyId, std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests) {
+    CopyRequestBatch RequestBatch{};
+    RequestBatch.CopyId = CopyId;
+
+    bool IsPrepared{ PrepareTextureCopyRequests(CopyRequests, RequestBatch.CopyRequests) };
+    if (IsPrepared == false) {
+        return false;
+    }
+
+    {
+        std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
+        CopyIdFenceState& FenceState{ mCopyIdFenceStates[CopyId] };
+        FenceState.PendingBatchCount += 1;
+    }
+
+    {
+        std::lock_guard<std::mutex> QueueGuard{ mQueueMutex };
+        mPendingRequestBatches.push(std::move(RequestBatch));
+    }
+
+    return true;
+}
+
 void CopyQueue::DispatchCopies() {
     {
         std::lock_guard<std::mutex> QueueGuard{ mQueueMutex };
@@ -176,7 +205,27 @@ void CopyQueue::ExecuteRequestBatch(CopyRequestBatch& RequestBatch) {
 
     for (PreparedCopyRequest& PreparedCopyRequest : RequestBatch.CopyRequests) {
         ID3D12Resource* UploadResource{ PreparedCopyRequest.Upload.AllocationHandle->GetResource() };
-        mCopyCommandList->CopyBufferRegion(PreparedCopyRequest.DestinationDefaultResource.Get(), PreparedCopyRequest.DestinationOffset, UploadResource, 0, PreparedCopyRequest.CopySize);
+
+        if (PreparedCopyRequest.IsTextureCopy == true) {
+            UINT SubresourceCount{ static_cast<UINT>(PreparedCopyRequest.Layouts.size()) };
+            for (UINT SubresourceIndex = 0; SubresourceIndex < SubresourceCount; ++SubresourceIndex) {
+                D3D12_TEXTURE_COPY_LOCATION DestinationLocation{};
+                DestinationLocation.pResource = PreparedCopyRequest.DestinationDefaultResource.Get();
+                DestinationLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+                DestinationLocation.SubresourceIndex = SubresourceIndex;
+
+                D3D12_TEXTURE_COPY_LOCATION SourceLocation{};
+                SourceLocation.pResource = UploadResource;
+                SourceLocation.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+                SourceLocation.PlacedFootprint = PreparedCopyRequest.Layouts[SubresourceIndex];
+
+                mCopyCommandList->CopyTextureRegion(&DestinationLocation, 0, 0, 0, &SourceLocation, nullptr);
+            }
+        }
+        else {
+            mCopyCommandList->CopyBufferRegion(PreparedCopyRequest.DestinationDefaultResource.Get(), PreparedCopyRequest.DestinationOffset, UploadResource, 0, PreparedCopyRequest.CopySize);
+        }
+
         BatchUploads.push_back(std::move(PreparedCopyRequest.Upload));
     }
 
@@ -308,9 +357,61 @@ bool CopyQueue::PrepareCopyRequests(std::span<const Interface::CopyQueueCopyRequ
         UploadAllocationHandle->GetResource()->Unmap(0, nullptr);
 
         PreparedCopyRequest NewPreparedCopyRequest{};
+        NewPreparedCopyRequest.IsTextureCopy = false;
         NewPreparedCopyRequest.DestinationDefaultResource = CopyRequest.DestinationDefaultResource;
         NewPreparedCopyRequest.DestinationOffset = CopyRequest.DestinationOffset;
         NewPreparedCopyRequest.CopySize = static_cast<std::uint64_t>(CopyRequest.SourceData.size());
+        NewPreparedCopyRequest.Upload.AllocationHandle = std::move(UploadAllocationHandle);
+        PreparedRequests.push_back(std::move(NewPreparedCopyRequest));
+    }
+
+    OutPreparedRequests = std::move(PreparedRequests);
+    return true;
+}
+
+bool CopyQueue::PrepareTextureCopyRequests(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests) {
+    std::vector<PreparedCopyRequest> PreparedRequests{};
+    PreparedRequests.reserve(CopyRequests.size());
+
+    std::lock_guard<std::mutex> UploadAllocatorGuard{ mUploadAllocatorMutex };
+
+    for (const Interface::CopyQueueTextureCopyRequest& CopyRequest : CopyRequests) {
+        if (CopyRequest.DestinationTextureResource == nullptr) {
+            return false;
+        }
+
+        if (CopyRequest.SourceLayouts.empty() == true or CopyRequest.SourceData.empty() == true) {
+            continue;
+        }
+
+        D3D12_RESOURCE_DESC UploadResourceDescription{};
+        UploadResourceDescription.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+        UploadResourceDescription.Alignment = 0;
+        UploadResourceDescription.Width = static_cast<UINT64>(CopyRequest.SourceData.size());
+        UploadResourceDescription.Height = 1;
+        UploadResourceDescription.DepthOrArraySize = 1;
+        UploadResourceDescription.MipLevels = 1;
+        UploadResourceDescription.Format = DXGI_FORMAT_UNKNOWN;
+        UploadResourceDescription.SampleDesc.Count = 1;
+        UploadResourceDescription.SampleDesc.Quality = 0;
+        UploadResourceDescription.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        UploadResourceDescription.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+        std::unique_ptr<Interface::IAllocationHandle> UploadAllocationHandle{ mUploadAllocator.AllocatePlacedResource(UploadResourceDescription, D3D12_RESOURCE_STATE_GENERIC_READ) };
+        if (UploadAllocationHandle == nullptr or UploadAllocationHandle->IsValid() == false) {
+            return false;
+        }
+
+        void* UploadMappedData{};
+        ErrorHandler::report(UploadAllocationHandle->GetResource()->Map(0, nullptr, &UploadMappedData), "CopyQueue", "Failed to map texture upload resource.", ErrorHandler::Level::Critical);
+        std::memcpy(UploadMappedData, CopyRequest.SourceData.data(), CopyRequest.SourceData.size());
+        UploadAllocationHandle->GetResource()->Unmap(0, nullptr);
+
+        PreparedCopyRequest NewPreparedCopyRequest{};
+        NewPreparedCopyRequest.IsTextureCopy = true;
+        NewPreparedCopyRequest.DestinationDefaultResource = CopyRequest.DestinationTextureResource;
+        NewPreparedCopyRequest.CopySize = static_cast<std::uint64_t>(CopyRequest.SourceData.size());
+        NewPreparedCopyRequest.Layouts = CopyRequest.SourceLayouts;
         NewPreparedCopyRequest.Upload.AllocationHandle = std::move(UploadAllocationHandle);
         PreparedRequests.push_back(std::move(NewPreparedCopyRequest));
     }
