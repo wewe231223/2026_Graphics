@@ -48,12 +48,12 @@ namespace Interface {
 
     public:
         virtual bool Initialize(ID3D12Device* Device) = 0;
-        virtual std::uint64_t EnqueueCopy(const CopyQueueCopyRequest& CopyRequest) = 0;
-        virtual std::uint64_t EnqueueCopy(std::span<const CopyQueueCopyRequest> CopyRequests) = 0;
+        virtual bool EnqueueCopy(std::uint64_t CopyId, const CopyQueueCopyRequest& CopyRequest) = 0;
+        virtual bool EnqueueCopy(std::uint64_t CopyId, std::span<const CopyQueueCopyRequest> CopyRequests) = 0;
 
         virtual void DispatchCopies() = 0;
-        virtual bool IsFenceComplete(std::uint64_t FenceValue) const = 0;
-        virtual void WaitForFence(std::uint64_t FenceValue) const = 0;
+        virtual bool IsFenceComplete(std::uint64_t CopyId) const = 0;
+        virtual void GuaranteeCopy(std::uint64_t CopyId) const = 0;
         virtual void Flush() = 0;
 
         virtual std::uint64_t GetRequiredUploadBufferSize() const = 0;

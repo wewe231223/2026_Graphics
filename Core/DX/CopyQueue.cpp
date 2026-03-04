@@ -1,44 +1,36 @@
 ﻿#include "CopyQueue.h"
 #include <array>
 #include <cstring>
-#include <utility>
+#include <limits>
 #include "Utility/ErrorHandler.h"
 
 using namespace Core::DX;
 
-CopyQueue::CopyQueue(ID3D12Device* device)
+CopyQueue::CopyQueue(ID3D12Device* Device)
     : mCopyCommandQueue{},
-    mCopyCommandAllocators{},
+    mCopyCommandAllocator{},
     mCopyCommandList{},
     mCopyFence{},
-    mUploadHeapSlots{},
-    mUploadBufferSize{ DefaultUploadBufferSize },
-    mCurrentUploadHeapSlotIndex{},
+    mUploadAllocator{},
     mFenceEvent{},
     mQueueMutex{},
     mFenceMutex{},
+    mUploadAllocatorMutex{},
     mQueueCondition{},
+    mFenceCondition{},
     mPendingRequestBatches{},
+    mInFlightUploads{},
     mDispatchRequested{ false },
     mWorkerThread{},
     mIsRunning{ true },
-    mRequestedFenceValueCounter{ 0 },
     mSubmitFenceValueCounter{ 0 },
-    mAllocatorFenceValues{},
-    mRequestedFenceToCompletedSubmitFence{} {
-    bool InitializeResult{ Initialize(device) };
+    mCopyIdFenceStates{} {
+    bool InitializeResult{ Initialize(Device) };
     ErrorHandler::report(InitializeResult == false, "CopyQueue", "Failed to initialize copy queue.", ErrorHandler::Level::Critical);
 }
 
 CopyQueue::~CopyQueue() {
     StopWorker();
-
-    for (UploadHeapSlot& UploadHeapSlot : mUploadHeapSlots) {
-        if (UploadHeapSlot.UploadHeapResource != nullptr) {
-            UploadHeapSlot.UploadHeapResource->Unmap(0, nullptr);
-            UploadHeapSlot.UploadHeapMappedData = nullptr;
-        }
-    }
 
     if (mFenceEvent != nullptr) {
         CloseHandle(mFenceEvent);
@@ -46,8 +38,8 @@ CopyQueue::~CopyQueue() {
     }
 }
 
-bool CopyQueue::Initialize(ID3D12Device* device) {
-    if (device == nullptr) {
+bool CopyQueue::Initialize(ID3D12Device* Device) {
+    if (Device == nullptr) {
         return false;
     }
 
@@ -56,15 +48,12 @@ bool CopyQueue::Initialize(ID3D12Device* device) {
     QueueDescription.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
     QueueDescription.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
     QueueDescription.NodeMask = 0;
-    ErrorHandler::report(device->CreateCommandQueue(&QueueDescription, IID_PPV_ARGS(mCopyCommandQueue.GetAddressOf())), "CopyQueue", "Failed to create copy command queue.", ErrorHandler::Level::Critical);
+    ErrorHandler::report(Device->CreateCommandQueue(&QueueDescription, IID_PPV_ARGS(mCopyCommandQueue.GetAddressOf())), "CopyQueue", "Failed to create copy command queue.", ErrorHandler::Level::Critical);
 
-    for (size_t AllocatorIndex{ 0 }; AllocatorIndex < CopyAllocatorCount; AllocatorIndex++) {
-        ErrorHandler::report(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(mCopyCommandAllocators[AllocatorIndex].GetAddressOf())), "CopyQueue", "Failed to create copy command allocator.", ErrorHandler::Level::Critical);
-    }
-
-    ErrorHandler::report(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, mCopyCommandAllocators[0].Get(), nullptr, IID_PPV_ARGS(mCopyCommandList.GetAddressOf())), "CopyQueue", "Failed to create copy command list.", ErrorHandler::Level::Critical);
+    ErrorHandler::report(Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(mCopyCommandAllocator.GetAddressOf())), "CopyQueue", "Failed to create copy command allocator.", ErrorHandler::Level::Critical);
+    ErrorHandler::report(Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, mCopyCommandAllocator.Get(), nullptr, IID_PPV_ARGS(mCopyCommandList.GetAddressOf())), "CopyQueue", "Failed to create copy command list.", ErrorHandler::Level::Critical);
     ErrorHandler::report(mCopyCommandList->Close(), "CopyQueue", "Failed to close initial copy command list.", ErrorHandler::Level::Critical);
-    ErrorHandler::report(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(mCopyFence.GetAddressOf())), "CopyQueue", "Failed to create copy queue fence.", ErrorHandler::Level::Critical);
+    ErrorHandler::report(Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(mCopyFence.GetAddressOf())), "CopyQueue", "Failed to create copy queue fence.", ErrorHandler::Level::Critical);
 
     D3D12_HEAP_PROPERTIES UploadHeapProperties{};
     UploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -72,27 +61,7 @@ bool CopyQueue::Initialize(ID3D12Device* device) {
     UploadHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
     UploadHeapProperties.CreationNodeMask = 1;
     UploadHeapProperties.VisibleNodeMask = 1;
-
-    D3D12_RESOURCE_DESC UploadBufferDescription{};
-    UploadBufferDescription.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    UploadBufferDescription.Alignment = 0;
-    UploadBufferDescription.Width = mUploadBufferSize;
-    UploadBufferDescription.Height = 1;
-    UploadBufferDescription.DepthOrArraySize = 1;
-    UploadBufferDescription.MipLevels = 1;
-    UploadBufferDescription.Format = DXGI_FORMAT_UNKNOWN;
-    UploadBufferDescription.SampleDesc.Count = 1;
-    UploadBufferDescription.SampleDesc.Quality = 0;
-    UploadBufferDescription.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-    UploadBufferDescription.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-    for (UploadHeapSlot& UploadHeapSlot : mUploadHeapSlots) {
-        UploadHeapSlot.UploadHeapMappedData = nullptr;
-        UploadHeapSlot.WriteOffset = 0;
-        UploadHeapSlot.SlotFenceValue = 0;
-        ErrorHandler::report(device->CreateCommittedResource(&UploadHeapProperties, D3D12_HEAP_FLAG_NONE, &UploadBufferDescription, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(UploadHeapSlot.UploadHeapResource.GetAddressOf())), "CopyQueue", "Failed to create copy queue upload buffer.", ErrorHandler::Level::Critical);
-        ErrorHandler::report(UploadHeapSlot.UploadHeapResource->Map(0, nullptr, reinterpret_cast<void**>(&UploadHeapSlot.UploadHeapMappedData)), "CopyQueue", "Failed to map copy queue upload buffer.", ErrorHandler::Level::Critical);
-    }
+    ErrorHandler::report(mUploadAllocator.Initialize(Device, UploadAllocatorHeapSize, UploadHeapProperties) == false, "CopyQueue", "Failed to initialize upload allocator.", ErrorHandler::Level::Critical);
 
     mFenceEvent = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
     ErrorHandler::report(mFenceEvent == nullptr, "CopyQueue", "Failed to create copy queue fence event.", ErrorHandler::Level::Critical);
@@ -101,29 +70,32 @@ bool CopyQueue::Initialize(ID3D12Device* device) {
     return true;
 }
 
-uint64_t CopyQueue::EnqueueCopy(const Interface::CopyQueueCopyRequest& copyRequest) {
-    std::array<Interface::CopyQueueCopyRequest, 1> CopyRequests{ copyRequest };
-    return EnqueueCopy(CopyRequests);
+bool CopyQueue::EnqueueCopy(std::uint64_t CopyId, const Interface::CopyQueueCopyRequest& CopyRequest) {
+    std::array<Interface::CopyQueueCopyRequest, 1> CopyRequests{ CopyRequest };
+    return EnqueueCopy(CopyId, CopyRequests);
 }
 
-uint64_t CopyQueue::EnqueueCopy(std::span<const Interface::CopyQueueCopyRequest> copyRequests) {
-    uint64_t RequestedFenceValue{ mRequestedFenceValueCounter.fetch_add(1) + 1 };
-
+bool CopyQueue::EnqueueCopy(std::uint64_t CopyId, std::span<const Interface::CopyQueueCopyRequest> CopyRequests) {
     CopyRequestBatch RequestBatch{};
-    RequestBatch.RequestedFenceValue = RequestedFenceValue;
-    RequestBatch.CopyRequests.assign(copyRequests.begin(), copyRequests.end());
+    RequestBatch.CopyId = CopyId;
+
+    bool IsPrepared{ PrepareCopyRequests(CopyRequests, RequestBatch.CopyRequests) };
+    if (IsPrepared == false) {
+        return false;
+    }
+
+    {
+        std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
+        CopyIdFenceState& FenceState{ mCopyIdFenceStates[CopyId] };
+        FenceState.PendingBatchCount += 1;
+    }
 
     {
         std::lock_guard<std::mutex> QueueGuard{ mQueueMutex };
         mPendingRequestBatches.push(std::move(RequestBatch));
     }
 
-    {
-        std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
-        mRequestedFenceToCompletedSubmitFence.emplace(RequestedFenceValue, PendingSubmitFenceValue);
-    }
-
-    return RequestedFenceValue;
+    return true;
 }
 
 void CopyQueue::DispatchCopies() {
@@ -135,13 +107,13 @@ void CopyQueue::DispatchCopies() {
     mQueueCondition.notify_one();
 }
 
-bool CopyQueue::IsFenceComplete(uint64_t fenceValue) const {
-    uint64_t SubmitFenceValue{ ResolveRequestedFenceValue(fenceValue) };
+bool CopyQueue::IsFenceComplete(std::uint64_t CopyId) const {
+    std::uint64_t SubmitFenceValue{ ResolveCopyIdToFenceValue(CopyId) };
     return IsSubmitFenceComplete(SubmitFenceValue);
 }
 
-void CopyQueue::WaitForFence(uint64_t fenceValue) const {
-    uint64_t SubmitFenceValue{ ResolveRequestedFenceValue(fenceValue) };
+void CopyQueue::GuaranteeCopy(std::uint64_t CopyId) const {
+    std::uint64_t SubmitFenceValue{ ResolveCopyIdToFenceValue(CopyId) };
     WaitForSubmitFence(SubmitFenceValue);
 }
 
@@ -150,8 +122,8 @@ void CopyQueue::Flush() {
     WaitForQueueIdle();
 }
 
-uint64_t CopyQueue::GetRequiredUploadBufferSize() const {
-    return DefaultUploadBufferSize;
+std::uint64_t CopyQueue::GetRequiredUploadBufferSize() const {
+    return UploadAllocatorHeapSize;
 }
 
 void CopyQueue::WorkerLoop() {
@@ -178,64 +150,62 @@ void CopyQueue::WorkerLoop() {
     }
 }
 
-void CopyQueue::ExecuteRequestBatch(const CopyRequestBatch& requestBatch) {
-    if (requestBatch.CopyRequests.empty() == true) {
+void CopyQueue::ExecuteRequestBatch(CopyRequestBatch& RequestBatch) {
+    CollectCompletedUploads();
+
+    if (RequestBatch.CopyRequests.empty() == true) {
         {
             std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
-            mRequestedFenceToCompletedSubmitFence[requestBatch.RequestedFenceValue] = mSubmitFenceValueCounter.load();
+            CopyIdFenceState& FenceState{ mCopyIdFenceStates[RequestBatch.CopyId] };
+            FenceState.LastSubmitFenceValue = mSubmitFenceValueCounter.load();
+            if (FenceState.PendingBatchCount > 0) {
+                FenceState.PendingBatchCount -= 1;
+            }
         }
 
         mFenceCondition.notify_all();
         return;
     }
 
-    size_t AllocatorIndex{ 0 };
-    std::vector<bool> RequestTouchedMask(requestBatch.CopyRequests.size(), false);
-    std::vector<uint64_t> RequestCompletedSubmitFenceValues(requestBatch.CopyRequests.size(), 0);
+    ErrorHandler::report(mCopyCommandAllocator->Reset(), "CopyQueue", "Failed to reset copy command allocator.", ErrorHandler::Level::Critical);
+    ErrorHandler::report(mCopyCommandList->Reset(mCopyCommandAllocator.Get(), nullptr), "CopyQueue", "Failed to reset copy command list.", ErrorHandler::Level::Critical);
 
-    PrepareAllocatorForRecording(AllocatorIndex);
+    std::vector<UploadAllocation> BatchUploads{};
+    BatchUploads.reserve(RequestBatch.CopyRequests.size());
 
-    for (size_t RequestIndex{ 0 }; RequestIndex < requestBatch.CopyRequests.size(); RequestIndex++) {
-        const Interface::CopyQueueCopyRequest& CopyRequest{ requestBatch.CopyRequests[RequestIndex] };
-        UINT64 RemainingSize{ static_cast<UINT64>(CopyRequest.SourceData.size()) };
-        UINT64 SourceOffset{};
-
-        while (RemainingSize > 0) {
-            UploadHeapSlot& UploadHeapSlot{ mUploadHeapSlots[mCurrentUploadHeapSlotIndex] };
-            UINT64 RemainingSlotCapacity{ mUploadBufferSize - UploadHeapSlot.WriteOffset };
-
-            if (RemainingSlotCapacity == 0) {
-                bool Switched{ TrySwitchUploadHeapSlot(mCurrentUploadHeapSlotIndex, AllocatorIndex, RequestTouchedMask, RequestCompletedSubmitFenceValues) };
-                ErrorHandler::report(Switched == false, "CopyQueue", "Failed to switch upload heap slot.", ErrorHandler::Level::Critical);
-                continue;
-            }
-
-            UINT64 ChunkSize{ RemainingSize > RemainingSlotCapacity ? RemainingSlotCapacity : RemainingSize };
-            std::memcpy(UploadHeapSlot.UploadHeapMappedData + UploadHeapSlot.WriteOffset, CopyRequest.SourceData.data() + SourceOffset, static_cast<size_t>(ChunkSize));
-            mCopyCommandList->CopyBufferRegion(CopyRequest.DestinationDefaultResource.Get(), CopyRequest.DestinationOffset + SourceOffset, UploadHeapSlot.UploadHeapResource.Get(), UploadHeapSlot.WriteOffset, ChunkSize);
-            UploadHeapSlot.WriteOffset += ChunkSize;
-            SourceOffset += ChunkSize;
-            RemainingSize -= ChunkSize;
-            RequestTouchedMask[RequestIndex] = true;
-        }
+    for (PreparedCopyRequest& PreparedCopyRequest : RequestBatch.CopyRequests) {
+        ID3D12Resource* UploadResource{ PreparedCopyRequest.Upload.AllocationHandle->GetResource() };
+        mCopyCommandList->CopyBufferRegion(PreparedCopyRequest.DestinationDefaultResource.Get(), PreparedCopyRequest.DestinationOffset, UploadResource, 0, PreparedCopyRequest.CopySize);
+        BatchUploads.push_back(std::move(PreparedCopyRequest.Upload));
     }
 
-    uint64_t FinalSubmitFenceValue{ SubmitCurrentCommandList(AllocatorIndex, RequestTouchedMask, RequestCompletedSubmitFenceValues) };
-    ErrorHandler::report(FinalSubmitFenceValue == 0, "CopyQueue", "Failed to submit copy command list.", ErrorHandler::Level::Critical);
+    ErrorHandler::report(mCopyCommandList->Close(), "CopyQueue", "Failed to close copy command list.", ErrorHandler::Level::Critical);
 
-    uint64_t RequestedFenceCompletedSubmitFenceValue{ 0 };
-    for (uint64_t RequestCompletedSubmitFenceValue : RequestCompletedSubmitFenceValues) {
-        if (RequestedFenceCompletedSubmitFenceValue < RequestCompletedSubmitFenceValue) {
-            RequestedFenceCompletedSubmitFenceValue = RequestCompletedSubmitFenceValue;
-        }
-    }
+    ID3D12CommandList* CommandLists[]{ mCopyCommandList.Get() };
+    mCopyCommandQueue->ExecuteCommandLists(1, CommandLists);
+
+    std::uint64_t SubmitFenceValue{ mSubmitFenceValueCounter.fetch_add(1) + 1 };
+    ErrorHandler::report(mCopyCommandQueue->Signal(mCopyFence.Get(), SubmitFenceValue), "CopyQueue", "Failed to signal copy queue fence.", ErrorHandler::Level::Critical);
 
     {
         std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
-        mRequestedFenceToCompletedSubmitFence[requestBatch.RequestedFenceValue] = RequestedFenceCompletedSubmitFenceValue;
+        CopyIdFenceState& FenceState{ mCopyIdFenceStates[RequestBatch.CopyId] };
+        if (FenceState.LastSubmitFenceValue < SubmitFenceValue) {
+            FenceState.LastSubmitFenceValue = SubmitFenceValue;
+        }
+
+        if (FenceState.PendingBatchCount > 0) {
+            FenceState.PendingBatchCount -= 1;
+        }
     }
 
+    InFlightUpload UploadBatch{};
+    UploadBatch.SubmitFenceValue = SubmitFenceValue;
+    UploadBatch.Uploads = std::move(BatchUploads);
+    mInFlightUploads.push_back(std::move(UploadBatch));
+
     mFenceCondition.notify_all();
+    CollectCompletedUploads();
 }
 
 void CopyQueue::StopWorker() {
@@ -247,103 +217,114 @@ void CopyQueue::StopWorker() {
             mWorkerThread.join();
         }
     }
+
+    CollectCompletedUploads();
 }
 
 void CopyQueue::WaitForQueueIdle() {
-    uint64_t RequestedFenceValue{ EnqueueCopy(std::span<const Interface::CopyQueueCopyRequest>{}) };
+    static constexpr std::uint64_t IdleCopyId{ std::numeric_limits<std::uint64_t>::max() };
+    bool EnqueueResult{ EnqueueCopy(IdleCopyId, std::span<const Interface::CopyQueueCopyRequest>{}) };
+    ErrorHandler::report(EnqueueResult == false, "CopyQueue", "Failed to enqueue idle marker.", ErrorHandler::Level::Critical);
     DispatchCopies();
-    WaitForFence(RequestedFenceValue);
+    GuaranteeCopy(IdleCopyId);
 }
 
-
-bool CopyQueue::IsSubmitFenceComplete(uint64_t fenceValue) const {
-    return mCopyFence->GetCompletedValue() >= fenceValue;
+bool CopyQueue::IsSubmitFenceComplete(std::uint64_t FenceValue) const {
+    return mCopyFence->GetCompletedValue() >= FenceValue;
 }
 
-void CopyQueue::WaitForSubmitFence(uint64_t fenceValue) const {
-    if (IsSubmitFenceComplete(fenceValue) == true) {
+void CopyQueue::WaitForSubmitFence(std::uint64_t FenceValue) const {
+    if (IsSubmitFenceComplete(FenceValue) == true) {
         return;
     }
 
     std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
-    ErrorHandler::report(mCopyFence->SetEventOnCompletion(fenceValue, mFenceEvent), "CopyQueue", "Failed to set copy queue fence completion event.", ErrorHandler::Level::Critical);
+    ErrorHandler::report(mCopyFence->SetEventOnCompletion(FenceValue, mFenceEvent), "CopyQueue", "Failed to set copy queue fence completion event.", ErrorHandler::Level::Critical);
     WaitForSingleObjectEx(mFenceEvent, INFINITE, FALSE);
 }
 
-uint64_t CopyQueue::ResolveRequestedFenceValue(uint64_t fenceValue) const {
+std::uint64_t CopyQueue::ResolveCopyIdToFenceValue(std::uint64_t CopyId) const {
     std::unique_lock<std::mutex> FenceGuard{ mFenceMutex };
-    std::unordered_map<uint64_t, uint64_t>::const_iterator FoundFence{ mRequestedFenceToCompletedSubmitFence.find(fenceValue) };
-    if (FoundFence == mRequestedFenceToCompletedSubmitFence.end()) {
-        return fenceValue;
+    std::unordered_map<std::uint64_t, CopyIdFenceState>::const_iterator FoundFence{ mCopyIdFenceStates.find(CopyId) };
+    if (FoundFence == mCopyIdFenceStates.end()) {
+        return CopyId;
     }
 
-    mFenceCondition.wait(FenceGuard, [this, fenceValue] {
-        std::unordered_map<uint64_t, uint64_t>::const_iterator CurrentFence{ mRequestedFenceToCompletedSubmitFence.find(fenceValue) };
-        if (CurrentFence == mRequestedFenceToCompletedSubmitFence.end()) {
+    mFenceCondition.wait(FenceGuard, [this, CopyId] {
+        std::unordered_map<std::uint64_t, CopyIdFenceState>::const_iterator CurrentFence{ mCopyIdFenceStates.find(CopyId) };
+        if (CurrentFence == mCopyIdFenceStates.end()) {
             return true;
         }
 
-        return CurrentFence->second != PendingSubmitFenceValue;
+        return CurrentFence->second.PendingBatchCount == 0;
     });
 
-    FoundFence = mRequestedFenceToCompletedSubmitFence.find(fenceValue);
-    if (FoundFence == mRequestedFenceToCompletedSubmitFence.end()) {
-        return fenceValue;
+    FoundFence = mCopyIdFenceStates.find(CopyId);
+    if (FoundFence == mCopyIdFenceStates.end()) {
+        return CopyId;
     }
 
-    return FoundFence->second;
+    return FoundFence->second.LastSubmitFenceValue;
 }
 
-void CopyQueue::PrepareAllocatorForRecording(size_t allocatorIndex) {
-    uint64_t AllocatorFenceValue{ mAllocatorFenceValues[allocatorIndex] };
-    if (AllocatorFenceValue > 0) {
-        WaitForSubmitFence(AllocatorFenceValue);
-    }
+bool CopyQueue::PrepareCopyRequests(std::span<const Interface::CopyQueueCopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests) {
+    std::vector<PreparedCopyRequest> PreparedRequests{};
+    PreparedRequests.reserve(CopyRequests.size());
 
-    ErrorHandler::report(mCopyCommandAllocators[allocatorIndex]->Reset(), "CopyQueue", "Failed to reset copy command allocator.", ErrorHandler::Level::Critical);
-    ErrorHandler::report(mCopyCommandList->Reset(mCopyCommandAllocators[allocatorIndex].Get(), nullptr), "CopyQueue", "Failed to reset copy command list.", ErrorHandler::Level::Critical);
-}
+    std::lock_guard<std::mutex> UploadAllocatorGuard{ mUploadAllocatorMutex };
 
-uint64_t CopyQueue::SubmitCurrentCommandList(size_t allocatorIndex, std::vector<bool>& requestTouchedMask, std::vector<uint64_t>& requestCompletedSubmitFenceValues) {
-    ErrorHandler::report(mCopyCommandList->Close(), "CopyQueue", "Failed to close copy command list.", ErrorHandler::Level::Critical);
-
-    ID3D12CommandList* CommandLists[]{ mCopyCommandList.Get() };
-    mCopyCommandQueue->ExecuteCommandLists(1, CommandLists);
-
-    uint64_t SubmitFenceValue{ mSubmitFenceValueCounter.fetch_add(1) + 1 };
-    {
-        std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
-        ErrorHandler::report(mCopyCommandQueue->Signal(mCopyFence.Get(), SubmitFenceValue), "CopyQueue", "Failed to signal copy queue fence.", ErrorHandler::Level::Critical);
-    }
-
-    mAllocatorFenceValues[allocatorIndex] = SubmitFenceValue;
-    mUploadHeapSlots[mCurrentUploadHeapSlotIndex].SlotFenceValue = SubmitFenceValue;
-
-    for (size_t RequestIndex{ 0 }; RequestIndex < requestTouchedMask.size(); RequestIndex++) {
-        if (requestTouchedMask[RequestIndex] == true and requestCompletedSubmitFenceValues[RequestIndex] < SubmitFenceValue) {
-            requestCompletedSubmitFenceValues[RequestIndex] = SubmitFenceValue;
-            requestTouchedMask[RequestIndex] = false;
+    for (const Interface::CopyQueueCopyRequest& CopyRequest : CopyRequests) {
+        if (CopyRequest.DestinationDefaultResource == nullptr) {
+            return false;
         }
+
+        if (CopyRequest.SourceData.empty() == true) {
+            continue;
+        }
+
+        D3D12_RESOURCE_DESC UploadResourceDescription{};
+        UploadResourceDescription.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+        UploadResourceDescription.Alignment = 0;
+        UploadResourceDescription.Width = static_cast<UINT64>(CopyRequest.SourceData.size());
+        UploadResourceDescription.Height = 1;
+        UploadResourceDescription.DepthOrArraySize = 1;
+        UploadResourceDescription.MipLevels = 1;
+        UploadResourceDescription.Format = DXGI_FORMAT_UNKNOWN;
+        UploadResourceDescription.SampleDesc.Count = 1;
+        UploadResourceDescription.SampleDesc.Quality = 0;
+        UploadResourceDescription.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        UploadResourceDescription.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+        std::unique_ptr<Interface::IAllocationHandle> UploadAllocationHandle{ mUploadAllocator.AllocatePlacedResource(UploadResourceDescription, D3D12_RESOURCE_STATE_GENERIC_READ) };
+        if (UploadAllocationHandle == nullptr or UploadAllocationHandle->IsValid() == false) {
+            return false;
+        }
+
+        void* UploadMappedData{};
+        ErrorHandler::report(UploadAllocationHandle->GetResource()->Map(0, nullptr, &UploadMappedData), "CopyQueue", "Failed to map upload resource.", ErrorHandler::Level::Critical);
+        std::memcpy(UploadMappedData, CopyRequest.SourceData.data(), CopyRequest.SourceData.size());
+        UploadAllocationHandle->GetResource()->Unmap(0, nullptr);
+
+        PreparedCopyRequest NewPreparedCopyRequest{};
+        NewPreparedCopyRequest.DestinationDefaultResource = CopyRequest.DestinationDefaultResource;
+        NewPreparedCopyRequest.DestinationOffset = CopyRequest.DestinationOffset;
+        NewPreparedCopyRequest.CopySize = static_cast<std::uint64_t>(CopyRequest.SourceData.size());
+        NewPreparedCopyRequest.Upload.AllocationHandle = std::move(UploadAllocationHandle);
+        PreparedRequests.push_back(std::move(NewPreparedCopyRequest));
     }
 
-    return SubmitFenceValue;
+    OutPreparedRequests = std::move(PreparedRequests);
+    return true;
 }
 
-bool CopyQueue::TrySwitchUploadHeapSlot(size_t& slotIndex, size_t& allocatorIndex, std::vector<bool>& requestTouchedMask, std::vector<uint64_t>& requestCompletedSubmitFenceValues) {
-    uint64_t SubmittedFenceValue{ SubmitCurrentCommandList(allocatorIndex, requestTouchedMask, requestCompletedSubmitFenceValues) };
-    if (SubmittedFenceValue == 0) {
-        return false;
+void CopyQueue::CollectCompletedUploads() {
+    std::lock_guard<std::mutex> UploadAllocatorGuard{ mUploadAllocatorMutex };
+
+    while (mInFlightUploads.empty() == false) {
+        if (IsSubmitFenceComplete(mInFlightUploads.front().SubmitFenceValue) == false) {
+            break;
+        }
+
+        mInFlightUploads.pop_front();
     }
-
-    slotIndex = (slotIndex + 1) % UploadHeapSlotCount;
-    UploadHeapSlot& NextUploadHeapSlot{ mUploadHeapSlots[slotIndex] };
-    if (NextUploadHeapSlot.SlotFenceValue > 0) {
-        WaitForSubmitFence(NextUploadHeapSlot.SlotFenceValue);
-    }
-
-    NextUploadHeapSlot.WriteOffset = 0;
-
-    allocatorIndex = (allocatorIndex + 1) % CopyAllocatorCount;
-    PrepareAllocatorForRecording(allocatorIndex);
-    return true;
 }

@@ -22,10 +22,9 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Game/Base/Time.h"
 #include "Game/Scene/Scene.h"
 #include "Game/Scene/SceneYamlSerializer.h"
-
 #include "External/Include/ImGui/imgui.h"
-#include "External/Include/ImGui/imgui_impl_win32.h"
 #include "Widget/PerformanceProvider.h"
+#include "Core/DX/CopyQueueId.h"
 
 #ifdef _MSC_VER
     #ifdef _DEBUG
@@ -139,6 +138,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     ErrorHandler::report(SceneYamlLoadResult.IsSuccess == false, "WinMain", "Failed to load scene yaml.", ErrorHandler::Level::Warning);
 
 
+    //copyQueue.DispatchCopies();
+    //copyQueue.GuaranteeCopy(Core::DX::CopyQueueId::Model);
 
     // 기본 메시지 루프입니다:
     while (true) {

@@ -14,9 +14,6 @@
     <Filter Include="Core\DX">
       <UniqueIdentifier>{e438a1ae-69c9-4858-902e-634856073c70}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Core\Task">
-      <UniqueIdentifier>{7a5c24c3-af86-4a8f-90ba-0a3cf15886c0}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="2026_Graphics.rc">
@@ -65,6 +62,12 @@
     <ClCompile Include="Core\DX\GraphicsVector.cpp">
       <Filter>Core\DX</Filter>
     </ClCompile>
+    <ClCompile Include="Core\DX\DrawCallResourceManager.cpp">
+      <Filter>Core\DX</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\DX\DrawCallDispatcher.cpp">
+      <Filter>Core\DX</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="2026_Graphics.h">
@@ -110,6 +113,15 @@
       <Filter>Core\DX</Filter>
     </ClInclude>
     <ClInclude Include="Core\Common.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DX\DrawCallResourceManager.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DX\DrawCallDispatcher.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DX\CopyQueueId.h">
       <Filter>Core\DX</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,6 +1,7 @@
-#include "DrawCallResourceManager.h"
+﻿#include "DrawCallResourceManager.h"
 #include <algorithm>
 #include "Core/DX/GraphicsAllocator.h"
+#include "Core/DX/CopyQueueId.h"
 #include "Utility/ErrorHandler.h"
 
 namespace Core {
@@ -50,9 +51,13 @@ namespace Core {
 			ErrorHandler::report(DrawRecordCopyResult == false, "DrawCallResourceManager", "Failed to copy draw record data.", ErrorHandler::Level::Critical);
 
 			std::array<Interface::CopyQueueCopyRequest, 3> CopyRequests{ FrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), ModelContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), DrawRecordVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
-			uint64_t FenceValue = CopyQueue.EnqueueCopy(CopyRequests);
+			uint64_t CopyId = CopyQueueId::DrawCallBegin + static_cast<uint64_t>(RtvIndex);
+			bool IsCopyIdValid = CopyId <= CopyQueueId::DrawCallEnd;
+			ErrorHandler::report(IsCopyIdValid == false, "DrawCallResourceManager", "Invalid draw call copy id.", ErrorHandler::Level::Critical);
+			bool EnqueueResult = CopyQueue.EnqueueCopy(CopyId, CopyRequests);
+			ErrorHandler::report(EnqueueResult == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
 			CopyQueue.DispatchCopies();
-			mPerFrameCopyFenceValues[RtvIndex] = FenceValue;
+			mPerFrameCopyFenceValues[RtvIndex] = CopyId;
 
 			DrawCallResourceManager::UpdateShaderResourceViews(RtvIndex, 1, static_cast<uint32_t>(Data.modelContexts.size()), static_cast<uint32_t>(mDrawRecordsGpu.size()));
 		}
@@ -102,7 +107,7 @@ namespace Core {
 		void DrawCallResourceManager::WaitForUpload(Interface::ICopyQueue& CopyQueue, uint32_t RtvIndex) const {
 			uint64_t CopyFenceValue = mPerFrameCopyFenceValues[RtvIndex];
 			if (CopyFenceValue != 0) {
-				CopyQueue.WaitForFence(CopyFenceValue);
+				CopyQueue.GuaranteeCopy(CopyFenceValue);
 			}
 		}
 

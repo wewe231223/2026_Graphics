@@ -202,6 +202,7 @@ exit 0
     <ClInclude Include="Core\DX\AllocationHandle.h" />
     <ClInclude Include="Core\DX\ComputeQueue.h" />
     <ClInclude Include="Core\DX\CopyQueue.h" />
+    <ClInclude Include="Core\DX\CopyQueueId.h" />
     <ClInclude Include="Core\DX\DesciptorHeap.h" />
     <ClInclude Include="Core\DX\DrawCallDispatcher.h" />
     <ClInclude Include="Core\DX\DrawCallResourceManager.h" />
