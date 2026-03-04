@@ -35,10 +35,14 @@ namespace Core {
             bool Initialize(ID3D12Device* Device) override;
             uint64_t EnqueueCopy(const Interface::CopyRequest& CopyRequest) override;
             uint64_t EnqueueCopy(std::span<const Interface::CopyRequest> CopyRequests) override;
+            uint64_t EnqueueCopy(const Interface::CopyRequest& CopyRequest, std::int32_t Tag) override;
+            uint64_t EnqueueCopy(std::span<const Interface::CopyRequest> CopyRequests, std::int32_t Tag) override;
 
             void DispatchCopies() override;
             bool IsFenceComplete(uint64_t FenceValue) const override;
             void WaitForFence(uint64_t FenceValue) const override;
+            bool IsTagComplete(std::int32_t Tag) const override;
+            void WaitForTag(std::int32_t Tag) const override;
             void Flush() override;
 
             uint64_t GetRequiredUploadBufferSize() const override;
@@ -109,6 +113,7 @@ namespace Core {
             std::atomic<uint64_t> mSubmitFenceValueCounter{};
             std::array<uint64_t, CopyAllocatorCount> mAllocatorFenceValues{};
             std::unordered_map<uint64_t, uint64_t> mRequestedFenceToCompletedSubmitFence{};
+            std::unordered_map<std::int32_t, uint64_t> mTagToLatestRequestedFenceValue{};
 
             static constexpr uint64_t PendingSubmitFenceValue{ std::numeric_limits<uint64_t>::max() };
         };

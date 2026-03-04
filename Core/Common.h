@@ -8,6 +8,8 @@
 #include <d3d12.h>
 
 namespace Interface {
+    static constexpr std::int32_t InvalidCopyRequestTag{ -1 };
+
     enum class GraphicsAllocationType {
         Buffer,
         Texture
@@ -72,10 +74,14 @@ namespace Interface {
         virtual bool Initialize(ID3D12Device* Device) = 0;
         virtual std::uint64_t EnqueueCopy(const CopyRequest& CopyRequest) = 0;
         virtual std::uint64_t EnqueueCopy(std::span<const CopyRequest> CopyRequests) = 0;
+        virtual std::uint64_t EnqueueCopy(const CopyRequest& CopyRequest, std::int32_t Tag) = 0;
+        virtual std::uint64_t EnqueueCopy(std::span<const CopyRequest> CopyRequests, std::int32_t Tag) = 0;
 
         virtual void DispatchCopies() = 0;
         virtual bool IsFenceComplete(std::uint64_t FenceValue) const = 0;
         virtual void WaitForFence(std::uint64_t FenceValue) const = 0;
+        virtual bool IsTagComplete(std::int32_t Tag) const = 0;
+        virtual void WaitForTag(std::int32_t Tag) const = 0;
         virtual void Flush() = 0;
 
         virtual std::uint64_t GetRequiredUploadBufferSize() const = 0;

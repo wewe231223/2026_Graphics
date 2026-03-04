@@ -24,7 +24,8 @@ CopyQueue::CopyQueue(ID3D12Device* device)
     mRequestedFenceValueCounter{ 0 },
     mSubmitFenceValueCounter{ 0 },
     mAllocatorFenceValues{},
-    mRequestedFenceToCompletedSubmitFence{} {
+    mRequestedFenceToCompletedSubmitFence{},
+    mTagToLatestRequestedFenceValue{} {
     bool initializeResult{ Initialize(device) };
     ErrorHandler::report(initializeResult == false, "CopyQueue", "Failed to initialize copy queue.", ErrorHandler::Level::Critical);
 }
@@ -73,10 +74,19 @@ bool CopyQueue::Initialize(ID3D12Device* device) {
 
 uint64_t CopyQueue::EnqueueCopy(const Interface::CopyRequest& copyRequest) {
     std::array<Interface::CopyRequest, 1> copyRequests{ copyRequest };
-    return EnqueueCopy(copyRequests);
+    return EnqueueCopy(copyRequests, Interface::InvalidCopyRequestTag);
 }
 
 uint64_t CopyQueue::EnqueueCopy(std::span<const Interface::CopyRequest> copyRequests) {
+    return EnqueueCopy(copyRequests, Interface::InvalidCopyRequestTag);
+}
+
+uint64_t CopyQueue::EnqueueCopy(const Interface::CopyRequest& copyRequest, std::int32_t tag) {
+    std::array<Interface::CopyRequest, 1> copyRequests{ copyRequest };
+    return EnqueueCopy(copyRequests, tag);
+}
+
+uint64_t CopyQueue::EnqueueCopy(std::span<const Interface::CopyRequest> copyRequests, std::int32_t tag) {
     uint64_t requestedFenceValue{ mRequestedFenceValueCounter.fetch_add(1) + 1 };
 
     CopyRequestBatch requestBatch{};
@@ -91,6 +101,9 @@ uint64_t CopyQueue::EnqueueCopy(std::span<const Interface::CopyRequest> copyRequ
     {
         std::lock_guard<std::mutex> fenceGuard{ mFenceMutex };
         mRequestedFenceToCompletedSubmitFence.emplace(requestedFenceValue, PendingSubmitFenceValue);
+        if (tag != Interface::InvalidCopyRequestTag) {
+            mTagToLatestRequestedFenceValue[tag] = requestedFenceValue;
+        }
     }
 
     return requestedFenceValue;
@@ -113,6 +126,36 @@ bool CopyQueue::IsFenceComplete(uint64_t fenceValue) const {
 void CopyQueue::WaitForFence(uint64_t fenceValue) const {
     uint64_t submitFenceValue{ ResolveRequestedFenceValue(fenceValue) };
     WaitForSubmitFence(submitFenceValue);
+}
+
+bool CopyQueue::IsTagComplete(std::int32_t tag) const {
+    uint64_t requestedFenceValue{ 0 };
+    {
+        std::lock_guard<std::mutex> fenceGuard{ mFenceMutex };
+        std::unordered_map<std::int32_t, uint64_t>::const_iterator foundTag{ mTagToLatestRequestedFenceValue.find(tag) };
+        if (foundTag == mTagToLatestRequestedFenceValue.end()) {
+            return true;
+        }
+
+        requestedFenceValue = foundTag->second;
+    }
+
+    return IsFenceComplete(requestedFenceValue);
+}
+
+void CopyQueue::WaitForTag(std::int32_t tag) const {
+    uint64_t requestedFenceValue{ 0 };
+    {
+        std::lock_guard<std::mutex> fenceGuard{ mFenceMutex };
+        std::unordered_map<std::int32_t, uint64_t>::const_iterator foundTag{ mTagToLatestRequestedFenceValue.find(tag) };
+        if (foundTag == mTagToLatestRequestedFenceValue.end()) {
+            return;
+        }
+
+        requestedFenceValue = foundTag->second;
+    }
+
+    WaitForFence(requestedFenceValue);
 }
 
 void CopyQueue::Flush() {

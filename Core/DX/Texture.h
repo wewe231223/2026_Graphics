@@ -29,6 +29,7 @@ namespace Core {
         class Texture {
         public:
             using Ptr = std::shared_ptr<Texture>;
+            static constexpr std::int32_t TextureUploadCopyTag{ 2001 };
 
         public:
             Texture(const std::string& Name = "Unnamed");
@@ -56,11 +57,7 @@ namespace Core {
             D3D12_CPU_DESCRIPTOR_HANDLE GetRTV() const;
             D3D12_CPU_DESCRIPTOR_HANDLE GetDSV() const;
 
-            void WaitForUpload(Interface::ICopyQueue& CopyQueue);
             void Transition(ID3D12GraphicsCommandList* CmdList, D3D12_RESOURCE_STATES NewState);
-
-            bool HasPendingUpload() const;
-            uint64_t GetUploadFenceValue() const;
 
             ID3D12Resource* GetResource() const;
             DXGI_FORMAT GetFormat() const;
@@ -77,7 +74,6 @@ namespace Core {
             DescriptorHandle mRtvHandle{};
             DescriptorHandle mDsvHandle{};
             DescriptorHandle mUavHandle{};
-            uint64_t mUploadFenceValue{};
         };
 
         using TexPtr = Texture::Ptr;

@@ -82,14 +82,14 @@ namespace Game {
         Model& operator=(Model&& Other) noexcept;
 
     public:
-        bool InitializeFromModelResult(const asset::ModelResult& ModelData, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue);
+        bool InitializeFromModelResult(const asset::ModelResult& ModelData, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::int32_t CopyTag = Interface::InvalidCopyRequestTag);
         const ModelNode* GetRootNode() const;
         const ModelNode* FindNodeByName(const std::string& NodeName) const;
         const std::vector<ModelNode>& GetNodes() const;
 
     private:
-        bool UploadVertexData(const asset::VertexAttributes& Vertices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews) const;
-        bool UploadIndexData(const std::vector<std::uint32_t>& Indices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, D3D12_INDEX_BUFFER_VIEW& OutView) const;
+        bool UploadVertexData(const asset::VertexAttributes& Vertices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::int32_t CopyTag, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews) const;
+        bool UploadIndexData(const std::vector<std::uint32_t>& Indices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::int32_t CopyTag, std::vector<std::byte>& OutRawData, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, D3D12_INDEX_BUFFER_VIEW& OutView) const;
 
     private:
         std::vector<ModelNode> mNodes{};

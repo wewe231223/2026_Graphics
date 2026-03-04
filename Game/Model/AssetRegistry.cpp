@@ -85,7 +85,7 @@ namespace Game {
 
         std::shared_ptr<Model> NewModel{ std::make_shared<Model>() };
         if (mDevice != nullptr && mCopyQueue != nullptr && mAllocator != nullptr) {
-            const bool IsInitialized{ NewModel->InitializeFromModelResult(ModelData, mAllocator, mCopyQueue) };
+            const bool IsInitialized{ NewModel->InitializeFromModelResult(ModelData, mAllocator, mCopyQueue, AssetRegistry::SceneAssetCopyTag) };
             if (IsInitialized == false) {
                 return nullptr;
             }

@@ -81,8 +81,7 @@ Texture::Texture(const std::string& name)
     mSrvHandle{},
     mRtvHandle{},
     mDsvHandle{},
-    mUavHandle{},
-    mUploadFenceValue{} {
+    mUavHandle{} {
 }
 
 Texture::~Texture() {
@@ -98,9 +97,7 @@ Texture::Texture(Texture&& other) noexcept
     mSrvHandle{ std::move(other.mSrvHandle) },
     mRtvHandle{ std::move(other.mRtvHandle) },
     mDsvHandle{ std::move(other.mDsvHandle) },
-    mUavHandle{ std::move(other.mUavHandle) },
-    mUploadFenceValue{ other.mUploadFenceValue } {
-    other.mUploadFenceValue = 0;
+    mUavHandle{ std::move(other.mUavHandle) } {
 }
 
 Texture& Texture::operator=(Texture&& other) noexcept {
@@ -117,8 +114,6 @@ Texture& Texture::operator=(Texture&& other) noexcept {
     mRtvHandle = std::move(other.mRtvHandle);
     mDsvHandle = std::move(other.mDsvHandle);
     mUavHandle = std::move(other.mUavHandle);
-    mUploadFenceValue = other.mUploadFenceValue;
-    other.mUploadFenceValue = 0;
     return *this;
 }
 
@@ -205,7 +200,7 @@ Texture::Ptr Texture::LoadFromFile(ID3D12Device* device, Interface::IGraphicsAll
     copyRequest.SourceData = std::move(uploadData);
     copyRequest.TextureSubresources = std::move(textureSubresources);
 
-    texture->mUploadFenceValue = copyQueue->EnqueueCopy(copyRequest);
+    copyQueue->EnqueueCopy(copyRequest, Texture::TextureUploadCopyTag);
     return texture;
 }
 
@@ -351,23 +346,6 @@ D3D12_CPU_DESCRIPTOR_HANDLE Texture::GetRTV() const {
 
 D3D12_CPU_DESCRIPTOR_HANDLE Texture::GetDSV() const {
     return mDsvHandle.IsValid() ? mDsvHandle.GetCPU() : D3D12_CPU_DESCRIPTOR_HANDLE{};
-}
-
-void Texture::WaitForUpload(Interface::ICopyQueue& copyQueue) {
-    if (mUploadFenceValue == 0) {
-        return;
-    }
-
-    copyQueue.WaitForFence(mUploadFenceValue);
-    mUploadFenceValue = 0;
-}
-
-bool Texture::HasPendingUpload() const {
-    return mUploadFenceValue != 0;
-}
-
-uint64_t Texture::GetUploadFenceValue() const {
-    return mUploadFenceValue;
 }
 
 void Texture::Transition(ID3D12GraphicsCommandList* cmdList, D3D12_RESOURCE_STATES newState) {

@@ -95,9 +95,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     defaultHeapProperties.VisibleNodeMask = 1;
 
 
-    constexpr uint64_t DefaultHeapAllocatorSize{ 256ull * 1024ull * 1024ull };
+    constexpr uint64_t DefaultBufferHeapAllocatorSize{ 256ull * 1024ull * 1024ull };
+    constexpr uint64_t DefaultTextureHeapAllocatorSize{ 4ull * 1024ull * 1024ull * 1024ull };
     Core::DX::GraphicsAllocator defaultHeapAllocator{};
-    bool defaultHeapAllocatorInitializeResult{ defaultHeapAllocator.Initialize(directQueue.GetDevice(), DefaultHeapAllocatorSize, defaultHeapProperties, D3D12_HEAP_FLAG_NONE) };
+    bool defaultHeapAllocatorInitializeResult{ defaultHeapAllocator.Initialize(directQueue.GetDevice(), DefaultBufferHeapAllocatorSize, DefaultTextureHeapAllocatorSize, defaultHeapProperties, defaultHeapProperties, D3D12_HEAP_FLAG_NONE, D3D12_HEAP_FLAG_NONE) };
     ErrorHandler::report(defaultHeapAllocatorInitializeResult == false, "WinMain", "Failed to initialize default heap allocator.", ErrorHandler::Level::Critical);
 
     Core::DX::CopyQueue copyQueue{ directQueue.GetDevice() };
@@ -138,10 +139,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     const Game::SceneYamlLoadResult SceneYamlLoadResult{ SceneYamlSerializer.DeserializeFromFile("Resources/DefaultScene.yaml", SceneInstance) };
     ErrorHandler::report(SceneYamlLoadResult.IsSuccess == false, "WinMain", "Failed to load scene yaml.", ErrorHandler::Level::Warning);
 
-    
-    
+    copyQueue.DispatchCopies();
+    copyQueue.WaitForTag(Game::AssetRegistry::SceneAssetCopyTag);
+
 	auto test = Core::DX::Texture::LoadFromFile(directQueue.GetDevice(), &defaultHeapAllocator, &copyQueue, "Resources/DefaultScene/Paladin_diffuse.DDS");
-	test->WaitForUpload(copyQueue);
+	copyQueue.DispatchCopies();
+	copyQueue.WaitForTag(Core::DX::Texture::TextureUploadCopyTag);
 
 
     // 기본 메시지 루프입니다:

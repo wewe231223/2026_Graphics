@@ -231,7 +231,7 @@ namespace Game {
         return *this;
     }
 
-    bool Model::InitializeFromModelResult(const asset::ModelResult& ModelData, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue) {
+    bool Model::InitializeFromModelResult(const asset::ModelResult& ModelData, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::int32_t CopyTag) {
         if (Allocator == nullptr || CopyQueue == nullptr) {
             return false;
         }
@@ -282,13 +282,13 @@ namespace Game {
             std::vector<ModelNode::VertexAttributeRange> VertexRanges{};
             std::unique_ptr<Interface::IAllocationHandle> VertexAllocation{};
             std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{};
-            UploadVertexData(SourceNode.Vertices(), Allocator, CopyQueue, VertexRawData, VertexRanges, VertexAllocation, VertexBufferViews);
+            UploadVertexData(SourceNode.Vertices(), Allocator, CopyQueue, CopyTag, VertexRawData, VertexRanges, VertexAllocation, VertexBufferViews);
             DestinationNode.SetVertexData(std::move(VertexRawData), std::move(VertexRanges), std::move(VertexAllocation), std::move(VertexBufferViews));
 
             std::vector<std::byte> IndexRawData{};
             std::unique_ptr<Interface::IAllocationHandle> IndexAllocation{};
             D3D12_INDEX_BUFFER_VIEW IndexBufferView{};
-            UploadIndexData(SourceNode.Indices(), Allocator, CopyQueue, IndexRawData, IndexAllocation, IndexBufferView);
+            UploadIndexData(SourceNode.Indices(), Allocator, CopyQueue, CopyTag, IndexRawData, IndexAllocation, IndexBufferView);
             DestinationNode.SetIndexData(std::move(IndexRawData), std::move(IndexAllocation), IndexBufferView);
 
             mNodeNameLookup.insert_or_assign(DestinationNode.GetName(), static_cast<std::uint32_t>(NodeIndex));
@@ -323,7 +323,7 @@ namespace Game {
         return mNodes;
     }
 
-    bool Model::UploadVertexData(const asset::VertexAttributes& Vertices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews) const {
+    bool Model::UploadVertexData(const asset::VertexAttributes& Vertices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::int32_t CopyTag, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews) const {
         std::vector<AttributeUploadSource> Sources{};
         AppendAttributeSource(Sources, VertexAttributeKind::Position, Vertices.Positions.data(), Vertices.Positions.size() * sizeof(asset::Vec3), sizeof(asset::Vec3));
         AppendAttributeSource(Sources, VertexAttributeKind::Normal, Vertices.Normals.data(), Vertices.Normals.size() * sizeof(asset::Vec3), sizeof(asset::Vec3));
@@ -381,11 +381,11 @@ namespace Game {
         Request.DestinationDefaultResource = OutAllocation->GetResource();
         Request.DestinationOffset = 0;
         Request.SourceData = OutRawData;
-        CopyQueue->EnqueueCopy(Request);
+        CopyQueue->EnqueueCopy(Request, CopyTag);
         return true;
     }
 
-    bool Model::UploadIndexData(const std::vector<std::uint32_t>& Indices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, D3D12_INDEX_BUFFER_VIEW& OutView) const {
+    bool Model::UploadIndexData(const std::vector<std::uint32_t>& Indices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::int32_t CopyTag, std::vector<std::byte>& OutRawData, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, D3D12_INDEX_BUFFER_VIEW& OutView) const {
         if (Indices.empty()) {
             OutView = D3D12_INDEX_BUFFER_VIEW{};
             return false;
@@ -405,7 +405,7 @@ namespace Game {
         Request.DestinationDefaultResource = OutAllocation->GetResource();
         Request.DestinationOffset = 0;
         Request.SourceData = OutRawData;
-        CopyQueue->EnqueueCopy(Request);
+        CopyQueue->EnqueueCopy(Request, CopyTag);
 
         OutView.BufferLocation = OutAllocation->GetResource()->GetGPUVirtualAddress();
         OutView.SizeInBytes = static_cast<UINT>(ByteSize);

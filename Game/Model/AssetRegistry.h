@@ -31,6 +31,9 @@ namespace Game {
 
     class AssetRegistry final {
     public:
+        static constexpr std::int32_t SceneAssetCopyTag{ 1001 };
+
+    public:
         AssetRegistry();
         ~AssetRegistry();
         AssetRegistry(const AssetRegistry& Other) = delete;
