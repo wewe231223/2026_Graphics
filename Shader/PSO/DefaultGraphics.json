@@ -25,8 +25,17 @@
       "SemanticName": "NORMAL",
       "SemanticIndex": 0,
       "Format": "R32G32B32_FLOAT",
-      "InputSlot": 0,
-      "AlignedByteOffset": 12,
+      "InputSlot": 1,
+      "AlignedByteOffset": 0,
+      "InputSlotClass": "PerVertexData",
+      "InstanceDataStepRate": 0
+    },
+    {
+      "SemanticName": "TEXCOORD",
+      "SemanticIndex": 0,
+      "Format": "R32G32_FLOAT",
+      "InputSlot": 2,
+      "AlignedByteOffset": 0,
       "InputSlotClass": "PerVertexData",
       "InstanceDataStepRate": 0
     }

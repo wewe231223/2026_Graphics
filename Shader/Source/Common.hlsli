@@ -1,13 +1,18 @@
+#include "defines.hlsli"
+
 struct VertexInput
 {
     float3 Position : POSITION;
     float3 Normal : NORMAL;
+    float2 TexCoord0 : TEXCOORD0;
 };
 
 struct VertexOutput
 {
     float4 Position : SV_POSITION;
     float3 Normal : NORMAL;
+    float2 TexCoord0 : TEXCOORD0;
+    uint MaterialIndex : MATERIAL_INDEX;
 };
 
 struct FrameGlobalsGpu
@@ -44,17 +49,39 @@ struct DrawRecordGpu
     uint Pad0;
 };
 
+struct MaterialFieldGpu
+{
+    uint Type;
+    uint Padding0;
+    uint Padding1;
+    uint Padding2;
+    float4 FloatValue;
+    int64_t IntValue;
+    uint2 Padding3;
+};
+
+struct MaterialGpu
+{
+    MaterialFieldGpu Fields[MATERIAL_FIELD_COUNT];
+};
+
+struct MaterialTextureTableItemGpu
+{
+    uint TextureSrvDescriptorIndex;
+    uint Padding0;
+    uint Padding1;
+    uint Padding2;
+};
+
 struct RootConstantsB1
 {
     uint FrameGlobalsSrvIndex;
     uint ModelContextSrvIndex;
     uint DrawRecordSrvIndex;
     uint DrawRecordBaseIndex;
+    uint MaterialSrvIndex;
+    uint MaterialTextureTableSrvIndex;
     float4 TintColor;
-    uint Reserved0;
-    uint Reserved1;
-    uint Reserved2;
-    uint Reserved3;
 };
 
 float4 ApplyBaseColor(float4 Color)

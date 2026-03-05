@@ -28,6 +28,10 @@ namespace Core {
 			return mDevice.Get();
 		}
 
+		DescriptorHeap* DirectQueue::GetSrvHeap() {
+			return &mSrvHeap;
+		}
+
 		void DirectQueue::SetUploadInfrastructure(GraphicsAllocator* GraphicsAllocator, Interface::ICopyQueue* CopyQueue) {
 			mGraphicsAllocator = GraphicsAllocator;
 			mCopyQueue = CopyQueue;
@@ -74,7 +78,7 @@ namespace Core {
 
 		
 			// Execute Render Tasks
-			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, mDrawCallResourceManager.GetFrameGlobalsSrvHandle(static_cast<uint32_t>(currentIndex)), mDrawCallResourceManager.GetModelContextSrvHandle(static_cast<uint32_t>(currentIndex)), mDrawCallResourceManager.GetDrawRecordSrvHandle(static_cast<uint32_t>(currentIndex)));
+			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, mDrawCallResourceManager.GetFrameGlobalsSrvHandle(static_cast<uint32_t>(currentIndex)), mDrawCallResourceManager.GetModelContextSrvHandle(static_cast<uint32_t>(currentIndex)), mDrawCallResourceManager.GetDrawRecordSrvHandle(static_cast<uint32_t>(currentIndex)), mDrawCallResourceManager.GetMaterialSrvHandle(static_cast<uint32_t>(currentIndex)), mDrawCallResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
 			Widget::PerformanceProvider::Get().EndProfile();
 			mWidgetCore.Render(mCommandList);
 
@@ -201,7 +205,7 @@ namespace Core {
 
 		void DirectQueue::InitTargetResources() {
 			mRTVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, Constants::FrameCount<uint32_t>, false);
-			mSrvHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, Constants::FrameCount<uint32_t> * 3, true);
+			mSrvHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 512, true);
 
 			for (auto&& [i, rt] : views::enumerate(mRenderTargets)) {
 				ComPtr<ID3D12Resource> backBuffer{ nullptr };

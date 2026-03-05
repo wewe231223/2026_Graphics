@@ -45,9 +45,12 @@ namespace Game {
         return mAssetRegistry;
     }
 
-    void Scene::InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator) {
+    void Scene::InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap) {
         mAssetRegistry.Initialize(Device, CopyQueue, Allocator);
+        mAssetRegistry.SetSrvHeap(SrvHeap);
         mFrameContext.MaterialGroups = &mAssetRegistry.GetMaterialGroups();
+        mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
+        mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
     }
 
     void Scene::SetName(const std::string& NewName) {
@@ -75,6 +78,8 @@ namespace Game {
         if (TargetPhase == Phase::PreUpdate) {
             mFrameContext.RenderData.modelContexts.clear();
             mFrameContext.RenderData.drawRecords.clear();
+            mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
+            mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
         }
 
         const SystemSceduler::PhaseBatchArray* PhaseBatches{ mSystemSceduler.GetPhaseBatches(TargetPhase) };

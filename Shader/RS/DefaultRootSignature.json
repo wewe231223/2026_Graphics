@@ -12,9 +12,25 @@
       "Constants": {
         "ShaderRegister": 1,
         "RegisterSpace": 0,
-        "Num32BitValues": 12
+        "Num32BitValues": 10
       }
     }
   ],
-  "StaticSamplers": []
+  "StaticSamplers": [
+    {
+      "Filter": "Anisotropic",
+      "AddressU": "Wrap",
+      "AddressV": "Wrap",
+      "AddressW": "Wrap",
+      "MipLODBias": 0.0,
+      "MaxAnisotropy": 1,
+      "ComparisonFunc": "Always",
+      "BorderColor": "OpaqueBlack",
+      "MinLOD": 0.0,
+      "MaxLOD": 3.402823466e+38,
+      "ShaderRegister": 0,
+      "RegisterSpace": 0,
+      "ShaderVisibility": "Pixel"
+    }
+  ]
 }

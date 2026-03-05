@@ -31,7 +31,7 @@ namespace Game {
 
         AssetRegistry& GetAssetRegistry();
         const AssetRegistry& GetAssetRegistry() const;
-        void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator);
+        void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap);
         void SetName(const std::string& NewName);
         const std::string& GetName() const;
 

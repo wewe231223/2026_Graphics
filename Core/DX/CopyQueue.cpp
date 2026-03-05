@@ -10,10 +10,12 @@ using namespace Core::DX;
 
 CopyQueue::CopyQueue(ID3D12Device* Device)
     : mCopyCommandQueue{},
-    mCopyCommandAllocator{},
+    mCopyCommandAllocators{},
     mCopyCommandList{},
     mCopyFence{},
     mUploadAllocator{},
+    mCurrentAllocatorFlightIndex{ 0 },
+    mAllocatorFlightFenceValues{},
     mFenceEvent{},
     mQueueMutex{},
     mFenceMutex{},
@@ -52,8 +54,11 @@ bool CopyQueue::Initialize(ID3D12Device* Device) {
     QueueDescription.NodeMask = 0;
     ErrorHandler::report(Device->CreateCommandQueue(&QueueDescription, IID_PPV_ARGS(mCopyCommandQueue.GetAddressOf())), "CopyQueue", "Failed to create copy command queue.", ErrorHandler::Level::Critical);
 
-    ErrorHandler::report(Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(mCopyCommandAllocator.GetAddressOf())), "CopyQueue", "Failed to create copy command allocator.", ErrorHandler::Level::Critical);
-    ErrorHandler::report(Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, mCopyCommandAllocator.Get(), nullptr, IID_PPV_ARGS(mCopyCommandList.GetAddressOf())), "CopyQueue", "Failed to create copy command list.", ErrorHandler::Level::Critical);
+    for (Microsoft::WRL::ComPtr<ID3D12CommandAllocator>& CopyCommandAllocator : mCopyCommandAllocators) {
+        ErrorHandler::report(Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(CopyCommandAllocator.GetAddressOf())), "CopyQueue", "Failed to create copy command allocator.", ErrorHandler::Level::Critical);
+    }
+
+    ErrorHandler::report(Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, mCopyCommandAllocators[mCurrentAllocatorFlightIndex].Get(), nullptr, IID_PPV_ARGS(mCopyCommandList.GetAddressOf())), "CopyQueue", "Failed to create copy command list.", ErrorHandler::Level::Critical);
     ErrorHandler::report(mCopyCommandList->Close(), "CopyQueue", "Failed to close initial copy command list.", ErrorHandler::Level::Critical);
     ErrorHandler::report(Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(mCopyFence.GetAddressOf())), "CopyQueue", "Failed to create copy queue fence.", ErrorHandler::Level::Critical);
 
@@ -197,8 +202,14 @@ void CopyQueue::ExecuteRequestBatch(CopyRequestBatch& RequestBatch) {
         return;
     }
 
-    ErrorHandler::report(mCopyCommandAllocator->Reset(), "CopyQueue", "Failed to reset copy command allocator.", ErrorHandler::Level::Critical);
-    ErrorHandler::report(mCopyCommandList->Reset(mCopyCommandAllocator.Get(), nullptr), "CopyQueue", "Failed to reset copy command list.", ErrorHandler::Level::Critical);
+    std::uint32_t AllocatorFlightIndex{ mCurrentAllocatorFlightIndex };
+    std::uint64_t AllocatorFenceValue{ mAllocatorFlightFenceValues[AllocatorFlightIndex] };
+    if (AllocatorFenceValue > 0 and IsSubmitFenceComplete(AllocatorFenceValue) == false) {
+        WaitForSubmitFence(AllocatorFenceValue);
+    }
+
+    ErrorHandler::report(mCopyCommandAllocators[AllocatorFlightIndex]->Reset(), "CopyQueue", "Failed to reset copy command allocator.", ErrorHandler::Level::Critical);
+    ErrorHandler::report(mCopyCommandList->Reset(mCopyCommandAllocators[AllocatorFlightIndex].Get(), nullptr), "CopyQueue", "Failed to reset copy command list.", ErrorHandler::Level::Critical);
 
     std::vector<UploadAllocation> BatchUploads{};
     BatchUploads.reserve(RequestBatch.CopyRequests.size());
@@ -236,6 +247,8 @@ void CopyQueue::ExecuteRequestBatch(CopyRequestBatch& RequestBatch) {
 
     std::uint64_t SubmitFenceValue{ mSubmitFenceValueCounter.fetch_add(1) + 1 };
     ErrorHandler::report(mCopyCommandQueue->Signal(mCopyFence.Get(), SubmitFenceValue), "CopyQueue", "Failed to signal copy queue fence.", ErrorHandler::Level::Critical);
+    mAllocatorFlightFenceValues[AllocatorFlightIndex] = SubmitFenceValue;
+    mCurrentAllocatorFlightIndex = (mCurrentAllocatorFlightIndex + 1) % CopyAllocatorFlightCount;
 
     {
         std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };

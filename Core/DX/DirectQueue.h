@@ -32,6 +32,8 @@ namespace Core {
 		public:
 			ID3D12Device* GetDevice() const;
 
+			DescriptorHeap* GetSrvHeap();
+
 			void SetUploadInfrastructure(GraphicsAllocator* GraphicsAllocator, Interface::ICopyQueue* CopyQueue);
 			void PreRender(Game::RFD::RenderFrameData& Data, float Dt);
 			void Render(Game::RFD::RenderFrameData& Data);

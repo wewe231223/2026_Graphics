@@ -92,10 +92,15 @@ namespace Core {
             static constexpr std::uint64_t UploadAllocatorHeapSize{ 256ull * 1024ull * 1024ull };
 
             Microsoft::WRL::ComPtr<ID3D12CommandQueue> mCopyCommandQueue{};
-            Microsoft::WRL::ComPtr<ID3D12CommandAllocator> mCopyCommandAllocator{};
+            static constexpr std::uint32_t CopyAllocatorFlightCount{ 3 };
+
+            std::array<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>, CopyAllocatorFlightCount> mCopyCommandAllocators{};
             Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> mCopyCommandList{};
             Microsoft::WRL::ComPtr<ID3D12Fence> mCopyFence{};
             GraphicsAllocator mUploadAllocator{};
+
+            std::uint32_t mCurrentAllocatorFlightIndex{};
+            std::array<std::uint64_t, CopyAllocatorFlightCount> mAllocatorFlightFenceValues{};
 
             HANDLE mFenceEvent{};
 

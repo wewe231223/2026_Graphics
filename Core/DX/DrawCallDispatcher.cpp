@@ -8,11 +8,9 @@ namespace Core {
 				uint32_t ModelContextSrvIndex{ 0 };
 				uint32_t DrawRecordSrvIndex{ 0 };
 				uint32_t DrawRecordBaseIndex{ 0 };
+				uint32_t MaterialSrvIndex{ 0 };
+				uint32_t MaterialTextureTableSrvIndex{ 0 };
 				float TintColor[4]{ 1.0f, 1.0f, 1.0f, 1.0f };
-				uint32_t Reserved0{ 0 };
-				uint32_t Reserved1{ 0 };
-				uint32_t Reserved2{ 0 };
-				uint32_t Reserved3{ 0 };
 			};
 		}
 
@@ -22,7 +20,7 @@ namespace Core {
 		DrawCallDispatcher::~DrawCallDispatcher() {
 		}
 
-		void DrawCallDispatcher::DrawForward(ID3D12GraphicsCommandList* CommandList, Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle DrawRecordSrvHandle) {
+		void DrawCallDispatcher::DrawForward(ID3D12GraphicsCommandList* CommandList, Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			const Interface::IPipeline* ActivePipeline = nullptr;
 			size_t DrawRecordIndex = 0;
 
@@ -50,6 +48,8 @@ namespace Core {
 				RootConstants.ModelContextSrvIndex = ModelContextSrvHandle.GetIndex();
 				RootConstants.DrawRecordSrvIndex = DrawRecordSrvHandle.GetIndex();
 				RootConstants.DrawRecordBaseIndex = static_cast<uint32_t>(DrawRecordIndex);
+				RootConstants.MaterialSrvIndex = MaterialSrvHandle.GetIndex();
+				RootConstants.MaterialTextureTableSrvIndex = MaterialTextureTableSrvHandle.GetIndex();
 				CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
 
 				CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

@@ -103,15 +103,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     directQueue.SetUploadInfrastructure(&defaultHeapAllocator, &copyQueue);
 
 
-    Arche::World archeContainer{};
-
 
     Game::Base::PreCompileShaders();
-    
     if(not Game::Base::PreCompileRootSignatures(directQueue.GetDevice())) {
 		ErrorHandler::report(true, "WinMain", "Failed to pre-compile root signatures.", ErrorHandler::Level::Critical);
     }
-    
     if (not Game::Base::PreCompilePipelines(directQueue.GetDevice())) {
 		ErrorHandler::report(true, "WinMain", "Failed to pre-compile pipelines.", ErrorHandler::Level::Critical);
     }
@@ -131,18 +127,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 
     Game::Scene SceneInstance{};
-    SceneInstance.InitializeAssetRegistry(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator);
+    SceneInstance.InitializeAssetRegistry(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator, directQueue.GetSrvHeap());
 
     Game::SceneYamlSerializer SceneYamlSerializer{};
     const Game::SceneYamlLoadResult SceneYamlLoadResult{ SceneYamlSerializer.DeserializeFromFile("Resources/DefaultScene.yaml", SceneInstance) };
     ErrorHandler::report(SceneYamlLoadResult.IsSuccess == false, "WinMain", "Failed to load scene yaml.", ErrorHandler::Level::Warning);
 
-	auto tex = Core::DX::Texture::LoadFromFile(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator, "Resources/DefaultScene/Paladin_diffuse.DDS");
-
 
     copyQueue.DispatchCopies();
     copyQueue.GuaranteeCopy(Core::DX::CopyQueueId::Model);
-	copyQueue.GuaranteeCopy(Core::DX::CopyQueueId::Texture);
+
 
 
     // 기본 메시지 루프입니다:
