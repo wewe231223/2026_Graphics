@@ -131,6 +131,7 @@ add_executable(2026_Graphics WIN32
     Core/DX/DesciptorHeap.cpp
     Core/DX/DrawCallDispatcher.cpp
     Core/DX/DrawCallResourceManager.cpp
+    Core/DX/MaterialResourceManager.cpp
     Core/DX/DirectQueue.cpp
     Core/DX/FrameSync.cpp
     Core/DX/GraphicsAllocator.cpp

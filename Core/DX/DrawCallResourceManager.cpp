@@ -1,7 +1,8 @@
 #include "DrawCallResourceManager.h"
 #include <algorithm>
-#include "Core/DX/GraphicsAllocator.h"
+#include <array>
 #include "Core/DX/CopyQueueId.h"
+#include "Core/DX/GraphicsAllocator.h"
 #include "Utility/ErrorHandler.h"
 
 namespace Core {
@@ -12,178 +13,100 @@ namespace Core {
 		DrawCallResourceManager::~DrawCallResourceManager() {
 		}
 
-		void DrawCallResourceManager::Initialize(ID3D12Device* Device, DescriptorHeap* SrvHeap) {
+		void DrawCallResourceManager::Initialize(ID3D12Device* Device, DescriptorHeap* SrvHeap, std::uint32_t FrameIndex) {
 			mDevice = Device;
 			mSrvHeap = SrvHeap;
-
-			for (size_t Index = 0; Index < Constants::FrameCount<size_t>; ++Index) {
-				mFrameGlobalsSrvHandles[Index] = mSrvHeap->Allocate();
-				mModelContextSrvHandles[Index] = mSrvHeap->Allocate();
-				mDrawRecordSrvHandles[Index] = mSrvHeap->Allocate();
-				mMaterialSrvHandles[Index] = mSrvHeap->Allocate();
-				mMaterialTextureTableSrvHandles[Index] = mSrvHeap->Allocate();
-				mPerFrameCopyFenceValues[Index] = 0;
-			}
-
-			DescriptorHandle ReservedHandle{};
-			while (true) {
-				ReservedHandle = mSrvHeap->Allocate();
-				if (ReservedHandle.GetIndex() >= 29) {
-					break;
-				}
-			}
+			mFrameGlobalsSrvHandle = mSrvHeap->Allocate();
+			mModelContextSrvHandle = mSrvHeap->Allocate();
+			mDrawRecordSrvHandle = mSrvHeap->Allocate();
+			mCopyFenceValue = 0;
+			mCopyId = CopyQueueId::DrawCallBegin + static_cast<std::uint64_t>(FrameIndex);
+			bool IsCopyIdValid{ mCopyId <= CopyQueueId::DrawCallEnd };
+			ErrorHandler::report(IsCopyIdValid == false, "DrawCallResourceManager", "Invalid draw call copy id.", ErrorHandler::Level::Critical);
 		}
 
-		void DrawCallResourceManager::PrepareFrameResources(uint32_t RtvIndex, Game::RFD::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue& CopyQueue) {
+		void DrawCallResourceManager::PrepareFrameResources(Game::RFD::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue& CopyQueue) {
 			std::stable_sort(Data.drawRecords.begin(), Data.drawRecords.end(), DrawCallResourceManager::CompareDrawRecordByPso);
 			DrawCallResourceManager::BuildDrawRecordGpu(Data);
 
-			GraphicsVector& FrameGlobalsVector = mPerFrameFrameGlobalsVectors[RtvIndex];
-			GraphicsVector& ModelContextVector = mPerFrameModelContextVectors[RtvIndex];
-			GraphicsVector& DrawRecordVector = mPerFrameDrawRecordVectors[RtvIndex];
-			GraphicsVector& MaterialVector = mPerFrameMaterialVectors[RtvIndex];
-			GraphicsVector& MaterialTextureTableVector = mPerFrameMaterialTextureTableVectors[RtvIndex];
-
-			size_t FrameGlobalsSizeInBytes = sizeof(Game::RFD::FrameGlobals);
-			size_t ModelContextsSizeInBytes = sizeof(Game::RFD::ModelContext) * Data.modelContexts.size();
-			size_t DrawRecordsGpuSizeInBytes = sizeof(DrawRecordGPU) * mDrawRecordsGpu.size();
-			size_t MaterialsSizeInBytes = sizeof(Game::RFD::MaterialGpu) * Data.materials.size();
-			size_t MaterialTextureTableSizeInBytes = sizeof(Game::RFD::MaterialTextureTableItemGpu) * Data.materialTextureTable.size();
+			std::size_t FrameGlobalsSizeInBytes{ sizeof(Game::RFD::FrameGlobals) };
+			std::size_t ModelContextsSizeInBytes{ sizeof(Game::RFD::ModelContext) * Data.modelContexts.size() };
+			std::size_t DrawRecordsGpuSizeInBytes{ sizeof(DrawRecordGPU) * mDrawRecordsGpu.size() };
 
 			std::byte DummyByte{ 0 };
-			void* FrameGlobalsSourceData = FrameGlobalsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&Data.globals);
-			void* ModelContextSourceData = ModelContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.modelContexts.data());
-			void* DrawRecordSourceData = DrawRecordsGpuSizeInBytes == 0 ? &DummyByte : static_cast<void*>(mDrawRecordsGpu.data());
-			void* MaterialSourceData = MaterialsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.materials.data());
-			void* MaterialTextureTableSourceData = MaterialTextureTableSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.materialTextureTable.data());
+			void* FrameGlobalsSourceData{ FrameGlobalsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&Data.globals) };
+			void* ModelContextSourceData{ ModelContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.modelContexts.data()) };
+			void* DrawRecordSourceData{ DrawRecordsGpuSizeInBytes == 0 ? &DummyByte : static_cast<void*>(mDrawRecordsGpu.data()) };
 
-			bool FrameGlobalsCopyResult = FrameGlobalsVector.Copy(GraphicsAllocator, FrameGlobalsSourceData, FrameGlobalsSizeInBytes);
+			bool FrameGlobalsCopyResult{ mFrameGlobalsVector.Copy(GraphicsAllocator, FrameGlobalsSourceData, FrameGlobalsSizeInBytes) };
 			ErrorHandler::report(FrameGlobalsCopyResult == false, "DrawCallResourceManager", "Failed to copy frame globals data.", ErrorHandler::Level::Critical);
 
-			bool ModelContextCopyResult = ModelContextVector.Copy(GraphicsAllocator, ModelContextSourceData, ModelContextsSizeInBytes);
+			bool ModelContextCopyResult{ mModelContextVector.Copy(GraphicsAllocator, ModelContextSourceData, ModelContextsSizeInBytes) };
 			ErrorHandler::report(ModelContextCopyResult == false, "DrawCallResourceManager", "Failed to copy model context data.", ErrorHandler::Level::Critical);
 
-			bool DrawRecordCopyResult = DrawRecordVector.Copy(GraphicsAllocator, DrawRecordSourceData, DrawRecordsGpuSizeInBytes);
+			bool DrawRecordCopyResult{ mDrawRecordVector.Copy(GraphicsAllocator, DrawRecordSourceData, DrawRecordsGpuSizeInBytes) };
 			ErrorHandler::report(DrawRecordCopyResult == false, "DrawCallResourceManager", "Failed to copy draw record data.", ErrorHandler::Level::Critical);
 
-			bool MaterialCopyResult = MaterialVector.Copy(GraphicsAllocator, MaterialSourceData, MaterialsSizeInBytes);
-			ErrorHandler::report(MaterialCopyResult == false, "DrawCallResourceManager", "Failed to copy material data.", ErrorHandler::Level::Critical);
-
-			bool MaterialTextureTableCopyResult = MaterialTextureTableVector.Copy(GraphicsAllocator, MaterialTextureTableSourceData, MaterialTextureTableSizeInBytes);
-			ErrorHandler::report(MaterialTextureTableCopyResult == false, "DrawCallResourceManager", "Failed to copy material texture table data.", ErrorHandler::Level::Critical);
-
-			std::array<Interface::CopyQueueCopyRequest, 5> CopyRequests{ 
-				FrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), 
-				ModelContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), 
-				DrawRecordVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), 
-				MaterialVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), 
-				MaterialTextureTableVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) 
-			};
-
-			uint64_t CopyId = CopyQueueId::DrawCallBegin + static_cast<uint64_t>(RtvIndex);
-			bool IsCopyIdValid = CopyId <= CopyQueueId::DrawCallEnd;
-			ErrorHandler::report(IsCopyIdValid == false, "DrawCallResourceManager", "Invalid draw call copy id.", ErrorHandler::Level::Critical);
-			bool EnqueueResult = CopyQueue.EnqueueCopy(CopyId, CopyRequests);
+			std::array<Interface::CopyQueueCopyRequest, 3> CopyRequests{ mFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mModelContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mDrawRecordVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
+			bool EnqueueResult{ CopyQueue.EnqueueCopy(mCopyId, CopyRequests) };
 			ErrorHandler::report(EnqueueResult == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
-			CopyQueue.DispatchCopies();
-			mPerFrameCopyFenceValues[RtvIndex] = CopyId;
+			mCopyFenceValue = mCopyId;
 
-			DrawCallResourceManager::UpdateShaderResourceViews(RtvIndex, 1, static_cast<uint32_t>(Data.modelContexts.size()), static_cast<uint32_t>(mDrawRecordsGpu.size()), static_cast<uint32_t>(Data.materials.size()), static_cast<uint32_t>(Data.materialTextureTable.size()));
+			DrawCallResourceManager::UpdateShaderResourceViews(1, static_cast<std::uint32_t>(Data.modelContexts.size()), static_cast<std::uint32_t>(mDrawRecordsGpu.size()));
 		}
 
-		void DrawCallResourceManager::TransitionToShaderResource(ID3D12GraphicsCommandList* CommandList, uint32_t RtvIndex) {
-			GraphicsVector& FrameGlobalsVector = mPerFrameFrameGlobalsVectors[RtvIndex];
-			GraphicsVector& ModelContextVector = mPerFrameModelContextVectors[RtvIndex];
-			GraphicsVector& DrawRecordVector = mPerFrameDrawRecordVectors[RtvIndex];
-			GraphicsVector& MaterialVector = mPerFrameMaterialVectors[RtvIndex];
-			GraphicsVector& MaterialTextureTableVector = mPerFrameMaterialTextureTableVectors[RtvIndex];
-
-			if (FrameGlobalsVector.IsValid() == true) {
-				D3D12_RESOURCE_BARRIER FrameGlobalsBarrier = FrameGlobalsVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+		void DrawCallResourceManager::TransitionToShaderResource(ID3D12GraphicsCommandList* CommandList) {
+			if (mFrameGlobalsVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER FrameGlobalsBarrier{ mFrameGlobalsVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
 				CommandList->ResourceBarrier(1, &FrameGlobalsBarrier);
 			}
 
-			if (ModelContextVector.IsValid() == true) {
-				D3D12_RESOURCE_BARRIER ModelContextBarrier = ModelContextVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+			if (mModelContextVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER ModelContextBarrier{ mModelContextVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
 				CommandList->ResourceBarrier(1, &ModelContextBarrier);
 			}
 
-			if (DrawRecordVector.IsValid() == true) {
-				D3D12_RESOURCE_BARRIER DrawRecordBarrier = DrawRecordVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+			if (mDrawRecordVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER DrawRecordBarrier{ mDrawRecordVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
 				CommandList->ResourceBarrier(1, &DrawRecordBarrier);
-			}
-
-			if (MaterialVector.IsValid() == true) {
-				D3D12_RESOURCE_BARRIER MaterialBarrier = MaterialVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
-				CommandList->ResourceBarrier(1, &MaterialBarrier);
-			}
-
-			if (MaterialTextureTableVector.IsValid() == true) {
-				D3D12_RESOURCE_BARRIER MaterialTextureTableBarrier = MaterialTextureTableVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
-				CommandList->ResourceBarrier(1, &MaterialTextureTableBarrier);
 			}
 		}
 
-		void DrawCallResourceManager::TransitionToCopyDestination(ID3D12GraphicsCommandList* CommandList, uint32_t RtvIndex) {
-			GraphicsVector& FrameGlobalsVector = mPerFrameFrameGlobalsVectors[RtvIndex];
-			GraphicsVector& ModelContextVector = mPerFrameModelContextVectors[RtvIndex];
-			GraphicsVector& DrawRecordVector = mPerFrameDrawRecordVectors[RtvIndex];
-			GraphicsVector& MaterialVector = mPerFrameMaterialVectors[RtvIndex];
-			GraphicsVector& MaterialTextureTableVector = mPerFrameMaterialTextureTableVectors[RtvIndex];
-
-			if (ModelContextVector.IsValid() == true) {
-				D3D12_RESOURCE_BARRIER ModelContextBarrier = ModelContextVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST);
-				CommandList->ResourceBarrier(1, &ModelContextBarrier);
-			}
-
-			if (DrawRecordVector.IsValid() == true) {
-				D3D12_RESOURCE_BARRIER DrawRecordBarrier = DrawRecordVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST);
-				CommandList->ResourceBarrier(1, &DrawRecordBarrier);
-			}
-
-			if (FrameGlobalsVector.IsValid() == true) {
-				D3D12_RESOURCE_BARRIER FrameGlobalsBarrier = FrameGlobalsVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST);
+		void DrawCallResourceManager::TransitionToCopyDestination(ID3D12GraphicsCommandList* CommandList) {
+			if (mFrameGlobalsVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER FrameGlobalsBarrier{ mFrameGlobalsVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST) };
 				CommandList->ResourceBarrier(1, &FrameGlobalsBarrier);
 			}
 
-			if (MaterialVector.IsValid() == true) {
-				D3D12_RESOURCE_BARRIER MaterialBarrier = MaterialVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST);
-				CommandList->ResourceBarrier(1, &MaterialBarrier);
+			if (mModelContextVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER ModelContextBarrier{ mModelContextVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST) };
+				CommandList->ResourceBarrier(1, &ModelContextBarrier);
 			}
 
-			if (MaterialTextureTableVector.IsValid() == true) {
-				D3D12_RESOURCE_BARRIER MaterialTextureTableBarrier = MaterialTextureTableVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST);
-				CommandList->ResourceBarrier(1, &MaterialTextureTableBarrier);
+			if (mDrawRecordVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER DrawRecordBarrier{ mDrawRecordVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST) };
+				CommandList->ResourceBarrier(1, &DrawRecordBarrier);
 			}
 		}
 
-		void DrawCallResourceManager::WaitForUpload(Interface::ICopyQueue& CopyQueue, uint32_t RtvIndex) const {
-			uint64_t CopyFenceValue = mPerFrameCopyFenceValues[RtvIndex];
-			if (CopyFenceValue == 0) {
+		void DrawCallResourceManager::WaitForUpload(Interface::ICopyQueue& CopyQueue) const {
+			if (mCopyFenceValue == 0) {
 				return;
 			}
 
-			CopyQueue.GuaranteeCopy(CopyFenceValue);
+			CopyQueue.GuaranteeCopy(mCopyFenceValue);
 		}
 
-		DescriptorHandle DrawCallResourceManager::GetFrameGlobalsSrvHandle(uint32_t RtvIndex) const {
-			return mFrameGlobalsSrvHandles[RtvIndex];
+		DescriptorHandle DrawCallResourceManager::GetFrameGlobalsSrvHandle() const {
+			return mFrameGlobalsSrvHandle;
 		}
 
-		DescriptorHandle DrawCallResourceManager::GetModelContextSrvHandle(uint32_t RtvIndex) const {
-			return mModelContextSrvHandles[RtvIndex];
+		DescriptorHandle DrawCallResourceManager::GetModelContextSrvHandle() const {
+			return mModelContextSrvHandle;
 		}
 
-		DescriptorHandle DrawCallResourceManager::GetDrawRecordSrvHandle(uint32_t RtvIndex) const {
-			return mDrawRecordSrvHandles[RtvIndex];
-		}
-
-		DescriptorHandle DrawCallResourceManager::GetMaterialSrvHandle(uint32_t RtvIndex) const {
-			return mMaterialSrvHandles[RtvIndex];
-		}
-
-		DescriptorHandle DrawCallResourceManager::GetMaterialTextureTableSrvHandle(uint32_t RtvIndex) const {
-			return mMaterialTextureTableSrvHandles[RtvIndex];
+		DescriptorHandle DrawCallResourceManager::GetDrawRecordSrvHandle() const {
+			return mDrawRecordSrvHandle;
 		}
 
 		bool DrawCallResourceManager::CompareDrawRecordByPso(const Game::RFD::DrawRecord& Left, const Game::RFD::DrawRecord& Right) {
@@ -208,9 +131,9 @@ namespace Core {
 
 		void DrawCallResourceManager::BuildDrawRecordGpu(const Game::RFD::RenderFrameData& Data) {
 			mDrawRecordsGpu.resize(Data.drawRecords.size());
-			for (size_t Index = 0; Index < Data.drawRecords.size(); ++Index) {
-				const Game::RFD::DrawRecord& SourceRecord = Data.drawRecords[Index];
-				DrawRecordGPU& DestinationRecord = mDrawRecordsGpu[Index];
+			for (std::size_t Index{ 0 }; Index < Data.drawRecords.size(); ++Index) {
+				const Game::RFD::DrawRecord& SourceRecord{ Data.drawRecords[Index] };
+				DrawRecordGPU& DestinationRecord{ mDrawRecordsGpu[Index] };
 				DestinationRecord.ObjectIndex = SourceRecord.objectIndex;
 				DestinationRecord.MaterialIndex = SourceRecord.materialIndex;
 				DestinationRecord.Flags = SourceRecord.flags;
@@ -218,85 +141,52 @@ namespace Core {
 			}
 		}
 
-		void DrawCallResourceManager::UpdateShaderResourceViews(uint32_t RtvIndex, uint32_t FrameGlobalsCount, uint32_t ModelContextCount, uint32_t DrawRecordCount, uint32_t MaterialCount, uint32_t MaterialTextureTableCount) {
-			GraphicsVector& FrameGlobalsVector = mPerFrameFrameGlobalsVectors[RtvIndex];
-			GraphicsVector& ModelContextVector = mPerFrameModelContextVectors[RtvIndex];
-			GraphicsVector& DrawRecordVector = mPerFrameDrawRecordVectors[RtvIndex];
-			GraphicsVector& MaterialVector = mPerFrameMaterialVectors[RtvIndex];
-			GraphicsVector& MaterialTextureTableVector = mPerFrameMaterialTextureTableVectors[RtvIndex];
-			ID3D12Resource* FrameGlobalsResource = FrameGlobalsVector.IsValid() == true ? FrameGlobalsVector.GetResource() : nullptr;
-			ID3D12Resource* ModelContextResource = ModelContextVector.IsValid() == true ? ModelContextVector.GetResource() : nullptr;
-			ID3D12Resource* DrawRecordResource = DrawRecordVector.IsValid() == true ? DrawRecordVector.GetResource() : nullptr;
-			ID3D12Resource* MaterialResource = MaterialVector.IsValid() == true ? MaterialVector.GetResource() : nullptr;
-			ID3D12Resource* MaterialTextureTableResource = MaterialTextureTableVector.IsValid() == true ? MaterialTextureTableVector.GetResource() : nullptr;
+		void DrawCallResourceManager::UpdateShaderResourceViews(std::uint32_t FrameGlobalsCount, std::uint32_t ModelContextCount, std::uint32_t DrawRecordCount) {
+			ID3D12Resource* FrameGlobalsResource{ mFrameGlobalsVector.IsValid() == true ? mFrameGlobalsVector.GetResource() : nullptr };
+			ID3D12Resource* ModelContextResource{ mModelContextVector.IsValid() == true ? mModelContextVector.GetResource() : nullptr };
+			ID3D12Resource* DrawRecordResource{ mDrawRecordVector.IsValid() == true ? mDrawRecordVector.GetResource() : nullptr };
 
-			if (FrameGlobalsVector.IsValid() == true) {
-				bool IsUpdateRequired = DrawCallResourceManager::IsShaderResourceViewUpdateRequired(mFrameGlobalsSrvResources[RtvIndex], FrameGlobalsResource, mFrameGlobalsSrvElementCounts[RtvIndex], FrameGlobalsCount);
+			if (mFrameGlobalsVector.IsValid() == true) {
+				bool IsUpdateRequired{ DrawCallResourceManager::IsShaderResourceViewUpdateRequired(mFrameGlobalsSrvResource, FrameGlobalsResource, mFrameGlobalsSrvElementCount, FrameGlobalsCount) };
 				if (IsUpdateRequired == true) {
-					FrameGlobalsVector.CreateShaderResourceView(mDevice, mFrameGlobalsSrvHandles[RtvIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, FrameGlobalsCount, sizeof(Game::RFD::FrameGlobals), D3D12_BUFFER_SRV_FLAG_NONE);
-					mFrameGlobalsSrvResources[RtvIndex] = FrameGlobalsResource;
-					mFrameGlobalsSrvElementCounts[RtvIndex] = FrameGlobalsCount;
+					mFrameGlobalsVector.CreateShaderResourceView(mDevice, mFrameGlobalsSrvHandle.GetCPU(), DXGI_FORMAT_UNKNOWN, 0, FrameGlobalsCount, sizeof(Game::RFD::FrameGlobals), D3D12_BUFFER_SRV_FLAG_NONE);
+					mFrameGlobalsSrvResource = FrameGlobalsResource;
+					mFrameGlobalsSrvElementCount = FrameGlobalsCount;
 				}
 			}
 			else {
-				mFrameGlobalsSrvResources[RtvIndex] = nullptr;
-				mFrameGlobalsSrvElementCounts[RtvIndex] = 0;
+				mFrameGlobalsSrvResource = nullptr;
+				mFrameGlobalsSrvElementCount = 0;
 			}
 
-			if (ModelContextVector.IsValid() == true) {
-				bool IsUpdateRequired = DrawCallResourceManager::IsShaderResourceViewUpdateRequired(mModelContextSrvResources[RtvIndex], ModelContextResource, mModelContextSrvElementCounts[RtvIndex], ModelContextCount);
+			if (mModelContextVector.IsValid() == true) {
+				bool IsUpdateRequired{ DrawCallResourceManager::IsShaderResourceViewUpdateRequired(mModelContextSrvResource, ModelContextResource, mModelContextSrvElementCount, ModelContextCount) };
 				if (IsUpdateRequired == true) {
-					ModelContextVector.CreateShaderResourceView(mDevice, mModelContextSrvHandles[RtvIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, ModelContextCount, sizeof(Game::RFD::ModelContext), D3D12_BUFFER_SRV_FLAG_NONE);
-					mModelContextSrvResources[RtvIndex] = ModelContextResource;
-					mModelContextSrvElementCounts[RtvIndex] = ModelContextCount;
+					mModelContextVector.CreateShaderResourceView(mDevice, mModelContextSrvHandle.GetCPU(), DXGI_FORMAT_UNKNOWN, 0, ModelContextCount, sizeof(Game::RFD::ModelContext), D3D12_BUFFER_SRV_FLAG_NONE);
+					mModelContextSrvResource = ModelContextResource;
+					mModelContextSrvElementCount = ModelContextCount;
 				}
 			}
 			else {
-				mModelContextSrvResources[RtvIndex] = nullptr;
-				mModelContextSrvElementCounts[RtvIndex] = 0;
+				mModelContextSrvResource = nullptr;
+				mModelContextSrvElementCount = 0;
 			}
 
-			if (DrawRecordVector.IsValid() == true) {
-				bool IsUpdateRequired = DrawCallResourceManager::IsShaderResourceViewUpdateRequired(mDrawRecordSrvResources[RtvIndex], DrawRecordResource, mDrawRecordSrvElementCounts[RtvIndex], DrawRecordCount);
+			if (mDrawRecordVector.IsValid() == true) {
+				bool IsUpdateRequired{ DrawCallResourceManager::IsShaderResourceViewUpdateRequired(mDrawRecordSrvResource, DrawRecordResource, mDrawRecordSrvElementCount, DrawRecordCount) };
 				if (IsUpdateRequired == true) {
-					DrawRecordVector.CreateShaderResourceView(mDevice, mDrawRecordSrvHandles[RtvIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, DrawRecordCount, sizeof(DrawRecordGPU), D3D12_BUFFER_SRV_FLAG_NONE);
-					mDrawRecordSrvResources[RtvIndex] = DrawRecordResource;
-					mDrawRecordSrvElementCounts[RtvIndex] = DrawRecordCount;
+					mDrawRecordVector.CreateShaderResourceView(mDevice, mDrawRecordSrvHandle.GetCPU(), DXGI_FORMAT_UNKNOWN, 0, DrawRecordCount, sizeof(DrawRecordGPU), D3D12_BUFFER_SRV_FLAG_NONE);
+					mDrawRecordSrvResource = DrawRecordResource;
+					mDrawRecordSrvElementCount = DrawRecordCount;
 				}
 			}
 			else {
-				mDrawRecordSrvResources[RtvIndex] = nullptr;
-				mDrawRecordSrvElementCounts[RtvIndex] = 0;
-			}
-
-			if (MaterialVector.IsValid() == true) {
-				bool IsUpdateRequired = DrawCallResourceManager::IsShaderResourceViewUpdateRequired(mMaterialSrvResources[RtvIndex], MaterialResource, mMaterialSrvElementCounts[RtvIndex], MaterialCount);
-				if (IsUpdateRequired == true) {
-					MaterialVector.CreateShaderResourceView(mDevice, mMaterialSrvHandles[RtvIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, MaterialCount, sizeof(Game::RFD::MaterialGpu), D3D12_BUFFER_SRV_FLAG_NONE);
-					mMaterialSrvResources[RtvIndex] = MaterialResource;
-					mMaterialSrvElementCounts[RtvIndex] = MaterialCount;
-				}
-			}
-			else {
-				mMaterialSrvResources[RtvIndex] = nullptr;
-				mMaterialSrvElementCounts[RtvIndex] = 0;
-			}
-
-			if (MaterialTextureTableVector.IsValid() == true) {
-				bool IsUpdateRequired = DrawCallResourceManager::IsShaderResourceViewUpdateRequired(mMaterialTextureTableSrvResources[RtvIndex], MaterialTextureTableResource, mMaterialTextureTableSrvElementCounts[RtvIndex], MaterialTextureTableCount);
-				if (IsUpdateRequired == true) {
-					MaterialTextureTableVector.CreateShaderResourceView(mDevice, mMaterialTextureTableSrvHandles[RtvIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, MaterialTextureTableCount, sizeof(Game::RFD::MaterialTextureTableItemGpu), D3D12_BUFFER_SRV_FLAG_NONE);
-					mMaterialTextureTableSrvResources[RtvIndex] = MaterialTextureTableResource;
-					mMaterialTextureTableSrvElementCounts[RtvIndex] = MaterialTextureTableCount;
-				}
-			}
-			else {
-				mMaterialTextureTableSrvResources[RtvIndex] = nullptr;
-				mMaterialTextureTableSrvElementCounts[RtvIndex] = 0;
+				mDrawRecordSrvResource = nullptr;
+				mDrawRecordSrvElementCount = 0;
 			}
 		}
 
-		bool DrawCallResourceManager::IsShaderResourceViewUpdateRequired(ID3D12Resource* CachedResource, ID3D12Resource* CurrentResource, uint32_t CachedElementCount, uint32_t CurrentElementCount) const {
+		bool DrawCallResourceManager::IsShaderResourceViewUpdateRequired(ID3D12Resource* CachedResource, ID3D12Resource* CurrentResource, std::uint32_t CachedElementCount, std::uint32_t CurrentElementCount) const {
 			if (CurrentResource == nullptr) {
 				return false;
 			}

@@ -301,6 +301,8 @@ void CopyQueue::WaitForSubmitFence(std::uint64_t FenceValue) const {
         return;
     }
 
+	StdOutput::PrintErrorLine("Waiting for copy queue fence value {} to be completed.", FenceValue);
+
     std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
 
     ErrorHandler::report(mCopyFence->SetEventOnCompletion(FenceValue, mFenceEvent), "CopyQueue", "Failed to set copy queue fence completion event.", ErrorHandler::Level::Critical);

@@ -189,6 +189,7 @@ exit 0
     <ClCompile Include="Core\DX\DesciptorHeap.cpp" />
     <ClCompile Include="Core\DX\DrawCallDispatcher.cpp" />
     <ClCompile Include="Core\DX\DrawCallResourceManager.cpp" />
+    <ClCompile Include="Core\DX\MaterialResourceManager.cpp" />
     <ClCompile Include="Core\DX\DirectQueue.cpp" />
     <ClCompile Include="Core\DX\FrameSync.cpp" />
     <ClCompile Include="Core\DX\GraphicsAllocator.cpp" />
@@ -210,6 +211,7 @@ exit 0
     <ClInclude Include="Core\DX\FrameSync.h" />
     <ClInclude Include="Core\DX\GraphicsAllocator.h" />
     <ClInclude Include="Core\DX\GraphicsVector.h" />
+    <ClInclude Include="Core\DX\MaterialResourceManager.h" />
     <ClInclude Include="Core\DX\Texture.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Resource.h" />

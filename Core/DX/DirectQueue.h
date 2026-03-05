@@ -4,6 +4,7 @@
 #include "Core/DX/DesciptorHeap.h"
 #include "Core/DX/DrawCallDispatcher.h"
 #include "Core/DX/DrawCallResourceManager.h"
+#include "Core/DX/MaterialResourceManager.h"
 #include "Core/DX/FrameSync.h"
 #include "Core/DX/Texture.h"
 #include "Core/Config.h"
@@ -75,7 +76,8 @@ namespace Core {
 			DescriptorHeap mDSVHeap{};
 			TexPtr mDepthStencilBuffer{};
 			DescriptorHeap mSrvHeap{};
-			DrawCallResourceManager mDrawCallResourceManager{};
+			std::array<DrawCallResourceManager, Constants::FrameCount<size_t>> mDrawCallResourceManagers{};
+			MaterialResourceManager mMaterialResourceManager{};
 			DrawCallDispatcher mDrawCallDispatcher{};
 
 

@@ -44,7 +44,11 @@ namespace Core {
 			ErrorHandler::report(mGraphicsAllocator == nullptr, "DirectQueue", "GraphicsAllocator is not set.", ErrorHandler::Level::Critical);
 			ErrorHandler::report(mCopyQueue == nullptr, "DirectQueue", "CopyQueue is not set.", ErrorHandler::Level::Critical);
 
-			mDrawCallResourceManager.PrepareFrameResources(mRTVIndex, Data, *mGraphicsAllocator, *mCopyQueue);
+			DrawCallResourceManager& DrawCallResources{ mDrawCallResourceManagers[mRTVIndex] };
+			mMaterialResourceManager.PrepareFrameResources(mRTVIndex, Data, *mGraphicsAllocator, *mCopyQueue);
+			DrawCallResources.PrepareFrameResources(Data, *mGraphicsAllocator, *mCopyQueue);
+
+			mCopyQueue->DispatchCopies();
 		}
 
 		void DirectQueue::Render(Game::RFD::RenderFrameData& Data) {
@@ -62,7 +66,9 @@ namespace Core {
 			auto& rt = mRenderTargets[currentIndex];
 			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 
-			mDrawCallResourceManager.TransitionToShaderResource(mCommandList.Get(), static_cast<uint32_t>(currentIndex));
+			DrawCallResourceManager& DrawCallResources{ mDrawCallResourceManagers[currentIndex] };
+			mMaterialResourceManager.TransitionToShaderResource(mCommandList.Get(), static_cast<uint32_t>(currentIndex));
+			DrawCallResources.TransitionToShaderResource(mCommandList.Get());
 
 			auto rtv = rt->GetRTV();
 			auto dsv = mDepthStencilBuffer->GetDSV();
@@ -78,20 +84,22 @@ namespace Core {
 
 		
 			// Execute Render Tasks
-			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, mDrawCallResourceManager.GetFrameGlobalsSrvHandle(static_cast<uint32_t>(currentIndex)), mDrawCallResourceManager.GetModelContextSrvHandle(static_cast<uint32_t>(currentIndex)), mDrawCallResourceManager.GetDrawRecordSrvHandle(static_cast<uint32_t>(currentIndex)), mDrawCallResourceManager.GetMaterialSrvHandle(static_cast<uint32_t>(currentIndex)), mDrawCallResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
+			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
 			Widget::PerformanceProvider::Get().EndProfile();
 			mWidgetCore.Render(mCommandList);
 
 
 
-			mDrawCallResourceManager.TransitionToCopyDestination(mCommandList.Get(), static_cast<uint32_t>(currentIndex));
+			DrawCallResources.TransitionToCopyDestination(mCommandList.Get());
+			mMaterialResourceManager.TransitionToCopyDestination(mCommandList.Get(), static_cast<uint32_t>(currentIndex));
 
 			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PRESENT);
 
 
 
 			mCommandList->Close();
-			mDrawCallResourceManager.WaitForUpload(*mCopyQueue, static_cast<uint32_t>(currentIndex));
+			DrawCallResources.WaitForUpload(*mCopyQueue);
+			mMaterialResourceManager.WaitForUpload(*mCopyQueue, static_cast<uint32_t>(currentIndex));
 
 
 			ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
@@ -215,7 +223,11 @@ namespace Core {
 				rt->CreateRTV(mDevice.Get(), mRTVHeap);
 			}
 
-			mDrawCallResourceManager.Initialize(mDevice.Get(), &mSrvHeap);
+			for (std::size_t Index{ 0 }; Index < Constants::FrameCount<std::size_t>; ++Index) {
+				mDrawCallResourceManagers[Index].Initialize(mDevice.Get(), &mSrvHeap, static_cast<std::uint32_t>(Index));
+			}
+
+			mMaterialResourceManager.Initialize(mDevice.Get(), &mSrvHeap);
 
 			mDSVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
 

@@ -65,6 +65,9 @@
     <ClCompile Include="Core\DX\DrawCallResourceManager.cpp">
       <Filter>Core\DX</Filter>
     </ClCompile>
+    <ClCompile Include="Core\DX\MaterialResourceManager.cpp">
+      <Filter>Core\DX</Filter>
+    </ClCompile>
     <ClCompile Include="Core\DX\DrawCallDispatcher.cpp">
       <Filter>Core\DX</Filter>
     </ClCompile>
@@ -116,6 +119,9 @@
       <Filter>Core\DX</Filter>
     </ClInclude>
     <ClInclude Include="Core\DX\DrawCallResourceManager.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DX\MaterialResourceManager.h">
       <Filter>Core\DX</Filter>
     </ClInclude>
     <ClInclude Include="Core\DX\DrawCallDispatcher.h">
