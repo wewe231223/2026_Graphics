@@ -1,5 +1,4 @@
 ﻿#include "CopyQueue.h"
-#include <array>
 #include <cstring>
 #include <limits>
 #include <vector>
@@ -78,7 +77,7 @@ bool CopyQueue::Initialize(ID3D12Device* Device) {
 }
 
 bool CopyQueue::EnqueueCopy(std::uint64_t CopyId, const Interface::CopyQueueCopyRequest& CopyRequest) {
-    std::array<Interface::CopyQueueCopyRequest, 1> CopyRequests{ CopyRequest };
+    std::span<const Interface::CopyQueueCopyRequest> CopyRequests{ &CopyRequest, 1 };
     return EnqueueCopy(CopyId, CopyRequests);
 }
 
@@ -106,7 +105,7 @@ bool CopyQueue::EnqueueCopy(std::uint64_t CopyId, std::span<const Interface::Cop
 }
 
 bool CopyQueue::EnqueueTextureCopy(std::uint64_t CopyId, const Interface::CopyQueueTextureCopyRequest& CopyRequest) {
-    std::array<Interface::CopyQueueTextureCopyRequest, 1> CopyRequests{ CopyRequest };
+    std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests{ &CopyRequest, 1 };
     return EnqueueTextureCopy(CopyId, CopyRequests);
 }
 
@@ -337,8 +336,6 @@ bool CopyQueue::PrepareCopyRequests(std::span<const Interface::CopyQueueCopyRequ
     std::vector<PreparedCopyRequest> PreparedRequests{};
     PreparedRequests.reserve(CopyRequests.size());
 
-    std::lock_guard<std::mutex> UploadAllocatorGuard{ mUploadAllocatorMutex };
-
     for (const Interface::CopyQueueCopyRequest& CopyRequest : CopyRequests) {
         if (CopyRequest.DestinationDefaultResource == nullptr) {
             return false;
@@ -361,7 +358,12 @@ bool CopyQueue::PrepareCopyRequests(std::span<const Interface::CopyQueueCopyRequ
         UploadResourceDescription.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         UploadResourceDescription.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-        std::unique_ptr<Interface::IAllocationHandle> UploadAllocationHandle{ mUploadAllocator.AllocatePlacedResource(UploadResourceDescription, D3D12_RESOURCE_STATE_GENERIC_READ) };
+        std::unique_ptr<Interface::IAllocationHandle> UploadAllocationHandle{};
+        {
+            std::lock_guard<std::mutex> UploadAllocatorGuard{ mUploadAllocatorMutex };
+            UploadAllocationHandle = mUploadAllocator.AllocatePlacedResource(UploadResourceDescription, D3D12_RESOURCE_STATE_GENERIC_READ);
+        }
+
         if (UploadAllocationHandle == nullptr or UploadAllocationHandle->IsValid() == false) {
             return false;
         }
@@ -388,8 +390,6 @@ bool CopyQueue::PrepareTextureCopyRequests(std::span<const Interface::CopyQueueT
     std::vector<PreparedCopyRequest> PreparedRequests{};
     PreparedRequests.reserve(CopyRequests.size());
 
-    std::lock_guard<std::mutex> UploadAllocatorGuard{ mUploadAllocatorMutex };
-
     for (const Interface::CopyQueueTextureCopyRequest& CopyRequest : CopyRequests) {
         if (CopyRequest.DestinationTextureResource == nullptr) {
             return false;
@@ -412,7 +412,12 @@ bool CopyQueue::PrepareTextureCopyRequests(std::span<const Interface::CopyQueueT
         UploadResourceDescription.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         UploadResourceDescription.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-        std::unique_ptr<Interface::IAllocationHandle> UploadAllocationHandle{ mUploadAllocator.AllocatePlacedResource(UploadResourceDescription, D3D12_RESOURCE_STATE_GENERIC_READ) };
+        std::unique_ptr<Interface::IAllocationHandle> UploadAllocationHandle{};
+        {
+            std::lock_guard<std::mutex> UploadAllocatorGuard{ mUploadAllocatorMutex };
+            UploadAllocationHandle = mUploadAllocator.AllocatePlacedResource(UploadResourceDescription, D3D12_RESOURCE_STATE_GENERIC_READ);
+        }
+
         if (UploadAllocationHandle == nullptr or UploadAllocationHandle->IsValid() == false) {
             return false;
         }
