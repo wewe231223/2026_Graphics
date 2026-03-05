@@ -25,7 +25,7 @@ namespace Core {
 			ErrorHandler::report(IsCopyIdValid == false, "DrawCallResourceManager", "Invalid draw call copy id.", ErrorHandler::Level::Critical);
 		}
 
-		void DrawCallResourceManager::PrepareFrameResources(Game::RFD::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue& CopyQueue) {
+		void DrawCallResourceManager::PrepareFrameResources(Game::RFD::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue* CopyQueue) {
 			std::stable_sort(Data.drawRecords.begin(), Data.drawRecords.end(), DrawCallResourceManager::CompareDrawRecordByPso);
 			DrawCallResourceManager::BuildDrawRecordGpu(Data);
 
@@ -48,7 +48,7 @@ namespace Core {
 			ErrorHandler::report(DrawRecordCopyResult == false, "DrawCallResourceManager", "Failed to copy draw record data.", ErrorHandler::Level::Critical);
 
 			std::array<Interface::CopyQueueCopyRequest, 3> CopyRequests{ mFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mModelContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mDrawRecordVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
-			bool EnqueueResult{ CopyQueue.EnqueueCopy(mCopyId, CopyRequests) };
+			bool EnqueueResult{ CopyQueue->EnqueueCopy(mCopyId, CopyRequests) };
 			ErrorHandler::report(EnqueueResult == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
 			mCopyFenceValue = mCopyId;
 
@@ -89,12 +89,12 @@ namespace Core {
 			}
 		}
 
-		void DrawCallResourceManager::WaitForUpload(Interface::ICopyQueue& CopyQueue) const {
+		void DrawCallResourceManager::WaitForUpload(Interface::ICopyQueue* CopyQueue) const {
 			if (mCopyFenceValue == 0) {
 				return;
 			}
 
-			CopyQueue.GuaranteeCopy(mCopyFenceValue);
+			CopyQueue->GuaranteeCopy(mCopyFenceValue);
 		}
 
 		DescriptorHandle DrawCallResourceManager::GetFrameGlobalsSrvHandle() const {

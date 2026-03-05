@@ -73,6 +73,7 @@
     <None Include="..\Shader\RS\DefaultRootSignature.json" />
     <None Include="..\Shader\RS\Schema.RootSignature.json" />
     <None Include="..\Shader\Source\Common.hlsli" />
+    <None Include="..\Shader\Source\defines.hlsli" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

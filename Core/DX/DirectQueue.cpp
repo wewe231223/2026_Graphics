@@ -1,4 +1,4 @@
-﻿#include "DirectQueue.h"
+#include "DirectQueue.h"
 #include "Utility/ErrorHandler.h"
 #include "Utility/Views.h"
 #include "Utility/StringUtils.h"
@@ -45,8 +45,8 @@ namespace Core {
 			ErrorHandler::report(mCopyQueue == nullptr, "DirectQueue", "CopyQueue is not set.", ErrorHandler::Level::Critical);
 
 			DrawCallResourceManager& DrawCallResources{ mDrawCallResourceManagers[mRTVIndex] };
-			mMaterialResourceManager.PrepareFrameResources(mRTVIndex, Data, *mGraphicsAllocator, *mCopyQueue);
-			DrawCallResources.PrepareFrameResources(Data, *mGraphicsAllocator, *mCopyQueue);
+			mMaterialResourceManager.PrepareFrameResources(mRTVIndex, Data, *mGraphicsAllocator, mCopyQueue);
+			DrawCallResources.PrepareFrameResources(Data, *mGraphicsAllocator, mCopyQueue);
 
 			mCopyQueue->DispatchCopies();
 		}
@@ -98,8 +98,8 @@ namespace Core {
 
 
 			mCommandList->Close();
-			DrawCallResources.WaitForUpload(*mCopyQueue);
-			mMaterialResourceManager.WaitForUpload(*mCopyQueue, static_cast<uint32_t>(currentIndex));
+			DrawCallResources.WaitForUpload(mCopyQueue);
+			mMaterialResourceManager.WaitForUpload(mCopyQueue, static_cast<uint32_t>(currentIndex));
 
 
 			ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
@@ -232,7 +232,7 @@ namespace Core {
 			mDSVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
 
 			CD3DX12_CLEAR_VALUE depthOptimizedClearValue{ DXGI_FORMAT_D24_UNORM_S8_UINT, 1.0f, 0 };
-			mDepthStencilBuffer = Texture::CreateTarget(mDevice.Get(), Config::Query().Get<uint32_t>("Window_Width"), Config::Query().Get<uint32_t>("Window_Height"), DXGI_FORMAT_D24_UNORM_S8_UINT, TextureUsage::DepthStencil, &depthOptimizedClearValue);
+			mDepthStencilBuffer = Texture::CreateTarget(mDevice.Get(), Config::Query()->Get<uint32_t>("Window_Width"), Config::Query()->Get<uint32_t>("Window_Height"), DXGI_FORMAT_D24_UNORM_S8_UINT, TextureUsage::DepthStencil, &depthOptimizedClearValue);
 
 			mDepthStencilBuffer->CreateDSV(mDevice.Get(), mDSVHeap);
 		}

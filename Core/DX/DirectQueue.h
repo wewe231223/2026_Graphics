@@ -1,4 +1,4 @@
-﻿#pragma once 
+#pragma once
 #include <array>
 #include "Core/Common.h"
 #include "Core/DX/DesciptorHeap.h"
@@ -22,7 +22,7 @@ namespace Core {
 		class DirectQueue {
 		public:
 			DirectQueue(HWND hWnd);
-			~DirectQueue(); 
+			~DirectQueue();
 
 			DirectQueue(const DirectQueue& Other) = delete;
 			DirectQueue& operator=(const DirectQueue& Other) = delete;
@@ -40,12 +40,12 @@ namespace Core {
 			void Render(Game::RFD::RenderFrameData& Data);
 
 		private:
-			void InitBasements(); 
+			void InitBasements();
 			void InitWorkers();
 			void InitCommandList();
-			void InitTargetResources(); 
+			void InitTargetResources();
 
-			ComPtr<IDXGIAdapter1> GetBestAdapter(); 
+			ComPtr<IDXGIAdapter1> GetBestAdapter();
 
 			bool CheckShaderModelSupport(D3D_SHADER_MODEL);
 
@@ -54,24 +54,24 @@ namespace Core {
 		private:
 			HWND mHwnd{ nullptr };
 			ComPtr<IDXGIFactory6> mFactory{ nullptr };
-			 
+
 		#if defined(DEBUG) || defined(_DEBUG)
 			ComPtr<ID3D12Debug6> mDebugController{ nullptr };
 			ComPtr<IDXGIDebug1> mDebugDXGI{ nullptr };
 			ComPtr<IDXGIInfoQueue> mDxgiInfoQueue{ nullptr };
 			ComPtr<ID3D12InfoQueue> mD3D12InfoQueue{ nullptr };
-		#endif 
+		#endif
 			ComPtr<ID3D12Device> mDevice{ nullptr };
 			ComPtr<ID3D12CommandQueue> mDirectCommandQueue{ nullptr };
 
-			ComPtr<IDXGISwapChain1> mSwapChain{ nullptr }; 
+			ComPtr<IDXGISwapChain1> mSwapChain{ nullptr };
 
 			ComPtr<ID3D12GraphicsCommandList> mCommandList{ nullptr };
 			std::array<ComPtr<ID3D12CommandAllocator>, Constants::FrameCount<size_t>> mMainCommandAllocators{};
 
 			DescriptorHeap mRTVHeap{};
 			std::array<TexPtr, Constants::FrameCount<size_t>> mRenderTargets{};
-			uint32_t mRTVIndex{}; 
+			uint32_t mRTVIndex{};
 
 			DescriptorHeap mDSVHeap{};
 			TexPtr mDepthStencilBuffer{};
@@ -88,8 +88,8 @@ namespace Core {
 
 			Widget::WidgetCore mWidgetCore{};
 
-			D3D12_VIEWPORT mViewport{ 0, 0, Config::Query().Get<float>("Window_Width"), Config::Query().Get<float>("Window_Height"), 0.f, 1.f };
-			D3D12_RECT mScissorRect{ 0, 0, Config::Query().Get<LONG>("Window_Width"), Config::Query().Get<LONG>("Window_Height") };
+			D3D12_VIEWPORT mViewport{ 0, 0, Config::Query()->Get<float>("Window_Width"), Config::Query()->Get<float>("Window_Height"), 0.f, 1.f };
+			D3D12_RECT mScissorRect{ 0, 0, Config::Query()->Get<LONG>("Window_Width"), Config::Query()->Get<LONG>("Window_Height") };
 		};
 
 	}

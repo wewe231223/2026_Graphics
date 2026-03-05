@@ -1,6 +1,10 @@
 ﻿#include "UfbxAssetLoader.h"
 
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
 #include <string>
+#include <unordered_set>
 
 using namespace asset;
 
@@ -75,7 +79,84 @@ Mat4 UfbxAssetLoader::ToMat4(const ufbx_matrix& Matrix) {
     return Out;
 }
 
-void UfbxAssetLoader::LoadAndTraverse(std::string_view FilePath, std::span<ISceneNodeVisitor* const> Visitors) {
+
+void UfbxAssetLoader::ExportEmbeddedImages(std::string_view FilePath) {
+    const std::filesystem::path SourcePath{ std::string{ FilePath } };
+    const std::filesystem::path ImagesDirectoryPath{ SourcePath.parent_path().parent_path() / "Bin" / "Images" };
+    std::error_code ErrorCode{};
+    std::uint32_t ExportedImageCount{ 0 };
+    std::unordered_set<std::uintptr_t> ExportedContentAddresses{};
+
+    const auto WriteEmbeddedImage = [&ImagesDirectoryPath, &ErrorCode, &ExportedImageCount, &ExportedContentAddresses](const void* ContentData, std::size_t ContentSize, const std::string& SourceName, std::size_t Index) {
+        const std::uintptr_t ContentAddress{ reinterpret_cast<std::uintptr_t>(ContentData) };
+        if (ContentAddress != 0 && ExportedContentAddresses.find(ContentAddress) != ExportedContentAddresses.end()) {
+            return;
+        }
+
+        if (ContentData == nullptr || ContentSize == 0) {
+            return;
+        }
+
+        if (ExportedImageCount == 0) {
+            std::filesystem::create_directories(ImagesDirectoryPath, ErrorCode);
+            if (ErrorCode) {
+                throw AssetError{ std::string{ "Failed to create image directory: " } + ImagesDirectoryPath.string() };
+            }
+        }
+
+        std::filesystem::path FileNamePath{ std::filesystem::path{ SourceName }.filename() };
+        if (!FileNamePath.has_filename() || FileNamePath.filename().string().empty()) {
+            FileNamePath = std::filesystem::path{ std::string{ "EmbeddedImage_" } + std::to_string(Index) };
+        }
+
+        std::filesystem::path OutputPath{ ImagesDirectoryPath / FileNamePath };
+        std::uint32_t DuplicateIndex{ 0 };
+
+        while (std::filesystem::exists(OutputPath, ErrorCode)) {
+            if (ErrorCode) {
+                throw AssetError{ std::string{ "Failed to inspect embedded image output file: " } + OutputPath.string() };
+            }
+
+            ++DuplicateIndex;
+            const std::string Stem{ FileNamePath.stem().string() };
+            const std::string Extension{ FileNamePath.extension().string() };
+            OutputPath = ImagesDirectoryPath / std::filesystem::path{ Stem + "_" + std::to_string(DuplicateIndex) + Extension };
+        }
+
+        std::ofstream OutputFile{ OutputPath, std::ios::binary };
+        if (!OutputFile.is_open()) {
+            throw AssetError{ std::string{ "Failed to open embedded image output file: " } + OutputPath.string() };
+        }
+
+        OutputFile.write(static_cast<const char*>(ContentData), static_cast<std::streamsize>(ContentSize));
+        if (!OutputFile.good()) {
+            throw AssetError{ std::string{ "Failed to write embedded image output file: " } + OutputPath.string() };
+        }
+
+        ++ExportedImageCount;
+        if (ContentAddress != 0) {
+            ExportedContentAddresses.insert(ContentAddress);
+        }
+    };
+
+    auto& scene = *mScene.GetScene(); 
+
+    for (std::size_t Index{ 0 }; Index < scene.texture_files.count; ++Index) {
+        const ufbx_texture_file& TextureFile{ scene.texture_files.data[Index] };
+        WriteEmbeddedImage(TextureFile.content.data, TextureFile.content.size, ToString(TextureFile.filename), Index);
+    }
+
+    for (std::size_t Index{ 0 }; Index < scene.textures.count; ++Index) {
+        const ufbx_texture* Texture{ scene.textures.data[Index] };
+        if (Texture == nullptr) {
+            continue;
+        }
+
+        WriteEmbeddedImage(Texture->content.data, Texture->content.size, ToString(Texture->filename), scene.texture_files.count + Index);
+    }
+}
+
+void asset::UfbxAssetLoader::LoadScene(std::string_view FilePath){
     ufbx_load_opts Opts{};
     if (mApi == GraphicsAPI::DirectX) {
         Opts.target_axes = ufbx_axes_left_handed_y_up;
@@ -93,17 +174,26 @@ void UfbxAssetLoader::LoadAndTraverse(std::string_view FilePath, std::span<IScen
         }
         throw AssetError{ "ufbx_load_file failed: unknown error" };
     }
-    SceneHandle Handle{ Scene };
-    if (Handle.GetScene()->root_node != nullptr) {
-        TraverseNode(*Handle.GetScene(), *Handle.GetScene()->root_node, nullptr, Visitors);
+
+	mScene = SceneHandle{ Scene };
+	ExportEmbeddedImages(FilePath);
+}
+
+void UfbxAssetLoader::LoadAndTraverse(std::string_view FilePath, std::span<ISceneNodeVisitor* const> Visitors) {
+    if (mScene.GetScene()->root_node != nullptr) {
+        TraverseNode(*mScene.GetScene(), *mScene.GetScene()->root_node, nullptr, Visitors);
         return;
     }
-    for (std::size_t Index{ 0 }; Index < Handle.GetScene()->nodes.count; ++Index) {
-        const ufbx_node* Node{ Handle.GetScene()->nodes.data[Index] };
+    for (std::size_t Index{ 0 }; Index < mScene.GetScene()->nodes.count; ++Index) {
+        const ufbx_node* Node{ mScene.GetScene()->nodes.data[Index] };
         if (Node != nullptr) {
-            TraverseNode(*Handle.GetScene(), *Node, Node->parent, Visitors);
+            TraverseNode(*mScene.GetScene(), *Node, Node->parent, Visitors);
         }
     }
+}
+
+void asset::UfbxAssetLoader::ExportImages(std::string_view FilePath) {
+
 }
 
 void UfbxAssetLoader::TraverseNode(const ufbx_scene& Scene, const ufbx_node& Node, const ufbx_node* Parent, std::span<ISceneNodeVisitor* const> Visitors) {

@@ -23,6 +23,10 @@ namespace {
         return ProjectDirectoryPath / "Bin";
     }
 
+    std::filesystem::path GetImagesDirectoryPath(const std::filesystem::path& BinDirectoryPath) {
+        return BinDirectoryPath / "Images";
+    }
+
     std::filesystem::path GetBinaryOutputPath(const std::filesystem::path& BinDirectoryPath, const std::filesystem::path& AssetFilePath) {
         return BinDirectoryPath / (AssetFilePath.stem().string() + ".bin");
     }
@@ -57,16 +61,17 @@ namespace {
         const std::filesystem::path BinDirectoryPath{ GetBinDirectoryPath(ProjectDirectoryPath) };
         const std::filesystem::path BinaryOutputPath{ GetBinaryOutputPath(BinDirectoryPath, AssetFilePath) };
         const std::filesystem::path MaterialOutputPath{ GetMaterialOutputPath(BinDirectoryPath, AssetFilePath) };
+        const std::filesystem::path ImagesDirectoryPath{ GetImagesDirectoryPath(BinDirectoryPath) };
 
         if (!std::filesystem::exists(AssetFilePath)) {
-            StdOutput::PrintErrorLine("[AssetZIP] 입력 FBX 파일을 찾을 수 없습니다 : {}", AssetFilePath.string());
+            StdOutput::PrintErrorLine("[AssetZIP] Input FBX file was not found: {}", AssetFilePath.string());
             return 1;
         }
 
         std::error_code ErrorCode{};
         std::filesystem::create_directories(BinDirectoryPath, ErrorCode);
         if (ErrorCode) {
-            StdOutput::PrintErrorLine("[AssetZIP] Bin 폴더 생성에 실패하였습니다 : {}", BinDirectoryPath.string());
+            StdOutput::PrintErrorLine("[AssetZIP] Failed to create Bin directory: {}", BinDirectoryPath.string());
             return 1;
         }
 
@@ -78,14 +83,14 @@ namespace {
         asset::AssetBinaryWriter AssetBinaryWriterData{};
         const bool IsBinaryWriteSuccess{ AssetBinaryWriterData.WriteToFile(BinaryOutputPath.string(), ModelData) };
         if (!IsBinaryWriteSuccess) {
-            StdOutput::PrintErrorLine("[AssetZIP] 바이너리 파일 생성에 실패하였습니다 : {}", BinaryOutputPath.string());
+            StdOutput::PrintErrorLine("[AssetZIP] Failed to create binary file: {}", BinaryOutputPath.string());
             return 1;
         }
 
         asset::MaterialGroupJsonSerializer MaterialGroupJsonSerializerData{};
         const bool IsMaterialWriteSuccess{ MaterialGroupJsonSerializerData.WriteToFile(MaterialOutputPath.string(), MaterialGroups) };
         if (!IsMaterialWriteSuccess) {
-            StdOutput::PrintErrorLine("[AssetZIP] 재질 JSON 파일 생성에 실패하였습니다 : {}", MaterialOutputPath.string());
+            StdOutput::PrintErrorLine("[AssetZIP] Failed to create material JSON file: {}", MaterialOutputPath.string());
             return 1;
         }
 
@@ -94,13 +99,18 @@ namespace {
         const std::size_t TotalIndices{ CountTotalIndices(ModelResultData) };
         const std::size_t MaterialGroupCount{ MaterialGroups.size() };
 
-        StdOutput::PrintLine("[AssetZIP] 입력 파일: {}", AssetFilePath.string());
-        StdOutput::PrintLine("[AssetZIP] 출력 바이너리: {}", BinaryOutputPath.string());
-        StdOutput::PrintLine("[AssetZIP] 출력 재질 JSON: {}", MaterialOutputPath.string());
-        StdOutput::PrintLine("[AssetZIP] 노드 수: {}", ModelResultData.NodeCount());
-        StdOutput::PrintLine("[AssetZIP] 총 정점 수: {}", TotalVertices);
-        StdOutput::PrintLine("[AssetZIP] 총 인덱스 수: {}", TotalIndices);
-        StdOutput::PrintLine("[AssetZIP] 재질 그룹 개수: {}", MaterialGroupCount);
+        StdOutput::PrintLine("[AssetZIP] Input file: {}", AssetFilePath.string());
+        StdOutput::PrintLine("[AssetZIP] Output binary: {}", BinaryOutputPath.string());
+        StdOutput::PrintLine("[AssetZIP] Output material JSON: {}", MaterialOutputPath.string());
+
+        if (std::filesystem::exists(ImagesDirectoryPath)) {
+            StdOutput::PrintLine("[AssetZIP] Embedded image output directory: {}", ImagesDirectoryPath.string());
+        }
+
+        StdOutput::PrintLine("[AssetZIP] Node count: {}", ModelResultData.NodeCount());
+        StdOutput::PrintLine("[AssetZIP] Total vertices: {}", TotalVertices);
+        StdOutput::PrintLine("[AssetZIP] Total indices: {}", TotalIndices);
+        StdOutput::PrintLine("[AssetZIP] Material group count: {}", MaterialGroupCount);
 
         return 0;
     }
@@ -108,7 +118,7 @@ namespace {
 
 int main(int ArgCount, char* ArgValues[]) {
     if (ArgCount < 2) {
-        StdOutput::PrintErrorLine("[AssetZIP] 사용법: AssetZIP <FBX파일명");
+        StdOutput::PrintErrorLine("[AssetZIP] Usage: AssetZIP <FBXFileName>");
         return 1;
     }
 

@@ -1,9 +1,9 @@
-﻿#pragma once 
+#pragma once
 #include <string>
 #include <string_view>
 #include <unordered_map>
-#include <charconv>      
-#include <type_traits>   
+#include <charconv>
+#include <type_traits>
 #include "Utility/ErrorHandler.h"
 
 class IConfig {
@@ -53,7 +53,7 @@ class Config {
     static inline IConfig* instance = nullptr;
 public:
     static void Init(IConfig* inst) { instance = inst; }
-    static const IConfig& Query() { return *instance; }
+    static const IConfig* Query() { return instance; }
 };
 
 

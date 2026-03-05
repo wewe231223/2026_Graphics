@@ -25,7 +25,7 @@ namespace Core {
 			}
 		}
 
-		void MaterialResourceManager::PrepareFrameResources(std::uint32_t RtvIndex, const Game::RFD::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue& CopyQueue) {
+		void MaterialResourceManager::PrepareFrameResources(std::uint32_t RtvIndex, const Game::RFD::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue* CopyQueue) {
 			GraphicsVector& MaterialTextureTableVector{ mPerFrameMaterialTextureTableVectors[RtvIndex] };
 			std::size_t MaterialSizeInBytes{ sizeof(Game::RFD::MaterialGpu) * Data.materials.size() };
 			std::size_t MaterialTextureTableSizeInBytes{ sizeof(Game::RFD::MaterialTextureTableItemGpu) * Data.materialTextureTable.size() };
@@ -66,7 +66,7 @@ namespace Core {
 				std::uint64_t CopyId{ CopyQueueId::DrawCallBegin + Constants::FrameCount<std::uint64_t> + static_cast<std::uint64_t>(RtvIndex) };
 				bool IsCopyIdValid{ CopyId <= CopyQueueId::DrawCallEnd };
 				ErrorHandler::report(IsCopyIdValid == false, "MaterialResourceManager", "Invalid material copy id.", ErrorHandler::Level::Critical);
-				bool EnqueueResult{ CopyQueue.EnqueueCopy(CopyId, CopyRequests) };
+				bool EnqueueResult{ CopyQueue->EnqueueCopy(CopyId, CopyRequests) };
 				ErrorHandler::report(EnqueueResult == false, "MaterialResourceManager", "Failed to enqueue material upload copy requests.", ErrorHandler::Level::Critical);
 				mPerFrameCopyFenceValues[RtvIndex] = CopyId;
 			}
@@ -104,13 +104,13 @@ namespace Core {
 			}
 		}
 
-		void MaterialResourceManager::WaitForUpload(Interface::ICopyQueue& CopyQueue, std::uint32_t RtvIndex) const {
+		void MaterialResourceManager::WaitForUpload(Interface::ICopyQueue* CopyQueue, std::uint32_t RtvIndex) const {
 			std::uint64_t CopyFenceValue{ mPerFrameCopyFenceValues[RtvIndex] };
 			if (CopyFenceValue == 0) {
 				return;
 			}
 
-			CopyQueue.GuaranteeCopy(CopyFenceValue);
+			CopyQueue->GuaranteeCopy(CopyFenceValue);
 		}
 
 		DescriptorHandle MaterialResourceManager::GetMaterialSrvHandle() const {

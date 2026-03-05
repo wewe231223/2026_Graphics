@@ -169,6 +169,9 @@
     <None Include="..\Resources\DefaultScene.yaml">
       <Filter>Scene\Scene YAML</Filter>
     </None>
+    <None Include="..\Shader\Source\defines.hlsli">
+      <Filter>Shader</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shader\Source\BasicShader.hlsl">

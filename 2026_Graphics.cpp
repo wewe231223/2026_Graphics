@@ -1,4 +1,4 @@
-﻿// 2026_Graphics.cpp : 애플리케이션에 대한 진입점을 정의합니다.
+// 2026_Graphics.cpp : 애플리케이션에 대한 진입점을 정의합니다.
 extern "C" { __declspec(dllexport) extern const unsigned int D3D12SDKVersion = 618; }
 extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; }
 
@@ -220,14 +220,14 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     hInst = hInstance; // 인스턴스 핸들을 전역 변수에 저장합니다.
 
 
-    if (Config::Query().Get<bool>("Windowed")) {
+    if (Config::Query()->Get<bool>("Windowed")) {
         DWORD style = WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME;
         DWORD exStyle = WS_EX_OVERLAPPEDWINDOW;
 
-        int posX = (GetSystemMetrics(SM_CXSCREEN) / 2) - (Config::Query().Get<int>("Window_Width") / 2);
-        int posY = (GetSystemMetrics(SM_CYSCREEN) / 2) - (Config::Query().Get<int>("Window_Height") / 2);
+        int posX = (GetSystemMetrics(SM_CXSCREEN) / 2) - (Config::Query()->Get<int>("Window_Width") / 2);
+        int posY = (GetSystemMetrics(SM_CYSCREEN) / 2) - (Config::Query()->Get<int>("Window_Height") / 2);
 
-        RECT adjustedRect{ 0, 0, Config::Query().Get<long>("Window_Width"), Config::Query().Get<long>("Window_Height")};
+        RECT adjustedRect{ 0, 0, Config::Query()->Get<long>("Window_Width"), Config::Query()->Get<long>("Window_Height")};
         ::AdjustWindowRectEx(std::addressof(adjustedRect), style, FALSE, exStyle);
 
         hWnd = CreateWindowEx(
@@ -248,8 +248,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
         DWORD style = WS_POPUP;
         DWORD exStyle = NULL;
 
-        int posX = (GetSystemMetrics(SM_CXSCREEN) / 2) - (Config::Query().Get<int>("Window_Width") / 2);
-        int posY = (GetSystemMetrics(SM_CYSCREEN) / 2) - (Config::Query().Get<int>("Window_Height") / 2);
+        int posX = (GetSystemMetrics(SM_CXSCREEN) / 2) - (Config::Query()->Get<int>("Window_Width") / 2);
+        int posY = (GetSystemMetrics(SM_CYSCREEN) / 2) - (Config::Query()->Get<int>("Window_Height") / 2);
 
         hWnd = CreateWindowEx(
             exStyle,                                // 확장 스타일
@@ -257,7 +257,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
             szTitle,                                // 윈도우 타이틀 
             style,                                  // 윈도우 스타일
             posX, posY,                             // 위치 
-            Config::Query().Get<long>("Window_Width"), Config::Query().Get<long>("Window_Height"), // 크기
+            Config::Query()->Get<long>("Window_Width"), Config::Query()->Get<long>("Window_Height"), // 크기
             nullptr,                                // 부모 윈도우
             nullptr,                                // 메뉴
             hInstance,                              // 인스턴스 핸들

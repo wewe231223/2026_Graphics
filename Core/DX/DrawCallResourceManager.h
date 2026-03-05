@@ -21,10 +21,10 @@ namespace Core {
 
 		public:
 			void Initialize(ID3D12Device* Device, DescriptorHeap* SrvHeap, std::uint32_t FrameIndex);
-			void PrepareFrameResources(Game::RFD::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue& CopyQueue);
+			void PrepareFrameResources(Game::RFD::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue* CopyQueue);
 			void TransitionToShaderResource(ID3D12GraphicsCommandList* CommandList);
 			void TransitionToCopyDestination(ID3D12GraphicsCommandList* CommandList);
-			void WaitForUpload(Interface::ICopyQueue& CopyQueue) const;
+			void WaitForUpload(Interface::ICopyQueue* CopyQueue) const;
 
 			DescriptorHandle GetFrameGlobalsSrvHandle() const;
 			DescriptorHandle GetModelContextSrvHandle() const;

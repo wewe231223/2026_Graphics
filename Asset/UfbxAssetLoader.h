@@ -36,13 +36,16 @@ namespace asset {
         UfbxAssetLoader& operator=(UfbxAssetLoader&& Other) noexcept = default;
 
     public:
+        void LoadScene(std::string_view FilePath);
         void LoadAndTraverse(std::string_view FilePath, std::span<ISceneNodeVisitor* const> Visitors);
-
+        void ExportImages(std::string_view FilePath);
     private:
         static Mat4 ToMat4(const ufbx_matrix& Matrix);
+        void ExportEmbeddedImages(std::string_view FilePath);
         void TraverseNode(const ufbx_scene& Scene, const ufbx_node& Node, const ufbx_node* Parent, std::span<ISceneNodeVisitor* const> Visitors);
 
     private:
         GraphicsAPI mApi{ GraphicsAPI::DirectX };
+		SceneHandle mScene{};
     };
 }
