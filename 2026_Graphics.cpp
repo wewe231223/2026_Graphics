@@ -133,6 +133,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     const Game::SceneYamlLoadResult SceneYamlLoadResult{ SceneYamlSerializer.DeserializeFromFile("Resources/DefaultScene.yaml", SceneInstance) };
     ErrorHandler::report(SceneYamlLoadResult.IsSuccess == false, "WinMain", "Failed to load scene yaml.", ErrorHandler::Level::Warning);
 
+    directQueue.SetCurrentSceneName(SceneInstance.GetName());
 
     copyQueue.DispatchCopies();
     copyQueue.GuaranteeCopy(Core::DX::CopyQueueId::Model);

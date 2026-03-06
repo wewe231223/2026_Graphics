@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <string>
 #include "Core/Common.h"
 #include "Core/DX/DesciptorHeap.h"
 #include "Core/DX/DrawCallDispatcher.h"
@@ -38,6 +39,7 @@ namespace Core {
 			void SetUploadInfrastructure(GraphicsAllocator* GraphicsAllocator, Interface::ICopyQueue* CopyQueue);
 			void PreRender(Game::RFD::RenderFrameData& Data, float Dt);
 			void Render(Game::RFD::RenderFrameData& Data);
+			void SetCurrentSceneName(const std::string& SceneName);
 
 		private:
 			void InitBasements();

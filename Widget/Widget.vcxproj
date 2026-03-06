@@ -31,6 +31,7 @@
     <ClInclude Include="Console.h" />
     <ClInclude Include="PerformanceProvider.h" />
     <ClInclude Include="PerformanceWidgets.h" />
+    <ClInclude Include="ResourceBrowserWidget.h" />
     <ClInclude Include="WidgetCore.h" />
   </ItemGroup>
   <ItemGroup>
@@ -44,6 +45,7 @@
     <ClCompile Include="Console.cpp" />
     <ClCompile Include="PerformanceProvider.cpp" />
     <ClCompile Include="PerformanceWidgets.cpp" />
+    <ClCompile Include="ResourceBrowserWidget.cpp" />
     <ClCompile Include="WidgetCore.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

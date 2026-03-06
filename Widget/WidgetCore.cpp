@@ -13,6 +13,7 @@ namespace fs = std::filesystem;
 #include "Console.h"
 #include "PerformanceProvider.h"
 #include "PerformanceWidgets.h"
+#include "ResourceBrowserWidget.h"
 
 namespace Widget {
 
@@ -92,11 +93,24 @@ namespace Widget {
 		}
 	}
 
+	void WidgetCore::SetCurrentSceneName(const std::string& SceneName) {
+		if (mResourceBrowserWidget == nullptr) {
+			return;
+		}
+
+		mResourceBrowserWidget->SetCurrentSceneName(SceneName);
+	}
+
 	void WidgetCore::BuildWidgets() {
 		MakeWidget<FrameTimeWidget>();
 		MakeWidget<DistributionWidget>();
 		MakeWidget<TimelineWidget>();
 		MakeWidget<VramUsageWidget>();
 		MakeWidget<ImGuiConsole>();
+		MakeWidget<ResourceBrowserWidget>();
+
+		if (mWidgets.empty() == false) {
+			mResourceBrowserWidget = dynamic_cast<ResourceBrowserWidget*>(mWidgets.back().get());
+		}
 	}
 }

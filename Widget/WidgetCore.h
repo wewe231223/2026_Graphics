@@ -3,10 +3,13 @@
 #include <Windows.h>
 #include <vector>
 #include <memory>
+#include <string>
 #include "Utility/DirectXInclude.h"
 #include "Common.h"
 
 namespace Widget {
+	class ResourceBrowserWidget;
+
 	class WidgetCore {
 	public:
 		WidgetCore() = default;
@@ -21,6 +24,7 @@ namespace Widget {
 	public:
 		void Initialize(HWND hWnd, ComPtr<ID3D12Device>& device, IDXGIAdapter1* adapter);
 		void Render(ComPtr<ID3D12GraphicsCommandList>& commandList);
+		void SetCurrentSceneName(const std::string& SceneName);
 
 		template<std::derived_from<IWidget> T, typename... Args>
 		void MakeWidget(Args&&... args) {
@@ -33,5 +37,6 @@ namespace Widget {
 	private:
 		ComPtr<ID3D12DescriptorHeap> mSRVHeap{ nullptr };
 		std::vector<std::unique_ptr<IWidget>> mWidgets{};
+		ResourceBrowserWidget* mResourceBrowserWidget{ nullptr };
 	};
 }

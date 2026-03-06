@@ -51,6 +51,11 @@ namespace Core {
 			mCopyQueue->DispatchCopies();
 		}
 
+
+		void DirectQueue::SetCurrentSceneName(const std::string& SceneName) {
+			mWidgetCore.SetCurrentSceneName(SceneName);
+		}
+
 		void DirectQueue::Render(Game::RFD::RenderFrameData& Data) {
 			ErrorHandler::report(mCopyQueue == nullptr, "DirectQueue", "CopyQueue is not set.", ErrorHandler::Level::Critical);
 
