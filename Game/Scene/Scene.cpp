@@ -74,6 +74,11 @@ namespace Game {
         mSystemSceduler.BuildExecutionPlan(mSystems);
     }
 
+    void Scene::PrepareRender() {
+        mAssetRegistry.PrepareRenderTextures(mFrameContext.RenderData);
+        mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
+    }
+
     void Scene::ExecutePhase(Phase TargetPhase, float Dt) {
         if (TargetPhase == Phase::PreUpdate) {
             mFrameContext.RenderData.modelContexts.clear();

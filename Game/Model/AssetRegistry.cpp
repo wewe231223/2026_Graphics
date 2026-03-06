@@ -2,6 +2,7 @@
 #include <array>
 #include <filesystem>
 #include <limits>
+#include <unordered_set>
 #include "Asset/AssetBinaryReader.h"
 #include "Asset/MaterialGroupJsonSerializer.h"
 
@@ -31,7 +32,9 @@ namespace Game {
         mMaterialNameLookup{},
         mMaterialTextureTable{},
         mTextureTableLookup{},
-        mTextureCache{},
+        mTextureRecords{},
+        mMaterialToTextureTableIndices{},
+        mTextureResidencyDecider{},
         mMaterialGroups{},
         mMaterialGroupNameLookup{},
         mMaterialGroupSourcePaths{},
@@ -55,7 +58,9 @@ namespace Game {
         mMaterialNameLookup{ std::move(Other.mMaterialNameLookup) },
         mMaterialTextureTable{ std::move(Other.mMaterialTextureTable) },
         mTextureTableLookup{ std::move(Other.mTextureTableLookup) },
-        mTextureCache{ std::move(Other.mTextureCache) },
+        mTextureRecords{ std::move(Other.mTextureRecords) },
+        mMaterialToTextureTableIndices{ std::move(Other.mMaterialToTextureTableIndices) },
+        mTextureResidencyDecider{ std::move(Other.mTextureResidencyDecider) },
         mMaterialGroups{ std::move(Other.mMaterialGroups) },
         mMaterialGroupNameLookup{ std::move(Other.mMaterialGroupNameLookup) },
         mMaterialGroupSourcePaths{ std::move(Other.mMaterialGroupSourcePaths) },
@@ -84,7 +89,9 @@ namespace Game {
         mMaterialNameLookup = std::move(Other.mMaterialNameLookup);
         mMaterialTextureTable = std::move(Other.mMaterialTextureTable);
         mTextureTableLookup = std::move(Other.mTextureTableLookup);
-        mTextureCache = std::move(Other.mTextureCache);
+        mTextureRecords = std::move(Other.mTextureRecords);
+        mMaterialToTextureTableIndices = std::move(Other.mMaterialToTextureTableIndices);
+        mTextureResidencyDecider = std::move(Other.mTextureResidencyDecider);
         mMaterialGroups = std::move(Other.mMaterialGroups);
         mMaterialGroupNameLookup = std::move(Other.mMaterialGroupNameLookup);
         mMaterialGroupSourcePaths = std::move(Other.mMaterialGroupSourcePaths);
@@ -107,6 +114,10 @@ namespace Game {
 
     void AssetRegistry::SetSrvHeap(Core::DX::DescriptorHeap* SrvHeap) {
         mSrvHeap = SrvHeap;
+    }
+
+    void AssetRegistry::SetTextureResidencyDecider(TextureResidencyDecider NewDecider) {
+        mTextureResidencyDecider = std::move(NewDecider);
     }
 
     std::shared_ptr<Model> AssetRegistry::GetModel(const std::string& ModelBinaryPath) {
@@ -169,6 +180,10 @@ namespace Game {
 
         const std::uint32_t NewIndex{ static_cast<std::uint32_t>(mMaterials.size()) };
         mPackedMaterials.push_back(NewMaterial.PackedData);
+
+        std::vector<std::uint32_t> TextureIndices{ BuildMaterialTextureTableIndices(NewMaterial.Data, NewMaterial.PackedData) };
+        mMaterialToTextureTableIndices.push_back(std::move(TextureIndices));
+
         mMaterials.push_back(std::move(NewMaterial));
         mMaterialNameLookup.insert_or_assign(mMaterials.back().Name, NewIndex);
         return NewIndex;
@@ -264,24 +279,134 @@ namespace Game {
 
         RFD::MaterialTextureTableItemGpu TableItem{};
         TableItem.TextureSrvDescriptorIndex = std::numeric_limits<std::uint32_t>::max();
-        if (mDevice != nullptr && mCopyQueue != nullptr && mAllocator != nullptr && mSrvHeap != nullptr) {
-            Core::DX::TexPtr NewTexture{ Core::DX::Texture::LoadFromFile(mDevice, mCopyQueue, mAllocator, NormalizedPath) };
-            if (NewTexture != nullptr) {
-                NewTexture->CreateSRV(mDevice, *mSrvHeap);
-                const D3D12_GPU_DESCRIPTOR_HANDLE TextureSrvHandle{ NewTexture->GetSRV() };
-                const D3D12_GPU_DESCRIPTOR_HANDLE HeapStartHandle{ mSrvHeap->GetHeap()->GetGPUDescriptorHandleForHeapStart() };
-                const std::uint64_t DescriptorIncrement{ static_cast<std::uint64_t>(mDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)) };
-                if (TextureSrvHandle.ptr >= HeapStartHandle.ptr && DescriptorIncrement > 0) {
-                    TableItem.TextureSrvDescriptorIndex = static_cast<std::uint32_t>((TextureSrvHandle.ptr - HeapStartHandle.ptr) / DescriptorIncrement);
-                }
-                mTextureCache.insert_or_assign(TextureKey, NewTexture);
-            }
+
+        Core::DX::TexPtr NewTexture{};
+        if (mDevice != nullptr) {
+            NewTexture = Core::DX::Texture::CreateFromFile(mDevice, NormalizedPath);
         }
 
         const std::uint32_t TextureTableIndex{ static_cast<std::uint32_t>(mMaterialTextureTable.size()) };
         mMaterialTextureTable.push_back(TableItem);
         mTextureTableLookup.insert_or_assign(TextureKey, TextureTableIndex);
+
+        TextureRecord NewTextureData{};
+        NewTextureData.Key = TextureKey;
+        NewTextureData.Texture = std::move(NewTexture);
+        NewTextureData.TableIndex = TextureTableIndex;
+        NewTextureData.KeepResident = false;
+        mTextureRecords.push_back(std::move(NewTextureData));
         return TextureTableIndex;
+    }
+
+    bool AssetRegistry::ShouldKeepTextureResident(const TextureRecord& TextureData, const std::unordered_set<std::uint32_t>& UsedTextureTableIndices) const {
+        const bool IsUsedByDrawRecords{ UsedTextureTableIndices.find(TextureData.TableIndex) != UsedTextureTableIndices.end() };
+        const bool IsLoaded{ TextureData.Texture != nullptr && TextureData.Texture->IsLoaded() == true };
+
+        if (mTextureResidencyDecider) {
+            return mTextureResidencyDecider(TextureData.TableIndex, IsUsedByDrawRecords, IsLoaded);
+        }
+
+        if (TextureData.KeepResident == true) {
+            return true;
+        }
+
+        return IsUsedByDrawRecords;
+    }
+
+    void AssetRegistry::UpdateTextureTableItem(TextureRecord& TextureData) {
+        if (TextureData.TableIndex >= mMaterialTextureTable.size()) {
+            return;
+        }
+
+        RFD::MaterialTextureTableItemGpu& TextureTableItem{ mMaterialTextureTable[TextureData.TableIndex] };
+        TextureTableItem.TextureSrvDescriptorIndex = std::numeric_limits<std::uint32_t>::max();
+
+        if (TextureData.Texture == nullptr || TextureData.Texture->IsLoaded() == false) {
+            return;
+        }
+
+        TextureData.Texture->CreateSRV(mDevice, *mSrvHeap);
+        const D3D12_GPU_DESCRIPTOR_HANDLE TextureSrvHandle{ TextureData.Texture->GetSRV() };
+        const D3D12_GPU_DESCRIPTOR_HANDLE HeapStartHandle{ mSrvHeap->GetHeap()->GetGPUDescriptorHandleForHeapStart() };
+        const std::uint64_t DescriptorIncrement{ static_cast<std::uint64_t>(mDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)) };
+        if (TextureSrvHandle.ptr >= HeapStartHandle.ptr && DescriptorIncrement > 0) {
+            TextureTableItem.TextureSrvDescriptorIndex = static_cast<std::uint32_t>((TextureSrvHandle.ptr - HeapStartHandle.ptr) / DescriptorIncrement);
+        }
+    }
+
+    std::vector<std::uint32_t> AssetRegistry::BuildMaterialTextureTableIndices(const asset::Material& MaterialData, const RFD::MaterialGpu& PackedMaterial) const {
+        std::unordered_set<std::uint32_t> UniqueTextureIndices{};
+
+        for (const asset::MaterialProperty& PropertyData : MaterialData.Properties) {
+            if (PropertyData.Data.GetKind() != asset::MaterialMapKind::String) {
+                continue;
+            }
+
+            if (IsSupportedMaterialType(PropertyData.Type) == false) {
+                continue;
+            }
+
+            const std::uint32_t TypeIndex{ static_cast<std::uint32_t>(PropertyData.Type) };
+            const std::int64_t FieldIntValue{ PackedMaterial.Fields[TypeIndex].IntValue };
+            if (FieldIntValue < 0) {
+                continue;
+            }
+
+            const std::uint32_t TextureTableIndex{ static_cast<std::uint32_t>(FieldIntValue) };
+            if (TextureTableIndex >= mMaterialTextureTable.size()) {
+                continue;
+            }
+
+            UniqueTextureIndices.insert(TextureTableIndex);
+        }
+
+        std::vector<std::uint32_t> TextureIndices{};
+        TextureIndices.reserve(UniqueTextureIndices.size());
+        for (const std::uint32_t TextureTableIndex : UniqueTextureIndices) {
+            TextureIndices.push_back(TextureTableIndex);
+        }
+
+        return TextureIndices;
+    }
+
+    void AssetRegistry::PrepareRenderTextures(const RFD::RenderFrameData& RenderData) {
+        if (mDevice == nullptr || mCopyQueue == nullptr || mAllocator == nullptr || mSrvHeap == nullptr) {
+            return;
+        }
+
+        std::unordered_set<std::uint32_t> UsedTextureTableIndices{};
+        for (const RFD::DrawRecord& DrawRecordData : RenderData.drawRecords) {
+            if (DrawRecordData.materialIndex >= mMaterialToTextureTableIndices.size()) {
+                continue;
+            }
+
+            const std::vector<std::uint32_t>& MaterialTextureIndices{ mMaterialToTextureTableIndices[DrawRecordData.materialIndex] };
+            for (const std::uint32_t TextureIndex : MaterialTextureIndices) {
+                UsedTextureTableIndices.insert(TextureIndex);
+            }
+        }
+
+        for (TextureRecord& TextureData : mTextureRecords) {
+            if (TextureData.Texture == nullptr) {
+                continue;
+            }
+
+            const bool ShouldLoadTexture{ ShouldKeepTextureResident(TextureData, UsedTextureTableIndices) };
+            if (ShouldLoadTexture == true) {
+                if (TextureData.Texture->IsLoaded() == false) {
+                    const bool IsLoaded{ TextureData.Texture->Load(mCopyQueue, mAllocator) };
+                    if (IsLoaded == true) {
+                        UpdateTextureTableItem(TextureData);
+                    }
+                }
+                continue;
+            }
+
+            if (TextureData.Texture->IsLoaded() == true) {
+                TextureData.Texture->Unload();
+                mMaterialTextureTable[TextureData.TableIndex].TextureSrvDescriptorIndex = std::numeric_limits<std::uint32_t>::max();
+            }
+        }
     }
 
     std::filesystem::path AssetRegistry::BuildTexturePathFromMaterialPath(const std::string& MaterialSourcePath, const std::string& TexturePath) const {

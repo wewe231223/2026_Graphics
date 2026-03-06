@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <filesystem>
+#include <functional>
 #include <vector>
 #include <utility>
 #include "Core/Common.h"
@@ -59,8 +60,24 @@ namespace Game {
         const std::vector<RFD::MaterialTextureTableItemGpu>& GetMaterialTextureTable() const;
         std::uint32_t FindMaterialGroupIndexBySourcePath(const std::string& MaterialSourcePath) const;
 
+        using TextureResidencyDecider = std::function<bool(std::uint32_t TextureTableIndex, bool IsUsedByDrawRecords, bool IsLoaded)>;
+
+        void SetTextureResidencyDecider(TextureResidencyDecider NewDecider);
+        void PrepareRenderTextures(const RFD::RenderFrameData& RenderData);
+
+    private:
+        struct TextureRecord final {
+            std::string Key{};
+            Core::DX::TexPtr Texture{};
+            std::uint32_t TableIndex{ 0 };
+            bool KeepResident{ false };
+        };
+
     private:
         std::uint32_t ResolveTextureTableIndex(const std::filesystem::path& TexturePath);
+        bool ShouldKeepTextureResident(const TextureRecord& TextureData, const std::unordered_set<std::uint32_t>& UsedTextureTableIndices) const;
+        void UpdateTextureTableItem(TextureRecord& TextureData);
+        std::vector<std::uint32_t> BuildMaterialTextureTableIndices(const asset::Material& MaterialData, const RFD::MaterialGpu& PackedMaterial) const;
         std::filesystem::path BuildTexturePathFromMaterialPath(const std::string& MaterialSourcePath, const std::string& TexturePath) const;
         std::int64_t ToMaterialIntValue(const asset::MaterialMap& MaterialMapData, const std::string& MaterialSourcePath);
         SimpleMath::Vector4 ToMaterialFloatValue(const asset::MaterialMap& MaterialMapData);
@@ -84,7 +101,9 @@ namespace Game {
 
         std::vector<RFD::MaterialTextureTableItemGpu> mMaterialTextureTable{};
         std::unordered_map<std::string, std::uint32_t> mTextureTableLookup{};
-        std::unordered_map<std::string, Core::DX::TexPtr> mTextureCache{};
+        std::vector<TextureRecord> mTextureRecords{};
+        std::vector<std::vector<std::uint32_t>> mMaterialToTextureTableIndices{};
+        TextureResidencyDecider mTextureResidencyDecider{};
 
         std::vector<RegisteredMaterialGroup> mMaterialGroups{};
         std::unordered_map<std::string, std::uint32_t> mMaterialGroupNameLookup{};

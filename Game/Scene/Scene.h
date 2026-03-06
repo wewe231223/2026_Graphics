@@ -38,6 +38,7 @@ namespace Game {
         void AddSystem(std::unique_ptr<ISystem> NewSystem);
         void BuildSystemExecutionPlan();
         void ExecutePhase(Phase TargetPhase, float Dt);
+        void PrepareRender();
         
     private:
         std::string mName{};

@@ -9,12 +9,23 @@
 using namespace DirectX;
 using namespace Core::DX;
 
+namespace {
+    bool IsSupportedDdsPath(const std::filesystem::path& SourcePath) {
+        std::wstring Extension{ SourcePath.extension().wstring() };
+        std::transform(Extension.begin(), Extension.end(), Extension.begin(), ::towlower);
+        return Extension == L".dds";
+    }
+}
+
 Texture::Texture(const std::string& name)
     : mResource{ nullptr },
     mAllocationHandle{},
     mResourceDESC{},
     mCurrentState{ D3D12_RESOURCE_STATE_COMMON },
+    mDevice{ nullptr },
     mName{ name },
+    mSourceLayouts{},
+    mSourceData{},
     mSRVHandle{},
     mRTVHandle{},
     mDSVHandle{},
@@ -29,11 +40,15 @@ Texture::Texture(Texture&& other) noexcept
     mAllocationHandle(std::move(other.mAllocationHandle)),
     mResourceDESC(std::move(other.mResourceDESC)),
     mCurrentState(other.mCurrentState),
+    mDevice(other.mDevice),
     mName(std::move(other.mName)),
+    mSourceLayouts(std::move(other.mSourceLayouts)),
+    mSourceData(std::move(other.mSourceData)),
     mSRVHandle(std::move(other.mSRVHandle)),
     mRTVHandle(std::move(other.mRTVHandle)),
     mDSVHandle(std::move(other.mDSVHandle)),
     mUAVHandle(std::move(other.mUAVHandle)) {
+    other.mDevice = nullptr;
 }
 
 Texture& Texture::operator=(Texture&& other) noexcept {
@@ -42,77 +57,65 @@ Texture& Texture::operator=(Texture&& other) noexcept {
         mAllocationHandle = std::move(other.mAllocationHandle);
         mResourceDESC = std::move(other.mResourceDESC);
         mCurrentState = other.mCurrentState;
+        mDevice = other.mDevice;
         mName = std::move(other.mName);
+        mSourceLayouts = std::move(other.mSourceLayouts);
+        mSourceData = std::move(other.mSourceData);
         mSRVHandle = std::move(other.mSRVHandle);
         mRTVHandle = std::move(other.mRTVHandle);
         mDSVHandle = std::move(other.mDSVHandle);
         mUAVHandle = std::move(other.mUAVHandle);
+        other.mDevice = nullptr;
     }
 
     return *this;
 }
 
-Texture::Ptr Texture::LoadFromFile(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, const std::filesystem::path& SourcePath) {
-    if (Device == nullptr or CopyQueue == nullptr or Allocator == nullptr) {
+Texture::Ptr Texture::CreateFromFile(ID3D12Device* Device, const std::filesystem::path& SourcePath) {
+    if (Device == nullptr) {
         return nullptr;
     }
 
-    std::wstring Extension{ SourcePath.extension().wstring() };
-    std::transform(Extension.begin(), Extension.end(), Extension.begin(), ::towlower);
-    if (Extension != L".dds") {
+    if (IsSupportedDdsPath(SourcePath) == false) {
         return nullptr;
     }
 
     TexMetadata Metadata{};
-    ScratchImage sImage{};
-    HRESULT LoadResult{ LoadFromDDSFile(SourcePath.c_str(), DDS_FLAGS_NONE, &Metadata, sImage) };
+    ScratchImage SourceImageSet{};
+    HRESULT LoadResult{ LoadFromDDSFile(SourcePath.c_str(), DDS_FLAGS_NONE, &Metadata, SourceImageSet) };
     if (FAILED(LoadResult)) {
         ErrorHandler::report("Texture", "Failed to load DDS texture file: " + SourcePath.string(), ErrorHandler::Level::Critical);
         return nullptr;
     }
 
     Texture::Ptr NewTexture{ std::make_shared<Texture>(SourcePath.string()) };
+    NewTexture->mDevice = Device;
     NewTexture->mResourceDESC = CD3DX12_RESOURCE_DESC::Tex2D(Metadata.format, static_cast<UINT64>(Metadata.width), static_cast<UINT>(Metadata.height), static_cast<UINT16>(Metadata.arraySize), static_cast<UINT16>(Metadata.mipLevels), 1, 0, D3D12_RESOURCE_FLAG_NONE);
     NewTexture->mCurrentState = D3D12_RESOURCE_STATE_COMMON;
 
-    if (Allocator->CanAllocate(NewTexture->mResourceDESC) == false) {
-        ErrorHandler::report("Texture", "Graphics allocator cannot allocate texture resource: " + SourcePath.string(), ErrorHandler::Level::Critical);
-        return nullptr;
-    }
-
-    NewTexture->mAllocationHandle = Allocator->AllocatePlacedResource(NewTexture->mResourceDESC, NewTexture->mCurrentState, nullptr);
-    if (NewTexture->mAllocationHandle == nullptr or NewTexture->mAllocationHandle->IsValid() == false) {
-        ErrorHandler::report("Texture", "Failed to create texture resource: " + SourcePath.string(), ErrorHandler::Level::Critical);
-        return nullptr;
-    }
-
-    NewTexture->mResource = NewTexture->mAllocationHandle->GetResource();
-
-    NewTexture->mResource->SetName(SourcePath.c_str());
-
-    UINT SubresourceCount{ static_cast<UINT>(sImage.GetImageCount()) };
-    std::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> Layouts(SubresourceCount);
+    const UINT SubresourceCount{ static_cast<UINT>(SourceImageSet.GetImageCount()) };
+    NewTexture->mSourceLayouts.resize(SubresourceCount);
     std::vector<UINT> NumRows(SubresourceCount);
     std::vector<UINT64> RowSizesInBytes(SubresourceCount);
     UINT64 RequiredSize{};
-    Device->GetCopyableFootprints(&NewTexture->mResourceDESC, 0, SubresourceCount, 0, Layouts.data(), NumRows.data(), RowSizesInBytes.data(), &RequiredSize);
+    Device->GetCopyableFootprints(&NewTexture->mResourceDESC, 0, SubresourceCount, 0, NewTexture->mSourceLayouts.data(), NumRows.data(), RowSizesInBytes.data(), &RequiredSize);
 
-    std::vector<std::byte> UploadData(static_cast<std::size_t>(RequiredSize));
-    const Image* SourceImages{ sImage.GetImages() };
-    for (UINT SubresourceIndex = 0; SubresourceIndex < SubresourceCount; ++SubresourceIndex) {
-        const D3D12_PLACED_SUBRESOURCE_FOOTPRINT& Layout{ Layouts[SubresourceIndex] };
+    NewTexture->mSourceData.resize(static_cast<std::size_t>(RequiredSize));
+    const Image* SourceImages{ SourceImageSet.GetImages() };
+    for (UINT SubresourceIndex{ 0 }; SubresourceIndex < SubresourceCount; ++SubresourceIndex) {
+        const D3D12_PLACED_SUBRESOURCE_FOOTPRINT& Layout{ NewTexture->mSourceLayouts[SubresourceIndex] };
         const Image& SourceImage{ SourceImages[SubresourceIndex] };
-        std::byte* DestinationBase{ UploadData.data() + Layout.Offset };
-        std::size_t SlicePitch{ SourceImage.slicePitch };
-        std::size_t RowPitch{ SourceImage.rowPitch };
-        std::uint32_t SliceCount{ static_cast<std::uint32_t>(Layout.Footprint.Depth) };
-        std::uint32_t RowCount{ NumRows[SubresourceIndex] };
+        std::byte* DestinationBase{ NewTexture->mSourceData.data() + Layout.Offset };
+        const std::size_t SlicePitch{ SourceImage.slicePitch };
+        const std::size_t RowPitch{ SourceImage.rowPitch };
+        const std::uint32_t SliceCount{ static_cast<std::uint32_t>(Layout.Footprint.Depth) };
+        const std::uint32_t RowCount{ NumRows[SubresourceIndex] };
 
-        for (std::uint32_t SliceIndex = 0; SliceIndex < SliceCount; ++SliceIndex) {
+        for (std::uint32_t SliceIndex{ 0 }; SliceIndex < SliceCount; ++SliceIndex) {
             const std::byte* SourceSliceBase{ reinterpret_cast<const std::byte*>(SourceImage.pixels) + (SlicePitch * SliceIndex) };
             std::byte* DestinationSliceBase{ DestinationBase + (static_cast<std::size_t>(Layout.Footprint.RowPitch) * RowCount * SliceIndex) };
 
-            for (std::uint32_t RowIndex = 0; RowIndex < RowCount; ++RowIndex) {
+            for (std::uint32_t RowIndex{ 0 }; RowIndex < RowCount; ++RowIndex) {
                 const std::byte* SourceRow{ SourceSliceBase + (RowPitch * RowIndex) };
                 std::byte* DestinationRow{ DestinationSliceBase + (static_cast<std::size_t>(Layout.Footprint.RowPitch) * RowIndex) };
                 std::memcpy(DestinationRow, SourceRow, static_cast<std::size_t>(RowSizesInBytes[SubresourceIndex]));
@@ -120,17 +123,61 @@ Texture::Ptr Texture::LoadFromFile(ID3D12Device* Device, Interface::ICopyQueue* 
         }
     }
 
-    Interface::CopyQueueTextureCopyRequest CopyRequest{};
-    CopyRequest.DestinationTextureResource = NewTexture->mResource;
-    CopyRequest.SourceLayouts = std::move(Layouts);
-    CopyRequest.SourceData = std::move(UploadData);
-    bool EnqueueResult{ CopyQueue->EnqueueTextureCopy(CopyQueueId::Texture, CopyRequest) };
-    if (EnqueueResult == false) {
-        ErrorHandler::report("Texture", "Failed to enqueue texture upload copy request: " + SourcePath.string(), ErrorHandler::Level::Critical);
-        return nullptr;
+    return NewTexture;
+}
+
+bool Texture::Load(Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator) {
+    if (IsLoaded() == true) {
+        return true;
     }
 
-    return NewTexture;
+    if (CopyQueue == nullptr || Allocator == nullptr || mDevice == nullptr) {
+        return false;
+    }
+
+    if (Allocator->CanAllocate(mResourceDESC) == false) {
+        ErrorHandler::report("Texture", "Graphics allocator cannot allocate texture resource: " + mName, ErrorHandler::Level::Critical);
+        return false;
+    }
+
+    mAllocationHandle = Allocator->AllocatePlacedResource(mResourceDESC, mCurrentState, nullptr);
+    if (mAllocationHandle == nullptr || mAllocationHandle->IsValid() == false) {
+        ErrorHandler::report("Texture", "Failed to create texture resource: " + mName, ErrorHandler::Level::Critical);
+        return false;
+    }
+
+    mResource = mAllocationHandle->GetResource();
+
+    std::wstring ResourceName{ mName.begin(), mName.end() };
+    mResource->SetName(ResourceName.c_str());
+
+    Interface::CopyQueueTextureCopyRequest CopyRequest{};
+    CopyRequest.DestinationTextureResource = mResource;
+    CopyRequest.SourceLayouts = mSourceLayouts;
+    CopyRequest.SourceData = mSourceData;
+    const bool EnqueueResult{ CopyQueue->EnqueueTextureCopy(CopyQueueId::Texture, CopyRequest) };
+    if (EnqueueResult == false) {
+        ErrorHandler::report("Texture", "Failed to enqueue texture upload copy request: " + mName, ErrorHandler::Level::Critical);
+        mResource.Reset();
+        mAllocationHandle.reset();
+        return false;
+    }
+
+    return true;
+}
+
+#include "utility/stdoutput.h"
+void Texture::Unload() {
+    mResource.Reset();
+    mAllocationHandle.reset();
+    mCurrentState = D3D12_RESOURCE_STATE_COMMON;
+
+	StdOutput::Print("Texture unloaded: {}", mName);
+    
+}
+
+bool Texture::IsLoaded() const {
+    return mResource != nullptr && mAllocationHandle != nullptr && mAllocationHandle->IsValid() == true;
 }
 
 Texture::Ptr Texture::CreateTarget(ID3D12Device* device, uint32_t width, uint32_t height, DXGI_FORMAT format, TextureUsage usage, const D3D12_CLEAR_VALUE* optimizedClearValue, uint16_t mipLevels) {
