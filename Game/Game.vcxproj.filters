@@ -51,6 +51,9 @@
     <ClInclude Include="Model\AssetRegistry.h">
       <Filter>Model</Filter>
     </ClInclude>
+    <ClInclude Include="Model\AssetRegistryBackEnd.h">
+      <Filter>Model</Filter>
+    </ClInclude>
     <ClInclude Include="Base\RenderFrameData.h">
       <Filter>Base</Filter>
     </ClInclude>
@@ -117,6 +120,9 @@
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Model\AssetRegistry.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\AssetRegistryBackEnd.cpp">
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Scene.cpp">

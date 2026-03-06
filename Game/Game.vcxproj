@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -27,6 +27,7 @@
     <ClInclude Include="Base\Pipeline.h" />
     <ClInclude Include="Base\Time.h" />
     <ClInclude Include="Model\AssetRegistry.h" />
+    <ClInclude Include="Model\AssetRegistryBackEnd.h" />
     <ClInclude Include="Model\Model.h" />
     <ClInclude Include="Scene\Components\Camera.h" />
     <ClInclude Include="Scene\Components\Intents\CameraIntent.h" />
@@ -50,6 +51,7 @@
     <ClCompile Include="Base\Pipeline.cpp" />
     <ClCompile Include="Base\Time.cpp" />
     <ClCompile Include="Model\AssetRegistry.cpp" />
+    <ClCompile Include="Model\AssetRegistryBackEnd.cpp" />
     <ClCompile Include="Model\Model.cpp" />
     <ClCompile Include="Scene\Scene.cpp" />
     <ClCompile Include="Scene\SceneYamlSerializer.cpp" />

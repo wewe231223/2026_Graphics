@@ -7,6 +7,12 @@
 #include <wrl/client.h>
 #include <d3d12.h>
 
+namespace Core {
+    namespace DX {
+        class DescriptorHandle;
+    }
+}
+
 namespace Interface {
     class IAllocationHandle {
     public:
@@ -46,6 +52,16 @@ namespace Interface {
         Microsoft::WRL::ComPtr<ID3D12Resource> DestinationTextureResource{};
         std::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> SourceLayouts{};
         std::vector<std::byte> SourceData{};
+    };
+
+
+    class IDescriptorHeap {
+    public:
+        virtual ~IDescriptorHeap() = default;
+
+    public:
+        virtual Core::DX::DescriptorHandle Allocate() = 0;
+        virtual ID3D12DescriptorHeap* GetHeap() const = 0;
     };
 
     class ICopyQueue {

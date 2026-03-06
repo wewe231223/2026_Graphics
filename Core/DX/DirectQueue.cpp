@@ -1,4 +1,4 @@
-#include "DirectQueue.h"
+﻿#include "DirectQueue.h"
 #include "Utility/ErrorHandler.h"
 #include "Utility/Views.h"
 #include "Utility/StringUtils.h"
@@ -220,7 +220,7 @@ namespace Core {
 				ErrorHandler::report(mSwapChain->GetBuffer(static_cast<UINT>(i), IID_PPV_ARGS(backBuffer.GetAddressOf())), "DirectQueue", "Failed to get SwapChain BackBuffer.", ErrorHandler::Level::Critical);
 				rt = Texture::CreateFromResource(backBuffer.Get(), "BackBuffer_" + std::to_string(i));
 
-				rt->CreateRTV(mDevice.Get(), mRTVHeap);
+				rt->CreateRTV(mDevice.Get(), &mRTVHeap);
 			}
 
 			for (std::size_t Index{ 0 }; Index < Constants::FrameCount<std::size_t>; ++Index) {
@@ -234,7 +234,7 @@ namespace Core {
 			CD3DX12_CLEAR_VALUE depthOptimizedClearValue{ DXGI_FORMAT_D24_UNORM_S8_UINT, 1.0f, 0 };
 			mDepthStencilBuffer = Texture::CreateTarget(mDevice.Get(), Config::Query()->Get<uint32_t>("Window_Width"), Config::Query()->Get<uint32_t>("Window_Height"), DXGI_FORMAT_D24_UNORM_S8_UINT, TextureUsage::DepthStencil, &depthOptimizedClearValue);
 
-			mDepthStencilBuffer->CreateDSV(mDevice.Get(), mDSVHeap);
+			mDepthStencilBuffer->CreateDSV(mDevice.Get(), &mDSVHeap);
 		}
 
 		ComPtr<IDXGIAdapter1> DirectQueue::GetBestAdapter() {

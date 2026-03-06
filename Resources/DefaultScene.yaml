@@ -16,6 +16,12 @@ DefaultStaticMeshRenderer: &DefaultStaticMeshRenderer
 DefaultMaterial: &DefaultMaterial
   materialPath: testset_materials.json
 
+model1 : &model1
+  modelPath: testset2.bin
+
+mat1 : &mat1
+  materialPath: testset2_materials.json
+
 
 Entities:
   - Components:
@@ -56,3 +62,11 @@ Entities:
         <<: *DefaultStaticMeshRenderer
       Material:
         <<: *DefaultMaterial
+  - Components:
+      Transform:
+        <<: *DefaultTransform
+        position: [5.00, 0.00, -20.00]
+      StaticMeshRenderer:
+        <<: *model1
+      Material:
+        <<: *mat1

@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <unordered_set>
 #include <filesystem>
 #include <functional>
@@ -11,31 +10,18 @@
 #include <utility>
 #include "Core/Common.h"
 #include "Core/DX/Texture.h"
-#include "Core/DX/DesciptorHeap.h"
 #include "Asset/ModelResult.h"
 #include "Model.h"
 #include "Game/Base/Common.h"
 #include "Game/Base/Pipeline.h"
 #include "Game/Base/RenderFrameData.h"
+#include "Game/Model/AssetRegistryBackEnd.h"
 
 namespace Game {
-    struct RegisteredMaterial final {
-        std::string Name{};
-        asset::Material Data{};
-        RFD::MaterialGpu PackedData{};
-    };
-
-    struct RegisteredMaterialGroupItem final {
-        Interface::IPipeline* Pipeline{ nullptr };
-        std::uint32_t MaterialIndex{ 0 };
-    };
-
-    struct RegisteredMaterialGroup final {
-        std::string Name{};
-        std::vector<RegisteredMaterialGroupItem> Items{};
-    };
-
     class AssetRegistry final {
+    public:
+        using TextureResidencyDecider = std::function<bool(std::uint32_t TextureTableIndex, bool IsUsedByDrawRecords, bool IsLoaded)>;
+
     public:
         AssetRegistry();
         ~AssetRegistry();
@@ -46,7 +32,10 @@ namespace Game {
 
     public:
         void Initialize(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator);
-        void SetSrvHeap(Core::DX::DescriptorHeap* SrvHeap);
+        void SetSrvHeap(Interface::IDescriptorHeap* SrvHeap);
+
+        void SetBackEnd(const std::shared_ptr<IAssetRegistryBackEnd>& NewBackEnd);
+        std::shared_ptr<IAssetRegistryBackEnd> GetBackEnd() const;
 
         std::shared_ptr<Model> GetModel(const std::string& ModelBinaryPath);
         bool LoadMaterialGroups(const std::string& MaterialJsonPath);
@@ -60,23 +49,13 @@ namespace Game {
         const std::vector<RFD::MaterialTextureTableItemGpu>& GetMaterialTextureTable() const;
         std::uint32_t FindMaterialGroupIndexBySourcePath(const std::string& MaterialSourcePath) const;
 
-        using TextureResidencyDecider = std::function<bool(std::uint32_t TextureTableIndex, bool IsUsedByDrawRecords, bool IsLoaded)>;
-
         void SetTextureResidencyDecider(TextureResidencyDecider NewDecider);
         void PrepareRenderTextures(const RFD::RenderFrameData& RenderData);
 
     private:
-        struct TextureRecord final {
-            std::string Key{};
-            Core::DX::TexPtr Texture{};
-            std::uint32_t TableIndex{ 0 };
-            bool KeepResident{ false };
-        };
-
-    private:
         std::uint32_t ResolveTextureTableIndex(const std::filesystem::path& TexturePath);
-        bool ShouldKeepTextureResident(const TextureRecord& TextureData, const std::unordered_set<std::uint32_t>& UsedTextureTableIndices) const;
-        void UpdateTextureTableItem(TextureRecord& TextureData);
+        bool ShouldKeepTextureResident(const AssetRegistryTextureRecord& TextureData, const std::unordered_set<std::uint32_t>& UsedTextureTableIndices) const;
+        void UpdateTextureTableItem(AssetRegistryTextureRecord& TextureData);
         std::vector<std::uint32_t> BuildMaterialTextureTableIndices(const asset::Material& MaterialData, const RFD::MaterialGpu& PackedMaterial) const;
         std::filesystem::path BuildTexturePathFromMaterialPath(const std::string& MaterialSourcePath, const std::string& TexturePath) const;
         std::int64_t ToMaterialIntValue(const asset::MaterialMap& MaterialMapData, const std::string& MaterialSourcePath);
@@ -91,26 +70,8 @@ namespace Game {
         ID3D12Device* mDevice{ nullptr };
         Interface::ICopyQueue* mCopyQueue{ nullptr };
         Interface::IGraphicsAllocator* mAllocator{ nullptr };
-        Core::DX::DescriptorHeap* mSrvHeap{ nullptr };
-        std::unordered_map<std::string, std::shared_ptr<Model>> mModelCache{};
-        std::unordered_set<std::string> mLoadedMaterialJsonPaths{};
-
-        std::vector<RegisteredMaterial> mMaterials{};
-        std::vector<RFD::MaterialGpu> mPackedMaterials{};
-        std::unordered_map<std::string, std::uint32_t> mMaterialNameLookup{};
-
-        std::vector<RFD::MaterialTextureTableItemGpu> mMaterialTextureTable{};
-        std::unordered_map<std::string, std::uint32_t> mTextureTableLookup{};
-        std::vector<TextureRecord> mTextureRecords{};
-        std::vector<std::vector<std::uint32_t>> mMaterialToTextureTableIndices{};
+        Interface::IDescriptorHeap* mSrvHeap{ nullptr };
+        std::shared_ptr<IAssetRegistryBackEnd> mBackEnd{};
         TextureResidencyDecider mTextureResidencyDecider{};
-
-        std::vector<RegisteredMaterialGroup> mMaterialGroups{};
-        std::unordered_map<std::string, std::uint32_t> mMaterialGroupNameLookup{};
-        std::vector<std::string> mMaterialGroupSourcePaths{};
-        std::unordered_map<std::string, std::uint32_t> mMaterialGroupSourcePathLookup{};
-
-        std::vector<std::unique_ptr<Base::Pipeline>> mPipelines{};
-        std::unordered_map<std::string, Interface::IPipeline*> mPipelineLookup{};
     };
 }

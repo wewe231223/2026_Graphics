@@ -32,7 +32,7 @@ float4 PsMain(VertexOutput Input) : SV_TARGET
     StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer = ResourceDescriptorHeap[RootConstants.MaterialTextureTableSrvIndex];
 
     const MaterialGpu MaterialData = MaterialBuffer[Input.MaterialIndex];
-    const int64_t DiffuseColorTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_NORMAL_MAP_MAP].IntValue;
+    const int64_t DiffuseColorTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_COLOR_MAP].IntValue;
 
     if (DiffuseColorTextureTableIndex < 0) {
         return float4(0.1f, 0.1f, 0.1f, 1.0f);
@@ -44,6 +44,8 @@ float4 PsMain(VertexOutput Input) : SV_TARGET
         return float4(1.0f, 0.0f, 1.0f, 1.0f);
     }
 
+    float2 flippedUV = float2(Input.TexCoord0.x, 1.0 - Input.TexCoord0.y);
+    
     Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[TextureSrvIndex];
-    return ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
+    return ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, flippedUV));
 }

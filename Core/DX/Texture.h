@@ -111,10 +111,10 @@ namespace Core {
             bool Load(Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator);
             void Unload();
             bool IsLoaded() const;
-            void CreateSRV(ID3D12Device* device, DescriptorHeap& heap);
-            void CreateRTV(ID3D12Device* device, DescriptorHeap& heap);
-            void CreateDSV(ID3D12Device* device, DescriptorHeap& heap);
-            void CreateUAV(ID3D12Device* device, DescriptorHeap& heap, uint32_t mipSlice = 0);
+            void CreateSRV(ID3D12Device* Device, Interface::IDescriptorHeap* Heap);
+            void CreateRTV(ID3D12Device* Device, Interface::IDescriptorHeap* Heap);
+            void CreateDSV(ID3D12Device* Device, Interface::IDescriptorHeap* Heap);
+            void CreateUAV(ID3D12Device* Device, Interface::IDescriptorHeap* Heap, uint32_t MipSlice = 0);
 
             D3D12_GPU_DESCRIPTOR_HANDLE GetSRV() const;
             D3D12_GPU_DESCRIPTOR_HANDLE GetUAV() const;
