@@ -5,20 +5,22 @@
 #include <cstddef>
 #include <cstdint>
 #include <condition_variable>
-#include <limits>
-#include <unordered_map>
+#include <deque>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <span>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 #include <Windows.h>
 #include "Core/Common.h"
+#include "Core/DX/GraphicsAllocator.h"
 #include "Utility/DirectXInclude.h"
 
-#ifdef max 
+#ifdef max
 #undef max
-#endif 
+#endif
 
 namespace Core {
     namespace DX {
@@ -33,71 +35,88 @@ namespace Core {
 
         public:
             bool Initialize(ID3D12Device* Device) override;
-            uint64_t EnqueueCopy(const Interface::CopyQueueCopyRequest& CopyRequest) override;
-            uint64_t EnqueueCopy(std::span<const Interface::CopyQueueCopyRequest> CopyRequests) override;
+            bool EnqueueCopy(std::uint64_t CopyId, const Interface::CopyQueueCopyRequest& CopyRequest) override;
+            bool EnqueueCopy(std::uint64_t CopyId, std::span<const Interface::CopyQueueCopyRequest> CopyRequests) override;
+            bool EnqueueTextureCopy(std::uint64_t CopyId, const Interface::CopyQueueTextureCopyRequest& CopyRequest) override;
+            bool EnqueueTextureCopy(std::uint64_t CopyId, std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests) override;
 
             void DispatchCopies() override;
-            bool IsFenceComplete(uint64_t FenceValue) const override;
-            void WaitForFence(uint64_t FenceValue) const override;
+            bool IsFenceComplete(std::uint64_t CopyId) const override;
+            void GuaranteeCopy(std::uint64_t CopyId) const override;
             void Flush() override;
 
-            uint64_t GetRequiredUploadBufferSize() const override;
+            std::uint64_t GetRequiredUploadBufferSize() const override;
 
         private:
-            struct UploadHeapSlot {
-                ComPtr<ID3D12Resource> UploadHeapResource{};
-                std::byte* UploadHeapMappedData{};
-                UINT64 WriteOffset{};
-                uint64_t SlotFenceValue{};
+            struct UploadAllocation final {
+                std::unique_ptr<Interface::IAllocationHandle> AllocationHandle{};
             };
 
-            struct CopyRequestBatch {
-                std::vector<Interface::CopyQueueCopyRequest> CopyRequests{};
-                uint64_t RequestedFenceValue{};
+            struct PreparedCopyRequest final {
+                bool IsTextureCopy{};
+                Microsoft::WRL::ComPtr<ID3D12Resource> DestinationDefaultResource{};
+                std::uint64_t DestinationOffset{};
+                std::uint64_t CopySize{};
+                std::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> Layouts{};
+                UploadAllocation Upload{};
+            };
+
+            struct CopyRequestBatch final {
+                std::vector<PreparedCopyRequest> CopyRequests{};
+                std::uint64_t CopyId{};
+            };
+
+            struct InFlightUpload final {
+                std::uint64_t SubmitFenceValue{};
+                std::vector<UploadAllocation> Uploads{};
+            };
+
+            struct CopyIdFenceState final {
+                std::uint64_t LastSubmitFenceValue{};
+                std::uint64_t PendingBatchCount{};
             };
 
         private:
             void WorkerLoop();
-            void ExecuteRequestBatch(const CopyRequestBatch& RequestBatch);
+            void ExecuteRequestBatch(CopyRequestBatch& RequestBatch);
             void StopWorker();
             void WaitForQueueIdle();
-            bool IsSubmitFenceComplete(uint64_t FenceValue) const;
-            void WaitForSubmitFence(uint64_t FenceValue) const;
-            uint64_t ResolveRequestedFenceValue(uint64_t FenceValue) const;
-            void PrepareAllocatorForRecording(size_t AllocatorIndex);
-            uint64_t SubmitCurrentCommandList(size_t AllocatorIndex, std::vector<bool>& RequestTouchedMask, std::vector<uint64_t>& RequestCompletedSubmitFenceValues);
-            bool TrySwitchUploadHeapSlot(size_t& SlotIndex, size_t& AllocatorIndex, std::vector<bool>& RequestTouchedMask, std::vector<uint64_t>& RequestCompletedSubmitFenceValues);
+            bool IsSubmitFenceComplete(std::uint64_t FenceValue) const;
+            void WaitForSubmitFence(std::uint64_t FenceValue) const;
+            std::uint64_t ResolveCopyIdToFenceValue(std::uint64_t CopyId) const;
+            bool PrepareCopyRequests(std::span<const Interface::CopyQueueCopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests);
+            bool PrepareTextureCopyRequests(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests);
+            void CollectCompletedUploads();
 
         private:
-            static constexpr size_t CopyAllocatorCount{ 3 };
-            static constexpr size_t UploadHeapSlotCount{ 2 };
-            static constexpr UINT64 DefaultUploadBufferSize{ 32ull * 1024ull * 1024ull };
+            static constexpr std::uint64_t UploadAllocatorHeapSize{ 256ull * 1024ull * 1024ull };
 
-            ComPtr<ID3D12CommandQueue> mCopyCommandQueue{};
-            std::array<ComPtr<ID3D12CommandAllocator>, CopyAllocatorCount> mCopyCommandAllocators{};
-            ComPtr<ID3D12GraphicsCommandList> mCopyCommandList{};
-            ComPtr<ID3D12Fence> mCopyFence{};
-            std::array<UploadHeapSlot, UploadHeapSlotCount> mUploadHeapSlots{};
-            UINT64 mUploadBufferSize{};
-            size_t mCurrentUploadHeapSlotIndex{};
+            Microsoft::WRL::ComPtr<ID3D12CommandQueue> mCopyCommandQueue{};
+            static constexpr std::uint32_t CopyAllocatorFlightCount{ 3 };
+
+            std::array<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>, CopyAllocatorFlightCount> mCopyCommandAllocators{};
+            Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> mCopyCommandList{};
+            Microsoft::WRL::ComPtr<ID3D12Fence> mCopyFence{};
+            GraphicsAllocator mUploadAllocator{};
+
+            std::uint32_t mCurrentAllocatorFlightIndex{};
+            std::array<std::uint64_t, CopyAllocatorFlightCount> mAllocatorFlightFenceValues{};
 
             HANDLE mFenceEvent{};
 
             mutable std::mutex mQueueMutex{};
             mutable std::mutex mFenceMutex{};
+            mutable std::mutex mUploadAllocatorMutex{};
             std::condition_variable mQueueCondition{};
             mutable std::condition_variable mFenceCondition{};
             std::queue<CopyRequestBatch> mPendingRequestBatches{};
+            std::deque<InFlightUpload> mInFlightUploads{};
             bool mDispatchRequested{};
 
             std::thread mWorkerThread{};
             std::atomic_bool mIsRunning{};
-            std::atomic<uint64_t> mRequestedFenceValueCounter{};
-            std::atomic<uint64_t> mSubmitFenceValueCounter{};
-            std::array<uint64_t, CopyAllocatorCount> mAllocatorFenceValues{};
-            std::unordered_map<uint64_t, uint64_t> mRequestedFenceToCompletedSubmitFence{};
-
-            static constexpr uint64_t PendingSubmitFenceValue{ std::numeric_limits<uint64_t>::max() };
+            std::atomic<std::uint64_t> mSubmitFenceValueCounter{};
+            std::unordered_map<std::uint64_t, CopyIdFenceState> mCopyIdFenceStates{};
         };
     }
 }

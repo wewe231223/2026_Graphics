@@ -1,13 +1,10 @@
 #pragma once
-#include <array>
-#include <cstddef>
 #include <cstdint>
 #include <vector>
 #include "Core/Common.h"
 #include "Core/DX/DesciptorHeap.h"
 #include "Core/DX/GraphicsVector.h"
 #include "Game/Base/RenderFrameData.h"
-#include "Utility/CompileTimeConstants.h"
 
 namespace Core {
 	namespace DX {
@@ -23,43 +20,44 @@ namespace Core {
 			DrawCallResourceManager& operator=(DrawCallResourceManager&& Other) = delete;
 
 		public:
-			void Initialize(ID3D12Device* Device, DescriptorHeap* SrvHeap);
-			void PrepareFrameResources(uint32_t RtvIndex, Game::RFD::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue& CopyQueue);
-			void TransitionToShaderResource(ID3D12GraphicsCommandList* CommandList, uint32_t RtvIndex);
-			void TransitionToCopyDestination(ID3D12GraphicsCommandList* CommandList, uint32_t RtvIndex);
-			void WaitForUpload(Interface::ICopyQueue& CopyQueue, uint32_t RtvIndex) const;
+			void Initialize(ID3D12Device* Device, DescriptorHeap* SrvHeap, std::uint32_t FrameIndex);
+			void PrepareFrameResources(Game::RFD::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue* CopyQueue);
+			void TransitionToShaderResource(ID3D12GraphicsCommandList* CommandList);
+			void TransitionToCopyDestination(ID3D12GraphicsCommandList* CommandList);
+			void WaitForUpload(Interface::ICopyQueue* CopyQueue) const;
 
-			DescriptorHandle GetFrameGlobalsSrvHandle(uint32_t RtvIndex) const;
-			DescriptorHandle GetModelContextSrvHandle(uint32_t RtvIndex) const;
-			DescriptorHandle GetDrawRecordSrvHandle(uint32_t RtvIndex) const;
+			DescriptorHandle GetFrameGlobalsSrvHandle() const;
+			DescriptorHandle GetModelContextSrvHandle() const;
+			DescriptorHandle GetDrawRecordSrvHandle() const;
 
 		private:
 			static bool CompareDrawRecordByPso(const Game::RFD::DrawRecord& Left, const Game::RFD::DrawRecord& Right);
 			void BuildDrawRecordGpu(const Game::RFD::RenderFrameData& Data);
-			void UpdateShaderResourceViews(uint32_t RtvIndex, uint32_t FrameGlobalsCount, uint32_t ModelContextCount, uint32_t DrawRecordCount);
-			bool IsShaderResourceViewUpdateRequired(ID3D12Resource* CachedResource, ID3D12Resource* CurrentResource, uint32_t CachedElementCount, uint32_t CurrentElementCount) const;
+			void UpdateShaderResourceViews(std::uint32_t FrameGlobalsCount, std::uint32_t ModelContextCount, std::uint32_t DrawRecordCount);
+			bool IsShaderResourceViewUpdateRequired(ID3D12Resource* CachedResource, ID3D12Resource* CurrentResource, std::uint32_t CachedElementCount, std::uint32_t CurrentElementCount) const;
 
 		private:
 			ID3D12Device* mDevice{};
 			DescriptorHeap* mSrvHeap{};
 
-			std::array<DescriptorHandle, Constants::FrameCount<size_t>> mFrameGlobalsSrvHandles{};
-			std::array<DescriptorHandle, Constants::FrameCount<size_t>> mModelContextSrvHandles{};
-			std::array<DescriptorHandle, Constants::FrameCount<size_t>> mDrawRecordSrvHandles{};
+			DescriptorHandle mFrameGlobalsSrvHandle{};
+			DescriptorHandle mModelContextSrvHandle{};
+			DescriptorHandle mDrawRecordSrvHandle{};
 
-			std::array<ID3D12Resource*, Constants::FrameCount<size_t>> mFrameGlobalsSrvResources{};
-			std::array<ID3D12Resource*, Constants::FrameCount<size_t>> mModelContextSrvResources{};
-			std::array<ID3D12Resource*, Constants::FrameCount<size_t>> mDrawRecordSrvResources{};
+			ID3D12Resource* mFrameGlobalsSrvResource{};
+			ID3D12Resource* mModelContextSrvResource{};
+			ID3D12Resource* mDrawRecordSrvResource{};
 
-			std::array<uint32_t, Constants::FrameCount<size_t>> mFrameGlobalsSrvElementCounts{};
-			std::array<uint32_t, Constants::FrameCount<size_t>> mModelContextSrvElementCounts{};
-			std::array<uint32_t, Constants::FrameCount<size_t>> mDrawRecordSrvElementCounts{};
+			std::uint32_t mFrameGlobalsSrvElementCount{};
+			std::uint32_t mModelContextSrvElementCount{};
+			std::uint32_t mDrawRecordSrvElementCount{};
 
-			std::array<GraphicsVector, Constants::FrameCount<size_t>> mPerFrameFrameGlobalsVectors{};
-			std::array<GraphicsVector, Constants::FrameCount<size_t>> mPerFrameModelContextVectors{};
-			std::array<GraphicsVector, Constants::FrameCount<size_t>> mPerFrameDrawRecordVectors{};
+			GraphicsVector mFrameGlobalsVector{};
+			GraphicsVector mModelContextVector{};
+			GraphicsVector mDrawRecordVector{};
 
-			std::array<uint64_t, Constants::FrameCount<size_t>> mPerFrameCopyFenceValues{};
+			std::uint64_t mCopyFenceValue{};
+			std::uint64_t mCopyId{};
 			std::vector<DrawRecordGPU> mDrawRecordsGpu{};
 		};
 	}

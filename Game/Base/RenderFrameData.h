@@ -8,6 +8,28 @@ namespace SimpleMath = DirectX::SimpleMath;
 
 namespace Game {
     namespace RFD {
+        struct alignas(16) MaterialFieldGpu final {
+            std::uint32_t Type{ 0 };
+            std::uint32_t Padding0{ 0 };
+            std::uint32_t Padding1{ 0 };
+            std::uint32_t Padding2{ 0 };
+            SimpleMath::Vector4 FloatValue{};
+            std::int64_t IntValue{ 0 };
+            std::uint64_t Padding3{ 0 };
+        };
+
+        struct alignas(16) MaterialGpu final {
+            static constexpr std::uint32_t FieldCount{ 40 };
+            MaterialFieldGpu Fields[FieldCount]{};
+        };
+
+        struct alignas(16) MaterialTextureTableItemGpu final {
+            std::uint32_t TextureSrvDescriptorIndex{ 0 };
+            std::uint32_t Padding0{ 0 };
+            std::uint32_t Padding1{ 0 };
+            std::uint32_t Padding2{ 0 };
+        };
+
         // ------------------------------------------------------------
         // 1) 프레임 공통
         // ------------------------------------------------------------
@@ -81,6 +103,8 @@ namespace Game {
 
             std::vector<ModelContext> modelContexts{};   // SRV
             std::vector<DrawRecord> drawRecords{};       // CPU
+            std::vector<MaterialGpu> materials{};
+            std::vector<MaterialTextureTableItemGpu> materialTextureTable{};
 
 
             // Render Loop 참고 순서

@@ -1,6 +1,7 @@
 #include "Common.hlsli"
 
 ConstantBuffer<RootConstantsB1> RootConstants : register(b1);
+SamplerState LinearWrapSampler : register(s0);
 
 VertexOutput VsMain(VertexInput Input, uint InstanceId : SV_InstanceID)
 {
@@ -14,20 +15,35 @@ VertexOutput VsMain(VertexInput Input, uint InstanceId : SV_InstanceID)
     const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[0];
 
     VertexOutput Output;
-    
-    float4x4 world = transpose(ModelContext.World);
-    
-    const float4 WorldPosition = mul(float4(Input.Position, 1.0f), world);
+
+    float4x4 World = transpose(ModelContext.World);
+
+    const float4 WorldPosition = mul(float4(Input.Position, 1.0f), World);
     Output.Position = mul(WorldPosition, transpose(FrameGlobals.ViewProj));
-    Output.Normal = normalize(mul(Input.Normal, (float3x3) world));
+    Output.Normal = normalize(mul(Input.Normal, (float3x3)World));
+    Output.TexCoord0 = Input.TexCoord0;
+    Output.MaterialIndex = DrawRecord.MaterialIndex;
     return Output;
 }
 
 float4 PsMain(VertexOutput Input) : SV_TARGET
 {
-    float3 normal = normalize(Input.Normal);
+    StructuredBuffer<MaterialGpu> MaterialBuffer = ResourceDescriptorHeap[RootConstants.MaterialSrvIndex];
+    StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer = ResourceDescriptorHeap[RootConstants.MaterialTextureTableSrvIndex];
 
-    float3 normalColor = Input.Normal * 0.5f + 0.5f;
+    const MaterialGpu MaterialData = MaterialBuffer[Input.MaterialIndex];
+    const int64_t DiffuseColorTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_COLOR_MAP].IntValue;
 
-    return float4(normalColor, 1.0f);
+    if (DiffuseColorTextureTableIndex < 0) {
+        return float4(0.1f, 0.1f, 0.1f, 1.0f);
+    }
+
+    const uint TextureTableIndex = (uint)DiffuseColorTextureTableIndex;
+    const uint TextureSrvIndex = MaterialTextureTableBuffer[TextureTableIndex].TextureSrvDescriptorIndex;
+    if (TextureSrvIndex == 0xffffffffu) {
+        return float4(1.0f, 0.0f, 1.0f, 1.0f);
+    }
+    
+    Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[TextureSrvIndex];
+    return ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
 }

@@ -1,4 +1,4 @@
-﻿// 2026_Graphics.cpp : 애플리케이션에 대한 진입점을 정의합니다.
+// 2026_Graphics.cpp : 애플리케이션에 대한 진입점을 정의합니다.
 extern "C" { __declspec(dllexport) extern const unsigned int D3D12SDKVersion = 618; }
 extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; }
 
@@ -22,10 +22,9 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Game/Base/Time.h"
 #include "Game/Scene/Scene.h"
 #include "Game/Scene/SceneYamlSerializer.h"
-
 #include "External/Include/ImGui/imgui.h"
-#include "External/Include/ImGui/imgui_impl_win32.h"
 #include "Widget/PerformanceProvider.h"
+#include "Core/DX/CopyQueueId.h"
 
 #ifdef _MSC_VER
     #ifdef _DEBUG
@@ -95,7 +94,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     defaultHeapProperties.VisibleNodeMask = 1;
 
 
-    constexpr uint64_t DefaultHeapAllocatorSize{ 256ull * 1024ull * 1024ull };
+    constexpr uint64_t DefaultHeapAllocatorSize{ 4ull * 1024ull * 1024ull * 1024ull };
     Core::DX::GraphicsAllocator defaultHeapAllocator{};
     bool defaultHeapAllocatorInitializeResult{ defaultHeapAllocator.Initialize(directQueue.GetDevice(), DefaultHeapAllocatorSize, defaultHeapProperties, D3D12_HEAP_FLAG_NONE) };
     ErrorHandler::report(defaultHeapAllocatorInitializeResult == false, "WinMain", "Failed to initialize default heap allocator.", ErrorHandler::Level::Critical);
@@ -104,15 +103,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     directQueue.SetUploadInfrastructure(&defaultHeapAllocator, &copyQueue);
 
 
-    Arche::World archeContainer{};
-
 
     Game::Base::PreCompileShaders();
-    
     if(not Game::Base::PreCompileRootSignatures(directQueue.GetDevice())) {
 		ErrorHandler::report(true, "WinMain", "Failed to pre-compile root signatures.", ErrorHandler::Level::Critical);
     }
-    
     if (not Game::Base::PreCompilePipelines(directQueue.GetDevice())) {
 		ErrorHandler::report(true, "WinMain", "Failed to pre-compile pipelines.", ErrorHandler::Level::Critical);
     }
@@ -132,11 +127,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 
     Game::Scene SceneInstance{};
-    SceneInstance.InitializeAssetRegistry(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator);
+    SceneInstance.InitializeAssetRegistry(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator, directQueue.GetSrvHeap());
 
     Game::SceneYamlSerializer SceneYamlSerializer{};
     const Game::SceneYamlLoadResult SceneYamlLoadResult{ SceneYamlSerializer.DeserializeFromFile("Resources/DefaultScene.yaml", SceneInstance) };
     ErrorHandler::report(SceneYamlLoadResult.IsSuccess == false, "WinMain", "Failed to load scene yaml.", ErrorHandler::Level::Warning);
+
+
+    copyQueue.DispatchCopies();
+    copyQueue.GuaranteeCopy(Core::DX::CopyQueueId::Model);
 
 
 
@@ -168,6 +167,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
             Widget::PerformanceProvider::Get().BeginProfile("Render");
             SceneInstance.ExecutePhase(Game::Phase::PostRender, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.PrepareRender();
             directQueue.PreRender(SceneInstance.GetRenderFrameData(), Globals::Time::Get().GetDeltaTime<float>());
             directQueue.Render(SceneInstance.GetRenderFrameData());
 
@@ -221,14 +221,14 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     hInst = hInstance; // 인스턴스 핸들을 전역 변수에 저장합니다.
 
 
-    if (Config::Query().Get<bool>("Windowed")) {
+    if (Config::Query()->Get<bool>("Windowed")) {
         DWORD style = WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME;
         DWORD exStyle = WS_EX_OVERLAPPEDWINDOW;
 
-        int posX = (GetSystemMetrics(SM_CXSCREEN) / 2) - (Config::Query().Get<int>("Window_Width") / 2);
-        int posY = (GetSystemMetrics(SM_CYSCREEN) / 2) - (Config::Query().Get<int>("Window_Height") / 2);
+        int posX = (GetSystemMetrics(SM_CXSCREEN) / 2) - (Config::Query()->Get<int>("Window_Width") / 2);
+        int posY = (GetSystemMetrics(SM_CYSCREEN) / 2) - (Config::Query()->Get<int>("Window_Height") / 2);
 
-        RECT adjustedRect{ 0, 0, Config::Query().Get<long>("Window_Width"), Config::Query().Get<long>("Window_Height")};
+        RECT adjustedRect{ 0, 0, Config::Query()->Get<long>("Window_Width"), Config::Query()->Get<long>("Window_Height")};
         ::AdjustWindowRectEx(std::addressof(adjustedRect), style, FALSE, exStyle);
 
         hWnd = CreateWindowEx(
@@ -249,8 +249,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
         DWORD style = WS_POPUP;
         DWORD exStyle = NULL;
 
-        int posX = (GetSystemMetrics(SM_CXSCREEN) / 2) - (Config::Query().Get<int>("Window_Width") / 2);
-        int posY = (GetSystemMetrics(SM_CYSCREEN) / 2) - (Config::Query().Get<int>("Window_Height") / 2);
+        int posX = (GetSystemMetrics(SM_CXSCREEN) / 2) - (Config::Query()->Get<int>("Window_Width") / 2);
+        int posY = (GetSystemMetrics(SM_CYSCREEN) / 2) - (Config::Query()->Get<int>("Window_Height") / 2);
 
         hWnd = CreateWindowEx(
             exStyle,                                // 확장 스타일
@@ -258,7 +258,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
             szTitle,                                // 윈도우 타이틀 
             style,                                  // 윈도우 스타일
             posX, posY,                             // 위치 
-            Config::Query().Get<long>("Window_Width"), Config::Query().Get<long>("Window_Height"), // 크기
+            Config::Query()->Get<long>("Window_Width"), Config::Query()->Get<long>("Window_Height"), // 크기
             nullptr,                                // 부모 윈도우
             nullptr,                                // 메뉴
             hInstance,                              // 인스턴스 핸들

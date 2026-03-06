@@ -96,6 +96,7 @@ add_library(Game STATIC
     Game/Base/RootSignature.cpp
     Game/Base/Pipeline.cpp
     Game/Model/AssetRegistry.cpp
+    Game/Model/AssetRegistryBackEnd.cpp
     Game/Model/Model.cpp
     Game/Scene/Scene.cpp
     Game/Scene/SceneYamlSerializer.cpp
@@ -131,6 +132,7 @@ add_executable(2026_Graphics WIN32
     Core/DX/DesciptorHeap.cpp
     Core/DX/DrawCallDispatcher.cpp
     Core/DX/DrawCallResourceManager.cpp
+    Core/DX/MaterialResourceManager.cpp
     Core/DX/DirectQueue.cpp
     Core/DX/FrameSync.cpp
     Core/DX/GraphicsAllocator.cpp

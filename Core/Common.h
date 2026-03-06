@@ -7,6 +7,12 @@
 #include <wrl/client.h>
 #include <d3d12.h>
 
+namespace Core {
+    namespace DX {
+        class DescriptorHandle;
+    }
+}
+
 namespace Interface {
     class IAllocationHandle {
     public:
@@ -42,18 +48,36 @@ namespace Interface {
         std::vector<std::byte> SourceData{};
     };
 
+    struct CopyQueueTextureCopyRequest final {
+        Microsoft::WRL::ComPtr<ID3D12Resource> DestinationTextureResource{};
+        std::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> SourceLayouts{};
+        std::vector<std::byte> SourceData{};
+    };
+
+
+    class IDescriptorHeap {
+    public:
+        virtual ~IDescriptorHeap() = default;
+
+    public:
+        virtual Core::DX::DescriptorHandle Allocate() = 0;
+        virtual ID3D12DescriptorHeap* GetHeap() const = 0;
+    };
+
     class ICopyQueue {
     public:
         virtual ~ICopyQueue() = default;
 
     public:
         virtual bool Initialize(ID3D12Device* Device) = 0;
-        virtual std::uint64_t EnqueueCopy(const CopyQueueCopyRequest& CopyRequest) = 0;
-        virtual std::uint64_t EnqueueCopy(std::span<const CopyQueueCopyRequest> CopyRequests) = 0;
+        virtual bool EnqueueCopy(std::uint64_t CopyId, const CopyQueueCopyRequest& CopyRequest) = 0;
+        virtual bool EnqueueCopy(std::uint64_t CopyId, std::span<const CopyQueueCopyRequest> CopyRequests) = 0;
+        virtual bool EnqueueTextureCopy(std::uint64_t CopyId, const CopyQueueTextureCopyRequest& CopyRequest) = 0;
+        virtual bool EnqueueTextureCopy(std::uint64_t CopyId, std::span<const CopyQueueTextureCopyRequest> CopyRequests) = 0;
 
         virtual void DispatchCopies() = 0;
-        virtual bool IsFenceComplete(std::uint64_t FenceValue) const = 0;
-        virtual void WaitForFence(std::uint64_t FenceValue) const = 0;
+        virtual bool IsFenceComplete(std::uint64_t CopyId) const = 0;
+        virtual void GuaranteeCopy(std::uint64_t CopyId) const = 0;
         virtual void Flush() = 0;
 
         virtual std::uint64_t GetRequiredUploadBufferSize() const = 0;

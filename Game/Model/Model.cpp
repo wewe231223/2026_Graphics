@@ -1,5 +1,6 @@
 ﻿#include "Model.h"
 #include <cstring>
+#include "Core/DX/CopyQueueId.h"
 #include <utility>
 #include "Asset/NumericTypes.h"
 
@@ -381,7 +382,10 @@ namespace Game {
         Request.DestinationDefaultResource = OutAllocation->GetResource();
         Request.DestinationOffset = 0;
         Request.SourceData = OutRawData;
-        CopyQueue->EnqueueCopy(Request);
+        bool EnqueueResult{ CopyQueue->EnqueueCopy(Core::DX::CopyQueueId::Model, Request) };
+        if (EnqueueResult == false) {
+            return false;
+        }
         return true;
     }
 
@@ -405,7 +409,11 @@ namespace Game {
         Request.DestinationDefaultResource = OutAllocation->GetResource();
         Request.DestinationOffset = 0;
         Request.SourceData = OutRawData;
-        CopyQueue->EnqueueCopy(Request);
+        bool EnqueueResult{ CopyQueue->EnqueueCopy(Core::DX::CopyQueueId::Model, Request) };
+        if (EnqueueResult == false) {
+            OutView = D3D12_INDEX_BUFFER_VIEW{};
+            return false;
+        }
 
         OutView.BufferLocation = OutAllocation->GetResource()->GetGPUVirtualAddress();
         OutView.SizeInBytes = static_cast<UINT>(ByteSize);

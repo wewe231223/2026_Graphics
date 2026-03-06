@@ -11,15 +11,17 @@ DefaultTransform: &DefaultTransform
   scale: [1.0, 1.0, 1.0]
 
 DefaultStaticMeshRenderer: &DefaultStaticMeshRenderer
-  modelPath: testset2.bin
+  modelPath: testset.bin
 
 DefaultMaterial: &DefaultMaterial
+  materialPath: testset_materials.json
+
+model1 : &model1
+  modelPath: testset2.bin
+
+mat1 : &mat1
   materialPath: testset2_materials.json
 
-t1: &t1
-  modelPath: testset.bin
-dm : &dm
-  materialPath: testset_materials.json
 
 Entities:
   - Components:
@@ -60,3 +62,11 @@ Entities:
         <<: *DefaultStaticMeshRenderer
       Material:
         <<: *DefaultMaterial
+  - Components:
+      Transform:
+        <<: *DefaultTransform
+        position: [5.00, 0.00, -20.00]
+      StaticMeshRenderer:
+        <<: *model1
+      Material:
+        <<: *mat1

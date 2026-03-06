@@ -1,4 +1,5 @@
-﻿#include <filesystem>
+﻿#include <exception>
+#include <filesystem>
 #include <string>
 #include <vector>
 #include "Asset/AssetBinaryWriter.h"
@@ -11,6 +12,54 @@
 
 
 namespace {
+
+    struct RunOptions final {
+    public:
+        std::string InputFileName{};
+        bool IsUvFlipEnabled{ true };
+    };
+
+    bool TryParseUvFlipValue(const std::string& Value, bool& OutIsUvFlipEnabled) {
+        if (Value == "1" || Value == "true" || Value == "True" || Value == "TRUE" || Value == "yes" || Value == "Yes" || Value == "YES" || Value == "on" || Value == "On" || Value == "ON") {
+            OutIsUvFlipEnabled = true;
+            return true;
+        }
+
+        if (Value == "0" || Value == "false" || Value == "False" || Value == "FALSE" || Value == "no" || Value == "No" || Value == "NO" || Value == "off" || Value == "Off" || Value == "OFF") {
+            OutIsUvFlipEnabled = false;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool TryParseArguments(int ArgCount, char* ArgValues[], RunOptions& OutRunOptions) {
+        if (ArgCount < 2) {
+            return false;
+        }
+
+        OutRunOptions = RunOptions{};
+        OutRunOptions.InputFileName = std::string{ ArgValues[1] };
+
+        for (int Index{ 2 }; Index < ArgCount; ++Index) {
+            const std::string Argument{ ArgValues[Index] };
+            const std::string Prefix{ "--flip-uv=" };
+            if (Argument.rfind(Prefix, 0) == 0) {
+                bool IsUvFlipEnabled{ OutRunOptions.IsUvFlipEnabled };
+                const std::string Value{ Argument.substr(Prefix.size()) };
+                if (!TryParseUvFlipValue(Value, IsUvFlipEnabled)) {
+                    return false;
+                }
+                OutRunOptions.IsUvFlipEnabled = IsUvFlipEnabled;
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
     std::filesystem::path GetProjectDirectoryPath() {
         return std::filesystem::current_path();
     }
@@ -21,6 +70,10 @@ namespace {
 
     std::filesystem::path GetBinDirectoryPath(const std::filesystem::path& ProjectDirectoryPath) {
         return ProjectDirectoryPath / "Bin";
+    }
+
+    std::filesystem::path GetImagesDirectoryPath(const std::filesystem::path& BinDirectoryPath) {
+        return BinDirectoryPath / "Images";
     }
 
     std::filesystem::path GetBinaryOutputPath(const std::filesystem::path& BinDirectoryPath, const std::filesystem::path& AssetFilePath) {
@@ -51,41 +104,42 @@ namespace {
         return TotalIndices;
     }
 
-    int Run(const std::string& InputFileName) {
+    int Run(const RunOptions& Options) {
         const std::filesystem::path ProjectDirectoryPath{ GetProjectDirectoryPath() };
-        const std::filesystem::path AssetFilePath{ GetAssetFilePath(ProjectDirectoryPath, InputFileName) };
+        const std::filesystem::path AssetFilePath{ GetAssetFilePath(ProjectDirectoryPath, Options.InputFileName) };
         const std::filesystem::path BinDirectoryPath{ GetBinDirectoryPath(ProjectDirectoryPath) };
         const std::filesystem::path BinaryOutputPath{ GetBinaryOutputPath(BinDirectoryPath, AssetFilePath) };
         const std::filesystem::path MaterialOutputPath{ GetMaterialOutputPath(BinDirectoryPath, AssetFilePath) };
+        const std::filesystem::path ImagesDirectoryPath{ GetImagesDirectoryPath(BinDirectoryPath) };
 
         if (!std::filesystem::exists(AssetFilePath)) {
-            StdOutput::PrintErrorLine("[AssetZIP] 입력 FBX 파일을 찾을 수 없습니다 : {}", AssetFilePath.string());
+            StdOutput::PrintErrorLine("[AssetZIP] Input FBX file was not found: {}", AssetFilePath.string());
             return 1;
         }
 
         std::error_code ErrorCode{};
         std::filesystem::create_directories(BinDirectoryPath, ErrorCode);
         if (ErrorCode) {
-            StdOutput::PrintErrorLine("[AssetZIP] Bin 폴더 생성에 실패하였습니다 : {}", BinDirectoryPath.string());
+            StdOutput::PrintErrorLine("[AssetZIP] Failed to create Bin directory: {}", BinDirectoryPath.string());
             return 1;
         }
 
         asset::FbxAssetImporter FbxAssetImporterData{ asset::GraphicsAPI::DirectX };
         asset::ModelResult ModelData{};
         std::vector<asset::MaterialGroup> MaterialGroups{};
-        FbxAssetImporterData.LoadFromFile(AssetFilePath.string(), ModelData, MaterialGroups);
+        FbxAssetImporterData.LoadFromFile(AssetFilePath.string(), ModelData, MaterialGroups, Options.IsUvFlipEnabled);
 
         asset::AssetBinaryWriter AssetBinaryWriterData{};
         const bool IsBinaryWriteSuccess{ AssetBinaryWriterData.WriteToFile(BinaryOutputPath.string(), ModelData) };
         if (!IsBinaryWriteSuccess) {
-            StdOutput::PrintErrorLine("[AssetZIP] 바이너리 파일 생성에 실패하였습니다 : {}", BinaryOutputPath.string());
+            StdOutput::PrintErrorLine("[AssetZIP] Failed to create binary file: {}", BinaryOutputPath.string());
             return 1;
         }
 
         asset::MaterialGroupJsonSerializer MaterialGroupJsonSerializerData{};
         const bool IsMaterialWriteSuccess{ MaterialGroupJsonSerializerData.WriteToFile(MaterialOutputPath.string(), MaterialGroups) };
         if (!IsMaterialWriteSuccess) {
-            StdOutput::PrintErrorLine("[AssetZIP] 재질 JSON 파일 생성에 실패하였습니다 : {}", MaterialOutputPath.string());
+            StdOutput::PrintErrorLine("[AssetZIP] Failed to create material JSON file: {}", MaterialOutputPath.string());
             return 1;
         }
 
@@ -94,24 +148,36 @@ namespace {
         const std::size_t TotalIndices{ CountTotalIndices(ModelResultData) };
         const std::size_t MaterialGroupCount{ MaterialGroups.size() };
 
-        StdOutput::PrintLine("[AssetZIP] 입력 파일: {}", AssetFilePath.string());
-        StdOutput::PrintLine("[AssetZIP] 출력 바이너리: {}", BinaryOutputPath.string());
-        StdOutput::PrintLine("[AssetZIP] 출력 재질 JSON: {}", MaterialOutputPath.string());
-        StdOutput::PrintLine("[AssetZIP] 노드 수: {}", ModelResultData.NodeCount());
-        StdOutput::PrintLine("[AssetZIP] 총 정점 수: {}", TotalVertices);
-        StdOutput::PrintLine("[AssetZIP] 총 인덱스 수: {}", TotalIndices);
-        StdOutput::PrintLine("[AssetZIP] 재질 그룹 개수: {}", MaterialGroupCount);
+        StdOutput::PrintLine("[AssetZIP] Input file: {}", AssetFilePath.string());
+        StdOutput::PrintLine("[AssetZIP] Output binary: {}", BinaryOutputPath.string());
+        StdOutput::PrintLine("[AssetZIP] Output material JSON: {}", MaterialOutputPath.string());
+
+        if (std::filesystem::exists(ImagesDirectoryPath)) {
+            StdOutput::PrintLine("[AssetZIP] Embedded image output directory: {}", ImagesDirectoryPath.string());
+        }
+
+        StdOutput::PrintLine("[AssetZIP] Node count: {}", ModelResultData.NodeCount());
+        StdOutput::PrintLine("[AssetZIP] Total vertices: {}", TotalVertices);
+        StdOutput::PrintLine("[AssetZIP] Total indices: {}", TotalIndices);
+        StdOutput::PrintLine("[AssetZIP] Material group count: {}", MaterialGroupCount);
+        StdOutput::PrintLine("[AssetZIP] UV flip enabled: {}", Options.IsUvFlipEnabled ? "true" : "false");
 
         return 0;
     }
 }
 
 int main(int ArgCount, char* ArgValues[]) {
-    if (ArgCount < 2) {
-        StdOutput::PrintErrorLine("[AssetZIP] 사용법: AssetZIP <FBX파일명");
+    RunOptions Options{};
+    if (!TryParseArguments(ArgCount, ArgValues, Options)) {
+        StdOutput::PrintErrorLine("[AssetZIP] Usage: AssetZIP <FBXFileName> [--flip-uv=true|false]");
         return 1;
     }
 
-    const std::string InputFileName{ ArgValues[1] };
-    return Run(InputFileName);
+    try {
+        return Run(Options);
+    }
+    catch (const std::exception& ExceptionData) {
+        StdOutput::PrintErrorLine("[AssetZIP] {}", ExceptionData.what());
+        return 1;
+    }
 }

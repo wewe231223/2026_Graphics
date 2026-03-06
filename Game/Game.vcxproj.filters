@@ -51,6 +51,9 @@
     <ClInclude Include="Model\AssetRegistry.h">
       <Filter>Model</Filter>
     </ClInclude>
+    <ClInclude Include="Model\AssetRegistryBackEnd.h">
+      <Filter>Model</Filter>
+    </ClInclude>
     <ClInclude Include="Base\RenderFrameData.h">
       <Filter>Base</Filter>
     </ClInclude>
@@ -119,6 +122,9 @@
     <ClCompile Include="Model\AssetRegistry.cpp">
       <Filter>Model</Filter>
     </ClCompile>
+    <ClCompile Include="Model\AssetRegistryBackEnd.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\Scene.cpp">
       <Filter>Scene</Filter>
     </ClCompile>
@@ -168,6 +174,9 @@
     </None>
     <None Include="..\Resources\DefaultScene.yaml">
       <Filter>Scene\Scene YAML</Filter>
+    </None>
+    <None Include="..\Shader\Source\defines.hlsli">
+      <Filter>Shader</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
