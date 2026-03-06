@@ -25,6 +25,7 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "External/Include/ImGui/imgui.h"
 #include "Widget/PerformanceProvider.h"
 #include "Core/DX/CopyQueueId.h"
+#include "Core/Event/EventQueue.h"
 
 #ifdef _MSC_VER
     #ifdef _DEBUG
@@ -167,6 +168,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
             Widget::PerformanceProvider::Get().BeginProfile("Render");
             SceneInstance.ExecutePhase(Game::Phase::PostRender, Globals::Time::Get().GetDeltaTime<float>());
+
+            Core::Event::Flush(); 
+
             SceneInstance.PrepareRender();
             directQueue.PreRender(SceneInstance.GetRenderFrameData(), Globals::Time::Get().GetDeltaTime<float>());
             directQueue.Render(SceneInstance.GetRenderFrameData());

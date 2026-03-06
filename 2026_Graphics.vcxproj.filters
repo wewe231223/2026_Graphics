@@ -14,6 +14,9 @@
     <Filter Include="Core\DX">
       <UniqueIdentifier>{e438a1ae-69c9-4858-902e-634856073c70}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Core\Event">
+      <UniqueIdentifier>{c16f0709-f2f1-4fdd-a567-b2fa0d55115c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="2026_Graphics.rc">
@@ -34,6 +37,12 @@
     </ClCompile>
     <ClCompile Include="Core\Config.cpp">
       <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\Event\Event.cpp">
+      <Filter>Core\Event</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\Event\EventQueue.cpp">
+      <Filter>Core\Event</Filter>
     </ClCompile>
     <ClCompile Include="Core\DX\FrameSync.cpp">
       <Filter>Core\DX</Filter>
@@ -87,6 +96,21 @@
     </ClInclude>
     <ClInclude Include="Core\Config.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Event\Event.h">
+      <Filter>Core\Event</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Event\Event.inl">
+      <Filter>Core\Event</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Event\EventQueue.h">
+      <Filter>Core\Event</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Event\EventQueue.inl">
+      <Filter>Core\Event</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Event\EventTag.h">
+      <Filter>Core\Event</Filter>
     </ClInclude>
     <ClInclude Include="Core\DX\FrameSync.h">
       <Filter>Core\DX</Filter>
