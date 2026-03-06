@@ -1,4 +1,5 @@
-﻿#include <filesystem>
+﻿#include <exception>
+#include <filesystem>
 #include <string>
 #include <vector>
 #include "Asset/AssetBinaryWriter.h"
@@ -11,6 +12,54 @@
 
 
 namespace {
+
+    struct RunOptions final {
+    public:
+        std::string InputFileName{};
+        bool IsUvFlipEnabled{ true };
+    };
+
+    bool TryParseUvFlipValue(const std::string& Value, bool& OutIsUvFlipEnabled) {
+        if (Value == "1" || Value == "true" || Value == "True" || Value == "TRUE" || Value == "yes" || Value == "Yes" || Value == "YES" || Value == "on" || Value == "On" || Value == "ON") {
+            OutIsUvFlipEnabled = true;
+            return true;
+        }
+
+        if (Value == "0" || Value == "false" || Value == "False" || Value == "FALSE" || Value == "no" || Value == "No" || Value == "NO" || Value == "off" || Value == "Off" || Value == "OFF") {
+            OutIsUvFlipEnabled = false;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool TryParseArguments(int ArgCount, char* ArgValues[], RunOptions& OutRunOptions) {
+        if (ArgCount < 2) {
+            return false;
+        }
+
+        OutRunOptions = RunOptions{};
+        OutRunOptions.InputFileName = std::string{ ArgValues[1] };
+
+        for (int Index{ 2 }; Index < ArgCount; ++Index) {
+            const std::string Argument{ ArgValues[Index] };
+            const std::string Prefix{ "--flip-uv=" };
+            if (Argument.rfind(Prefix, 0) == 0) {
+                bool IsUvFlipEnabled{ OutRunOptions.IsUvFlipEnabled };
+                const std::string Value{ Argument.substr(Prefix.size()) };
+                if (!TryParseUvFlipValue(Value, IsUvFlipEnabled)) {
+                    return false;
+                }
+                OutRunOptions.IsUvFlipEnabled = IsUvFlipEnabled;
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
     std::filesystem::path GetProjectDirectoryPath() {
         return std::filesystem::current_path();
     }
@@ -55,9 +104,9 @@ namespace {
         return TotalIndices;
     }
 
-    int Run(const std::string& InputFileName) {
+    int Run(const RunOptions& Options) {
         const std::filesystem::path ProjectDirectoryPath{ GetProjectDirectoryPath() };
-        const std::filesystem::path AssetFilePath{ GetAssetFilePath(ProjectDirectoryPath, InputFileName) };
+        const std::filesystem::path AssetFilePath{ GetAssetFilePath(ProjectDirectoryPath, Options.InputFileName) };
         const std::filesystem::path BinDirectoryPath{ GetBinDirectoryPath(ProjectDirectoryPath) };
         const std::filesystem::path BinaryOutputPath{ GetBinaryOutputPath(BinDirectoryPath, AssetFilePath) };
         const std::filesystem::path MaterialOutputPath{ GetMaterialOutputPath(BinDirectoryPath, AssetFilePath) };
@@ -78,7 +127,7 @@ namespace {
         asset::FbxAssetImporter FbxAssetImporterData{ asset::GraphicsAPI::DirectX };
         asset::ModelResult ModelData{};
         std::vector<asset::MaterialGroup> MaterialGroups{};
-        FbxAssetImporterData.LoadFromFile(AssetFilePath.string(), ModelData, MaterialGroups);
+        FbxAssetImporterData.LoadFromFile(AssetFilePath.string(), ModelData, MaterialGroups, Options.IsUvFlipEnabled);
 
         asset::AssetBinaryWriter AssetBinaryWriterData{};
         const bool IsBinaryWriteSuccess{ AssetBinaryWriterData.WriteToFile(BinaryOutputPath.string(), ModelData) };
@@ -111,17 +160,24 @@ namespace {
         StdOutput::PrintLine("[AssetZIP] Total vertices: {}", TotalVertices);
         StdOutput::PrintLine("[AssetZIP] Total indices: {}", TotalIndices);
         StdOutput::PrintLine("[AssetZIP] Material group count: {}", MaterialGroupCount);
+        StdOutput::PrintLine("[AssetZIP] UV flip enabled: {}", Options.IsUvFlipEnabled ? "true" : "false");
 
         return 0;
     }
 }
 
 int main(int ArgCount, char* ArgValues[]) {
-    if (ArgCount < 2) {
-        StdOutput::PrintErrorLine("[AssetZIP] Usage: AssetZIP <FBXFileName>");
+    RunOptions Options{};
+    if (!TryParseArguments(ArgCount, ArgValues, Options)) {
+        StdOutput::PrintErrorLine("[AssetZIP] Usage: AssetZIP <FBXFileName> [--flip-uv=true|false]");
         return 1;
     }
 
-    const std::string InputFileName{ ArgValues[1] };
-    return Run(InputFileName);
+    try {
+        return Run(Options);
+    }
+    catch (const std::exception& ExceptionData) {
+        StdOutput::PrintErrorLine("[AssetZIP] {}", ExceptionData.what());
+        return 1;
+    }
 }

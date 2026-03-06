@@ -11,7 +11,7 @@
 namespace asset {
     class MeshHierarchyBuilder final : public ISceneNodeVisitor {
     public:
-        explicit MeshHierarchyBuilder(ModelResult& OutResult, const std::unordered_map<const ufbx_material*, std::size_t>* MaterialLookup);
+        explicit MeshHierarchyBuilder(ModelResult& OutResult, const std::unordered_map<const ufbx_material*, std::size_t>* MaterialLookup, bool IsUvFlipEnabled);
         ~MeshHierarchyBuilder();
 
         MeshHierarchyBuilder(const MeshHierarchyBuilder& Other) = delete;
@@ -58,5 +58,6 @@ namespace asset {
         ModelResult& mResult;
         std::vector<ModelNode*> mNodeStack{};
         const std::unordered_map<const ufbx_material*, std::size_t>* mMaterialLookup{ nullptr };
+        bool mIsUvFlipEnabled{ false };
     };
 }

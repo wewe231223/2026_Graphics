@@ -43,9 +43,7 @@ float4 PsMain(VertexOutput Input) : SV_TARGET
     if (TextureSrvIndex == 0xffffffffu) {
         return float4(1.0f, 0.0f, 1.0f, 1.0f);
     }
-
-    float2 flippedUV = float2(Input.TexCoord0.x, 1.0 - Input.TexCoord0.y);
     
     Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[TextureSrvIndex];
-    return ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, flippedUV));
+    return ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
 }

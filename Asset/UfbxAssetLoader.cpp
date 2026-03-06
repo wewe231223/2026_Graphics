@@ -180,14 +180,24 @@ void asset::UfbxAssetLoader::LoadScene(std::string_view FilePath){
 }
 
 void UfbxAssetLoader::LoadAndTraverse(std::string_view FilePath, std::span<ISceneNodeVisitor* const> Visitors) {
-    if (mScene.GetScene()->root_node != nullptr) {
-        TraverseNode(*mScene.GetScene(), *mScene.GetScene()->root_node, nullptr, Visitors);
+    if (mScene.GetScene() == nullptr) {
+        LoadScene(FilePath);
+    }
+
+    ufbx_scene* const Scene{ mScene.GetScene() };
+    if (Scene == nullptr) {
+        throw AssetError{ "Failed to load scene" };
+    }
+
+    if (Scene->root_node != nullptr) {
+        TraverseNode(*Scene, *Scene->root_node, nullptr, Visitors);
         return;
     }
-    for (std::size_t Index{ 0 }; Index < mScene.GetScene()->nodes.count; ++Index) {
-        const ufbx_node* Node{ mScene.GetScene()->nodes.data[Index] };
+
+    for (std::size_t Index{ 0 }; Index < Scene->nodes.count; ++Index) {
+        const ufbx_node* Node{ Scene->nodes.data[Index] };
         if (Node != nullptr) {
-            TraverseNode(*mScene.GetScene(), *Node, Node->parent, Visitors);
+            TraverseNode(*Scene, *Node, Node->parent, Visitors);
         }
     }
 }

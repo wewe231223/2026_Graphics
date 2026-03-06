@@ -18,7 +18,7 @@ namespace asset {
         FbxAssetImporter& operator=(FbxAssetImporter&& Other) noexcept = default;
 
     public:
-        void LoadFromFile(std::string_view FilePath, ModelResult& OutModelData, std::vector<MaterialGroup>& OutMaterialGroups);
+        void LoadFromFile(std::string_view FilePath, ModelResult& OutModelData, std::vector<MaterialGroup>& OutMaterialGroups, bool IsUvFlipEnabled);
 
     private:
         GraphicsAPI mApi{ GraphicsAPI::DirectX };

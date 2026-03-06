@@ -10,16 +10,16 @@ FbxAssetImporter::FbxAssetImporter(GraphicsAPI Api)
     : mApi{ Api } {
 }
 
-void FbxAssetImporter::LoadFromFile(std::string_view FilePath, ModelResult& OutModelData, std::vector<MaterialGroup>& OutMaterialGroups) {
+void FbxAssetImporter::LoadFromFile(std::string_view FilePath, ModelResult& OutModelData, std::vector<MaterialGroup>& OutMaterialGroups, bool IsUvFlipEnabled) {
     UfbxAssetLoader Loader{ mApi };
     MaterialVisitor MaterialCollector{};
     OutModelData = ModelResult{};
     OutMaterialGroups.clear();
-    MeshHierarchyBuilder Builder{ OutModelData, &MaterialCollector.GetMaterialLookup() };
+    MeshHierarchyBuilder Builder{ OutModelData, &MaterialCollector.GetMaterialLookup(), IsUvFlipEnabled };
     ISceneNodeVisitor* Visitors[]{ &MaterialCollector, &Builder };
     Loader.LoadAndTraverse(FilePath, { Visitors });
     MaterialGroup DefaultMaterialGroup{};
-    DefaultMaterialGroup.Name = "Default";
+    DefaultMaterialGroup.Name = std::string{ FilePath };
 
     const std::vector<Material>& Materials{ MaterialCollector.GetMaterials() };
     DefaultMaterialGroup.Items.reserve(Materials.size());

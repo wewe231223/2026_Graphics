@@ -20,9 +20,10 @@ namespace {
     }
 }
 
-MeshHierarchyBuilder::MeshHierarchyBuilder(ModelResult& OutResult, const std::unordered_map<const ufbx_material*, std::size_t>* MaterialLookup)
+MeshHierarchyBuilder::MeshHierarchyBuilder(ModelResult& OutResult, const std::unordered_map<const ufbx_material*, std::size_t>* MaterialLookup, bool IsUvFlipEnabled)
     : mResult{ OutResult }
-    , mMaterialLookup{ MaterialLookup } {
+    , mMaterialLookup{ MaterialLookup }
+    , mIsUvFlipEnabled{ IsUvFlipEnabled } {
 }
 
 MeshHierarchyBuilder::~MeshHierarchyBuilder() = default;
@@ -84,7 +85,11 @@ Vec2 MeshHierarchyBuilder::ReadTexCoord(const ufbx_mesh& Mesh, std::size_t SetIn
     if (SetIndex == 0) {
         if (Mesh.vertex_uv.exists) {
             const ufbx_vec2 Value{ ufbx_get_vertex_vec2(&Mesh.vertex_uv, Index) };
-            return ToVec2(Value);
+            const Vec2 TexCoord{ ToVec2(Value) };
+            if (mIsUvFlipEnabled) {
+                return Vec2{ TexCoord.mX, 1.0f - TexCoord.mY };
+            }
+            return TexCoord;
         }
         return Vec2{ 0.0f, 0.0f };
     }
@@ -93,7 +98,11 @@ Vec2 MeshHierarchyBuilder::ReadTexCoord(const ufbx_mesh& Mesh, std::size_t SetIn
         const ufbx_uv_set& Set{ Mesh.uv_sets.data[SetIndex] };
         if (Set.vertex_uv.exists) {
             const ufbx_vec2 Value{ ufbx_get_vertex_vec2(&Set.vertex_uv, Index) };
-            return ToVec2(Value);
+            const Vec2 TexCoord{ ToVec2(Value) };
+            if (mIsUvFlipEnabled) {
+                return Vec2{ TexCoord.mX, 1.0f - TexCoord.mY };
+            }
+            return TexCoord;
         }
     }
     return Vec2{ 0.0f, 0.0f };
