@@ -105,6 +105,9 @@
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\EntityHierarchy.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Shader.cpp">

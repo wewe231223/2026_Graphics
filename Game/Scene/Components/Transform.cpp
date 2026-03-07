@@ -119,6 +119,8 @@ namespace Game {
         rotationEuler = SimpleMath::Vector3::Zero;
         rotation = SimpleMath::Quaternion::Identity;
         scale = SimpleMath::Vector3{ 1.0f, 1.0f, 1.0f };
+        geometryToNode = SimpleMath::Matrix::Identity;
+        nodeToParent = SimpleMath::Matrix::Identity;
     }
 
 }

@@ -11,6 +11,7 @@
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/Intents/CameraIntent.h"
 #include "Game/Scene/Components/Material.h"
+#include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Tags.h"
 #include "Game/Scene/Components/Transform.h"
@@ -259,6 +260,8 @@ namespace Game {
                 OutScene.GetWorld().AddComponent(Entity, NewTransform);
             }
 
+            std::uint32_t MaterialGroupIndexForModel{ 0 };
+
             if (ComponentsNode.has_child(MaterialTypeName)) {
                 Material NewMaterial{};
                 const c4::yml::ConstNodeRef MaterialNode{ ComponentsNode[MaterialTypeName] };
@@ -291,11 +294,11 @@ namespace Game {
                     }
                 }
 
+                MaterialGroupIndexForModel = NewMaterial.MaterialGroupIndex;
                 OutScene.GetWorld().AddComponent(Entity, NewMaterial);
             }
 
             if (ComponentsNode.has_child(StaticMeshRendererTypeName)) {
-                StaticMeshRenderer NewStaticMeshRenderer{};
                 const c4::yml::ConstNodeRef StaticMeshRendererNode{ ComponentsNode[StaticMeshRendererTypeName] };
                 if (StaticMeshRendererNode.has_child("modelPath")) {
                     std::string ModelPath{};
@@ -307,15 +310,93 @@ namespace Game {
                         LoadResult.UndecidedItems.push_back(std::string{ "modelPath 로 Model 로드 실패: " } + ResolvedModelPath);
                     }
                     else {
-                        NewStaticMeshRenderer.modelNode = ModelData.get();
+                        const Model* SourceModel{ ModelData.get() };
+                        const std::vector<ModelNode>& ModelNodes{ SourceModel->GetNodes() };
+                        const ModelNode* RootNode{ SourceModel->GetRootNode() };
+                        if (RootNode == nullptr || ModelNodes.empty()) {
+                            LoadResult.IsSuccess = false;
+                            LoadResult.UndecidedItems.push_back(std::string{ "Model RootNode 를 찾을 수 없습니다: " } + ResolvedModelPath);
+                        }
+                        else {
+                            const std::size_t RootNodeIndex{ static_cast<std::size_t>(RootNode - ModelNodes.data()) };
+                            std::vector<Arche::EntityID> NodeEntities(ModelNodes.size(), Arche::NullEntityID);
+                            NodeEntities[RootNodeIndex] = Entity;
+
+                            for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
+                                if (NodeIndex != RootNodeIndex) {
+                                    NodeEntities[NodeIndex] = OutScene.GetWorld().CreateEntity();
+                                }
+
+                                Transform NodeTransform{};
+                                NodeTransform.nodeToParent = ModelNodes[NodeIndex].GetNodeToParent();
+                                NodeTransform.geometryToNode = ModelNodes[NodeIndex].GetGeometryToNode();
+
+                                if (NodeIndex == RootNodeIndex) {
+                                    Transform* ExistingTransform{ OutScene.GetWorld().GetComponent<Transform>(NodeEntities[NodeIndex]) };
+                                    if (ExistingTransform == nullptr) {
+                                        OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeTransform);
+                                    }
+                                    else {
+                                        ExistingTransform->nodeToParent = NodeTransform.nodeToParent;
+                                        ExistingTransform->geometryToNode = NodeTransform.geometryToNode;
+                                    }
+                                }
+                                else {
+                                    OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeTransform);
+                                }
+
+                                StaticMeshRenderer NodeRenderer{};
+                                NodeRenderer.model = ModelData.get();
+                                NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
+                                NodeRenderer.materialGroupIndex = MaterialGroupIndexForModel;
+                                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeRenderer);
+
+                                EntityHierarchy Hierarchy{};
+                                Hierarchy.self = NodeEntities[NodeIndex];
+                                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], Hierarchy);
+                            }
+
+                            for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
+                                EntityHierarchy* ParentHierarchy{ OutScene.GetWorld().GetComponent<EntityHierarchy>(NodeEntities[NodeIndex]) };
+                                if (ParentHierarchy == nullptr) {
+                                    continue;
+                                }
+
+                                const std::vector<std::uint32_t>& Children{ ModelNodes[NodeIndex].GetChildren() };
+                                Arche::EntityID PreviousChild{ Arche::NullEntityID };
+
+                                for (std::uint32_t ChildNodeIndex : Children) {
+                                    if (ChildNodeIndex >= NodeEntities.size()) {
+                                        continue;
+                                    }
+
+                                    EntityHierarchy* ChildHierarchy{ OutScene.GetWorld().GetComponent<EntityHierarchy>(NodeEntities[ChildNodeIndex]) };
+                                    if (ChildHierarchy == nullptr) {
+                                        continue;
+                                    }
+
+                                    ChildHierarchy->parent = NodeEntities[NodeIndex];
+                                    if (ParentHierarchy->firstChild == Arche::NullEntityID) {
+                                        ParentHierarchy->firstChild = NodeEntities[ChildNodeIndex];
+                                    }
+
+                                    if (PreviousChild != Arche::NullEntityID) {
+                                        EntityHierarchy* PreviousHierarchy{ OutScene.GetWorld().GetComponent<EntityHierarchy>(PreviousChild) };
+                                        if (PreviousHierarchy != nullptr) {
+                                            PreviousHierarchy->nextSibling = NodeEntities[ChildNodeIndex];
+                                        }
+                                    }
+
+                                    PreviousChild = NodeEntities[ChildNodeIndex];
+                                }
+                            }
+                        }
                     }
                 }
                 else {
                     LoadResult.IsSuccess = false;
                     LoadResult.UndecidedItems.push_back(std::string{ "StaticMeshRenderer 의 modelPath 없음" });
                 }
-
-                OutScene.GetWorld().AddComponent(Entity, NewStaticMeshRenderer);
             }
 
             if (ComponentsNode.has_child(CameraTypeName)) {

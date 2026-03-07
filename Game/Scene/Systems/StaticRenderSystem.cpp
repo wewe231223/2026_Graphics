@@ -1,15 +1,18 @@
-﻿#include "StaticRenderSystem.h"
+#include "StaticRenderSystem.h"
+
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 #include "Game/Model/AssetRegistry.h"
-#include "Game/Scene/Components/Material.h"
+#include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
 
 namespace {
-    SimpleMath::Matrix BuildWorldMatrix(const Game::Transform& Transform) {
-        return SimpleMath::Matrix::CreateScale(Transform.scale) * SimpleMath::Matrix::CreateFromQuaternion(Transform.rotation) * SimpleMath::Matrix::CreateTranslation(Transform.position);
+    SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
+        const SimpleMath::Matrix TrsMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
+        return TransformComponent.nodeToParent * TrsMatrix;
     }
 }
 
@@ -23,7 +26,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> StaticRenderSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 3> Accesses{ { { typeid(Transform), Access::Read }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(Material), Access::Read } } };
+        static std::array<ComponentAccess, 3> Accesses{ { { typeid(Transform), Access::Read }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read } } };
         return Accesses;
     }
 
@@ -38,30 +41,41 @@ namespace Game {
         RFD::RenderFrameData& RenderData{ Ctx.RenderData };
         const std::vector<RegisteredMaterialGroup>& MaterialGroups{ *Ctx.MaterialGroups };
 
-        for (auto [Renderer, Transform, Material] : World.Query<StaticMeshRenderer, Transform, Material>()) {
-            if (Renderer.modelNode == nullptr) {
+        for (auto [Renderer, TransformComponent, Hierarchy] : World.Query<StaticMeshRenderer, Transform, EntityHierarchy>()) {
+            if (Renderer.model == nullptr) {
                 continue;
             }
 
-            const Model* ModelData{ Renderer.modelNode };
-            const ModelNode* RootNode{ ModelData->GetRootNode() };
-            if (RootNode == nullptr) {
+            if (Hierarchy.parent != Arche::NullEntityID) {
                 continue;
             }
 
-            const std::vector<ModelNode>& Nodes{ ModelData->GetNodes() };
-            const SimpleMath::Matrix EntityWorld{ BuildWorldMatrix(Transform) };
-            TraverseNode(*RootNode, Nodes, EntityWorld, Material.MaterialGroupIndex, MaterialGroups, RenderData);
+            const SimpleMath::Matrix LocalWorld{ BuildLocalWorldMatrix(TransformComponent) };
+            TraverseHierarchy(World, Hierarchy.self, LocalWorld, RenderData, MaterialGroups);
         }
     }
 
-    void StaticRenderSystem::TraverseNode(const ModelNode& Node, const std::vector<ModelNode>& Nodes, const SimpleMath::Matrix& ParentWorld, std::uint32_t MaterialGroupIndex, const std::vector<RegisteredMaterialGroup>& MaterialGroups, RFD::RenderFrameData& RenderData) const {
-        const SimpleMath::Matrix NodeWorld{ Node.GetNodeToParent() * ParentWorld };
+    void StaticRenderSystem::TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups) const {
+        const StaticMeshRenderer* Renderer{ World.GetComponent<StaticMeshRenderer>(EntityId) };
+        const Transform* TransformComponent{ World.GetComponent<Transform>(EntityId) };
+        const EntityHierarchy* Hierarchy{ World.GetComponent<EntityHierarchy>(EntityId) };
 
+        if (Renderer == nullptr || TransformComponent == nullptr || Hierarchy == nullptr || Renderer->model == nullptr) {
+            return;
+        }
+
+        const std::vector<ModelNode>& Nodes{ Renderer->model->GetNodes() };
+        if (Renderer->nodeIndex >= Nodes.size()) {
+            return;
+        }
+
+        const ModelNode& Node{ Nodes[Renderer->nodeIndex] };
+        const SimpleMath::Matrix NodeWorld{ ParentWorld };
         const std::vector<ModelSubMesh>& SubMeshes{ Node.GetSubMeshes() };
+
         if (SubMeshes.empty() == false) {
             RFD::ModelContext ModelContext{};
-            ModelContext.world = Node.GetGeometryToNode() * NodeWorld;
+            ModelContext.world = TransformComponent->geometryToNode * NodeWorld;
             ModelContext.prevWorld = ModelContext.world;
             ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());
             RenderData.modelContexts.push_back(ModelContext);
@@ -71,8 +85,8 @@ namespace Game {
 
                 const Interface::IPipeline* Pipeline{ nullptr };
                 std::uint32_t ResolvedMaterialIndex{ 0 };
-                if (!MaterialGroups.empty() && MaterialGroupIndex < MaterialGroups.size()) {
-                    const RegisteredMaterialGroup& RegisteredGroup{ MaterialGroups[MaterialGroupIndex] };
+                if (MaterialGroups.empty() == false && Renderer->materialGroupIndex < MaterialGroups.size()) {
+                    const auto& RegisteredGroup{ MaterialGroups[Renderer->materialGroupIndex] };
                     if (SubMesh.MaterialGroupItemIndex < RegisteredGroup.Items.size()) {
                         const RegisteredMaterialGroupItem& RegisteredGroupItem{ RegisteredGroup.Items[SubMesh.MaterialGroupItemIndex] };
                         Pipeline = RegisteredGroupItem.Pipeline;
@@ -90,16 +104,21 @@ namespace Game {
                 DrawRecord.flags = 0;
                 DrawRecord.pad0 = 0;
                 RenderData.drawRecords.push_back(DrawRecord);
-
             }
         }
 
-        for (std::uint32_t ChildIndex : Node.GetChildren()) {
-            if (ChildIndex >= Nodes.size()) {
-                continue;
+        Arche::EntityID ChildId{ Hierarchy->firstChild };
+        while (ChildId != Arche::NullEntityID) {
+            const Transform* ChildTransform{ World.GetComponent<Transform>(ChildId) };
+            const EntityHierarchy* ChildHierarchy{ World.GetComponent<EntityHierarchy>(ChildId) };
+
+            if (ChildTransform == nullptr || ChildHierarchy == nullptr) {
+                break;
             }
 
-            TraverseNode(Nodes[ChildIndex], Nodes, NodeWorld, MaterialGroupIndex, MaterialGroups, RenderData);
+            const SimpleMath::Matrix ChildWorld{ BuildLocalWorldMatrix(*ChildTransform) * NodeWorld };
+            TraverseHierarchy(World, ChildId, ChildWorld, RenderData, MaterialGroups);
+            ChildId = ChildHierarchy->nextSibling;
         }
     }
 }

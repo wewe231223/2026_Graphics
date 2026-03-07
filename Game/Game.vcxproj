@@ -30,6 +30,7 @@
     <ClInclude Include="Model\AssetRegistryBackEnd.h" />
     <ClInclude Include="Model\Model.h" />
     <ClInclude Include="Scene\Components\Camera.h" />
+    <ClInclude Include="Scene\Components\EntityHierarchy.h" />
     <ClInclude Include="Scene\Components\Intents\CameraIntent.h" />
     <ClInclude Include="Scene\Components\Material.h" />
     <ClInclude Include="Scene\Components\StaticMeshRenderer.h" />

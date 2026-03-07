@@ -1,32 +1,32 @@
-﻿#pragma once
-#include <cstddef>
-#include <cstdint>
-#include "Game/Model/Model.h"
+#pragma once
+
+#include <string>
+#include "Arche/Common.h"
 #include "Game/Scene/System.h"
 
 namespace Game {
-	class StaticRenderSystem final : public ISystem {
-	public:
-		StaticRenderSystem() = default;
-		~StaticRenderSystem() override = default;
+    class StaticRenderSystem final : public ISystem {
+    public:
+        StaticRenderSystem() = default;
+        ~StaticRenderSystem() override = default;
 
-		StaticRenderSystem(const StaticRenderSystem&) = default;
-		StaticRenderSystem& operator=(const StaticRenderSystem&) = default;
+        StaticRenderSystem(const StaticRenderSystem&) = default;
+        StaticRenderSystem& operator=(const StaticRenderSystem&) = default;
 
-		StaticRenderSystem(StaticRenderSystem&&) noexcept = default;
-		StaticRenderSystem& operator=(StaticRenderSystem&&) noexcept = default;
+        StaticRenderSystem(StaticRenderSystem&&) noexcept = default;
+        StaticRenderSystem& operator=(StaticRenderSystem&&) noexcept = default;
 
-	public:
-		virtual const std::string& Name() const override;
-		virtual Phase GetPhase() const override;
-		virtual std::span<const ComponentAccess> ComponentAccesses() const override;
-		virtual std::span<const ResourceAccess> ResourceAccesses() const override;
-		virtual void Execute(Arche::World& World, FrameContext& Ctx, float Dt) override;
+    public:
+        const std::string& Name() const override;
+        Phase GetPhase() const override;
+        std::span<const ComponentAccess> ComponentAccesses() const override;
+        std::span<const ResourceAccess> ResourceAccesses() const override;
+        void Execute(Arche::World& World, FrameContext& Ctx, float Dt) override;
 
-	private:
-		void TraverseNode(const ModelNode& Node, const std::vector<ModelNode>& Nodes, const SimpleMath::Matrix& ParentWorld, std::uint32_t MaterialGroupIndex, const std::vector<RegisteredMaterialGroup>& MaterialGroups, RFD::RenderFrameData& RenderData) const;
+    private:
+        void TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups) const;
 
-	private:
-		const std::string mName{ "StaticRenderSystem" };
-	};
+    private:
+        const std::string mName{ "StaticRenderSystem" };
+    };
 }
