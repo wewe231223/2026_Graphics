@@ -26,6 +26,12 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Widget/PerformanceProvider.h"
 #include "Core/DX/CopyQueueId.h"
 #include "Core/Event/EventQueue.h"
+#include "Core/Event/FileDropEvent.h"
+#include <algorithm>
+#include <cwctype>
+#include <filesystem>
+#include <shellapi.h>
+#include <string>
 
 #ifdef _MSC_VER
     #ifdef _DEBUG
@@ -54,6 +60,7 @@ ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 
 #include <fstream>
 
@@ -133,6 +140,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     Game::SceneYamlSerializer SceneYamlSerializer{};
     const Game::SceneYamlLoadResult SceneYamlLoadResult{ SceneYamlSerializer.DeserializeFromFile("Resources/DefaultScene.yaml", SceneInstance) };
     ErrorHandler::report(SceneYamlLoadResult.IsSuccess == false, "WinMain", "Failed to load scene yaml.", ErrorHandler::Level::Warning);
+
+    const Core::Event::SubscriptionId FbxBinDropSubscriptionId{ Core::Event::SubscribeFbxBinFileDroppedEvent() };
+
+    (void)FbxBinDropSubscriptionId;
 
 
     copyQueue.DispatchCopies();
@@ -276,8 +287,20 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
     ShowWindow(hWnd, nCmdShow);
     UpdateWindow(hWnd);
+    DragAcceptFiles(hWnd, TRUE);
 
     return TRUE;
+}
+
+namespace {
+    bool IsFbxBinFilePath(const std::filesystem::path& FilePath) {
+        std::wstring Extension{ FilePath.extension().wstring() };
+        std::transform(Extension.begin(), Extension.end(), Extension.begin(), [](wchar_t Character) {
+            return static_cast<wchar_t>(std::towlower(Character));
+        });
+
+        return Extension == L".fbxbin";
+    }
 }
 
 //
@@ -365,7 +388,40 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
     case WM_MOUSEHOVER:
         DirectX::Mouse::ProcessMessage(message, wParam, lParam);
         break;
+    case WM_DROPFILES:
+    {
+        HDROP DropHandle{ reinterpret_cast<HDROP>(wParam) };
+        const UINT DroppedFileCount{ DragQueryFileW(DropHandle, 0xFFFFFFFF, nullptr, 0) };
+
+        for (UINT FileIndex{ 0 }; FileIndex < DroppedFileCount; ++FileIndex) {
+            const UINT FilePathLength{ DragQueryFileW(DropHandle, FileIndex, nullptr, 0) };
+            if (FilePathLength == 0) {
+                continue;
+            }
+
+            std::wstring FilePathBuffer{};
+            FilePathBuffer.resize(static_cast<std::size_t>(FilePathLength) + 1);
+            const UINT WrittenLength{ DragQueryFileW(DropHandle, FileIndex, FilePathBuffer.data(), FilePathLength + 1) };
+            if (WrittenLength == 0) {
+                continue;
+            }
+
+            FilePathBuffer.resize(static_cast<std::size_t>(WrittenLength));
+            const std::filesystem::path DroppedFilePath{ FilePathBuffer };
+            if (!IsFbxBinFilePath(DroppedFilePath)) {
+                continue;
+            }
+
+            Core::Event::FbxBinFileDroppedPayload Payload{};
+            Payload.FilePath = DroppedFilePath;
+            Core::Event::Enqueue<Core::Event::FbxBinFileDroppedEventTag>(std::move(Payload));
+        }
+
+        DragFinish(DropHandle);
+    }
+        break;
     case WM_DESTROY:
+        DragAcceptFiles(hWnd, FALSE);
         PostQuitMessage(0);
         break;
     default:
