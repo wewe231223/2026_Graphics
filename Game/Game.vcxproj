@@ -33,6 +33,7 @@
     <ClInclude Include="Scene\Components\EntityHierarchy.h" />
     <ClInclude Include="Scene\Components\Intents\CameraIntent.h" />
     <ClInclude Include="Scene\Components\Material.h" />
+    <ClInclude Include="Scene\Components\Name.h" />
     <ClInclude Include="Scene\Components\StaticMeshRenderer.h" />
     <ClInclude Include="Scene\Components\Tags.h" />
     <ClInclude Include="Scene\Components\Transform.h" />
@@ -59,6 +60,7 @@
     <ClCompile Include="Scene\System.cpp" />
     <ClCompile Include="Scene\SystemSceduler.cpp" />
     <ClCompile Include="Scene\Components\Transform.cpp" />
+    <ClCompile Include="Scene\Components\Name.cpp" />
     <ClCompile Include="Scene\Systems\CameraInputSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />

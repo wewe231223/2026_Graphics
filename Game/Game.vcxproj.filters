@@ -84,6 +84,9 @@
     <ClInclude Include="Scene\Components\Material.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\Name.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Systems\IntentClentUpSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
@@ -141,6 +144,9 @@
       <Filter>Scene</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\Transform.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\Name.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp">

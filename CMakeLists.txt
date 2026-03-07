@@ -103,6 +103,7 @@ add_library(Game STATIC
     Game/Scene/System.cpp
     Game/Scene/SystemSceduler.cpp
     Game/Scene/Components/Transform.cpp
+    Game/Scene/Components/Name.cpp
     Game/Scene/Systems/CameraInputSystem.cpp
     Game/Scene/Systems/StaticRenderSystem.cpp
 )

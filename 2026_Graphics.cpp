@@ -1,4 +1,4 @@
-// 2026_Graphics.cpp : 애플리케이션에 대한 진입점을 정의합니다.
+﻿// 2026_Graphics.cpp : 애플리케이션에 대한 진입점을 정의합니다.
 extern "C" { __declspec(dllexport) extern const unsigned int D3D12SDKVersion = 618; }
 extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; }
 
@@ -20,6 +20,7 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Core/DX/CopyQueue.h"
 #include "Core/DX/GraphicsAllocator.h"
 #include "Utility/ErrorHandler.h"
+#include "Utility/StdOutput.h"
 #include "Game/Base/Shader.h"
 #include "Game/Base/RootSignature.h"
 #include "Game/Base/Pipeline.h"
@@ -27,6 +28,7 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Game/Base/Time.h"
 #include "Game/Scene/Scene.h"
 #include "Game/Scene/SceneYamlSerializer.h"
+#include "Game/Scene/Components/Name.h"
 #include "External/Include/ImGui/imgui.h"
 #include "Widget/PerformanceProvider.h"
 #include "Core/DX/CopyQueueId.h"
@@ -138,6 +140,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     Game::SceneYamlSerializer SceneYamlSerializer{};
     const Game::SceneYamlLoadResult SceneYamlLoadResult{ SceneYamlSerializer.DeserializeFromFile("Resources/DefaultScene.yaml", SceneInstance) };
     ErrorHandler::report(SceneYamlLoadResult.IsSuccess == false, "WinMain", "Failed to load scene yaml.", ErrorHandler::Level::Warning);
+
+    for (auto [NameComponent] : SceneInstance.GetWorld().Query<Game::Name>()) {
+        StdOutput::PrintLine("Entity Name: {}", Game::GetNameText(NameComponent));
+    }
 
 	Core::Event::Subscribe<Core::Event::FbxBinFileDroppedEventTag>(Core::Event::FileDropEventSubscriber{});
 

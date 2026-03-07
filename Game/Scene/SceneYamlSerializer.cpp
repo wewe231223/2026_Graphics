@@ -12,6 +12,7 @@
 #include "Game/Scene/Components/Intents/CameraIntent.h"
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Tags.h"
 #include "Game/Scene/Components/Transform.h"
@@ -27,6 +28,7 @@ namespace {
     constexpr const char* CameraTypeName{ "Camera" };
     constexpr const char* CameraIntentTypeName{ "CameraIntent" };
     constexpr const char* LocalPlayerTagTypeName{ "LocalPlayerTag" };
+    constexpr const char* NameTypeName{ "Name" };
 
     bool ReadVector3(c4::yml::ConstNodeRef TargetNode, SimpleMath::Vector3& OutValue) {
         if (TargetNode.is_seq() == false || TargetNode.num_children() != 3) {
@@ -238,6 +240,16 @@ namespace Game {
 
             const c4::yml::ConstNodeRef ComponentsNode{ EntityNode["Components"] };
 
+            if (ComponentsNode.has_child(NameTypeName)) {
+                const c4::yml::ConstNodeRef NameNode{ ComponentsNode[NameTypeName] };
+                if (NameNode.has_child("text")) {
+                    std::string NameText{};
+                    NameNode["text"] >> NameText;
+                    const Name NewName{ CreateNameComponent(NameText) };
+                    OutScene.GetWorld().AddComponent(Entity, NewName);
+                }
+            }
+
             if (ComponentsNode.has_child(TransformTypeName)) {
                 Transform NewTransform{};
                 const c4::yml::ConstNodeRef TransformNode{ ComponentsNode[TransformTypeName] };
@@ -354,6 +366,20 @@ namespace Game {
                                 EntityHierarchy Hierarchy{};
                                 Hierarchy.self = NodeEntities[NodeIndex];
                                 OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], Hierarchy);
+
+                                const Name NodeName{ CreateNameComponent(ModelNodes[NodeIndex].GetName()) };
+                                if (NodeIndex == RootNodeIndex) {
+                                    Name* ExistingName{ OutScene.GetWorld().GetComponent<Name>(NodeEntities[NodeIndex]) };
+                                    if (ExistingName == nullptr) {
+                                        OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeName);
+                                    }
+                                    else {
+                                        *ExistingName = NodeName;
+                                    }
+                                }
+                                else {
+                                    OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeName);
+                                }
                             }
 
                             for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
