@@ -128,6 +128,7 @@ add_executable(2026_Graphics WIN32
     Core/Config.cpp
     Core/Event/Event.cpp
     Core/Event/EventQueue.cpp
+    Core/Event/FileDropEvent.cpp
     Core/DX/AllocationHandle.cpp
     Core/DX/ComputeQueue.cpp
     Core/DX/CopyQueue.cpp

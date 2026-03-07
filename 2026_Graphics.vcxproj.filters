@@ -44,6 +44,9 @@
     <ClCompile Include="Core\Event\EventQueue.cpp">
       <Filter>Core\Event</Filter>
     </ClCompile>
+    <ClCompile Include="Core\Event\FileDropEvent.cpp">
+      <Filter>Core\Event</Filter>
+    </ClCompile>
     <ClCompile Include="Core\DX\FrameSync.cpp">
       <Filter>Core\DX</Filter>
     </ClCompile>
@@ -110,6 +113,9 @@
       <Filter>Core\Event</Filter>
     </ClInclude>
     <ClInclude Include="Core\Event\EventTag.h">
+      <Filter>Core\Event</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Event\FileDropEvent.h">
       <Filter>Core\Event</Filter>
     </ClInclude>
     <ClInclude Include="Core\DX\FrameSync.h">
