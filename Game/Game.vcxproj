@@ -29,6 +29,7 @@
     <ClInclude Include="Model\AssetRegistry.h" />
     <ClInclude Include="Model\AssetRegistryBackEnd.h" />
     <ClInclude Include="Model\Model.h" />
+    <ClInclude Include="Scene\Components\BoundingBox.h" />
     <ClInclude Include="Scene\Components\Camera.h" />
     <ClInclude Include="Scene\Components\EntityHierarchy.h" />
     <ClInclude Include="Scene\Components\Intents\CameraIntent.h" />
@@ -64,6 +65,7 @@
     <ClCompile Include="Scene\SystemSceduler.cpp" />
     <ClCompile Include="Scene\Components\Transform.cpp" />
     <ClCompile Include="Scene\Components\Name.cpp" />
+    <ClCompile Include="Scene\Components\BoundingBox.cpp" />
     <ClCompile Include="Scene\Components\Camera.cpp" />
     <ClCompile Include="Scene\Components\StaticMeshRenderer.cpp" />
     <ClCompile Include="Scene\Components\ComponentInspection.cpp" />

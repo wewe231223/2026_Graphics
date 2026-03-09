@@ -1,5 +1,6 @@
 #include "ComponentInspection.h"
 #include <utility>
+#include "BoundingBox.h"
 #include "Camera.h"
 #include "StaticMeshRenderer.h"
 #include "Transform.h"
@@ -26,6 +27,7 @@ namespace Game {
 
         AppendComponentInspectionSection<Transform>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<StaticMeshRenderer>(ReadOnlyWorld, EntityId, OutSections);
+        AppendComponentInspectionSection<BoundingBox>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<Camera>(ReadOnlyWorld, EntityId, OutSections);
     }
 }

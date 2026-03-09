@@ -8,6 +8,7 @@
 #include <string>
 #include <ryml.hpp>
 #include <ryml_std.hpp>
+#include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/Intents/CameraIntent.h"
 #include "Game/Scene/Components/Material.h"
@@ -366,6 +367,10 @@ namespace Game {
                                 NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
                                 NodeRenderer.materialGroupIndex = MaterialGroupIndexForModel;
                                 OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeRenderer);
+
+                                BoundingBox NodeBoundingBox{};
+                                NodeBoundingBox.UpdateFromModel(ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
+                                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeBoundingBox);
 
                                 EntityHierarchy Hierarchy{};
                                 Hierarchy.self = NodeEntities[NodeIndex];
