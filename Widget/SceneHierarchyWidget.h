@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <vector>
+#include "Arche/Common.h"
 #include "Common.h"
 #include "Game/Scene/Components/ComponentInspection.h"
 
@@ -28,9 +29,12 @@ namespace Widget {
         void RenderEntityNode(const Game::SceneWorldSnapshot& Snapshot, std::uint32_t EntityIndex);
         void RenderSelectedEntityPanel(const Game::SceneWorldSnapshot& Snapshot);
         void RenderComponentSectionTable(const char* ComponentName, const std::vector<Game::ComponentInspectionField>& Fields, const char* TableIdentifier) const;
+        void SyncSelectedEntityFromSelectedEntityId(const Game::SceneWorldSnapshot& Snapshot);
 
     private:
         std::uint32_t mSelectedEntityIndex{};
         float mHierarchyRegionRatio{ 0.6f };
+        Arche::EntityID mSelectedEntityId{ Arche::NullEntityID };
+        std::uint64_t mPickedEntityChangedSubscriptionId{};
     };
 }

@@ -113,8 +113,9 @@ namespace Widget {
 	}
 
 	void WidgetCore::SetSceneWorldSnapshot(const Game::SceneWorldSnapshot* Snapshot) {
-	mSceneWorldSnapshot = Snapshot;
-}
+		mSceneWorldSnapshot = Snapshot;
+	}
+
 
 	void WidgetCore::BuildWidgets() {
 		MakeWidget<FrameTimeWidget>();

@@ -1,6 +1,8 @@
 #include "Scene.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Name.h"
+#include "Game/Scene/Events/SelectionEvent.h"
+#include "Core/Event/EventQueue.h"
 
 namespace Game {
     Scene::Scene()
@@ -11,8 +13,19 @@ namespace Game {
         mSystems{},
         mSystemSceduler{},
         mWorldSnapshot{},
-        mWorldSnapshotVersion{} {
+        mWorldSnapshotVersion{},
+        mHierarchyEntitySelectedSubscriptionId{} {
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
+
+        mHierarchyEntitySelectedSubscriptionId = Core::Event::Subscribe<Game::HierarchyEntitySelectedEventTag>([this](const Core::Event::Event<Game::HierarchyEntitySelectedEventTag>& HierarchyEntitySelectedEvent) {
+            const Game::HierarchyEntitySelectedPayload* Payload{ HierarchyEntitySelectedEvent.GetPayloadAs<Game::HierarchyEntitySelectedPayload>() };
+
+            if (Payload == nullptr) {
+                return;
+            }
+
+            mFrameContext.PickedEntityId = Payload->SelectedEntityId;
+        });
     }
 
     Scene::~Scene() {

@@ -2,6 +2,7 @@
 
 #include <array>
 #include <limits>
+#include <utility>
 #include <DirectXMath.h>
 #include "Core/Config.h"
 #include "Game/Base/Input.h"
@@ -10,6 +11,8 @@
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Transform.h"
+#include "Game/Scene/Events/SelectionEvent.h"
+#include "Core/Event/EventQueue.h"
 
 #ifdef max 
 #undef max 
@@ -127,6 +130,10 @@ namespace Game {
         const Camera* CameraComponent{ nullptr };
         if (TryFindActiveCamera(World, CameraTransform, CameraComponent) == false || CameraTransform == nullptr || CameraComponent == nullptr) {
             Ctx.PickedEntityId = Arche::NullEntityID;
+
+            Game::PickedEntityChangedPayload PickedEntityChangedPayload{};
+            PickedEntityChangedPayload.PickedEntityId = Arche::NullEntityID;
+            Core::Event::Enqueue<Game::PickedEntityChangedEventTag, Game::PickedEntityChangedPayload>(std::move(PickedEntityChangedPayload), true);
             return;
         }
 
@@ -134,6 +141,10 @@ namespace Game {
         DirectX::XMVECTOR RayDirection{};
         if (TryBuildPickingRay(*CameraTransform, *CameraComponent, RayOrigin, RayDirection) == false) {
             Ctx.PickedEntityId = Arche::NullEntityID;
+
+            Game::PickedEntityChangedPayload PickedEntityChangedPayload{};
+            PickedEntityChangedPayload.PickedEntityId = Arche::NullEntityID;
+            Core::Event::Enqueue<Game::PickedEntityChangedEventTag, Game::PickedEntityChangedPayload>(std::move(PickedEntityChangedPayload), true);
             return;
         }
 
@@ -151,5 +162,9 @@ namespace Game {
         }
 
         Ctx.PickedEntityId = PickedEntityId;
+
+        Game::PickedEntityChangedPayload PickedEntityChangedPayload{};
+        PickedEntityChangedPayload.PickedEntityId = PickedEntityId;
+        Core::Event::Enqueue<Game::PickedEntityChangedEventTag, Game::PickedEntityChangedPayload>(std::move(PickedEntityChangedPayload), true);
     }
 }

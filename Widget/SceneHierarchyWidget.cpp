@@ -2,15 +2,29 @@
 #include <algorithm>
 #include <format>
 #include <string>
+#include <utility>
 #include "External/Include/ImGui/imgui.h"
 #include "Game/Scene/Components/ComponentInspection.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/SceneWorldSnapshot.h"
+#include "Game/Scene/Events/SelectionEvent.h"
+#include "Core/Event/EventQueue.h"
 
 namespace Widget {
     SceneHierarchyWidget::SceneHierarchyWidget()
         : mSelectedEntityIndex{},
-        mHierarchyRegionRatio{ 0.6f } {
+        mHierarchyRegionRatio{ 0.6f },
+        mSelectedEntityId{ Arche::NullEntityID },
+        mPickedEntityChangedSubscriptionId{} {
+        mPickedEntityChangedSubscriptionId = Core::Event::Subscribe<Game::PickedEntityChangedEventTag>([this](const Core::Event::Event<Game::PickedEntityChangedEventTag>& PickedEntityChangedEvent) {
+            const Game::PickedEntityChangedPayload* Payload{ PickedEntityChangedEvent.GetPayloadAs<Game::PickedEntityChangedPayload>() };
+
+            if (Payload == nullptr) {
+                return;
+            }
+
+            mSelectedEntityId = Payload->PickedEntityId;
+        });
     }
 
     SceneHierarchyWidget::~SceneHierarchyWidget() {
@@ -40,6 +54,8 @@ namespace Widget {
             ImGui::End();
             return;
         }
+
+        SyncSelectedEntityFromSelectedEntityId(*Snapshot);
 
         mHierarchyRegionRatio = std::clamp(mHierarchyRegionRatio, 0.3f, 0.85f);
         float HierarchyPanelHeight{ AvailableHeight * mHierarchyRegionRatio };
@@ -107,6 +123,11 @@ namespace Widget {
 
         if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
             mSelectedEntityIndex = EntityIndex;
+            mSelectedEntityId = Entity.mEntityId;
+
+            Game::HierarchyEntitySelectedPayload Payload{};
+            Payload.SelectedEntityId = Entity.mEntityId;
+            Core::Event::Enqueue<Game::HierarchyEntitySelectedEventTag, Game::HierarchyEntitySelectedPayload>(std::move(Payload), true);
         }
 
         if (!IsOpen || IsLeaf) {
@@ -175,5 +196,22 @@ namespace Widget {
         }
 
         ImGui::EndTable();
+    }
+
+    void SceneHierarchyWidget::SyncSelectedEntityFromSelectedEntityId(const Game::SceneWorldSnapshot& Snapshot) {
+        if (mSelectedEntityId == Arche::NullEntityID) {
+            return;
+        }
+
+        const std::vector<Game::SceneWorldSnapshot::SceneEntitySnapshot>& Entities{ Snapshot.GetEntities() };
+
+        for (std::uint32_t EntityIndex{ 0 }; EntityIndex < Entities.size(); ++EntityIndex) {
+            if (Entities[EntityIndex].mEntityId != mSelectedEntityId) {
+                continue;
+            }
+
+            mSelectedEntityIndex = EntityIndex;
+            return;
+        }
     }
 }

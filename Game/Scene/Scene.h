@@ -59,5 +59,6 @@ namespace Game {
 
         SceneWorldSnapshot mWorldSnapshot{};
         std::uint64_t mWorldSnapshotVersion{};
+        std::uint64_t mHierarchyEntitySelectedSubscriptionId{};
     };
 }
