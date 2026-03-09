@@ -31,6 +31,7 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Game/Scene/Components/Name.h"
 #include "External/Include/ImGui/imgui.h"
 #include "Widget/PerformanceProvider.h"
+#include "Widget/WidgetCore.h"
 #include "Core/DX/CopyQueueId.h"
 #include "Core/Event/EventQueue.h"
 #include "Core/Event/FileDropEvent.h"
@@ -93,6 +94,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     MSG msg;
 
     Core::DX::DirectQueue directQueue(hWnd);
+    Widget::WidgetCore WidgetCoreInstance{};
+    WidgetCoreInstance.Initialize(hWnd, directQueue.GetDevice(), directQueue.GetPrimaryAdapter());
 
     D3D12_HEAP_PROPERTIES defaultHeapProperties{};
     defaultHeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -141,6 +144,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     const Game::SceneYamlLoadResult SceneYamlLoadResult{ SceneYamlSerializer.DeserializeFromFile("Resources/DefaultScene.yaml", SceneInstance) };
     ErrorHandler::report(SceneYamlLoadResult.IsSuccess == false, "WinMain", "Failed to load scene yaml.", ErrorHandler::Level::Warning);
 
+    SceneInstance.InitializeWorldSnapshot();
+
     for (auto [NameComponent] : SceneInstance.GetWorld().Query<Game::Name>()) {
         StdOutput::PrintLine("Entity Name: {}", Game::GetNameText(NameComponent));
     }
@@ -183,9 +188,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
             Core::Event::Flush(); 
 
+            SceneInstance.UpdateWorldSnapshotIfNeeded();
+            WidgetCoreInstance.SetSceneWorldSnapshot(&SceneInstance.GetWorldSnapshot());
+
             SceneInstance.PrepareRender();
             directQueue.PreRender(SceneInstance.GetRenderFrameData(), Globals::Time::Get().GetDeltaTime<float>());
-            directQueue.Render(SceneInstance.GetRenderFrameData());
+            directQueue.Render(SceneInstance.GetRenderFrameData(), &WidgetCoreInstance);
 
             frameCount++; 
         }

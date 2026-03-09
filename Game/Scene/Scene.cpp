@@ -1,4 +1,6 @@
-﻿#include "Scene.h"
+#include "Scene.h"
+#include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/Name.h"
 
 namespace Game {
     Scene::Scene()
@@ -7,7 +9,10 @@ namespace Game {
         mFrameContext{},
         mAssetRegistry{},
         mSystems{},
-        mSystemSceduler{} {
+        mSystemSceduler{},
+        mWorldSnapshot{},
+        mWorldSnapshotVersion{} {
+        mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
     }
 
     Scene::~Scene() {
@@ -69,7 +74,6 @@ namespace Game {
         mSystems.push_back(std::move(NewSystem));
     }
 
-
     void Scene::BuildSystemExecutionPlan() {
         mSystemSceduler.BuildExecutionPlan(mSystems);
     }
@@ -77,6 +81,42 @@ namespace Game {
     void Scene::PrepareRender() {
         mAssetRegistry.PrepareRenderTextures(mFrameContext.RenderData);
         mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
+    }
+
+    void Scene::InitializeWorldSnapshot() {
+        mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
+        RebuildWorldSnapshot();
+        mWorldSnapshotVersion = mWorld.GetStructureVersion();
+    }
+
+    void Scene::UpdateWorldSnapshotIfNeeded() {
+        const std::uint64_t CurrentStructureVersion{ mWorld.GetStructureVersion() };
+
+        if (CurrentStructureVersion == mWorldSnapshotVersion) {
+            return;
+        }
+
+        RebuildWorldSnapshot();
+        mWorldSnapshotVersion = CurrentStructureVersion;
+    }
+
+    const SceneWorldSnapshot& Scene::GetWorldSnapshot() const {
+        return mWorldSnapshot;
+    }
+
+    void Scene::RebuildWorldSnapshot() {
+        mWorldSnapshot.Clear();
+
+
+        for (const auto& [NameComponent, HierarchyComponent] : mWorld.Query<Name, EntityHierarchy>()) {
+            if (GetNameText(NameComponent)[0] == '\0') {
+                continue;
+            }
+
+            mWorldSnapshot.AddEntity(HierarchyComponent.self, HierarchyComponent.parent);
+        }
+
+        mWorldSnapshot.BuildHierarchy();
     }
 
     void Scene::ExecutePhase(Phase TargetPhase, float Dt) {

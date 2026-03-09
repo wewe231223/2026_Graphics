@@ -1,6 +1,7 @@
-﻿#pragma once
+#pragma once
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <deque>
 #include <functional>
 #include <memory>
@@ -18,6 +19,28 @@
 namespace Arche {
     class World {
     public:
+        class WorldReadOnlyView final {
+        public:
+            WorldReadOnlyView();
+            ~WorldReadOnlyView();
+
+            WorldReadOnlyView(const WorldReadOnlyView& Other);
+            WorldReadOnlyView& operator=(const WorldReadOnlyView& Other);
+
+            WorldReadOnlyView(WorldReadOnlyView&& Other) noexcept;
+            WorldReadOnlyView& operator=(WorldReadOnlyView&& Other) noexcept;
+
+        public:
+            void BindWorld(const World* TargetWorld);
+            std::uint64_t GetStructureVersion() const;
+
+            template <TrivialComponent T>
+            const T* GetComponent(EntityID Id) const;
+
+        private:
+            const World* mWorld{};
+        };
+
         template <TrivialComponent... Ts>
         class QueryView;
 
@@ -71,8 +94,10 @@ namespace Arche {
         void DeferAddComponent(EntityID Id, T Component);
 
         void DeferDestroyEntity(EntityID Id);
-
         void FlushDeferredStructuralChanges();
+
+        std::uint64_t GetStructureVersion() const;
+        const WorldReadOnlyView& GetReadOnlyView() const;
 
     private:
         struct QueryCache {
@@ -81,8 +106,8 @@ namespace Arche {
         };
 
         Archetype* GetOrCreateArchetype(std::span<const TypeID> SortedIDs, std::span<const size_t> Sizes, std::span<const size_t> Aligns);
-
         void GetArchetypeInfo(Archetype* Arch, std::vector<TypeID>& OutIds, std::vector<size_t>& OutSizes, std::vector<size_t>& OutAligns);
+        void TouchStructureVersion();
 
         template <TrivialComponent... Ts>
         EntityID CreateEntityInternal(Ts... Args);
@@ -108,6 +133,9 @@ namespace Arche {
 
         mutable std::shared_mutex mWorldRwLock{};
         std::mutex mDeferredQueueLock{};
+
+        std::atomic_uint64_t mStructureVersion{};
+        WorldReadOnlyView mReadOnlyView{};
     };
 
     template <TrivialComponent... Ts>

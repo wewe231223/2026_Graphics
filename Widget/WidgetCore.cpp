@@ -13,6 +13,7 @@ namespace fs = std::filesystem;
 #include "Console.h"
 #include "PerformanceProvider.h"
 #include "PerformanceWidgets.h"
+#include "SceneHierarchyWidget.h"
 
 namespace Widget {
 
@@ -22,12 +23,12 @@ namespace Widget {
 		ImGui::DestroyContext();
 	}
 
-	void WidgetCore::Initialize(HWND hWnd, ComPtr<ID3D12Device>& device, IDXGIAdapter1* adapter) {
+	void WidgetCore::Initialize(HWND hWnd, ID3D12Device* Device, IDXGIAdapter1* Adapter) {
 		D3D12_DESCRIPTOR_HEAP_DESC desc{};
 		desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		desc.NumDescriptors = 1;
 		desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-		ErrorHandler::report(FAILED(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&mSRVHeap))), "WidgetCore", "Failed To Make Widget DescriptorHeap", ErrorHandler::Level::Critical);
+		ErrorHandler::report(FAILED(Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&mSRVHeap))), "WidgetCore", "Failed To Make Widget DescriptorHeap", ErrorHandler::Level::Critical);
 
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
@@ -43,7 +44,7 @@ namespace Widget {
 
 		auto imWin32 = ImGui_ImplWin32_Init(hWnd);
 		auto imDx12 = ImGui_ImplDX12_Init(
-			device.Get(),
+			Device,
 			Constants::FrameCount<int>,
 			DXGI_FORMAT_R8G8B8A8_UNORM,
 			mSRVHeap.Get(),
@@ -66,7 +67,7 @@ namespace Widget {
 			io.Fonts->Build();
 		}
 
-		PerformanceProvider::Get().Initialize(adapter);
+		PerformanceProvider::Get().Initialize(Adapter);
 
 		WidgetCore::BuildWidgets();
 	}
@@ -78,7 +79,7 @@ namespace Widget {
 
 
 		for (const auto& widget : mWidgets) {
-			widget->Render();
+			widget->Render(mSceneWorldSnapshot);
 		}
 
 		ImGui::Render();
@@ -92,11 +93,16 @@ namespace Widget {
 		}
 	}
 
+	void WidgetCore::SetSceneWorldSnapshot(const Game::SceneWorldSnapshot* Snapshot) {
+	mSceneWorldSnapshot = Snapshot;
+}
+
 	void WidgetCore::BuildWidgets() {
 		MakeWidget<FrameTimeWidget>();
 		MakeWidget<DistributionWidget>();
 		MakeWidget<TimelineWidget>();
 		MakeWidget<VramUsageWidget>();
 		MakeWidget<ImGuiConsole>();
+		MakeWidget<SceneHierarchyWidget>();
 	}
 }

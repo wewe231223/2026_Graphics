@@ -1,7 +1,13 @@
-﻿#pragma once 
+#pragma once
+
+namespace Game {
+    class SceneWorldSnapshot;
+}
 
 class IWidget {
 public:
-	virtual ~IWidget() = default;
-	virtual void Render() = 0; 
+    virtual ~IWidget() = default;
+
+public:
+    virtual void Render(const Game::SceneWorldSnapshot* Snapshot) = 0;
 };

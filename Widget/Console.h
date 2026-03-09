@@ -93,7 +93,7 @@ namespace Widget {
         ImGuiConsole& operator=(ImGuiConsole&&) noexcept = delete;
 
     public:
-        void Render() override;
+        void Render(const Game::SceneWorldSnapshot* Snapshot) override;
 
     private:
         void RegisterCommands();

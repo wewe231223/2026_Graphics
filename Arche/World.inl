@@ -1,6 +1,15 @@
-#pragma once
 
 namespace Arche {
+    template <TrivialComponent T>
+    const T* World::WorldReadOnlyView::GetComponent(EntityID Id) const {
+        if (mWorld == nullptr) {
+            return nullptr;
+        }
+
+        return mWorld->GetComponent<T>(Id);
+    }
+
+
     template <TrivialComponent... Ts>
     EntityID World::CreateEntity(Ts... Args) {
         std::unique_lock<std::shared_mutex> Lock{ mWorldRwLock };
@@ -174,6 +183,7 @@ namespace Arche {
         Record.archetype = Arch;
         Record.chunkIndex = static_cast<std::uint32_t>(Arch->GetChunks().size() - 1);
         Record.entityIndex = Arch->GetChunks().back()->count - 1;
+        TouchStructureVersion();
         return Id;
     }
 
@@ -250,6 +260,7 @@ namespace Arche {
         Record.archetype = NewArch;
         Record.chunkIndex = static_cast<std::uint32_t>(NewArch->GetChunks().size() - 1);
         Record.entityIndex = NewArch->GetChunks().back()->count - 1;
+        TouchStructureVersion();
     }
 
     template <TrivialComponent T>

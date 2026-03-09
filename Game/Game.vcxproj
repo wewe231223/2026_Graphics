@@ -38,6 +38,7 @@
     <ClInclude Include="Scene\Components\Tags.h" />
     <ClInclude Include="Scene\Components\Transform.h" />
     <ClInclude Include="Scene\Scene.h" />
+    <ClInclude Include="Scene\SceneWorldSnapshot.h" />
     <ClInclude Include="Scene\SceneYamlSerializer.h" />
     <ClInclude Include="Scene\System.h" />
     <ClInclude Include="Scene\SystemSceduler.h" />
@@ -56,6 +57,7 @@
     <ClCompile Include="Model\AssetRegistryBackEnd.cpp" />
     <ClCompile Include="Model\Model.cpp" />
     <ClCompile Include="Scene\Scene.cpp" />
+    <ClCompile Include="Scene\SceneWorldSnapshot.cpp" />
     <ClCompile Include="Scene\SceneYamlSerializer.cpp" />
     <ClCompile Include="Scene\System.cpp" />
     <ClCompile Include="Scene\SystemSceduler.cpp" />

@@ -63,6 +63,9 @@
     <ClInclude Include="Scene\SceneYamlSerializer.h">
       <Filter>Scene</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\SceneWorldSnapshot.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\System.h">
       <Filter>Scene</Filter>
     </ClInclude>
@@ -135,6 +138,9 @@
       <Filter>Scene</Filter>
     </ClCompile>
     <ClCompile Include="Scene\SceneYamlSerializer.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneWorldSnapshot.cpp">
       <Filter>Scene</Filter>
     </ClCompile>
     <ClCompile Include="Scene\System.cpp">

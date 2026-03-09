@@ -18,7 +18,8 @@ namespace Widget {
     FrameTimeWidget::~FrameTimeWidget() {
     }
 
-    void FrameTimeWidget::Render() {
+    void FrameTimeWidget::Render(const Game::SceneWorldSnapshot* Snapshot) {
+        (void)Snapshot;
         if (!ImGui::Begin("Performance Frame Time")) {
             ImGui::End();
             return;
@@ -55,7 +56,8 @@ namespace Widget {
     DistributionWidget::~DistributionWidget() {
     }
 
-    void DistributionWidget::Render() {
+    void DistributionWidget::Render(const Game::SceneWorldSnapshot* Snapshot) {
+        (void)Snapshot;
         if (!ImGui::Begin("Performance Distribution")) {
             ImGui::End();
             return;
@@ -86,7 +88,8 @@ namespace Widget {
     TimelineWidget::~TimelineWidget() {
     }
 
-    void TimelineWidget::Render() {
+    void TimelineWidget::Render(const Game::SceneWorldSnapshot* Snapshot) {
+        (void)Snapshot;
         if (!ImGui::Begin("Performance Timeline")) {
             ImGui::End();
             return;
@@ -173,7 +176,8 @@ namespace Widget {
     VramUsageWidget::~VramUsageWidget() {
     }
 
-    void VramUsageWidget::Render() {
+    void VramUsageWidget::Render(const Game::SceneWorldSnapshot* Snapshot) {
+        (void)Snapshot;
         if (!ImGui::Begin("Performance VRAM")) {
             ImGui::End();
             return;

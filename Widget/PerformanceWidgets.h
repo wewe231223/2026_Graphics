@@ -15,7 +15,7 @@ namespace Widget {
         FrameTimeWidget& operator=(FrameTimeWidget&& Other) noexcept = delete;
 
     public:
-        void Render() override;
+        void Render(const Game::SceneWorldSnapshot* Snapshot) override;
     };
 
     class DistributionWidget : public IWidget {
@@ -28,7 +28,7 @@ namespace Widget {
         DistributionWidget& operator=(DistributionWidget&& Other) noexcept = delete;
 
     public:
-        void Render() override;
+        void Render(const Game::SceneWorldSnapshot* Snapshot) override;
     };
 
     class TimelineWidget : public IWidget {
@@ -41,7 +41,7 @@ namespace Widget {
         TimelineWidget& operator=(TimelineWidget&& Other) noexcept = delete;
 
     public:
-        void Render() override;
+        void Render(const Game::SceneWorldSnapshot* Snapshot) override;
 
     private:
         void RenderLegendItem(const char* Label, uint32_t Color) const;
@@ -58,6 +58,6 @@ namespace Widget {
         VramUsageWidget& operator=(VramUsageWidget&& Other) noexcept = delete;
 
     public:
-        void Render() override;
+        void Render(const Game::SceneWorldSnapshot* Snapshot) override;
     };
 }

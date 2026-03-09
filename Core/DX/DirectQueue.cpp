@@ -28,6 +28,10 @@ namespace Core {
 			return mDevice.Get();
 		}
 
+		IDXGIAdapter1* DirectQueue::GetPrimaryAdapter() const {
+			return mPrimaryAdapter.Get();
+		}
+
 		DescriptorHeap* DirectQueue::GetSrvHeap() {
 			return &mSrvHeap;
 		}
@@ -51,7 +55,8 @@ namespace Core {
 			mCopyQueue->DispatchCopies();
 		}
 
-		void DirectQueue::Render(Game::RFD::RenderFrameData& Data) {
+
+		void DirectQueue::Render(Game::RFD::RenderFrameData& Data, Widget::WidgetCore* WidgetCore) {
 			ErrorHandler::report(mCopyQueue == nullptr, "DirectQueue", "CopyQueue is not set.", ErrorHandler::Level::Critical);
 
 			auto currentIndex = mFrameSync.GetCurrentIndex();
@@ -86,7 +91,9 @@ namespace Core {
 			// Execute Render Tasks
 			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
 			Widget::PerformanceProvider::Get().EndProfile();
-			mWidgetCore.Render(mCommandList);
+			if (WidgetCore != nullptr) {
+				WidgetCore->Render(mCommandList);
+			}
 
 
 
@@ -142,6 +149,7 @@ namespace Core {
 #endif
             // Device
 			ComPtr<IDXGIAdapter1> adapter = GetBestAdapter();
+			mPrimaryAdapter = adapter;
 
 			if (adapter == nullptr) {
 				ErrorHandler::report("DirectQueue", "[Render] No suitable GPU found.", ErrorHandler::Level::Critical);
@@ -155,7 +163,6 @@ namespace Core {
 				ErrorHandler::report(::D3D12CreateDevice(warpAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&mDevice)), "DirectQueue", "Failed to make Warp Device", ErrorHandler::Level::Critical);
 			}
 
-			mWidgetCore.Initialize(mHwnd, mDevice, adapter.Get());
 
 			StdOutput::PrintLine("[Render] Console Test");
 

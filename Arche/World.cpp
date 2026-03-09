@@ -2,7 +2,63 @@
 
 using namespace Arche;
 
-World::World() = default;
+World::WorldReadOnlyView::WorldReadOnlyView()
+    : mWorld{} {
+}
+
+World::WorldReadOnlyView::~WorldReadOnlyView() {
+}
+
+World::WorldReadOnlyView::WorldReadOnlyView(const WorldReadOnlyView& Other)
+    : mWorld{ Other.mWorld } {
+}
+
+World::WorldReadOnlyView& World::WorldReadOnlyView::operator=(const WorldReadOnlyView& Other) {
+    if (this == &Other) {
+        return *this;
+    }
+
+    mWorld = Other.mWorld;
+    return *this;
+}
+
+World::WorldReadOnlyView::WorldReadOnlyView(WorldReadOnlyView&& Other) noexcept
+    : mWorld{ Other.mWorld } {
+}
+
+World::WorldReadOnlyView& World::WorldReadOnlyView::operator=(WorldReadOnlyView&& Other) noexcept {
+    if (this == &Other) {
+        return *this;
+    }
+
+    mWorld = Other.mWorld;
+    return *this;
+}
+
+void World::WorldReadOnlyView::BindWorld(const World* TargetWorld) {
+    mWorld = TargetWorld;
+}
+
+std::uint64_t World::WorldReadOnlyView::GetStructureVersion() const {
+    if (mWorld == nullptr) {
+        return 0;
+    }
+
+    return mWorld->GetStructureVersion();
+}
+
+World::World()
+    : mEntityTable{},
+    mFreeIndices{},
+    mArcheTypes{},
+    mQueryCaches{},
+    mDeferredStructuralCommands{},
+    mWorldRwLock{},
+    mDeferredQueueLock{},
+    mStructureVersion{},
+    mReadOnlyView{} {
+    mReadOnlyView.BindWorld(this);
+}
 
 World::~World() = default;
 
@@ -34,6 +90,19 @@ Archetype* World::GetOrCreateArchetype(std::span<const TypeID> SortedIDs, std::s
     return NewArch;
 }
 
+
+std::uint64_t World::GetStructureVersion() const {
+    return mStructureVersion.load();
+}
+
+const World::WorldReadOnlyView& World::GetReadOnlyView() const {
+    return mReadOnlyView;
+}
+
+void World::TouchStructureVersion() {
+    mStructureVersion.fetch_add(1);
+}
+
 void World::DestroyEntity(EntityID Id) {
     std::unique_lock<std::shared_mutex> Lock{ mWorldRwLock };
     DestroyEntityInternal(Id);
@@ -63,6 +132,7 @@ void World::DestroyEntityInternal(EntityID Id) {
     ++Record.generation;
 
     mFreeIndices.push_back(Id.index);
+    TouchStructureVersion();
 }
 
 void World::GetArchetypeInfo(Archetype* Arch, std::vector<TypeID>& OutIds, std::vector<size_t>& OutSizes, std::vector<size_t>& OutAligns) {

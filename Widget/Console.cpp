@@ -143,7 +143,8 @@ namespace Widget {
         StdOutput::ClearSink();
     }
 
-    void ImGuiConsole::Render() {
+    void ImGuiConsole::Render(const Game::SceneWorldSnapshot* Snapshot) {
+        (void)Snapshot;
         ImGui::SetNextWindowSize({ 700.0f, 500.0f }, ImGuiCond_FirstUseEver);
 
         if (!ImGui::Begin("Debug Console")) {

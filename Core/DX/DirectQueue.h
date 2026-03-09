@@ -33,11 +33,13 @@ namespace Core {
 		public:
 			ID3D12Device* GetDevice() const;
 
+			IDXGIAdapter1* GetPrimaryAdapter() const;
+
 			DescriptorHeap* GetSrvHeap();
 
 			void SetUploadInfrastructure(GraphicsAllocator* GraphicsAllocator, Interface::ICopyQueue* CopyQueue);
 			void PreRender(Game::RFD::RenderFrameData& Data, float Dt);
-			void Render(Game::RFD::RenderFrameData& Data);
+			void Render(Game::RFD::RenderFrameData& Data, Widget::WidgetCore* WidgetCore);
 
 		private:
 			void InitBasements();
@@ -62,6 +64,7 @@ namespace Core {
 			ComPtr<ID3D12InfoQueue> mD3D12InfoQueue{ nullptr };
 		#endif
 			ComPtr<ID3D12Device> mDevice{ nullptr };
+			ComPtr<IDXGIAdapter1> mPrimaryAdapter{ nullptr };
 			ComPtr<ID3D12CommandQueue> mDirectCommandQueue{ nullptr };
 
 			ComPtr<IDXGISwapChain1> mSwapChain{ nullptr };
@@ -85,8 +88,6 @@ namespace Core {
 			GraphicsAllocator* mGraphicsAllocator{ nullptr };
 			Interface::ICopyQueue* mCopyQueue{ nullptr };
 
-
-			Widget::WidgetCore mWidgetCore{};
 
 			D3D12_VIEWPORT mViewport{ 0, 0, Config::Query()->Get<float>("Window_Width"), Config::Query()->Get<float>("Window_Height"), 0.f, 1.f };
 			D3D12_RECT mScissorRect{ 0, 0, Config::Query()->Get<LONG>("Window_Width"), Config::Query()->Get<LONG>("Window_Height") };
