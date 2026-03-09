@@ -18,5 +18,6 @@ namespace Game {
 	*/
 	Component(Material)
 		uint32_t MaterialGroupIndex{ 0 };
+		uint32_t Flags{ 0 };
 	EndComponent(Material)
 }

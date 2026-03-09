@@ -1,6 +1,7 @@
 ﻿SceneName: DefaultScene
 Systems:
   - CameraInputSystem
+  - PickingSystem
   - StaticRenderSystem
   - CleanUpSystem
   - CameraRenderSystem

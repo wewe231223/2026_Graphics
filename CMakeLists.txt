@@ -109,6 +109,7 @@ add_library(Game STATIC
     Game/Scene/Components/Camera.cpp
     Game/Scene/Components/ComponentInspection.cpp
     Game/Scene/Systems/CameraInputSystem.cpp
+    Game/Scene/Systems/PickingSystem.cpp
     Game/Scene/Systems/StaticRenderSystem.cpp
 )
 

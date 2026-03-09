@@ -117,6 +117,9 @@
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Systems\PickingSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\EntityHierarchy.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -186,6 +189,9 @@
       <Filter>Base</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\PickingSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
   </ItemGroup>

@@ -13,6 +13,7 @@ struct VertexOutput
     float3 Normal : NORMAL;
     float2 TexCoord0 : TEXCOORD0;
     uint MaterialIndex : MATERIAL_INDEX;
+    uint Flags : FLAGS;
 };
 
 struct FrameGlobalsGpu
@@ -87,4 +88,16 @@ struct RootConstantsB1
 float4 ApplyBaseColor(float4 Color)
 {
     return saturate(Color);
+}
+
+float4 ResolveFlags(float4 Color, uint Flags)
+{
+    const uint PickedFlagMask = 0x1u;
+
+    if ((Flags & PickedFlagMask) != 0u) {
+        const float3 PickTint = float3(0.25f, 0.03f, 0.03f);
+        Color.rgb = saturate(Color.rgb + PickTint);
+    }
+
+    return Color;
 }

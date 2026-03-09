@@ -20,6 +20,7 @@
 #include "Game/Scene/Systems/CameraInputSystem.h"
 #include "Game/Scene/Systems/IntentClentUpSystem.h"
 #include "Game/Scene/Systems/StaticRenderSystem.h"
+#include "Game/Scene/Systems/PickingSystem.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
 
 namespace {
@@ -105,6 +106,10 @@ namespace {
 
         if (SystemName == "CameraInputSystem") {
             return std::make_unique<Game::CameraInputSystem>();
+        }
+
+        if (SystemName == "PickingSystem") {
+            return std::make_unique<Game::PickingSystem>();
         }
 
 		if (SystemName == "CameraRenderSystem") {

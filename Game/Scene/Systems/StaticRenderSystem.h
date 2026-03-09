@@ -24,7 +24,7 @@ namespace Game {
         void Execute(Arche::World& World, FrameContext& Ctx, float Dt) override;
 
     private:
-        void TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups) const;
+        void TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups, Arche::EntityID PickedEntityId) const;
 
     private:
         const std::string mName{ "StaticRenderSystem" };

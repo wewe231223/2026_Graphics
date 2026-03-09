@@ -23,6 +23,7 @@ VertexOutput VsMain(VertexInput Input, uint InstanceId : SV_InstanceID)
     Output.Normal = normalize(mul(Input.Normal, (float3x3)World));
     Output.TexCoord0 = Input.TexCoord0;
     Output.MaterialIndex = DrawRecord.MaterialIndex;
+    Output.Flags = DrawRecord.Flags;
     return Output;
 }
 
@@ -45,5 +46,6 @@ float4 PsMain(VertexOutput Input) : SV_TARGET
     }
     
     Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[TextureSrvIndex];
-    return ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
+    const float4 BaseColor = ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
+    return ResolveFlags(BaseColor, Input.Flags);
 }

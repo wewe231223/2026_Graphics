@@ -36,6 +36,7 @@ namespace Game {
     struct FrameContext final {
         RFD::RenderFrameData RenderData{};
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
+        Arche::EntityID PickedEntityId{ Arche::NullEntityID };
     };
 
     class ISystem abstract {

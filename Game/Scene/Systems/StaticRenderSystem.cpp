@@ -7,6 +7,7 @@
 #include "Game/Model/AssetRegistry.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
+#include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Transform.h"
 
 namespace {
@@ -14,6 +15,10 @@ namespace {
         const SimpleMath::Matrix TrsMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
         return TransformComponent.nodeToParent * TrsMatrix;
     }
+}
+
+namespace {
+    constexpr std::uint32_t PickedDrawFlagBitMask{ 0x1u };
 }
 
 namespace Game {
@@ -26,7 +31,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> StaticRenderSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 3> Accesses{ { { typeid(Transform), Access::Read }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read } } };
+        static std::array<ComponentAccess, 4> Accesses{ { { typeid(Transform), Access::Read }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(Material), Access::Read } } };
         return Accesses;
     }
 
@@ -51,14 +56,15 @@ namespace Game {
             }
 
             const SimpleMath::Matrix LocalWorld{ BuildLocalWorldMatrix(TransformComponent) };
-            TraverseHierarchy(World, Hierarchy.self, LocalWorld, RenderData, MaterialGroups);
+            TraverseHierarchy(World, Hierarchy.self, LocalWorld, RenderData, MaterialGroups, Ctx.PickedEntityId);
         }
     }
 
-    void StaticRenderSystem::TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups) const {
+    void StaticRenderSystem::TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups, Arche::EntityID PickedEntityId) const {
         const StaticMeshRenderer* Renderer{ World.GetComponent<StaticMeshRenderer>(EntityId) };
         const Transform* TransformComponent{ World.GetComponent<Transform>(EntityId) };
         const EntityHierarchy* Hierarchy{ World.GetComponent<EntityHierarchy>(EntityId) };
+        const Material* MaterialComponent{ World.GetComponent<Material>(EntityId) };
 
         if (Renderer == nullptr || TransformComponent == nullptr || Hierarchy == nullptr || Renderer->model == nullptr) {
             return;
@@ -101,7 +107,9 @@ namespace Game {
                 DrawRecord.pass = 0;
                 DrawRecord.objectIndex = ModelContext.objectID;
                 DrawRecord.materialIndex = ResolvedMaterialIndex;
-                DrawRecord.flags = 0;
+                const std::uint32_t MaterialFlags{ MaterialComponent == nullptr ? 0u : MaterialComponent->Flags };
+                const std::uint32_t PickFlags{ EntityId == PickedEntityId ? PickedDrawFlagBitMask : 0u };
+                DrawRecord.flags = MaterialFlags | PickFlags;
                 DrawRecord.pad0 = 0;
                 RenderData.drawRecords.push_back(DrawRecord);
             }
@@ -117,7 +125,7 @@ namespace Game {
             }
 
             const SimpleMath::Matrix ChildWorld{ BuildLocalWorldMatrix(*ChildTransform) * NodeWorld };
-            TraverseHierarchy(World, ChildId, ChildWorld, RenderData, MaterialGroups);
+            TraverseHierarchy(World, ChildId, ChildWorld, RenderData, MaterialGroups, PickedEntityId);
             ChildId = ChildHierarchy->nextSibling;
         }
     }
