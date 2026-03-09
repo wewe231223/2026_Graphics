@@ -21,13 +21,13 @@ namespace {
         return TransformComponent.nodeToParent * TrsMatrix;
     }
 
-    bool TryFindActiveCamera(Arche::World& World, const Game::Camera*& OutCamera) {
+    bool TryFindActiveCamera(Arche::World& World, const Game::Transform*& OutTransform, const Game::Camera*& OutCamera) {
         for (const auto [TransformComponent, CameraComponent] : World.Query<Game::Transform, Game::Camera>()) {
             if (CameraComponent.isActive == false) {
                 continue;
             }
 
-            (void)TransformComponent;
+            OutTransform = &TransformComponent;
             OutCamera = &CameraComponent;
             return true;
         }
@@ -35,7 +35,7 @@ namespace {
         return false;
     }
 
-    bool TryBuildPickingRay(const Game::Camera& CameraComponent, DirectX::XMVECTOR& OutRayOrigin, DirectX::XMVECTOR& OutRayDirection) {
+    bool TryBuildPickingRay(const Game::Transform& CameraTransform, const Game::Camera& CameraComponent, DirectX::XMVECTOR& OutRayOrigin, DirectX::XMVECTOR& OutRayDirection) {
         const Globals::Input& Input{ Globals::Input::Get() };
         const DirectX::Mouse::State& MouseState{ Input.GetMouseState() };
         const float ViewWidth{ static_cast<float>(Config::Query()->Get<int>("Window_Width")) };
@@ -54,7 +54,7 @@ namespace {
         }
 
         Direction.Normalize();
-        OutRayOrigin = DirectX::XMLoadFloat3(&NearPoint);
+        OutRayOrigin = DirectX::XMLoadFloat3(&CameraTransform.position);
         OutRayDirection = DirectX::XMLoadFloat3(&Direction);
         return true;
     }
@@ -123,15 +123,16 @@ namespace Game {
             return;
         }
 
+        const Transform* CameraTransform{ nullptr };
         const Camera* CameraComponent{ nullptr };
-        if (TryFindActiveCamera(World, CameraComponent) == false || CameraComponent == nullptr) {
+        if (TryFindActiveCamera(World, CameraTransform, CameraComponent) == false || CameraTransform == nullptr || CameraComponent == nullptr) {
             Ctx.PickedEntityId = Arche::NullEntityID;
             return;
         }
 
         DirectX::XMVECTOR RayOrigin{};
         DirectX::XMVECTOR RayDirection{};
-        if (TryBuildPickingRay(*CameraComponent, RayOrigin, RayDirection) == false) {
+        if (TryBuildPickingRay(*CameraTransform, *CameraComponent, RayOrigin, RayDirection) == false) {
             Ctx.PickedEntityId = Arche::NullEntityID;
             return;
         }
@@ -149,6 +150,6 @@ namespace Game {
             ResolvePickedEntityRecursive(World, HierarchyComponent.self, SimpleMath::Matrix::Identity, RayOrigin, RayDirection, NearestDistance, PickedEntityId);
         }
 
-        Ctx.PickedEntityId = Arche::EntityID{ 119, 0 };
+        Ctx.PickedEntityId = PickedEntityId;
     }
 }

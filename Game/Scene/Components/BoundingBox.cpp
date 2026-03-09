@@ -59,7 +59,7 @@ namespace Game {
 
     void BoundingBox::ResetToUnitCube() {
         mObb.Center = DirectX::XMFLOAT3{ 0.0f, 0.0f, 0.0f };
-        mObb.Extents = DirectX::XMFLOAT3{ 0.5f, 0.5f, 0.5f };
+        mObb.Extents = DirectX::XMFLOAT3{ 0.0f, 0.0f, 0.0f };
         mObb.Orientation = DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 1.0f };
     }
 
