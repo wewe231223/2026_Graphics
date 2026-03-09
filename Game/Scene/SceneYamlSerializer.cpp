@@ -234,6 +234,10 @@ namespace Game {
         const c4::yml::ConstNodeRef EntitiesNode{ RootNode["Entities"] };
         for (const c4::yml::ConstNodeRef EntityNode : EntitiesNode.children()) {
             const Arche::EntityID Entity{ OutScene.GetWorld().CreateEntity() };
+            EntityHierarchy RootHierarchy{};
+            RootHierarchy.self = Entity;
+            OutScene.GetWorld().AddComponent(Entity, RootHierarchy);
+
             if (EntityNode.has_child("Components") == false) {
                 continue;
             }
@@ -365,7 +369,18 @@ namespace Game {
 
                                 EntityHierarchy Hierarchy{};
                                 Hierarchy.self = NodeEntities[NodeIndex];
-                                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], Hierarchy);
+                                if (NodeIndex == RootNodeIndex) {
+                                    EntityHierarchy* ExistingHierarchy{ OutScene.GetWorld().GetComponent<EntityHierarchy>(NodeEntities[NodeIndex]) };
+                                    if (ExistingHierarchy == nullptr) {
+                                        OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], Hierarchy);
+                                    }
+                                    else {
+                                        ExistingHierarchy->self = NodeEntities[NodeIndex];
+                                    }
+                                }
+                                else {
+                                    OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], Hierarchy);
+                                }
 
                                 const Name NodeName{ CreateNameComponent(ModelNodes[NodeIndex].GetName()) };
                                 if (NodeIndex == RootNodeIndex) {
@@ -373,7 +388,7 @@ namespace Game {
                                     if (ExistingName == nullptr) {
                                         OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeName);
                                     }
-                                    else {
+                                    else if (GetNameText(*ExistingName)[0] == '\0') {
                                         *ExistingName = NodeName;
                                     }
                                 }

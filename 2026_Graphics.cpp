@@ -359,9 +359,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         break;
     case WM_KILLFOCUS:
     case WM_SETFOCUS:
-        // Input.UpdateFocus(message);
         break;
-
         // 아래는 모든 입력을 Keyboard 에게 넘기는 부분입니다. 
     case WM_ACTIVATEAPP:
     case WM_KEYDOWN:

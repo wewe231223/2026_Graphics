@@ -148,13 +148,9 @@ namespace Widget {
         ImGui::SetNextWindowSize({ 700.0f, 500.0f }, ImGuiCond_FirstUseEver);
 
         if (!ImGui::Begin("Debug Console")) {
-            Globals::Input::Get().SetImGuiInputBlocked(false);
             ImGui::End();
             return;
         }
-
-        const bool IsConsoleFocused{ ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) };
-        Globals::Input::Get().SetImGuiInputBlocked(IsConsoleFocused);
 
         ImGui::TextUnformatted("Level");
         ImGui::SameLine();

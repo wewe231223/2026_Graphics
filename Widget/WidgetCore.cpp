@@ -6,6 +6,7 @@
 #include "../External/Include/ImGui/imgui_internal.h"
 #include "Utility/ErrorHandler.h"
 #include "Utility/CompileTimeConstants.h"
+#include "Game/Base/Input.h"
 
 namespace fs = std::filesystem;
 
@@ -96,6 +97,9 @@ namespace Widget {
 		for (const auto& widget : mWidgets) {
 			widget->Render(mSceneWorldSnapshot);
 		}
+
+		const bool IsAnyImGuiWindowFocused{ ImGui::IsWindowFocused(ImGuiFocusedFlags_AnyWindow) };
+		Globals::Input::Get().SetImGuiInputBlocked(IsAnyImGuiWindowFocused);
 
 		ImGui::Render();
 		commandList->SetDescriptorHeaps(1, mSRVHeap.GetAddressOf());
