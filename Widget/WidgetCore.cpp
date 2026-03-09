@@ -40,7 +40,8 @@ namespace Widget {
 
 
 		ImGui::StyleColorsDark();
-
+		ImGuiStyle& Style{ ImGui::GetStyle() };
+		Style.WindowMinSize = ImVec2(320.0f, 180.0f);
 
 		auto imWin32 = ImGui_ImplWin32_Init(hWnd);
 		auto imDx12 = ImGui_ImplDX12_Init(
@@ -77,6 +78,20 @@ namespace Widget {
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
 
+		const ImGuiViewport* MainViewport{ ImGui::GetMainViewport() };
+		ImGui::SetNextWindowPos(MainViewport->WorkPos);
+		ImGui::SetNextWindowSize(MainViewport->WorkSize);
+		ImGui::SetNextWindowViewport(MainViewport->ID);
+
+		constexpr ImGuiWindowFlags DockWindowFlags{ ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDocking };
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+		const bool IsDockWindowOpen{ ImGui::Begin("MainDockSpace", nullptr, DockWindowFlags) };
+		ImGui::PopStyleVar();
+
+		if (IsDockWindowOpen) {
+			ImGui::DockSpace(ImGui::GetID("MainDockSpaceNode"), ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
+		}
+		ImGui::End();
 
 		for (const auto& widget : mWidgets) {
 			widget->Render(mSceneWorldSnapshot);

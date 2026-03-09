@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 #include "Common.h"
+#include "Game/Scene/Components/ComponentInspection.h"
 
 namespace Game {
     class SceneWorldSnapshot;
@@ -24,5 +26,11 @@ namespace Widget {
 
     private:
         void RenderEntityNode(const Game::SceneWorldSnapshot& Snapshot, std::uint32_t EntityIndex);
+        void RenderSelectedEntityPanel(const Game::SceneWorldSnapshot& Snapshot);
+        void RenderComponentSectionTable(const char* ComponentName, const std::vector<Game::ComponentInspectionField>& Fields, const char* TableIdentifier) const;
+
+    private:
+        std::uint32_t mSelectedEntityIndex{};
+        float mHierarchyRegionRatio{ 0.6f };
     };
 }

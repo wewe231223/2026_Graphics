@@ -2,8 +2,21 @@
 
 #include <algorithm>
 #include <cmath>
+#include <format>
+#include "Game/Scene/Components/ComponentInspection.h"
 
 namespace Game {
+
+
+    const char* Transform::GetComponentInspectionName() {
+        return "Transform";
+    }
+
+    void Transform::BuildComponentInspectionFields(std::vector<ComponentInspectionField>& OutFields) const {
+        OutFields.push_back(ComponentInspectionField{ "Position", std::format("{:.3f}, {:.3f}, {:.3f}", position.x, position.y, position.z) });
+        OutFields.push_back(ComponentInspectionField{ "Rotation", std::format("{:.3f}, {:.3f}, {:.3f}", rotationEuler.x, rotationEuler.y, rotationEuler.z) });
+        OutFields.push_back(ComponentInspectionField{ "Scale", std::format("{:.3f}, {:.3f}, {:.3f}", scale.x, scale.y, scale.z) });
+    }
 
     void Transform::Translate(const SimpleMath::Vector3& Translation) {
         position += Translation;
