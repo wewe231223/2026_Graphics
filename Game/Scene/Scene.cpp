@@ -1,6 +1,7 @@
 #include "Scene.h"
 #include <array>
 #include "Asset/Common.h"
+#include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PickingGizmo.h"
@@ -171,6 +172,9 @@ namespace Game {
                 MeshRenderer.materialGroupIndex = GizmoMaterialGroupIndex;
                 MeshRenderer.active = false;
                 mWorld.AddComponent(EntityId, MeshRenderer);
+
+                BoundingBox GizmoBoundingBox{};
+                mWorld.AddComponent(EntityId, GizmoBoundingBox);
 
                 PickingGizmo PickingGizmoComponent{};
                 PickingGizmoComponent.axisIndex = AxisIndex;
