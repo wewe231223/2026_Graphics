@@ -43,6 +43,7 @@ namespace Game {
         void PrepareRender();
 
         void InitializeWorldSnapshot();
+        void InitializePickingGizmoEntities();
         void UpdateWorldSnapshotIfNeeded();
         const SceneWorldSnapshot& GetWorldSnapshot() const;
 

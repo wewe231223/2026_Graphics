@@ -24,5 +24,6 @@ namespace Game {
 
     private:
         const std::string mName{ "PickingSystem" };
+        Arche::EntityID mLastGizmoPickedEntityId{ Arche::NullEntityID };
     };
 }

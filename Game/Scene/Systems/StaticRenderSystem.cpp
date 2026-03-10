@@ -47,7 +47,7 @@ namespace Game {
         const std::vector<RegisteredMaterialGroup>& MaterialGroups{ *Ctx.MaterialGroups };
 
         for (auto [Renderer, TransformComponent, Hierarchy] : World.Query<StaticMeshRenderer, Transform, EntityHierarchy>()) {
-            if (Renderer.model == nullptr) {
+            if (Renderer.model == nullptr || Renderer.active == false) {
                 continue;
             }
 
@@ -66,7 +66,7 @@ namespace Game {
         const EntityHierarchy* Hierarchy{ World.GetComponent<EntityHierarchy>(EntityId) };
         const Material* MaterialComponent{ World.GetComponent<Material>(EntityId) };
 
-        if (Renderer == nullptr || TransformComponent == nullptr || Hierarchy == nullptr || Renderer->model == nullptr) {
+        if (Renderer == nullptr || TransformComponent == nullptr || Hierarchy == nullptr || Renderer->model == nullptr || Renderer->active == false) {
             return;
         }
 

@@ -241,6 +241,7 @@ namespace Game {
         }
 
         if (RootNode.has_child("Entities") == false) {
+            OutScene.InitializePickingGizmoEntities();
             OutScene.BuildSystemExecutionPlan();
             return LoadResult;
         }
@@ -333,6 +334,10 @@ namespace Game {
                 if (StaticMeshRendererNode.has_child("modelPath") || StaticMeshRendererNode.has_child("modelPrimitive")) {
                     std::string ModelSelector{};
                     std::string ResolvedModelPath{};
+                    bool IsActive{ true };
+                    if (StaticMeshRendererNode.has_child("active")) {
+                        StaticMeshRendererNode["active"] >> IsActive;
+                    }
                     if (StaticMeshRendererNode.has_child("modelPrimitive")) {
                         StaticMeshRendererNode["modelPrimitive"] >> ModelSelector;
                         float PrimitiveSize{ 1.0f };
@@ -407,6 +412,7 @@ namespace Game {
                                 NodeRenderer.model = ModelData.get();
                                 NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
                                 NodeRenderer.materialGroupIndex = MaterialGroupIndexForModel;
+                                NodeRenderer.active = IsActive;
                                 OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeRenderer);
 
                                 BoundingBox NodeBoundingBox{};
@@ -600,6 +606,7 @@ namespace Game {
             }
         }
 
+        OutScene.InitializePickingGizmoEntities();
         OutScene.BuildSystemExecutionPlan();
         return LoadResult;
     }
