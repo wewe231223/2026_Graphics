@@ -5,6 +5,7 @@
 #include <unordered_set>
 #include "Asset/AssetBinaryReader.h"
 #include "Asset/MaterialGroupJsonSerializer.h"
+#include "PrimitiveModelFactory.h"
 
 #ifdef max
 #undef max
@@ -530,6 +531,10 @@ namespace Game {
     }
 
     bool AssetRegistry::ReadModelData(const std::string& ModelBinaryPath, asset::ModelResult& OutModelData) const {
+        if (PrimitiveModelFactory::TryCreateModelResult(ModelBinaryPath, OutModelData)) {
+            return true;
+        }
+
         asset::AssetBinaryReader Reader{};
         return Reader.ReadFromFile(ModelBinaryPath, OutModelData);
     }

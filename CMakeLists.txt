@@ -98,6 +98,7 @@ add_library(Game STATIC
     Game/Model/AssetRegistry.cpp
     Game/Model/AssetRegistryBackEnd.cpp
     Game/Model/Model.cpp
+    Game/Model/PrimitiveModelFactory.cpp
     Game/Scene/Scene.cpp
     Game/Scene/SceneYamlSerializer.cpp
     Game/Scene/System.cpp

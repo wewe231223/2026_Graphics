@@ -23,6 +23,35 @@ model1 : &model1
 mat1 : &mat1
   materialPath: testset2_materials.json
 
+PrimitiveBoxRenderer: &PrimitiveBoxRenderer
+  modelPrimitive: primitive:box
+  modelPrimitiveSize: 1.37
+  modelPrimitiveColor: [0.91, 0.23, 0.48, 1.0]
+
+PrimitiveSphereRenderer: &PrimitiveSphereRenderer
+  modelPrimitive: primitive:sphere
+  modelPrimitiveSize: 0.84
+  modelPrimitiveColor: [0.17, 0.79, 0.63, 1.0]
+
+PrimitiveCylinderRenderer: &PrimitiveCylinderRenderer
+  modelPrimitive: primitive:cylinder
+  modelPrimitiveSize: 1.62
+  modelPrimitiveColor: [0.34, 0.41, 0.92, 1.0]
+
+PrimitiveConeRenderer: &PrimitiveConeRenderer
+  modelPrimitive: primitive:cone
+  modelPrimitiveSize: 1.11
+  modelPrimitiveColor: [0.96, 0.66, 0.12, 1.0]
+
+PrimitiveTriangularPyramidRenderer: &PrimitiveTriangularPyramidRenderer
+  modelPrimitive: primitive:triangular_pyramid
+  modelPrimitiveSize: 1.48
+  modelPrimitiveColor: [0.58, 0.19, 0.87, 1.0]
+
+PrimitiveSquarePyramidRenderer: &PrimitiveSquarePyramidRenderer
+  modelPrimitive: primitive:square_pyramid
+  modelPrimitiveSize: 0.95
+  modelPrimitiveColor: [0.24, 0.93, 0.31, 1.0]
 
 Entities:
   - Components:
@@ -77,3 +106,63 @@ Entities:
         <<: *model1
       Material:
         <<: *mat1
+  - Components:
+      Name:
+        text: PrimitiveBox
+      Transform:
+        <<: *DefaultTransform
+        position: [-10.00, 0.00, -12.00]
+      StaticMeshRenderer:
+        <<: *PrimitiveBoxRenderer
+      Material:
+        <<: *DefaultMaterial
+  - Components:
+      Name:
+        text: PrimitiveSphere
+      Transform:
+        <<: *DefaultTransform
+        position: [-6.00, 0.00, -12.00]
+      StaticMeshRenderer:
+        <<: *PrimitiveSphereRenderer
+      Material:
+        <<: *DefaultMaterial
+  - Components:
+      Name:
+        text: PrimitiveCylinder
+      Transform:
+        <<: *DefaultTransform
+        position: [-2.00, 0.00, -12.00]
+      StaticMeshRenderer:
+        <<: *PrimitiveCylinderRenderer
+      Material:
+        <<: *DefaultMaterial
+  - Components:
+      Name:
+        text: PrimitiveCone
+      Transform:
+        <<: *DefaultTransform
+        position: [2.00, 0.00, -12.00]
+      StaticMeshRenderer:
+        <<: *PrimitiveConeRenderer
+      Material:
+        <<: *DefaultMaterial
+  - Components:
+      Name:
+        text: PrimitiveTriangularPyramid
+      Transform:
+        <<: *DefaultTransform
+        position: [6.00, 0.00, -12.00]
+      StaticMeshRenderer:
+        <<: *PrimitiveTriangularPyramidRenderer
+      Material:
+        <<: *DefaultMaterial
+  - Components:
+      Name:
+        text: PrimitiveSquarePyramid
+      Transform:
+        <<: *DefaultTransform
+        position: [10.00, 0.00, -12.00]
+      StaticMeshRenderer:
+        <<: *PrimitiveSquarePyramidRenderer
+      Material:
+        <<: *DefaultMaterial

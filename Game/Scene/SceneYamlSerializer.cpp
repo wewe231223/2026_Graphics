@@ -123,6 +123,14 @@ namespace {
         return nullptr;
     }
 
+
+    std::string BuildPrimitiveSelector(const std::string& PrimitiveType, float PrimitiveSize, const std::array<float, 4>& PrimitiveColor) {
+        std::string Selector{ PrimitiveType };
+        Selector += std::string{ ";size=" } + std::to_string(PrimitiveSize);
+        Selector += std::string{ ";color=" } + std::to_string(PrimitiveColor[0]) + std::string{ "," } + std::to_string(PrimitiveColor[1]) + std::string{ "," } + std::to_string(PrimitiveColor[2]) + std::string{ "," } + std::to_string(PrimitiveColor[3]);
+        return Selector;
+    }
+
     std::string ResolveSceneResourcePath(const std::string& SceneName, const std::string& FileName) {
         if (SceneName.empty() || FileName.empty()) {
             return FileName;
@@ -322,14 +330,42 @@ namespace Game {
 
             if (ComponentsNode.has_child(StaticMeshRendererTypeName)) {
                 const c4::yml::ConstNodeRef StaticMeshRendererNode{ ComponentsNode[StaticMeshRendererTypeName] };
-                if (StaticMeshRendererNode.has_child("modelPath")) {
-                    std::string ModelPath{};
-                    StaticMeshRendererNode["modelPath"] >> ModelPath;
-                    const std::string ResolvedModelPath{ ResolveSceneResourcePath(SceneName, ModelPath) };
-                    const std::shared_ptr<Model> ModelData{ OutScene.GetAssetRegistry().GetModel(ResolvedModelPath) };
+                if (StaticMeshRendererNode.has_child("modelPath") || StaticMeshRendererNode.has_child("modelPrimitive")) {
+                    std::string ModelSelector{};
+                    std::string ResolvedModelPath{};
+                    if (StaticMeshRendererNode.has_child("modelPrimitive")) {
+                        StaticMeshRendererNode["modelPrimitive"] >> ModelSelector;
+                        float PrimitiveSize{ 1.0f };
+                        if (StaticMeshRendererNode.has_child("modelPrimitiveSize")) {
+                            StaticMeshRendererNode["modelPrimitiveSize"] >> PrimitiveSize;
+                        }
+
+                        std::array<float, 4> PrimitiveColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+                        if (StaticMeshRendererNode.has_child("modelPrimitiveColor")) {
+                            ReadColor4(StaticMeshRendererNode["modelPrimitiveColor"], PrimitiveColor.data());
+                        }
+
+                        if (ModelSelector.empty() == false) {
+                            ModelSelector = BuildPrimitiveSelector(ModelSelector, PrimitiveSize, PrimitiveColor);
+                        }
+                    }
+
+                    if (ModelSelector.empty() && StaticMeshRendererNode.has_child("modelPath")) {
+                        std::string ModelPath{};
+                        StaticMeshRendererNode["modelPath"] >> ModelPath;
+                        ResolvedModelPath = ResolveSceneResourcePath(SceneName, ModelPath);
+                        ModelSelector = ResolvedModelPath;
+                    }
+
+                    const std::shared_ptr<Model> ModelData{ OutScene.GetAssetRegistry().GetModel(ModelSelector) };
                     if (ModelData == nullptr) {
                         LoadResult.IsSuccess = false;
-                        LoadResult.UndecidedItems.push_back(std::string{ "modelPath 로 Model 로드 실패: " } + ResolvedModelPath);
+                        if (ResolvedModelPath.empty()) {
+                            LoadResult.UndecidedItems.push_back(std::string{ "modelPrimitive 로 Model 로드 실패: " } + ModelSelector);
+                        }
+                        else {
+                            LoadResult.UndecidedItems.push_back(std::string{ "modelPath 로 Model 로드 실패: " } + ResolvedModelPath);
+                        }
                     }
                     else {
                         const Model* SourceModel{ ModelData.get() };
@@ -337,7 +373,7 @@ namespace Game {
                         const ModelNode* RootNode{ SourceModel->GetRootNode() };
                         if (RootNode == nullptr || ModelNodes.empty()) {
                             LoadResult.IsSuccess = false;
-                            LoadResult.UndecidedItems.push_back(std::string{ "Model RootNode 를 찾을 수 없습니다: " } + ResolvedModelPath);
+                            LoadResult.UndecidedItems.push_back(std::string{ "Model RootNode 를 찾을 수 없습니다: " } + ModelSelector);
                         }
                         else {
                             const std::size_t RootNodeIndex{ static_cast<std::size_t>(RootNode - ModelNodes.data()) };
@@ -446,7 +482,7 @@ namespace Game {
                 }
                 else {
                     LoadResult.IsSuccess = false;
-                    LoadResult.UndecidedItems.push_back(std::string{ "StaticMeshRenderer 의 modelPath 없음" });
+                    LoadResult.UndecidedItems.push_back(std::string{ "StaticMeshRenderer 의 modelPath/modelPrimitive 없음" });
                 }
             }
 

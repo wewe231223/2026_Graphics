@@ -62,7 +62,7 @@
   "RasterizerState": {
     "FillMode": "Solid",
     "CullMode": "Back",
-    "FrontCounterClockwise": true,
+    "FrontCounterClockwise": false,
     "DepthBias": 0,
     "DepthBiasClamp": 0,
     "SlopeScaledDepthBias": 0,
