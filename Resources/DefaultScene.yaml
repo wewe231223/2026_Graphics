@@ -23,6 +23,9 @@ model1 : &model1
 mat1 : &mat1
   materialPath: testset2_materials.json
 
+primitiveMat : &primitiveMat
+  materialPath: primitive_vertex_color_materials.json
+
 PrimitiveBoxRenderer: &PrimitiveBoxRenderer
   modelPrimitive: primitive:box
   modelPrimitiveSize: 1.37
@@ -115,7 +118,7 @@ Entities:
       StaticMeshRenderer:
         <<: *PrimitiveBoxRenderer
       Material:
-        <<: *DefaultMaterial
+        <<: *primitiveMat
   - Components:
       Name:
         text: PrimitiveSphere
@@ -125,7 +128,7 @@ Entities:
       StaticMeshRenderer:
         <<: *PrimitiveSphereRenderer
       Material:
-        <<: *DefaultMaterial
+        <<: *primitiveMat
   - Components:
       Name:
         text: PrimitiveCylinder
@@ -135,7 +138,7 @@ Entities:
       StaticMeshRenderer:
         <<: *PrimitiveCylinderRenderer
       Material:
-        <<: *DefaultMaterial
+        <<: *primitiveMat
   - Components:
       Name:
         text: PrimitiveCone
@@ -145,7 +148,7 @@ Entities:
       StaticMeshRenderer:
         <<: *PrimitiveConeRenderer
       Material:
-        <<: *DefaultMaterial
+        <<: *primitiveMat
   - Components:
       Name:
         text: PrimitiveTriangularPyramid
@@ -155,7 +158,7 @@ Entities:
       StaticMeshRenderer:
         <<: *PrimitiveTriangularPyramidRenderer
       Material:
-        <<: *DefaultMaterial
+        <<: *primitiveMat
   - Components:
       Name:
         text: PrimitiveSquarePyramid
@@ -165,4 +168,4 @@ Entities:
       StaticMeshRenderer:
         <<: *PrimitiveSquarePyramidRenderer
       Material:
-        <<: *DefaultMaterial
+        <<: *primitiveMat

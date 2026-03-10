@@ -95,7 +95,7 @@ float4 ResolveFlags(float4 Color, uint Flags)
     const uint PickedFlagMask = 0x1u;
 
     if ((Flags & PickedFlagMask) != 0u) {
-        const float3 PickTint = float3(0.25f, 0.03f, 0.03f);
+        const float3 PickTint = float3(0.7f, 0.03f, 0.03f);
         Color.rgb = saturate(Color.rgb + PickTint);
     }
 
