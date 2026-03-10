@@ -80,8 +80,8 @@ namespace {
 
         for (std::uint32_t FaceIndex{ 0 }; FaceIndex < 6; ++FaceIndex) {
             const std::uint32_t Base{ FaceIndex * 4 };
-            AddTriangle(Data, Base + 0, Base + 2, Base + 1);
-            AddTriangle(Data, Base + 0, Base + 3, Base + 2);
+            AddTriangle(Data, Base + 0, Base + 1, Base + 2);
+            AddTriangle(Data, Base + 0, Base + 2, Base + 3);
         }
 
         return Data;
@@ -121,8 +121,8 @@ namespace {
                 const std::uint32_t I1{ I0 + 1 };
                 const std::uint32_t I2{ I0 + (SliceCount + 1) };
                 const std::uint32_t I3{ I2 + 1 };
-                AddTriangle(Data, I0, I2, I1);
-                AddTriangle(Data, I1, I2, I3);
+                AddTriangle(Data, I0, I1, I2);
+                AddTriangle(Data, I1, I3, I2);
             }
         }
 
@@ -253,7 +253,7 @@ namespace {
             AddVertex(Data, Face[0], Normal, FaceUv[0], Parameters.Color);
             AddVertex(Data, Face[1], Normal, FaceUv[1], Parameters.Color);
             AddVertex(Data, Face[2], Normal, FaceUv[2], Parameters.Color);
-            AddTriangle(Data, BaseIndex + 0, BaseIndex + 2, BaseIndex + 1);
+            AddTriangle(Data, BaseIndex + 0, BaseIndex + 1, BaseIndex + 2);
         }
 
         return Data;
@@ -289,7 +289,7 @@ namespace {
             AddVertex(Data, Face[0], Normal, FaceUv[0], Parameters.Color);
             AddVertex(Data, Face[1], Normal, FaceUv[1], Parameters.Color);
             AddVertex(Data, Face[2], Normal, FaceUv[2], Parameters.Color);
-            AddTriangle(Data, BaseIndex + 0, BaseIndex + 2, BaseIndex + 1);
+            AddTriangle(Data, BaseIndex + 0, BaseIndex + 1, BaseIndex + 2);
         }
 
         return Data;

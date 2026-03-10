@@ -323,8 +323,8 @@ void MeshHierarchyBuilder::AppendIndexedMeshUfbx(const ufbx_node& Node, const uf
             const std::uint32_t Corner1{ TriCorners[TriIndex * 3 + 1] };
             const std::uint32_t Corner2{ TriCorners[TriIndex * 3 + 2] };
             MaterialIndices.push_back(Remap[Corner0]);
-            MaterialIndices.push_back(Remap[Corner1]);
             MaterialIndices.push_back(Remap[Corner2]);
+            MaterialIndices.push_back(Remap[Corner1]);
         }
     }
 
