@@ -69,6 +69,19 @@ namespace Game {
         mDevice = Device;
         mCopyQueue = CopyQueue;
         mAllocator = Allocator;
+        const bool IsDefaultMaterialLoaded{ LoadMaterialGroups(std::string{ "Resources/DefaultResource/DefaultMaterial.json" }) };
+        if (IsDefaultMaterialLoaded == false) {
+            asset::MaterialGroup DefaultMaterialGroup{};
+            DefaultMaterialGroup.Name = "DefaultMaterial";
+
+            asset::MaterialGroupItem DefaultMaterialGroupItem{};
+            DefaultMaterialGroupItem.PipelineName = "DefaultGraphics";
+            DefaultMaterialGroupItem.MaterialData.Name = "Default";
+            DefaultMaterialGroupItem.MaterialData.PBR = false;
+            DefaultMaterialGroup.Items.push_back(DefaultMaterialGroupItem);
+
+            AddMaterialGroup(DefaultMaterialGroup);
+        }
     }
 
     void AssetRegistry::SetSrvHeap(Interface::IDescriptorHeap* SrvHeap) {

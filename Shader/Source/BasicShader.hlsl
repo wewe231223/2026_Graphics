@@ -36,7 +36,7 @@ float4 PsMain(VertexOutput Input) : SV_TARGET
     const int64_t DiffuseColorTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_COLOR_MAP].IntValue;
 
     if (DiffuseColorTextureTableIndex < 0) {
-        return float4(0.1f, 0.1f, 0.1f, 1.0f);
+        return float4(1.0f, 0.0f, 1.0f, 1.0f);
     }
 
     const uint TextureTableIndex = (uint)DiffuseColorTextureTableIndex;

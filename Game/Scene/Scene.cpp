@@ -19,18 +19,6 @@ namespace {
         return std::string{ "box;size=1.000000;color=" } + std::to_string(Red) + std::string{ "," } + std::to_string(Green) + std::string{ "," } + std::to_string(Blue) + std::string{ ",1.000000" };
     }
 
-    const char* ResolveAxisName(std::uint32_t AxisIndex) {
-        if (AxisIndex == 0) {
-            return "X";
-        }
-
-        if (AxisIndex == 1) {
-            return "Y";
-        }
-
-        return "Z";
-    }
-
     std::uint32_t CreateGizmoMaterialGroup(Game::AssetRegistry& AssetRegistry) {
         asset::MaterialGroup MaterialGroup{};
         MaterialGroup.Name = "PickingGizmoMaterialGroup";
@@ -172,12 +160,6 @@ namespace Game {
                 EntityHierarchy Hierarchy{};
                 Hierarchy.self = EntityId;
                 mWorld.AddComponent(EntityId, Hierarchy);
-
-                const char* AxisName{ ResolveAxisName(AxisIndex) };
-                const std::string DirectionName{ DirectionIndex == 0 ? std::string{ "Negative" } : std::string{ "Positive" } };
-                const std::string GizmoNameText{ std::string{ "Gizmo_" } + AxisName + std::string{ "_" } + DirectionName };
-                const Name GizmoName{ CreateNameComponent(GizmoNameText) };
-                mWorld.AddComponent(EntityId, GizmoName);
 
                 Transform TransformComponent{};
                 mWorld.AddComponent(EntityId, TransformComponent);

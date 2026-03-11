@@ -57,12 +57,14 @@ namespace Game {
         bool ShouldKeepTextureResident(const AssetRegistryTextureRecord& TextureData, const std::unordered_set<std::uint32_t>& UsedTextureTableIndices) const;
         void UpdateTextureTableItem(AssetRegistryTextureRecord& TextureData);
         std::vector<std::uint32_t> BuildMaterialTextureTableIndices(const asset::Material& MaterialData, const RFD::MaterialGpu& PackedMaterial) const;
+
         std::filesystem::path BuildTexturePathFromMaterialPath(const std::string& MaterialSourcePath, const std::string& TexturePath) const;
         std::int64_t ToMaterialIntValue(const asset::MaterialMap& MaterialMapData, const std::string& MaterialSourcePath);
         SimpleMath::Vector4 ToMaterialFloatValue(const asset::MaterialMap& MaterialMapData);
         RFD::MaterialGpu BuildPackedMaterial(const asset::Material& MaterialData, const std::string& MaterialSourcePath);
         Interface::IPipeline* ResolvePipelineByName(const std::string& PipelineName);
         std::uint32_t AddMaterialGroupWithSource(const asset::MaterialGroup& MaterialGroupData, const std::string& SourcePath);
+
         bool ReadModelData(const std::string& ModelBinaryPath, asset::ModelResult& OutModelData) const;
         bool ReadMaterialGroups(const std::string& MaterialJsonPath, std::vector<asset::MaterialGroup>& OutMaterialGroups) const;
 

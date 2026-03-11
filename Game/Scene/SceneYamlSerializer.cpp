@@ -311,13 +311,15 @@ namespace Game {
                     const bool IsLoaded{ OutScene.GetAssetRegistry().LoadMaterialGroups(ResolvedMaterialPath) };
                     if (IsLoaded == false) {
                         LoadResult.IsSuccess = false;
-                        LoadResult.UndecidedItems.push_back(std::string{ "Material 파일 로드 실패: " } + ResolvedMaterialPath);
+                        LoadResult.UndecidedItems.push_back(std::string{ "Material 파일 로드 실패, DefaultMaterialGroup 을 사용합니다: " } + ResolvedMaterialPath);
+                        NewMaterial.MaterialGroupIndex = 0;
                     }
                     else {
                         const std::uint32_t MaterialGroupIndex{ OutScene.GetAssetRegistry().FindMaterialGroupIndexBySourcePath(ResolvedMaterialPath) };
                         if (MaterialGroupIndex == static_cast<std::uint32_t>(-1)) {
                             LoadResult.IsSuccess = false;
-                            LoadResult.UndecidedItems.push_back(std::string{ "Material 파일에서 MaterialGroupIndex 를 해석할 수 없습니다: " } + ResolvedMaterialPath);
+                            LoadResult.UndecidedItems.push_back(std::string{ "Material 파일에서 MaterialGroupIndex 를 해석할 수 없어 DefaultMaterialGroup 을 사용합니다: " } + ResolvedMaterialPath);
+                            NewMaterial.MaterialGroupIndex = 0;
                         }
                         else {
                             NewMaterial.MaterialGroupIndex = MaterialGroupIndex;

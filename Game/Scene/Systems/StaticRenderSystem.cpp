@@ -91,10 +91,20 @@ namespace Game {
 
                 const Interface::IPipeline* Pipeline{ nullptr };
                 std::uint32_t ResolvedMaterialIndex{ 0 };
-                if (MaterialGroups.empty() == false && Renderer->materialGroupIndex < MaterialGroups.size()) {
-                    const auto& RegisteredGroup{ MaterialGroups[Renderer->materialGroupIndex] };
-                    if (SubMesh.MaterialGroupItemIndex < RegisteredGroup.Items.size()) {
-                        const RegisteredMaterialGroupItem& RegisteredGroupItem{ RegisteredGroup.Items[SubMesh.MaterialGroupItemIndex] };
+                std::uint32_t ResolvedMaterialGroupIndex{ Renderer->materialGroupIndex };
+                if (MaterialGroups.empty() == false && (ResolvedMaterialGroupIndex >= MaterialGroups.size() || MaterialGroups[ResolvedMaterialGroupIndex].Items.empty())) {
+                    ResolvedMaterialGroupIndex = 0;
+                }
+
+                if (MaterialGroups.empty() == false && ResolvedMaterialGroupIndex < MaterialGroups.size()) {
+                    const RegisteredMaterialGroup& RegisteredGroup{ MaterialGroups[ResolvedMaterialGroupIndex] };
+                    std::size_t ResolvedItemIndex{ SubMesh.MaterialGroupItemIndex };
+                    if (ResolvedItemIndex >= RegisteredGroup.Items.size()) {
+                        ResolvedItemIndex = 0;
+                    }
+
+                    if (ResolvedItemIndex < RegisteredGroup.Items.size()) {
+                        const RegisteredMaterialGroupItem& RegisteredGroupItem{ RegisteredGroup.Items[ResolvedItemIndex] };
                         Pipeline = RegisteredGroupItem.Pipeline;
                         ResolvedMaterialIndex = RegisteredGroupItem.MaterialIndex;
                     }

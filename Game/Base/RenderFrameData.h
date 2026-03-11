@@ -14,7 +14,7 @@ namespace Game {
             std::uint32_t Padding1{ 0 };
             std::uint32_t Padding2{ 0 };
             SimpleMath::Vector4 FloatValue{};
-            std::int64_t IntValue{ 0 };
+            std::int64_t IntValue{ -1 };
             std::uint64_t Padding3{ 0 };
         };
 
