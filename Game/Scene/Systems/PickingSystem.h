@@ -30,6 +30,7 @@ namespace Game {
         Arche::EntityID mDraggingTargetEntityId{ Arche::NullEntityID };
         float mDraggingStartAxisParameter{ 0.0f };
         SimpleMath::Vector3 mDraggingStartWorldPosition{};
+        SimpleMath::Vector3 mDraggingAxisOrigin{};
         SimpleMath::Vector3 mDraggingAxisDirection{};
     };
 }

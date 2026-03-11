@@ -329,6 +329,7 @@ namespace Game {
                                             mDraggingTargetEntityId = DragTargetEntityId;
                                             mDraggingStartAxisParameter = AxisParameter;
                                             mDraggingStartWorldPosition = TargetWorldMatrix.Translation();
+                                            mDraggingAxisOrigin = AxisOrigin;
                                             mDraggingAxisDirection = AxisDirection;
                                         }
                                     }
@@ -361,7 +362,7 @@ namespace Game {
                 DirectX::XMStoreFloat3(&RayDirection, RayDirectionVector);
 
                 float CurrentAxisParameter{ 0.0f };
-                if (TryResolveAxisRayParameter(RayOrigin, RayDirection, mDraggingStartWorldPosition, mDraggingAxisDirection, CurrentAxisParameter)) {
+                if (TryResolveAxisRayParameter(RayOrigin, RayDirection, mDraggingAxisOrigin, mDraggingAxisDirection, CurrentAxisParameter)) {
                     const float DragDelta{ mDraggingStartAxisParameter - CurrentAxisParameter };
                     const SimpleMath::Vector3 TargetWorldPosition{ mDraggingStartWorldPosition + mDraggingAxisDirection * DragDelta };
                     if (TryApplyTargetWorldPosition(World, mDraggingTargetEntityId, TargetWorldPosition)) {
