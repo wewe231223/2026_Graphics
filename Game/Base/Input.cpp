@@ -36,6 +36,10 @@ namespace Globals {
     }
 
     void Input::SetVirtualMouse(bool enable) {
+        if (mVirtualMouse == enable) {
+            return; 
+        }
+
 		mVirtualMouse = enable;
 
         if (enable) {
@@ -45,6 +49,13 @@ namespace Globals {
             GetClientRect(mhwnd, &clientRect);
 
             mVirtualMousePosition = { clientRect.right / 2, clientRect.bottom / 2 };
+
+            POINT virtualMouseScreenPosition{ mVirtualMousePosition };
+            ClientToScreen(mhwnd, &virtualMouseScreenPosition);
+            SetCursorPos(virtualMouseScreenPosition.x, virtualMouseScreenPosition.y);
+
+            mMouseState.x = mVirtualMousePosition.x;
+            mMouseState.y = mVirtualMousePosition.y;
         }
 		else {
 			ShowCursor(true);
@@ -102,15 +113,12 @@ namespace Globals {
     }
 
     void Input::UpdateCursor() {
+        Input::SetVirtualMouse(mMouseTracker.rightButton); 
         if (mVirtualMouse) {
             POINT virtualMouseScreenPosition{ mVirtualMousePosition };
             ClientToScreen(mhwnd, &virtualMouseScreenPosition);
 
 			SetCursorPos(virtualMouseScreenPosition.x, virtualMouseScreenPosition.y);
-        }
-
-        if (Input::IsKeyPressed(DirectX::Keyboard::Keys::F7)) {
-            Input::ToggleVirtualMouse();
         }
     }
 }
