@@ -1,4 +1,5 @@
 #pragma once
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -44,11 +45,13 @@ namespace Game {
 
         void InitializeWorldSnapshot();
         void InitializePickingGizmoEntities();
+        void OnFileDropped(const std::filesystem::path& FilePath);
         void UpdateWorldSnapshotIfNeeded();
         const SceneWorldSnapshot& GetWorldSnapshot() const;
 
     private:
         void RebuildWorldSnapshot();
+        void SpawnModelAtOrigin(const std::string& ModelSelector, const std::string& RootEntityName, std::uint32_t MaterialGroupIndex);
 
     private:
         std::string mName{};
@@ -61,5 +64,6 @@ namespace Game {
         SceneWorldSnapshot mWorldSnapshot{};
         std::uint64_t mWorldSnapshotVersion{};
         std::uint64_t mHierarchyEntitySelectedSubscriptionId{};
+        std::uint64_t mFileDropSubscriptionId{};
     };
 }

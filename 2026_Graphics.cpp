@@ -150,8 +150,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         StdOutput::PrintLine("Entity Name: {}", Game::GetNameText(NameComponent));
     }
 
-	Core::Event::Subscribe<Core::Event::FbxBinFileDroppedEventTag>(Core::Event::FileDropEventSubscriber{});
-
     copyQueue.DispatchCopies();
     copyQueue.GuaranteeCopy(Core::DX::CopyQueueId::Model);
 

@@ -1,5 +1,7 @@
 #include "Scene.h"
+#include <algorithm>
 #include <array>
+#include <cctype>
 #include "Asset/Common.h"
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
@@ -9,6 +11,8 @@
 #include "Game/Scene/Components/Transform.h"
 #include "Game/Scene/Events/SelectionEvent.h"
 #include "Core/Event/EventQueue.h"
+#include "Core/Event/FileDropEvent.h"
+#include "Utility/StringUtils.h"
 
 namespace {
     std::string BuildGizmoPrimitiveSelector(float Red, float Green, float Blue) {
@@ -50,7 +54,8 @@ namespace Game {
         mSystemSceduler{},
         mWorldSnapshot{},
         mWorldSnapshotVersion{},
-        mHierarchyEntitySelectedSubscriptionId{} {
+        mHierarchyEntitySelectedSubscriptionId{},
+        mFileDropSubscriptionId{} {
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
 
         mHierarchyEntitySelectedSubscriptionId = Core::Event::Subscribe<Game::HierarchyEntitySelectedEventTag>([this](const Core::Event::Event<Game::HierarchyEntitySelectedEventTag>& HierarchyEntitySelectedEvent) {
@@ -61,6 +66,16 @@ namespace Game {
             }
 
             mFrameContext.PickedEntityId = Payload->SelectedEntityId;
+        });
+
+        mFileDropSubscriptionId = Core::Event::Subscribe<Core::Event::FbxBinFileDroppedEventTag>([this](const Core::Event::Event<Core::Event::FbxBinFileDroppedEventTag>& DroppedFileEvent) {
+            const Core::Event::FbxBinFileDroppedPayload* Payload{ DroppedFileEvent.GetPayloadAs<Core::Event::FbxBinFileDroppedPayload>() };
+
+            if (Payload == nullptr) {
+                return;
+            }
+
+            OnFileDropped(Payload->FilePath);
         });
     }
 
@@ -180,6 +195,116 @@ namespace Game {
                 PickingGizmoComponent.axisIndex = AxisIndex;
                 PickingGizmoComponent.directionSign = DirectionIndex == 0 ? -1.0f : 1.0f;
                 mWorld.AddComponent(EntityId, PickingGizmoComponent);
+            }
+        }
+    }
+
+
+    void Scene::OnFileDropped(const std::filesystem::path& FilePath) {
+        const std::wstring ExtensionTextWide{ FilePath.extension().wstring() };
+        const std::string ExtensionText{ ConvertWstringToUtf8(ExtensionTextWide) };
+        std::string LowerExtensionText{ ExtensionText };
+        std::transform(LowerExtensionText.begin(), LowerExtensionText.end(), LowerExtensionText.begin(), [](unsigned char Ch) { return static_cast<char>(std::tolower(Ch)); });
+
+        if (LowerExtensionText != ".bin") {
+            return;
+        }
+
+        const std::string ModelPath{ FilePath.generic_string() };
+        const std::string RootEntityName{ ConvertWstringToUtf8(FilePath.stem().wstring()) };
+        const std::uint32_t MaterialGroupIndex{ 0 };
+        SpawnModelAtOrigin(ModelPath, RootEntityName, MaterialGroupIndex);
+    }
+
+    void Scene::SpawnModelAtOrigin(const std::string& ModelSelector, const std::string& RootEntityName, std::uint32_t MaterialGroupIndex) {
+        const std::shared_ptr<Model> ModelData{ mAssetRegistry.GetModel(ModelSelector) };
+        if (ModelData == nullptr) {
+            return;
+        }
+
+        const Model* SourceModel{ ModelData.get() };
+        const std::vector<ModelNode>& ModelNodes{ SourceModel->GetNodes() };
+        const ModelNode* RootNode{ SourceModel->GetRootNode() };
+        if (RootNode == nullptr || ModelNodes.empty()) {
+            return;
+        }
+
+        const std::size_t RootNodeIndex{ static_cast<std::size_t>(RootNode - ModelNodes.data()) };
+        std::vector<Arche::EntityID> NodeEntities(ModelNodes.size(), Arche::NullEntityID);
+
+        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
+            NodeEntities[NodeIndex] = mWorld.CreateEntity();
+        }
+
+        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
+            Transform NodeTransform{};
+            NodeTransform.nodeToParent = ModelNodes[NodeIndex].GetNodeToParent();
+            NodeTransform.geometryToNode = ModelNodes[NodeIndex].GetGeometryToNode();
+            if (NodeIndex == RootNodeIndex) {
+                NodeTransform.position = SimpleMath::Vector3{ 0.0f, 0.0f, 0.0f };
+            }
+
+            mWorld.AddComponent(NodeEntities[NodeIndex], NodeTransform);
+
+            StaticMeshRenderer NodeRenderer{};
+            NodeRenderer.model = ModelData.get();
+            NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
+            NodeRenderer.materialGroupIndex = MaterialGroupIndex;
+            NodeRenderer.active = true;
+            mWorld.AddComponent(NodeEntities[NodeIndex], NodeRenderer);
+
+            BoundingBox NodeBoundingBox{};
+            NodeBoundingBox.UpdateFromModel(ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
+            mWorld.AddComponent(NodeEntities[NodeIndex], NodeBoundingBox);
+
+            EntityHierarchy Hierarchy{};
+            Hierarchy.self = NodeEntities[NodeIndex];
+            mWorld.AddComponent(NodeEntities[NodeIndex], Hierarchy);
+
+            std::string NodeNameText{ ModelNodes[NodeIndex].GetName() };
+            if (NodeIndex == RootNodeIndex && RootEntityName.empty() == false) {
+                NodeNameText = RootEntityName;
+            }
+
+            if (NodeNameText.empty()) {
+                NodeNameText = std::string{ "DroppedModelNode_" } + std::to_string(NodeIndex);
+            }
+            const Name NodeName{ CreateNameComponent(NodeNameText) };
+            mWorld.AddComponent(NodeEntities[NodeIndex], NodeName);
+        }
+
+        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
+            EntityHierarchy* ParentHierarchy{ mWorld.GetComponent<EntityHierarchy>(NodeEntities[NodeIndex]) };
+            if (ParentHierarchy == nullptr) {
+                continue;
+            }
+
+            const std::vector<std::uint32_t>& Children{ ModelNodes[NodeIndex].GetChildren() };
+            Arche::EntityID PreviousChild{ Arche::NullEntityID };
+
+            for (std::uint32_t ChildNodeIndex : Children) {
+                if (ChildNodeIndex >= NodeEntities.size()) {
+                    continue;
+                }
+
+                EntityHierarchy* ChildHierarchy{ mWorld.GetComponent<EntityHierarchy>(NodeEntities[ChildNodeIndex]) };
+                if (ChildHierarchy == nullptr) {
+                    continue;
+                }
+
+                ChildHierarchy->parent = NodeEntities[NodeIndex];
+                if (ParentHierarchy->firstChild == Arche::NullEntityID) {
+                    ParentHierarchy->firstChild = NodeEntities[ChildNodeIndex];
+                }
+
+                if (PreviousChild != Arche::NullEntityID) {
+                    EntityHierarchy* PreviousHierarchy{ mWorld.GetComponent<EntityHierarchy>(PreviousChild) };
+                    if (PreviousHierarchy != nullptr) {
+                        PreviousHierarchy->nextSibling = NodeEntities[ChildNodeIndex];
+                    }
+                }
+
+                PreviousChild = NodeEntities[ChildNodeIndex];
             }
         }
     }
