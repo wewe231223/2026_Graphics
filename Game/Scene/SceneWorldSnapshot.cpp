@@ -1,9 +1,14 @@
 #include "SceneWorldSnapshot.h"
 #include <unordered_map>
+#include <utility>
+#include "Game/Model/AssetRegistry.h"
 
 namespace Game {
     SceneWorldSnapshot::SceneWorldSnapshot()
         : mReadOnlyWorld{},
+        mAssetRegistry{},
+        mSceneName{},
+        mSystemNames{},
         mEntities{},
         mRootIndices{},
         mChildIndices{} {
@@ -14,6 +19,9 @@ namespace Game {
 
     SceneWorldSnapshot::SceneWorldSnapshot(const SceneWorldSnapshot& Other)
         : mReadOnlyWorld{ Other.mReadOnlyWorld },
+        mAssetRegistry{ Other.mAssetRegistry },
+        mSceneName{ Other.mSceneName },
+        mSystemNames{ Other.mSystemNames },
         mEntities{ Other.mEntities },
         mRootIndices{ Other.mRootIndices },
         mChildIndices{ Other.mChildIndices } {
@@ -25,6 +33,9 @@ namespace Game {
         }
 
         mReadOnlyWorld = Other.mReadOnlyWorld;
+        mAssetRegistry = Other.mAssetRegistry;
+        mSceneName = Other.mSceneName;
+        mSystemNames = Other.mSystemNames;
         mEntities = Other.mEntities;
         mRootIndices = Other.mRootIndices;
         mChildIndices = Other.mChildIndices;
@@ -33,6 +44,9 @@ namespace Game {
 
     SceneWorldSnapshot::SceneWorldSnapshot(SceneWorldSnapshot&& Other) noexcept
         : mReadOnlyWorld{ Other.mReadOnlyWorld },
+        mAssetRegistry{ Other.mAssetRegistry },
+        mSceneName{ std::move(Other.mSceneName) },
+        mSystemNames{ std::move(Other.mSystemNames) },
         mEntities{ std::move(Other.mEntities) },
         mRootIndices{ std::move(Other.mRootIndices) },
         mChildIndices{ std::move(Other.mChildIndices) } {
@@ -44,6 +58,9 @@ namespace Game {
         }
 
         mReadOnlyWorld = Other.mReadOnlyWorld;
+        mAssetRegistry = Other.mAssetRegistry;
+        mSceneName = std::move(Other.mSceneName);
+        mSystemNames = std::move(Other.mSystemNames);
         mEntities = std::move(Other.mEntities);
         mRootIndices = std::move(Other.mRootIndices);
         mChildIndices = std::move(Other.mChildIndices);
@@ -55,6 +72,7 @@ namespace Game {
     }
 
     void SceneWorldSnapshot::Clear() {
+        mSystemNames.clear();
         mEntities.clear();
         mRootIndices.clear();
         mChildIndices.clear();
@@ -71,6 +89,14 @@ namespace Game {
         Snapshot.mEntityId = EntityId;
         Snapshot.mParentId = ParentId;
         mEntities.push_back(Snapshot);
+    }
+
+    void SceneWorldSnapshot::AddSystemName(const std::string& SystemName) {
+        mSystemNames.push_back(SystemName);
+    }
+
+    void SceneWorldSnapshot::SetSceneName(const std::string& SceneName) {
+        mSceneName = SceneName;
     }
 
     void SceneWorldSnapshot::BuildHierarchy() {
@@ -100,6 +126,22 @@ namespace Game {
 
     const Arche::World::WorldReadOnlyView* SceneWorldSnapshot::GetReadOnlyWorld() const {
         return mReadOnlyWorld;
+    }
+
+    void SceneWorldSnapshot::BindAssetRegistry(const AssetRegistry* AssetRegistryInstance) {
+        mAssetRegistry = AssetRegistryInstance;
+    }
+
+    const AssetRegistry* SceneWorldSnapshot::GetAssetRegistry() const {
+        return mAssetRegistry;
+    }
+
+    const std::string& SceneWorldSnapshot::GetSceneName() const {
+        return mSceneName;
+    }
+
+    const std::vector<std::string>& SceneWorldSnapshot::GetSystemNames() const {
+        return mSystemNames;
     }
 
     const std::vector<SceneWorldSnapshot::SceneEntitySnapshot>& SceneWorldSnapshot::GetEntities() const {

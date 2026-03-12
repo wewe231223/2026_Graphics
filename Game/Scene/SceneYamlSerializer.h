@@ -15,6 +15,20 @@
 #pragma comment(lib, "ryml.lib")
 
 namespace Game {
+    struct SceneYamlSaveResult final {
+    public:
+        SceneYamlSaveResult();
+        ~SceneYamlSaveResult();
+        SceneYamlSaveResult(const SceneYamlSaveResult& Other);
+        SceneYamlSaveResult& operator=(const SceneYamlSaveResult& Other);
+        SceneYamlSaveResult(SceneYamlSaveResult&& Other) noexcept;
+        SceneYamlSaveResult& operator=(SceneYamlSaveResult&& Other) noexcept;
+
+    public:
+        bool IsSuccess{ true };
+        std::vector<std::string> UndecidedItems{};
+    };
+
     struct SceneYamlLoadResult final {
     public:
         SceneYamlLoadResult();
@@ -41,5 +55,11 @@ namespace Game {
     public:
         SceneYamlLoadResult Deserialize(const std::string& YamlText, Scene& OutScene) const;
         SceneYamlLoadResult DeserializeFromFile(const std::string& YamlFilePath, Scene& OutScene) const;
+
+        SceneYamlSaveResult Serialize(const Scene& TargetScene, std::string& OutYamlText) const;
+        SceneYamlSaveResult Serialize(const SceneWorldSnapshot& TargetSnapshot, std::string& OutYamlText) const;
+
+        SceneYamlSaveResult SerializeToFile(const Scene& TargetScene, const std::string& YamlFilePath) const;
+        SceneYamlSaveResult SerializeToFile(const SceneWorldSnapshot& TargetSnapshot, const std::string& YamlFilePath) const;
     };
 }

@@ -45,6 +45,7 @@ namespace Game {
         mHierarchyEntitySelectedSubscriptionId{},
         mFileDropSubscriptionId{} {
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
+        mWorldSnapshot.BindAssetRegistry(&mAssetRegistry);
 
         mHierarchyEntitySelectedSubscriptionId = Core::Event::Subscribe<Game::HierarchyEntitySelectedEventTag>([this](const Core::Event::Event<Game::HierarchyEntitySelectedEventTag>& HierarchyEntitySelectedEvent) {
             const Game::HierarchyEntitySelectedPayload* Payload{ HierarchyEntitySelectedEvent.GetPayloadAs<Game::HierarchyEntitySelectedPayload>() };
@@ -114,6 +115,7 @@ namespace Game {
 
     void Scene::SetName(const std::string& NewName) {
         mName = NewName;
+        mWorldSnapshot.SetSceneName(mName);
     }
 
     const std::string& Scene::GetName() const {
@@ -293,6 +295,7 @@ namespace Game {
 
     void Scene::InitializeWorldSnapshot() {
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
+        mWorldSnapshot.BindAssetRegistry(&mAssetRegistry);
         RebuildWorldSnapshot();
         mWorldSnapshotVersion = mWorld.GetStructureVersion();
     }
@@ -314,7 +317,15 @@ namespace Game {
 
     void Scene::RebuildWorldSnapshot() {
         mWorldSnapshot.Clear();
+        mWorldSnapshot.SetSceneName(mName);
 
+        for (const std::unique_ptr<ISystem>& SystemInstance : mSystems) {
+            if (SystemInstance == nullptr) {
+                continue;
+            }
+
+            mWorldSnapshot.AddSystemName(SystemInstance->Name());
+        }
 
         for (const auto& [NameComponent, HierarchyComponent] : mWorld.Query<Name, EntityHierarchy>()) {
             if (GetNameText(NameComponent)[0] == '\0') {

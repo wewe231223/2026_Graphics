@@ -139,9 +139,115 @@ namespace {
         const std::filesystem::path ResolvedPath{ std::filesystem::path{ "Resources" } / SceneName / FileName };
         return ResolvedPath.generic_string();
     }
+    bool ShouldSkipEntityInSceneExport(const Game::StaticMeshRenderer* StaticMeshRendererComponent) {
+        if (StaticMeshRendererComponent == nullptr || StaticMeshRendererComponent->model == nullptr) {
+            return false;
+        }
+
+        const Game::Model* SourceModel{ StaticMeshRendererComponent->model };
+        const std::vector<Game::ModelNode>& ModelNodes{ SourceModel->GetNodes() };
+        const Game::ModelNode* RootNode{ SourceModel->GetRootNode() };
+        if (RootNode == nullptr || ModelNodes.empty()) {
+            return false;
+        }
+
+        const std::size_t RootNodeIndex{ static_cast<std::size_t>(RootNode - ModelNodes.data()) };
+        if (StaticMeshRendererComponent->nodeIndex >= ModelNodes.size()) {
+            return true;
+        }
+
+        return static_cast<std::size_t>(StaticMeshRendererComponent->nodeIndex) != RootNodeIndex;
+    }
+
+    void AppendLine(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& Text) {
+        for (std::size_t IndentIndex{ 0 }; IndentIndex < IndentLevel; ++IndentIndex) {
+            Stream << "  ";
+        }
+
+        Stream << Text << '\n';
+    }
+
+    std::string ToYamlText(const char* Text) {
+        std::string Escaped{};
+        Escaped.push_back('"');
+
+        for (std::size_t Index{ 0 }; Text[Index] != '\0'; ++Index) {
+            const char Character{ Text[Index] };
+            if (Character == '\\' || Character == '"') {
+                Escaped.push_back('\\');
+            }
+
+            Escaped.push_back(Character);
+        }
+
+        Escaped.push_back('"');
+        return Escaped;
+    }
+
+    std::string ToYamlText(const std::string& Text) {
+        return ToYamlText(Text.c_str());
+    }
+
+    std::string ToYamlBooleanText(bool Value) {
+        return Value ? std::string{ "true" } : std::string{ "false" };
+    }
+
+    void AppendVector3(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& Key, const SimpleMath::Vector3& Value) {
+        AppendLine(Stream, IndentLevel, Key + std::string{ ": [" } + std::to_string(Value.x) + std::string{ ", " } + std::to_string(Value.y) + std::string{ ", " } + std::to_string(Value.z) + std::string{ "]" });
+    }
+
+    void AppendVector2(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& Key, const SimpleMath::Vector2& Value) {
+        AppendLine(Stream, IndentLevel, Key + std::string{ ": [" } + std::to_string(Value.x) + std::string{ ", " } + std::to_string(Value.y) + std::string{ "]" });
+    }
+
+    void AppendQuaternion(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& Key, const SimpleMath::Quaternion& Value) {
+        AppendLine(Stream, IndentLevel, Key + std::string{ ": [" } + std::to_string(Value.x) + std::string{ ", " } + std::to_string(Value.y) + std::string{ ", " } + std::to_string(Value.z) + std::string{ ", " } + std::to_string(Value.w) + std::string{ "]" });
+    }
+
+    void AppendColor4(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& Key, const float* Value) {
+        AppendLine(Stream, IndentLevel, Key + std::string{ ": [" } + std::to_string(Value[0]) + std::string{ ", " } + std::to_string(Value[1]) + std::string{ ", " } + std::to_string(Value[2]) + std::string{ ", " } + std::to_string(Value[3]) + std::string{ "]" });
+    }
 }
 
 namespace Game {
+    SceneYamlSaveResult::SceneYamlSaveResult()
+        : IsSuccess{ true },
+        UndecidedItems{} {
+    }
+
+    SceneYamlSaveResult::~SceneYamlSaveResult() {
+    }
+
+    SceneYamlSaveResult::SceneYamlSaveResult(const SceneYamlSaveResult& Other)
+        : IsSuccess{ Other.IsSuccess },
+        UndecidedItems{ Other.UndecidedItems } {
+    }
+
+    SceneYamlSaveResult& SceneYamlSaveResult::operator=(const SceneYamlSaveResult& Other) {
+        if (this == &Other) {
+            return *this;
+        }
+
+        IsSuccess = Other.IsSuccess;
+        UndecidedItems = Other.UndecidedItems;
+        return *this;
+    }
+
+    SceneYamlSaveResult::SceneYamlSaveResult(SceneYamlSaveResult&& Other) noexcept
+        : IsSuccess{ Other.IsSuccess },
+        UndecidedItems{ std::move(Other.UndecidedItems) } {
+    }
+
+    SceneYamlSaveResult& SceneYamlSaveResult::operator=(SceneYamlSaveResult&& Other) noexcept {
+        if (this == &Other) {
+            return *this;
+        }
+
+        IsSuccess = Other.IsSuccess;
+        UndecidedItems = std::move(Other.UndecidedItems);
+        return *this;
+    }
+
     SceneYamlLoadResult::SceneYamlLoadResult()
         : IsSuccess{ true },
         UndecidedItems{} {
@@ -627,4 +733,162 @@ namespace Game {
         Buffer << InputStream.rdbuf();
         return Deserialize(Buffer.str(), OutScene);
     }
+
+
+    SceneYamlSaveResult SceneYamlSerializer::Serialize(const Scene& TargetScene, std::string& OutYamlText) const {
+        return Serialize(TargetScene.GetWorldSnapshot(), OutYamlText);
+    }
+
+    SceneYamlSaveResult SceneYamlSerializer::Serialize(const SceneWorldSnapshot& TargetSnapshot, std::string& OutYamlText) const {
+        SceneYamlSaveResult SaveResult{};
+        std::ostringstream Stream{};
+        const Arche::World::WorldReadOnlyView* ReadOnlyWorld{ TargetSnapshot.GetReadOnlyWorld() };
+        const AssetRegistry* AssetRegistryInstance{ TargetSnapshot.GetAssetRegistry() };
+
+        if (ReadOnlyWorld == nullptr) {
+            SaveResult.IsSuccess = false;
+            SaveResult.UndecidedItems.push_back("Scene Snapshot 에 ReadOnlyWorld 가 바인딩되어 있지 않습니다.");
+            OutYamlText.clear();
+            return SaveResult;
+        }
+
+        if (AssetRegistryInstance == nullptr) {
+            SaveResult.IsSuccess = false;
+            SaveResult.UndecidedItems.push_back("Scene Snapshot 에 AssetRegistry 가 바인딩되어 있지 않습니다.");
+            OutYamlText.clear();
+            return SaveResult;
+        }
+
+        AppendLine(Stream, 0, std::string{ "SceneName: " } + ToYamlText(TargetSnapshot.GetSceneName()));
+
+        if (TargetSnapshot.GetSystemNames().empty()) {
+            AppendLine(Stream, 0, "Systems: []");
+        }
+        else {
+            AppendLine(Stream, 0, "Systems:");
+
+            for (const std::string& SystemName : TargetSnapshot.GetSystemNames()) {
+                AppendLine(Stream, 1, std::string{ "- " } + ToYamlText(SystemName));
+            }
+        }
+
+        AppendLine(Stream, 0, "Entities:");
+
+        for (const SceneWorldSnapshot::SceneEntitySnapshot& EntitySnapshot : TargetSnapshot.GetEntities()) {
+            const Arche::EntityID EntityId{ EntitySnapshot.mEntityId };
+            const Name* NameComponent{ ReadOnlyWorld->GetComponent<Name>(EntityId) };
+            const Transform* TransformComponent{ ReadOnlyWorld->GetComponent<Transform>(EntityId) };
+            const Material* MaterialComponent{ ReadOnlyWorld->GetComponent<Material>(EntityId) };
+            const StaticMeshRenderer* StaticMeshRendererComponent{ ReadOnlyWorld->GetComponent<StaticMeshRenderer>(EntityId) };
+            const Camera* CameraComponent{ ReadOnlyWorld->GetComponent<Camera>(EntityId) };
+            const CameraIntent* CameraIntentComponent{ ReadOnlyWorld->GetComponent<CameraIntent>(EntityId) };
+            const LocalPlayerTag* LocalPlayerTagComponent{ ReadOnlyWorld->GetComponent<LocalPlayerTag>(EntityId) };
+
+            if (ShouldSkipEntityInSceneExport(StaticMeshRendererComponent)) {
+                continue;
+            }
+
+            AppendLine(Stream, 1, "- Components:");
+
+            if (NameComponent != nullptr) {
+                AppendLine(Stream, 2, std::string{ NameTypeName } + std::string{ ":" });
+                AppendLine(Stream, 3, std::string{ "text: " } + ToYamlText(GetNameText(*NameComponent)));
+            }
+
+            if (TransformComponent != nullptr) {
+                AppendLine(Stream, 2, std::string{ TransformTypeName } + std::string{ ":" });
+                AppendVector3(Stream, 3, "position", TransformComponent->position);
+                AppendVector3(Stream, 3, "rotationEuler", TransformComponent->rotationEuler);
+                AppendQuaternion(Stream, 3, "rotation", TransformComponent->rotation);
+                AppendVector3(Stream, 3, "scale", TransformComponent->scale);
+            }
+
+            if (MaterialComponent != nullptr) {
+                AppendLine(Stream, 2, std::string{ MaterialTypeName } + std::string{ ":" });
+                const std::string MaterialPath{ AssetRegistryInstance->FindMaterialGroupSourcePathByIndex(MaterialComponent->MaterialGroupIndex) };
+                if (MaterialPath.empty()) {
+                    SaveResult.IsSuccess = false;
+                    SaveResult.UndecidedItems.push_back(std::string{ "MaterialGroupIndex 에 대응되는 materialPath 를 찾지 못했습니다: " } + std::to_string(MaterialComponent->MaterialGroupIndex));
+                }
+
+                AppendLine(Stream, 3, std::string{ "materialPath: " } + ToYamlText(MaterialPath));
+            }
+
+            if (StaticMeshRendererComponent != nullptr) {
+                AppendLine(Stream, 2, std::string{ StaticMeshRendererTypeName } + std::string{ ":" });
+                const std::string ModelSelector{ AssetRegistryInstance->FindModelSelectorByPointer(StaticMeshRendererComponent->model) };
+                if (ModelSelector.empty()) {
+                    SaveResult.IsSuccess = false;
+                    SaveResult.UndecidedItems.push_back("StaticMeshRenderer model 포인터에 대응되는 selector 를 찾지 못했습니다.");
+                }
+
+                AppendLine(Stream, 3, std::string{ "modelPath: " } + ToYamlText(ModelSelector));
+                AppendLine(Stream, 3, std::string{ "active: " } + ToYamlBooleanText(StaticMeshRendererComponent->active));
+            }
+
+            if (CameraComponent != nullptr) {
+                AppendLine(Stream, 2, std::string{ CameraTypeName } + std::string{ ":" });
+                AppendLine(Stream, 3, std::string{ "fov: " } + std::to_string(CameraComponent->fov));
+                AppendLine(Stream, 3, std::string{ "aspectRatio: " } + std::to_string(CameraComponent->aspectRatio));
+                AppendLine(Stream, 3, std::string{ "nearPlane: " } + std::to_string(CameraComponent->nearPlane));
+                AppendLine(Stream, 3, std::string{ "farPlane: " } + std::to_string(CameraComponent->farPlane));
+                AppendLine(Stream, 3, std::string{ "isActive: " } + ToYamlBooleanText(CameraComponent->isActive));
+                AppendLine(Stream, 3, std::string{ "isOrthographic: " } + ToYamlBooleanText(CameraComponent->isOrthographic));
+                AppendLine(Stream, 3, std::string{ "orthoSize: " } + std::to_string(CameraComponent->orthoSize));
+                AppendLine(Stream, 3, std::string{ "cullingMask: " } + std::to_string(CameraComponent->cullingMask));
+                AppendColor4(Stream, 3, "clearColor", CameraComponent->clearColor);
+                AppendLine(Stream, 3, std::string{ "priority: " } + std::to_string(CameraComponent->priority));
+                AppendLine(Stream, 3, std::string{ "smoothingFactor: " } + std::to_string(CameraComponent->smoothingFactor));
+                AppendLine(Stream, 3, std::string{ "currentFovBias: " } + std::to_string(CameraComponent->currentFovBias));
+                AppendLine(Stream, 3, std::string{ "currentShakeIntensity: " } + std::to_string(CameraComponent->currentShakeIntensity));
+                AppendLine(Stream, 3, std::string{ "lockOnTargetIndex: " } + std::to_string(CameraComponent->lockOnTarget.index));
+                AppendLine(Stream, 3, std::string{ "lockOnTargetGeneration: " } + std::to_string(CameraComponent->lockOnTarget.generation));
+                AppendLine(Stream, 3, std::string{ "cameraFlags: " } + std::to_string(CameraComponent->cameraFlags));
+            }
+
+            if (CameraIntentComponent != nullptr) {
+                AppendLine(Stream, 2, std::string{ CameraIntentTypeName } + std::string{ ":" });
+                AppendVector3(Stream, 3, "moveDirection", CameraIntentComponent->moveDirection);
+                AppendVector2(Stream, 3, "lookDelta", CameraIntentComponent->lookDelta);
+                AppendLine(Stream, 3, std::string{ "zoomDelta: " } + std::to_string(CameraIntentComponent->zoomDelta));
+                AppendLine(Stream, 3, std::string{ "targetToLockOnIndex: " } + std::to_string(CameraIntentComponent->targetToLockOn.index));
+                AppendLine(Stream, 3, std::string{ "targetToLockOnGeneration: " } + std::to_string(CameraIntentComponent->targetToLockOn.generation));
+                AppendLine(Stream, 3, std::string{ "requestUnlock: " } + ToYamlBooleanText(CameraIntentComponent->requestUnlock));
+                AppendLine(Stream, 3, std::string{ "requestSkip: " } + ToYamlBooleanText(CameraIntentComponent->requestSkip));
+                AppendLine(Stream, 3, std::string{ "shakeImpulse: " } + std::to_string(CameraIntentComponent->shakeImpulse));
+            }
+
+            if (LocalPlayerTagComponent != nullptr) {
+                AppendLine(Stream, 2, std::string{ LocalPlayerTagTypeName } + std::string{ ": {}" });
+            }
+        }
+
+        OutYamlText = Stream.str();
+        return SaveResult;
+    }
+
+    SceneYamlSaveResult SceneYamlSerializer::SerializeToFile(const Scene& TargetScene, const std::string& YamlFilePath) const {
+        return SerializeToFile(TargetScene.GetWorldSnapshot(), YamlFilePath);
+    }
+
+    SceneYamlSaveResult SceneYamlSerializer::SerializeToFile(const SceneWorldSnapshot& TargetSnapshot, const std::string& YamlFilePath) const {
+        std::string YamlText{};
+        SceneYamlSaveResult SaveResult{ Serialize(TargetSnapshot, YamlText) };
+
+        std::ofstream OutputStream{ YamlFilePath, std::ios::out | std::ios::binary | std::ios::trunc };
+        if (OutputStream.is_open() == false) {
+            SaveResult.IsSuccess = false;
+            SaveResult.UndecidedItems.push_back(std::string{ "YAML 파일을 쓸 수 없습니다: " } + YamlFilePath);
+            return SaveResult;
+        }
+
+        OutputStream << YamlText;
+        if (OutputStream.good() == false) {
+            SaveResult.IsSuccess = false;
+            SaveResult.UndecidedItems.push_back(std::string{ "YAML 파일 쓰기 실패: " } + YamlFilePath);
+        }
+
+        return SaveResult;
+    }
+
 }

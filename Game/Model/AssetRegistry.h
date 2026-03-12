@@ -48,6 +48,8 @@ namespace Game {
         const std::vector<RFD::MaterialGpu>& GetPackedMaterials() const;
         const std::vector<RFD::MaterialTextureTableItemGpu>& GetMaterialTextureTable() const;
         std::uint32_t FindMaterialGroupIndexBySourcePath(const std::string& MaterialSourcePath) const;
+        std::string FindModelSelectorByPointer(const Model* ModelPointer) const;
+        std::string FindMaterialGroupSourcePathByIndex(std::uint32_t MaterialGroupIndex) const;
 
         void SetTextureResidencyDecider(TextureResidencyDecider NewDecider);
         void PrepareRenderTextures(const RFD::RenderFrameData& RenderData);

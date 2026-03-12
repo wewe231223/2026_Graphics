@@ -46,6 +46,12 @@ namespace Widget {
         bool mScrollToBottom{ false };
     };
 
+    struct ConsoleCommandContext final {
+    public:
+        const Game::SceneWorldSnapshot* SceneSnapshot{ nullptr };
+        const std::vector<ConsoleLogEntry>* LogEntries{ nullptr };
+    };
+
     class IConsoleCommand {
     public:
         IConsoleCommand() = default;
@@ -59,13 +65,13 @@ namespace Widget {
 
     public:
         virtual std::string GetName() const = 0;
-        virtual bool Execute(const std::vector<std::string>& Arguments, const std::vector<ConsoleLogEntry>& Entries) = 0;
+        virtual bool Execute(const std::vector<std::string>& Arguments, const ConsoleCommandContext& Context) = 0;
     };
 
     class ExportLogsCommand : public IConsoleCommand {
     public:
-        ExportLogsCommand() = default;
-        ~ExportLogsCommand() override = default;
+        ExportLogsCommand();
+        ~ExportLogsCommand() override;
 
         ExportLogsCommand(const ExportLogsCommand&) = delete;
         ExportLogsCommand& operator=(const ExportLogsCommand&) = delete;
@@ -75,7 +81,24 @@ namespace Widget {
 
     public:
         std::string GetName() const override;
-        bool Execute(const std::vector<std::string>& Arguments, const std::vector<ConsoleLogEntry>& Entries) override;
+        bool Execute(const std::vector<std::string>& Arguments, const ConsoleCommandContext& Context) override;
+    };
+
+
+    class ExportSceneCommand final : public IConsoleCommand {
+    public:
+        ExportSceneCommand();
+        ~ExportSceneCommand() override;
+
+        ExportSceneCommand(const ExportSceneCommand& Other) = delete;
+        ExportSceneCommand& operator=(const ExportSceneCommand& Other) = delete;
+
+        ExportSceneCommand(ExportSceneCommand&& Other) noexcept = delete;
+        ExportSceneCommand& operator=(ExportSceneCommand&& Other) noexcept = delete;
+
+    public:
+        std::string GetName() const override;
+        bool Execute(const std::vector<std::string>& Arguments, const ConsoleCommandContext& Context) override;
     };
 
     class ImGuiConsole : public IWidget {
@@ -108,5 +131,6 @@ namespace Widget {
         std::array<char, 128> mSearchKeywordBuffer{};
         std::array<char, 256> mCommandInputBuffer{};
         int mLevelFilterIndex{ 0 };
+        const Game::SceneWorldSnapshot* mCurrentSnapshot{ nullptr };
     };
 }

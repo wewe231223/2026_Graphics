@@ -282,6 +282,40 @@ namespace Game {
         return FoundMaterialGroup->second;
     }
 
+    std::string AssetRegistry::FindModelSelectorByPointer(const Model* ModelPointer) const {
+        if (ModelPointer == nullptr) {
+            return std::string{};
+        }
+
+        const IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
+        const AssetRegistryStorage& Storage{ BackEnd->GetStorage() };
+        const auto& ModelBucket{ Storage.GetBucket<ModelBucketTag>() };
+        for (const auto& Pair : ModelBucket.mNameLookup) {
+            const std::uint32_t ModelIndex{ Pair.second };
+            if (ModelIndex >= ModelBucket.mAssets.size()) {
+                continue;
+            }
+
+            const std::shared_ptr<Model>& RegisteredModel{ ModelBucket.mAssets[ModelIndex] };
+            if (RegisteredModel.get() == ModelPointer) {
+                return Pair.first;
+            }
+        }
+
+        return std::string{};
+    }
+
+    std::string AssetRegistry::FindMaterialGroupSourcePathByIndex(std::uint32_t MaterialGroupIndex) const {
+        const IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
+        const AssetRegistryStorage& Storage{ BackEnd->GetStorage() };
+        const std::vector<std::string>& MaterialGroupSourcePaths{ Storage.GetMaterialGroupSourcePaths() };
+        if (MaterialGroupIndex >= MaterialGroupSourcePaths.size()) {
+            return std::string{};
+        }
+
+        return MaterialGroupSourcePaths[MaterialGroupIndex];
+    }
+
     std::uint32_t AssetRegistry::ResolveTextureTableIndex(const std::filesystem::path& TexturePath) {
         IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
         AssetRegistryStorage& Storage{ BackEnd->GetStorage() };

@@ -49,6 +49,7 @@ namespace Game {
         void UpdateWorldSnapshotIfNeeded();
         const SceneWorldSnapshot& GetWorldSnapshot() const;
 
+
     private:
         void RebuildWorldSnapshot();
         void SpawnModelAtOrigin(const std::string& ModelSelector, const std::string& RootEntityName, std::uint32_t MaterialGroupIndex);

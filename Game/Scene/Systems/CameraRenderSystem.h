@@ -30,6 +30,6 @@ namespace Game {
         void WriteRenderGlobalsFromCamera(const Transform& TransformComponent, Camera& CameraComponent, RFD::RenderFrameData& RenderData, float Dt) const;
 
     private:
-        const std::string mName{ "CameraTransformSystem" };
+        const std::string mName{ "CameraRenderSystem" };
     };
 }

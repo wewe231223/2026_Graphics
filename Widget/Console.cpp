@@ -3,12 +3,14 @@
 #include <array>
 #include <cctype>
 #include <cstring>
+#include <filesystem>
 #include <format>
 #include <fstream>
 #include <sstream>
 #include "External/Include/ImGui/imgui.h"
 #include "Utility/StdOutput.h"
 #include "Game/Base/Input.h"
+#include "Game/Scene/SceneYamlSerializer.h"
 
 namespace Widget {
     void LogBuffer::AddLog(const std::string& RawMessage) {
@@ -95,11 +97,17 @@ namespace Widget {
         return std::format("[{}] {:<7} > {}", Entry.Timestamp, Entry.Level, Entry.Message);
     }
 
+    ExportLogsCommand::ExportLogsCommand() {
+    }
+
+    ExportLogsCommand::~ExportLogsCommand() {
+    }
+
     std::string ExportLogsCommand::GetName() const {
         return "export";
     }
 
-    bool ExportLogsCommand::Execute(const std::vector<std::string>& Arguments, const std::vector<ConsoleLogEntry>& Entries) {
+    bool ExportLogsCommand::Execute(const std::vector<std::string>& Arguments, const ConsoleCommandContext& Context) {
         const std::string FileName{ Arguments.empty() ? "ConsoleLog.txt" : Arguments.front() };
         std::ofstream OutputFile{ FileName, std::ios::out | std::ios::trunc };
 
@@ -108,11 +116,55 @@ namespace Widget {
             return false;
         }
 
-        for (const ConsoleLogEntry& Entry : Entries) {
+        if (Context.LogEntries == nullptr) {
+            StdOutput::WriteErrorLine("[Console] [Command] Log entries are not available.");
+            return false;
+        }
+
+        for (const ConsoleLogEntry& Entry : *Context.LogEntries) {
             OutputFile << Entry.RenderText << '\n';
         }
 
         StdOutput::WriteSuccessLine(std::format("[Console] [Command] Log file exported: {}", FileName));
+        return true;
+    }
+
+    ExportSceneCommand::ExportSceneCommand() {
+    }
+
+    ExportSceneCommand::~ExportSceneCommand() {
+    }
+
+    std::string ExportSceneCommand::GetName() const {
+        return "ExportScene";
+    }
+
+    bool ExportSceneCommand::Execute(const std::vector<std::string>& Arguments, const ConsoleCommandContext& Context) {
+        if (Context.SceneSnapshot == nullptr) {
+            StdOutput::WriteErrorLine("[Console] [Command] Scene snapshot is not available.");
+            return false;
+        }
+
+        std::filesystem::path OutputPath{ Arguments.empty() ? std::string{ "ExportScene.yaml" } : Arguments.front() };
+        if (OutputPath.extension().empty()) {
+            OutputPath += ".yaml";
+        }
+
+        const std::string FileName{ OutputPath.generic_string() };
+        Game::SceneYamlSerializer SceneYamlSerializer{};
+        const Game::SceneYamlSaveResult SaveResult{ SceneYamlSerializer.SerializeToFile(*Context.SceneSnapshot, FileName) };
+
+        if (SaveResult.IsSuccess == false) {
+            StdOutput::WriteWarningLine(std::format("[Console] [Command] Scene export finished with warnings: {}", FileName));
+
+            for (const std::string& Message : SaveResult.UndecidedItems) {
+                StdOutput::WriteWarningLine(std::format("[Console] [Command] {}", Message));
+            }
+
+            return false;
+        }
+
+        StdOutput::WriteSuccessLine(std::format("[Console] [Command] Scene exported: {}", FileName));
         return true;
     }
 
@@ -144,7 +196,7 @@ namespace Widget {
     }
 
     void ImGuiConsole::Render(const Game::SceneWorldSnapshot* Snapshot) {
-        (void)Snapshot;
+        mCurrentSnapshot = Snapshot;
         ImGui::SetNextWindowSize({ 700.0f, 500.0f }, ImGuiCond_FirstUseEver);
 
         if (!ImGui::Begin("Debug Console")) {
@@ -228,6 +280,7 @@ namespace Widget {
 
     void ImGuiConsole::RegisterCommands() {
         mCommands.emplace("export", std::make_unique<ExportLogsCommand>());
+        mCommands.emplace("ExportScene", std::make_unique<ExportSceneCommand>());
     }
 
     void ImGuiConsole::ProcessCommandInput() {
@@ -267,7 +320,11 @@ namespace Widget {
             return;
         }
 
-        CommandIter->second->Execute(Arguments, mBuffer.GetItemsCopy());
+        const std::vector<ConsoleLogEntry> Entries{ mBuffer.GetItemsCopy() };
+        ConsoleCommandContext Context{};
+        Context.SceneSnapshot = mCurrentSnapshot;
+        Context.LogEntries = &Entries;
+        CommandIter->second->Execute(Arguments, Context);
         mCommandInputBuffer.fill('\0');
     }
 
