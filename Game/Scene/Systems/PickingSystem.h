@@ -26,6 +26,7 @@ namespace Game {
     private:
         const std::string mName{ "PickingSystem" };
         Arche::EntityID mLastGizmoPickedEntityId{ Arche::NullEntityID };
+        Arche::EntityID mLastHoveredGizmoEntityId{ Arche::NullEntityID };
         bool mIsGizmoDragging{ false };
         Arche::EntityID mDraggingTargetEntityId{ Arche::NullEntityID };
         float mDraggingStartAxisParameter{ 0.0f };

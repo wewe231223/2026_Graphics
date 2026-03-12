@@ -156,30 +156,27 @@ namespace Game {
                 continue;
             }
 
-            for (std::uint32_t DirectionIndex{ 0 }; DirectionIndex < 2; ++DirectionIndex) {
-                const Arche::EntityID EntityId{ mWorld.CreateEntity() };
+            const Arche::EntityID EntityId{ mWorld.CreateEntity() };
 
-                EntityHierarchy Hierarchy{};
-                Hierarchy.self = EntityId;
-                mWorld.AddComponent(EntityId, Hierarchy);
+            EntityHierarchy Hierarchy{};
+            Hierarchy.self = EntityId;
+            mWorld.AddComponent(EntityId, Hierarchy);
 
-                Transform TransformComponent{};
-                mWorld.AddComponent(EntityId, TransformComponent);
+            Transform TransformComponent{};
+            mWorld.AddComponent(EntityId, TransformComponent);
 
-                StaticMeshRenderer MeshRenderer{};
-                MeshRenderer.model = GizmoModel.get();
-                MeshRenderer.materialGroupIndex = GizmoMaterialGroupIndex;
-                MeshRenderer.active = false;
-                mWorld.AddComponent(EntityId, MeshRenderer);
+            StaticMeshRenderer MeshRenderer{};
+            MeshRenderer.model = GizmoModel.get();
+            MeshRenderer.materialGroupIndex = GizmoMaterialGroupIndex;
+            MeshRenderer.active = false;
+            mWorld.AddComponent(EntityId, MeshRenderer);
 
-                BoundingBox GizmoBoundingBox{};
-                mWorld.AddComponent(EntityId, GizmoBoundingBox);
+            BoundingBox GizmoBoundingBox{};
+            mWorld.AddComponent(EntityId, GizmoBoundingBox);
 
-                PickingGizmo PickingGizmoComponent{};
-                PickingGizmoComponent.axisIndex = AxisIndex;
-                PickingGizmoComponent.directionSign = DirectionIndex == 0 ? -1.0f : 1.0f;
-                mWorld.AddComponent(EntityId, PickingGizmoComponent);
-            }
+            PickingGizmo PickingGizmoComponent{};
+            PickingGizmoComponent.axisIndex = AxisIndex;
+            mWorld.AddComponent(EntityId, PickingGizmoComponent);
         }
     }
 
@@ -230,16 +227,21 @@ namespace Game {
 
             mWorld.AddComponent(NodeEntities[NodeIndex], NodeTransform);
 
-            StaticMeshRenderer NodeRenderer{};
-            NodeRenderer.model = ModelData.get();
-            NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
-            NodeRenderer.materialGroupIndex = MaterialGroupIndex;
-            NodeRenderer.active = true;
-            mWorld.AddComponent(NodeEntities[NodeIndex], NodeRenderer);
+            const bool HasRenderableGeometry{ ModelNodes[NodeIndex].GetSubMeshes().empty() == false };
+            if (HasRenderableGeometry) {
+                StaticMeshRenderer NodeRenderer{};
+                NodeRenderer.model = ModelData.get();
+                NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
+                NodeRenderer.materialGroupIndex = MaterialGroupIndex;
+                NodeRenderer.active = true;
+                mWorld.AddComponent(NodeEntities[NodeIndex], NodeRenderer);
+            }
 
-            BoundingBox NodeBoundingBox{};
-            NodeBoundingBox.UpdateFromModel(ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
-            mWorld.AddComponent(NodeEntities[NodeIndex], NodeBoundingBox);
+            if (HasRenderableGeometry) {
+                BoundingBox NodeBoundingBox{};
+                NodeBoundingBox.UpdateFromModel(ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
+                mWorld.AddComponent(NodeEntities[NodeIndex], NodeBoundingBox);
+            }
 
             EntityHierarchy Hierarchy{};
             Hierarchy.self = NodeEntities[NodeIndex];

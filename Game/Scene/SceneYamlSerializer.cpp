@@ -566,16 +566,21 @@ namespace Game {
                                     OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeTransform);
                                 }
 
-                                StaticMeshRenderer NodeRenderer{};
-                                NodeRenderer.model = ModelData.get();
-                                NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
-                                NodeRenderer.materialGroupIndex = MaterialGroupIndexForModel;
-                                NodeRenderer.active = IsActive;
-                                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeRenderer);
+                                const bool HasRenderableGeometry{ ModelNodes[NodeIndex].GetSubMeshes().empty() == false };
+                                if (HasRenderableGeometry) {
+                                    StaticMeshRenderer NodeRenderer{};
+                                    NodeRenderer.model = ModelData.get();
+                                    NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
+                                    NodeRenderer.materialGroupIndex = MaterialGroupIndexForModel;
+                                    NodeRenderer.active = IsActive;
+                                    OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeRenderer);
+                                }
 
-                                BoundingBox NodeBoundingBox{};
-                                NodeBoundingBox.UpdateFromModel(ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
-                                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeBoundingBox);
+                                if (HasRenderableGeometry) {
+                                    BoundingBox NodeBoundingBox{};
+                                    NodeBoundingBox.UpdateFromModel(ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
+                                    OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeBoundingBox);
+                                }
 
                                 EntityHierarchy Hierarchy{};
                                 Hierarchy.self = NodeEntities[NodeIndex];
