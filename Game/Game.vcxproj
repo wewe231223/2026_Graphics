@@ -33,6 +33,7 @@
     <ClInclude Include="Scene\Components\BoundingBox.h" />
     <ClInclude Include="Scene\Components\Camera.h" />
     <ClInclude Include="Scene\Components\EntityHierarchy.h" />
+    <ClInclude Include="Scene\Components\Frustum.h" />
     <ClInclude Include="Scene\Components\Intents\CameraIntent.h" />
     <ClInclude Include="Scene\Components\Material.h" />
     <ClInclude Include="Scene\Components\Name.h" />
@@ -70,6 +71,7 @@
     <ClCompile Include="Scene\Components\Name.cpp" />
     <ClCompile Include="Scene\Components\BoundingBox.cpp" />
     <ClCompile Include="Scene\Components\Camera.cpp" />
+    <ClCompile Include="Scene\Components\Frustum.cpp" />
     <ClCompile Include="Scene\Components\StaticMeshRenderer.cpp" />
     <ClCompile Include="Scene\Components\ComponentInspection.cpp" />
     <ClCompile Include="Scene\Systems\CameraInputSystem.cpp" />

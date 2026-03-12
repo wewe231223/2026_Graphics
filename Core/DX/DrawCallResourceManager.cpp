@@ -47,10 +47,19 @@ namespace Core {
 			bool DrawRecordCopyResult{ mDrawRecordVector.Copy(GraphicsAllocator, DrawRecordSourceData, DrawRecordsGpuSizeInBytes) };
 			ErrorHandler::report(DrawRecordCopyResult == false, "DrawCallResourceManager", "Failed to copy draw record data.", ErrorHandler::Level::Critical);
 
-			std::array<Interface::CopyQueueCopyRequest, 3> CopyRequests{ mFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mModelContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mDrawRecordVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
-			bool EnqueueResult{ CopyQueue->EnqueueCopy(mCopyId, CopyRequests) };
-			ErrorHandler::report(EnqueueResult == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
-			mCopyFenceValue = mCopyId;
+
+			if (Data.drawRecords.size() == 0) {
+				std::array<Interface::CopyQueueCopyRequest, 1> CopyRequests{ mFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
+				bool EnqueueResult{ CopyQueue->EnqueueCopy(mCopyId, CopyRequests) };
+				ErrorHandler::report(EnqueueResult == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
+				mCopyFenceValue = mCopyId;
+			}
+			else {
+				std::array<Interface::CopyQueueCopyRequest, 3> CopyRequests{ mFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mModelContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mDrawRecordVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
+				bool EnqueueResult{ CopyQueue->EnqueueCopy(mCopyId, CopyRequests) };
+				ErrorHandler::report(EnqueueResult == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
+				mCopyFenceValue = mCopyId;
+			}
 
 			DrawCallResourceManager::UpdateShaderResourceViews(1, static_cast<std::uint32_t>(Data.modelContexts.size()), static_cast<std::uint32_t>(mDrawRecordsGpu.size()));
 		}

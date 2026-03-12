@@ -6,6 +6,8 @@
 #include "Game/Scene/System.h"
 
 namespace Game {
+    struct Frustum;
+
     class StaticRenderSystem final : public ISystem {
     public:
         StaticRenderSystem() = default;
@@ -25,7 +27,8 @@ namespace Game {
         void Execute(Arche::World& World, FrameContext& Ctx, float Dt) override;
 
     private:
-        void TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups, Arche::EntityID PickedEntityId, std::unordered_map<std::uint64_t, SimpleMath::Matrix>& WorldMatrices) const;
+        void TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, const Frustum* CullingFrustumComponent, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups, Arche::EntityID PickedEntityId, std::unordered_map<std::uint64_t, SimpleMath::Matrix>& WorldMatrices) const;
+        bool IsVisibleByFrustum(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& NodeWorld, const Frustum* CullingFrustumComponent) const;
 
     private:
         const std::string mName{ "StaticRenderSystem" };

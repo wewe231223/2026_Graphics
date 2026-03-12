@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include "Game/Scene/Components/Camera.h"
+#include "Game/Scene/Components/Frustum.h"
 #include "Game/Scene/Components/Intents/CameraIntent.h"
 #include "Game/Scene/Components/Transform.h"
 
@@ -30,7 +31,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> CameraRenderSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 3> Accesses{ { { typeid(Transform), Access::Write }, { typeid(Camera), Access::Write }, { typeid(CameraIntent), Access::Read } } };
+        static std::array<ComponentAccess, 4> Accesses{ { { typeid(Transform), Access::Write }, { typeid(Camera), Access::Write }, { typeid(Frustum), Access::Write }, { typeid(CameraIntent), Access::Read } } };
         return Accesses;
     }
 
@@ -40,13 +41,13 @@ namespace Game {
     }
 
     void CameraRenderSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
-        for (auto [TransformComponent, CameraComponent, CameraIntentComponent] : World.Query<Transform, Camera, CameraIntent>()) {
+        for (auto [TransformComponent, CameraComponent, FrustumComponent, CameraIntentComponent] : World.Query<Transform, Camera, Frustum, CameraIntent>()) {
             if (!CameraComponent.isActive) {
                 continue;
             }
 
             ApplyIntentToTransform(TransformComponent, CameraComponent, CameraIntentComponent, Dt);
-            WriteRenderGlobalsFromCamera(TransformComponent, CameraComponent, Ctx.RenderData, Dt);
+            WriteRenderGlobalsFromCamera(TransformComponent, CameraComponent, FrustumComponent, Ctx.RenderData, Dt);
             break;
         }
     }
@@ -70,7 +71,7 @@ namespace Game {
         CameraComponent.fov = std::clamp(CameraComponent.fov - (CameraIntentComponent.zoomDelta * ZoomSpeedDegreesPerTick), MinFovDegrees, MaxFovDegrees);
     }
 
-    void CameraRenderSystem::WriteRenderGlobalsFromCamera(const Transform& TransformComponent, Camera& CameraComponent, RFD::RenderFrameData& RenderData, float Dt) const {
+    void CameraRenderSystem::WriteRenderGlobalsFromCamera(const Transform& TransformComponent, Camera& CameraComponent, Frustum& FrustumComponent, RFD::RenderFrameData& RenderData, float Dt) const {
         if (UseTemporaryFixedCamera) {
             CameraComponent.viewMatrix = DirectX::SimpleMath::Matrix::CreateLookAt(TemporaryFixedCameraPosition, TemporaryFixedCameraFocusPosition, TemporaryFixedCameraUpDirection);
         }
@@ -93,6 +94,8 @@ namespace Game {
         else {
             CameraComponent.projMatrix = DirectX::SimpleMath::Matrix::CreatePerspectiveFieldOfView(DirectX::XMConvertToRadians(CameraComponent.fov), CameraComponent.aspectRatio, CameraComponent.nearPlane, CameraComponent.farPlane);
         }
+
+        FrustumComponent.UpdateFromViewProjection(CameraComponent.viewMatrix, CameraComponent.projMatrix);
 
         RenderData.globals.prevViewProj = RenderData.globals.viewProj;
         RenderData.globals.view = CameraComponent.viewMatrix;

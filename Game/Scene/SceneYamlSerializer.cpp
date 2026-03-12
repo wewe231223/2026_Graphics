@@ -10,6 +10,7 @@
 #include <ryml_std.hpp>
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Camera.h"
+#include "Game/Scene/Components/Frustum.h"
 #include "Game/Scene/Components/Intents/CameraIntent.h"
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
@@ -657,6 +658,7 @@ namespace Game {
 
             if (ComponentsNode.has_child(CameraTypeName)) {
                 Camera NewCamera{};
+                Frustum NewFrustum{};
                 const c4::yml::ConstNodeRef CameraNode{ ComponentsNode[CameraTypeName] };
                 if (CameraNode.has_child("fov")) {
                     CameraNode["fov"] >> NewCamera.fov;
@@ -723,6 +725,7 @@ namespace Game {
                 }
 
                 OutScene.GetWorld().AddComponent(Entity, NewCamera);
+                OutScene.GetWorld().AddComponent(Entity, NewFrustum);
             }
 
             if (ComponentsNode.has_child(CameraIntentTypeName)) {

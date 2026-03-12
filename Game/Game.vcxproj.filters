@@ -123,6 +123,9 @@
     <ClInclude Include="Scene\Components\EntityHierarchy.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\Frustum.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Shader.cpp">
@@ -168,6 +171,9 @@
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\Camera.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\Frustum.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\StaticMeshRenderer.cpp">

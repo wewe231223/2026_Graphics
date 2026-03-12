@@ -2,6 +2,7 @@
 #include <utility>
 #include "BoundingBox.h"
 #include "Camera.h"
+#include "Frustum.h"
 #include "StaticMeshRenderer.h"
 #include "Transform.h"
 
@@ -29,5 +30,6 @@ namespace Game {
         AppendComponentInspectionSection<StaticMeshRenderer>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<BoundingBox>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<Camera>(ReadOnlyWorld, EntityId, OutSections);
+        AppendComponentInspectionSection<Frustum>(ReadOnlyWorld, EntityId, OutSections);
     }
 }

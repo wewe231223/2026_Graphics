@@ -5,6 +5,7 @@
 namespace Game {
     struct Camera;
     struct CameraIntent;
+    struct Frustum;
     struct Transform;
 
     class CameraRenderSystem final : public ISystem {
@@ -27,7 +28,7 @@ namespace Game {
 
     private:
         void ApplyIntentToTransform(Transform& TransformComponent, Camera& CameraComponent, const CameraIntent& CameraIntentComponent, float Dt) const;
-        void WriteRenderGlobalsFromCamera(const Transform& TransformComponent, Camera& CameraComponent, RFD::RenderFrameData& RenderData, float Dt) const;
+        void WriteRenderGlobalsFromCamera(const Transform& TransformComponent, Camera& CameraComponent, Frustum& FrustumComponent, RFD::RenderFrameData& RenderData, float Dt) const;
 
     private:
         const std::string mName{ "CameraRenderSystem" };

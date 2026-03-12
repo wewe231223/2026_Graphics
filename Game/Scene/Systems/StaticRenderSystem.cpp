@@ -6,9 +6,12 @@
 #include <vector>
 #include "Game/Model/AssetRegistry.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/Camera.h"
+#include "Game/Scene/Components/Frustum.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Transform.h"
+#include "Game/Scene/Components/BoundingBox.h"
 
 namespace {
     SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
@@ -61,7 +64,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> StaticRenderSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 4> Accesses{ { { typeid(Transform), Access::Read }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(Material), Access::Read } } };
+        static std::array<ComponentAccess, 6> Accesses{ { { typeid(Transform), Access::Read }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(Material), Access::Read }, { typeid(BoundingBox), Access::Read }, { typeid(Frustum), Access::Read } } };
         return Accesses;
     }
 
@@ -77,6 +80,16 @@ namespace Game {
 
         RFD::RenderFrameData& RenderData{ Ctx.RenderData };
         const std::vector<RegisteredMaterialGroup>& MaterialGroups{ *Ctx.MaterialGroups };
+        const Frustum* CullingFrustumComponent{ nullptr };
+
+        for (auto [CameraComponent, FrustumComponent] : World.Query<Camera, Frustum>()) {
+            if (CameraComponent.isActive == false) {
+                continue;
+            }
+
+            CullingFrustumComponent = &FrustumComponent;
+            break;
+        }
 
         for (auto [TransformComponent, Hierarchy] : World.Query<Transform, EntityHierarchy>()) {
             if (Hierarchy.parent != Arche::NullEntityID) {
@@ -84,11 +97,11 @@ namespace Game {
             }
 
             const SimpleMath::Matrix LocalWorld{ BuildLocalWorldMatrix(TransformComponent) };
-            TraverseHierarchy(World, Hierarchy.self, LocalWorld, RenderData, MaterialGroups, Ctx.PickedEntityId, Ctx.WorldMatrices);
+            TraverseHierarchy(World, Hierarchy.self, LocalWorld, CullingFrustumComponent, RenderData, MaterialGroups, Ctx.PickedEntityId, Ctx.WorldMatrices);
         }
     }
 
-    void StaticRenderSystem::TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups, Arche::EntityID PickedEntityId, std::unordered_map<std::uint64_t, SimpleMath::Matrix>& WorldMatrices) const {
+    void StaticRenderSystem::TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, const Frustum* CullingFrustumComponent, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups, Arche::EntityID PickedEntityId, std::unordered_map<std::uint64_t, SimpleMath::Matrix>& WorldMatrices) const {
         const StaticMeshRenderer* Renderer{ World.GetComponent<StaticMeshRenderer>(EntityId) };
         const Transform* TransformComponent{ World.GetComponent<Transform>(EntityId) };
         const EntityHierarchy* Hierarchy{ World.GetComponent<EntityHierarchy>(EntityId) };
@@ -101,6 +114,11 @@ namespace Game {
         const SimpleMath::Matrix NodeWorld{ ParentWorld };
         WorldMatrices[PackEntityIdKey(EntityId)] = NodeWorld;
         if (Renderer != nullptr && Renderer->model != nullptr && Renderer->active) {
+            const bool IsVisible{ IsVisibleByFrustum(World, EntityId, NodeWorld, CullingFrustumComponent) };
+            if (IsVisible == false) {
+                return;
+            }
+
             const std::vector<ModelNode>& Nodes{ Renderer->model->GetNodes() };
             if (Renderer->nodeIndex < Nodes.size()) {
                 const ModelNode& Node{ Nodes[Renderer->nodeIndex] };
@@ -165,8 +183,23 @@ namespace Game {
             }
 
             const SimpleMath::Matrix ChildWorld{ BuildLocalWorldMatrix(*ChildTransform) * NodeWorld };
-            TraverseHierarchy(World, ChildId, ChildWorld, RenderData, MaterialGroups, PickedEntityId, WorldMatrices);
+            TraverseHierarchy(World, ChildId, ChildWorld, CullingFrustumComponent, RenderData, MaterialGroups, PickedEntityId, WorldMatrices);
             ChildId = ChildHierarchy->nextSibling;
         }
+    }
+
+    bool StaticRenderSystem::IsVisibleByFrustum(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& NodeWorld, const Frustum* CullingFrustumComponent) const {
+        if (CullingFrustumComponent == nullptr) {
+            return true;
+        }
+
+        const BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityId) };
+        if (BoundingBoxComponent == nullptr) {
+            return true;
+        }
+
+        DirectX::BoundingOrientedBox WorldBoundingBox{};
+        BoundingBoxComponent->GetObb().Transform(WorldBoundingBox, NodeWorld);
+        return CullingFrustumComponent->Intersects(WorldBoundingBox);
     }
 }
