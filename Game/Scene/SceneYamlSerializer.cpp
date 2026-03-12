@@ -124,6 +124,14 @@ namespace {
     }
 
 
+    bool StartsWith(const std::string& Text, const std::string& Prefix) {
+        if (Text.size() < Prefix.size()) {
+            return false;
+        }
+
+        return Text.compare(0, Prefix.size(), Prefix) == 0;
+    }
+
     std::string BuildPrimitiveSelector(const std::string& PrimitiveType, float PrimitiveSize, const std::array<float, 4>& PrimitiveColor) {
         std::string Selector{ PrimitiveType };
         Selector += std::string{ ";size=" } + std::to_string(PrimitiveSize);
@@ -136,9 +144,52 @@ namespace {
             return FileName;
         }
 
+        if (StartsWith(FileName, "primitive:")) {
+            return FileName;
+        }
+
+        const std::filesystem::path SourcePath{ FileName };
+        if (SourcePath.is_absolute()) {
+            return SourcePath.lexically_normal().generic_string();
+        }
+
+        const std::string NormalizedText{ SourcePath.lexically_normal().generic_string() };
+        if (StartsWith(NormalizedText, "Resources/")) {
+            return NormalizedText;
+        }
+
         const std::filesystem::path ResolvedPath{ std::filesystem::path{ "Resources" } / SceneName / FileName };
-        return ResolvedPath.generic_string();
+        return ResolvedPath.lexically_normal().generic_string();
     }
+
+    std::string MakeSceneRelativeResourcePath(const std::string& SceneName, const std::string& SourcePath) {
+        if (SceneName.empty() || SourcePath.empty()) {
+            return SourcePath;
+        }
+
+        if (StartsWith(SourcePath, "primitive:")) {
+            return SourcePath;
+        }
+
+        const std::string NormalizedText{ std::filesystem::path{ SourcePath }.lexically_normal().generic_string() };
+        const std::string SceneRootPrefix{ std::string{ "Resources/" } + SceneName + std::string{ "/" } };
+        if (StartsWith(NormalizedText, SceneRootPrefix)) {
+            return NormalizedText.substr(SceneRootPrefix.size());
+        }
+
+        const std::size_t ResourcesRootIndex{ NormalizedText.find("Resources/") };
+        if (ResourcesRootIndex != std::string::npos) {
+            const std::string ResourceRelativePath{ NormalizedText.substr(ResourcesRootIndex) };
+            if (StartsWith(ResourceRelativePath, SceneRootPrefix)) {
+                return ResourceRelativePath.substr(SceneRootPrefix.size());
+            }
+
+            return ResourceRelativePath;
+        }
+
+        return NormalizedText;
+    }
+
     bool ShouldSkipEntityInSceneExport(const Game::StaticMeshRenderer* StaticMeshRendererComponent) {
         if (StaticMeshRendererComponent == nullptr || StaticMeshRendererComponent->model == nullptr) {
             return false;
@@ -359,11 +410,10 @@ namespace Game {
             RootHierarchy.self = Entity;
             OutScene.GetWorld().AddComponent(Entity, RootHierarchy);
 
-            if (EntityNode.has_child("Components") == false) {
+            const c4::yml::ConstNodeRef ComponentsNode{ EntityNode.has_child("Components") ? EntityNode["Components"] : EntityNode };
+            if (ComponentsNode.readable() == false || ComponentsNode.is_map() == false) {
                 continue;
             }
-
-            const c4::yml::ConstNodeRef ComponentsNode{ EntityNode["Components"] };
 
             if (ComponentsNode.has_child(NameTypeName)) {
                 const c4::yml::ConstNodeRef NameNode{ ComponentsNode[NameTypeName] };
@@ -791,75 +841,77 @@ namespace Game {
             AppendLine(Stream, 1, "- Components:");
 
             if (NameComponent != nullptr) {
-                AppendLine(Stream, 2, std::string{ NameTypeName } + std::string{ ":" });
-                AppendLine(Stream, 3, std::string{ "text: " } + ToYamlText(GetNameText(*NameComponent)));
+                AppendLine(Stream, 3, std::string{ NameTypeName } + std::string{ ":" });
+                AppendLine(Stream, 4, std::string{ "text: " } + ToYamlText(GetNameText(*NameComponent)));
             }
 
             if (TransformComponent != nullptr) {
-                AppendLine(Stream, 2, std::string{ TransformTypeName } + std::string{ ":" });
-                AppendVector3(Stream, 3, "position", TransformComponent->position);
-                AppendVector3(Stream, 3, "rotationEuler", TransformComponent->rotationEuler);
-                AppendQuaternion(Stream, 3, "rotation", TransformComponent->rotation);
-                AppendVector3(Stream, 3, "scale", TransformComponent->scale);
+                AppendLine(Stream, 3, std::string{ TransformTypeName } + std::string{ ":" });
+                AppendVector3(Stream, 4, "position", TransformComponent->position);
+                AppendVector3(Stream, 4, "rotationEuler", TransformComponent->rotationEuler);
+                AppendQuaternion(Stream, 4, "rotation", TransformComponent->rotation);
+                AppendVector3(Stream, 4, "scale", TransformComponent->scale);
             }
 
             if (MaterialComponent != nullptr) {
-                AppendLine(Stream, 2, std::string{ MaterialTypeName } + std::string{ ":" });
+                AppendLine(Stream, 3, std::string{ MaterialTypeName } + std::string{ ":" });
                 const std::string MaterialPath{ AssetRegistryInstance->FindMaterialGroupSourcePathByIndex(MaterialComponent->MaterialGroupIndex) };
                 if (MaterialPath.empty()) {
                     SaveResult.IsSuccess = false;
                     SaveResult.UndecidedItems.push_back(std::string{ "MaterialGroupIndex 에 대응되는 materialPath 를 찾지 못했습니다: " } + std::to_string(MaterialComponent->MaterialGroupIndex));
                 }
 
-                AppendLine(Stream, 3, std::string{ "materialPath: " } + ToYamlText(MaterialPath));
+                const std::string MaterialPathForYaml{ MakeSceneRelativeResourcePath(TargetSnapshot.GetSceneName(), MaterialPath) };
+                AppendLine(Stream, 4, std::string{ "materialPath: " } + ToYamlText(MaterialPathForYaml));
             }
 
             if (StaticMeshRendererComponent != nullptr) {
-                AppendLine(Stream, 2, std::string{ StaticMeshRendererTypeName } + std::string{ ":" });
+                AppendLine(Stream, 3, std::string{ StaticMeshRendererTypeName } + std::string{ ":" });
                 const std::string ModelSelector{ AssetRegistryInstance->FindModelSelectorByPointer(StaticMeshRendererComponent->model) };
                 if (ModelSelector.empty()) {
                     SaveResult.IsSuccess = false;
                     SaveResult.UndecidedItems.push_back("StaticMeshRenderer model 포인터에 대응되는 selector 를 찾지 못했습니다.");
                 }
 
-                AppendLine(Stream, 3, std::string{ "modelPath: " } + ToYamlText(ModelSelector));
-                AppendLine(Stream, 3, std::string{ "active: " } + ToYamlBooleanText(StaticMeshRendererComponent->active));
+                const std::string ModelSelectorForYaml{ MakeSceneRelativeResourcePath(TargetSnapshot.GetSceneName(), ModelSelector) };
+                AppendLine(Stream, 4, std::string{ "modelPath: " } + ToYamlText(ModelSelectorForYaml));
+                AppendLine(Stream, 4, std::string{ "active: " } + ToYamlBooleanText(StaticMeshRendererComponent->active));
             }
 
             if (CameraComponent != nullptr) {
-                AppendLine(Stream, 2, std::string{ CameraTypeName } + std::string{ ":" });
-                AppendLine(Stream, 3, std::string{ "fov: " } + std::to_string(CameraComponent->fov));
-                AppendLine(Stream, 3, std::string{ "aspectRatio: " } + std::to_string(CameraComponent->aspectRatio));
-                AppendLine(Stream, 3, std::string{ "nearPlane: " } + std::to_string(CameraComponent->nearPlane));
-                AppendLine(Stream, 3, std::string{ "farPlane: " } + std::to_string(CameraComponent->farPlane));
-                AppendLine(Stream, 3, std::string{ "isActive: " } + ToYamlBooleanText(CameraComponent->isActive));
-                AppendLine(Stream, 3, std::string{ "isOrthographic: " } + ToYamlBooleanText(CameraComponent->isOrthographic));
-                AppendLine(Stream, 3, std::string{ "orthoSize: " } + std::to_string(CameraComponent->orthoSize));
-                AppendLine(Stream, 3, std::string{ "cullingMask: " } + std::to_string(CameraComponent->cullingMask));
-                AppendColor4(Stream, 3, "clearColor", CameraComponent->clearColor);
-                AppendLine(Stream, 3, std::string{ "priority: " } + std::to_string(CameraComponent->priority));
-                AppendLine(Stream, 3, std::string{ "smoothingFactor: " } + std::to_string(CameraComponent->smoothingFactor));
-                AppendLine(Stream, 3, std::string{ "currentFovBias: " } + std::to_string(CameraComponent->currentFovBias));
-                AppendLine(Stream, 3, std::string{ "currentShakeIntensity: " } + std::to_string(CameraComponent->currentShakeIntensity));
-                AppendLine(Stream, 3, std::string{ "lockOnTargetIndex: " } + std::to_string(CameraComponent->lockOnTarget.index));
-                AppendLine(Stream, 3, std::string{ "lockOnTargetGeneration: " } + std::to_string(CameraComponent->lockOnTarget.generation));
-                AppendLine(Stream, 3, std::string{ "cameraFlags: " } + std::to_string(CameraComponent->cameraFlags));
+                AppendLine(Stream, 3, std::string{ CameraTypeName } + std::string{ ":" });
+                AppendLine(Stream, 4, std::string{ "fov: " } + std::to_string(CameraComponent->fov));
+                AppendLine(Stream, 4, std::string{ "aspectRatio: " } + std::to_string(CameraComponent->aspectRatio));
+                AppendLine(Stream, 4, std::string{ "nearPlane: " } + std::to_string(CameraComponent->nearPlane));
+                AppendLine(Stream, 4, std::string{ "farPlane: " } + std::to_string(CameraComponent->farPlane));
+                AppendLine(Stream, 4, std::string{ "isActive: " } + ToYamlBooleanText(CameraComponent->isActive));
+                AppendLine(Stream, 4, std::string{ "isOrthographic: " } + ToYamlBooleanText(CameraComponent->isOrthographic));
+                AppendLine(Stream, 4, std::string{ "orthoSize: " } + std::to_string(CameraComponent->orthoSize));
+                AppendLine(Stream, 4, std::string{ "cullingMask: " } + std::to_string(CameraComponent->cullingMask));
+                AppendColor4(Stream, 4, "clearColor", CameraComponent->clearColor);
+                AppendLine(Stream, 4, std::string{ "priority: " } + std::to_string(CameraComponent->priority));
+                AppendLine(Stream, 4, std::string{ "smoothingFactor: " } + std::to_string(CameraComponent->smoothingFactor));
+                AppendLine(Stream, 4, std::string{ "currentFovBias: " } + std::to_string(CameraComponent->currentFovBias));
+                AppendLine(Stream, 4, std::string{ "currentShakeIntensity: " } + std::to_string(CameraComponent->currentShakeIntensity));
+                AppendLine(Stream, 4, std::string{ "lockOnTargetIndex: " } + std::to_string(CameraComponent->lockOnTarget.index));
+                AppendLine(Stream, 4, std::string{ "lockOnTargetGeneration: " } + std::to_string(CameraComponent->lockOnTarget.generation));
+                AppendLine(Stream, 4, std::string{ "cameraFlags: " } + std::to_string(CameraComponent->cameraFlags));
             }
 
             if (CameraIntentComponent != nullptr) {
-                AppendLine(Stream, 2, std::string{ CameraIntentTypeName } + std::string{ ":" });
-                AppendVector3(Stream, 3, "moveDirection", CameraIntentComponent->moveDirection);
-                AppendVector2(Stream, 3, "lookDelta", CameraIntentComponent->lookDelta);
-                AppendLine(Stream, 3, std::string{ "zoomDelta: " } + std::to_string(CameraIntentComponent->zoomDelta));
-                AppendLine(Stream, 3, std::string{ "targetToLockOnIndex: " } + std::to_string(CameraIntentComponent->targetToLockOn.index));
-                AppendLine(Stream, 3, std::string{ "targetToLockOnGeneration: " } + std::to_string(CameraIntentComponent->targetToLockOn.generation));
-                AppendLine(Stream, 3, std::string{ "requestUnlock: " } + ToYamlBooleanText(CameraIntentComponent->requestUnlock));
-                AppendLine(Stream, 3, std::string{ "requestSkip: " } + ToYamlBooleanText(CameraIntentComponent->requestSkip));
-                AppendLine(Stream, 3, std::string{ "shakeImpulse: " } + std::to_string(CameraIntentComponent->shakeImpulse));
+                AppendLine(Stream, 3, std::string{ CameraIntentTypeName } + std::string{ ":" });
+                AppendVector3(Stream, 4, "moveDirection", CameraIntentComponent->moveDirection);
+                AppendVector2(Stream, 4, "lookDelta", CameraIntentComponent->lookDelta);
+                AppendLine(Stream, 4, std::string{ "zoomDelta: " } + std::to_string(CameraIntentComponent->zoomDelta));
+                AppendLine(Stream, 4, std::string{ "targetToLockOnIndex: " } + std::to_string(CameraIntentComponent->targetToLockOn.index));
+                AppendLine(Stream, 4, std::string{ "targetToLockOnGeneration: " } + std::to_string(CameraIntentComponent->targetToLockOn.generation));
+                AppendLine(Stream, 4, std::string{ "requestUnlock: " } + ToYamlBooleanText(CameraIntentComponent->requestUnlock));
+                AppendLine(Stream, 4, std::string{ "requestSkip: " } + ToYamlBooleanText(CameraIntentComponent->requestSkip));
+                AppendLine(Stream, 4, std::string{ "shakeImpulse: " } + std::to_string(CameraIntentComponent->shakeImpulse));
             }
 
             if (LocalPlayerTagComponent != nullptr) {
-                AppendLine(Stream, 2, std::string{ LocalPlayerTagTypeName } + std::string{ ": {}" });
+                AppendLine(Stream, 3, std::string{ LocalPlayerTagTypeName } + std::string{ ": {}" });
             }
         }
 
