@@ -4,8 +4,10 @@
 #include <string>
 #include <typeindex>
 #include <vector>
+#include <unordered_map>
 #include "Arche/World.h"
 #include "Game/Base/RenderFrameData.h"
+#include "Utility/SimpleMathWrapper.h"
 
 namespace Game {
     struct RegisteredMaterialGroup;
@@ -37,6 +39,7 @@ namespace Game {
         RFD::RenderFrameData RenderData{};
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
         Arche::EntityID PickedEntityId{ Arche::NullEntityID };
+        std::unordered_map<std::uint64_t, SimpleMath::Matrix> WorldMatrices{};
     };
 
     class ISystem abstract {

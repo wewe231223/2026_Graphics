@@ -22,6 +22,12 @@ namespace {
 }
 
 namespace {
+    std::uint64_t PackEntityIdKey(Arche::EntityID EntityId) {
+        return (static_cast<std::uint64_t>(EntityId.generation) << 32ull) | static_cast<std::uint64_t>(EntityId.index);
+    }
+}
+
+namespace {
     bool IsEntityWithinPickedHierarchy(Arche::World& World, Arche::EntityID EntityId, Arche::EntityID PickedEntityId) {
         if (PickedEntityId == Arche::NullEntityID) {
             return false;
@@ -67,6 +73,8 @@ namespace Game {
     void StaticRenderSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
         (void)Dt;
 
+        Ctx.WorldMatrices.clear();
+
         RFD::RenderFrameData& RenderData{ Ctx.RenderData };
         const std::vector<RegisteredMaterialGroup>& MaterialGroups{ *Ctx.MaterialGroups };
 
@@ -76,11 +84,11 @@ namespace Game {
             }
 
             const SimpleMath::Matrix LocalWorld{ BuildLocalWorldMatrix(TransformComponent) };
-            TraverseHierarchy(World, Hierarchy.self, LocalWorld, RenderData, MaterialGroups, Ctx.PickedEntityId);
+            TraverseHierarchy(World, Hierarchy.self, LocalWorld, RenderData, MaterialGroups, Ctx.PickedEntityId, Ctx.WorldMatrices);
         }
     }
 
-    void StaticRenderSystem::TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups, Arche::EntityID PickedEntityId) const {
+    void StaticRenderSystem::TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups, Arche::EntityID PickedEntityId, std::unordered_map<std::uint64_t, SimpleMath::Matrix>& WorldMatrices) const {
         const StaticMeshRenderer* Renderer{ World.GetComponent<StaticMeshRenderer>(EntityId) };
         const Transform* TransformComponent{ World.GetComponent<Transform>(EntityId) };
         const EntityHierarchy* Hierarchy{ World.GetComponent<EntityHierarchy>(EntityId) };
@@ -91,6 +99,7 @@ namespace Game {
         }
 
         const SimpleMath::Matrix NodeWorld{ ParentWorld };
+        WorldMatrices[PackEntityIdKey(EntityId)] = NodeWorld;
         if (Renderer != nullptr && Renderer->model != nullptr && Renderer->active) {
             const std::vector<ModelNode>& Nodes{ Renderer->model->GetNodes() };
             if (Renderer->nodeIndex < Nodes.size()) {
@@ -156,7 +165,7 @@ namespace Game {
             }
 
             const SimpleMath::Matrix ChildWorld{ BuildLocalWorldMatrix(*ChildTransform) * NodeWorld };
-            TraverseHierarchy(World, ChildId, ChildWorld, RenderData, MaterialGroups, PickedEntityId);
+            TraverseHierarchy(World, ChildId, ChildWorld, RenderData, MaterialGroups, PickedEntityId, WorldMatrices);
             ChildId = ChildHierarchy->nextSibling;
         }
     }
