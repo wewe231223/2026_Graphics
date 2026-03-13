@@ -18,3 +18,4 @@ namespace Game {
 
     void BuildComponentInspectionSections(const Arche::World::WorldReadOnlyView& ReadOnlyWorld, Arche::EntityID EntityId, std::vector<ComponentInspectionSection>& OutSections);
 }
+

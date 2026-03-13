@@ -39,7 +39,7 @@ namespace Game {
         RFD::RenderFrameData RenderData{};
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
         Arche::EntityID PickedEntityId{ Arche::NullEntityID };
-        std::unordered_map<std::uint64_t, SimpleMath::Matrix> WorldMatrices{};
+        std::unordered_map<Arche::EntityID, SimpleMath::Matrix> WorldMatrices{};
     };
 
     class ISystem abstract {

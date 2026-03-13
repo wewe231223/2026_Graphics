@@ -104,16 +104,16 @@ namespace Game {
         mChildIndices.clear();
         mChildIndices.resize(mEntities.size());
 
-        std::unordered_map<std::uint64_t, std::uint32_t> IndexByEntity{};
+        std::unordered_map<Arche::EntityID, std::uint32_t> IndexByEntity{};
         IndexByEntity.reserve(mEntities.size());
 
         for (std::uint32_t EntityIndex{ 0 }; EntityIndex < static_cast<std::uint32_t>(mEntities.size()); ++EntityIndex) {
-            IndexByEntity.emplace(ToEntityKey(mEntities[EntityIndex].mEntityId), EntityIndex);
+            IndexByEntity.emplace(mEntities[EntityIndex].mEntityId, EntityIndex);
         }
 
         for (std::uint32_t EntityIndex{ 0 }; EntityIndex < static_cast<std::uint32_t>(mEntities.size()); ++EntityIndex) {
             const Arche::EntityID ParentId{ mEntities[EntityIndex].mParentId };
-            const std::unordered_map<std::uint64_t, std::uint32_t>::iterator ParentIter{ IndexByEntity.find(ToEntityKey(ParentId)) };
+            const std::unordered_map<Arche::EntityID, std::uint32_t>::iterator ParentIter{ IndexByEntity.find(ParentId) };
 
             if (ParentIter == IndexByEntity.end()) {
                 mRootIndices.push_back(EntityIndex);
@@ -160,9 +160,5 @@ namespace Game {
         }
 
         return mChildIndices[EntityIndex];
-    }
-
-    std::uint64_t SceneWorldSnapshot::ToEntityKey(Arche::EntityID EntityId) const {
-        return (static_cast<std::uint64_t>(EntityId.generation) << 32) | static_cast<std::uint64_t>(EntityId.index);
     }
 }

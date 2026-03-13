@@ -24,11 +24,6 @@ namespace {
     constexpr std::uint32_t PickedDrawFlagBitMask{ 0x1u };
 }
 
-namespace {
-    std::uint64_t PackEntityIdKey(Arche::EntityID EntityId) {
-        return (static_cast<std::uint64_t>(EntityId.generation) << 32ull) | static_cast<std::uint64_t>(EntityId.index);
-    }
-}
 
 namespace {
     bool IsEntityWithinPickedHierarchy(Arche::World& World, Arche::EntityID EntityId, Arche::EntityID PickedEntityId) {
@@ -101,7 +96,7 @@ namespace Game {
         }
     }
 
-    void StaticRenderSystem::TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, const Frustum* CullingFrustumComponent, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups, Arche::EntityID PickedEntityId, std::unordered_map<std::uint64_t, SimpleMath::Matrix>& WorldMatrices) const {
+    void StaticRenderSystem::TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, const Frustum* CullingFrustumComponent, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups, Arche::EntityID PickedEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices) const {
         const StaticMeshRenderer* Renderer{ World.GetComponent<StaticMeshRenderer>(EntityId) };
         const Transform* TransformComponent{ World.GetComponent<Transform>(EntityId) };
         const EntityHierarchy* Hierarchy{ World.GetComponent<EntityHierarchy>(EntityId) };
@@ -112,7 +107,7 @@ namespace Game {
         }
 
         const SimpleMath::Matrix NodeWorld{ ParentWorld };
-        WorldMatrices[PackEntityIdKey(EntityId)] = NodeWorld;
+        WorldMatrices[EntityId] = NodeWorld;
         if (Renderer != nullptr && Renderer->model != nullptr && Renderer->active) {
             const bool IsVisible{ IsVisibleByFrustum(World, EntityId, NodeWorld, CullingFrustumComponent) };
             if (IsVisible == false) {

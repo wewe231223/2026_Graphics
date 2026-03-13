@@ -1,4 +1,5 @@
 #include "Game/Scene/Components/Frustum.h"
+#include <format>
 #include "Game/Scene/Components/ComponentInspection.h"
 
 namespace Game {
@@ -7,7 +8,9 @@ namespace Game {
     }
 
     void Frustum::BuildComponentInspectionFields(std::vector<ComponentInspectionField>& OutFields) const {
-        (void)OutFields;
+        OutFields.push_back(ComponentInspectionField{ "Origin", std::format("{:.3f}, {:.3f}, {:.3f}", mValue.Origin.x, mValue.Origin.y, mValue.Origin.z) });
+        OutFields.push_back(ComponentInspectionField{ "Near", std::format("{:.3f}", mValue.Near) });
+        OutFields.push_back(ComponentInspectionField{ "Far", std::format("{:.3f}", mValue.Far) });
     }
 
     void Frustum::UpdateFromViewProjection(const SimpleMath::Matrix& ViewMatrix, const SimpleMath::Matrix& ProjectionMatrix) {

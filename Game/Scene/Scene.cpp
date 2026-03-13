@@ -2,11 +2,13 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <unordered_set>
 #include "Asset/Common.h"
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PickingGizmo.h"
+#include "Game/Scene/Components/PrefabInstance.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
 #include "Game/Scene/Events/SelectionEvent.h"
@@ -28,6 +30,25 @@ namespace {
         MaterialGroup.Items.push_back(Item);
 
         return AssetRegistry.AddMaterialGroup(MaterialGroup);
+    }
+
+
+    std::uint64_t GenerateNextPrefabId(Game::Scene& TargetScene) {
+        std::unordered_set<std::uint64_t> UsedPrefabIds{};
+        for (const auto [PrefabComponent] : TargetScene.GetWorld().Query<Game::PrefabInstance>()) {
+            if (PrefabComponent.PrefabId == 0ull) {
+                continue;
+            }
+
+            UsedPrefabIds.insert(PrefabComponent.PrefabId);
+        }
+
+        std::uint64_t NextPrefabId{ 1001ull };
+        while (UsedPrefabIds.contains(NextPrefabId)) {
+            NextPrefabId += 1ull;
+        }
+
+        return NextPrefabId;
     }
 
 }
@@ -194,10 +215,10 @@ namespace Game {
         const std::string ModelPath{ FilePath.generic_string() };
         const std::string RootEntityName{ ConvertWstringToUtf8(FilePath.stem().wstring()) };
         const std::uint32_t MaterialGroupIndex{ 0 };
-        SpawnModelAtOrigin(ModelPath, RootEntityName, MaterialGroupIndex);
+        SpawnModelAtOrigin(ModelPath, RootEntityName, MaterialGroupIndex, false);
     }
 
-    void Scene::SpawnModelAtOrigin(const std::string& ModelSelector, const std::string& RootEntityName, std::uint32_t MaterialGroupIndex) {
+    void Scene::SpawnModelAtOrigin(const std::string& ModelSelector, const std::string& RootEntityName, std::uint32_t MaterialGroupIndex, bool IsDerivedEntity) {
         const std::shared_ptr<Model> ModelData{ mAssetRegistry.GetModel(ModelSelector) };
         if (ModelData == nullptr) {
             return;
@@ -215,6 +236,9 @@ namespace Game {
 
         for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
             NodeEntities[NodeIndex] = mWorld.CreateEntity();
+            Arche::EntityID UpdatedEntityId{ NodeEntities[NodeIndex] };
+            UpdatedEntityId.SetDerivedEntity(IsDerivedEntity || NodeIndex != RootNodeIndex);
+            NodeEntities[NodeIndex] = UpdatedEntityId;
         }
 
         for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
@@ -226,6 +250,12 @@ namespace Game {
             }
 
             mWorld.AddComponent(NodeEntities[NodeIndex], NodeTransform);
+
+            if (NodeIndex == RootNodeIndex) {
+                PrefabInstance RootPrefabInstance{};
+                RootPrefabInstance.PrefabId = GenerateNextPrefabId(*this);
+                mWorld.AddComponent(NodeEntities[NodeIndex], RootPrefabInstance);
+            }
 
             const bool HasRenderableGeometry{ ModelNodes[NodeIndex].GetSubMeshes().empty() == false };
             if (HasRenderableGeometry) {

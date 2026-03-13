@@ -6,6 +6,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <ryml.hpp>
 #include <ryml_std.hpp>
 #include "Game/Scene/Components/BoundingBox.h"
@@ -15,6 +16,7 @@
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Name.h"
+#include "Game/Scene/Components/PrefabInstance.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Tags.h"
 #include "Game/Scene/Components/Transform.h"
@@ -32,6 +34,16 @@ namespace {
     constexpr const char* CameraIntentTypeName{ "CameraIntent" };
     constexpr const char* LocalPlayerTagTypeName{ "LocalPlayerTag" };
     constexpr const char* NameTypeName{ "Name" };
+    constexpr const char* PrefabInstanceTypeName{ "PrefabInstance" };
+    constexpr const char* DefaultMaterialPathText{ "Resources/DefaultResource/DefaultMaterial.json" };
+
+
+    struct PrefabDescriptor final {
+        std::uint64_t PrefabId{};
+        std::string ModelSelector{};
+        std::string MaterialPath{};
+        bool Active{ true };
+    };
 
     bool ReadVector3(c4::yml::ConstNodeRef TargetNode, SimpleMath::Vector3& OutValue) {
         if (TargetNode.is_seq() == false || TargetNode.num_children() != 3) {
@@ -191,6 +203,82 @@ namespace {
         return NormalizedText;
     }
 
+
+
+    bool IsDefaultMaterialPath(const std::string& MaterialPath) {
+        if (MaterialPath.empty()) {
+            return true;
+        }
+
+        const std::filesystem::path NormalizedPath{ std::filesystem::path{ MaterialPath }.lexically_normal() };
+        const std::string NormalizedText{ NormalizedPath.generic_string() };
+        return NormalizedText == DefaultMaterialPathText;
+    }
+
+    bool TryFindRendererInHierarchy(const Arche::World::WorldReadOnlyView* ReadOnlyWorld, Arche::EntityID EntityId, const Game::StaticMeshRenderer*& OutRenderer) {
+        const Game::StaticMeshRenderer* CurrentRenderer{ ReadOnlyWorld->GetComponent<Game::StaticMeshRenderer>(EntityId) };
+        if (CurrentRenderer != nullptr && CurrentRenderer->model != nullptr) {
+            OutRenderer = CurrentRenderer;
+            return true;
+        }
+
+        const Game::EntityHierarchy* HierarchyComponent{ ReadOnlyWorld->GetComponent<Game::EntityHierarchy>(EntityId) };
+        if (HierarchyComponent == nullptr) {
+            return false;
+        }
+
+        Arche::EntityID ChildEntityId{ HierarchyComponent->firstChild };
+        while (ChildEntityId != Arche::NullEntityID) {
+            if (TryFindRendererInHierarchy(ReadOnlyWorld, ChildEntityId, OutRenderer) == true) {
+                return true;
+            }
+
+            const Game::EntityHierarchy* ChildHierarchyComponent{ ReadOnlyWorld->GetComponent<Game::EntityHierarchy>(ChildEntityId) };
+            if (ChildHierarchyComponent == nullptr) {
+                break;
+            }
+
+            ChildEntityId = ChildHierarchyComponent->nextSibling;
+        }
+
+        return false;
+    }
+
+    bool TryResolveMaterialGroupIndexInHierarchy(const Arche::World::WorldReadOnlyView* ReadOnlyWorld, Arche::EntityID EntityId, std::uint32_t& OutMaterialGroupIndex) {
+        const Game::Material* CurrentMaterial{ ReadOnlyWorld->GetComponent<Game::Material>(EntityId) };
+        if (CurrentMaterial != nullptr) {
+            OutMaterialGroupIndex = CurrentMaterial->MaterialGroupIndex;
+            return true;
+        }
+
+        const Game::StaticMeshRenderer* CurrentRenderer{ ReadOnlyWorld->GetComponent<Game::StaticMeshRenderer>(EntityId) };
+        if (CurrentRenderer != nullptr) {
+            OutMaterialGroupIndex = CurrentRenderer->materialGroupIndex;
+            return true;
+        }
+
+        const Game::EntityHierarchy* HierarchyComponent{ ReadOnlyWorld->GetComponent<Game::EntityHierarchy>(EntityId) };
+        if (HierarchyComponent == nullptr) {
+            return false;
+        }
+
+        Arche::EntityID ChildEntityId{ HierarchyComponent->firstChild };
+        while (ChildEntityId != Arche::NullEntityID) {
+            if (TryResolveMaterialGroupIndexInHierarchy(ReadOnlyWorld, ChildEntityId, OutMaterialGroupIndex) == true) {
+                return true;
+            }
+
+            const Game::EntityHierarchy* ChildHierarchyComponent{ ReadOnlyWorld->GetComponent<Game::EntityHierarchy>(ChildEntityId) };
+            if (ChildHierarchyComponent == nullptr) {
+                break;
+            }
+
+            ChildEntityId = ChildHierarchyComponent->nextSibling;
+        }
+
+        return false;
+    }
+
     bool ShouldSkipEntityInSceneExport(const Game::StaticMeshRenderer* StaticMeshRendererComponent) {
         if (StaticMeshRendererComponent == nullptr || StaticMeshRendererComponent->model == nullptr) {
             return false;
@@ -209,6 +297,129 @@ namespace {
         }
 
         return static_cast<std::size_t>(StaticMeshRendererComponent->nodeIndex) != RootNodeIndex;
+    }
+
+    bool InstantiateModelHierarchy(Game::Scene& OutScene, Arche::EntityID RootEntity, const std::shared_ptr<Game::Model>& ModelData, std::uint32_t MaterialGroupIndex, bool IsActive, Game::SceneYamlLoadResult& InOutLoadResult, const std::string& ModelSelector) {
+        const Game::Model* SourceModel{ ModelData.get() };
+        const std::vector<Game::ModelNode>& ModelNodes{ SourceModel->GetNodes() };
+        const Game::ModelNode* RootNode{ SourceModel->GetRootNode() };
+        if (RootNode == nullptr || ModelNodes.empty()) {
+            InOutLoadResult.IsSuccess = false;
+            InOutLoadResult.UndecidedItems.push_back(std::string{ "Model RootNode 를 찾을 수 없습니다: " } + ModelSelector);
+            return false;
+        }
+
+        const std::size_t RootNodeIndex{ static_cast<std::size_t>(RootNode - ModelNodes.data()) };
+        std::vector<Arche::EntityID> NodeEntities(ModelNodes.size(), Arche::NullEntityID);
+        NodeEntities[RootNodeIndex] = RootEntity;
+
+        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
+            if (NodeIndex != RootNodeIndex) {
+                Arche::EntityID ChildEntity{ OutScene.GetWorld().CreateEntity() };
+                ChildEntity.SetDerivedEntity(true);
+                NodeEntities[NodeIndex] = ChildEntity;
+            }
+
+            Game::Transform NodeTransform{};
+            NodeTransform.nodeToParent = ModelNodes[NodeIndex].GetNodeToParent();
+            NodeTransform.geometryToNode = ModelNodes[NodeIndex].GetGeometryToNode();
+
+            if (NodeIndex == RootNodeIndex) {
+                Game::Transform* ExistingTransform{ OutScene.GetWorld().GetComponent<Game::Transform>(NodeEntities[NodeIndex]) };
+                if (ExistingTransform == nullptr) {
+                    OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeTransform);
+                }
+                else {
+                    ExistingTransform->nodeToParent = NodeTransform.nodeToParent;
+                    ExistingTransform->geometryToNode = NodeTransform.geometryToNode;
+                }
+            }
+            else {
+                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeTransform);
+            }
+
+            const bool HasRenderableGeometry{ ModelNodes[NodeIndex].GetSubMeshes().empty() == false };
+            if (HasRenderableGeometry) {
+                Game::StaticMeshRenderer NodeRenderer{};
+                NodeRenderer.model = ModelData.get();
+                NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
+                NodeRenderer.materialGroupIndex = MaterialGroupIndex;
+                NodeRenderer.active = IsActive;
+                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeRenderer);
+            }
+
+            if (HasRenderableGeometry) {
+                Game::BoundingBox NodeBoundingBox{};
+                NodeBoundingBox.UpdateFromModel(ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
+                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeBoundingBox);
+            }
+
+            Game::EntityHierarchy Hierarchy{};
+            Hierarchy.self = NodeEntities[NodeIndex];
+            if (NodeIndex == RootNodeIndex) {
+                Game::EntityHierarchy* ExistingHierarchy{ OutScene.GetWorld().GetComponent<Game::EntityHierarchy>(NodeEntities[NodeIndex]) };
+                if (ExistingHierarchy == nullptr) {
+                    OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], Hierarchy);
+                }
+                else {
+                    ExistingHierarchy->self = NodeEntities[NodeIndex];
+                }
+            }
+            else {
+                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], Hierarchy);
+            }
+
+            const Game::Name NodeName{ Game::CreateNameComponent(ModelNodes[NodeIndex].GetName()) };
+            if (NodeIndex == RootNodeIndex) {
+                Game::Name* ExistingName{ OutScene.GetWorld().GetComponent<Game::Name>(NodeEntities[NodeIndex]) };
+                if (ExistingName == nullptr) {
+                    OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeName);
+                }
+                else if (Game::GetNameText(*ExistingName)[0] == '\0') {
+                    *ExistingName = NodeName;
+                }
+            }
+            else {
+                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeName);
+            }
+        }
+
+        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
+            Game::EntityHierarchy* ParentHierarchy{ OutScene.GetWorld().GetComponent<Game::EntityHierarchy>(NodeEntities[NodeIndex]) };
+            if (ParentHierarchy == nullptr) {
+                continue;
+            }
+
+            const std::vector<std::uint32_t>& Children{ ModelNodes[NodeIndex].GetChildren() };
+            Arche::EntityID PreviousChild{ Arche::NullEntityID };
+
+            for (std::uint32_t ChildNodeIndex : Children) {
+                if (ChildNodeIndex >= NodeEntities.size()) {
+                    continue;
+                }
+
+                Game::EntityHierarchy* ChildHierarchy{ OutScene.GetWorld().GetComponent<Game::EntityHierarchy>(NodeEntities[ChildNodeIndex]) };
+                if (ChildHierarchy == nullptr) {
+                    continue;
+                }
+
+                ChildHierarchy->parent = NodeEntities[NodeIndex];
+                if (ParentHierarchy->firstChild == Arche::NullEntityID) {
+                    ParentHierarchy->firstChild = NodeEntities[ChildNodeIndex];
+                }
+
+                if (PreviousChild != Arche::NullEntityID) {
+                    Game::EntityHierarchy* PreviousHierarchy{ OutScene.GetWorld().GetComponent<Game::EntityHierarchy>(PreviousChild) };
+                    if (PreviousHierarchy != nullptr) {
+                        PreviousHierarchy->nextSibling = NodeEntities[ChildNodeIndex];
+                    }
+                }
+
+                PreviousChild = NodeEntities[ChildNodeIndex];
+            }
+        }
+
+        return true;
     }
 
     void AppendLine(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& Text) {
@@ -398,18 +609,63 @@ namespace Game {
             }
         }
 
+        std::unordered_map<std::uint64_t, PrefabDescriptor> PrefabDescriptors{};
+        if (RootNode.has_child("Prefabs")) {
+            const c4::yml::ConstNodeRef PrefabsNode{ RootNode["Prefabs"] };
+            for (const c4::yml::ConstNodeRef PrefabNode : PrefabsNode.children()) {
+                PrefabDescriptor Descriptor{};
+
+                if (PrefabNode.has_child("prefabId")) {
+                    PrefabNode["prefabId"] >> Descriptor.PrefabId;
+                }
+
+                if (PrefabNode.has_child("modelPath")) {
+                    std::string ModelPath{};
+                    PrefabNode["modelPath"] >> ModelPath;
+                    Descriptor.ModelSelector = ResolveSceneResourcePath(SceneName, ModelPath);
+                }
+
+                if (PrefabNode.has_child("materialPath")) {
+                    PrefabNode["materialPath"] >> Descriptor.MaterialPath;
+                }
+
+                if (PrefabNode.has_child("active")) {
+                    PrefabNode["active"] >> Descriptor.Active;
+                }
+
+                if (Descriptor.PrefabId != 0ull) {
+                    PrefabDescriptors[Descriptor.PrefabId] = Descriptor;
+                }
+            }
+        }
+
         if (RootNode.has_child("Entities") == false) {
             OutScene.InitializePickingGizmoEntities();
             OutScene.BuildSystemExecutionPlan();
             return LoadResult;
         }
 
+        std::unordered_map<std::int64_t, Arche::EntityID> EntityBySerializedId{};
+        std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredParents{};
         const c4::yml::ConstNodeRef EntitiesNode{ RootNode["Entities"] };
         for (const c4::yml::ConstNodeRef EntityNode : EntitiesNode.children()) {
-            const Arche::EntityID Entity{ OutScene.GetWorld().CreateEntity() };
+            Arche::EntityID Entity{ OutScene.GetWorld().CreateEntity() };
+            Entity.SetDerivedEntity(false);
             EntityHierarchy RootHierarchy{};
             RootHierarchy.self = Entity;
             OutScene.GetWorld().AddComponent(Entity, RootHierarchy);
+
+            std::int64_t SerializedEntityId{ -1 };
+            if (EntityNode.has_child("EntityId")) {
+                EntityNode["EntityId"] >> SerializedEntityId;
+                EntityBySerializedId[SerializedEntityId] = Entity;
+            }
+
+            if (EntityNode.has_child("ParentEntityId")) {
+                std::int64_t SerializedParentId{ -1 };
+                EntityNode["ParentEntityId"] >> SerializedParentId;
+                DeferredParents.push_back(std::pair<Arche::EntityID, std::int64_t>{ Entity, SerializedParentId });
+            }
 
             const c4::yml::ConstNodeRef ComponentsNode{ EntityNode.has_child("Components") ? EntityNode["Components"] : EntityNode };
             if (ComponentsNode.readable() == false || ComponentsNode.is_map() == false) {
@@ -421,7 +677,7 @@ namespace Game {
                 if (NameNode.has_child("text")) {
                     std::string NameText{};
                     NameNode["text"] >> NameText;
-                    const Name NewName{ CreateNameComponent(NameText) };
+                    const Name NewName{ Game::CreateNameComponent(NameText) };
                     OutScene.GetWorld().AddComponent(Entity, NewName);
                 }
             }
@@ -449,6 +705,53 @@ namespace Game {
             }
 
             std::uint32_t MaterialGroupIndexForModel{ 0 };
+            bool HasPrefabInstance{ false };
+            std::string PrefabModelSelector{};
+            bool PrefabIsActive{ true };
+
+            if (ComponentsNode.has_child(PrefabInstanceTypeName)) {
+                PrefabInstance NewPrefabInstance{};
+                const c4::yml::ConstNodeRef PrefabNode{ ComponentsNode[PrefabInstanceTypeName] };
+                if (PrefabNode.has_child("prefabId")) {
+                    PrefabNode["prefabId"] >> NewPrefabInstance.PrefabId;
+                }
+
+                if (NewPrefabInstance.PrefabId != 0ull) {
+                    OutScene.GetWorld().AddComponent(Entity, NewPrefabInstance);
+                    const std::unordered_map<std::uint64_t, PrefabDescriptor>::const_iterator PrefabIter{ PrefabDescriptors.find(NewPrefabInstance.PrefabId) };
+                    if (PrefabIter == PrefabDescriptors.end()) {
+                        LoadResult.IsSuccess = false;
+                        LoadResult.UndecidedItems.push_back(std::string{ "Prefab descriptor 를 찾을 수 없습니다. prefabId: " } + std::to_string(NewPrefabInstance.PrefabId));
+                    }
+                    else {
+                        HasPrefabInstance = true;
+                        PrefabModelSelector = PrefabIter->second.ModelSelector;
+                        PrefabIsActive = PrefabIter->second.Active;
+
+                        if (PrefabIter->second.MaterialPath.empty() == false) {
+                            const std::string ResolvedPrefabMaterialPath{ ResolveSceneResourcePath(SceneName, PrefabIter->second.MaterialPath) };
+                            const bool IsLoaded{ OutScene.GetAssetRegistry().LoadMaterialGroups(ResolvedPrefabMaterialPath) };
+                            if (IsLoaded == false) {
+                                LoadResult.IsSuccess = false;
+                                LoadResult.UndecidedItems.push_back(std::string{ "Prefab Material 파일 로드 실패: " } + ResolvedPrefabMaterialPath);
+                            }
+                            else {
+                                const std::uint32_t MaterialGroupIndex{ OutScene.GetAssetRegistry().FindMaterialGroupIndexBySourcePath(ResolvedPrefabMaterialPath) };
+                                if (MaterialGroupIndex == static_cast<std::uint32_t>(-1)) {
+                                    LoadResult.IsSuccess = false;
+                                    LoadResult.UndecidedItems.push_back(std::string{ "Prefab MaterialGroupIndex 해석 실패: " } + ResolvedPrefabMaterialPath);
+                                }
+                                else {
+                                    MaterialGroupIndexForModel = MaterialGroupIndex;
+                                }
+                            }
+                        }
+                        else {
+                            MaterialGroupIndexForModel = 0;
+                        }
+                    }
+                }
+            }
 
             if (ComponentsNode.has_child(MaterialTypeName)) {
                 Material NewMaterial{};
@@ -460,8 +763,7 @@ namespace Game {
                 }
 
                 if (MaterialPath.empty()) {
-                    LoadResult.IsSuccess = false;
-                    LoadResult.UndecidedItems.push_back(std::string{ "Material 컴포넌트의 materialPath 가 비어 있습니다." });
+                    NewMaterial.MaterialGroupIndex = 0;
                 }
                 else {
                     const std::string ResolvedMaterialPath{ ResolveSceneResourcePath(SceneName, MaterialPath) };
@@ -488,15 +790,29 @@ namespace Game {
                 OutScene.GetWorld().AddComponent(Entity, NewMaterial);
             }
 
-            if (ComponentsNode.has_child(StaticMeshRendererTypeName)) {
+            bool HasInstantiatedPrefabModel{ false };
+            if (HasPrefabInstance == true && PrefabModelSelector.empty() == false) {
+                const std::shared_ptr<Model> ModelData{ OutScene.GetAssetRegistry().GetModel(PrefabModelSelector) };
+                if (ModelData == nullptr) {
+                    LoadResult.IsSuccess = false;
+                    LoadResult.UndecidedItems.push_back(std::string{ "Prefab modelPath 로 Model 로드 실패: " } + PrefabModelSelector);
+                }
+                else {
+                    HasInstantiatedPrefabModel = InstantiateModelHierarchy(OutScene, Entity, ModelData, MaterialGroupIndexForModel, PrefabIsActive, LoadResult, PrefabModelSelector);
+                }
+            }
+
+            if (ComponentsNode.has_child(StaticMeshRendererTypeName) && HasInstantiatedPrefabModel == false) {
                 const c4::yml::ConstNodeRef StaticMeshRendererNode{ ComponentsNode[StaticMeshRendererTypeName] };
                 if (StaticMeshRendererNode.has_child("modelPath") || StaticMeshRendererNode.has_child("modelPrimitive")) {
                     std::string ModelSelector{};
                     std::string ResolvedModelPath{};
                     bool IsActive{ true };
+
                     if (StaticMeshRendererNode.has_child("active")) {
                         StaticMeshRendererNode["active"] >> IsActive;
                     }
+
                     if (StaticMeshRendererNode.has_child("modelPrimitive")) {
                         StaticMeshRendererNode["modelPrimitive"] >> ModelSelector;
                         float PrimitiveSize{ 1.0f };
@@ -504,14 +820,18 @@ namespace Game {
                             StaticMeshRendererNode["modelPrimitiveSize"] >> PrimitiveSize;
                         }
 
-                        std::array<float, 4> PrimitiveColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+                        std::array<float, 4> PrimitiveColor{ { 1.0f, 1.0f, 1.0f, 1.0f } };
                         if (StaticMeshRendererNode.has_child("modelPrimitiveColor")) {
                             ReadColor4(StaticMeshRendererNode["modelPrimitiveColor"], PrimitiveColor.data());
                         }
 
-                        if (ModelSelector.empty() == false) {
-                            ModelSelector = BuildPrimitiveSelector(ModelSelector, PrimitiveSize, PrimitiveColor);
+                        const bool IsPrimitiveSelectorPrefixed{ StartsWith(ModelSelector, "primitive:") };
+                        if (IsPrimitiveSelectorPrefixed == false) {
+                            ModelSelector = std::string{ "primitive:" } + ModelSelector;
                         }
+
+                        ModelSelector = BuildPrimitiveSelector(ModelSelector, PrimitiveSize, PrimitiveColor);
+                        ResolvedModelPath = ModelSelector;
                     }
 
                     if (ModelSelector.empty() && StaticMeshRendererNode.has_child("modelPath")) {
@@ -521,132 +841,18 @@ namespace Game {
                         ModelSelector = ResolvedModelPath;
                     }
 
-                    const std::shared_ptr<Model> ModelData{ OutScene.GetAssetRegistry().GetModel(ModelSelector) };
-                    if (ModelData == nullptr) {
+                    if (ModelSelector.empty()) {
                         LoadResult.IsSuccess = false;
-                        if (ResolvedModelPath.empty()) {
-                            LoadResult.UndecidedItems.push_back(std::string{ "modelPrimitive 로 Model 로드 실패: " } + ModelSelector);
-                        }
-                        else {
-                            LoadResult.UndecidedItems.push_back(std::string{ "modelPath 로 Model 로드 실패: " } + ResolvedModelPath);
-                        }
+                        LoadResult.UndecidedItems.push_back("StaticMeshRenderer 의 modelPath/modelPrimitive 해석 실패");
                     }
                     else {
-                        const Model* SourceModel{ ModelData.get() };
-                        const std::vector<ModelNode>& ModelNodes{ SourceModel->GetNodes() };
-                        const ModelNode* RootNode{ SourceModel->GetRootNode() };
-                        if (RootNode == nullptr || ModelNodes.empty()) {
+                        const std::shared_ptr<Model> ModelData{ OutScene.GetAssetRegistry().GetModel(ModelSelector) };
+                        if (ModelData == nullptr) {
                             LoadResult.IsSuccess = false;
-                            LoadResult.UndecidedItems.push_back(std::string{ "Model RootNode 를 찾을 수 없습니다: " } + ModelSelector);
+                            LoadResult.UndecidedItems.push_back(std::string{ "modelPath 로 Model 로드 실패: " } + ResolvedModelPath);
                         }
                         else {
-                            const std::size_t RootNodeIndex{ static_cast<std::size_t>(RootNode - ModelNodes.data()) };
-                            std::vector<Arche::EntityID> NodeEntities(ModelNodes.size(), Arche::NullEntityID);
-                            NodeEntities[RootNodeIndex] = Entity;
-
-                            for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
-                                if (NodeIndex != RootNodeIndex) {
-                                    NodeEntities[NodeIndex] = OutScene.GetWorld().CreateEntity();
-                                }
-
-                                Transform NodeTransform{};
-                                NodeTransform.nodeToParent = ModelNodes[NodeIndex].GetNodeToParent();
-                                NodeTransform.geometryToNode = ModelNodes[NodeIndex].GetGeometryToNode();
-
-                                if (NodeIndex == RootNodeIndex) {
-                                    Transform* ExistingTransform{ OutScene.GetWorld().GetComponent<Transform>(NodeEntities[NodeIndex]) };
-                                    if (ExistingTransform == nullptr) {
-                                        OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeTransform);
-                                    }
-                                    else {
-                                        ExistingTransform->nodeToParent = NodeTransform.nodeToParent;
-                                        ExistingTransform->geometryToNode = NodeTransform.geometryToNode;
-                                    }
-                                }
-                                else {
-                                    OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeTransform);
-                                }
-
-                                const bool HasRenderableGeometry{ ModelNodes[NodeIndex].GetSubMeshes().empty() == false };
-                                if (HasRenderableGeometry) {
-                                    StaticMeshRenderer NodeRenderer{};
-                                    NodeRenderer.model = ModelData.get();
-                                    NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
-                                    NodeRenderer.materialGroupIndex = MaterialGroupIndexForModel;
-                                    NodeRenderer.active = IsActive;
-                                    OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeRenderer);
-                                }
-
-                                if (HasRenderableGeometry) {
-                                    BoundingBox NodeBoundingBox{};
-                                    NodeBoundingBox.UpdateFromModel(ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
-                                    OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeBoundingBox);
-                                }
-
-                                EntityHierarchy Hierarchy{};
-                                Hierarchy.self = NodeEntities[NodeIndex];
-                                if (NodeIndex == RootNodeIndex) {
-                                    EntityHierarchy* ExistingHierarchy{ OutScene.GetWorld().GetComponent<EntityHierarchy>(NodeEntities[NodeIndex]) };
-                                    if (ExistingHierarchy == nullptr) {
-                                        OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], Hierarchy);
-                                    }
-                                    else {
-                                        ExistingHierarchy->self = NodeEntities[NodeIndex];
-                                    }
-                                }
-                                else {
-                                    OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], Hierarchy);
-                                }
-
-                                const Name NodeName{ CreateNameComponent(ModelNodes[NodeIndex].GetName()) };
-                                if (NodeIndex == RootNodeIndex) {
-                                    Name* ExistingName{ OutScene.GetWorld().GetComponent<Name>(NodeEntities[NodeIndex]) };
-                                    if (ExistingName == nullptr) {
-                                        OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeName);
-                                    }
-                                    else if (GetNameText(*ExistingName)[0] == '\0') {
-                                        *ExistingName = NodeName;
-                                    }
-                                }
-                                else {
-                                    OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeName);
-                                }
-                            }
-
-                            for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
-                                EntityHierarchy* ParentHierarchy{ OutScene.GetWorld().GetComponent<EntityHierarchy>(NodeEntities[NodeIndex]) };
-                                if (ParentHierarchy == nullptr) {
-                                    continue;
-                                }
-
-                                const std::vector<std::uint32_t>& Children{ ModelNodes[NodeIndex].GetChildren() };
-                                Arche::EntityID PreviousChild{ Arche::NullEntityID };
-
-                                for (std::uint32_t ChildNodeIndex : Children) {
-                                    if (ChildNodeIndex >= NodeEntities.size()) {
-                                        continue;
-                                    }
-
-                                    EntityHierarchy* ChildHierarchy{ OutScene.GetWorld().GetComponent<EntityHierarchy>(NodeEntities[ChildNodeIndex]) };
-                                    if (ChildHierarchy == nullptr) {
-                                        continue;
-                                    }
-
-                                    ChildHierarchy->parent = NodeEntities[NodeIndex];
-                                    if (ParentHierarchy->firstChild == Arche::NullEntityID) {
-                                        ParentHierarchy->firstChild = NodeEntities[ChildNodeIndex];
-                                    }
-
-                                    if (PreviousChild != Arche::NullEntityID) {
-                                        EntityHierarchy* PreviousHierarchy{ OutScene.GetWorld().GetComponent<EntityHierarchy>(PreviousChild) };
-                                        if (PreviousHierarchy != nullptr) {
-                                            PreviousHierarchy->nextSibling = NodeEntities[ChildNodeIndex];
-                                        }
-                                    }
-
-                                    PreviousChild = NodeEntities[ChildNodeIndex];
-                                }
-                            }
+                            InstantiateModelHierarchy(OutScene, Entity, ModelData, MaterialGroupIndexForModel, IsActive, LoadResult, ModelSelector);
                         }
                     }
                 }
@@ -772,6 +978,40 @@ namespace Game {
             }
         }
 
+        for (const std::pair<Arche::EntityID, std::int64_t>& DeferredParent : DeferredParents) {
+            const std::unordered_map<std::int64_t, Arche::EntityID>::const_iterator ParentIter{ EntityBySerializedId.find(DeferredParent.second) };
+            if (ParentIter == EntityBySerializedId.end()) {
+                continue;
+            }
+
+            Game::EntityHierarchy* ChildHierarchy{ OutScene.GetWorld().GetComponent<Game::EntityHierarchy>(DeferredParent.first) };
+            Game::EntityHierarchy* ParentHierarchy{ OutScene.GetWorld().GetComponent<Game::EntityHierarchy>(ParentIter->second) };
+            if (ChildHierarchy == nullptr || ParentHierarchy == nullptr) {
+                continue;
+            }
+
+            ChildHierarchy->parent = ParentIter->second;
+            if (ParentHierarchy->firstChild == Arche::NullEntityID) {
+                ParentHierarchy->firstChild = DeferredParent.first;
+            }
+            else {
+                Arche::EntityID SiblingEntityId{ ParentHierarchy->firstChild };
+                while (SiblingEntityId != Arche::NullEntityID) {
+                    Game::EntityHierarchy* SiblingHierarchy{ OutScene.GetWorld().GetComponent<Game::EntityHierarchy>(SiblingEntityId) };
+                    if (SiblingHierarchy == nullptr) {
+                        break;
+                    }
+
+                    if (SiblingHierarchy->nextSibling == Arche::NullEntityID) {
+                        SiblingHierarchy->nextSibling = DeferredParent.first;
+                        break;
+                    }
+
+                    SiblingEntityId = SiblingHierarchy->nextSibling;
+                }
+            }
+        }
+
         OutScene.InitializePickingGizmoEntities();
         OutScene.BuildSystemExecutionPlan();
         return LoadResult;
@@ -830,12 +1070,91 @@ namespace Game {
             }
         }
 
+        std::unordered_map<std::uint64_t, PrefabDescriptor> PrefabDescriptors{};
+        for (const SceneWorldSnapshot::SceneEntitySnapshot& EntitySnapshot : TargetSnapshot.GetEntities()) {
+            const Arche::EntityID EntityId{ EntitySnapshot.mEntityId };
+            if (EntityId.IsDerivedEntity()) {
+                continue;
+            }
+
+            const PrefabInstance* PrefabInstanceComponent{ ReadOnlyWorld->GetComponent<PrefabInstance>(EntityId) };
+            if (PrefabInstanceComponent == nullptr || PrefabInstanceComponent->PrefabId == 0ull) {
+                continue;
+            }
+
+            PrefabDescriptor Descriptor{};
+            Descriptor.PrefabId = PrefabInstanceComponent->PrefabId;
+
+            const StaticMeshRenderer* ResolvedRenderer{ nullptr };
+            if (TryFindRendererInHierarchy(ReadOnlyWorld, EntityId, ResolvedRenderer) == true && ResolvedRenderer != nullptr) {
+                const std::string ModelSelector{ AssetRegistryInstance->FindModelSelectorByPointer(ResolvedRenderer->model) };
+                Descriptor.ModelSelector = MakeSceneRelativeResourcePath(TargetSnapshot.GetSceneName(), ModelSelector);
+                Descriptor.Active = ResolvedRenderer->active;
+            }
+
+            std::uint32_t ResolvedMaterialGroupIndex{ 0 };
+            if (TryResolveMaterialGroupIndexInHierarchy(ReadOnlyWorld, EntityId, ResolvedMaterialGroupIndex) == true) {
+                const std::string MaterialPath{ AssetRegistryInstance->FindMaterialGroupSourcePathByIndex(ResolvedMaterialGroupIndex) };
+                if (IsDefaultMaterialPath(MaterialPath) == false) {
+                    Descriptor.MaterialPath = MakeSceneRelativeResourcePath(TargetSnapshot.GetSceneName(), MaterialPath);
+                }
+            }
+
+            PrefabDescriptors[Descriptor.PrefabId] = Descriptor;
+        }
+
+        if (PrefabDescriptors.empty() == false) {
+            AppendLine(Stream, 0, "Prefabs:");
+            for (const std::pair<const std::uint64_t, PrefabDescriptor>& PrefabPair : PrefabDescriptors) {
+                const PrefabDescriptor& Descriptor{ PrefabPair.second };
+                AppendLine(Stream, 1, std::string{ "- &Prefab" } + std::to_string(Descriptor.PrefabId));
+                AppendLine(Stream, 2, std::string{ "prefabId: " } + std::to_string(Descriptor.PrefabId));
+                if (Descriptor.ModelSelector.empty()) {
+                    SaveResult.IsSuccess = false;
+                    SaveResult.UndecidedItems.push_back(std::string{ "PrefabId 에 대응되는 modelPath 를 찾지 못했습니다: " } + std::to_string(Descriptor.PrefabId));
+                }
+
+                AppendLine(Stream, 2, std::string{ "modelPath: " } + ToYamlText(Descriptor.ModelSelector));
+                AppendLine(Stream, 2, std::string{ "materialPath: " } + ToYamlText(Descriptor.MaterialPath));
+                AppendLine(Stream, 2, std::string{ "active: " } + ToYamlBooleanText(Descriptor.Active));
+            }
+        }
+
         AppendLine(Stream, 0, "Entities:");
+
+        std::unordered_map<Arche::EntityID, std::uint32_t> SerializedEntityIds{};
+        std::uint32_t NextSerializedEntityId{ 0 };
+        for (const SceneWorldSnapshot::SceneEntitySnapshot& EntitySnapshot : TargetSnapshot.GetEntities()) {
+            if (EntitySnapshot.mEntityId.IsDerivedEntity()) {
+                continue;
+            }
+
+            SerializedEntityIds[EntitySnapshot.mEntityId] = NextSerializedEntityId;
+            NextSerializedEntityId += 1;
+        }
 
         for (const SceneWorldSnapshot::SceneEntitySnapshot& EntitySnapshot : TargetSnapshot.GetEntities()) {
             const Arche::EntityID EntityId{ EntitySnapshot.mEntityId };
-            const Name* NameComponent{ ReadOnlyWorld->GetComponent<Name>(EntityId) };
-            const Transform* TransformComponent{ ReadOnlyWorld->GetComponent<Transform>(EntityId) };
+            if (EntityId.IsDerivedEntity()) {
+                continue;
+            }
+
+            const std::unordered_map<Arche::EntityID, std::uint32_t>::const_iterator SerializedEntityIter{ SerializedEntityIds.find(EntityId) };
+            if (SerializedEntityIter == SerializedEntityIds.end()) {
+                continue;
+            }
+
+            AppendLine(Stream, 1, std::string{ "- EntityId: " } + std::to_string(SerializedEntityIter->second));
+            const std::unordered_map<Arche::EntityID, std::uint32_t>::const_iterator SerializedParentIter{ SerializedEntityIds.find(EntitySnapshot.mParentId) };
+            if (SerializedParentIter == SerializedEntityIds.end()) {
+                AppendLine(Stream, 2, "ParentEntityId: -1");
+            }
+            else {
+                AppendLine(Stream, 2, std::string{ "ParentEntityId: " } + std::to_string(SerializedParentIter->second));
+            }
+
+            const Name* NameComponent{ ReadOnlyWorld->GetComponent<Game::Name>(EntityId) };
+            const Transform* TransformComponent{ ReadOnlyWorld->GetComponent<Game::Transform>(EntityId) };
             const Material* MaterialComponent{ ReadOnlyWorld->GetComponent<Material>(EntityId) };
             const StaticMeshRenderer* StaticMeshRendererComponent{ ReadOnlyWorld->GetComponent<StaticMeshRenderer>(EntityId) };
             const Camera* CameraComponent{ ReadOnlyWorld->GetComponent<Camera>(EntityId) };
@@ -846,11 +1165,11 @@ namespace Game {
                 continue;
             }
 
-            AppendLine(Stream, 1, "- Components:");
+            AppendLine(Stream, 2, "Components:");
 
             if (NameComponent != nullptr) {
                 AppendLine(Stream, 3, std::string{ NameTypeName } + std::string{ ":" });
-                AppendLine(Stream, 4, std::string{ "text: " } + ToYamlText(GetNameText(*NameComponent)));
+                AppendLine(Stream, 4, std::string{ "text: " } + ToYamlText(Game::GetNameText(*NameComponent)));
             }
 
             if (TransformComponent != nullptr) {
@@ -869,11 +1188,18 @@ namespace Game {
                     SaveResult.UndecidedItems.push_back(std::string{ "MaterialGroupIndex 에 대응되는 materialPath 를 찾지 못했습니다: " } + std::to_string(MaterialComponent->MaterialGroupIndex));
                 }
 
-                const std::string MaterialPathForYaml{ MakeSceneRelativeResourcePath(TargetSnapshot.GetSceneName(), MaterialPath) };
+                const std::string MaterialPathForYaml{ IsDefaultMaterialPath(MaterialPath) ? std::string{} : MakeSceneRelativeResourcePath(TargetSnapshot.GetSceneName(), MaterialPath) };
                 AppendLine(Stream, 4, std::string{ "materialPath: " } + ToYamlText(MaterialPathForYaml));
             }
 
-            if (StaticMeshRendererComponent != nullptr) {
+            const PrefabInstance* PrefabInstanceComponent{ ReadOnlyWorld->GetComponent<PrefabInstance>(EntityId) };
+            if (PrefabInstanceComponent != nullptr && PrefabInstanceComponent->PrefabId != 0ull) {
+                AppendLine(Stream, 3, std::string{ PrefabInstanceTypeName } + std::string{ ":" });
+                AppendLine(Stream, 4, std::string{ "<<: *Prefab" } + std::to_string(PrefabInstanceComponent->PrefabId));
+                AppendLine(Stream, 4, std::string{ "prefabId: " } + std::to_string(PrefabInstanceComponent->PrefabId));
+            }
+
+            if (StaticMeshRendererComponent != nullptr && PrefabInstanceComponent == nullptr) {
                 AppendLine(Stream, 3, std::string{ StaticMeshRendererTypeName } + std::string{ ":" });
                 const std::string ModelSelector{ AssetRegistryInstance->FindModelSelectorByPointer(StaticMeshRendererComponent->model) };
                 if (ModelSelector.empty()) {

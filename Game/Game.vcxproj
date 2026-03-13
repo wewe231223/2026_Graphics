@@ -38,6 +38,8 @@
     <ClInclude Include="Scene\Components\Material.h" />
     <ClInclude Include="Scene\Components\Name.h" />
     <ClInclude Include="Scene\Components\ComponentInspection.h" />
+    <ClInclude Include="Scene\Components\PickingGizmo.h" />
+    <ClInclude Include="Scene\Components\PrefabInstance.h" />
     <ClInclude Include="Scene\Components\StaticMeshRenderer.h" />
     <ClInclude Include="Scene\Components\Tags.h" />
     <ClInclude Include="Scene\Components\Transform.h" />
@@ -62,6 +64,7 @@
     <ClCompile Include="Model\AssetRegistryBackEnd.cpp" />
     <ClCompile Include="Model\Model.cpp" />
     <ClCompile Include="Model\PrimitiveModelFactory.cpp" />
+    <ClCompile Include="Scene\Components\PrefabInstance.cpp" />
     <ClCompile Include="Scene\Scene.cpp" />
     <ClCompile Include="Scene\SceneWorldSnapshot.cpp" />
     <ClCompile Include="Scene\SceneYamlSerializer.cpp" />
@@ -69,6 +72,10 @@
     <ClCompile Include="Scene\SystemSceduler.cpp" />
     <ClCompile Include="Scene\Components\Transform.cpp" />
     <ClCompile Include="Scene\Components\Name.cpp" />
+    <ClCompile Include="Scene\Components\Material.cpp" />
+    <ClCompile Include="Scene\Components\EntityHierarchy.cpp" />
+    <ClCompile Include="Scene\Components\Tags.cpp" />
+    <ClCompile Include="Scene\Components\Intents\CameraIntent.cpp" />
     <ClCompile Include="Scene\Components\BoundingBox.cpp" />
     <ClCompile Include="Scene\Components\Camera.cpp" />
     <ClCompile Include="Scene\Components\Frustum.cpp" />

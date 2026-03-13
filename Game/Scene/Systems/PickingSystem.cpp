@@ -24,10 +24,6 @@
 #endif 
 
 namespace {
-    std::uint64_t PackEntityIdKey(Arche::EntityID EntityId) {
-        return (static_cast<std::uint64_t>(EntityId.generation) << 32ull) | static_cast<std::uint64_t>(EntityId.index);
-    }
-
     SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
         const SimpleMath::Matrix TrsMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
         return TransformComponent.nodeToParent * TrsMatrix;
@@ -78,8 +74,8 @@ namespace {
         }
     }
 
-    bool TryResolveEntityWorldMatrix(const std::unordered_map<std::uint64_t, SimpleMath::Matrix>& WorldMatrices, Arche::EntityID EntityId, SimpleMath::Matrix& OutWorld) {
-        const auto FoundWorldMatrix{ WorldMatrices.find(PackEntityIdKey(EntityId)) };
+    bool TryResolveEntityWorldMatrix(const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices, Arche::EntityID EntityId, SimpleMath::Matrix& OutWorld) {
+        const auto FoundWorldMatrix{ WorldMatrices.find(EntityId) };
         if (FoundWorldMatrix == WorldMatrices.end()) {
             return false;
         }
@@ -88,7 +84,7 @@ namespace {
         return true;
     }
 
-    bool TryResolveEntityWorldAndBounds(const std::unordered_map<std::uint64_t, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, Arche::EntityID EntityId, SimpleMath::Matrix& OutWorld, DirectX::BoundingOrientedBox& OutWorldBounds) {
+    bool TryResolveEntityWorldAndBounds(const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, Arche::EntityID EntityId, SimpleMath::Matrix& OutWorld, DirectX::BoundingOrientedBox& OutWorldBounds) {
         const Game::BoundingBox* BoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(EntityId) };
         if (BoundingBoxComponent == nullptr) {
             return false;
@@ -125,7 +121,7 @@ namespace {
         return true;
     }
 
-    void AccumulateSubtreeBounds(const std::unordered_map<std::uint64_t, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, Arche::EntityID EntityId, bool& InOutHasBounds, SimpleMath::Vector3& InOutMinimum, SimpleMath::Vector3& InOutMaximum) {
+    void AccumulateSubtreeBounds(const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, Arche::EntityID EntityId, bool& InOutHasBounds, SimpleMath::Vector3& InOutMinimum, SimpleMath::Vector3& InOutMaximum) {
         const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(EntityId) };
         if (HierarchyComponent == nullptr) {
             return;
@@ -169,7 +165,7 @@ namespace {
         }
     }
 
-    bool TryResolveMergedSubtreeBounds(const std::unordered_map<std::uint64_t, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, Arche::EntityID RootEntityId, SimpleMath::Vector3& OutCenter, SimpleMath::Vector3& OutExtents) {
+    bool TryResolveMergedSubtreeBounds(const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, Arche::EntityID RootEntityId, SimpleMath::Vector3& OutCenter, SimpleMath::Vector3& OutExtents) {
         SimpleMath::Matrix RootWorld{};
         if (TryResolveEntityWorldMatrix(WorldMatrices, RootEntityId, RootWorld) == false) {
             return false;
@@ -229,7 +225,7 @@ namespace {
         return true;
     }
 
-    void UpdatePickingGizmos(const std::unordered_map<std::uint64_t, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, Arche::EntityID PickedEntityId, Arche::EntityID HoveredGizmoEntityId) {
+    void UpdatePickingGizmos(const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, Arche::EntityID PickedEntityId, Arche::EntityID HoveredGizmoEntityId) {
         DeactivatePickingGizmos(World);
         if (PickedEntityId == Arche::NullEntityID) {
             return;
@@ -284,7 +280,7 @@ namespace {
         }
     }
 
-    void ResolvePickedEntityRecursive(const std::unordered_map<std::uint64_t, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, Arche::EntityID EntityId, DirectX::FXMVECTOR RayOrigin, DirectX::FXMVECTOR RayDirection, float& InOutNearestDistance, Arche::EntityID& InOutPickedEntityId) {
+    void ResolvePickedEntityRecursive(const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, Arche::EntityID EntityId, DirectX::FXMVECTOR RayOrigin, DirectX::FXMVECTOR RayDirection, float& InOutNearestDistance, Arche::EntityID& InOutPickedEntityId) {
         const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(EntityId) };
         const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(EntityId) };
 
@@ -354,7 +350,7 @@ namespace {
         return TopLevelEntityId;
     }
 
-    Arche::EntityID ResolveHoveredGizmoEntity(const std::unordered_map<std::uint64_t, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, DirectX::FXMVECTOR RayOrigin, DirectX::FXMVECTOR RayDirection) {
+    Arche::EntityID ResolveHoveredGizmoEntity(const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, DirectX::FXMVECTOR RayOrigin, DirectX::FXMVECTOR RayDirection) {
         float NearestDistance{ std::numeric_limits<float>::max() };
         Arche::EntityID HoveredGizmoEntityId{ Arche::NullEntityID };
 

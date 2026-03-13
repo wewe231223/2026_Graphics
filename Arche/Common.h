@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include "TypeSystem.h" 
 
@@ -17,16 +18,21 @@ namespace Arche {
     struct EntityID {
         std::uint32_t index;
         std::uint32_t generation;
+        std::uint64_t flags;
+
+        static constexpr std::uint64_t DerivedEntityFlagMask{ 1ull << 63ull };
 
         EntityID() = default;
-        EntityID(std::uint32_t Index, std::uint32_t Generation)
+        EntityID(std::uint32_t Index, std::uint32_t Generation, std::uint64_t Flags = 0ull)
             : index{ Index },
-            generation{ Generation } {
+            generation{ Generation },
+            flags{ Flags } {
         }
 
         EntityID(NullEntityIDTag)
             : index{ std::numeric_limits<std::uint32_t>::max() },
-            generation{ std::numeric_limits<std::uint32_t>::max() } {
+            generation{ std::numeric_limits<std::uint32_t>::max() },
+            flags{ std::numeric_limits<std::uint64_t>::max() } {
         }
 
         bool operator==(const EntityID& Other) const {
@@ -35,6 +41,19 @@ namespace Arche {
 
         bool operator!=(const EntityID& Other) const {
             return !(*this == Other);
+        }
+
+        bool IsDerivedEntity() const {
+            return (flags & DerivedEntityFlagMask) != 0ull;
+        }
+
+        void SetDerivedEntity(bool IsDerivedEntityFlag) {
+            if (IsDerivedEntityFlag == true) {
+                flags |= DerivedEntityFlagMask;
+                return;
+            }
+
+            flags &= ~DerivedEntityFlagMask;
         }
     };
 
@@ -58,3 +77,14 @@ namespace Arche {
     static_assert(sizeof(Chunk) <= CHUNK_SIZE, "Chunk size exceeds allocated memory!");
 
 } // namespace Arche
+
+namespace std {
+    template<>
+    struct hash<Arche::EntityID> {
+        std::size_t operator()(const Arche::EntityID& Value) const noexcept {
+            const std::size_t IndexHash{ std::hash<std::uint32_t>{}(Value.index) };
+            const std::size_t GenerationHash{ std::hash<std::uint32_t>{}(Value.generation) };
+            return IndexHash ^ (GenerationHash + 0x9e3779b97f4a7c15ull + (IndexHash << 6) + (IndexHash >> 2));
+        }
+    };
+}

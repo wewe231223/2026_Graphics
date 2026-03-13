@@ -167,6 +167,18 @@
     <ClCompile Include="Scene\Components\Name.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Components\Material.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\EntityHierarchy.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\Tags.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\Intents\CameraIntent.cpp">
+      <Filter>Scene\Components\Intents</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\Components\BoundingBox.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>

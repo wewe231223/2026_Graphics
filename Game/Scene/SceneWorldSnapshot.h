@@ -46,8 +46,6 @@ namespace Game {
         const std::vector<std::uint32_t>& GetRootIndices() const;
         const std::vector<std::uint32_t>& GetChildIndices(std::uint32_t EntityIndex) const;
 
-    private:
-        std::uint64_t ToEntityKey(Arche::EntityID EntityId) const;
 
     private:
         const Arche::World::WorldReadOnlyView* mReadOnlyWorld{};

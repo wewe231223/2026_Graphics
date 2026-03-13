@@ -105,10 +105,15 @@ add_library(Game STATIC
     Game/Scene/SystemSceduler.cpp
     Game/Scene/Components/Transform.cpp
     Game/Scene/Components/Name.cpp
+    Game/Scene/Components/Material.cpp
+    Game/Scene/Components/EntityHierarchy.cpp
+    Game/Scene/Components/Tags.cpp
+    Game/Scene/Components/Intents/CameraIntent.cpp
     Game/Scene/Components/StaticMeshRenderer.cpp
     Game/Scene/Components/BoundingBox.cpp
     Game/Scene/Components/Camera.cpp
     Game/Scene/Components/Frustum.cpp
+    Game/Scene/Components/PrefabInstance.cpp
     Game/Scene/Components/ComponentInspection.cpp
     Game/Scene/Systems/CameraInputSystem.cpp
     Game/Scene/Systems/CameraRenderSystem.cpp

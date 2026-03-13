@@ -52,7 +52,7 @@ namespace Game {
 
     private:
         void RebuildWorldSnapshot();
-        void SpawnModelAtOrigin(const std::string& ModelSelector, const std::string& RootEntityName, std::uint32_t MaterialGroupIndex);
+        void SpawnModelAtOrigin(const std::string& ModelSelector, const std::string& RootEntityName, std::uint32_t MaterialGroupIndex, bool IsDerivedEntity);
 
     private:
         std::string mName{};

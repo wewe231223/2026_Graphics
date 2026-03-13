@@ -11,53 +11,52 @@ DefaultTransform: &DefaultTransform
   rotation: [0.0, 0.0, 0.0, 1.0]
   scale: [1.0, 1.0, 1.0]
 
-DefaultStaticMeshRenderer: &DefaultStaticMeshRenderer
-  modelPath: testset.bin
-
-DefaultMaterial: &DefaultMaterial
-  materialPath: testset_materials.json
-
-model1 : &model1
-  modelPath: testset2.bin
-
-mat1 : &mat1
-  materialPath: testset2_materials.json
-
-primitiveMat : &primitiveMat
-  materialPath: primitive_vertex_color_materials.json
-
-PrimitiveBoxRenderer: &PrimitiveBoxRenderer
-  modelPrimitive: primitive:box
-  modelPrimitiveSize: 1.37
-  modelPrimitiveColor: [0.91, 0.23, 0.48, 1.0]
-
-PrimitiveSphereRenderer: &PrimitiveSphereRenderer
-  modelPrimitive: primitive:sphere
-  modelPrimitiveSize: 0.84
-  modelPrimitiveColor: [0.17, 0.79, 0.63, 1.0]
-
-PrimitiveCylinderRenderer: &PrimitiveCylinderRenderer
-  modelPrimitive: primitive:cylinder
-  modelPrimitiveSize: 1.62
-  modelPrimitiveColor: [0.34, 0.41, 0.92, 1.0]
-
-PrimitiveConeRenderer: &PrimitiveConeRenderer
-  modelPrimitive: primitive:cone
-  modelPrimitiveSize: 1.11
-  modelPrimitiveColor: [0.96, 0.66, 0.12, 1.0]
-
-PrimitiveTriangularPyramidRenderer: &PrimitiveTriangularPyramidRenderer
-  modelPrimitive: primitive:triangular_pyramid
-  modelPrimitiveSize: 1.48
-  modelPrimitiveColor: [0.58, 0.19, 0.87, 1.0]
-
-PrimitiveSquarePyramidRenderer: &PrimitiveSquarePyramidRenderer
-  modelPrimitive: primitive:square_pyramid
-  modelPrimitiveSize: 0.95
-  modelPrimitiveColor: [0.24, 0.93, 0.31, 1.0]
+Prefabs:
+  - &Prefab1001
+    prefabId: 1001
+    modelPath: testset.bin
+    materialPath: testset_materials.json
+    active: true
+  - &Prefab1002
+    prefabId: 1002
+    modelPath: testset2.bin
+    materialPath: testset2_materials.json
+    active: true
+  - &Prefab2001
+    prefabId: 2001
+    modelPath: primitive:box;size=1.370000;color=0.910000,0.230000,0.480000,1.000000
+    materialPath: primitive_vertex_color_materials.json
+    active: true
+  - &Prefab2002
+    prefabId: 2002
+    modelPath: primitive:sphere;size=0.840000;color=0.170000,0.790000,0.630000,1.000000
+    materialPath: primitive_vertex_color_materials.json
+    active: true
+  - &Prefab2003
+    prefabId: 2003
+    modelPath: primitive:cylinder;size=1.620000;color=0.340000,0.410000,0.920000,1.000000
+    materialPath: primitive_vertex_color_materials.json
+    active: true
+  - &Prefab2004
+    prefabId: 2004
+    modelPath: primitive:cone;size=1.110000;color=0.960000,0.660000,0.120000,1.000000
+    materialPath: primitive_vertex_color_materials.json
+    active: true
+  - &Prefab2005
+    prefabId: 2005
+    modelPath: primitive:triangular_pyramid;size=1.480000;color=0.580000,0.190000,0.870000,1.000000
+    materialPath: primitive_vertex_color_materials.json
+    active: true
+  - &Prefab2006
+    prefabId: 2006
+    modelPath: primitive:square_pyramid;size=0.950000;color=0.240000,0.930000,0.310000,1.000000
+    materialPath: primitive_vertex_color_materials.json
+    active: true
 
 Entities:
-  - Components:
+  - EntityId: 0
+    ParentEntityId: -1
+    Components:
       Name:
         text: MainCamera
       Transform:
@@ -89,83 +88,91 @@ Entities:
         requestUnlock: false
         requestSkip: false
         shakeImpulse: 0.0
-  - Components:
+  - EntityId: 1
+    ParentEntityId: -1
+    Components:
       Name:
         text: TestSetRoot
       Transform:
         <<: *DefaultTransform
         position: [-5.00, 0.00, -50.00]
-      StaticMeshRenderer:
-        <<: *DefaultStaticMeshRenderer
-      Material:
-        <<: *DefaultMaterial
-  - Components:
+      PrefabInstance:
+        <<: *Prefab1001
+        prefabId: 1001
+  - EntityId: 2
+    ParentEntityId: -1
+    Components:
       Name:
         text: TestSet2Root
       Transform:
         <<: *DefaultTransform
         position: [5.00, 0.00, -20.00]
-      StaticMeshRenderer:
-        <<: *model1
-      Material:
-        <<: *mat1
-  - Components:
+      PrefabInstance:
+        <<: *Prefab1002
+        prefabId: 1002
+  - EntityId: 3
+    ParentEntityId: -1
+    Components:
       Name:
         text: PrimitiveBox
       Transform:
         <<: *DefaultTransform
         position: [-10.00, 0.00, -12.00]
-      StaticMeshRenderer:
-        <<: *PrimitiveBoxRenderer
-      Material:
-        <<: *primitiveMat
-  - Components:
+      PrefabInstance:
+        <<: *Prefab2001
+        prefabId: 2001
+  - EntityId: 4
+    ParentEntityId: -1
+    Components:
       Name:
         text: PrimitiveSphere
       Transform:
         <<: *DefaultTransform
         position: [-6.00, 0.00, -12.00]
-      StaticMeshRenderer:
-        <<: *PrimitiveSphereRenderer
-      Material:
-        <<: *primitiveMat
-  - Components:
+      PrefabInstance:
+        <<: *Prefab2002
+        prefabId: 2002
+  - EntityId: 5
+    ParentEntityId: -1
+    Components:
       Name:
         text: PrimitiveCylinder
       Transform:
         <<: *DefaultTransform
         position: [-2.00, 0.00, -12.00]
-      StaticMeshRenderer:
-        <<: *PrimitiveCylinderRenderer
-      Material:
-        <<: *primitiveMat
-  - Components:
+      PrefabInstance:
+        <<: *Prefab2003
+        prefabId: 2003
+  - EntityId: 6
+    ParentEntityId: -1
+    Components:
       Name:
         text: PrimitiveCone
       Transform:
         <<: *DefaultTransform
         position: [2.00, 0.00, -12.00]
-      StaticMeshRenderer:
-        <<: *PrimitiveConeRenderer
-      Material:
-        <<: *primitiveMat
-  - Components:
+      PrefabInstance:
+        <<: *Prefab2004
+        prefabId: 2004
+  - EntityId: 7
+    ParentEntityId: -1
+    Components:
       Name:
         text: PrimitiveTriangularPyramid
       Transform:
         <<: *DefaultTransform
         position: [6.00, 0.00, -12.00]
-      StaticMeshRenderer:
-        <<: *PrimitiveTriangularPyramidRenderer
-      Material:
-        <<: *primitiveMat
-  - Components:
+      PrefabInstance:
+        <<: *Prefab2005
+        prefabId: 2005
+  - EntityId: 8
+    ParentEntityId: -1
+    Components:
       Name:
         text: PrimitiveSquarePyramid
       Transform:
         <<: *DefaultTransform
         position: [10.00, 0.00, -12.00]
-      StaticMeshRenderer:
-        <<: *PrimitiveSquarePyramidRenderer
-      Material:
-        <<: *primitiveMat
+      PrefabInstance:
+        <<: *Prefab2006
+        prefabId: 2006
