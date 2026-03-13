@@ -132,7 +132,7 @@ void GraphicsVector::CreateShaderResourceView(ID3D12Device* device, D3D12_CPU_DE
     shaderResourceViewDescription.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
     shaderResourceViewDescription.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     shaderResourceViewDescription.Buffer.FirstElement = firstElement;
-    shaderResourceViewDescription.Buffer.NumElements = numElements;
+    shaderResourceViewDescription.Buffer.NumElements = numElements == 0 ? 1 : numElements;
     shaderResourceViewDescription.Buffer.StructureByteStride = structureByteStride;
     shaderResourceViewDescription.Buffer.Flags = bufferFlags;
     device->CreateShaderResourceView(mAllocationHandle.GetResource(), &shaderResourceViewDescription, descriptorHandle);
