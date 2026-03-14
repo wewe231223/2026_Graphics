@@ -5,7 +5,7 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 4 };
+    constexpr std::uint32_t FormatVersion{ 5 };
     constexpr char FormatMagic[4]{ 'F', 'B', 'X', 'B' };
 }
 
@@ -51,6 +51,7 @@ void AssetBinaryWriter::WriteModelResult(const ModelResult& Result) {
 
     WriteUint64(static_cast<std::uint64_t>(Nodes.size()));
     WriteNodes(Nodes, NodeIndices);
+    WriteSkeletonData(Result.GetSkeletonData());
 }
 
 void AssetBinaryWriter::WriteNodes(const std::vector<const ModelNode*>& Nodes, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices) {
@@ -74,6 +75,55 @@ void AssetBinaryWriter::WriteNode(const ModelNode& Node, const std::unordered_ma
     WriteVertexAttributes(Node.Vertices());
     WriteUint32Array(Node.Indices());
     WriteSubMeshes(Node.GetSubMeshes());
+}
+
+void AssetBinaryWriter::WriteSkeletonData(const SkeletonData& SkeletonDataValue) {
+    WriteUint64(static_cast<std::uint64_t>(SkeletonDataValue.Bones.size()));
+    for (const SkeletonBone& BoneData : SkeletonDataValue.Bones) {
+        WriteSkeletonBone(BoneData);
+    }
+
+    WriteUint64(static_cast<std::uint64_t>(SkeletonDataValue.Clusters.size()));
+    for (const SkeletonCluster& ClusterData : SkeletonDataValue.Clusters) {
+        WriteSkeletonCluster(ClusterData);
+    }
+
+    WriteUint64(static_cast<std::uint64_t>(SkeletonDataValue.Skins.size()));
+    for (const SkeletonSkin& SkinData : SkeletonDataValue.Skins) {
+        WriteSkeletonSkin(SkinData);
+    }
+}
+
+void AssetBinaryWriter::WriteSkeletonBone(const SkeletonBone& BoneData) {
+    WriteString(BoneData.Name);
+    WriteString(BoneData.NodeName);
+    WriteUint32(BoneData.NodeTypedId);
+    WriteUint32(BoneData.BoneTypedId);
+    WriteFloat(BoneData.Radius);
+    WriteFloat(BoneData.RelativeLength);
+    WriteBool(BoneData.IsRoot);
+    WriteMat4(BoneData.NodeToParent);
+    WriteMat4(BoneData.NodeToWorld);
+}
+
+void AssetBinaryWriter::WriteSkeletonCluster(const SkeletonCluster& ClusterData) {
+    WriteString(ClusterData.Name);
+    WriteUint32(ClusterData.ClusterTypedId);
+    WriteUint32(ClusterData.SkinDeformerTypedId);
+    WriteUint32(ClusterData.BoneIndex);
+    WriteMat4(ClusterData.GeometryToBone);
+    WriteMat4(ClusterData.MeshNodeToBone);
+    WriteMat4(ClusterData.BindToWorld);
+    WriteMat4(ClusterData.GeometryToWorld);
+}
+
+void AssetBinaryWriter::WriteSkeletonSkin(const SkeletonSkin& SkinData) {
+    WriteString(SkinData.Name);
+    WriteString(SkinData.MeshNodeName);
+    WriteUint32(SkinData.SkinDeformerTypedId);
+    WriteUint32(SkinData.MeshNodeTypedId);
+    WriteUint32(SkinData.SkinningMethod);
+    WriteUint32Array(SkinData.ClusterIndices);
 }
 
 void AssetBinaryWriter::WriteVertexAttributes(const VertexAttributes& Attributes) {

@@ -10,6 +10,50 @@
 #include "Common.h"
 
 namespace asset {
+    struct SkeletonBone final {
+    public:
+        std::string Name{};
+        std::string NodeName{};
+        std::uint32_t NodeTypedId{ 0 };
+        std::uint32_t BoneTypedId{ 0 };
+        float Radius{ 0.0f };
+        float RelativeLength{ 1.0f };
+        bool IsRoot{ false };
+        Mat4 NodeToParent{ 1.0f };
+        Mat4 NodeToWorld{ 1.0f };
+    };
+
+    struct SkeletonCluster final {
+    public:
+        std::string Name{};
+        std::uint32_t ClusterTypedId{ 0 };
+        std::uint32_t SkinDeformerTypedId{ 0 };
+        std::uint32_t BoneIndex{ 0 };
+        Mat4 GeometryToBone{ 1.0f };
+        Mat4 MeshNodeToBone{ 1.0f };
+        Mat4 BindToWorld{ 1.0f };
+        Mat4 GeometryToWorld{ 1.0f };
+    };
+
+    struct SkeletonSkin final {
+    public:
+        std::string Name{};
+        std::string MeshNodeName{};
+        std::uint32_t SkinDeformerTypedId{ 0 };
+        std::uint32_t MeshNodeTypedId{ 0 };
+        std::uint32_t SkinningMethod{ 0 };
+        std::vector<std::uint32_t> ClusterIndices{};
+    };
+
+    struct SkeletonData final {
+    public:
+        std::vector<SkeletonBone> Bones{};
+        std::vector<SkeletonCluster> Clusters{};
+        std::vector<SkeletonSkin> Skins{};
+
+        bool Empty() const;
+    };
+
     class ModelNode final {
     public:
         using Id = std::uint32_t;
@@ -85,13 +129,16 @@ namespace asset {
         ModelNode* GetRoot() const;
         std::size_t NodeCount() const;
         const std::vector<std::unique_ptr<ModelNode>>& Nodes() const;
+        const SkeletonData& GetSkeletonData() const;
 
         ModelNode& CreateNode(std::string Name, ModelNode* Parent);
         void ForEachDfs(const std::function<void(ModelNode&)>& Function) const;
+        void SetSkeletonData(SkeletonData SkeletonDataValue);
 
     private:
         std::vector<std::unique_ptr<ModelNode>> mNodes{};
         ModelNode* mRoot{ nullptr };
         std::uint64_t mNextId{ 1 };
+        SkeletonData mSkeletonData{};
     };
 }

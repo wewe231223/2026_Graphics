@@ -39,6 +39,7 @@ namespace asset {
         void LoadScene(std::string_view FilePath);
         void LoadAndTraverse(std::string_view FilePath, std::span<ISceneNodeVisitor* const> Visitors);
         void ExportImages(std::string_view FilePath);
+        const ufbx_scene* GetLoadedScene() const;
     private:
         static Mat4 ToMat4(const ufbx_matrix& Matrix);
         void ExportEmbeddedImages(std::string_view FilePath);

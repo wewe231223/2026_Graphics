@@ -2,6 +2,7 @@
 
 #include "MaterialVisitor.h"
 #include "MeshHierarchyBuilder.h"
+#include "SkeletonVisitor.h"
 #include "UfbxAssetLoader.h"
 
 using namespace asset;
@@ -13,11 +14,16 @@ FbxAssetImporter::FbxAssetImporter(GraphicsAPI Api)
 void FbxAssetImporter::LoadFromFile(std::string_view FilePath, ModelResult& OutModelData, std::vector<MaterialGroup>& OutMaterialGroups, bool IsUvFlipEnabled) {
     UfbxAssetLoader Loader{ mApi };
     MaterialVisitor MaterialCollector{};
+    SkeletonVisitor SkeletonCollector{ OutModelData };
     OutModelData = ModelResult{};
     OutMaterialGroups.clear();
     MeshHierarchyBuilder Builder{ OutModelData, &MaterialCollector.GetMaterialLookup(), IsUvFlipEnabled };
-    ISceneNodeVisitor* Visitors[]{ &MaterialCollector, &Builder };
+    ISceneNodeVisitor* Visitors[]{ &MaterialCollector, &SkeletonCollector, &Builder };
     Loader.LoadAndTraverse(FilePath, { Visitors });
+    const ufbx_scene* LoadedScene{ Loader.GetLoadedScene() };
+    if (LoadedScene != nullptr) {
+        SkeletonCollector.Finalize(*LoadedScene);
+    }
     MaterialGroup DefaultMaterialGroup{};
     DefaultMaterialGroup.Name = std::string{ FilePath };
 

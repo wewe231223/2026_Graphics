@@ -206,6 +206,10 @@ void asset::UfbxAssetLoader::ExportImages(std::string_view FilePath) {
 
 }
 
+const ufbx_scene* UfbxAssetLoader::GetLoadedScene() const {
+    return mScene.GetScene();
+}
+
 void UfbxAssetLoader::TraverseNode(const ufbx_scene& Scene, const ufbx_node& Node, const ufbx_node* Parent, std::span<ISceneNodeVisitor* const> Visitors) {
     NodeVisitContext Context{};
     Context.mParent = Parent;

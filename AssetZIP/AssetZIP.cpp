@@ -104,6 +104,15 @@ namespace {
         return TotalIndices;
     }
 
+    std::size_t CountTotalSkinClusterLinks(const asset::ModelResult& ModelResultData) {
+        const asset::SkeletonData& SkeletonDataValue{ ModelResultData.GetSkeletonData() };
+        std::size_t TotalClusterLinks{ 0 };
+        for (const asset::SkeletonSkin& SkinData : SkeletonDataValue.Skins) {
+            TotalClusterLinks += SkinData.ClusterIndices.size();
+        }
+        return TotalClusterLinks;
+    }
+
     int Run(const RunOptions& Options) {
         const std::filesystem::path ProjectDirectoryPath{ GetProjectDirectoryPath() };
         const std::filesystem::path AssetFilePath{ GetAssetFilePath(ProjectDirectoryPath, Options.InputFileName) };
@@ -147,6 +156,11 @@ namespace {
         const std::size_t TotalVertices{ CountTotalVertices(ModelResultData) };
         const std::size_t TotalIndices{ CountTotalIndices(ModelResultData) };
         const std::size_t MaterialGroupCount{ MaterialGroups.size() };
+        const asset::SkeletonData& SkeletonDataValue{ ModelResultData.GetSkeletonData() };
+        const std::size_t BoneCount{ SkeletonDataValue.Bones.size() };
+        const std::size_t ClusterCount{ SkeletonDataValue.Clusters.size() };
+        const std::size_t SkinCount{ SkeletonDataValue.Skins.size() };
+        const std::size_t TotalClusterLinks{ CountTotalSkinClusterLinks(ModelResultData) };
 
         StdOutput::PrintLine("[AssetZIP] Input file: {}", AssetFilePath.string());
         StdOutput::PrintLine("[AssetZIP] Output binary: {}", BinaryOutputPath.string());
@@ -159,6 +173,10 @@ namespace {
         StdOutput::PrintLine("[AssetZIP] Node count: {}", ModelResultData.NodeCount());
         StdOutput::PrintLine("[AssetZIP] Total vertices: {}", TotalVertices);
         StdOutput::PrintLine("[AssetZIP] Total indices: {}", TotalIndices);
+        StdOutput::PrintLine("[AssetZIP] Skeleton bone count: {}", BoneCount);
+        StdOutput::PrintLine("[AssetZIP] Skeleton cluster count: {}", ClusterCount);
+        StdOutput::PrintLine("[AssetZIP] Skeleton skin count: {}", SkinCount);
+        StdOutput::PrintLine("[AssetZIP] Skeleton skin-cluster link count: {}", TotalClusterLinks);
         StdOutput::PrintLine("[AssetZIP] Material group count: {}", MaterialGroupCount);
         StdOutput::PrintLine("[AssetZIP] UV flip enabled: {}", Options.IsUvFlipEnabled ? "true" : "false");
 

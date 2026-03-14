@@ -92,6 +92,10 @@ const std::vector<ModelNode::SubMesh>& ModelNode::GetSubMeshes() const {
 
 ModelResult::ModelResult() = default;
 
+bool SkeletonData::Empty() const {
+    return Bones.empty() && Clusters.empty() && Skins.empty();
+}
+
 ModelNode* ModelResult::GetRoot() const {
     return mRoot;
 }
@@ -102,6 +106,10 @@ std::size_t ModelResult::NodeCount() const {
 
 const std::vector<std::unique_ptr<ModelNode>>& ModelResult::Nodes() const {
     return mNodes;
+}
+
+const SkeletonData& ModelResult::GetSkeletonData() const {
+    return mSkeletonData;
 }
 
 ModelNode& ModelResult::CreateNode(std::string Name, ModelNode* Parent) {
@@ -133,4 +141,8 @@ void ModelResult::ForEachDfs(const std::function<void(ModelNode&)>& Function) co
             Stack.push_back(Children[Index - 1]);
         }
     }
+}
+
+void ModelResult::SetSkeletonData(SkeletonData SkeletonDataValue) {
+    mSkeletonData = std::move(SkeletonDataValue);
 }

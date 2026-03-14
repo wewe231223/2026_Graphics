@@ -45,6 +45,58 @@
 //       │ IndexCount        │ uint64                             │
 //       │ MatGroupItemIndex │ uint64                             │
 //       └───────────────────┴────────────────────────────────────┘
+//
+//       ┌────────────────────────────────────────────────────────┐
+//       │                     [SKELETON DATA]                    │
+//       ├───────────────────┬────────────────────────────────────┤
+//       │ BoneCount         │ uint64                             │
+//       │ ClusterCount      │ uint64                             │
+//       │ SkinCount         │ uint64                             │
+//       └───────────────────┴────────────────────────────────────┘
+//
+//       ┌────────────────────────────────────────────────────────┐
+//       │                 < Repeating SkeletonBone >             │
+//       ├───────────────────┬────────────────────────────────────┤
+//       │ Name              │ string                             │
+//       │ NodeName          │ string                             │
+//       │ NodeTypedId       │ uint32                             │
+//       │ BoneTypedId       │ uint32                             │
+//       │ Radius            │ float                              │
+//       │ RelativeLength    │ float                              │
+//       │ IsRoot            │ bool(uint8)                        │
+//       │ NodeToParent      │ Mat4                               │
+//       │ NodeToWorld       │ Mat4                               │
+//       └───────────────────┴────────────────────────────────────┘
+//
+//       ┌────────────────────────────────────────────────────────┐
+//       │               < Repeating SkeletonCluster >            │
+//       ├───────────────────┬────────────────────────────────────┤
+//       │ Name              │ string                             │
+//       │ ClusterTypedId    │ uint32                             │
+//       │ SkinDeformerTypedId│ uint32                            │
+//       │ BoneIndex         │ uint32                             │
+//       │ GeometryToBone    │ Mat4                               │
+//       │ MeshNodeToBone    │ Mat4                               │
+//       │ BindToWorld       │ Mat4                               │
+//       │ GeometryToWorld   │ Mat4                               │
+//       └───────────────────┴────────────────────────────────────┘
+//
+//       ┌────────────────────────────────────────────────────────┐
+//       │                < Repeating SkeletonSkin >              │
+//       ├───────────────────┬────────────────────────────────────┤
+//       │ Name              │ string                             │
+//       │ MeshNodeName      │ string                             │
+//       │ SkinDeformerTypedId│ uint32                            │
+//       │ MeshNodeTypedId   │ uint32                             │
+//       │ SkinningMethod    │ uint32                             │
+//       │ ClusterIndices    │ uint32[]                           │
+//       └───────────────────┴────────────────────────────────────┘
+//
+// Version compatibility:
+// - v1: Node + MaterialIndex(uint64[]) legacy
+// - v2~v4: Node + SubMesh[]
+// - v5: v4 + Skeleton Data
+
 #pragma once
 
 #include <fstream>
@@ -71,6 +123,10 @@ namespace asset {
         bool ReadHeader();
         void ReadModelResult(ModelResult& Result);
         void ReadNodes(ModelResult& Result, std::uint64_t NodeCount, std::vector<ModelNode*>& Nodes);
+        SkeletonData ReadSkeletonData();
+        SkeletonBone ReadSkeletonBone();
+        SkeletonCluster ReadSkeletonCluster();
+        SkeletonSkin ReadSkeletonSkin();
         void ReadVertexAttributes(VertexAttributes& Attributes);
         std::vector<ModelNode::SubMesh> ReadSubMeshes();
         std::vector<Vec2> ReadVec2Array();

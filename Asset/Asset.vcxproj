@@ -29,6 +29,7 @@
     <ClCompile Include="MaterialGroupJsonSerializer.cpp" />
     <ClCompile Include="ModelResult.cpp" />
     <ClCompile Include="NumericTypes.cpp" />
+    <ClCompile Include="SkeletonVisitor.cpp" />
     <ClCompile Include="ufbx.c" />
     <ClCompile Include="UfbxAssetLoader.cpp" />
   </ItemGroup>
@@ -44,6 +45,7 @@
     <ClInclude Include="ModelResult.h" />
     <ClInclude Include="NumericTypes.h" />
     <ClInclude Include="SceneVisitor.h" />
+    <ClInclude Include="SkeletonVisitor.h" />
     <ClInclude Include="ufbx.h" />
     <ClInclude Include="UfbxAssetLoader.h" />
   </ItemGroup>

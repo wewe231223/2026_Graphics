@@ -45,6 +45,57 @@
 //       │ IndexCount        │ uint64                             │
 //       │ MatGroupItemIndex │ uint64                             │
 //       └───────────────────┴────────────────────────────────────┘
+//
+//       ┌────────────────────────────────────────────────────────┐
+//       │                     [SKELETON DATA]                    │
+//       ├───────────────────┬────────────────────────────────────┤
+//       │ BoneCount         │ uint64                             │
+//       │ ClusterCount      │ uint64                             │
+//       │ SkinCount         │ uint64                             │
+//       └───────────────────┴────────────────────────────────────┘
+//
+//       ┌────────────────────────────────────────────────────────┐
+//       │                 < Repeating SkeletonBone >             │
+//       ├───────────────────┬────────────────────────────────────┤
+//       │ Name              │ string                             │
+//       │ NodeName          │ string                             │
+//       │ NodeTypedId       │ uint32                             │
+//       │ BoneTypedId       │ uint32                             │
+//       │ Radius            │ float                              │
+//       │ RelativeLength    │ float                              │
+//       │ IsRoot            │ bool(uint8)                        │
+//       │ NodeToParent      │ Mat4                               │
+//       │ NodeToWorld       │ Mat4                               │
+//       └───────────────────┴────────────────────────────────────┘
+//
+//       ┌────────────────────────────────────────────────────────┐
+//       │               < Repeating SkeletonCluster >            │
+//       ├───────────────────┬────────────────────────────────────┤
+//       │ Name              │ string                             │
+//       │ ClusterTypedId    │ uint32                             │
+//       │ SkinDeformerTypedId│ uint32                            │
+//       │ BoneIndex         │ uint32                             │
+//       │ GeometryToBone    │ Mat4                               │
+//       │ MeshNodeToBone    │ Mat4                               │
+//       │ BindToWorld       │ Mat4                               │
+//       │ GeometryToWorld   │ Mat4                               │
+//       └───────────────────┴────────────────────────────────────┘
+//
+//       ┌────────────────────────────────────────────────────────┐
+//       │                < Repeating SkeletonSkin >              │
+//       ├───────────────────┬────────────────────────────────────┤
+//       │ Name              │ string                             │
+//       │ MeshNodeName      │ string                             │
+//       │ SkinDeformerTypedId│ uint32                            │
+//       │ MeshNodeTypedId   │ uint32                             │
+//       │ SkinningMethod    │ uint32                             │
+//       │ ClusterIndices    │ uint32[]                           │
+//       └───────────────────┴────────────────────────────────────┘
+//
+// Version compatibility:
+// - v1: Node + MaterialIndex(uint64[]) legacy
+// - v2~v4: Node + SubMesh[]
+// - v5: v4 + Skeleton Data
 
 #pragma once
 #include <fstream>
@@ -72,6 +123,10 @@ namespace asset {
         void WriteModelResult(const ModelResult& Result);
         void WriteNodes(const std::vector<const ModelNode*>& Nodes, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices);
         void WriteNode(const ModelNode& Node, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices);
+        void WriteSkeletonData(const SkeletonData& SkeletonDataValue);
+        void WriteSkeletonBone(const SkeletonBone& BoneData);
+        void WriteSkeletonCluster(const SkeletonCluster& ClusterData);
+        void WriteSkeletonSkin(const SkeletonSkin& SkinData);
         void WriteVertexAttributes(const VertexAttributes& Attributes);
         void WriteSubMeshes(const std::vector<ModelNode::SubMesh>& SubMeshes);
         void WriteVec2Array(std::span<const Vec2> Values);

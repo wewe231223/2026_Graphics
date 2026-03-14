@@ -6,7 +6,7 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 4 };
+    constexpr std::uint32_t FormatVersion{ 5 };
     constexpr std::array<char, 4> FormatMagic{ 'F', 'B', 'X', 'B' };
 }
 
@@ -32,7 +32,7 @@ bool AssetBinaryReader::ReadHeader() {
         return false;
     }
     const std::uint32_t Version{ ReadUint32() };
-    if (Version != 1 && Version != 2 && Version != 3 && Version != FormatVersion) {
+    if (Version != 1 && Version != 2 && Version != 3 && Version != 4 && Version != FormatVersion) {
         return false;
     }
     mFormatVersion = Version;
@@ -44,6 +44,9 @@ void AssetBinaryReader::ReadModelResult(ModelResult& Result) {
     std::vector<ModelNode*> Nodes{};
     Nodes.reserve(static_cast<std::size_t>(NodeCount));
     ReadNodes(Result, NodeCount, Nodes);
+    if (mFormatVersion >= 5) {
+        Result.SetSkeletonData(ReadSkeletonData());
+    }
 }
 
 void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, std::vector<ModelNode*>& Nodes) {
@@ -93,6 +96,68 @@ void AssetBinaryReader::ReadVertexAttributes(VertexAttributes& Attributes) {
     Attributes.Bitangents = ReadVec3Array();
     Attributes.BoneIndices = ReadUvec4Array();
     Attributes.BoneWeights = ReadVec4Array();
+}
+
+SkeletonData AssetBinaryReader::ReadSkeletonData() {
+    SkeletonData SkeletonDataValue{};
+
+    const std::uint64_t BoneCount{ ReadUint64() };
+    SkeletonDataValue.Bones.reserve(static_cast<std::size_t>(BoneCount));
+    for (std::uint64_t BoneIndex{ 0 }; BoneIndex < BoneCount; ++BoneIndex) {
+        SkeletonDataValue.Bones.push_back(ReadSkeletonBone());
+    }
+
+    const std::uint64_t ClusterCount{ ReadUint64() };
+    SkeletonDataValue.Clusters.reserve(static_cast<std::size_t>(ClusterCount));
+    for (std::uint64_t ClusterIndex{ 0 }; ClusterIndex < ClusterCount; ++ClusterIndex) {
+        SkeletonDataValue.Clusters.push_back(ReadSkeletonCluster());
+    }
+
+    const std::uint64_t SkinCount{ ReadUint64() };
+    SkeletonDataValue.Skins.reserve(static_cast<std::size_t>(SkinCount));
+    for (std::uint64_t SkinIndex{ 0 }; SkinIndex < SkinCount; ++SkinIndex) {
+        SkeletonDataValue.Skins.push_back(ReadSkeletonSkin());
+    }
+
+    return SkeletonDataValue;
+}
+
+SkeletonBone AssetBinaryReader::ReadSkeletonBone() {
+    SkeletonBone BoneData{};
+    BoneData.Name = ReadString();
+    BoneData.NodeName = ReadString();
+    BoneData.NodeTypedId = ReadUint32();
+    BoneData.BoneTypedId = ReadUint32();
+    BoneData.Radius = ReadFloat();
+    BoneData.RelativeLength = ReadFloat();
+    BoneData.IsRoot = ReadBool();
+    BoneData.NodeToParent = ReadMat4();
+    BoneData.NodeToWorld = ReadMat4();
+    return BoneData;
+}
+
+SkeletonCluster AssetBinaryReader::ReadSkeletonCluster() {
+    SkeletonCluster ClusterData{};
+    ClusterData.Name = ReadString();
+    ClusterData.ClusterTypedId = ReadUint32();
+    ClusterData.SkinDeformerTypedId = ReadUint32();
+    ClusterData.BoneIndex = ReadUint32();
+    ClusterData.GeometryToBone = ReadMat4();
+    ClusterData.MeshNodeToBone = ReadMat4();
+    ClusterData.BindToWorld = ReadMat4();
+    ClusterData.GeometryToWorld = ReadMat4();
+    return ClusterData;
+}
+
+SkeletonSkin AssetBinaryReader::ReadSkeletonSkin() {
+    SkeletonSkin SkinData{};
+    SkinData.Name = ReadString();
+    SkinData.MeshNodeName = ReadString();
+    SkinData.SkinDeformerTypedId = ReadUint32();
+    SkinData.MeshNodeTypedId = ReadUint32();
+    SkinData.SkinningMethod = ReadUint32();
+    SkinData.ClusterIndices = ReadUint32Array();
+    return SkinData;
 }
 
 std::vector<ModelNode::SubMesh> AssetBinaryReader::ReadSubMeshes() {
