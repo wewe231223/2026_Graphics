@@ -6,7 +6,7 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 5 };
+    constexpr std::uint32_t FormatVersion{ 6 };
     constexpr std::array<char, 4> FormatMagic{ 'F', 'B', 'X', 'B' };
 }
 
@@ -32,7 +32,7 @@ bool AssetBinaryReader::ReadHeader() {
         return false;
     }
     const std::uint32_t Version{ ReadUint32() };
-    if (Version != 1 && Version != 2 && Version != 3 && Version != 4 && Version != FormatVersion) {
+    if (Version != 1 && Version != 2 && Version != 3 && Version != 4 && Version != 5 && Version != FormatVersion) {
         return false;
     }
     mFormatVersion = Version;
@@ -52,12 +52,17 @@ void AssetBinaryReader::ReadModelResult(ModelResult& Result) {
 void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, std::vector<ModelNode*>& Nodes) {
     for (std::uint64_t Index{ 0 }; Index < NodeCount; ++Index) {
         const std::string Name{ ReadString() };
+        std::uint32_t SourceNodeTypedId{ 0 };
+        if (mFormatVersion >= 6) {
+            SourceNodeTypedId = ReadUint32();
+        }
         const std::int32_t ParentIndex{ ReadInt32() };
         ModelNode* Parent{ nullptr };
         if (ParentIndex >= 0 && ParentIndex < static_cast<std::int32_t>(Nodes.size())) {
             Parent = Nodes[static_cast<std::size_t>(ParentIndex)];
         }
         ModelNode& Node{ Result.CreateNode(Name, Parent) };
+        Node.SetSourceNodeTypedId(SourceNodeTypedId);
         Node.SetNodeToParent(ReadMat4());
         Node.SetGeometryToNode(ReadMat4());
         ReadVertexAttributes(Node.Vertices());

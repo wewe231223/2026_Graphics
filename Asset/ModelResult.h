@@ -76,9 +76,11 @@ namespace asset {
     public:
         Id GetId() const;
         const std::string& GetName() const;
+        std::uint32_t GetSourceNodeTypedId() const;
 
         const Mat4& GetNodeToParent() const;
         void SetNodeToParent(const Mat4& NodeToParent);
+        void SetSourceNodeTypedId(std::uint32_t SourceNodeTypedId);
 
         const Mat4& GetGeometryToNode() const;
         void SetGeometryToNode(const Mat4& GeometryToNode);
@@ -104,6 +106,7 @@ namespace asset {
         Id mId{ 0 };
 
         std::string mName{};
+        std::uint32_t mSourceNodeTypedId{ 0 };
         Mat4 mNodeToParent{ 1.0f };
         Mat4 mGeometryToNode{ 1.0f };
 

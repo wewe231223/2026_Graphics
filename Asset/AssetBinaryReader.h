@@ -22,6 +22,7 @@
 //       │(Repeats 'NodeCount' times)                             │
 //       ├───────────────────┬────────────────────────────────────┤
 //       │ Name              │ string                             │
+//       │ SourceNodeTypedId │ uint32                             │
 //       │ ParentNodeIndex   │ int32(-1 for Root)                 │
 //       │ NodeToParent      │ Mat4(4x4 Matrix)                   │
 //       │ GeometryToNode    │ Mat4(4x4 Matrix)                   │
@@ -96,6 +97,7 @@
 // - v1: Node + MaterialIndex(uint64[]) legacy
 // - v2~v4: Node + SubMesh[]
 // - v5: v4 + Skeleton Data
+// - v6: v5 + SourceNodeTypedId in each Node Record
 
 #pragma once
 

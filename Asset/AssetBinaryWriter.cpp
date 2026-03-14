@@ -5,7 +5,7 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 5 };
+    constexpr std::uint32_t FormatVersion{ 6 };
     constexpr char FormatMagic[4]{ 'F', 'B', 'X', 'B' };
 }
 
@@ -62,6 +62,7 @@ void AssetBinaryWriter::WriteNodes(const std::vector<const ModelNode*>& Nodes, c
 
 void AssetBinaryWriter::WriteNode(const ModelNode& Node, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices) {
     WriteString(Node.GetName());
+    WriteUint32(Node.GetSourceNodeTypedId());
     const ModelNode* Parent{ Node.GetParent() };
     if (Parent == nullptr) {
         WriteInt32(-1);

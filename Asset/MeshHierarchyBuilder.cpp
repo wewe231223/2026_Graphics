@@ -38,6 +38,7 @@ void MeshHierarchyBuilder::OnNodeBegin(const ufbx_scene& Scene, const ufbx_node&
     const std::string Name{ (Node.name.data != nullptr) ? std::string{ Node.name.data, Node.name.length } : std::string{ "Unnamed" } };
 
     ModelNode& OutNode{ mResult.CreateNode(Name, ParentNode) };
+    OutNode.SetSourceNodeTypedId(Node.typed_id);
     OutNode.SetNodeToParent(Context.mNodeToParent);
     OutNode.SetGeometryToNode(Context.mGeometryToNode);
     if (Node.mesh != nullptr) {

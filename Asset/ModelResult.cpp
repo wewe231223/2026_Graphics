@@ -17,12 +17,20 @@ const std::string& ModelNode::GetName() const {
     return mName;
 }
 
+std::uint32_t ModelNode::GetSourceNodeTypedId() const {
+    return mSourceNodeTypedId;
+}
+
 const Mat4& ModelNode::GetNodeToParent() const {
     return mNodeToParent;
 }
 
 void ModelNode::SetNodeToParent(const Mat4& NodeToParent) {
     mNodeToParent = NodeToParent;
+}
+
+void ModelNode::SetSourceNodeTypedId(std::uint32_t SourceNodeTypedId) {
+    mSourceNodeTypedId = SourceNodeTypedId;
 }
 
 const Mat4& ModelNode::GetGeometryToNode() const {
