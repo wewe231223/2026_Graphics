@@ -1,4 +1,5 @@
 ﻿#include <exception>
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -104,13 +105,80 @@ namespace {
         return TotalIndices;
     }
 
-    std::size_t CountTotalSkinClusterLinks(const asset::ModelResult& ModelResultData) {
-        const asset::SkeletonData& SkeletonDataValue{ ModelResultData.GetSkeletonData() };
-        std::size_t TotalClusterLinks{ 0 };
-        for (const asset::SkeletonSkin& SkinData : SkeletonDataValue.Skins) {
-            TotalClusterLinks += SkinData.ClusterIndices.size();
+
+    void PrintBoneData(const asset::SkeletonData& SkeletonDataValue) {
+        if (SkeletonDataValue.Bones.empty()) {
+            return;
         }
-        return TotalClusterLinks;
+
+        StdOutput::PrintLine("[AssetZIP] ----- Skeleton Bone Data Begin -----");
+
+        for (std::size_t BoneArrayIndex{ 0 }; BoneArrayIndex < SkeletonDataValue.Bones.size(); ++BoneArrayIndex) {
+            const asset::SkeletonBone& BoneData{ SkeletonDataValue.Bones[BoneArrayIndex] };
+            StdOutput::PrintLine("[AssetZIP] Bone[{}].Name: {}", BoneArrayIndex, BoneData.Name);
+            StdOutput::PrintLine("[AssetZIP] Bone[{}].NodeName: {}", BoneArrayIndex, BoneData.NodeName);
+            StdOutput::PrintLine("[AssetZIP] Bone[{}].NodeTypedId: {}", BoneArrayIndex, BoneData.NodeTypedId);
+            StdOutput::PrintLine("[AssetZIP] Bone[{}].BoneTypedId: {}", BoneArrayIndex, BoneData.BoneTypedId);
+        }
+
+        StdOutput::PrintLine("[AssetZIP] ----- Skeleton Bone Data End -----");
+    }
+
+    void PrintClusterData(const asset::SkeletonData& SkeletonDataValue) {
+        if (SkeletonDataValue.Clusters.empty()) {
+            return;
+        }
+
+        StdOutput::PrintLine("[AssetZIP] ----- Skeleton Cluster Data Begin -----");
+
+        for (std::size_t ClusterArrayIndex{ 0 }; ClusterArrayIndex < SkeletonDataValue.Clusters.size(); ++ClusterArrayIndex) {
+            const asset::SkeletonCluster& ClusterData{ SkeletonDataValue.Clusters[ClusterArrayIndex] };
+            StdOutput::PrintLine("[AssetZIP] Cluster[{}].Name: {}", ClusterArrayIndex, ClusterData.Name);
+            StdOutput::PrintLine("[AssetZIP] Cluster[{}].ClusterTypedId: {}", ClusterArrayIndex, ClusterData.ClusterTypedId);
+            StdOutput::PrintLine("[AssetZIP] Cluster[{}].SkinDeformerTypedId: {}", ClusterArrayIndex, ClusterData.SkinDeformerTypedId);
+            StdOutput::PrintLine("[AssetZIP] Cluster[{}].BoneIndex: {}", ClusterArrayIndex, ClusterData.BoneIndex);
+        }
+
+        StdOutput::PrintLine("[AssetZIP] ----- Skeleton Cluster Data End -----");
+    }
+
+    void PrintUnreferencedBones(const asset::SkeletonData& SkeletonDataValue) {
+        if (SkeletonDataValue.Bones.empty()) {
+            return;
+        }
+
+        std::vector<std::uint8_t> IsBoneReferenced{};
+        IsBoneReferenced.resize(SkeletonDataValue.Bones.size(), static_cast<std::uint8_t>(0));
+
+        for (const asset::SkeletonCluster& ClusterData : SkeletonDataValue.Clusters) {
+            if (static_cast<std::size_t>(ClusterData.BoneIndex) < IsBoneReferenced.size()) {
+                IsBoneReferenced[ClusterData.BoneIndex] = static_cast<std::uint8_t>(1);
+            }
+        }
+
+        std::size_t UnreferencedBoneCount{ 0 };
+        for (std::size_t BoneIndex{ 0 }; BoneIndex < IsBoneReferenced.size(); ++BoneIndex) {
+            if (IsBoneReferenced[BoneIndex] == static_cast<std::uint8_t>(0)) {
+                ++UnreferencedBoneCount;
+            }
+        }
+
+        StdOutput::PrintLine("[AssetZIP] Skeleton unreferenced bone count: {}", UnreferencedBoneCount);
+        if (UnreferencedBoneCount == 0) {
+            return;
+        }
+
+        for (std::size_t BoneIndex{ 0 }; BoneIndex < SkeletonDataValue.Bones.size(); ++BoneIndex) {
+            if (IsBoneReferenced[BoneIndex] != static_cast<std::uint8_t>(0)) {
+                continue;
+            }
+
+            const asset::SkeletonBone& BoneData{ SkeletonDataValue.Bones[BoneIndex] };
+            StdOutput::PrintLine("[AssetZIP] UnreferencedBone[{}].Name: {}", BoneIndex, BoneData.Name);
+            StdOutput::PrintLine("[AssetZIP] UnreferencedBone[{}].NodeName: {}", BoneIndex, BoneData.NodeName);
+            StdOutput::PrintLine("[AssetZIP] UnreferencedBone[{}].NodeTypedId: {}", BoneIndex, BoneData.NodeTypedId);
+            StdOutput::PrintLine("[AssetZIP] UnreferencedBone[{}].BoneTypedId: {}", BoneIndex, BoneData.BoneTypedId);
+        }
     }
 
     int Run(const RunOptions& Options) {
@@ -138,6 +206,7 @@ namespace {
         std::vector<asset::MaterialGroup> MaterialGroups{};
         FbxAssetImporterData.LoadFromFile(AssetFilePath.string(), ModelData, MaterialGroups, Options.IsUvFlipEnabled);
 
+
         asset::AssetBinaryWriter AssetBinaryWriterData{};
         const bool IsBinaryWriteSuccess{ AssetBinaryWriterData.WriteToFile(BinaryOutputPath.string(), ModelData) };
         if (!IsBinaryWriteSuccess) {
@@ -159,8 +228,6 @@ namespace {
         const asset::SkeletonData& SkeletonDataValue{ ModelResultData.GetSkeletonData() };
         const std::size_t BoneCount{ SkeletonDataValue.Bones.size() };
         const std::size_t ClusterCount{ SkeletonDataValue.Clusters.size() };
-        const std::size_t SkinCount{ SkeletonDataValue.Skins.size() };
-        const std::size_t TotalClusterLinks{ CountTotalSkinClusterLinks(ModelResultData) };
 
         StdOutput::PrintLine("[AssetZIP] Input file: {}", AssetFilePath.string());
         StdOutput::PrintLine("[AssetZIP] Output binary: {}", BinaryOutputPath.string());
@@ -174,9 +241,11 @@ namespace {
         StdOutput::PrintLine("[AssetZIP] Total vertices: {}", TotalVertices);
         StdOutput::PrintLine("[AssetZIP] Total indices: {}", TotalIndices);
         StdOutput::PrintLine("[AssetZIP] Skeleton bone count: {}", BoneCount);
-        StdOutput::PrintLine("[AssetZIP] Skeleton cluster count: {}", ClusterCount);
-        StdOutput::PrintLine("[AssetZIP] Skeleton skin count: {}", SkinCount);
-        StdOutput::PrintLine("[AssetZIP] Skeleton skin-cluster link count: {}", TotalClusterLinks);
+        StdOutput::PrintLine("[AssetZIP] Skeleton bone global cluster index count: {}", ClusterCount);
+        StdOutput::PrintLine("[AssetZIP] Skeleton skin metadata recorded in binary: false");
+        PrintUnreferencedBones(SkeletonDataValue);
+        PrintBoneData(SkeletonDataValue);
+        PrintClusterData(SkeletonDataValue);
         StdOutput::PrintLine("[AssetZIP] Material group count: {}", MaterialGroupCount);
         StdOutput::PrintLine("[AssetZIP] UV flip enabled: {}", Options.IsUvFlipEnabled ? "true" : "false");
 

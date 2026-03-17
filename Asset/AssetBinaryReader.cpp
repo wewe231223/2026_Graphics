@@ -118,12 +118,6 @@ SkeletonData AssetBinaryReader::ReadSkeletonData() {
         SkeletonDataValue.Clusters.push_back(ReadSkeletonCluster());
     }
 
-    const std::uint64_t SkinCount{ ReadUint64() };
-    SkeletonDataValue.Skins.reserve(static_cast<std::size_t>(SkinCount));
-    for (std::uint64_t SkinIndex{ 0 }; SkinIndex < SkinCount; ++SkinIndex) {
-        SkeletonDataValue.Skins.push_back(ReadSkeletonSkin());
-    }
-
     return SkeletonDataValue;
 }
 

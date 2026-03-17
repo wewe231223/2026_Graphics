@@ -89,10 +89,6 @@ void AssetBinaryWriter::WriteSkeletonData(const SkeletonData& SkeletonDataValue)
         WriteSkeletonCluster(ClusterData);
     }
 
-    WriteUint64(static_cast<std::uint64_t>(SkeletonDataValue.Skins.size()));
-    for (const SkeletonSkin& SkinData : SkeletonDataValue.Skins) {
-        WriteSkeletonSkin(SkinData);
-    }
 }
 
 void AssetBinaryWriter::WriteSkeletonBone(const SkeletonBone& BoneData) {

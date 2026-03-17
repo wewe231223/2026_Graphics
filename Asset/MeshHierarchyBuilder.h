@@ -49,6 +49,7 @@ namespace asset {
         Vec4 ReadColor(const ufbx_mesh& Mesh, std::uint32_t Index) const;
         Vec3 ReadTangent(const ufbx_mesh& Mesh, std::uint32_t Index) const;
         Vec3 ReadBitangent(const ufbx_mesh& Mesh, std::uint32_t Index) const;
+        std::uint32_t ResolveGlobalClusterIndex(const ufbx_skin_deformer& SkinDeformer, std::uint32_t LocalClusterIndex) const;
         void ReadBoneData(const ufbx_mesh& Mesh, std::uint32_t CornerIndex, UVec4& OutIndices, Vec4& OutWeights) const;
         std::size_t ResolveMaterialGroupItemIndex(const ufbx_node& Node, const ufbx_mesh& Mesh, std::size_t FaceIndex) const;
 

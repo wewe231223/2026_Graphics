@@ -17,13 +17,17 @@ void FbxAssetImporter::LoadFromFile(std::string_view FilePath, ModelResult& OutM
     SkeletonVisitor SkeletonCollector{ OutModelData };
     OutModelData = ModelResult{};
     OutMaterialGroups.clear();
-    MeshHierarchyBuilder Builder{ OutModelData, &MaterialCollector.GetMaterialLookup(), IsUvFlipEnabled };
-    ISceneNodeVisitor* Visitors[]{ &MaterialCollector, &SkeletonCollector, &Builder };
-    Loader.LoadAndTraverse(FilePath, { Visitors });
+    ISceneNodeVisitor* FirstPassVisitors[]{ &MaterialCollector, &SkeletonCollector };
+    Loader.LoadAndTraverse(FilePath, { FirstPassVisitors });
+
     const ufbx_scene* LoadedScene{ Loader.GetLoadedScene() };
     if (LoadedScene != nullptr) {
         SkeletonCollector.Finalize(*LoadedScene);
     }
+
+    MeshHierarchyBuilder Builder{ OutModelData, &MaterialCollector.GetMaterialLookup(), IsUvFlipEnabled };
+    ISceneNodeVisitor* SecondPassVisitors[]{ &Builder };
+    Loader.LoadAndTraverse(FilePath, { SecondPassVisitors });
     MaterialGroup DefaultMaterialGroup{};
     DefaultMaterialGroup.Name = std::string{ FilePath };
 

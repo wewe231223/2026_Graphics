@@ -133,6 +133,21 @@ Vec3 MeshHierarchyBuilder::ReadBitangent(const ufbx_mesh& Mesh, std::uint32_t In
     return Vec3{ 0.0f, 0.0f, 0.0f };
 }
 
+std::uint32_t MeshHierarchyBuilder::ResolveGlobalClusterIndex(const ufbx_skin_deformer& SkinDeformer, std::uint32_t LocalClusterIndex) const {
+    const SkeletonData& SkeletonDataValue{ mResult.GetSkeletonData() };
+    for (const SkeletonSkin& SkinData : SkeletonDataValue.Skins) {
+        if (SkinData.SkinDeformerTypedId != SkinDeformer.typed_id) {
+            continue;
+        }
+
+        if (static_cast<std::size_t>(LocalClusterIndex) >= SkinData.ClusterIndices.size()) {
+            return 0;
+        }
+        return SkinData.ClusterIndices[LocalClusterIndex];
+    }
+    return 0;
+}
+
 void MeshHierarchyBuilder::ReadBoneData(const ufbx_mesh& Mesh, std::uint32_t CornerIndex, UVec4& OutIndices, Vec4& OutWeights) const {
     std::uint32_t Indices[4]{ 0, 0, 0, 0 };
     float Weights[4]{ 0.0f, 0.0f, 0.0f, 0.0f };
@@ -178,7 +193,7 @@ void MeshHierarchyBuilder::ReadBoneData(const ufbx_mesh& Mesh, std::uint32_t Cor
             break;
         }
         const ufbx_skin_weight& Weight{ Skin->weights.data[WeightIndex] };
-        Indices[Index] = Weight.cluster_index;
+        Indices[Index] = ResolveGlobalClusterIndex(*Skin, Weight.cluster_index);
         Weights[Index] = static_cast<float>(Weight.weight);
         WeightSum += Weights[Index];
     }

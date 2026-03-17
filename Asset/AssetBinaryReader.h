@@ -35,7 +35,7 @@
 //       │ Colors            │ Vec4[]                             │
 //       │ Tangents          │ Vec3[]                             │
 //       │ Bitangents        │ Vec3[]                             │
-//       │ BoneIndices       │ UVec4[]                            │
+//       │ BoneIndices       │ UVec4[](Global Cluster Indices)    │
 //       │ BoneWeights       │ Vec4[]                             │
 //       ├───────────────────┴────────────────────────────────────┤
 //       │ Indices           │ uint32[]                           │
@@ -52,7 +52,6 @@
 //       ├───────────────────┬────────────────────────────────────┤
 //       │ BoneCount         │ uint64                             │
 //       │ ClusterCount      │ uint64                             │
-//       │ SkinCount         │ uint64                             │
 //       └───────────────────┴────────────────────────────────────┘
 //
 //       ┌────────────────────────────────────────────────────────┐
@@ -82,16 +81,6 @@
 //       │ GeometryToWorld   │ Mat4                               │
 //       └───────────────────┴────────────────────────────────────┘
 //
-//       ┌────────────────────────────────────────────────────────┐
-//       │                < Repeating SkeletonSkin >              │
-//       ├───────────────────┬────────────────────────────────────┤
-//       │ Name              │ string                             │
-//       │ MeshNodeName      │ string                             │
-//       │ SkinDeformerTypedId│ uint32                            │
-//       │ MeshNodeTypedId   │ uint32                             │
-//       │ SkinningMethod    │ uint32                             │
-//       │ ClusterIndices    │ uint32[]                           │
-//       └───────────────────┴────────────────────────────────────┘
 //
 // Version compatibility:
 // - v1: Node + MaterialIndex(uint64[]) legacy
