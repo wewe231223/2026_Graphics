@@ -64,9 +64,14 @@ target_compile_definitions(Arche PRIVATE
 add_library(Asset STATIC
     Asset/AssetBinaryReader.cpp
     Asset/AssetBinaryWriter.cpp
+    Asset/cgltf.c
     Asset/Common.cpp
     Asset/DataList.cpp
     Asset/FbxAssetImporter.cpp
+    Asset/GltfAssetImporter.cpp
+    Asset/GltfAssetLoader.cpp
+    Asset/GltfMaterialVisitor.cpp
+    Asset/GltfMeshHierarchyBuilder.cpp
     Asset/MaterialVisitor.cpp
     Asset/MeshHierarchyBuilder.cpp
     Asset/MaterialGroupJsonSerializer.cpp

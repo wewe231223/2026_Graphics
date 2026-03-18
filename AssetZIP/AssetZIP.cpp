@@ -1,18 +1,20 @@
-﻿#include <exception>
+﻿#include <algorithm>
+#include <cctype>
+#include <exception>
 #include <filesystem>
 #include <string>
 #include <vector>
+
 #include "Asset/AssetBinaryWriter.h"
 #include "Asset/FbxAssetImporter.h"
+#include "Asset/GltfAssetImporter.h"
 #include "Asset/MaterialGroupJsonSerializer.h"
 #include "Asset/ModelResult.h"
 #include "Utility/StdOutput.h"
 
 #pragma comment(lib, "Asset.lib")
 
-
 namespace {
-
     struct RunOptions final {
     public:
         std::string InputFileName{};
@@ -50,6 +52,7 @@ namespace {
                 if (!TryParseUvFlipValue(Value, IsUvFlipEnabled)) {
                     return false;
                 }
+
                 OutRunOptions.IsUvFlipEnabled = IsUvFlipEnabled;
                 continue;
             }
@@ -86,22 +89,54 @@ namespace {
 
     std::size_t CountTotalVertices(const asset::ModelResult& ModelResultData) {
         std::size_t TotalVertices{ 0 };
-
         ModelResultData.ForEachDfs([&TotalVertices](asset::ModelNode& Node) {
             TotalVertices += Node.Vertices().VertexCount();
         });
-
         return TotalVertices;
     }
 
     std::size_t CountTotalIndices(const asset::ModelResult& ModelResultData) {
         std::size_t TotalIndices{ 0 };
-
         ModelResultData.ForEachDfs([&TotalIndices](asset::ModelNode& Node) {
             TotalIndices += Node.Indices().size();
         });
-
         return TotalIndices;
+    }
+
+    std::string ToLowercase(std::string Value) {
+        std::transform(Value.begin(), Value.end(), Value.begin(), [](unsigned char Character) {
+            return static_cast<char>(std::tolower(Character));
+        });
+        return Value;
+    }
+
+    bool IsFbxExtension(const std::filesystem::path& AssetFilePath) {
+        return ToLowercase(AssetFilePath.extension().string()) == ".fbx";
+    }
+
+    bool IsGltfExtension(const std::filesystem::path& AssetFilePath) {
+        const std::string Extension{ ToLowercase(AssetFilePath.extension().string()) };
+        return Extension == ".gltf" || Extension == ".glb";
+    }
+
+    bool IsSupportedAssetExtension(const std::filesystem::path& AssetFilePath) {
+        return IsFbxExtension(AssetFilePath) || IsGltfExtension(AssetFilePath);
+    }
+
+    void LoadModelFromAssetFile(const std::filesystem::path& AssetFilePath, asset::ModelResult& OutModelData, std::vector<asset::MaterialGroup>& OutMaterialGroups, bool IsUvFlipEnabled) {
+        if (IsFbxExtension(AssetFilePath)) {
+            asset::FbxAssetImporter Importer{ asset::GraphicsAPI::DirectX };
+            Importer.LoadFromFile(AssetFilePath.string(), OutModelData, OutMaterialGroups, IsUvFlipEnabled);
+            return;
+        }
+
+        if (IsGltfExtension(AssetFilePath)) {
+            asset::GltfAssetImporter Importer{ asset::GraphicsAPI::DirectX };
+            Importer.LoadFromFile(AssetFilePath.string(), OutModelData, OutMaterialGroups, IsUvFlipEnabled);
+            return;
+        }
+
+        throw asset::AssetError{ std::string{ "Unsupported asset extension: " } + AssetFilePath.extension().string() };
     }
 
     int Run(const RunOptions& Options) {
@@ -113,7 +148,12 @@ namespace {
         const std::filesystem::path ImagesDirectoryPath{ GetImagesDirectoryPath(BinDirectoryPath) };
 
         if (!std::filesystem::exists(AssetFilePath)) {
-            StdOutput::PrintErrorLine("[AssetZIP] Input FBX file was not found: {}", AssetFilePath.string());
+            StdOutput::PrintErrorLine("[AssetZIP] Input asset file was not found: {}", AssetFilePath.string());
+            return 1;
+        }
+
+        if (!IsSupportedAssetExtension(AssetFilePath)) {
+            StdOutput::PrintErrorLine("[AssetZIP] Supported input formats are .fbx, .gltf, .glb: {}", AssetFilePath.string());
             return 1;
         }
 
@@ -124,10 +164,9 @@ namespace {
             return 1;
         }
 
-        asset::FbxAssetImporter FbxAssetImporterData{ asset::GraphicsAPI::DirectX };
         asset::ModelResult ModelData{};
         std::vector<asset::MaterialGroup> MaterialGroups{};
-        FbxAssetImporterData.LoadFromFile(AssetFilePath.string(), ModelData, MaterialGroups, Options.IsUvFlipEnabled);
+        LoadModelFromAssetFile(AssetFilePath, ModelData, MaterialGroups, Options.IsUvFlipEnabled);
 
         asset::AssetBinaryWriter AssetBinaryWriterData{};
         const bool IsBinaryWriteSuccess{ AssetBinaryWriterData.WriteToFile(BinaryOutputPath.string(), ModelData) };
@@ -169,7 +208,7 @@ namespace {
 int main(int ArgCount, char* ArgValues[]) {
     RunOptions Options{};
     if (!TryParseArguments(ArgCount, ArgValues, Options)) {
-        StdOutput::PrintErrorLine("[AssetZIP] Usage: AssetZIP <FBXFileName> [--flip-uv=true|false]");
+        StdOutput::PrintErrorLine("[AssetZIP] Usage: AssetZIP <AssetFileName(.fbx|.gltf|.glb)> [--flip-uv=true|false]");
         return 1;
     }
 

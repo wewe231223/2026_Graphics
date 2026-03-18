@@ -139,7 +139,7 @@ void UfbxAssetLoader::ExportEmbeddedImages(std::string_view FilePath) {
         }
     };
 
-    auto& scene = *mScene.GetScene(); 
+    auto& scene = *mScene.GetScene();
 
     for (std::size_t Index{ 0 }; Index < scene.texture_files.count; ++Index) {
         const ufbx_texture_file& TextureFile{ scene.texture_files.data[Index] };

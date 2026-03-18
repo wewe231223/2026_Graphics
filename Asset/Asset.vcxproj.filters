@@ -34,8 +34,17 @@
     <ClCompile Include="FbxAssetImporter.cpp">
       <Filter>Importer</Filter>
     </ClCompile>
-    <ClCompile Include="ufbx.c">
-      <Filter>ufbx</Filter>
+    <ClCompile Include="GltfAssetImporter.cpp">
+      <Filter>Importer</Filter>
+    </ClCompile>
+    <ClCompile Include="GltfAssetLoader.cpp">
+      <Filter>Importer</Filter>
+    </ClCompile>
+    <ClCompile Include="GltfMaterialVisitor.cpp">
+      <Filter>Visitor</Filter>
+    </ClCompile>
+    <ClCompile Include="GltfMeshHierarchyBuilder.cpp">
+      <Filter>Visitor</Filter>
     </ClCompile>
     <ClCompile Include="DataList.cpp">
       <Filter>Defines</Filter>
@@ -45,6 +54,12 @@
     </ClCompile>
     <ClCompile Include="MeshHierarchyBuilder.cpp">
       <Filter>Visitor</Filter>
+    </ClCompile>
+    <ClCompile Include="cgltf.c">
+      <Filter>Importer</Filter>
+    </ClCompile>
+    <ClCompile Include="ufbx.c">
+      <Filter>ufbx</Filter>
     </ClCompile>
     <ClCompile Include="Common.cpp">
       <Filter>Defines</Filter>
@@ -72,8 +87,20 @@
     <ClInclude Include="FbxAssetImporter.h">
       <Filter>Importer</Filter>
     </ClInclude>
-    <ClInclude Include="ufbx.h">
-      <Filter>ufbx</Filter>
+    <ClInclude Include="GltfAssetImporter.h">
+      <Filter>Importer</Filter>
+    </ClInclude>
+    <ClInclude Include="GltfAssetLoader.h">
+      <Filter>Importer</Filter>
+    </ClInclude>
+    <ClInclude Include="GltfMaterialVisitor.h">
+      <Filter>Visitor</Filter>
+    </ClInclude>
+    <ClInclude Include="GltfMeshHierarchyBuilder.h">
+      <Filter>Visitor</Filter>
+    </ClInclude>
+    <ClInclude Include="GltfSceneVisitor.h">
+      <Filter>Visitor</Filter>
     </ClInclude>
     <ClInclude Include="DataList.h">
       <Filter>Defines</Filter>

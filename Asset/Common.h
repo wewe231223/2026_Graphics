@@ -247,7 +247,7 @@ namespace asset {
 
     struct MaterialProperty {
 		MaterialType Type;
-        MaterialMap Data; 
+        MaterialMap Data;
     };
 
     struct Material {

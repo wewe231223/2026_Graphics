@@ -21,9 +21,14 @@
   <ItemGroup>
     <ClCompile Include="AssetBinaryReader.cpp" />
     <ClCompile Include="AssetBinaryWriter.cpp" />
+    <ClCompile Include="cgltf.c" />
     <ClCompile Include="Common.cpp" />
     <ClCompile Include="DataList.cpp" />
     <ClCompile Include="FbxAssetImporter.cpp" />
+    <ClCompile Include="GltfAssetImporter.cpp" />
+    <ClCompile Include="GltfAssetLoader.cpp" />
+    <ClCompile Include="GltfMaterialVisitor.cpp" />
+    <ClCompile Include="GltfMeshHierarchyBuilder.cpp" />
     <ClCompile Include="MaterialVisitor.cpp" />
     <ClCompile Include="MeshHierarchyBuilder.cpp" />
     <ClCompile Include="MaterialGroupJsonSerializer.cpp" />
@@ -38,6 +43,11 @@
     <ClInclude Include="Common.h" />
     <ClInclude Include="DataList.h" />
     <ClInclude Include="FbxAssetImporter.h" />
+    <ClInclude Include="GltfAssetImporter.h" />
+    <ClInclude Include="GltfAssetLoader.h" />
+    <ClInclude Include="GltfMaterialVisitor.h" />
+    <ClInclude Include="GltfMeshHierarchyBuilder.h" />
+    <ClInclude Include="GltfSceneVisitor.h" />
     <ClInclude Include="MaterialVisitor.h" />
     <ClInclude Include="MeshHierarchyBuilder.h" />
     <ClInclude Include="MaterialGroupJsonSerializer.h" />
