@@ -3,19 +3,40 @@
 #include <algorithm>
 #include <cmath>
 #include <format>
+#include <string>
 #include "Game/Scene/Components/ComponentInspection.h"
 
+namespace {
+    std::string FormatVector3(const SimpleMath::Vector3& Value) {
+        return std::format("{:.3f}, {:.3f}, {:.3f}", Value.x, Value.y, Value.z);
+    }
+
+    std::string FormatMatrixRow(float M11, float M12, float M13, float M14) {
+        return std::format("[{:>8.3f} {:>8.3f} {:>8.3f} {:>8.3f}]", M11, M12, M13, M14);
+    }
+
+    std::string FormatMatrix(const SimpleMath::Matrix& Value) {
+        return std::format(
+            "{}\n{}\n{}\n{}",
+            FormatMatrixRow(Value._11, Value._12, Value._13, Value._14),
+            FormatMatrixRow(Value._21, Value._22, Value._23, Value._24),
+            FormatMatrixRow(Value._31, Value._32, Value._33, Value._34),
+            FormatMatrixRow(Value._41, Value._42, Value._43, Value._44)
+        );
+    }
+}
+
 namespace Game {
-
-
     const char* Transform::GetComponentInspectionName() {
         return "Transform";
     }
 
     void Transform::BuildComponentInspectionFields(std::vector<ComponentInspectionField>& OutFields) const {
-        OutFields.push_back(ComponentInspectionField{ "Position", std::format("{:.3f}, {:.3f}, {:.3f}", position.x, position.y, position.z) });
-        OutFields.push_back(ComponentInspectionField{ "Rotation", std::format("{:.3f}, {:.3f}, {:.3f}", rotationEuler.x, rotationEuler.y, rotationEuler.z) });
-        OutFields.push_back(ComponentInspectionField{ "Scale", std::format("{:.3f}, {:.3f}, {:.3f}", scale.x, scale.y, scale.z) });
+        OutFields.push_back(ComponentInspectionField{ "Position", FormatVector3(position) });
+        OutFields.push_back(ComponentInspectionField{ "Rotation", FormatVector3(rotationEuler) });
+        OutFields.push_back(ComponentInspectionField{ "Scale", FormatVector3(scale) });
+        OutFields.push_back(ComponentInspectionField{ "Geometry To Node", FormatMatrix(geometryToNode) });
+        OutFields.push_back(ComponentInspectionField{ "Node To Parent", FormatMatrix(nodeToParent) });
     }
 
     void Transform::Translate(const SimpleMath::Vector3& Translation) {

@@ -193,7 +193,15 @@ namespace Widget {
             ImGui::TableSetColumnIndex(0);
             ImGui::TextUnformatted(Field.Label.c_str());
             ImGui::TableSetColumnIndex(1);
-            ImGui::TextWrapped("%s", Field.Value.c_str());
+
+            if (Field.Value.find('\n') == std::string::npos) {
+                ImGui::TextWrapped("%s", Field.Value.c_str());
+                continue;
+            }
+
+            ImGui::PushTextWrapPos();
+            ImGui::TextUnformatted(Field.Value.c_str());
+            ImGui::PopTextWrapPos();
         }
 
         ImGui::EndTable();
