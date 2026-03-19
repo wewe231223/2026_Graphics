@@ -58,8 +58,9 @@ namespace Widget {
         SyncSelectedEntityFromSelectedEntityId(*Snapshot);
 
         mHierarchyRegionRatio = std::clamp(mHierarchyRegionRatio, 0.3f, 0.85f);
+        const float MaxHierarchyPanelHeight{ std::max(MinPanelHeight, AvailableHeight - MinPanelHeight - SeparatorHeight) };
         float HierarchyPanelHeight{ AvailableHeight * mHierarchyRegionRatio };
-        HierarchyPanelHeight = std::clamp(HierarchyPanelHeight, MinPanelHeight, AvailableHeight - MinPanelHeight - SeparatorHeight);
+        HierarchyPanelHeight = std::clamp(HierarchyPanelHeight, MinPanelHeight, MaxHierarchyPanelHeight);
 
         ImGui::BeginChild("HierarchyTreePanel", ImVec2(0.0f, HierarchyPanelHeight), true, ImGuiWindowFlags_HorizontalScrollbar);
 
