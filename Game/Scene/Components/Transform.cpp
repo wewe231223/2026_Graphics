@@ -35,6 +35,7 @@ namespace Game {
         OutFields.push_back(ComponentInspectionField{ "Position", FormatVector3(position) });
         OutFields.push_back(ComponentInspectionField{ "Rotation", FormatVector3(rotationEuler) });
         OutFields.push_back(ComponentInspectionField{ "Scale", FormatVector3(scale) });
+        OutFields.push_back(ComponentInspectionField{ "World Matrix", FormatMatrix(worldMatrix) });
         OutFields.push_back(ComponentInspectionField{ "Geometry To Node", FormatMatrix(geometryToNode) });
         OutFields.push_back(ComponentInspectionField{ "Node To Parent", FormatMatrix(nodeToParent) });
     }
@@ -155,6 +156,7 @@ namespace Game {
         scale = SimpleMath::Vector3{ 1.0f, 1.0f, 1.0f };
         geometryToNode = SimpleMath::Matrix::Identity;
         nodeToParent = SimpleMath::Matrix::Identity;
+        worldMatrix = SimpleMath::Matrix::Identity;
     }
 
 }

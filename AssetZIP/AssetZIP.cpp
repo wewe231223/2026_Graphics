@@ -14,6 +14,12 @@
 
 #pragma comment(lib, "Asset.lib")
 
+#ifdef max 
+#undef min
+#undef max
+#endif 
+
+
 namespace {
     struct RunOptions final {
     public:
@@ -101,6 +107,60 @@ namespace {
             TotalIndices += Node.Indices().size();
         });
         return TotalIndices;
+    }
+
+    struct AxisRange final {
+    public:
+        float Min{};
+        float Max{};
+    };
+
+    struct MeshAxisBounds final {
+    public:
+        AxisRange X{};
+        AxisRange Y{};
+        AxisRange Z{};
+    };
+
+    bool TryBuildMeshAxisBounds(const asset::ModelNode& Node, MeshAxisBounds& OutBounds) {
+        const std::vector<asset::Vec3>& Positions{ Node.Vertices().Positions };
+        if (Positions.empty()) {
+            return false;
+        }
+
+        const asset::Vec3& FirstPosition{ Positions.front() };
+        OutBounds = MeshAxisBounds{
+            AxisRange{ FirstPosition.mX, FirstPosition.mX },
+            AxisRange{ FirstPosition.mY, FirstPosition.mY },
+            AxisRange{ FirstPosition.mZ, FirstPosition.mZ }
+        };
+
+        for (const asset::Vec3& Position : Positions) {
+            OutBounds.X.Min = std::min(OutBounds.X.Min, Position.mX);
+            OutBounds.X.Max = std::max(OutBounds.X.Max, Position.mX);
+            OutBounds.Y.Min = std::min(OutBounds.Y.Min, Position.mY);
+            OutBounds.Y.Max = std::max(OutBounds.Y.Max, Position.mY);
+            OutBounds.Z.Min = std::min(OutBounds.Z.Min, Position.mZ);
+            OutBounds.Z.Max = std::max(OutBounds.Z.Max, Position.mZ);
+        }
+
+        return true;
+    }
+
+    void PrintMeshAxisBounds(const asset::ModelResult& ModelResultData) {
+        std::size_t MeshIndex{ 0 };
+        ModelResultData.ForEachDfs([&MeshIndex](asset::ModelNode& Node) {
+            MeshAxisBounds Bounds{};
+            if (!TryBuildMeshAxisBounds(Node, Bounds)) {
+                return;
+            }
+
+            ++MeshIndex;
+            StdOutput::PrintLine("[AssetZIP] Mesh {}: {}", MeshIndex, Node.GetName());
+            StdOutput::PrintLine("[AssetZIP]   X range: min={}, max={}", Bounds.X.Min, Bounds.X.Max);
+            StdOutput::PrintLine("[AssetZIP]   Y range: min={}, max={}", Bounds.Y.Min, Bounds.Y.Max);
+            StdOutput::PrintLine("[AssetZIP]   Z range: min={}, max={}", Bounds.Z.Min, Bounds.Z.Max);
+        });
     }
 
     std::string ToLowercase(std::string Value) {
@@ -200,6 +260,8 @@ namespace {
         StdOutput::PrintLine("[AssetZIP] Total indices: {}", TotalIndices);
         StdOutput::PrintLine("[AssetZIP] Material group count: {}", MaterialGroupCount);
         StdOutput::PrintLine("[AssetZIP] UV flip enabled: {}", Options.IsUvFlipEnabled ? "true" : "false");
+
+        PrintMeshAxisBounds(ModelResultData);
 
         return 0;
     }

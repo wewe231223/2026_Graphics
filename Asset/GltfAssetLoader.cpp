@@ -192,13 +192,13 @@ namespace asset {
         Out.mValue[2][3] = MatrixValues[14];
         Out.mValue[3][3] = 1.0f;
 
-        if (Api == GraphicsAPI::DirectX) {
-            Out.mValue[2][0] = -Out.mValue[2][0];
-            Out.mValue[2][1] = -Out.mValue[2][1];
-            Out.mValue[0][2] = -Out.mValue[0][2];
-            Out.mValue[1][2] = -Out.mValue[1][2];
-            Out.mValue[2][3] = -Out.mValue[2][3];
-        }
+        //if (Api == GraphicsAPI::DirectX) {
+        //    Out.mValue[2][0] = -Out.mValue[2][0];
+        //    Out.mValue[2][1] = -Out.mValue[2][1];
+        //    Out.mValue[0][2] = -Out.mValue[0][2];
+        //    Out.mValue[1][2] = -Out.mValue[1][2];
+        //    Out.mValue[2][3] = -Out.mValue[2][3];
+        //}
 
         return Out;
     }

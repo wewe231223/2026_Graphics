@@ -59,7 +59,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> StaticRenderSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 6> Accesses{ { { typeid(Transform), Access::Read }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(Material), Access::Read }, { typeid(BoundingBox), Access::Read }, { typeid(Frustum), Access::Read } } };
+        static std::array<ComponentAccess, 6> Accesses{ { { typeid(Transform), Access::Write }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(Material), Access::Read }, { typeid(BoundingBox), Access::Read }, { typeid(Frustum), Access::Read } } };
         return Accesses;
     }
 
@@ -96,9 +96,9 @@ namespace Game {
         }
     }
 
-    void StaticRenderSystem::TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, const Frustum* CullingFrustumComponent, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups, Arche::EntityID PickedEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices) const {
+    void StaticRenderSystem::TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, const Frustum* CullingFrustumComponent, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups, Arche::EntityID PickedEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices) {
         const StaticMeshRenderer* Renderer{ World.GetComponent<StaticMeshRenderer>(EntityId) };
-        const Transform* TransformComponent{ World.GetComponent<Transform>(EntityId) };
+        Transform* TransformComponent{ World.GetComponent<Transform>(EntityId) };
         const EntityHierarchy* Hierarchy{ World.GetComponent<EntityHierarchy>(EntityId) };
         const Material* MaterialComponent{ World.GetComponent<Material>(EntityId) };
 
@@ -122,6 +122,9 @@ namespace Game {
                 if (SubMeshes.empty() == false) {
                     RFD::ModelContext ModelContext{};
                     ModelContext.world = TransformComponent->geometryToNode * NodeWorld;
+
+                    TransformComponent->worldMatrix = ModelContext.world;
+
                     ModelContext.prevWorld = ModelContext.world;
                     ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());
                     RenderData.modelContexts.push_back(ModelContext);
