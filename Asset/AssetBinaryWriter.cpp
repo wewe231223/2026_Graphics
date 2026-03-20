@@ -5,7 +5,7 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 5 };
+    constexpr std::uint32_t FormatVersion{ 6 };
     constexpr char FormatMagic[4]{ 'F', 'B', 'X', 'B' };
 }
 
@@ -70,9 +70,34 @@ void AssetBinaryWriter::WriteNode(const ModelNode& Node, const std::unordered_ma
         WriteInt32(Found == NodeIndices.end() ? -1 : static_cast<std::int32_t>(Found->second));
     }
     WriteMat4(Node.GetNodeToParent());
+    WriteBoneInfos(Node.BoneInfos());
+    WriteSkinBinding(Node, NodeIndices);
     WriteVertexAttributes(Node.Vertices());
     WriteUint32Array(Node.Indices());
     WriteSubMeshes(Node.GetSubMeshes());
+}
+
+void AssetBinaryWriter::WriteBoneInfos(const std::vector<ModelBoneInfo>& BoneInfos) {
+    WriteUint64(static_cast<std::uint64_t>(BoneInfos.size()));
+    for (const ModelBoneInfo& BoneInfo : BoneInfos) {
+        WriteUint32(BoneInfo.SkinArrayIndex);
+        WriteUint32(BoneInfo.JointArrayIndex);
+        WriteMat4(BoneInfo.InverseBindMatrix);
+    }
+}
+
+void AssetBinaryWriter::WriteSkinBinding(const ModelNode& Node, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices) {
+    WriteBool(Node.HasSkinBinding());
+    if (Node.HasSkinBinding() == false) {
+        return;
+    }
+
+    const ModelSkinBinding& SkinBinding{ Node.GetSkinBinding() };
+    WriteUint32(SkinBinding.SkinArrayIndex);
+
+    const auto FoundBoneRootNode{ NodeIndices.find(SkinBinding.BoneRootNode) };
+    const std::int32_t BoneRootNodeIndex{ FoundBoneRootNode == NodeIndices.end() ? -1 : static_cast<std::int32_t>(FoundBoneRootNode->second) };
+    WriteInt32(BoneRootNodeIndex);
 }
 
 void AssetBinaryWriter::WriteVertexAttributes(const VertexAttributes& Attributes) {

@@ -28,6 +28,12 @@ namespace Interface {
 
 
 namespace Game {
+    struct ModelBoneInfo final {
+        std::uint32_t SkinArrayIndex{ 0 };
+        std::uint32_t JointArrayIndex{ 0 };
+        SimpleMath::Matrix InverseBindMatrix{};
+    };
+
     enum class VertexAttributeKind : std::uint32_t {
         Position,
         Normal,
@@ -59,8 +65,10 @@ namespace Interface {
         virtual const std::string& GetName() const                                                      PURE;
         virtual const SimpleMath::Matrix& GetNodeToParent() const                                       PURE;
         virtual const std::vector<std::uint32_t>& GetChildren() const                                   PURE;
-        virtual const std::vector<Game::ModelSubMesh>& GetSubMeshes() const                                   PURE;
-        virtual const Game::ModelSubMesh& GetSubMesh(std::size_t index) const                                 PURE;
+        virtual const std::vector<Game::ModelSubMesh>& GetSubMeshes() const                             PURE;
+        virtual const Game::ModelSubMesh& GetSubMesh(std::size_t index) const                           PURE;
+        virtual const std::vector<Game::ModelBoneInfo>& GetBoneInfos() const                            PURE;
+        virtual bool HasBoneInfo() const                                                                 PURE;
 
         virtual bool HasVertexData() const                                                              PURE;
         virtual const std::vector<D3D12_VERTEX_BUFFER_VIEW>& GetVertexBufferViews() const               PURE;

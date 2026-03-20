@@ -63,6 +63,31 @@ namespace asset {
         return mSubMeshes;
     }
 
+    std::vector<ModelBoneInfo>& ModelNode::BoneInfos() {
+        return mBoneInfos;
+    }
+
+    const std::vector<ModelBoneInfo>& ModelNode::BoneInfos() const {
+        return mBoneInfos;
+    }
+
+    bool ModelNode::HasBoneInfo() const {
+        return mBoneInfos.empty() == false;
+    }
+
+    void ModelNode::SetSkinBinding(const ModelSkinBinding& SkinBinding) {
+        mSkinBinding = SkinBinding;
+        mHasSkinBinding = SkinBinding.BoneRootNode != nullptr;
+    }
+
+    bool ModelNode::HasSkinBinding() const {
+        return mHasSkinBinding;
+    }
+
+    const ModelSkinBinding& ModelNode::GetSkinBinding() const {
+        return mSkinBinding;
+    }
+
     std::vector<const ModelNode*> ModelNode::GetChildChain() const {
         std::vector<const ModelNode*> Chain{};
         const ModelNode* Current{ this };

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <cstddef>
 #include <cstdint>
@@ -30,6 +30,8 @@ namespace Game {
         const std::vector<std::uint32_t>& GetChildren() const;
         const std::vector<ModelSubMesh>& GetSubMeshes() const;
         const ModelSubMesh& GetSubMesh(std::size_t Index) const;
+        const std::vector<ModelBoneInfo>& GetBoneInfos() const;
+        bool HasBoneInfo() const;
 
         bool HasVertexData() const;
         const std::vector<D3D12_VERTEX_BUFFER_VIEW>& GetVertexBufferViews() const;
@@ -50,7 +52,7 @@ namespace Game {
 
     private:
         friend class Model;
-        void SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue);
+        void SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue, std::vector<ModelBoneInfo> BoneInfosValue);
         void SetVertexData(std::vector<std::byte> VertexRawDataValue, std::vector<VertexAttributeRange> VertexAttributeRangesValue, std::unique_ptr<Interface::IAllocationHandle> VertexAllocationValue, std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViewsValue);
         void SetIndexData(std::vector<std::byte> IndexRawDataValue, std::unique_ptr<Interface::IAllocationHandle> IndexAllocationValue, const D3D12_INDEX_BUFFER_VIEW& IndexBufferViewValue);
 
@@ -60,6 +62,7 @@ namespace Game {
         SimpleMath::Matrix mNodeToParent{};
         std::vector<std::uint32_t> mChildren{};
         std::vector<ModelSubMesh> mSubMeshes{};
+        std::vector<ModelBoneInfo> mBoneInfos{};
         std::vector<std::byte> mVertexRawData{};
         std::vector<VertexAttributeRange> mVertexAttributeRanges{};
         std::unique_ptr<Interface::IAllocationHandle> mVertexAllocation{};

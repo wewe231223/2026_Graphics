@@ -1,10 +1,11 @@
-#include "Scene.h"
+﻿#include "Scene.h"
 #include <algorithm>
 #include <array>
 #include <cctype>
 #include <unordered_set>
 #include "Asset/Common.h"
 #include "Game/Scene/Components/BoundingBox.h"
+#include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PickingGizmo.h"
@@ -257,6 +258,7 @@ namespace Game {
             }
 
             const bool HasRenderableGeometry{ ModelNodes[NodeIndex].GetSubMeshes().empty() == false };
+            const bool HasBoneInfo{ ModelNodes[NodeIndex].HasBoneInfo() };
             if (HasRenderableGeometry) {
                 StaticMeshRenderer NodeRenderer{};
                 NodeRenderer.model = ModelData.get();
@@ -270,6 +272,13 @@ namespace Game {
                 BoundingBox NodeBoundingBox{};
                 NodeBoundingBox.UpdateFromModel(ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
                 mWorld.AddComponent(NodeEntities[NodeIndex], NodeBoundingBox);
+            }
+
+            if (HasBoneInfo) {
+                Bone NodeBone{};
+                NodeBone.model = ModelData.get();
+                NodeBone.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
+                mWorld.AddComponent(NodeEntities[NodeIndex], NodeBone);
             }
 
             EntityHierarchy Hierarchy{};

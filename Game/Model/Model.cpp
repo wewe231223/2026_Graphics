@@ -63,6 +63,7 @@ namespace Game {
         mNodeToParent{},
         mChildren{},
         mSubMeshes{},
+        mBoneInfos{},
         mVertexRawData{},
         mVertexAttributeRanges{},
         mVertexAllocation{},
@@ -82,6 +83,7 @@ namespace Game {
         mNodeToParent{ Other.mNodeToParent },
         mChildren{ std::move(Other.mChildren) },
         mSubMeshes{ std::move(Other.mSubMeshes) },
+        mBoneInfos{ std::move(Other.mBoneInfos) },
         mVertexRawData{ std::move(Other.mVertexRawData) },
         mVertexAttributeRanges{ std::move(Other.mVertexAttributeRanges) },
         mVertexAllocation{ std::move(Other.mVertexAllocation) },
@@ -105,6 +107,7 @@ namespace Game {
         mNodeToParent = Other.mNodeToParent;
         mChildren = std::move(Other.mChildren);
         mSubMeshes = std::move(Other.mSubMeshes);
+        mBoneInfos = std::move(Other.mBoneInfos);
         mVertexRawData = std::move(Other.mVertexRawData);
         mVertexAttributeRanges = std::move(Other.mVertexAttributeRanges);
         mVertexAllocation = std::move(Other.mVertexAllocation);
@@ -145,6 +148,14 @@ namespace Game {
         return mSubMeshes[index];
     }
 
+    const std::vector<ModelBoneInfo>& ModelNode::GetBoneInfos() const {
+        return mBoneInfos;
+    }
+
+    bool ModelNode::HasBoneInfo() const {
+        return mBoneInfos.empty() == false;
+    }
+
     bool ModelNode::HasVertexData() const {
         return mHasVertexData;
     }
@@ -170,12 +181,13 @@ namespace Game {
         return std::span<const std::byte>{ mVertexRawData.data() + Range.Offset, Range.Size };
     }
 
-    void ModelNode::SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue) {
+    void ModelNode::SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue, std::vector<ModelBoneInfo> BoneInfosValue) {
         mId = IdValue;
         mName = std::move(NameValue);
         mNodeToParent = NodeToParentValue;
         mChildren = std::move(ChildrenValue);
         mSubMeshes = std::move(SubMeshesValue);
+        mBoneInfos = std::move(BoneInfosValue);
     }
 
     void ModelNode::SetVertexData(std::vector<std::byte> VertexRawDataValue, std::vector<VertexAttributeRange> VertexAttributeRangesValue, std::unique_ptr<Interface::IAllocationHandle> VertexAllocationValue, std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViewsValue) {
@@ -238,13 +250,6 @@ namespace Game {
         const std::vector<std::unique_ptr<asset::ModelNode>>& SourceNodes{ ModelData.Nodes() };
         mNodes.resize(SourceNodes.size());
 
-        std::unordered_map<const asset::ModelNode*, std::uint32_t> SourceToIndex{};
-        SourceToIndex.reserve(SourceNodes.size());
-
-        for (std::size_t NodeIndex{ 0 }; NodeIndex < SourceNodes.size(); ++NodeIndex) {
-            SourceToIndex.insert({ SourceNodes[NodeIndex].get(), static_cast<std::uint32_t>(NodeIndex) });
-        }
-
         for (std::size_t NodeIndex{ 0 }; NodeIndex < SourceNodes.size(); ++NodeIndex) {
             const asset::ModelNode& SourceNode{ *SourceNodes[NodeIndex] };
             ModelNode& DestinationNode{ mNodes[NodeIndex] };
@@ -253,9 +258,11 @@ namespace Game {
             const std::vector<asset::ModelNode*>& SourceChildren{ SourceNode.GetChildren() };
             Children.reserve(SourceChildren.size());
             for (const asset::ModelNode* ChildNode : SourceChildren) {
-                const auto FoundChild{ SourceToIndex.find(ChildNode) };
-                if (FoundChild != SourceToIndex.end()) {
-                    Children.push_back(FoundChild->second);
+                for (std::size_t ChildIndex{ 0 }; ChildIndex < SourceNodes.size(); ++ChildIndex) {
+                    if (SourceNodes[ChildIndex].get() == ChildNode) {
+                        Children.push_back(static_cast<std::uint32_t>(ChildIndex));
+                        break;
+                    }
                 }
             }
 
@@ -270,7 +277,18 @@ namespace Game {
                 SubMeshes.push_back(SubMesh);
             }
 
-            DestinationNode.SetBasicData(SourceNode.GetId(), SourceNode.GetName(), asset::ToSimpleMath(SourceNode.GetNodeToParent()), std::move(Children), std::move(SubMeshes));
+            std::vector<ModelBoneInfo> BoneInfos{};
+            const std::vector<asset::ModelBoneInfo>& SourceBoneInfos{ SourceNode.BoneInfos() };
+            BoneInfos.reserve(SourceBoneInfos.size());
+            for (const asset::ModelBoneInfo& SourceBoneInfo : SourceBoneInfos) {
+                ModelBoneInfo BoneInfo{};
+                BoneInfo.SkinArrayIndex = SourceBoneInfo.SkinArrayIndex;
+                BoneInfo.JointArrayIndex = SourceBoneInfo.JointArrayIndex;
+                BoneInfo.InverseBindMatrix = asset::ToSimpleMath(SourceBoneInfo.InverseBindMatrix);
+                BoneInfos.push_back(BoneInfo);
+            }
+
+            DestinationNode.SetBasicData(SourceNode.GetId(), SourceNode.GetName(), asset::ToSimpleMath(SourceNode.GetNodeToParent()), std::move(Children), std::move(SubMeshes), std::move(BoneInfos));
 
             std::vector<std::byte> VertexRawData{};
             std::vector<ModelNode::VertexAttributeRange> VertexRanges{};

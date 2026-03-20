@@ -15,6 +15,7 @@
 #include "Game/Scene/Components/Intents/CameraIntent.h"
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PrefabInstance.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
@@ -350,6 +351,13 @@ namespace {
                 Game::BoundingBox NodeBoundingBox{};
                 NodeBoundingBox.UpdateFromModel(ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
                 OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeBoundingBox);
+            }
+
+            if (ModelNodes[NodeIndex].HasBoneInfo()) {
+                Game::Bone NodeBone{};
+                NodeBone.model = ModelData.get();
+                NodeBone.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
+                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeBone);
             }
 
             Game::EntityHierarchy Hierarchy{};

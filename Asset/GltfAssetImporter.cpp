@@ -18,6 +18,7 @@ namespace asset {
         GltfMeshHierarchyBuilder Builder{ OutModelData, &MaterialCollector.GetMaterialLookup(), mApi, IsUvFlipEnabled };
         IGltfSceneNodeVisitor* Visitors[]{ &MaterialCollector, &Builder };
         Loader.LoadAndTraverse(FilePath, { Visitors });
+        Builder.FinalizeSkinBindings();
 
         MaterialGroup DefaultMaterialGroup{};
         DefaultMaterialGroup.Name = std::string{ FilePath };

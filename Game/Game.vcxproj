@@ -31,6 +31,7 @@
     <ClInclude Include="Model\Model.h" />
     <ClInclude Include="Model\PrimitiveModelFactory.h" />
     <ClInclude Include="Scene\Components\BoundingBox.h" />
+    <ClInclude Include="Scene\Components\Bone.h" />
     <ClInclude Include="Scene\Components\Camera.h" />
     <ClInclude Include="Scene\Components\EntityHierarchy.h" />
     <ClInclude Include="Scene\Components\Frustum.h" />
@@ -65,6 +66,7 @@
     <ClCompile Include="Model\Model.cpp" />
     <ClCompile Include="Model\PrimitiveModelFactory.cpp" />
     <ClCompile Include="Scene\Components\PrefabInstance.cpp" />
+    <ClCompile Include="Scene\Components\Bone.cpp" />
     <ClCompile Include="Scene\Scene.cpp" />
     <ClCompile Include="Scene\SceneWorldSnapshot.cpp" />
     <ClCompile Include="Scene\SceneYamlSerializer.cpp" />

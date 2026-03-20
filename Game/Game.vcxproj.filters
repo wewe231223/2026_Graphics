@@ -78,6 +78,9 @@
     <ClInclude Include="Scene\Components\BoundingBox.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\Bone.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\Camera.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -180,6 +183,9 @@
       <Filter>Scene\Components\Intents</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\BoundingBox.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\Bone.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\Camera.cpp">

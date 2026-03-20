@@ -10,6 +10,21 @@
 #include "Common.h"
 
 namespace asset {
+    class ModelNode;
+
+    struct ModelBoneInfo final {
+    public:
+        std::uint32_t SkinArrayIndex{ 0 };
+        std::uint32_t JointArrayIndex{ 0 };
+        Mat4 InverseBindMatrix{ 1.0f };
+    };
+
+    struct ModelSkinBinding final {
+    public:
+        std::uint32_t SkinArrayIndex{ 0 };
+        ModelNode* BoneRootNode{ nullptr };
+    };
+
     class ModelNode final {
     public:
         using Id = std::uint32_t;
@@ -49,6 +64,14 @@ namespace asset {
         std::vector<SubMesh>& SubMeshes();
         const std::vector<SubMesh>& SubMeshes() const;
 
+        std::vector<ModelBoneInfo>& BoneInfos();
+        const std::vector<ModelBoneInfo>& BoneInfos() const;
+        bool HasBoneInfo() const;
+
+        void SetSkinBinding(const ModelSkinBinding& SkinBinding);
+        bool HasSkinBinding() const;
+        const ModelSkinBinding& GetSkinBinding() const;
+
         std::vector<const ModelNode*> GetChildChain() const;
         void SetSubMeshes(std::vector<SubMesh> SubMeshes);
         const std::vector<SubMesh>& GetSubMeshes() const;
@@ -62,6 +85,9 @@ namespace asset {
         VertexAttributes mVertices{};
         std::vector<std::uint32_t> mIndices{};
         std::vector<SubMesh> mSubMeshes{};
+        std::vector<ModelBoneInfo> mBoneInfos{};
+        ModelSkinBinding mSkinBinding{};
+        bool mHasSkinBinding{ false };
     };
 
     class ModelResult final {

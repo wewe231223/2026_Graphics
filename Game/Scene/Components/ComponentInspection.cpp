@@ -1,5 +1,6 @@
-#include "ComponentInspection.h"
+﻿#include "ComponentInspection.h"
 #include <utility>
+#include "Bone.h"
 #include "BoundingBox.h"
 #include "Intents/CameraIntent.h"
 #include "Tags.h"
@@ -35,6 +36,7 @@ namespace Game {
         AppendComponentInspectionSection<Name>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<Transform>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<EntityHierarchy>(ReadOnlyWorld, EntityId, OutSections);
+        AppendComponentInspectionSection<Bone>(ReadOnlyWorld, EntityId, OutSections);
 
         AppendComponentInspectionSection<Material>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<StaticMeshRenderer>(ReadOnlyWorld, EntityId, OutSections);

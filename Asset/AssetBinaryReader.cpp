@@ -6,7 +6,7 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 5 };
+    constexpr std::uint32_t FormatVersion{ 6 };
     constexpr std::array<char, 4> FormatMagic{ 'F', 'B', 'X', 'B' };
 }
 
@@ -32,7 +32,7 @@ bool AssetBinaryReader::ReadHeader() {
         return false;
     }
     const std::uint32_t Version{ ReadUint32() };
-    if (Version != 1 && Version != 2 && Version != 3 && Version != 4 && Version != FormatVersion) {
+    if (Version != 1 && Version != 2 && Version != 3 && Version != 4 && Version != 5 && Version != FormatVersion) {
         return false;
     }
     mFormatVersion = Version;
@@ -59,6 +59,17 @@ void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, 
         if (mFormatVersion <= 4) {
             ReadMat4();
         }
+        if (mFormatVersion >= 6) {
+            for (const ModelBoneInfo& BoneInfo : ReadBoneInfos()) {
+                Node.BoneInfos().push_back(BoneInfo);
+            }
+
+            Nodes.push_back(&Node);
+            ReadSkinBinding(Node, Nodes);
+        }
+        else {
+            Nodes.push_back(&Node);
+        }
         ReadVertexAttributes(Node.Vertices());
         Node.Indices() = ReadUint32Array();
         if (mFormatVersion == 1) {
@@ -80,8 +91,39 @@ void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, 
         else {
             Node.SetSubMeshes(ReadSubMeshes());
         }
-        Nodes.push_back(&Node);
     }
+}
+
+std::vector<ModelBoneInfo> AssetBinaryReader::ReadBoneInfos() {
+    const std::uint64_t Count{ ReadUint64() };
+    std::vector<ModelBoneInfo> BoneInfos{};
+    BoneInfos.reserve(static_cast<std::size_t>(Count));
+    for (std::uint64_t Index{ 0 }; Index < Count; ++Index) {
+        ModelBoneInfo BoneInfo{};
+        BoneInfo.SkinArrayIndex = ReadUint32();
+        BoneInfo.JointArrayIndex = ReadUint32();
+        BoneInfo.InverseBindMatrix = ReadMat4();
+        BoneInfos.push_back(BoneInfo);
+    }
+
+    return BoneInfos;
+}
+
+void AssetBinaryReader::ReadSkinBinding(ModelNode& Node, std::span<ModelNode* const> Nodes) {
+    const bool HasSkinBinding{ ReadBool() };
+    if (HasSkinBinding == false) {
+        return;
+    }
+
+    ModelSkinBinding SkinBinding{};
+    SkinBinding.SkinArrayIndex = ReadUint32();
+
+    const std::int32_t BoneRootNodeIndex{ ReadInt32() };
+    if (BoneRootNodeIndex >= 0 && BoneRootNodeIndex < static_cast<std::int32_t>(Nodes.size())) {
+        SkinBinding.BoneRootNode = Nodes[static_cast<std::size_t>(BoneRootNodeIndex)];
+    }
+
+    Node.SetSkinBinding(SkinBinding);
 }
 
 void AssetBinaryReader::ReadVertexAttributes(VertexAttributes& Attributes) {

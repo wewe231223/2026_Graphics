@@ -9,6 +9,8 @@ namespace asset {
         : mResult{ OutResult }
         , mNodeStack{}
         , mSceneRoot{ nullptr }
+        , mSourceNodeLookup{}
+        , mPendingSkinBindings{}
         , mMaterialLookup{ MaterialLookup }
         , mApi{ Api }
         , mIsUvFlipEnabled{ IsUvFlipEnabled } {
@@ -34,6 +36,16 @@ namespace asset {
         const std::string Name{ (Node.name != nullptr) ? std::string{ Node.name } : std::string{ "Unnamed" } };
         ModelNode& OutNode{ mResult.CreateNode(Name, ParentNode) };
         OutNode.SetNodeToParent(Context.mNodeToParent);
+        mSourceNodeLookup.insert_or_assign(&Node, &OutNode);
+        AppendBoneInfos(Scene, Node, OutNode);
+
+        if (Node.skin != nullptr) {
+            PendingSkinBinding SkinBinding{};
+            SkinBinding.MeshNode = &OutNode;
+            SkinBinding.SkinArrayIndex = static_cast<std::uint32_t>(Node.skin - Scene.skins);
+            SkinBinding.BoneRootNode = FindSkinBoneRootNode(*Node.skin);
+            mPendingSkinBindings.push_back(SkinBinding);
+        }
 
         if (Node.mesh != nullptr) {
             AppendMesh(*Node.mesh, OutNode.Vertices(), OutNode.Indices(), OutNode.SubMeshes());
@@ -51,6 +63,10 @@ namespace asset {
         }
 
         mNodeStack.pop_back();
+    }
+
+    void GltfMeshHierarchyBuilder::FinalizeSkinBindings() {
+        ResolvePendingSkinBindings();
     }
 
     Vec3 GltfMeshHierarchyBuilder::NormalizeVec3(const Vec3& Value) {
@@ -151,6 +167,42 @@ namespace asset {
         return Vec4{ Value[0], Value[1], Value[2], Value[3] };
     }
 
+    Mat4 GltfMeshHierarchyBuilder::ReadMat4(const cgltf_accessor* Accessor, cgltf_size Index, const Mat4& DefaultValue) const {
+        if (Accessor == nullptr || Index >= Accessor->count) {
+            return DefaultValue;
+        }
+
+        cgltf_float Value[16]{
+            0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 0.0f
+        };
+        const cgltf_bool IsSuccess{ cgltf_accessor_read_float(Accessor, Index, Value, 16) };
+        if (IsSuccess == 0) {
+            return DefaultValue;
+        }
+
+        Mat4 Result{};
+        Result.mValue[0][0] = Value[0];
+        Result.mValue[1][0] = Value[1];
+        Result.mValue[2][0] = Value[2];
+        Result.mValue[3][0] = Value[3];
+        Result.mValue[0][1] = Value[4];
+        Result.mValue[1][1] = Value[5];
+        Result.mValue[2][1] = Value[6];
+        Result.mValue[3][1] = Value[7];
+        Result.mValue[0][2] = Value[8];
+        Result.mValue[1][2] = Value[9];
+        Result.mValue[2][2] = Value[10];
+        Result.mValue[3][2] = Value[11];
+        Result.mValue[0][3] = Value[12];
+        Result.mValue[1][3] = Value[13];
+        Result.mValue[2][3] = Value[14];
+        Result.mValue[3][3] = Value[15];
+        return Result;
+    }
+
     UVec4 GltfMeshHierarchyBuilder::ReadUVec4(const cgltf_accessor* Accessor, cgltf_size Index, const UVec4& DefaultValue) const {
         if (Accessor == nullptr || Index >= Accessor->count) {
             return DefaultValue;
@@ -163,6 +215,94 @@ namespace asset {
         }
 
         return UVec4{ Value[0], Value[1], Value[2], Value[3] };
+    }
+
+    void GltfMeshHierarchyBuilder::AppendBoneInfos(const cgltf_data& Scene, const cgltf_node& Node, ModelNode& OutNode) const {
+        for (cgltf_size SkinArrayIndex{ 0 }; SkinArrayIndex < Scene.skins_count; ++SkinArrayIndex) {
+            const cgltf_skin& Skin{ Scene.skins[SkinArrayIndex] };
+            for (cgltf_size JointArrayIndex{ 0 }; JointArrayIndex < Skin.joints_count; ++JointArrayIndex) {
+                const cgltf_node* const JointNode{ Skin.joints[JointArrayIndex] };
+                if (JointNode != &Node) {
+                    continue;
+                }
+
+                ModelBoneInfo BoneInfo{};
+                BoneInfo.SkinArrayIndex = static_cast<std::uint32_t>(SkinArrayIndex);
+                BoneInfo.JointArrayIndex = static_cast<std::uint32_t>(JointArrayIndex);
+                BoneInfo.InverseBindMatrix = ReadMat4(Skin.inverse_bind_matrices, JointArrayIndex, Mat4{ 1.0f });
+                OutNode.BoneInfos().push_back(BoneInfo);
+            }
+        }
+    }
+
+    const cgltf_node* GltfMeshHierarchyBuilder::FindSkinBoneRootNode(const cgltf_skin& Skin) const {
+        if (Skin.skeleton != nullptr) {
+            return Skin.skeleton;
+        }
+
+        const cgltf_node* BoneRootNode{ nullptr };
+        for (cgltf_size JointArrayIndex{ 0 }; JointArrayIndex < Skin.joints_count; ++JointArrayIndex) {
+            const cgltf_node* const JointNode{ Skin.joints[JointArrayIndex] };
+            if (JointNode == nullptr) {
+                continue;
+            }
+
+            if (BoneRootNode == nullptr) {
+                BoneRootNode = JointNode;
+                continue;
+            }
+
+            BoneRootNode = FindCommonAncestor(BoneRootNode, JointNode);
+            if (BoneRootNode == nullptr) {
+                break;
+            }
+        }
+
+        return BoneRootNode;
+    }
+
+    const cgltf_node* GltfMeshHierarchyBuilder::FindCommonAncestor(const cgltf_node* LeftNode, const cgltf_node* RightNode) {
+        if (LeftNode == nullptr || RightNode == nullptr) {
+            return nullptr;
+        }
+
+        std::vector<const cgltf_node*> LeftParents{};
+        const cgltf_node* CurrentNode{ LeftNode };
+        while (CurrentNode != nullptr) {
+            LeftParents.push_back(CurrentNode);
+            CurrentNode = CurrentNode->parent;
+        }
+
+        CurrentNode = RightNode;
+        while (CurrentNode != nullptr) {
+            for (const cgltf_node* LeftParent : LeftParents) {
+                if (LeftParent == CurrentNode) {
+                    return CurrentNode;
+                }
+            }
+
+            CurrentNode = CurrentNode->parent;
+        }
+
+        return nullptr;
+    }
+
+    void GltfMeshHierarchyBuilder::ResolvePendingSkinBindings() {
+        for (const PendingSkinBinding& PendingSkinBindingData : mPendingSkinBindings) {
+            if (PendingSkinBindingData.MeshNode == nullptr || PendingSkinBindingData.BoneRootNode == nullptr) {
+                continue;
+            }
+
+            const auto FoundBoneRootNode{ mSourceNodeLookup.find(PendingSkinBindingData.BoneRootNode) };
+            if (FoundBoneRootNode == mSourceNodeLookup.end() || FoundBoneRootNode->second == nullptr) {
+                continue;
+            }
+
+            ModelSkinBinding SkinBinding{};
+            SkinBinding.SkinArrayIndex = PendingSkinBindingData.SkinArrayIndex;
+            SkinBinding.BoneRootNode = FoundBoneRootNode->second;
+            PendingSkinBindingData.MeshNode->SetSkinBinding(SkinBinding);
+        }
     }
 
     std::size_t GltfMeshHierarchyBuilder::ResolveMaterialGroupItemIndex(const cgltf_primitive& Primitive) const {
