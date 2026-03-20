@@ -49,6 +49,7 @@ namespace asset {
     private:
         ModelResult& mResult;
         std::vector<ModelNode*> mNodeStack{};
+        ModelNode* mSceneRoot{ nullptr };
         const std::unordered_map<const cgltf_material*, std::size_t>* mMaterialLookup{ nullptr };
         GraphicsAPI mApi{ GraphicsAPI::DirectX };
         bool mIsUvFlipEnabled{ false };

@@ -8,6 +8,7 @@ namespace asset {
     GltfMeshHierarchyBuilder::GltfMeshHierarchyBuilder(ModelResult& OutResult, const std::unordered_map<const cgltf_material*, std::size_t>* MaterialLookup, GraphicsAPI Api, bool IsUvFlipEnabled)
         : mResult{ OutResult }
         , mNodeStack{}
+        , mSceneRoot{ nullptr }
         , mMaterialLookup{ MaterialLookup }
         , mApi{ Api }
         , mIsUvFlipEnabled{ IsUvFlipEnabled } {
@@ -21,6 +22,13 @@ namespace asset {
         ModelNode* ParentNode{ nullptr };
         if (!mNodeStack.empty()) {
             ParentNode = mNodeStack.back();
+        }
+        else if (Context.mParent == nullptr) {
+            if (mSceneRoot == nullptr) {
+                mSceneRoot = &mResult.CreateNode(std::string{ "SceneRoot" }, nullptr);
+            }
+
+            ParentNode = mSceneRoot;
         }
 
         const std::string Name{ (Node.name != nullptr) ? std::string{ Node.name } : std::string{ "Unnamed" } };
