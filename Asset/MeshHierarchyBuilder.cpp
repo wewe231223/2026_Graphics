@@ -39,7 +39,6 @@ void MeshHierarchyBuilder::OnNodeBegin(const ufbx_scene& Scene, const ufbx_node&
 
     ModelNode& OutNode{ mResult.CreateNode(Name, ParentNode) };
     OutNode.SetNodeToParent(Context.mNodeToParent);
-    OutNode.SetGeometryToNode(Context.mGeometryToNode);
     if (Node.mesh != nullptr) {
         AppendIndexedMeshUfbx(Node, *Node.mesh, OutNode.Vertices(), OutNode.Indices(), OutNode.SubMeshes());
     }

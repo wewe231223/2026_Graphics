@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <cstddef>
 #include <cstdint>
@@ -13,6 +13,7 @@ namespace asset {
     class ModelNode final {
     public:
         using Id = std::uint32_t;
+
         struct SubMesh final {
         public:
             std::size_t IndexOffset{ 0 };
@@ -23,7 +24,6 @@ namespace asset {
     public:
         ModelNode(Id IdValue, std::string Name);
         ~ModelNode() = default;
-
         ModelNode(const ModelNode& Other) = delete;
         ModelNode& operator=(const ModelNode& Other) = delete;
         ModelNode(ModelNode&& Other) = default;
@@ -35,9 +35,6 @@ namespace asset {
 
         const Mat4& GetNodeToParent() const;
         void SetNodeToParent(const Mat4& NodeToParent);
-
-        const Mat4& GetGeometryToNode() const;
-        void SetGeometryToNode(const Mat4& GeometryToNode);
 
         ModelNode* GetParent() const;
         const std::vector<ModelNode*>& GetChildren() const;
@@ -58,14 +55,10 @@ namespace asset {
 
     private:
         Id mId{ 0 };
-
         std::string mName{};
         Mat4 mNodeToParent{ 1.0f };
-        Mat4 mGeometryToNode{ 1.0f };
-
         ModelNode* mParent{ nullptr };
         std::vector<ModelNode*> mChildren{};
-
         VertexAttributes mVertices{};
         std::vector<std::uint32_t> mIndices{};
         std::vector<SubMesh> mSubMeshes{};
@@ -75,7 +68,6 @@ namespace asset {
     public:
         ModelResult();
         ~ModelResult() = default;
-
         ModelResult(const ModelResult& Other) = delete;
         ModelResult& operator=(const ModelResult& Other) = delete;
         ModelResult(ModelResult&& Other) = default;

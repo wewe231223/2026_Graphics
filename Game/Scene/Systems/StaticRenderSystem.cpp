@@ -121,7 +121,7 @@ namespace Game {
 
                 if (SubMeshes.empty() == false) {
                     RFD::ModelContext ModelContext{};
-                    ModelContext.world = TransformComponent->geometryToNode * NodeWorld;
+                    ModelContext.world = NodeWorld;
 
                     TransformComponent->worldMatrix = ModelContext.world;
 

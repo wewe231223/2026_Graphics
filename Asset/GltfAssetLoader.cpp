@@ -316,7 +316,6 @@ namespace asset {
         GltfNodeVisitContext Context{};
         Context.mParent = Parent;
         Context.mNodeToParent = ToMat4(Node, mApi);
-        Context.mGeometryToNode = Mat4{ 1.0f };
 
         for (IGltfSceneNodeVisitor* const Visitor : Visitors) {
             if (Visitor != nullptr) {

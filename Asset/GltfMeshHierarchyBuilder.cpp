@@ -34,7 +34,6 @@ namespace asset {
         const std::string Name{ (Node.name != nullptr) ? std::string{ Node.name } : std::string{ "Unnamed" } };
         ModelNode& OutNode{ mResult.CreateNode(Name, ParentNode) };
         OutNode.SetNodeToParent(Context.mNodeToParent);
-        OutNode.SetGeometryToNode(Context.mGeometryToNode);
 
         if (Node.mesh != nullptr) {
             AppendMesh(*Node.mesh, OutNode.Vertices(), OutNode.Indices(), OutNode.SubMeshes());

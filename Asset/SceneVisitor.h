@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "Common.h"
 
@@ -7,14 +7,12 @@ namespace asset {
     public:
         const ufbx_node* mParent{ nullptr };
         Mat4 mNodeToParent{ 1.0f };
-        Mat4 mGeometryToNode{ 1.0f };
     };
 
     class ISceneNodeVisitor {
     public:
         ISceneNodeVisitor() = default;
         virtual ~ISceneNodeVisitor() = default;
-
         ISceneNodeVisitor(const ISceneNodeVisitor& Other) = default;
         ISceneNodeVisitor& operator=(const ISceneNodeVisitor& Other) = default;
         ISceneNodeVisitor(ISceneNodeVisitor&& Other) noexcept = default;

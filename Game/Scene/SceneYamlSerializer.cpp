@@ -322,7 +322,6 @@ namespace {
 
             Game::Transform NodeTransform{};
             NodeTransform.nodeToParent = ModelNodes[NodeIndex].GetNodeToParent();
-            NodeTransform.geometryToNode = ModelNodes[NodeIndex].GetGeometryToNode();
 
             if (NodeIndex == RootNodeIndex) {
                 Game::Transform* ExistingTransform{ OutScene.GetWorld().GetComponent<Game::Transform>(NodeEntities[NodeIndex]) };
@@ -331,7 +330,6 @@ namespace {
                 }
                 else {
                     ExistingTransform->nodeToParent = NodeTransform.nodeToParent;
-                    ExistingTransform->geometryToNode = NodeTransform.geometryToNode;
                 }
             }
             else {

@@ -6,7 +6,7 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 4 };
+    constexpr std::uint32_t FormatVersion{ 5 };
     constexpr std::array<char, 4> FormatMagic{ 'F', 'B', 'X', 'B' };
 }
 
@@ -32,7 +32,7 @@ bool AssetBinaryReader::ReadHeader() {
         return false;
     }
     const std::uint32_t Version{ ReadUint32() };
-    if (Version != 1 && Version != 2 && Version != 3 && Version != FormatVersion) {
+    if (Version != 1 && Version != 2 && Version != 3 && Version != 4 && Version != FormatVersion) {
         return false;
     }
     mFormatVersion = Version;
@@ -56,7 +56,9 @@ void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, 
         }
         ModelNode& Node{ Result.CreateNode(Name, Parent) };
         Node.SetNodeToParent(ReadMat4());
-        Node.SetGeometryToNode(ReadMat4());
+        if (mFormatVersion <= 4) {
+            ReadMat4();
+        }
         ReadVertexAttributes(Node.Vertices());
         Node.Indices() = ReadUint32Array();
         if (mFormatVersion == 1) {

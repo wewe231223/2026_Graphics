@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "Common.h"
 #include "cgltf.h"
@@ -8,14 +8,12 @@ namespace asset {
     public:
         const cgltf_node* mParent{ nullptr };
         Mat4 mNodeToParent{ 1.0f };
-        Mat4 mGeometryToNode{ 1.0f };
     };
 
     class IGltfSceneNodeVisitor {
     public:
         IGltfSceneNodeVisitor() = default;
         virtual ~IGltfSceneNodeVisitor() = default;
-
         IGltfSceneNodeVisitor(const IGltfSceneNodeVisitor& Other) = default;
         IGltfSceneNodeVisitor& operator=(const IGltfSceneNodeVisitor& Other) = default;
         IGltfSceneNodeVisitor(IGltfSceneNodeVisitor&& Other) noexcept = default;

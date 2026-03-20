@@ -244,7 +244,6 @@ namespace Game {
         for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
             Transform NodeTransform{};
             NodeTransform.nodeToParent = ModelNodes[NodeIndex].GetNodeToParent();
-            NodeTransform.geometryToNode = ModelNodes[NodeIndex].GetGeometryToNode();
             if (NodeIndex == RootNodeIndex) {
                 NodeTransform.position = SimpleMath::Vector3{ 0.0f, 0.0f, 0.0f };
             }

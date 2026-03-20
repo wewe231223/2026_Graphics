@@ -35,7 +35,6 @@ namespace Game {
 		SimpleMath::Vector3 rotationEuler{};
 		SimpleMath::Quaternion rotation{};
 		SimpleMath::Vector3 scale{ 1.0f, 1.0f, 1.0f };
-		SimpleMath::Matrix geometryToNode{ SimpleMath::Matrix::Identity };
 		SimpleMath::Matrix nodeToParent{ SimpleMath::Matrix::Identity };
 		SimpleMath::Matrix worldMatrix{ SimpleMath::Matrix::Identity };
 	EndComponent(Transform)

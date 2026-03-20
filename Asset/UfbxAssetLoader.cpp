@@ -210,12 +210,6 @@ void UfbxAssetLoader::TraverseNode(const ufbx_scene& Scene, const ufbx_node& Nod
     NodeVisitContext Context{};
     Context.mParent = Parent;
     Context.mNodeToParent = ToMat4(Node.node_to_parent);
-    if (Node.has_geometry_transform) {
-        Context.mGeometryToNode = ToMat4(Node.geometry_to_node);
-    }
-    else {
-        Context.mGeometryToNode = Mat4{ 1.0f };
-    }
     for (ISceneNodeVisitor* Visitor : Visitors) {
         if (Visitor != nullptr) {
             Visitor->OnNodeBegin(Scene, Node, Context);

@@ -61,7 +61,6 @@ namespace Game {
         : mId{ 0 },
         mName{},
         mNodeToParent{},
-        mGeometryToNode{},
         mChildren{},
         mSubMeshes{},
         mVertexRawData{},
@@ -81,7 +80,6 @@ namespace Game {
         : mId{ Other.mId },
         mName{ std::move(Other.mName) },
         mNodeToParent{ Other.mNodeToParent },
-        mGeometryToNode{ Other.mGeometryToNode },
         mChildren{ std::move(Other.mChildren) },
         mSubMeshes{ std::move(Other.mSubMeshes) },
         mVertexRawData{ std::move(Other.mVertexRawData) },
@@ -105,7 +103,6 @@ namespace Game {
         mId = Other.mId;
         mName = std::move(Other.mName);
         mNodeToParent = Other.mNodeToParent;
-        mGeometryToNode = Other.mGeometryToNode;
         mChildren = std::move(Other.mChildren);
         mSubMeshes = std::move(Other.mSubMeshes);
         mVertexRawData = std::move(Other.mVertexRawData);
@@ -135,9 +132,6 @@ namespace Game {
         return mNodeToParent;
     }
 
-    const SimpleMath::Matrix& ModelNode::GetGeometryToNode() const {
-        return mGeometryToNode;
-    }
 
     const std::vector<std::uint32_t>& ModelNode::GetChildren() const {
         return mChildren;
@@ -176,11 +170,10 @@ namespace Game {
         return std::span<const std::byte>{ mVertexRawData.data() + Range.Offset, Range.Size };
     }
 
-    void ModelNode::SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, const SimpleMath::Matrix& GeometryToNodeValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue) {
+    void ModelNode::SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue) {
         mId = IdValue;
         mName = std::move(NameValue);
         mNodeToParent = NodeToParentValue;
-        mGeometryToNode = GeometryToNodeValue;
         mChildren = std::move(ChildrenValue);
         mSubMeshes = std::move(SubMeshesValue);
     }
@@ -277,7 +270,7 @@ namespace Game {
                 SubMeshes.push_back(SubMesh);
             }
 
-            DestinationNode.SetBasicData(SourceNode.GetId(), SourceNode.GetName(), asset::ToSimpleMath(SourceNode.GetNodeToParent()), asset::ToSimpleMath(SourceNode.GetGeometryToNode()), std::move(Children), std::move(SubMeshes));
+            DestinationNode.SetBasicData(SourceNode.GetId(), SourceNode.GetName(), asset::ToSimpleMath(SourceNode.GetNodeToParent()), std::move(Children), std::move(SubMeshes));
 
             std::vector<std::byte> VertexRawData{};
             std::vector<ModelNode::VertexAttributeRange> VertexRanges{};

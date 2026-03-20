@@ -58,7 +58,6 @@ namespace Interface {
         virtual std::uint32_t GetId() const                                                             PURE;
         virtual const std::string& GetName() const                                                      PURE;
         virtual const SimpleMath::Matrix& GetNodeToParent() const                                       PURE;
-        virtual const SimpleMath::Matrix& GetGeometryToNode() const                                     PURE;
         virtual const std::vector<std::uint32_t>& GetChildren() const                                   PURE;
         virtual const std::vector<Game::ModelSubMesh>& GetSubMeshes() const                                   PURE;
         virtual const Game::ModelSubMesh& GetSubMesh(std::size_t index) const                                 PURE;

@@ -1,4 +1,5 @@
-﻿#pragma once
+#pragma once
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -6,9 +7,10 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "Asset/ModelResult.h"
 #include "Core/Common.h"
 #include "Game/Base/Common.h"
-#include "Asset/ModelResult.h"
 #include "Utility/DirectXInclude.h"
 
 namespace Game {
@@ -25,7 +27,6 @@ namespace Game {
         std::uint32_t GetId() const;
         const std::string& GetName() const;
         const SimpleMath::Matrix& GetNodeToParent() const;
-        const SimpleMath::Matrix& GetGeometryToNode() const;
         const std::vector<std::uint32_t>& GetChildren() const;
         const std::vector<ModelSubMesh>& GetSubMeshes() const;
         const ModelSubMesh& GetSubMesh(std::size_t Index) const;
@@ -40,6 +41,7 @@ namespace Game {
 
     private:
         struct VertexAttributeRange final {
+        public:
             VertexAttributeKind Kind{};
             std::size_t Offset{ 0 };
             std::size_t Size{ 0 };
@@ -48,7 +50,7 @@ namespace Game {
 
     private:
         friend class Model;
-        void SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, const SimpleMath::Matrix& GeometryToNodeValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue);
+        void SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue);
         void SetVertexData(std::vector<std::byte> VertexRawDataValue, std::vector<VertexAttributeRange> VertexAttributeRangesValue, std::unique_ptr<Interface::IAllocationHandle> VertexAllocationValue, std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViewsValue);
         void SetIndexData(std::vector<std::byte> IndexRawDataValue, std::unique_ptr<Interface::IAllocationHandle> IndexAllocationValue, const D3D12_INDEX_BUFFER_VIEW& IndexBufferViewValue);
 
@@ -56,19 +58,15 @@ namespace Game {
         std::uint32_t mId{ 0 };
         std::string mName{};
         SimpleMath::Matrix mNodeToParent{};
-        SimpleMath::Matrix mGeometryToNode{};
         std::vector<std::uint32_t> mChildren{};
         std::vector<ModelSubMesh> mSubMeshes{};
-
         std::vector<std::byte> mVertexRawData{};
         std::vector<VertexAttributeRange> mVertexAttributeRanges{};
         std::unique_ptr<Interface::IAllocationHandle> mVertexAllocation{};
         std::vector<D3D12_VERTEX_BUFFER_VIEW> mVertexBufferViews{};
-
         std::vector<std::byte> mIndexRawData{};
         std::unique_ptr<Interface::IAllocationHandle> mIndexAllocation{};
         D3D12_INDEX_BUFFER_VIEW mIndexBufferView{};
-
         bool mHasVertexData{ false };
     };
 
