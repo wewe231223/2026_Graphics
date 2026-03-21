@@ -1,4 +1,4 @@
-#include "ModelResult.h"
+﻿#include "ModelResult.h"
 
 #include <algorithm>
 #include <utility>
@@ -86,6 +86,14 @@ namespace asset {
 
     const ModelSkinBinding& ModelNode::GetSkinBinding() const {
         return mSkinBinding;
+    }
+
+    void ModelNode::SetIsSkinnedMesh(bool IsSkinnedMesh) {
+        mIsSkinnedMesh = IsSkinnedMesh;
+    }
+
+    bool ModelNode::IsSkinnedMesh() const {
+        return mIsSkinnedMesh;
     }
 
     std::vector<const ModelNode*> ModelNode::GetChildChain() const {

@@ -40,6 +40,7 @@ void MeshHierarchyBuilder::OnNodeBegin(const ufbx_scene& Scene, const ufbx_node&
     ModelNode& OutNode{ mResult.CreateNode(Name, ParentNode) };
     OutNode.SetNodeToParent(Context.mNodeToParent);
     if (Node.mesh != nullptr) {
+        OutNode.SetIsSkinnedMesh(Node.mesh->skin_deformers.count > 0);
         AppendIndexedMeshUfbx(Node, *Node.mesh, OutNode.Vertices(), OutNode.Indices(), OutNode.SubMeshes());
     }
     mNodeStack.push_back(&OutNode);

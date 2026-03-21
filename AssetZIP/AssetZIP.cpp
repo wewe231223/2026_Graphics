@@ -157,6 +157,7 @@ namespace {
 
             ++MeshIndex;
             StdOutput::PrintLine("[AssetZIP] Mesh {}: {}", MeshIndex, Node.GetName());
+            StdOutput::PrintLine("[AssetZIP]   Skinned mesh: {}", Node.IsSkinnedMesh() ? "true" : "false");
             StdOutput::PrintLine("[AssetZIP]   X range: min={}, max={}", Bounds.X.Min, Bounds.X.Max);
             StdOutput::PrintLine("[AssetZIP]   Y range: min={}, max={}", Bounds.Y.Min, Bounds.Y.Max);
             StdOutput::PrintLine("[AssetZIP]   Z range: min={}, max={}", Bounds.Z.Min, Bounds.Z.Max);

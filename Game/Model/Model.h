@@ -32,6 +32,7 @@ namespace Game {
         const ModelSubMesh& GetSubMesh(std::size_t Index) const;
         const std::vector<ModelBoneInfo>& GetBoneInfos() const;
         bool HasBoneInfo() const;
+        bool IsSkinnedMesh() const;
 
         bool HasVertexData() const;
         const std::vector<D3D12_VERTEX_BUFFER_VIEW>& GetVertexBufferViews() const;
@@ -52,7 +53,7 @@ namespace Game {
 
     private:
         friend class Model;
-        void SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue, std::vector<ModelBoneInfo> BoneInfosValue);
+        void SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue, std::vector<ModelBoneInfo> BoneInfosValue, bool IsSkinnedMeshValue);
         void SetVertexData(std::vector<std::byte> VertexRawDataValue, std::vector<VertexAttributeRange> VertexAttributeRangesValue, std::unique_ptr<Interface::IAllocationHandle> VertexAllocationValue, std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViewsValue);
         void SetIndexData(std::vector<std::byte> IndexRawDataValue, std::unique_ptr<Interface::IAllocationHandle> IndexAllocationValue, const D3D12_INDEX_BUFFER_VIEW& IndexBufferViewValue);
 
@@ -63,6 +64,7 @@ namespace Game {
         std::vector<std::uint32_t> mChildren{};
         std::vector<ModelSubMesh> mSubMeshes{};
         std::vector<ModelBoneInfo> mBoneInfos{};
+        bool mIsSkinnedMesh{ false };
         std::vector<std::byte> mVertexRawData{};
         std::vector<VertexAttributeRange> mVertexAttributeRanges{};
         std::unique_ptr<Interface::IAllocationHandle> mVertexAllocation{};

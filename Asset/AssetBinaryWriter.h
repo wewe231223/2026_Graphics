@@ -73,7 +73,7 @@ namespace asset {
         void WriteNodes(const std::vector<const ModelNode*>& Nodes, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices);
         void WriteNode(const ModelNode& Node, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices);
         void WriteBoneInfos(const std::vector<ModelBoneInfo>& BoneInfos);
-        void WriteSkinBinding(const ModelNode& Node, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices);
+        void WriteSkinnedMeshFlag(const ModelNode& Node);
         void WriteVertexAttributes(const VertexAttributes& Attributes);
         void WriteSubMeshes(const std::vector<ModelNode::SubMesh>& SubMeshes);
         void WriteVec2Array(std::span<const Vec2> Values);

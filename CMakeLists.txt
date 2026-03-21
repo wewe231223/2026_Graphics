@@ -116,6 +116,8 @@ add_library(Game STATIC
     Game/Scene/Components/Intents/CameraIntent.cpp
     Game/Scene/Components/StaticMeshRenderer.cpp
     Game/Scene/Components/BoundingBox.cpp
+    Game/Scene/Components/Bone.cpp
+    Game/Scene/Components/BoneSkinReference.cpp
     Game/Scene/Components/Camera.cpp
     Game/Scene/Components/Frustum.cpp
     Game/Scene/Components/PrefabInstance.cpp

@@ -64,6 +64,7 @@ namespace Game {
         mChildren{},
         mSubMeshes{},
         mBoneInfos{},
+        mIsSkinnedMesh{ false },
         mVertexRawData{},
         mVertexAttributeRanges{},
         mVertexAllocation{},
@@ -84,6 +85,7 @@ namespace Game {
         mChildren{ std::move(Other.mChildren) },
         mSubMeshes{ std::move(Other.mSubMeshes) },
         mBoneInfos{ std::move(Other.mBoneInfos) },
+        mIsSkinnedMesh{ Other.mIsSkinnedMesh },
         mVertexRawData{ std::move(Other.mVertexRawData) },
         mVertexAttributeRanges{ std::move(Other.mVertexAttributeRanges) },
         mVertexAllocation{ std::move(Other.mVertexAllocation) },
@@ -94,6 +96,7 @@ namespace Game {
         mHasVertexData{ Other.mHasVertexData } {
         Other.mId = 0;
         Other.mHasVertexData = false;
+        Other.mIsSkinnedMesh = false;
         Other.mIndexBufferView = D3D12_INDEX_BUFFER_VIEW{};
     }
 
@@ -108,6 +111,7 @@ namespace Game {
         mChildren = std::move(Other.mChildren);
         mSubMeshes = std::move(Other.mSubMeshes);
         mBoneInfos = std::move(Other.mBoneInfos);
+        mIsSkinnedMesh = Other.mIsSkinnedMesh;
         mVertexRawData = std::move(Other.mVertexRawData);
         mVertexAttributeRanges = std::move(Other.mVertexAttributeRanges);
         mVertexAllocation = std::move(Other.mVertexAllocation);
@@ -119,6 +123,7 @@ namespace Game {
 
         Other.mId = 0;
         Other.mHasVertexData = false;
+        Other.mIsSkinnedMesh = false;
         Other.mIndexBufferView = D3D12_INDEX_BUFFER_VIEW{};
         return *this;
     }
@@ -156,6 +161,10 @@ namespace Game {
         return mBoneInfos.empty() == false;
     }
 
+    bool ModelNode::IsSkinnedMesh() const {
+        return mIsSkinnedMesh;
+    }
+
     bool ModelNode::HasVertexData() const {
         return mHasVertexData;
     }
@@ -181,13 +190,14 @@ namespace Game {
         return std::span<const std::byte>{ mVertexRawData.data() + Range.Offset, Range.Size };
     }
 
-    void ModelNode::SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue, std::vector<ModelBoneInfo> BoneInfosValue) {
+    void ModelNode::SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue, std::vector<ModelBoneInfo> BoneInfosValue, bool IsSkinnedMeshValue) {
         mId = IdValue;
         mName = std::move(NameValue);
         mNodeToParent = NodeToParentValue;
         mChildren = std::move(ChildrenValue);
         mSubMeshes = std::move(SubMeshesValue);
         mBoneInfos = std::move(BoneInfosValue);
+        mIsSkinnedMesh = IsSkinnedMeshValue;
     }
 
     void ModelNode::SetVertexData(std::vector<std::byte> VertexRawDataValue, std::vector<VertexAttributeRange> VertexAttributeRangesValue, std::unique_ptr<Interface::IAllocationHandle> VertexAllocationValue, std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViewsValue) {
@@ -288,7 +298,7 @@ namespace Game {
                 BoneInfos.push_back(BoneInfo);
             }
 
-            DestinationNode.SetBasicData(SourceNode.GetId(), SourceNode.GetName(), asset::ToSimpleMath(SourceNode.GetNodeToParent()), std::move(Children), std::move(SubMeshes), std::move(BoneInfos));
+            DestinationNode.SetBasicData(SourceNode.GetId(), SourceNode.GetName(), asset::ToSimpleMath(SourceNode.GetNodeToParent()), std::move(Children), std::move(SubMeshes), std::move(BoneInfos), SourceNode.IsSkinnedMesh());
 
             std::vector<std::byte> VertexRawData{};
             std::vector<ModelNode::VertexAttributeRange> VertexRanges{};

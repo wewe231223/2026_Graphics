@@ -1,7 +1,9 @@
-#pragma once
+﻿#pragma once
 
 #include <cstdint>
+#include <string>
 #include <vector>
+
 #include "Arche/Common.h"
 #include "Common.h"
 #include "Game/Scene/Components/ComponentInspection.h"
@@ -26,9 +28,20 @@ namespace Widget {
         void Render(const Game::SceneWorldSnapshot* Snapshot) override;
 
     private:
+        struct BoneEntityOption final {
+        public:
+            Arche::EntityID mEntityId{ Arche::NullEntityID };
+            std::string mLabel{};
+        };
+
+    private:
         void RenderEntityNode(const Game::SceneWorldSnapshot& Snapshot, std::uint32_t EntityIndex);
         void RenderSelectedEntityPanel(const Game::SceneWorldSnapshot& Snapshot);
         void RenderComponentSectionTable(const char* ComponentName, const std::vector<Game::ComponentInspectionField>& Fields, const char* TableIdentifier) const;
+        void RenderBoneSkinReferenceEditor(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId);
+        void BuildBoneEntityOptions(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId, std::vector<BoneEntityOption>& OutOptions) const;
+        Arche::EntityID FindHierarchyRootEntityId(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId) const;
+        std::string BuildBoneEntityLabel(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId) const;
         void SyncSelectedEntityFromSelectedEntityId(const Game::SceneWorldSnapshot& Snapshot);
 
     private:

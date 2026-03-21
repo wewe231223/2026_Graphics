@@ -1,21 +1,30 @@
-#include "SceneHierarchyWidget.h"
+﻿#include "SceneHierarchyWidget.h"
+
 #include <algorithm>
 #include <format>
 #include <string>
 #include <utility>
+#include <vector>
+
 #include "External/Include/ImGui/imgui.h"
+#include "Core/Event/EventQueue.h"
+#include "Game/Scene/Components/Bone.h"
+#include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/ComponentInspection.h"
 #include "Game/Scene/Components/Name.h"
-#include "Game/Scene/SceneWorldSnapshot.h"
 #include "Game/Scene/Events/SelectionEvent.h"
-#include "Core/Event/EventQueue.h"
+#include "Game/Scene/SceneWorldSnapshot.h"
+
+#ifdef max 
+#undef max
+#endif 
 
 namespace Widget {
     SceneHierarchyWidget::SceneHierarchyWidget()
-        : mSelectedEntityIndex{},
-        mHierarchyRegionRatio{ 0.6f },
-        mSelectedEntityId{ Arche::NullEntityID },
-        mPickedEntityChangedSubscriptionId{} {
+        : mSelectedEntityIndex{}
+        , mHierarchyRegionRatio{ 0.6f }
+        , mSelectedEntityId{ Arche::NullEntityID }
+        , mPickedEntityChangedSubscriptionId{} {
         mPickedEntityChangedSubscriptionId = Core::Event::Subscribe<Game::PickedEntityChangedEventTag>([this](const Core::Event::Event<Game::PickedEntityChangedEventTag>& PickedEntityChangedEvent) {
             const Game::PickedEntityChangedPayload* Payload{ PickedEntityChangedEvent.GetPayloadAs<Game::PickedEntityChangedPayload>() };
 
@@ -176,6 +185,8 @@ namespace Widget {
             const std::string TableIdentifier{ std::format("ComponentTable##{}:{}:{}", Entity.mEntityId.index, Entity.mEntityId.generation, SectionIndex) };
             RenderComponentSectionTable(Sections[SectionIndex].ComponentName.c_str(), Sections[SectionIndex].Fields, TableIdentifier.c_str());
         }
+
+        RenderBoneSkinReferenceEditor(Snapshot, Entity.mEntityId);
     }
 
     void SceneHierarchyWidget::RenderComponentSectionTable(const char* ComponentName, const std::vector<Game::ComponentInspectionField>& Fields, const char* TableIdentifier) const {
@@ -205,6 +216,122 @@ namespace Widget {
         }
 
         ImGui::EndTable();
+    }
+
+    void SceneHierarchyWidget::RenderBoneSkinReferenceEditor(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId) {
+        Arche::World* World{ Snapshot.GetWorld() };
+        const Arche::World::WorldReadOnlyView* ReadOnlyWorld{ Snapshot.GetReadOnlyWorld() };
+        if (World == nullptr || ReadOnlyWorld == nullptr) {
+            return;
+        }
+
+        const Game::BoneSkinReference* BoneSkinReferenceComponent{ ReadOnlyWorld->GetComponent<Game::BoneSkinReference>(EntityId) };
+        if (BoneSkinReferenceComponent == nullptr) {
+            return;
+        }
+
+        std::vector<BoneEntityOption> Options{};
+        BuildBoneEntityOptions(Snapshot, EntityId, Options);
+
+        std::string PreviewLabel{ BuildBoneEntityLabel(Snapshot, BoneSkinReferenceComponent->boneRootEntityId) };
+        if (PreviewLabel.empty()) {
+            PreviewLabel = "<None>";
+        }
+
+        ImGui::SeparatorText("BoneSkinReference");
+
+        const std::string ComboIdentifier{ std::format("##BoneSkinRootSelector##{}:{}", EntityId.index, EntityId.generation) };
+        if (!ImGui::BeginCombo(ComboIdentifier.c_str(), PreviewLabel.c_str())) {
+            return;
+        }
+
+        const bool IsSelectedNone{ BoneSkinReferenceComponent->boneRootEntityId == Arche::NullEntityID };
+        if (ImGui::Selectable("<None>", IsSelectedNone)) {
+            World->WriteComponent<Game::BoneSkinReference>(EntityId, [](Game::BoneSkinReference& TargetComponent) {
+                TargetComponent.boneRootEntityId = Arche::NullEntityID;
+            });
+        }
+
+        for (const BoneEntityOption& Option : Options) {
+            const bool IsSelected{ BoneSkinReferenceComponent->boneRootEntityId == Option.mEntityId };
+            if (ImGui::Selectable(Option.mLabel.c_str(), IsSelected)) {
+                const Arche::EntityID SelectedEntityId{ Option.mEntityId };
+                World->WriteComponent<Game::BoneSkinReference>(EntityId, [SelectedEntityId](Game::BoneSkinReference& TargetComponent) {
+                    TargetComponent.boneRootEntityId = SelectedEntityId;
+                });
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+
+    void SceneHierarchyWidget::BuildBoneEntityOptions(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId, std::vector<BoneEntityOption>& OutOptions) const {
+        OutOptions.clear();
+
+        const Arche::World::WorldReadOnlyView* ReadOnlyWorld{ Snapshot.GetReadOnlyWorld() };
+        if (ReadOnlyWorld == nullptr) {
+            return;
+        }
+
+        const Arche::EntityID HierarchyRootEntityId{ FindHierarchyRootEntityId(Snapshot, EntityId) };
+
+        for (const Game::SceneWorldSnapshot::SceneEntitySnapshot& EntitySnapshot : Snapshot.GetEntities()) {
+            const Game::Bone* BoneComponent{ ReadOnlyWorld->GetComponent<Game::Bone>(EntitySnapshot.mEntityId) };
+            if (BoneComponent == nullptr) {
+                continue;
+            }
+
+            if (FindHierarchyRootEntityId(Snapshot, EntitySnapshot.mEntityId) != HierarchyRootEntityId) {
+                continue;
+            }
+
+            BoneEntityOption Option{};
+            Option.mEntityId = EntitySnapshot.mEntityId;
+            Option.mLabel = BuildBoneEntityLabel(Snapshot, EntitySnapshot.mEntityId);
+            OutOptions.push_back(std::move(Option));
+        }
+    }
+
+
+    Arche::EntityID SceneHierarchyWidget::FindHierarchyRootEntityId(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId) const {
+        Arche::EntityID CurrentEntityId{ EntityId };
+
+        for (;;) {
+            bool IsFound{ false };
+
+            for (const Game::SceneWorldSnapshot::SceneEntitySnapshot& EntitySnapshot : Snapshot.GetEntities()) {
+                if (EntitySnapshot.mEntityId != CurrentEntityId) {
+                    continue;
+                }
+
+                if (EntitySnapshot.mParentId == Arche::NullEntityID) {
+                    return CurrentEntityId;
+                }
+
+                CurrentEntityId = EntitySnapshot.mParentId;
+                IsFound = true;
+                break;
+            }
+
+            if (IsFound == false) {
+                return CurrentEntityId;
+            }
+        }
+    }
+
+    std::string SceneHierarchyWidget::BuildBoneEntityLabel(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId) const {
+        if (EntityId == Arche::NullEntityID) {
+            return {};
+        }
+
+        const Arche::World::WorldReadOnlyView* ReadOnlyWorld{ Snapshot.GetReadOnlyWorld() };
+        if (ReadOnlyWorld == nullptr) {
+            return {};
+        }
+
+        const Game::Name* NameComponent{ ReadOnlyWorld->GetComponent<Game::Name>(EntityId) };
+        const char* NameText{ NameComponent == nullptr ? "<Unnamed>" : Game::GetNameText(*NameComponent) };
+        return std::format("{} ({}:{})", NameText, EntityId.index, EntityId.generation);
     }
 
     void SceneHierarchyWidget::SyncSelectedEntityFromSelectedEntityId(const Game::SceneWorldSnapshot& Snapshot) {

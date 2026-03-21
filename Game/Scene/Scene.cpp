@@ -6,6 +6,7 @@
 #include "Asset/Common.h"
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Bone.h"
+#include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PickingGizmo.h"
@@ -67,6 +68,7 @@ namespace Game {
         mHierarchyEntitySelectedSubscriptionId{},
         mFileDropSubscriptionId{} {
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
+        mWorldSnapshot.BindWorld(&mWorld);
         mWorldSnapshot.BindAssetRegistry(&mAssetRegistry);
 
         mHierarchyEntitySelectedSubscriptionId = Core::Event::Subscribe<Game::HierarchyEntitySelectedEventTag>([this](const Core::Event::Event<Game::HierarchyEntitySelectedEventTag>& HierarchyEntitySelectedEvent) {
@@ -281,6 +283,11 @@ namespace Game {
                 mWorld.AddComponent(NodeEntities[NodeIndex], NodeBone);
             }
 
+            if (ModelNodes[NodeIndex].IsSkinnedMesh()) {
+                BoneSkinReference NodeBoneSkinReference{};
+                mWorld.AddComponent(NodeEntities[NodeIndex], NodeBoneSkinReference);
+            }
+
             EntityHierarchy Hierarchy{};
             Hierarchy.self = NodeEntities[NodeIndex];
             mWorld.AddComponent(NodeEntities[NodeIndex], Hierarchy);
@@ -335,6 +342,7 @@ namespace Game {
 
     void Scene::InitializeWorldSnapshot() {
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
+        mWorldSnapshot.BindWorld(&mWorld);
         mWorldSnapshot.BindAssetRegistry(&mAssetRegistry);
         RebuildWorldSnapshot();
         mWorldSnapshotVersion = mWorld.GetStructureVersion();

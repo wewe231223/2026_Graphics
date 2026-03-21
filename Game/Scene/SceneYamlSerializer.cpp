@@ -16,6 +16,7 @@
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Bone.h"
+#include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PrefabInstance.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
@@ -36,6 +37,7 @@ namespace {
     constexpr const char* LocalPlayerTagTypeName{ "LocalPlayerTag" };
     constexpr const char* NameTypeName{ "Name" };
     constexpr const char* PrefabInstanceTypeName{ "PrefabInstance" };
+    constexpr const char* BoneSkinReferenceTypeName{ "BoneSkinReference" };
     constexpr const char* DefaultMaterialPathText{ "Resources/DefaultResource/DefaultMaterial.json" };
 
 
@@ -360,6 +362,11 @@ namespace {
                 OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeBone);
             }
 
+            if (ModelNodes[NodeIndex].IsSkinnedMesh()) {
+                Game::BoneSkinReference NodeBoneSkinReference{};
+                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeBoneSkinReference);
+            }
+
             Game::EntityHierarchy Hierarchy{};
             Hierarchy.self = NodeEntities[NodeIndex];
             if (NodeIndex == RootNodeIndex) {
@@ -653,6 +660,7 @@ namespace Game {
 
         std::unordered_map<std::int64_t, Arche::EntityID> EntityBySerializedId{};
         std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredParents{};
+        std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredBoneSkinReferenceEntities{};
         const c4::yml::ConstNodeRef EntitiesNode{ RootNode["Entities"] };
         for (const c4::yml::ConstNodeRef EntityNode : EntitiesNode.children()) {
             Arche::EntityID Entity{ OutScene.GetWorld().CreateEntity() };
@@ -756,6 +764,18 @@ namespace Game {
                             MaterialGroupIndexForModel = 0;
                         }
                     }
+                }
+            }
+
+            if (ComponentsNode.has_child(BoneSkinReferenceTypeName)) {
+                BoneSkinReference NewBoneSkinReference{};
+                const c4::yml::ConstNodeRef BoneSkinReferenceNode{ ComponentsNode[BoneSkinReferenceTypeName] };
+                OutScene.GetWorld().AddComponent(Entity, NewBoneSkinReference);
+
+                if (BoneSkinReferenceNode.has_child("boneRootEntityId")) {
+                    std::int64_t SerializedBoneRootEntityId{ -1 };
+                    BoneSkinReferenceNode["boneRootEntityId"] >> SerializedBoneRootEntityId;
+                    DeferredBoneSkinReferenceEntities.push_back(std::pair<Arche::EntityID, std::int64_t>{ Entity, SerializedBoneRootEntityId });
                 }
             }
 
@@ -1018,6 +1038,17 @@ namespace Game {
             }
         }
 
+        for (const std::pair<Arche::EntityID, std::int64_t>& DeferredBoneSkinReferenceEntity : DeferredBoneSkinReferenceEntities) {
+            const std::unordered_map<std::int64_t, Arche::EntityID>::const_iterator BoneRootIter{ EntityBySerializedId.find(DeferredBoneSkinReferenceEntity.second) };
+            if (BoneRootIter == EntityBySerializedId.end()) {
+                continue;
+            }
+
+            OutScene.GetWorld().WriteComponent<BoneSkinReference>(DeferredBoneSkinReferenceEntity.first, [ResolvedEntityId = BoneRootIter->second](BoneSkinReference& TargetComponent) {
+                TargetComponent.boneRootEntityId = ResolvedEntityId;
+            });
+        }
+
         OutScene.InitializePickingGizmoEntities();
         OutScene.BuildSystemExecutionPlan();
         return LoadResult;
@@ -1161,6 +1192,7 @@ namespace Game {
 
             const Name* NameComponent{ ReadOnlyWorld->GetComponent<Game::Name>(EntityId) };
             const Transform* TransformComponent{ ReadOnlyWorld->GetComponent<Game::Transform>(EntityId) };
+            const BoneSkinReference* BoneSkinReferenceComponent{ ReadOnlyWorld->GetComponent<BoneSkinReference>(EntityId) };
             const Material* MaterialComponent{ ReadOnlyWorld->GetComponent<Material>(EntityId) };
             const StaticMeshRenderer* StaticMeshRendererComponent{ ReadOnlyWorld->GetComponent<StaticMeshRenderer>(EntityId) };
             const Camera* CameraComponent{ ReadOnlyWorld->GetComponent<Camera>(EntityId) };
@@ -1184,6 +1216,13 @@ namespace Game {
                 AppendVector3(Stream, 4, "rotationEuler", TransformComponent->rotationEuler);
                 AppendQuaternion(Stream, 4, "rotation", TransformComponent->rotation);
                 AppendVector3(Stream, 4, "scale", TransformComponent->scale);
+            }
+
+            if (BoneSkinReferenceComponent != nullptr) {
+                AppendLine(Stream, 3, std::string{ BoneSkinReferenceTypeName } + std::string{ ":" });
+                const std::unordered_map<Arche::EntityID, std::uint32_t>::const_iterator BoneRootSerializedIter{ SerializedEntityIds.find(BoneSkinReferenceComponent->boneRootEntityId) };
+                const std::int32_t BoneRootSerializedId{ BoneRootSerializedIter == SerializedEntityIds.end() ? -1 : static_cast<std::int32_t>(BoneRootSerializedIter->second) };
+                AppendLine(Stream, 4, std::string{ "boneRootEntityId: " } + std::to_string(BoneRootSerializedId));
             }
 
             if (MaterialComponent != nullptr) {

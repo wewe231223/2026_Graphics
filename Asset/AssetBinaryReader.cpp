@@ -6,7 +6,7 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 6 };
+    constexpr std::uint32_t FormatVersion{ 7 };
     constexpr std::array<char, 4> FormatMagic{ 'F', 'B', 'X', 'B' };
 }
 
@@ -32,7 +32,7 @@ bool AssetBinaryReader::ReadHeader() {
         return false;
     }
     const std::uint32_t Version{ ReadUint32() };
-    if (Version != 1 && Version != 2 && Version != 3 && Version != 4 && Version != 5 && Version != FormatVersion) {
+    if (Version != 1 && Version != 2 && Version != 3 && Version != 4 && Version != 5 && Version != 6 && Version != FormatVersion) {
         return false;
     }
     mFormatVersion = Version;
@@ -65,7 +65,13 @@ void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, 
             }
 
             Nodes.push_back(&Node);
-            ReadSkinBinding(Node, Nodes);
+            if (mFormatVersion >= 7) {
+                ReadSkinnedMeshFlag(Node);
+            }
+            else {
+                ReadSkinBinding(Node, Nodes);
+                Node.SetIsSkinnedMesh(Node.HasSkinBinding());
+            }
         }
         else {
             Nodes.push_back(&Node);
@@ -124,6 +130,11 @@ void AssetBinaryReader::ReadSkinBinding(ModelNode& Node, std::span<ModelNode* co
     }
 
     Node.SetSkinBinding(SkinBinding);
+}
+
+
+void AssetBinaryReader::ReadSkinnedMeshFlag(ModelNode& Node) {
+    Node.SetIsSkinnedMesh(ReadBool());
 }
 
 void AssetBinaryReader::ReadVertexAttributes(VertexAttributes& Attributes) {

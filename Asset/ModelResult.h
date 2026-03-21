@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <cstddef>
 #include <cstdint>
@@ -72,6 +72,9 @@ namespace asset {
         bool HasSkinBinding() const;
         const ModelSkinBinding& GetSkinBinding() const;
 
+        void SetIsSkinnedMesh(bool IsSkinnedMesh);
+        bool IsSkinnedMesh() const;
+
         std::vector<const ModelNode*> GetChildChain() const;
         void SetSubMeshes(std::vector<SubMesh> SubMeshes);
         const std::vector<SubMesh>& GetSubMeshes() const;
@@ -88,6 +91,7 @@ namespace asset {
         std::vector<ModelBoneInfo> mBoneInfos{};
         ModelSkinBinding mSkinBinding{};
         bool mHasSkinBinding{ false };
+        bool mIsSkinnedMesh{ false };
     };
 
     class ModelResult final {

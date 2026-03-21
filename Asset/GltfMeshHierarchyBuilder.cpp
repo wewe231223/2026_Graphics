@@ -39,6 +39,8 @@ namespace asset {
         mSourceNodeLookup.insert_or_assign(&Node, &OutNode);
         AppendBoneInfos(Scene, Node, OutNode);
 
+        OutNode.SetIsSkinnedMesh(Node.mesh != nullptr && Node.skin != nullptr);
+
         if (Node.skin != nullptr) {
             PendingSkinBinding SkinBinding{};
             SkinBinding.MeshNode = &OutNode;

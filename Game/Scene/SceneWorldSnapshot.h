@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <cstdint>
 #include <string>
@@ -28,6 +28,7 @@ namespace Game {
 
     public:
         void BindReadOnlyWorld(const Arche::World::WorldReadOnlyView* ReadOnlyWorld);
+        void BindWorld(Arche::World* World);
 
         void Clear();
         void Reserve(std::size_t Capacity);
@@ -37,6 +38,7 @@ namespace Game {
         void BuildHierarchy();
 
         const Arche::World::WorldReadOnlyView* GetReadOnlyWorld() const;
+        Arche::World* GetWorld() const;
         void BindAssetRegistry(const AssetRegistry* AssetRegistryInstance);
         const AssetRegistry* GetAssetRegistry() const;
 
@@ -49,6 +51,7 @@ namespace Game {
 
     private:
         const Arche::World::WorldReadOnlyView* mReadOnlyWorld{};
+        Arche::World* mWorld{};
         const AssetRegistry* mAssetRegistry{};
         std::string mSceneName{};
         std::vector<std::string> mSystemNames{};
