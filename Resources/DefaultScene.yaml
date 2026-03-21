@@ -1,10 +1,11 @@
 ﻿SceneName: DefaultScene
 Systems:
-  - CameraInputSystem
-  - PickingSystem
-  - StaticRenderSystem
-  - CleanUpSystem
-  - CameraRenderSystem
+  - Type: CameraInputSystem
+  - Type: PickingSystem
+  - Type: StaticRenderSystem
+  - Type: SkinnedMeshRenderSystem
+  - Type: CleanUpSystem
+  - Type: CameraRenderSystem
 
 DefaultTransform: &DefaultTransform
   rotationEuler: [0.0, 0.0, 0.0]

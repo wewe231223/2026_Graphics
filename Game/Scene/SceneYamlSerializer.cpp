@@ -134,9 +134,9 @@ namespace {
             return std::make_unique<Game::PickingSystem>();
         }
 
-		if (SystemName == "CameraRenderSystem") {
-			return std::make_unique<Game::CameraRenderSystem>();
-		}
+        if (SystemName == "CameraRenderSystem") {
+            return std::make_unique<Game::CameraRenderSystem>();
+        }
 
         if (SystemName == "CleanUpSystem" || SystemName == "CleanUpSystem<CameraIntent>") {
             return std::make_unique<Game::CleanUpSystem<Game::CameraIntent>>();
@@ -145,6 +145,26 @@ namespace {
         return nullptr;
     }
 
+    bool TryReadSystemName(c4::yml::ConstNodeRef SystemNode, std::string& OutSystemName) {
+        if (SystemNode.is_val() || SystemNode.is_keyval()) {
+            SystemNode >> OutSystemName;
+            return OutSystemName.empty() == false;
+        }
+
+        if (SystemNode.is_map()) {
+            if (SystemNode.has_child("Type")) {
+                SystemNode["Type"] >> OutSystemName;
+                return OutSystemName.empty() == false;
+            }
+
+            if (SystemNode.has_child("Name")) {
+                SystemNode["Name"] >> OutSystemName;
+                return OutSystemName.empty() == false;
+            }
+        }
+
+        return false;
+    }
 
     bool StartsWith(const std::string& Text, const std::string& Prefix) {
         if (Text.size() < Prefix.size()) {
@@ -483,7 +503,13 @@ namespace Game {
             const c4::yml::ConstNodeRef SystemsNode{ RootNode["Systems"] };
             for (const c4::yml::ConstNodeRef SystemNode : SystemsNode.children()) {
                 std::string SystemName{};
-                SystemNode >> SystemName;
+                const bool IsSystemNameRead{ TryReadSystemName(SystemNode, SystemName) };
+                if (IsSystemNameRead == false) {
+                    LoadResult.IsSuccess = false;
+                    LoadResult.UndecidedItems.push_back("System Type 을 읽을 수 없습니다.");
+                    continue;
+                }
+
                 std::unique_ptr<ISystem> NewSystem{ CreateSystemByName(SystemName) };
                 if (NewSystem == nullptr) {
                     LoadResult.IsSuccess = false;
@@ -974,7 +1000,7 @@ namespace Game {
             AppendLine(Stream, 0, "Systems:");
 
             for (const std::string& SystemName : TargetSnapshot.GetSystemNames()) {
-                AppendLine(Stream, 1, std::string{ "- " } + ToYamlText(SystemName));
+                AppendLine(Stream, 1, std::string{ "- Type: " } + ToYamlText(SystemName));
             }
         }
 
