@@ -1,4 +1,4 @@
-#include "SceneEntityFactory.h"
+﻿#include "SceneEntityFactory.h"
 #include <vector>
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Bone.h"
@@ -102,6 +102,8 @@ namespace Game {
             NodeEntities[NodeIndex] = CreateEntity(true);
         }
 
+        const Arche::EntityID BoneRootEntityId{ ResolveSingleBoneRootEntityId(ModelNodes, NodeEntities) };
+
         for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
             Transform NodeTransform{};
             NodeTransform.nodeToParent = ModelNodes[NodeIndex].GetNodeToParent();
@@ -130,6 +132,7 @@ namespace Game {
 
             if (ModelNodes[NodeIndex].IsSkinnedMesh() == true) {
                 BoneSkinReference NodeBoneSkinReference{};
+                NodeBoneSkinReference.boneRootEntityId = BoneRootEntityId;
                 AddBoneSkinReference(NodeEntities[NodeIndex], NodeBoneSkinReference);
             }
 
@@ -226,6 +229,44 @@ namespace Game {
         }
 
         *ExistingBoneSkinReference = BoneSkinReferenceComponent;
+    }
+
+
+    Arche::EntityID SceneEntityFactory::ResolveSingleBoneRootEntityId(const std::vector<ModelNode>& ModelNodes, const std::vector<Arche::EntityID>& NodeEntities) const {
+        if (ModelNodes.size() != NodeEntities.size()) {
+            return Arche::NullEntityID;
+        }
+
+        std::vector<std::int32_t> ParentIndices(ModelNodes.size(), -1);
+        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
+            const std::vector<std::uint32_t>& Children{ ModelNodes[NodeIndex].GetChildren() };
+            for (std::uint32_t ChildNodeIndex : Children) {
+                if (ChildNodeIndex >= ParentIndices.size()) {
+                    continue;
+                }
+
+                ParentIndices[ChildNodeIndex] = static_cast<std::int32_t>(NodeIndex);
+            }
+        }
+
+        std::vector<std::size_t> BoneRootNodeIndices{};
+        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
+            if (ModelNodes[NodeIndex].HasBoneInfo() == false) {
+                continue;
+            }
+
+            const std::int32_t ParentIndex{ ParentIndices[NodeIndex] };
+            const bool HasBoneParent{ ParentIndex >= 0 && ModelNodes[static_cast<std::size_t>(ParentIndex)].HasBoneInfo() == true };
+            if (HasBoneParent == false) {
+                BoneRootNodeIndices.push_back(NodeIndex);
+            }
+        }
+
+        if (BoneRootNodeIndices.size() != 1) {
+            return Arche::NullEntityID;
+        }
+
+        return NodeEntities[BoneRootNodeIndices.front()];
     }
 
 
