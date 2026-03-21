@@ -17,6 +17,7 @@
 #include "Core/Event/EventQueue.h"
 #include "Core/Event/FileDropEvent.h"
 #include "Utility/StringUtils.h"
+#include "SceneEntityFactory.h"
 
 namespace {
     std::string BuildGizmoPrimitiveSelector(float Red, float Green, float Blue) {
@@ -227,117 +228,36 @@ namespace Game {
             return;
         }
 
-        const Model* SourceModel{ ModelData.get() };
-        const std::vector<ModelNode>& ModelNodes{ SourceModel->GetNodes() };
-        const ModelNode* RootNode{ SourceModel->GetRootNode() };
-        if (RootNode == nullptr || ModelNodes.empty()) {
+        SceneEntityFactory EntityFactory{ *this };
+        ModelHierarchySpawnRequest SpawnRequest{};
+        SpawnRequest.ModelData = ModelData;
+        SpawnRequest.RootEntityName = RootEntityName;
+        SpawnRequest.MaterialGroupIndex = MaterialGroupIndex;
+        SpawnRequest.IsActive = true;
+        SpawnRequest.IsDerivedEntity = IsDerivedEntity;
+
+        std::vector<Arche::EntityID> SpawnedEntities{};
+        const bool IsSpawned{ EntityFactory.SpawnModelHierarchy(SpawnRequest, &SpawnedEntities) };
+        if (IsSpawned == false || SpawnedEntities.empty() == true) {
             return;
         }
 
-        const std::size_t RootNodeIndex{ static_cast<std::size_t>(RootNode - ModelNodes.data()) };
-        std::vector<Arche::EntityID> NodeEntities(ModelNodes.size(), Arche::NullEntityID);
-
-        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
-            NodeEntities[NodeIndex] = mWorld.CreateEntity();
-            Arche::EntityID UpdatedEntityId{ NodeEntities[NodeIndex] };
-            UpdatedEntityId.SetDerivedEntity(IsDerivedEntity || NodeIndex != RootNodeIndex);
-            NodeEntities[NodeIndex] = UpdatedEntityId;
-        }
-
-        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
-            Transform NodeTransform{};
-            NodeTransform.nodeToParent = ModelNodes[NodeIndex].GetNodeToParent();
-            if (NodeIndex == RootNodeIndex) {
-                NodeTransform.position = SimpleMath::Vector3{ 0.0f, 0.0f, 0.0f };
-            }
-
-            mWorld.AddComponent(NodeEntities[NodeIndex], NodeTransform);
-
-            if (NodeIndex == RootNodeIndex) {
-                PrefabInstance RootPrefabInstance{};
-                RootPrefabInstance.PrefabId = GenerateNextPrefabId(*this);
-                mWorld.AddComponent(NodeEntities[NodeIndex], RootPrefabInstance);
-            }
-
-            const bool HasRenderableGeometry{ ModelNodes[NodeIndex].GetSubMeshes().empty() == false };
-            const bool HasBoneInfo{ ModelNodes[NodeIndex].HasBoneInfo() };
-            if (HasRenderableGeometry) {
-                StaticMeshRenderer NodeRenderer{};
-                NodeRenderer.model = ModelData.get();
-                NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
-                NodeRenderer.materialGroupIndex = MaterialGroupIndex;
-                NodeRenderer.active = true;
-                mWorld.AddComponent(NodeEntities[NodeIndex], NodeRenderer);
-            }
-
-            if (HasRenderableGeometry) {
-                BoundingBox NodeBoundingBox{};
-                NodeBoundingBox.UpdateFromModel(ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
-                mWorld.AddComponent(NodeEntities[NodeIndex], NodeBoundingBox);
-            }
-
-            if (HasBoneInfo) {
-                Bone NodeBone{};
-                NodeBone.model = ModelData.get();
-                NodeBone.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
-                mWorld.AddComponent(NodeEntities[NodeIndex], NodeBone);
-            }
-
-            if (ModelNodes[NodeIndex].IsSkinnedMesh()) {
-                BoneSkinReference NodeBoneSkinReference{};
-                mWorld.AddComponent(NodeEntities[NodeIndex], NodeBoneSkinReference);
-            }
-
-            EntityHierarchy Hierarchy{};
-            Hierarchy.self = NodeEntities[NodeIndex];
-            mWorld.AddComponent(NodeEntities[NodeIndex], Hierarchy);
-
-            std::string NodeNameText{ ModelNodes[NodeIndex].GetName() };
-            if (NodeIndex == RootNodeIndex && RootEntityName.empty() == false) {
-                NodeNameText = RootEntityName;
-            }
-
-            if (NodeNameText.empty()) {
-                NodeNameText = std::string{ "DroppedModelNode_" } + std::to_string(NodeIndex);
-            }
-            const Name NodeName{ CreateNameComponent(NodeNameText) };
-            mWorld.AddComponent(NodeEntities[NodeIndex], NodeName);
-        }
-
-        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
-            EntityHierarchy* ParentHierarchy{ mWorld.GetComponent<EntityHierarchy>(NodeEntities[NodeIndex]) };
-            if (ParentHierarchy == nullptr) {
-                continue;
-            }
-
-            const std::vector<std::uint32_t>& Children{ ModelNodes[NodeIndex].GetChildren() };
-            Arche::EntityID PreviousChild{ Arche::NullEntityID };
-
-            for (std::uint32_t ChildNodeIndex : Children) {
-                if (ChildNodeIndex >= NodeEntities.size()) {
-                    continue;
-                }
-
-                EntityHierarchy* ChildHierarchy{ mWorld.GetComponent<EntityHierarchy>(NodeEntities[ChildNodeIndex]) };
-                if (ChildHierarchy == nullptr) {
-                    continue;
-                }
-
-                ChildHierarchy->parent = NodeEntities[NodeIndex];
-                if (ParentHierarchy->firstChild == Arche::NullEntityID) {
-                    ParentHierarchy->firstChild = NodeEntities[ChildNodeIndex];
-                }
-
-                if (PreviousChild != Arche::NullEntityID) {
-                    EntityHierarchy* PreviousHierarchy{ mWorld.GetComponent<EntityHierarchy>(PreviousChild) };
-                    if (PreviousHierarchy != nullptr) {
-                        PreviousHierarchy->nextSibling = NodeEntities[ChildNodeIndex];
-                    }
-                }
-
-                PreviousChild = NodeEntities[ChildNodeIndex];
+        Arche::EntityID RootEntityId{ Arche::NullEntityID };
+        for (Arche::EntityID SpawnedEntityId : SpawnedEntities) {
+            const EntityHierarchy* Hierarchy{ mWorld.GetComponent<EntityHierarchy>(SpawnedEntityId) };
+            if (Hierarchy != nullptr && Hierarchy->parent == Arche::NullEntityID) {
+                RootEntityId = SpawnedEntityId;
+                break;
             }
         }
+
+        if (RootEntityId == Arche::NullEntityID) {
+            return;
+        }
+
+        PrefabInstance RootPrefabInstance{};
+        RootPrefabInstance.PrefabId = GenerateNextPrefabId(*this);
+        mWorld.AddComponent(RootEntityId, RootPrefabInstance);
     }
 
     void Scene::InitializeWorldSnapshot() {

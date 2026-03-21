@@ -27,6 +27,7 @@
 #include "Game/Scene/Systems/StaticRenderSystem.h"
 #include "Game/Scene/Systems/PickingSystem.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
+#include "Game/Scene/SceneEntityFactory.h"
 
 namespace {
     constexpr const char* TransformTypeName{ "Transform" };
@@ -302,139 +303,6 @@ namespace {
         return static_cast<std::size_t>(StaticMeshRendererComponent->nodeIndex) != RootNodeIndex;
     }
 
-    bool InstantiateModelHierarchy(Game::Scene& OutScene, Arche::EntityID RootEntity, const std::shared_ptr<Game::Model>& ModelData, std::uint32_t MaterialGroupIndex, bool IsActive, Game::SceneYamlLoadResult& InOutLoadResult, const std::string& ModelSelector) {
-        const Game::Model* SourceModel{ ModelData.get() };
-        const std::vector<Game::ModelNode>& ModelNodes{ SourceModel->GetNodes() };
-        const Game::ModelNode* RootNode{ SourceModel->GetRootNode() };
-        if (RootNode == nullptr || ModelNodes.empty()) {
-            InOutLoadResult.IsSuccess = false;
-            InOutLoadResult.UndecidedItems.push_back(std::string{ "Model RootNode 를 찾을 수 없습니다: " } + ModelSelector);
-            return false;
-        }
-
-        const std::size_t RootNodeIndex{ static_cast<std::size_t>(RootNode - ModelNodes.data()) };
-        std::vector<Arche::EntityID> NodeEntities(ModelNodes.size(), Arche::NullEntityID);
-        NodeEntities[RootNodeIndex] = RootEntity;
-
-        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
-            if (NodeIndex != RootNodeIndex) {
-                Arche::EntityID ChildEntity{ OutScene.GetWorld().CreateEntity() };
-                ChildEntity.SetDerivedEntity(true);
-                NodeEntities[NodeIndex] = ChildEntity;
-            }
-
-            Game::Transform NodeTransform{};
-            NodeTransform.nodeToParent = ModelNodes[NodeIndex].GetNodeToParent();
-
-            if (NodeIndex == RootNodeIndex) {
-                Game::Transform* ExistingTransform{ OutScene.GetWorld().GetComponent<Game::Transform>(NodeEntities[NodeIndex]) };
-                if (ExistingTransform == nullptr) {
-                    OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeTransform);
-                }
-                else {
-                    ExistingTransform->nodeToParent = NodeTransform.nodeToParent;
-                }
-            }
-            else {
-                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeTransform);
-            }
-
-            const bool HasRenderableGeometry{ ModelNodes[NodeIndex].GetSubMeshes().empty() == false };
-            if (HasRenderableGeometry) {
-                Game::StaticMeshRenderer NodeRenderer{};
-                NodeRenderer.model = ModelData.get();
-                NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
-                NodeRenderer.materialGroupIndex = MaterialGroupIndex;
-                NodeRenderer.active = IsActive;
-                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeRenderer);
-            }
-
-            if (HasRenderableGeometry) {
-                Game::BoundingBox NodeBoundingBox{};
-                NodeBoundingBox.UpdateFromModel(ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
-                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeBoundingBox);
-            }
-
-            if (ModelNodes[NodeIndex].HasBoneInfo()) {
-                Game::Bone NodeBone{};
-                NodeBone.model = ModelData.get();
-                NodeBone.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
-                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeBone);
-            }
-
-            if (ModelNodes[NodeIndex].IsSkinnedMesh()) {
-                Game::BoneSkinReference NodeBoneSkinReference{};
-                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeBoneSkinReference);
-            }
-
-            Game::EntityHierarchy Hierarchy{};
-            Hierarchy.self = NodeEntities[NodeIndex];
-            if (NodeIndex == RootNodeIndex) {
-                Game::EntityHierarchy* ExistingHierarchy{ OutScene.GetWorld().GetComponent<Game::EntityHierarchy>(NodeEntities[NodeIndex]) };
-                if (ExistingHierarchy == nullptr) {
-                    OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], Hierarchy);
-                }
-                else {
-                    ExistingHierarchy->self = NodeEntities[NodeIndex];
-                }
-            }
-            else {
-                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], Hierarchy);
-            }
-
-            const Game::Name NodeName{ Game::CreateNameComponent(ModelNodes[NodeIndex].GetName()) };
-            if (NodeIndex == RootNodeIndex) {
-                Game::Name* ExistingName{ OutScene.GetWorld().GetComponent<Game::Name>(NodeEntities[NodeIndex]) };
-                if (ExistingName == nullptr) {
-                    OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeName);
-                }
-                else if (Game::GetNameText(*ExistingName)[0] == '\0') {
-                    *ExistingName = NodeName;
-                }
-            }
-            else {
-                OutScene.GetWorld().AddComponent(NodeEntities[NodeIndex], NodeName);
-            }
-        }
-
-        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
-            Game::EntityHierarchy* ParentHierarchy{ OutScene.GetWorld().GetComponent<Game::EntityHierarchy>(NodeEntities[NodeIndex]) };
-            if (ParentHierarchy == nullptr) {
-                continue;
-            }
-
-            const std::vector<std::uint32_t>& Children{ ModelNodes[NodeIndex].GetChildren() };
-            Arche::EntityID PreviousChild{ Arche::NullEntityID };
-
-            for (std::uint32_t ChildNodeIndex : Children) {
-                if (ChildNodeIndex >= NodeEntities.size()) {
-                    continue;
-                }
-
-                Game::EntityHierarchy* ChildHierarchy{ OutScene.GetWorld().GetComponent<Game::EntityHierarchy>(NodeEntities[ChildNodeIndex]) };
-                if (ChildHierarchy == nullptr) {
-                    continue;
-                }
-
-                ChildHierarchy->parent = NodeEntities[NodeIndex];
-                if (ParentHierarchy->firstChild == Arche::NullEntityID) {
-                    ParentHierarchy->firstChild = NodeEntities[ChildNodeIndex];
-                }
-
-                if (PreviousChild != Arche::NullEntityID) {
-                    Game::EntityHierarchy* PreviousHierarchy{ OutScene.GetWorld().GetComponent<Game::EntityHierarchy>(PreviousChild) };
-                    if (PreviousHierarchy != nullptr) {
-                        PreviousHierarchy->nextSibling = NodeEntities[ChildNodeIndex];
-                    }
-                }
-
-                PreviousChild = NodeEntities[ChildNodeIndex];
-            }
-        }
-
-        return true;
-    }
-
     void AppendLine(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& Text) {
         for (std::size_t IndentIndex{ 0 }; IndentIndex < IndentLevel; ++IndentIndex) {
             Stream << "  ";
@@ -658,16 +526,13 @@ namespace Game {
             return LoadResult;
         }
 
+        SceneEntityFactory EntityFactory{ OutScene };
         std::unordered_map<std::int64_t, Arche::EntityID> EntityBySerializedId{};
         std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredParents{};
         std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredBoneSkinReferenceEntities{};
         const c4::yml::ConstNodeRef EntitiesNode{ RootNode["Entities"] };
         for (const c4::yml::ConstNodeRef EntityNode : EntitiesNode.children()) {
-            Arche::EntityID Entity{ OutScene.GetWorld().CreateEntity() };
-            Entity.SetDerivedEntity(false);
-            EntityHierarchy RootHierarchy{};
-            RootHierarchy.self = Entity;
-            OutScene.GetWorld().AddComponent(Entity, RootHierarchy);
+            const Arche::EntityID Entity{ EntityFactory.CreateEntity(false) };
 
             std::int64_t SerializedEntityId{ -1 };
             if (EntityNode.has_child("EntityId")) {
@@ -824,7 +689,16 @@ namespace Game {
                     LoadResult.UndecidedItems.push_back(std::string{ "Prefab modelPath 로 Model 로드 실패: " } + PrefabModelSelector);
                 }
                 else {
-                    HasInstantiatedPrefabModel = InstantiateModelHierarchy(OutScene, Entity, ModelData, MaterialGroupIndexForModel, PrefabIsActive, LoadResult, PrefabModelSelector);
+                    ModelHierarchySpawnRequest SpawnRequest{};
+                    SpawnRequest.ModelData = ModelData;
+                    SpawnRequest.RootEntityId = Entity;
+                    SpawnRequest.MaterialGroupIndex = MaterialGroupIndexForModel;
+                    SpawnRequest.IsActive = PrefabIsActive;
+                    HasInstantiatedPrefabModel = EntityFactory.SpawnModelHierarchy(SpawnRequest);
+                    if (HasInstantiatedPrefabModel == false) {
+                        LoadResult.IsSuccess = false;
+                        LoadResult.UndecidedItems.push_back(std::string{ "Model RootNode 를 찾을 수 없습니다: " } + PrefabModelSelector);
+                    }
                 }
             }
 
@@ -878,7 +752,16 @@ namespace Game {
                             LoadResult.UndecidedItems.push_back(std::string{ "modelPath 로 Model 로드 실패: " } + ResolvedModelPath);
                         }
                         else {
-                            InstantiateModelHierarchy(OutScene, Entity, ModelData, MaterialGroupIndexForModel, IsActive, LoadResult, ModelSelector);
+                            ModelHierarchySpawnRequest SpawnRequest{};
+                            SpawnRequest.ModelData = ModelData;
+                            SpawnRequest.RootEntityId = Entity;
+                            SpawnRequest.MaterialGroupIndex = MaterialGroupIndexForModel;
+                            SpawnRequest.IsActive = IsActive;
+                            const bool IsSpawned{ EntityFactory.SpawnModelHierarchy(SpawnRequest) };
+                            if (IsSpawned == false) {
+                                LoadResult.IsSuccess = false;
+                                LoadResult.UndecidedItems.push_back(std::string{ "Model RootNode 를 찾을 수 없습니다: " } + ModelSelector);
+                            }
                         }
                     }
                 }
@@ -1016,26 +899,9 @@ namespace Game {
                 continue;
             }
 
-            ChildHierarchy->parent = ParentIter->second;
-            if (ParentHierarchy->firstChild == Arche::NullEntityID) {
-                ParentHierarchy->firstChild = DeferredParent.first;
-            }
-            else {
-                Arche::EntityID SiblingEntityId{ ParentHierarchy->firstChild };
-                while (SiblingEntityId != Arche::NullEntityID) {
-                    Game::EntityHierarchy* SiblingHierarchy{ OutScene.GetWorld().GetComponent<Game::EntityHierarchy>(SiblingEntityId) };
-                    if (SiblingHierarchy == nullptr) {
-                        break;
-                    }
-
-                    if (SiblingHierarchy->nextSibling == Arche::NullEntityID) {
-                        SiblingHierarchy->nextSibling = DeferredParent.first;
-                        break;
-                    }
-
-                    SiblingEntityId = SiblingHierarchy->nextSibling;
-                }
-            }
+            ChildHierarchy->parent = Arche::NullEntityID;
+            ChildHierarchy->nextSibling = Arche::NullEntityID;
+            EntityFactory.AttachChildEntity(ParentIter->second, DeferredParent.first);
         }
 
         for (const std::pair<Arche::EntityID, std::int64_t>& DeferredBoneSkinReferenceEntity : DeferredBoneSkinReferenceEntities) {

@@ -105,6 +105,7 @@ add_library(Game STATIC
     Game/Model/Model.cpp
     Game/Model/PrimitiveModelFactory.cpp
     Game/Scene/Scene.cpp
+    Game/Scene/SceneEntityFactory.cpp
     Game/Scene/SceneYamlSerializer.cpp
     Game/Scene/System.cpp
     Game/Scene/SystemSceduler.cpp

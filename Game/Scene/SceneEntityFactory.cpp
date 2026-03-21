@@ -1,0 +1,244 @@
+#include "SceneEntityFactory.h"
+#include <vector>
+#include "Game/Scene/Components/BoundingBox.h"
+#include "Game/Scene/Components/Bone.h"
+#include "Game/Scene/Components/BoneSkinReference.h"
+#include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/Name.h"
+#include "Game/Scene/Components/PrefabInstance.h"
+#include "Game/Scene/Components/StaticMeshRenderer.h"
+#include "Game/Scene/Components/Transform.h"
+
+namespace Game {
+    ModelHierarchySpawnRequest::ModelHierarchySpawnRequest() = default;
+    ModelHierarchySpawnRequest::~ModelHierarchySpawnRequest() = default;
+    ModelHierarchySpawnRequest::ModelHierarchySpawnRequest(const ModelHierarchySpawnRequest& Other) = default;
+    ModelHierarchySpawnRequest& ModelHierarchySpawnRequest::operator=(const ModelHierarchySpawnRequest& Other) = default;
+    ModelHierarchySpawnRequest::ModelHierarchySpawnRequest(ModelHierarchySpawnRequest&& Other) noexcept = default;
+    ModelHierarchySpawnRequest& ModelHierarchySpawnRequest::operator=(ModelHierarchySpawnRequest&& Other) noexcept = default;
+
+    SceneEntityFactory::SceneEntityFactory(Scene& TargetScene)
+        : mScene{ &TargetScene } {
+    }
+
+    SceneEntityFactory::~SceneEntityFactory() = default;
+    SceneEntityFactory::SceneEntityFactory(const SceneEntityFactory& Other) = default;
+    SceneEntityFactory& SceneEntityFactory::operator=(const SceneEntityFactory& Other) = default;
+    SceneEntityFactory::SceneEntityFactory(SceneEntityFactory&& Other) noexcept = default;
+    SceneEntityFactory& SceneEntityFactory::operator=(SceneEntityFactory&& Other) noexcept = default;
+
+    Arche::EntityID SceneEntityFactory::CreateEntity(bool IsDerivedEntity) {
+        Arche::EntityID EntityId{ mScene->GetWorld().CreateEntity() };
+        EntityId.SetDerivedEntity(IsDerivedEntity);
+        EnsureHierarchy(EntityId);
+        return EntityId;
+    }
+
+    void SceneEntityFactory::EnsureHierarchy(Arche::EntityID EntityId) {
+        EntityHierarchy* ExistingHierarchy{ mScene->GetWorld().GetComponent<EntityHierarchy>(EntityId) };
+        if (ExistingHierarchy != nullptr) {
+            ExistingHierarchy->self = EntityId;
+            return;
+        }
+
+        EntityHierarchy NewHierarchy{};
+        NewHierarchy.self = EntityId;
+        mScene->GetWorld().AddComponent(EntityId, NewHierarchy);
+    }
+
+    void SceneEntityFactory::AttachChildEntity(Arche::EntityID ParentEntityId, Arche::EntityID ChildEntityId) {
+        EntityHierarchy* ParentHierarchy{ mScene->GetWorld().GetComponent<EntityHierarchy>(ParentEntityId) };
+        EntityHierarchy* ChildHierarchy{ mScene->GetWorld().GetComponent<EntityHierarchy>(ChildEntityId) };
+        if (ParentHierarchy == nullptr || ChildHierarchy == nullptr) {
+            return;
+        }
+
+        ChildHierarchy->parent = ParentEntityId;
+        ChildHierarchy->nextSibling = Arche::NullEntityID;
+        if (ParentHierarchy->firstChild == Arche::NullEntityID) {
+            ParentHierarchy->firstChild = ChildEntityId;
+            return;
+        }
+
+        Arche::EntityID SiblingEntityId{ ParentHierarchy->firstChild };
+        while (SiblingEntityId != Arche::NullEntityID) {
+            EntityHierarchy* SiblingHierarchy{ mScene->GetWorld().GetComponent<EntityHierarchy>(SiblingEntityId) };
+            if (SiblingHierarchy == nullptr) {
+                return;
+            }
+
+            if (SiblingHierarchy->nextSibling == Arche::NullEntityID) {
+                SiblingHierarchy->nextSibling = ChildEntityId;
+                return;
+            }
+
+            SiblingEntityId = SiblingHierarchy->nextSibling;
+        }
+    }
+
+    bool SceneEntityFactory::SpawnModelHierarchy(const ModelHierarchySpawnRequest& SpawnRequest, std::vector<Arche::EntityID>* OutNodeEntities) {
+        if (SpawnRequest.ModelData == nullptr) {
+            return false;
+        }
+
+        const Model* SourceModel{ SpawnRequest.ModelData.get() };
+        const std::vector<ModelNode>& ModelNodes{ SourceModel->GetNodes() };
+        const ModelNode* RootNode{ SourceModel->GetRootNode() };
+        if (RootNode == nullptr || ModelNodes.empty()) {
+            return false;
+        }
+
+        const std::size_t RootNodeIndex{ static_cast<std::size_t>(RootNode - ModelNodes.data()) };
+        std::vector<Arche::EntityID> NodeEntities(ModelNodes.size(), Arche::NullEntityID);
+        const bool HasRootEntityId{ SpawnRequest.RootEntityId.has_value() == true };
+        NodeEntities[RootNodeIndex] = HasRootEntityId == true ? *SpawnRequest.RootEntityId : CreateEntity(SpawnRequest.IsDerivedEntity);
+        EnsureHierarchy(NodeEntities[RootNodeIndex]);
+
+        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
+            if (NodeIndex == RootNodeIndex) {
+                continue;
+            }
+
+            NodeEntities[NodeIndex] = CreateEntity(true);
+        }
+
+        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
+            Transform NodeTransform{};
+            NodeTransform.nodeToParent = ModelNodes[NodeIndex].GetNodeToParent();
+            AddTransform(NodeEntities[NodeIndex], NodeTransform, NodeIndex == RootNodeIndex);
+
+            const bool HasRenderableGeometry{ ModelNodes[NodeIndex].GetSubMeshes().empty() == false };
+            if (HasRenderableGeometry == true) {
+                StaticMeshRenderer NodeRenderer{};
+                NodeRenderer.model = SpawnRequest.ModelData.get();
+                NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
+                NodeRenderer.materialGroupIndex = SpawnRequest.MaterialGroupIndex;
+                NodeRenderer.active = SpawnRequest.IsActive;
+                AddStaticMeshRenderer(NodeEntities[NodeIndex], NodeRenderer);
+
+                BoundingBox NodeBoundingBox{};
+                NodeBoundingBox.UpdateFromModel(SpawnRequest.ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
+                AddBoundingBox(NodeEntities[NodeIndex], NodeBoundingBox);
+            }
+
+            if (ModelNodes[NodeIndex].HasBoneInfo() == true) {
+                Bone NodeBone{};
+                NodeBone.model = SpawnRequest.ModelData.get();
+                NodeBone.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
+                AddBone(NodeEntities[NodeIndex], NodeBone);
+            }
+
+            if (ModelNodes[NodeIndex].IsSkinnedMesh() == true) {
+                BoneSkinReference NodeBoneSkinReference{};
+                AddBoneSkinReference(NodeEntities[NodeIndex], NodeBoneSkinReference);
+            }
+
+            EnsureHierarchy(NodeEntities[NodeIndex]);
+
+            const Name NodeName{ CreateNameComponent(ResolveNodeName(ModelNodes[NodeIndex], NodeIndex, RootNodeIndex, SpawnRequest.RootEntityName)) };
+            AddName(NodeEntities[NodeIndex], NodeName, NodeIndex == RootNodeIndex, NodeIndex == RootNodeIndex);
+        }
+
+        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
+            const std::vector<std::uint32_t>& Children{ ModelNodes[NodeIndex].GetChildren() };
+            for (std::uint32_t ChildNodeIndex : Children) {
+                if (ChildNodeIndex >= NodeEntities.size()) {
+                    continue;
+                }
+
+                AttachChildEntity(NodeEntities[NodeIndex], NodeEntities[ChildNodeIndex]);
+            }
+        }
+
+        if (OutNodeEntities != nullptr) {
+            *OutNodeEntities = std::move(NodeEntities);
+        }
+
+        return true;
+    }
+
+    void SceneEntityFactory::AddTransform(Arche::EntityID EntityId, const Transform& TransformComponent, bool ReplaceExistingRootComponent) {
+        Transform* ExistingTransform{ mScene->GetWorld().GetComponent<Transform>(EntityId) };
+        if (ExistingTransform == nullptr) {
+            mScene->GetWorld().AddComponent(EntityId, TransformComponent);
+            return;
+        }
+
+        if (ReplaceExistingRootComponent == true) {
+            ExistingTransform->nodeToParent = TransformComponent.nodeToParent;
+        }
+    }
+
+    void SceneEntityFactory::AddName(Arche::EntityID EntityId, const Name& NameComponent, bool ReplaceExistingRootComponent, bool OnlyWhenEmpty) {
+        Name* ExistingName{ mScene->GetWorld().GetComponent<Name>(EntityId) };
+        if (ExistingName == nullptr) {
+            mScene->GetWorld().AddComponent(EntityId, NameComponent);
+            return;
+        }
+
+        if (OnlyWhenEmpty == true) {
+            if (GetNameText(*ExistingName)[0] == '\0') {
+                *ExistingName = NameComponent;
+            }
+            return;
+        }
+
+        if (ReplaceExistingRootComponent == true) {
+            *ExistingName = NameComponent;
+        }
+    }
+
+    void SceneEntityFactory::AddStaticMeshRenderer(Arche::EntityID EntityId, const StaticMeshRenderer& StaticMeshRendererComponent) {
+        StaticMeshRenderer* ExistingRenderer{ mScene->GetWorld().GetComponent<StaticMeshRenderer>(EntityId) };
+        if (ExistingRenderer == nullptr) {
+            mScene->GetWorld().AddComponent(EntityId, StaticMeshRendererComponent);
+            return;
+        }
+
+        *ExistingRenderer = StaticMeshRendererComponent;
+    }
+
+    void SceneEntityFactory::AddBoundingBox(Arche::EntityID EntityId, const BoundingBox& BoundingBoxComponent) {
+        BoundingBox* ExistingBoundingBox{ mScene->GetWorld().GetComponent<BoundingBox>(EntityId) };
+        if (ExistingBoundingBox == nullptr) {
+            mScene->GetWorld().AddComponent(EntityId, BoundingBoxComponent);
+            return;
+        }
+
+        *ExistingBoundingBox = BoundingBoxComponent;
+    }
+
+    void SceneEntityFactory::AddBone(Arche::EntityID EntityId, const Bone& BoneComponent) {
+        Bone* ExistingBone{ mScene->GetWorld().GetComponent<Bone>(EntityId) };
+        if (ExistingBone == nullptr) {
+            mScene->GetWorld().AddComponent(EntityId, BoneComponent);
+            return;
+        }
+
+        *ExistingBone = BoneComponent;
+    }
+
+    void SceneEntityFactory::AddBoneSkinReference(Arche::EntityID EntityId, const BoneSkinReference& BoneSkinReferenceComponent) {
+        BoneSkinReference* ExistingBoneSkinReference{ mScene->GetWorld().GetComponent<BoneSkinReference>(EntityId) };
+        if (ExistingBoneSkinReference == nullptr) {
+            mScene->GetWorld().AddComponent(EntityId, BoneSkinReferenceComponent);
+            return;
+        }
+
+        *ExistingBoneSkinReference = BoneSkinReferenceComponent;
+    }
+
+
+    std::string SceneEntityFactory::ResolveNodeName(const ModelNode& SourceNode, std::size_t NodeIndex, std::size_t RootNodeIndex, const std::string& RootEntityName) const {
+        std::string NodeNameText{ SourceNode.GetName() };
+        if (NodeIndex == RootNodeIndex && RootEntityName.empty() == false) {
+            NodeNameText = RootEntityName;
+        }
+
+        if (NodeNameText.empty() == true) {
+            NodeNameText = std::string{ "DroppedModelNode_" } + std::to_string(NodeIndex);
+        }
+
+        return NodeNameText;
+    }
+}
