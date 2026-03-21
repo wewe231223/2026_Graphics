@@ -12,6 +12,7 @@
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PrefabInstance.h"
+#include "Game/Scene/Components/SkinnedMeshRenderer.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
 
@@ -53,6 +54,7 @@ namespace Game {
         void AddTransform(Arche::EntityID EntityId, const Transform& TransformComponent, bool ReplaceExistingRootComponent);
         void AddName(Arche::EntityID EntityId, const Name& NameComponent, bool ReplaceExistingRootComponent, bool OnlyWhenEmpty);
         void AddStaticMeshRenderer(Arche::EntityID EntityId, const StaticMeshRenderer& StaticMeshRendererComponent);
+        void AddSkinnedMeshRenderer(Arche::EntityID EntityId, const SkinnedMeshRenderer& SkinnedMeshRendererComponent);
         void AddBoundingBox(Arche::EntityID EntityId, const BoundingBox& BoundingBoxComponent);
         void AddBone(Arche::EntityID EntityId, const Bone& BoneComponent);
         void AddBoneSkinReference(Arche::EntityID EntityId, const BoneSkinReference& BoneSkinReferenceComponent);

@@ -93,6 +93,9 @@
     <ClInclude Include="Scene\Components\StaticMeshRenderer.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\SkinnedMeshRenderer.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\Transform.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -122,6 +125,9 @@
     </ClInclude>
     <ClInclude Include="Base\Time.h">
       <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h">
+      <Filter>Scene\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h">
       <Filter>Scene\Systems</Filter>
@@ -209,6 +215,9 @@
     <ClCompile Include="Scene\Components\StaticMeshRenderer.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Components\SkinnedMeshRenderer.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\Components\ComponentInspection.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
@@ -223,6 +232,9 @@
     </ClCompile>
     <ClCompile Include="Base\Time.cpp">
       <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\SkinnedMeshRenderSystem.cpp">
+      <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp">
       <Filter>Scene\Systems</Filter>

@@ -1,7 +1,6 @@
 ﻿#include "ComponentInspection.h"
 #include <utility>
 #include "Bone.h"
-#include "BoneSkinReference.h"
 #include "BoundingBox.h"
 #include "Intents/CameraIntent.h"
 #include "Tags.h"
@@ -11,6 +10,7 @@
 #include "EntityHierarchy.h"
 #include "Camera.h"
 #include "Frustum.h"
+#include "SkinnedMeshRenderer.h"
 #include "StaticMeshRenderer.h"
 #include "Transform.h"
 
@@ -38,10 +38,10 @@ namespace Game {
         AppendComponentInspectionSection<Transform>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<EntityHierarchy>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<Bone>(ReadOnlyWorld, EntityId, OutSections);
-        AppendComponentInspectionSection<BoneSkinReference>(ReadOnlyWorld, EntityId, OutSections);
 
         AppendComponentInspectionSection<Material>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<StaticMeshRenderer>(ReadOnlyWorld, EntityId, OutSections);
+        AppendComponentInspectionSection<SkinnedMeshRenderer>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<BoundingBox>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<PrefabInstance>(ReadOnlyWorld, EntityId, OutSections);
 

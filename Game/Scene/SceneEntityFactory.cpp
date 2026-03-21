@@ -6,6 +6,7 @@
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PrefabInstance.h"
+#include "Game/Scene/Components/SkinnedMeshRenderer.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
 
@@ -111,12 +112,22 @@ namespace Game {
 
             const bool HasRenderableGeometry{ ModelNodes[NodeIndex].GetSubMeshes().empty() == false };
             if (HasRenderableGeometry == true) {
-                StaticMeshRenderer NodeRenderer{};
-                NodeRenderer.model = SpawnRequest.ModelData.get();
-                NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
-                NodeRenderer.materialGroupIndex = SpawnRequest.MaterialGroupIndex;
-                NodeRenderer.active = SpawnRequest.IsActive;
-                AddStaticMeshRenderer(NodeEntities[NodeIndex], NodeRenderer);
+                if (ModelNodes[NodeIndex].IsSkinnedMesh() == true) {
+                    SkinnedMeshRenderer NodeRenderer{};
+                    NodeRenderer.model = SpawnRequest.ModelData.get();
+                    NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
+                    NodeRenderer.materialGroupIndex = SpawnRequest.MaterialGroupIndex;
+                    NodeRenderer.active = SpawnRequest.IsActive;
+                    AddSkinnedMeshRenderer(NodeEntities[NodeIndex], NodeRenderer);
+                }
+                else {
+                    StaticMeshRenderer NodeRenderer{};
+                    NodeRenderer.model = SpawnRequest.ModelData.get();
+                    NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
+                    NodeRenderer.materialGroupIndex = SpawnRequest.MaterialGroupIndex;
+                    NodeRenderer.active = SpawnRequest.IsActive;
+                    AddStaticMeshRenderer(NodeEntities[NodeIndex], NodeRenderer);
+                }
 
                 BoundingBox NodeBoundingBox{};
                 NodeBoundingBox.UpdateFromModel(SpawnRequest.ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
@@ -199,6 +210,16 @@ namespace Game {
         }
 
         *ExistingRenderer = StaticMeshRendererComponent;
+    }
+
+    void SceneEntityFactory::AddSkinnedMeshRenderer(Arche::EntityID EntityId, const SkinnedMeshRenderer& SkinnedMeshRendererComponent) {
+        SkinnedMeshRenderer* ExistingRenderer{ mScene->GetWorld().GetComponent<SkinnedMeshRenderer>(EntityId) };
+        if (ExistingRenderer == nullptr) {
+            mScene->GetWorld().AddComponent(EntityId, SkinnedMeshRendererComponent);
+            return;
+        }
+
+        *ExistingRenderer = SkinnedMeshRendererComponent;
     }
 
     void SceneEntityFactory::AddBoundingBox(Arche::EntityID EntityId, const BoundingBox& BoundingBoxComponent) {

@@ -116,6 +116,7 @@ add_library(Game STATIC
     Game/Scene/Components/Tags.cpp
     Game/Scene/Components/Intents/CameraIntent.cpp
     Game/Scene/Components/StaticMeshRenderer.cpp
+    Game/Scene/Components/SkinnedMeshRenderer.cpp
     Game/Scene/Components/BoundingBox.cpp
     Game/Scene/Components/Bone.cpp
     Game/Scene/Components/BoneSkinReference.cpp
@@ -127,6 +128,7 @@ add_library(Game STATIC
     Game/Scene/Systems/CameraRenderSystem.cpp
     Game/Scene/Systems/PickingSystem.cpp
     Game/Scene/Systems/StaticRenderSystem.cpp
+    Game/Scene/Systems/SkinnedMeshRenderSystem.cpp
 )
 
 target_include_directories(Game PUBLIC

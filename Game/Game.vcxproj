@@ -43,6 +43,7 @@
     <ClInclude Include="Scene\Components\PickingGizmo.h" />
     <ClInclude Include="Scene\Components\PrefabInstance.h" />
     <ClInclude Include="Scene\Components\StaticMeshRenderer.h" />
+    <ClInclude Include="Scene\Components\SkinnedMeshRenderer.h" />
     <ClInclude Include="Scene\Components\Tags.h" />
     <ClInclude Include="Scene\Components\Transform.h" />
     <ClInclude Include="Scene\Scene.h" />
@@ -56,6 +57,7 @@
     <ClInclude Include="Scene\Systems\PickingSystem.h" />
     <ClInclude Include="Scene\Systems\IntentClentUpSystem.h" />
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
+    <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Input.cpp" />
@@ -86,11 +88,13 @@
     <ClCompile Include="Scene\Components\Camera.cpp" />
     <ClCompile Include="Scene\Components\Frustum.cpp" />
     <ClCompile Include="Scene\Components\StaticMeshRenderer.cpp" />
+    <ClCompile Include="Scene\Components\SkinnedMeshRenderer.cpp" />
     <ClCompile Include="Scene\Components\ComponentInspection.cpp" />
     <ClCompile Include="Scene\Systems\CameraInputSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\PickingSystem.cpp" />
     <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />
+    <ClCompile Include="Scene\Systems\SkinnedMeshRenderSystem.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shader\Source\BasicShader.hlsl">
