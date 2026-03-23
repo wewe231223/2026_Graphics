@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstdint>
 #include <exception>
 #include <filesystem>
@@ -53,6 +54,22 @@ namespace {
         std::uintmax_t InputFileSizeInBytes{ 0 };
         std::uintmax_t OutputBinarySizeInBytes{ 0 };
         std::uintmax_t OutputMaterialJsonSizeInBytes{ 0 };
+    };
+
+    struct NodeSummary final {
+    public:
+        std::uint32_t Id{ 0 };
+        std::string Name{};
+        std::string Path{};
+        std::size_t Depth{ 0 };
+        std::size_t ChildCount{ 0 };
+        std::size_t SubMeshCount{ 0 };
+        std::size_t VertexCount{ 0 };
+        std::size_t IndexCount{ 0 };
+        std::size_t TriangleCount{ 0 };
+        std::size_t BoneInfoCount{ 0 };
+        bool IsMeshNode{ false };
+        bool IsSkinnedMesh{ false };
     };
 
     std::string ToLowercase(std::string Value) {
@@ -135,6 +152,60 @@ namespace {
         return Summary;
     }
 
+    std::string BuildNodePath(const asset::ModelNode& Node) {
+        const std::vector<const asset::ModelNode*> Chain{ Node.GetChildChain() };
+        std::string Path{};
+
+        for (std::size_t Index{ 0 }; Index < Chain.size(); ++Index) {
+            if (Index > 0) {
+                Path += " / ";
+            }
+
+            const std::string& Name{ Chain[Index]->GetName() };
+            if (Name.empty()) {
+                Path += "<Unnamed>";
+            }
+            else {
+                Path += Name;
+            }
+        }
+
+        return Path;
+    }
+
+    NodeSummary BuildNodeSummary(const asset::ModelNode& Node) {
+        const asset::VertexAttributes& Vertices{ Node.Vertices() };
+        const std::vector<std::uint32_t>& Indices{ Node.Indices() };
+        const std::vector<asset::ModelNode::SubMesh>& SubMeshes{ Node.GetSubMeshes() };
+        const std::vector<asset::ModelBoneInfo>& BoneInfos{ Node.BoneInfos() };
+        const std::vector<const asset::ModelNode*> NodeChain{ Node.GetChildChain() };
+        NodeSummary Summary{};
+        Summary.Id = Node.GetId();
+        Summary.Name = Node.GetName().empty() ? "<Unnamed>" : Node.GetName();
+        Summary.Path = BuildNodePath(Node);
+        Summary.Depth = NodeChain.empty() ? 0 : NodeChain.size() - 1;
+        Summary.ChildCount = Node.GetChildren().size();
+        Summary.SubMeshCount = SubMeshes.size();
+        Summary.VertexCount = Vertices.VertexCount();
+        Summary.IndexCount = Indices.size();
+        Summary.TriangleCount = Indices.size() / 3;
+        Summary.BoneInfoCount = BoneInfos.size();
+        Summary.IsMeshNode = SubMeshes.empty() == false;
+        Summary.IsSkinnedMesh = Node.IsSkinnedMesh();
+        return Summary;
+    }
+
+    std::vector<NodeSummary> BuildNodeSummaries(const asset::ModelResult& ModelData) {
+        std::vector<NodeSummary> Summaries{};
+        Summaries.reserve(ModelData.NodeCount());
+
+        for (const std::unique_ptr<asset::ModelNode>& NodePointer : ModelData.Nodes()) {
+            Summaries.push_back(BuildNodeSummary(*NodePointer));
+        }
+
+        return Summaries;
+    }
+
     ModelSummary BuildModelSummary(const asset::ModelResult& ModelData, const std::filesystem::path& AssetFilePath, const std::filesystem::path& BinaryOutputPath, const std::filesystem::path& MaterialOutputPath) {
         ModelSummary Summary{};
         Summary.NodeCount = ModelData.NodeCount();
@@ -176,6 +247,24 @@ namespace {
         }
 
         return Summary;
+    }
+
+    void PrintNodeSummary(const NodeSummary& Summary) {
+        StdOutput::PrintLine("[AssetZIP] Node #{}: {}", Summary.Id, Summary.Name);
+        StdOutput::PrintLine("[AssetZIP]   Path: {}", Summary.Path);
+        StdOutput::PrintLine("[AssetZIP]   Depth: {}, Children: {}, Mesh: {}, Skinned: {}", Summary.Depth, Summary.ChildCount, Summary.IsMeshNode ? "true" : "false", Summary.IsSkinnedMesh ? "true" : "false");
+        StdOutput::PrintLine("[AssetZIP]   SubMeshes: {}, Vertices: {}, Indices: {}, Triangles: {}, Bones: {}", Summary.SubMeshCount, Summary.VertexCount, Summary.IndexCount, Summary.TriangleCount, Summary.BoneInfoCount);
+    }
+
+    void PrintNodeSummaries(const std::vector<NodeSummary>& Summaries) {
+        StdOutput::PrintLine("[AssetZIP] Node processing results begin");
+
+        for (const NodeSummary& Summary : Summaries) {
+            PrintNodeSummary(Summary);
+            StdOutput::PrintLine("[AssetZIP]");
+        }
+
+        StdOutput::PrintLine("[AssetZIP] Node processing results end");
     }
 
     void PrintModelSummary(const ModelSummary& Summary) {
@@ -260,12 +349,14 @@ int main(int ArgumentCount, char** Arguments) {
             return 1;
         }
 
+        const std::vector<NodeSummary> NodeSummaries{ BuildNodeSummaries(ModelData) };
         const ModelSummary ModelDataSummary{ BuildModelSummary(ModelData, AssetFilePath, BinaryOutputPath, MaterialOutputPath) };
         const MaterialSummary MaterialDataSummary{ BuildMaterialSummary(MaterialGroups) };
 
         StdOutput::PrintLine("[AssetZIP] Input file: {}", AssetFilePath.string());
         StdOutput::PrintLine("[AssetZIP] Output binary: {}", BinaryOutputPath.string());
         StdOutput::PrintLine("[AssetZIP] Output material JSON: {}", MaterialOutputPath.string());
+        PrintNodeSummaries(NodeSummaries);
         PrintModelSummary(ModelDataSummary);
         PrintMaterialSummary(MaterialDataSummary);
         StdOutput::PrintLine("[AssetZIP] UV flip enabled: {}", ParsedOptions.IsUvFlipEnabled ? "true" : "false");

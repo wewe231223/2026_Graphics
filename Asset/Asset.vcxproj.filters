@@ -46,7 +46,9 @@
     <ClCompile Include="MaterialGroupJsonSerializer.cpp">
       <Filter>Serializer</Filter>
     </ClCompile>
-    <ClCompile Include="AssimpAssetImporter.cpp" />
+    <ClCompile Include="AssimpAssetImporter.cpp">
+      <Filter>Importer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssetBinaryReader.h">
@@ -73,6 +75,8 @@
     <ClInclude Include="MaterialGroupJsonSerializer.h">
       <Filter>Serializer</Filter>
     </ClInclude>
-    <ClInclude Include="AssimpAssetImporter.h" />
+    <ClInclude Include="AssimpAssetImporter.h">
+      <Filter>Importer</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -1459,7 +1459,7 @@
                     }
                 },
                 {
-                    "PipelineName": "SkinnedGraphics",
+                    "PipelineName": "DefaultGraphics",
                     "MaterialData": {
                         "Name": "KSVR",
                         "PBR": true,
@@ -1944,7 +1944,7 @@
                     }
                 },
                 {
-                    "PipelineName": "SkinnedGraphics",
+                    "PipelineName": "DefaultGraphics",
                     "MaterialData": {
                         "Name": "",
                         "PBR": true,
