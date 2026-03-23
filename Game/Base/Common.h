@@ -36,6 +36,13 @@ namespace Game {
     struct ModelBoneInfo final {
         std::uint32_t SkinArrayIndex{ 0 };
         std::uint32_t JointArrayIndex{ 0 };
+        std::string BoneName{};
+        SimpleMath::Matrix InverseBindMatrix{};
+    };
+
+    struct RuntimeBoneInfo final {
+        std::uint32_t SkinArrayIndex{ 0 };
+        std::uint32_t JointArrayIndex{ 0 };
         SimpleMath::Matrix InverseBindMatrix{};
     };
 

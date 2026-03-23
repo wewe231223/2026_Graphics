@@ -9,5 +9,7 @@ namespace Game {
     Component(Bone)
         Model* model{ nullptr };
         std::uint32_t nodeIndex{ 0 };
+        std::uint32_t runtimeBoneInfoOffset{ 0 };
+        std::uint32_t runtimeBoneInfoCount{ 0 };
     EndComponent(Bone)
 }

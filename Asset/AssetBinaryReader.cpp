@@ -107,6 +107,7 @@ std::vector<ModelBoneInfo> AssetBinaryReader::ReadBoneInfos() {
         ModelBoneInfo BoneInfo{};
         BoneInfo.SkinArrayIndex = ReadUint32();
         BoneInfo.JointArrayIndex = ReadUint32();
+        BoneInfo.BoneName = ReadString();
         BoneInfo.InverseBindMatrix = ReadMat4();
         BoneInfos.push_back(BoneInfo);
     }

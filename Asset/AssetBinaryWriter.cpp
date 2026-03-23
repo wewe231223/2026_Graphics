@@ -83,6 +83,7 @@ void AssetBinaryWriter::WriteBoneInfos(const std::vector<ModelBoneInfo>& BoneInf
     for (const ModelBoneInfo& BoneInfo : BoneInfos) {
         WriteUint32(BoneInfo.SkinArrayIndex);
         WriteUint32(BoneInfo.JointArrayIndex);
+        WriteString(BoneInfo.BoneName);
         WriteMat4(BoneInfo.InverseBindMatrix);
     }
 }

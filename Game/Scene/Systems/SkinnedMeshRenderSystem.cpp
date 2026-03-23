@@ -70,20 +70,7 @@ namespace {
     }
 
     std::uint32_t ResolveBoneMatrixCount(const Game::Model& ModelData) {
-        std::uint32_t BoneMatrixCount{ 0 };
-        const std::vector<Game::ModelNode>& Nodes{ ModelData.GetNodes() };
-
-        for (const Game::ModelNode& Node : Nodes) {
-            const std::vector<Game::ModelBoneInfo>& BoneInfos{ Node.GetBoneInfos() };
-            for (const Game::ModelBoneInfo& BoneInfo : BoneInfos) {
-                const std::uint32_t RequiredCount{ BoneInfo.JointArrayIndex + 1u };
-                if (RequiredCount > BoneMatrixCount) {
-                    BoneMatrixCount = RequiredCount;
-                }
-            }
-        }
-
-        return BoneMatrixCount;
+        return ModelData.GetRuntimeBoneMatrixCount();
     }
 
     void GatherBoneMatricesRecursive(Arche::World& World, Arche::EntityID EntityId, Game::Model* ModelData, const SimpleMath::Matrix& MeshWorldInverseMatrix, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, std::vector<SimpleMath::Matrix>& InOutBoneMatrices) {
@@ -101,18 +88,13 @@ namespace {
             SimpleMath::Matrix BoneWorldMatrix{};
             const bool IsBoneWorldMatrixResolved{ TryResolveWorldMatrix(World, EntityId, InOutWorldMatrices, BoneWorldMatrix) };
             if (IsBoneWorldMatrixResolved == true) {
-                const std::vector<Game::ModelNode>& Nodes{ ModelData->GetNodes() };
-                if (BoneComponent->nodeIndex < Nodes.size()) {
-                    const Game::ModelNode& Node{ Nodes[BoneComponent->nodeIndex] };
-                    const std::vector<Game::ModelBoneInfo>& BoneInfos{ Node.GetBoneInfos() };
-
-                    for (const Game::ModelBoneInfo& BoneInfo : BoneInfos) {
-                        if (BoneInfo.JointArrayIndex >= InOutBoneMatrices.size()) {
-                            continue;
-                        }
-
-                        InOutBoneMatrices[BoneInfo.JointArrayIndex] = BoneInfo.InverseBindMatrix * BoneWorldMatrix * MeshWorldInverseMatrix;
+                const std::span<const Game::RuntimeBoneInfo> RuntimeBoneInfos{ ModelData->GetRuntimeBoneInfos(BoneComponent->runtimeBoneInfoOffset, BoneComponent->runtimeBoneInfoCount) };
+                for (const Game::RuntimeBoneInfo& RuntimeBoneInfoItem : RuntimeBoneInfos) {
+                    if (RuntimeBoneInfoItem.JointArrayIndex >= InOutBoneMatrices.size()) {
+                        continue;
                     }
+
+                    InOutBoneMatrices[RuntimeBoneInfoItem.JointArrayIndex] = RuntimeBoneInfoItem.InverseBindMatrix * BoneWorldMatrix * MeshWorldInverseMatrix;
                 }
             }
         }

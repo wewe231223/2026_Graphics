@@ -172,6 +172,7 @@ namespace asset {
                 ModelBoneInfo BoneInfo{};
                 BoneInfo.SkinArrayIndex = 0;
                 BoneInfo.JointArrayIndex = BoneIndex;
+                BoneInfo.BoneName = Bone.mName.C_Str();
                 BoneInfo.InverseBindMatrix = ToMat4(Bone.mOffsetMatrix);
                 OutNode.BoneInfos().push_back(BoneInfo);
 

@@ -90,14 +90,28 @@ namespace Game {
         const ModelNode* GetRootNode() const;
         const ModelNode* FindNodeByName(const std::string& NodeName) const;
         const std::vector<ModelNode>& GetNodes() const;
+        bool TryGetRuntimeBoneInfoRange(std::uint32_t NodeIndex, std::uint32_t& OutOffset, std::uint32_t& OutCount) const;
+        std::span<const RuntimeBoneInfo> GetRuntimeBoneInfos(std::uint32_t Offset, std::uint32_t Count) const;
+        std::uint32_t GetRuntimeBoneMatrixCount() const;
 
     private:
+        struct RuntimeBoneInfoRange final {
+        public:
+            std::uint32_t Offset{ 0 };
+            std::uint32_t Count{ 0 };
+        };
+
+    private:
+        void BuildRuntimeBoneInfos();
         bool UploadVertexData(const asset::VertexAttributes& Vertices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews) const;
         bool UploadIndexData(const std::vector<std::uint32_t>& Indices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, D3D12_INDEX_BUFFER_VIEW& OutView) const;
 
     private:
         std::vector<ModelNode> mNodes{};
         std::unordered_map<std::string, std::uint32_t> mNodeNameLookup{};
+        std::vector<RuntimeBoneInfo> mRuntimeBoneInfos{};
+        std::vector<RuntimeBoneInfoRange> mRuntimeBoneInfoRanges{};
+        std::uint32_t mRuntimeBoneMatrixCount{ 0 };
         std::uint32_t mRootNodeIndex{ 0 };
         bool mHasRootNode{ false };
     };

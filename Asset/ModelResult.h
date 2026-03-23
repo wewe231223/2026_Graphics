@@ -16,6 +16,7 @@ namespace asset {
     public:
         std::uint32_t SkinArrayIndex{ 0 };
         std::uint32_t JointArrayIndex{ 0 };
+        std::string BoneName{};
         Mat4 InverseBindMatrix{ DirectX::SimpleMath::Matrix::Identity };
     };
 

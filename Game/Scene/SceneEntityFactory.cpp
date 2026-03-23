@@ -103,7 +103,7 @@ namespace Game {
             NodeEntities[NodeIndex] = CreateEntity(true);
         }
 
-        const Arche::EntityID BoneRootEntityId{ ResolveSingleBoneRootEntityId(ModelNodes, NodeEntities) };
+        const Arche::EntityID BoneRootEntityId{ ResolveSingleBoneRootEntityId(*SourceModel, ModelNodes, NodeEntities) };
 
         for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
             Transform NodeTransform{};
@@ -134,10 +134,15 @@ namespace Game {
                 AddBoundingBox(NodeEntities[NodeIndex], NodeBoundingBox);
             }
 
-            if (ModelNodes[NodeIndex].HasBoneInfo() == true) {
+            std::uint32_t RuntimeBoneInfoOffset{ 0 };
+            std::uint32_t RuntimeBoneInfoCount{ 0 };
+            const bool HasRuntimeBoneInfos{ SourceModel->TryGetRuntimeBoneInfoRange(static_cast<std::uint32_t>(NodeIndex), RuntimeBoneInfoOffset, RuntimeBoneInfoCount) };
+            if (HasRuntimeBoneInfos == true) {
                 Bone NodeBone{};
                 NodeBone.model = SpawnRequest.ModelData.get();
                 NodeBone.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
+                NodeBone.runtimeBoneInfoOffset = RuntimeBoneInfoOffset;
+                NodeBone.runtimeBoneInfoCount = RuntimeBoneInfoCount;
                 AddBone(NodeEntities[NodeIndex], NodeBone);
             }
 
@@ -253,7 +258,7 @@ namespace Game {
     }
 
 
-    Arche::EntityID SceneEntityFactory::ResolveSingleBoneRootEntityId(const std::vector<ModelNode>& ModelNodes, const std::vector<Arche::EntityID>& NodeEntities) const {
+    Arche::EntityID SceneEntityFactory::ResolveSingleBoneRootEntityId(const Model& ModelData, const std::vector<ModelNode>& ModelNodes, const std::vector<Arche::EntityID>& NodeEntities) const {
         if (ModelNodes.size() != NodeEntities.size()) {
             return Arche::NullEntityID;
         }
@@ -272,12 +277,21 @@ namespace Game {
 
         std::vector<std::size_t> BoneRootNodeIndices{};
         for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
-            if (ModelNodes[NodeIndex].HasBoneInfo() == false) {
+            std::uint32_t RuntimeBoneInfoOffset{ 0 };
+            std::uint32_t RuntimeBoneInfoCount{ 0 };
+            const bool HasRuntimeBoneInfos{ ModelData.TryGetRuntimeBoneInfoRange(static_cast<std::uint32_t>(NodeIndex), RuntimeBoneInfoOffset, RuntimeBoneInfoCount) };
+            static_cast<void>(RuntimeBoneInfoOffset);
+            static_cast<void>(RuntimeBoneInfoCount);
+            if (HasRuntimeBoneInfos == false) {
                 continue;
             }
 
             const std::int32_t ParentIndex{ ParentIndices[NodeIndex] };
-            const bool HasBoneParent{ ParentIndex >= 0 && ModelNodes[static_cast<std::size_t>(ParentIndex)].HasBoneInfo() == true };
+            std::uint32_t ParentRuntimeBoneInfoOffset{ 0 };
+            std::uint32_t ParentRuntimeBoneInfoCount{ 0 };
+            const bool HasBoneParent{ ParentIndex >= 0 && ModelData.TryGetRuntimeBoneInfoRange(static_cast<std::uint32_t>(ParentIndex), ParentRuntimeBoneInfoOffset, ParentRuntimeBoneInfoCount) == true };
+            static_cast<void>(ParentRuntimeBoneInfoOffset);
+            static_cast<void>(ParentRuntimeBoneInfoCount);
             if (HasBoneParent == false) {
                 BoneRootNodeIndices.push_back(NodeIndex);
             }

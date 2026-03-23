@@ -12,25 +12,24 @@ namespace Game {
     void Bone::BuildComponentInspectionFields(std::vector<ComponentInspectionField>& OutFields) const {
         OutFields.push_back(ComponentInspectionField{ "ModelBound", model == nullptr ? "false" : "true" });
         OutFields.push_back(ComponentInspectionField{ "NodeIndex", std::format("{}", nodeIndex) });
+        OutFields.push_back(ComponentInspectionField{ "RuntimeBoneInfoOffset", std::format("{}", runtimeBoneInfoOffset) });
+        OutFields.push_back(ComponentInspectionField{ "RuntimeBoneInfoCount", std::format("{}", runtimeBoneInfoCount) });
 
         if (model == nullptr) {
-            OutFields.push_back(ComponentInspectionField{ "BoneInfoCount", "0" });
             return;
         }
 
         const std::vector<ModelNode>& Nodes{ model->GetNodes() };
         if (nodeIndex >= Nodes.size()) {
-            OutFields.push_back(ComponentInspectionField{ "BoneInfoCount", "0" });
             return;
         }
 
-        const ModelNode& Node{ Nodes[nodeIndex] };
-        const std::vector<ModelBoneInfo>& BoneInfos{ Node.GetBoneInfos() };
-        OutFields.push_back(ComponentInspectionField{ "BoneInfoCount", std::format("{}", BoneInfos.size()) });
+        OutFields.push_back(ComponentInspectionField{ "BoneNodeName", Nodes[nodeIndex].GetName() });
 
-        for (std::size_t BoneInfoIndex{ 0 }; BoneInfoIndex < BoneInfos.size(); ++BoneInfoIndex) {
-            const ModelBoneInfo& BoneInfo{ BoneInfos[BoneInfoIndex] };
-            OutFields.push_back(ComponentInspectionField{ std::format("BoneInfo[{}]", BoneInfoIndex), std::format("SkinArrayIndex={}, JointArrayIndex={}", BoneInfo.SkinArrayIndex, BoneInfo.JointArrayIndex) });
+        const std::span<const RuntimeBoneInfo> RuntimeBoneInfos{ model->GetRuntimeBoneInfos(runtimeBoneInfoOffset, runtimeBoneInfoCount) };
+        for (std::size_t RuntimeBoneInfoIndex{ 0 }; RuntimeBoneInfoIndex < RuntimeBoneInfos.size(); ++RuntimeBoneInfoIndex) {
+            const RuntimeBoneInfo& RuntimeBoneInfoItem{ RuntimeBoneInfos[RuntimeBoneInfoIndex] };
+            OutFields.push_back(ComponentInspectionField{ std::format("BoneInfo[{}]", RuntimeBoneInfoIndex), std::format("SkinArrayIndex={}, JointArrayIndex={}", RuntimeBoneInfoItem.SkinArrayIndex, RuntimeBoneInfoItem.JointArrayIndex) });
         }
     }
 }

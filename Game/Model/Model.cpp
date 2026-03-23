@@ -1,4 +1,5 @@
 ﻿#include "Model.h"
+#include <algorithm>
 #include <cstring>
 #include "Core/DX/CopyQueueId.h"
 #include <utility>
@@ -230,6 +231,9 @@ namespace Game {
     Model::Model()
         : mNodes{},
         mNodeNameLookup{},
+        mRuntimeBoneInfos{},
+        mRuntimeBoneInfoRanges{},
+        mRuntimeBoneMatrixCount{ 0 },
         mRootNodeIndex{ 0 },
         mHasRootNode{ false } {
     }
@@ -240,8 +244,12 @@ namespace Game {
     Model::Model(Model&& Other) noexcept
         : mNodes{ std::move(Other.mNodes) },
         mNodeNameLookup{ std::move(Other.mNodeNameLookup) },
+        mRuntimeBoneInfos{ std::move(Other.mRuntimeBoneInfos) },
+        mRuntimeBoneInfoRanges{ std::move(Other.mRuntimeBoneInfoRanges) },
+        mRuntimeBoneMatrixCount{ Other.mRuntimeBoneMatrixCount },
         mRootNodeIndex{ Other.mRootNodeIndex },
         mHasRootNode{ Other.mHasRootNode } {
+        Other.mRuntimeBoneMatrixCount = 0;
         Other.mRootNodeIndex = 0;
         Other.mHasRootNode = false;
     }
@@ -253,8 +261,12 @@ namespace Game {
 
         mNodes = std::move(Other.mNodes);
         mNodeNameLookup = std::move(Other.mNodeNameLookup);
+        mRuntimeBoneInfos = std::move(Other.mRuntimeBoneInfos);
+        mRuntimeBoneInfoRanges = std::move(Other.mRuntimeBoneInfoRanges);
+        mRuntimeBoneMatrixCount = Other.mRuntimeBoneMatrixCount;
         mRootNodeIndex = Other.mRootNodeIndex;
         mHasRootNode = Other.mHasRootNode;
+        Other.mRuntimeBoneMatrixCount = 0;
         Other.mRootNodeIndex = 0;
         Other.mHasRootNode = false;
         return *this;
@@ -267,6 +279,9 @@ namespace Game {
 
         mNodes.clear();
         mNodeNameLookup.clear();
+        mRuntimeBoneInfos.clear();
+        mRuntimeBoneInfoRanges.clear();
+        mRuntimeBoneMatrixCount = 0;
         mRootNodeIndex = 0;
         mHasRootNode = false;
 
@@ -307,6 +322,7 @@ namespace Game {
                 ModelBoneInfo BoneInfo{};
                 BoneInfo.SkinArrayIndex = SourceBoneInfo.SkinArrayIndex;
                 BoneInfo.JointArrayIndex = SourceBoneInfo.JointArrayIndex;
+                BoneInfo.BoneName = SourceBoneInfo.BoneName;
                 BoneInfo.InverseBindMatrix = SourceBoneInfo.InverseBindMatrix;
                 BoneInfos.push_back(BoneInfo);
             }
@@ -334,6 +350,8 @@ namespace Game {
             }
         }
 
+        BuildRuntimeBoneInfos();
+
         return true;
     }
 
@@ -356,6 +374,71 @@ namespace Game {
 
     const std::vector<ModelNode>& Model::GetNodes() const {
         return mNodes;
+    }
+
+    bool Model::TryGetRuntimeBoneInfoRange(std::uint32_t NodeIndex, std::uint32_t& OutOffset, std::uint32_t& OutCount) const {
+        if (NodeIndex >= mRuntimeBoneInfoRanges.size()) {
+            OutOffset = 0;
+            OutCount = 0;
+            return false;
+        }
+
+        const RuntimeBoneInfoRange& Range{ mRuntimeBoneInfoRanges[NodeIndex] };
+        OutOffset = Range.Offset;
+        OutCount = Range.Count;
+        return Range.Count > 0;
+    }
+
+    std::span<const RuntimeBoneInfo> Model::GetRuntimeBoneInfos(std::uint32_t Offset, std::uint32_t Count) const {
+        if (Offset >= mRuntimeBoneInfos.size() || Count == 0) {
+            return std::span<const RuntimeBoneInfo>{};
+        }
+
+        const std::size_t ClampedCount{ std::min<std::size_t>(Count, mRuntimeBoneInfos.size() - Offset) };
+        return std::span<const RuntimeBoneInfo>{ mRuntimeBoneInfos.data() + Offset, ClampedCount };
+    }
+
+    std::uint32_t Model::GetRuntimeBoneMatrixCount() const {
+        return mRuntimeBoneMatrixCount;
+    }
+
+    void Model::BuildRuntimeBoneInfos() {
+        mRuntimeBoneInfos.clear();
+        mRuntimeBoneInfoRanges.clear();
+        mRuntimeBoneInfoRanges.resize(mNodes.size());
+        mRuntimeBoneMatrixCount = 0;
+
+        std::vector<std::vector<RuntimeBoneInfo>> RuntimeBoneInfosByNodeIndex{};
+        RuntimeBoneInfosByNodeIndex.resize(mNodes.size());
+
+        for (const ModelNode& Node : mNodes) {
+            const std::vector<ModelBoneInfo>& BoneInfos{ Node.GetBoneInfos() };
+            for (const ModelBoneInfo& BoneInfo : BoneInfos) {
+                const std::unordered_map<std::string, std::uint32_t>::const_iterator FoundNodeIndex{ mNodeNameLookup.find(BoneInfo.BoneName) };
+                if (FoundNodeIndex == mNodeNameLookup.end()) {
+                    continue;
+                }
+
+                RuntimeBoneInfo RuntimeBoneRecord{};
+                RuntimeBoneRecord.SkinArrayIndex = BoneInfo.SkinArrayIndex;
+                RuntimeBoneRecord.JointArrayIndex = BoneInfo.JointArrayIndex;
+                RuntimeBoneRecord.InverseBindMatrix = BoneInfo.InverseBindMatrix;
+                RuntimeBoneInfosByNodeIndex[FoundNodeIndex->second].push_back(RuntimeBoneRecord);
+
+                const std::uint32_t RequiredBoneMatrixCount{ BoneInfo.JointArrayIndex + 1u };
+                if (RequiredBoneMatrixCount > mRuntimeBoneMatrixCount) {
+                    mRuntimeBoneMatrixCount = RequiredBoneMatrixCount;
+                }
+            }
+        }
+
+        for (std::size_t NodeIndex{ 0 }; NodeIndex < RuntimeBoneInfosByNodeIndex.size(); ++NodeIndex) {
+            RuntimeBoneInfoRange Range{};
+            Range.Offset = static_cast<std::uint32_t>(mRuntimeBoneInfos.size());
+            Range.Count = static_cast<std::uint32_t>(RuntimeBoneInfosByNodeIndex[NodeIndex].size());
+            mRuntimeBoneInfoRanges[NodeIndex] = Range;
+            mRuntimeBoneInfos.insert(mRuntimeBoneInfos.end(), RuntimeBoneInfosByNodeIndex[NodeIndex].begin(), RuntimeBoneInfosByNodeIndex[NodeIndex].end());
+        }
     }
 
     bool Model::UploadVertexData(const asset::VertexAttributes& Vertices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews) const {
