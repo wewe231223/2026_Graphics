@@ -23,6 +23,11 @@ Prefabs:
     modelPath: testset2.bin
     materialPath: testset2_materials.json
     active: true
+  - &Prefab1003
+    prefabId: 1003
+    modelPath: untitled.bin
+    materialPath: untitled_materials.json
+    active: true
   - &Prefab2001
     prefabId: 2001
     modelPath: primitive:box;size=1.370000;color=0.910000,0.230000,0.480000,1.000000
@@ -177,3 +182,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2006
         prefabId: 2006
+  - EntityId: 9
+    ParentEntityId: -1
+    Components:
+      Name: 
+        text: untitled
+      Transform:
+        <<: *DefaultTransform 
+      PrefabInstance:
+        <<: *Prefab1003
+        prefabId: 1003
+
