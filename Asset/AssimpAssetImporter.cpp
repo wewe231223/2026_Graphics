@@ -6,9 +6,9 @@
 #include <string>
 #include <unordered_map>
 #include <assimp/Importer.hpp>
+#include <assimp/material.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
-#include <assimp/material.h>
 
 namespace asset {
     namespace {
@@ -63,10 +63,12 @@ namespace asset {
                 OutMaterial.PBR = true;
                 AppendProperty(OutMaterial, MaterialType::Roughness, MaterialMap{ Value });
             }
+
             if (aiGetMaterialFloat(&MaterialData, AI_MATKEY_METALLIC_FACTOR, &Value) == aiReturn_SUCCESS) {
                 OutMaterial.PBR = true;
                 AppendProperty(OutMaterial, MaterialType::Metalness, MaterialMap{ Value });
             }
+
             if (aiGetMaterialFloat(&MaterialData, AI_MATKEY_OPACITY, &Value) == aiReturn_SUCCESS) {
                 AppendProperty(OutMaterial, MaterialType::Opacity, MaterialMap{ Value });
             }
@@ -87,6 +89,7 @@ namespace asset {
         }
 
         struct BoneInfluence final {
+        public:
             UVec4 Indices{ 0U, 0U, 0U, 0U };
             Vec4 Weights{ 0.0f, 0.0f, 0.0f, 0.0f };
         };
@@ -95,12 +98,15 @@ namespace asset {
             if (Index == 0) {
                 return Value.x;
             }
+
             if (Index == 1) {
                 return Value.y;
             }
+
             if (Index == 2) {
                 return Value.z;
             }
+
             return Value.w;
         }
 
@@ -109,14 +115,17 @@ namespace asset {
                 Value.x = Weight;
                 return;
             }
+
             if (Index == 1) {
                 Value.y = Weight;
                 return;
             }
+
             if (Index == 2) {
                 Value.z = Weight;
                 return;
             }
+
             Value.w = Weight;
         }
 
@@ -149,74 +158,96 @@ namespace asset {
             }
         }
 
-        void ProcessMesh(const aiScene& Scene, const aiNode& SceneNode, const aiMesh& Mesh, std::uint32_t MaterialIndex, bool IsUvFlipEnabled, ModelNode& OutNode) {
+        std::uint32_t ResolveNodeGlobalJointIndex(const aiBone& Bone, std::unordered_map<std::string, std::uint32_t>& InOutJointLookup, std::vector<ModelBoneInfo>& InOutBoneInfos) {
+            const std::string BoneName{ Bone.mName.C_Str() };
+            const std::unordered_map<std::string, std::uint32_t>::const_iterator FoundJointIndex{ InOutJointLookup.find(BoneName) };
+            if (FoundJointIndex != InOutJointLookup.end()) {
+                return FoundJointIndex->second;
+            }
+
+            const std::uint32_t JointIndex{ static_cast<std::uint32_t>(InOutBoneInfos.size()) };
+            ModelBoneInfo BoneInfo{};
+            BoneInfo.SkinArrayIndex = 0;
+            BoneInfo.JointArrayIndex = JointIndex;
+            BoneInfo.BoneName = BoneName;
+            BoneInfo.InverseBindMatrix = ToMat4(Bone.mOffsetMatrix);
+            InOutBoneInfos.push_back(std::move(BoneInfo));
+            InOutJointLookup.insert_or_assign(BoneName, JointIndex);
+            return JointIndex;
+        }
+
+        void ProcessMesh(const aiMesh& Mesh, std::uint32_t MaterialIndex, bool IsUvFlipEnabled, ModelNode& OutNode, std::unordered_map<std::string, std::uint32_t>& InOutJointLookup) {
             VertexAttributes& Vertices{ OutNode.Vertices() };
-            Vertices.Resize(Mesh.mNumVertices);
+            std::vector<std::uint32_t>& Indices{ OutNode.Indices() };
+            std::vector<ModelBoneInfo>& BoneInfos{ OutNode.BoneInfos() };
+            const std::size_t BaseVertex{ Vertices.VertexCount() };
+            const std::size_t BaseIndexOffset{ Indices.size() };
+            const bool IsSkinnedMesh{ Mesh.HasBones() };
+
+            if (BaseVertex == 0) {
+                OutNode.SetIsSkinnedMesh(IsSkinnedMesh);
+            }
+            else if (OutNode.IsSkinnedMesh() != IsSkinnedMesh) {
+                throw AssetError{ "Node contains mixed static and skinned meshes." };
+            }
+
+            Vertices.Reserve(BaseVertex + Mesh.mNumVertices);
+
             std::vector<BoneInfluence> BoneInfluences{};
             BoneInfluences.resize(Mesh.mNumVertices);
 
-            for (unsigned int VertexIndex{ 0 }; VertexIndex < Mesh.mNumVertices; ++VertexIndex) {
-                Vertices.Positions[VertexIndex] = ToVec3(Mesh.mVertices[VertexIndex]);
-                Vertices.Normals[VertexIndex] = Mesh.HasNormals() ? ToVec3(Mesh.mNormals[VertexIndex]) : Vec3{ 0.0f, 1.0f, 0.0f };
-                Vertices.Colors[VertexIndex] = Mesh.HasVertexColors(0) ? ToVec4(Mesh.mColors[0][VertexIndex]) : Vec4{ 1.0f, 1.0f, 1.0f, 1.0f };
-                Vertices.Tangents[VertexIndex] = Mesh.HasTangentsAndBitangents() ? ToVec3(Mesh.mTangents[VertexIndex]) : Vec3{};
-                Vertices.Bitangents[VertexIndex] = Mesh.HasTangentsAndBitangents() ? ToVec3(Mesh.mBitangents[VertexIndex]) : Vec3{};
-
-                for (unsigned int ChannelIndex{ 0 }; ChannelIndex < 4; ++ChannelIndex) {
-                    Vertices.TexCoords[ChannelIndex][VertexIndex] = Mesh.HasTextureCoords(ChannelIndex) ? ToVec2(Mesh.mTextureCoords[ChannelIndex][VertexIndex], IsUvFlipEnabled) : Vec2{};
-                }
-            }
-
             for (unsigned int BoneIndex{ 0 }; BoneIndex < Mesh.mNumBones; ++BoneIndex) {
                 const aiBone& Bone{ *Mesh.mBones[BoneIndex] };
-                ModelBoneInfo BoneInfo{};
-                BoneInfo.SkinArrayIndex = 0;
-                BoneInfo.JointArrayIndex = BoneIndex;
-                BoneInfo.BoneName = Bone.mName.C_Str();
-                BoneInfo.InverseBindMatrix = ToMat4(Bone.mOffsetMatrix);
-                OutNode.BoneInfos().push_back(BoneInfo);
+                const std::uint32_t JointIndex{ ResolveNodeGlobalJointIndex(Bone, InOutJointLookup, BoneInfos) };
 
                 for (unsigned int WeightIndex{ 0 }; WeightIndex < Bone.mNumWeights; ++WeightIndex) {
                     const aiVertexWeight& Weight{ Bone.mWeights[WeightIndex] };
                     if (Weight.mVertexId < BoneInfluences.size()) {
-                        InsertBoneInfluence(BoneInfluences[Weight.mVertexId], BoneIndex, Weight.mWeight);
+                        InsertBoneInfluence(BoneInfluences[Weight.mVertexId], JointIndex, Weight.mWeight);
                     }
                 }
             }
 
             for (unsigned int VertexIndex{ 0 }; VertexIndex < Mesh.mNumVertices; ++VertexIndex) {
+                Vertices.Positions.push_back(ToVec3(Mesh.mVertices[VertexIndex]));
+                Vertices.Normals.push_back(Mesh.HasNormals() ? ToVec3(Mesh.mNormals[VertexIndex]) : Vec3{ 0.0f, 1.0f, 0.0f });
+                Vertices.Colors.push_back(Mesh.HasVertexColors(0) ? ToVec4(Mesh.mColors[0][VertexIndex]) : Vec4{ 1.0f, 1.0f, 1.0f, 1.0f });
+                Vertices.Tangents.push_back(Mesh.HasTangentsAndBitangents() ? ToVec3(Mesh.mTangents[VertexIndex]) : Vec3{});
+                Vertices.Bitangents.push_back(Mesh.HasTangentsAndBitangents() ? ToVec3(Mesh.mBitangents[VertexIndex]) : Vec3{});
+
+                for (unsigned int ChannelIndex{ 0 }; ChannelIndex < 4; ++ChannelIndex) {
+                    Vertices.TexCoords[ChannelIndex].push_back(Mesh.HasTextureCoords(ChannelIndex) ? ToVec2(Mesh.mTextureCoords[ChannelIndex][VertexIndex], IsUvFlipEnabled) : Vec2{});
+                }
+
                 NormalizeBoneInfluence(BoneInfluences[VertexIndex]);
-                Vertices.BoneIndices[VertexIndex] = BoneInfluences[VertexIndex].Indices;
-                Vertices.BoneWeights[VertexIndex] = BoneInfluences[VertexIndex].Weights;
+                Vertices.BoneIndices.push_back(BoneInfluences[VertexIndex].Indices);
+                Vertices.BoneWeights.push_back(BoneInfluences[VertexIndex].Weights);
             }
 
             for (unsigned int FaceIndex{ 0 }; FaceIndex < Mesh.mNumFaces; ++FaceIndex) {
                 const aiFace& Face{ Mesh.mFaces[FaceIndex] };
                 for (unsigned int Index{ 0 }; Index < Face.mNumIndices; ++Index) {
-                    OutNode.Indices().push_back(Face.mIndices[Index]);
+                    Indices.push_back(static_cast<std::uint32_t>(BaseVertex + Face.mIndices[Index]));
                 }
             }
 
-            if (OutNode.Indices().empty() == false) {
+            if (Indices.size() > BaseIndexOffset) {
                 ModelNode::SubMesh SubMesh{};
-                SubMesh.IndexOffset = 0;
-                SubMesh.IndexCount = OutNode.Indices().size();
+                SubMesh.IndexOffset = BaseIndexOffset;
+                SubMesh.IndexCount = Indices.size() - BaseIndexOffset;
                 SubMesh.MaterialGroupItemIndex = MaterialIndex;
                 OutNode.SubMeshes().push_back(SubMesh);
             }
-
-            OutNode.SetIsSkinnedMesh(Mesh.HasBones());
-            static_cast<void>(Scene);
-            static_cast<void>(SceneNode);
         }
 
         void BuildNodeRecursive(const aiScene& Scene, const aiNode& SceneNode, ModelResult& OutModelData, ModelNode* ParentNode, bool IsUvFlipEnabled) {
             ModelNode& Node{ OutModelData.CreateNode(SceneNode.mName.C_Str(), ParentNode) };
             Node.SetNodeToParent(ToMat4(SceneNode.mTransformation));
 
+            std::unordered_map<std::string, std::uint32_t> JointLookup{};
             for (unsigned int MeshIndex{ 0 }; MeshIndex < SceneNode.mNumMeshes; ++MeshIndex) {
                 const aiMesh& Mesh{ *Scene.mMeshes[SceneNode.mMeshes[MeshIndex]] };
-                ProcessMesh(Scene, SceneNode, Mesh, Mesh.mMaterialIndex, IsUvFlipEnabled, Node);
+                ProcessMesh(Mesh, Mesh.mMaterialIndex, IsUvFlipEnabled, Node, JointLookup);
             }
 
             for (unsigned int ChildIndex{ 0 }; ChildIndex < SceneNode.mNumChildren; ++ChildIndex) {
@@ -244,24 +275,12 @@ namespace asset {
         OutModelData = ModelResult{};
         OutMaterialGroups.clear();
 
-        std::vector<bool> MaterialUsesSkinnedPipeline{};
-        MaterialUsesSkinnedPipeline.resize(Scene->mNumMaterials, false);
-        for (unsigned int MeshIndex{ 0 }; MeshIndex < Scene->mNumMeshes; ++MeshIndex) {
-            const aiMesh& Mesh{ *Scene->mMeshes[MeshIndex] };
-            if (Mesh.mMaterialIndex >= MaterialUsesSkinnedPipeline.size() || Mesh.HasBones() == false) {
-                continue;
-            }
-
-            MaterialUsesSkinnedPipeline[Mesh.mMaterialIndex] = true;
-        }
-
         MaterialGroup Group{};
         Group.Name = std::string{ FilePath };
         Group.Items.reserve(Scene->mNumMaterials);
 
         for (unsigned int MaterialIndex{ 0 }; MaterialIndex < Scene->mNumMaterials; ++MaterialIndex) {
             MaterialGroupItem Item{};
-            Item.PipelineName = MaterialIndex < MaterialUsesSkinnedPipeline.size() && MaterialUsesSkinnedPipeline[MaterialIndex] == true ? "SkinnedGraphics" : "DefaultGraphics";
             FillMaterial(*Scene->mMaterials[MaterialIndex], Item.MaterialData);
             Group.Items.push_back(std::move(Item));
         }
