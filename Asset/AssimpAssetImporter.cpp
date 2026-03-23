@@ -244,12 +244,24 @@ namespace asset {
         OutModelData = ModelResult{};
         OutMaterialGroups.clear();
 
+        std::vector<bool> MaterialUsesSkinnedPipeline{};
+        MaterialUsesSkinnedPipeline.resize(Scene->mNumMaterials, false);
+        for (unsigned int MeshIndex{ 0 }; MeshIndex < Scene->mNumMeshes; ++MeshIndex) {
+            const aiMesh& Mesh{ *Scene->mMeshes[MeshIndex] };
+            if (Mesh.mMaterialIndex >= MaterialUsesSkinnedPipeline.size() || Mesh.HasBones() == false) {
+                continue;
+            }
+
+            MaterialUsesSkinnedPipeline[Mesh.mMaterialIndex] = true;
+        }
+
         MaterialGroup Group{};
         Group.Name = std::string{ FilePath };
         Group.Items.reserve(Scene->mNumMaterials);
 
         for (unsigned int MaterialIndex{ 0 }; MaterialIndex < Scene->mNumMaterials; ++MaterialIndex) {
             MaterialGroupItem Item{};
+            Item.PipelineName = MaterialIndex < MaterialUsesSkinnedPipeline.size() && MaterialUsesSkinnedPipeline[MaterialIndex] == true ? "SkinnedGraphics" : "DefaultGraphics";
             FillMaterial(*Scene->mMaterials[MaterialIndex], Item.MaterialData);
             Group.Items.push_back(std::move(Item));
         }

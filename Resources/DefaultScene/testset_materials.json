@@ -4,7 +4,7 @@
             "Name": "D:\\2026_Graphics\\out\\debug\\AssetZIP\\Asset\\testset.fbx",
             "Items": [
                 {
-                    "PipelineName": "DefaultGraphics",
+                    "PipelineName": "SkinnedGraphics",
                     "MaterialData": {
                         "Name": "Paladin_MAT",
                         "PBR": false,

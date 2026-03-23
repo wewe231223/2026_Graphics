@@ -17,8 +17,6 @@
 
 namespace {
     constexpr std::uint32_t SkinnedModelContextFlagBitMask{ 0x1u };
-    constexpr const char* SkinnedGraphicsPipelineName{ "SkinnedGraphics" };
-
     SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
         const SimpleMath::Matrix TrsMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
         return TransformComponent.nodeToParent * TrsMatrix;
@@ -136,8 +134,6 @@ namespace Game {
 
         RFD::RenderFrameData& RenderData{ Ctx.RenderData };
         const std::vector<RegisteredMaterialGroup>& MaterialGroups{ *Ctx.MaterialGroups };
-        Interface::IPipeline* SkinnedPipeline{ Ctx.AssetRegistryResource == nullptr ? nullptr : Ctx.AssetRegistryResource->GetPipelineByName(SkinnedGraphicsPipelineName) };
-
         for (auto [BoneSkinReferenceComponent, SkinnedMeshRendererComponent, TransformComponent, EntityHierarchyComponent] : World.Query<BoneSkinReference, SkinnedMeshRenderer, Transform, EntityHierarchy>()) {
             (void)TransformComponent;
             (void)EntityHierarchyComponent;
@@ -213,7 +209,7 @@ namespace Game {
 
                     if (ResolvedItemIndex < RegisteredGroup.Items.size()) {
                         const RegisteredMaterialGroupItem& RegisteredGroupItem{ RegisteredGroup.Items[ResolvedItemIndex] };
-                        Pipeline = SkinnedPipeline == nullptr ? RegisteredGroupItem.Pipeline : SkinnedPipeline;
+                        Pipeline = RegisteredGroupItem.Pipeline;
                         ResolvedMaterialIndex = RegisteredGroupItem.MaterialIndex;
                     }
                 }
