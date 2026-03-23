@@ -519,17 +519,17 @@ namespace Game {
 
         if (MaterialMapData.GetKind() == asset::MaterialMapKind::Vec2) {
             const asset::Vec2 Vec2Value{ MaterialMapData.GetVec2() };
-            return SimpleMath::Vector4{ Vec2Value.mX, Vec2Value.mY, 0.0f, 0.0f };
+            return SimpleMath::Vector4{ Vec2Value.x, Vec2Value.y, 0.0f, 0.0f };
         }
 
         if (MaterialMapData.GetKind() == asset::MaterialMapKind::Vec3) {
             const asset::Vec3 Vec3Value{ MaterialMapData.GetVec3() };
-            return SimpleMath::Vector4{ Vec3Value.mX, Vec3Value.mY, Vec3Value.mZ, 0.0f };
+            return SimpleMath::Vector4{ Vec3Value.x, Vec3Value.y, Vec3Value.z, 0.0f };
         }
 
         if (MaterialMapData.GetKind() == asset::MaterialMapKind::Vec4) {
             const asset::Vec4 Vec4Value{ MaterialMapData.GetVec4() };
-            return SimpleMath::Vector4{ Vec4Value.mX, Vec4Value.mY, Vec4Value.mZ, Vec4Value.mW };
+            return SimpleMath::Vector4{ Vec4Value.x, Vec4Value.y, Vec4Value.z, Vec4Value.w };
         }
 
         return SimpleMath::Vector4{};

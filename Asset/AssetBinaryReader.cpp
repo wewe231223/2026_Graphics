@@ -69,8 +69,7 @@ void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, 
                 ReadSkinnedMeshFlag(Node);
             }
             else {
-                ReadSkinBinding(Node, Nodes);
-                Node.SetIsSkinnedMesh(Node.HasSkinBinding());
+                Node.SetIsSkinnedMesh(ReadBool());
             }
         }
         else {
@@ -113,23 +112,6 @@ std::vector<ModelBoneInfo> AssetBinaryReader::ReadBoneInfos() {
     }
 
     return BoneInfos;
-}
-
-void AssetBinaryReader::ReadSkinBinding(ModelNode& Node, std::span<ModelNode* const> Nodes) {
-    const bool HasSkinBinding{ ReadBool() };
-    if (HasSkinBinding == false) {
-        return;
-    }
-
-    ModelSkinBinding SkinBinding{};
-    SkinBinding.SkinArrayIndex = ReadUint32();
-
-    const std::int32_t BoneRootNodeIndex{ ReadInt32() };
-    if (BoneRootNodeIndex >= 0 && BoneRootNodeIndex < static_cast<std::int32_t>(Nodes.size())) {
-        SkinBinding.BoneRootNode = Nodes[static_cast<std::size_t>(BoneRootNodeIndex)];
-    }
-
-    Node.SetSkinBinding(SkinBinding);
 }
 
 
@@ -267,24 +249,6 @@ float AssetBinaryReader::ReadFloat() {
 bool AssetBinaryReader::ReadBool() {
     const std::uint8_t Value{ ReadUint8() };
     return Value != 0;
-}
-
-Vec2 AssetBinaryReader::ReadVec2() {
-    Vec2 Value{};
-    ReadBytes(&Value, sizeof(Value));
-    return Value;
-}
-
-Vec3 AssetBinaryReader::ReadVec3() {
-    Vec3 Value{};
-    ReadBytes(&Value, sizeof(Value));
-    return Value;
-}
-
-Vec4 AssetBinaryReader::ReadVec4() {
-    Vec4 Value{};
-    ReadBytes(&Value, sizeof(Value));
-    return Value;
 }
 
 Mat4 AssetBinaryReader::ReadMat4() {

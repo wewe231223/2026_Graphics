@@ -1,88 +1,33 @@
-﻿#include <algorithm>
-#include <cctype>
 #include <exception>
 #include <filesystem>
 #include <string>
 #include <vector>
 
 #include "Asset/AssetBinaryWriter.h"
-#include "Asset/FbxAssetImporter.h"
-#include "Asset/GltfAssetImporter.h"
+#include "Asset/AssimpAssetImporter.h"
 #include "Asset/MaterialGroupJsonSerializer.h"
 #include "Asset/ModelResult.h"
 #include "Utility/StdOutput.h"
+#include "Utility/StringUtils.h"
 
 #pragma comment(lib, "Asset.lib")
 
-#ifdef max 
-#undef min
-#undef max
-#endif 
-
-
 namespace {
-    struct RunOptions final {
+    std::string ToLowercase(std::string Value) {
+        std::transform(Value.begin(), Value.end(), Value.begin(), [](unsigned char Character) {
+            return static_cast<char>(std::tolower(Character));
+            });
+        return Value;
+    }
+
+    struct Options final {
     public:
         std::string InputFileName{};
-        bool IsUvFlipEnabled{ true };
+        bool IsUvFlipEnabled{ false };
     };
-
-    bool TryParseUvFlipValue(const std::string& Value, bool& OutIsUvFlipEnabled) {
-        if (Value == "1" || Value == "true" || Value == "True" || Value == "TRUE" || Value == "yes" || Value == "Yes" || Value == "YES" || Value == "on" || Value == "On" || Value == "ON") {
-            OutIsUvFlipEnabled = true;
-            return true;
-        }
-
-        if (Value == "0" || Value == "false" || Value == "False" || Value == "FALSE" || Value == "no" || Value == "No" || Value == "NO" || Value == "off" || Value == "Off" || Value == "OFF") {
-            OutIsUvFlipEnabled = false;
-            return true;
-        }
-
-        return false;
-    }
-
-    bool TryParseArguments(int ArgCount, char* ArgValues[], RunOptions& OutRunOptions) {
-        if (ArgCount < 2) {
-            return false;
-        }
-
-        OutRunOptions = RunOptions{};
-        OutRunOptions.InputFileName = std::string{ ArgValues[1] };
-
-        for (int Index{ 2 }; Index < ArgCount; ++Index) {
-            const std::string Argument{ ArgValues[Index] };
-            const std::string Prefix{ "--flip-uv=" };
-            if (Argument.rfind(Prefix, 0) == 0) {
-                bool IsUvFlipEnabled{ OutRunOptions.IsUvFlipEnabled };
-                const std::string Value{ Argument.substr(Prefix.size()) };
-                if (!TryParseUvFlipValue(Value, IsUvFlipEnabled)) {
-                    return false;
-                }
-
-                OutRunOptions.IsUvFlipEnabled = IsUvFlipEnabled;
-                continue;
-            }
-
-            return false;
-        }
-
-        return true;
-    }
-
-    std::filesystem::path GetProjectDirectoryPath() {
-        return std::filesystem::current_path();
-    }
 
     std::filesystem::path GetAssetFilePath(const std::filesystem::path& ProjectDirectoryPath, const std::string& InputFileName) {
         return ProjectDirectoryPath / "Asset" / InputFileName;
-    }
-
-    std::filesystem::path GetBinDirectoryPath(const std::filesystem::path& ProjectDirectoryPath) {
-        return ProjectDirectoryPath / "Bin";
-    }
-
-    std::filesystem::path GetImagesDirectoryPath(const std::filesystem::path& BinDirectoryPath) {
-        return BinDirectoryPath / "Images";
     }
 
     std::filesystem::path GetBinaryOutputPath(const std::filesystem::path& BinDirectoryPath, const std::filesystem::path& AssetFilePath) {
@@ -93,127 +38,54 @@ namespace {
         return BinDirectoryPath / (AssetFilePath.stem().string() + "_materials.json");
     }
 
-    std::size_t CountTotalVertices(const asset::ModelResult& ModelResultData) {
-        std::size_t TotalVertices{ 0 };
-        ModelResultData.ForEachDfs([&TotalVertices](asset::ModelNode& Node) {
-            TotalVertices += Node.Vertices().VertexCount();
-        });
-        return TotalVertices;
+    bool IsSupportedAssetExtension(const std::filesystem::path& AssetFilePath) {
+        const std::string Extension{ ToLowercase(AssetFilePath.extension().string()) };
+        return Extension == ".fbx" || Extension == ".gltf" || Extension == ".glb";
     }
 
-    std::size_t CountTotalIndices(const asset::ModelResult& ModelResultData) {
-        std::size_t TotalIndices{ 0 };
-        ModelResultData.ForEachDfs([&TotalIndices](asset::ModelNode& Node) {
-            TotalIndices += Node.Indices().size();
-        });
-        return TotalIndices;
+    void LoadModelFromAssetFile(const std::filesystem::path& AssetFilePath, asset::ModelResult& OutModelData, std::vector<asset::MaterialGroup>& OutMaterialGroups, bool IsUvFlipEnabled) {
+        asset::AssimpAssetImporter Importer{ asset::GraphicsAPI::DirectX };
+        Importer.LoadFromFile(AssetFilePath.string(), OutModelData, OutMaterialGroups, IsUvFlipEnabled);
     }
 
-    struct AxisRange final {
-    public:
-        float Min{};
-        float Max{};
-    };
-
-    struct MeshAxisBounds final {
-    public:
-        AxisRange X{};
-        AxisRange Y{};
-        AxisRange Z{};
-    };
-
-    bool TryBuildMeshAxisBounds(const asset::ModelNode& Node, MeshAxisBounds& OutBounds) {
-        const std::vector<asset::Vec3>& Positions{ Node.Vertices().Positions };
-        if (Positions.empty()) {
+    bool ParseOptions(int ArgumentCount, char** Arguments, Options& OutOptions) {
+        if (ArgumentCount < 2) {
             return false;
         }
 
-        const asset::Vec3& FirstPosition{ Positions.front() };
-        OutBounds = MeshAxisBounds{
-            AxisRange{ FirstPosition.mX, FirstPosition.mX },
-            AxisRange{ FirstPosition.mY, FirstPosition.mY },
-            AxisRange{ FirstPosition.mZ, FirstPosition.mZ }
-        };
+        OutOptions.InputFileName = Arguments[1];
 
-        for (const asset::Vec3& Position : Positions) {
-            OutBounds.X.Min = std::min(OutBounds.X.Min, Position.mX);
-            OutBounds.X.Max = std::max(OutBounds.X.Max, Position.mX);
-            OutBounds.Y.Min = std::min(OutBounds.Y.Min, Position.mY);
-            OutBounds.Y.Max = std::max(OutBounds.Y.Max, Position.mY);
-            OutBounds.Z.Min = std::min(OutBounds.Z.Min, Position.mZ);
-            OutBounds.Z.Max = std::max(OutBounds.Z.Max, Position.mZ);
+        for (int ArgumentIndex{ 2 }; ArgumentIndex < ArgumentCount; ++ArgumentIndex) {
+            const std::string Argument{ Arguments[ArgumentIndex] };
+            if (Argument.rfind("--flip-uv=", 0) == 0) {
+                OutOptions.IsUvFlipEnabled = ToLowercase(Argument.substr(10)) == "true";
+            }
         }
 
         return true;
     }
+}
 
-    void PrintMeshAxisBounds(const asset::ModelResult& ModelResultData) {
-        std::size_t MeshIndex{ 0 };
-        ModelResultData.ForEachDfs([&MeshIndex](asset::ModelNode& Node) {
-            MeshAxisBounds Bounds{};
-            if (!TryBuildMeshAxisBounds(Node, Bounds)) {
-                return;
-            }
-
-            ++MeshIndex;
-            StdOutput::PrintLine("[AssetZIP] Mesh {}: {}", MeshIndex, Node.GetName());
-            StdOutput::PrintLine("[AssetZIP]   Skinned mesh: {}", Node.IsSkinnedMesh() ? "true" : "false");
-            StdOutput::PrintLine("[AssetZIP]   X range: min={}, max={}", Bounds.X.Min, Bounds.X.Max);
-            StdOutput::PrintLine("[AssetZIP]   Y range: min={}, max={}", Bounds.Y.Min, Bounds.Y.Max);
-            StdOutput::PrintLine("[AssetZIP]   Z range: min={}, max={}", Bounds.Z.Min, Bounds.Z.Max);
-        });
-    }
-
-    std::string ToLowercase(std::string Value) {
-        std::transform(Value.begin(), Value.end(), Value.begin(), [](unsigned char Character) {
-            return static_cast<char>(std::tolower(Character));
-        });
-        return Value;
-    }
-
-    bool IsFbxExtension(const std::filesystem::path& AssetFilePath) {
-        return ToLowercase(AssetFilePath.extension().string()) == ".fbx";
-    }
-
-    bool IsGltfExtension(const std::filesystem::path& AssetFilePath) {
-        const std::string Extension{ ToLowercase(AssetFilePath.extension().string()) };
-        return Extension == ".gltf" || Extension == ".glb";
-    }
-
-    bool IsSupportedAssetExtension(const std::filesystem::path& AssetFilePath) {
-        return IsFbxExtension(AssetFilePath) || IsGltfExtension(AssetFilePath);
-    }
-
-    void LoadModelFromAssetFile(const std::filesystem::path& AssetFilePath, asset::ModelResult& OutModelData, std::vector<asset::MaterialGroup>& OutMaterialGroups, bool IsUvFlipEnabled) {
-        if (IsFbxExtension(AssetFilePath)) {
-            asset::FbxAssetImporter Importer{ asset::GraphicsAPI::DirectX };
-            Importer.LoadFromFile(AssetFilePath.string(), OutModelData, OutMaterialGroups, IsUvFlipEnabled);
-            return;
+int main(int ArgumentCount, char** Arguments) {
+    try {
+        Options ParsedOptions{};
+        if (ParseOptions(ArgumentCount, Arguments, ParsedOptions) == false) {
+            StdOutput::PrintErrorLine("[AssetZIP] Usage: AssetZIP <AssetFileName(.fbx|.gltf|.glb)> [--flip-uv=true|false]");
+            return 1;
         }
 
-        if (IsGltfExtension(AssetFilePath)) {
-            asset::GltfAssetImporter Importer{ asset::GraphicsAPI::DirectX };
-            Importer.LoadFromFile(AssetFilePath.string(), OutModelData, OutMaterialGroups, IsUvFlipEnabled);
-            return;
-        }
-
-        throw asset::AssetError{ std::string{ "Unsupported asset extension: " } + AssetFilePath.extension().string() };
-    }
-
-    int Run(const RunOptions& Options) {
-        const std::filesystem::path ProjectDirectoryPath{ GetProjectDirectoryPath() };
-        const std::filesystem::path AssetFilePath{ GetAssetFilePath(ProjectDirectoryPath, Options.InputFileName) };
-        const std::filesystem::path BinDirectoryPath{ GetBinDirectoryPath(ProjectDirectoryPath) };
+        const std::filesystem::path ProjectDirectoryPath{ std::filesystem::current_path() };
+        const std::filesystem::path BinDirectoryPath{ ProjectDirectoryPath / "Bin" };
+        const std::filesystem::path AssetFilePath{ GetAssetFilePath(ProjectDirectoryPath, ParsedOptions.InputFileName) };
         const std::filesystem::path BinaryOutputPath{ GetBinaryOutputPath(BinDirectoryPath, AssetFilePath) };
         const std::filesystem::path MaterialOutputPath{ GetMaterialOutputPath(BinDirectoryPath, AssetFilePath) };
-        const std::filesystem::path ImagesDirectoryPath{ GetImagesDirectoryPath(BinDirectoryPath) };
 
-        if (!std::filesystem::exists(AssetFilePath)) {
+        if (std::filesystem::exists(AssetFilePath) == false) {
             StdOutput::PrintErrorLine("[AssetZIP] Input asset file was not found: {}", AssetFilePath.string());
             return 1;
         }
 
-        if (!IsSupportedAssetExtension(AssetFilePath)) {
+        if (IsSupportedAssetExtension(AssetFilePath) == false) {
             StdOutput::PrintErrorLine("[AssetZIP] Supported input formats are .fbx, .gltf, .glb: {}", AssetFilePath.string());
             return 1;
         }
@@ -227,56 +99,27 @@ namespace {
 
         asset::ModelResult ModelData{};
         std::vector<asset::MaterialGroup> MaterialGroups{};
-        LoadModelFromAssetFile(AssetFilePath, ModelData, MaterialGroups, Options.IsUvFlipEnabled);
+        LoadModelFromAssetFile(AssetFilePath, ModelData, MaterialGroups, ParsedOptions.IsUvFlipEnabled);
 
         asset::AssetBinaryWriter AssetBinaryWriterData{};
-        const bool IsBinaryWriteSuccess{ AssetBinaryWriterData.WriteToFile(BinaryOutputPath.string(), ModelData) };
-        if (!IsBinaryWriteSuccess) {
+        if (AssetBinaryWriterData.WriteToFile(BinaryOutputPath.string(), ModelData) == false) {
             StdOutput::PrintErrorLine("[AssetZIP] Failed to create binary file: {}", BinaryOutputPath.string());
             return 1;
         }
 
-        asset::MaterialGroupJsonSerializer MaterialGroupJsonSerializerData{};
-        const bool IsMaterialWriteSuccess{ MaterialGroupJsonSerializerData.WriteToFile(MaterialOutputPath.string(), MaterialGroups) };
-        if (!IsMaterialWriteSuccess) {
+        asset::MaterialGroupJsonSerializer Serializer{};
+        if (Serializer.WriteToFile(MaterialOutputPath.string(), MaterialGroups) == false) {
             StdOutput::PrintErrorLine("[AssetZIP] Failed to create material JSON file: {}", MaterialOutputPath.string());
             return 1;
         }
 
-        const asset::ModelResult& ModelResultData{ ModelData };
-        const std::size_t TotalVertices{ CountTotalVertices(ModelResultData) };
-        const std::size_t TotalIndices{ CountTotalIndices(ModelResultData) };
-        const std::size_t MaterialGroupCount{ MaterialGroups.size() };
-
         StdOutput::PrintLine("[AssetZIP] Input file: {}", AssetFilePath.string());
         StdOutput::PrintLine("[AssetZIP] Output binary: {}", BinaryOutputPath.string());
         StdOutput::PrintLine("[AssetZIP] Output material JSON: {}", MaterialOutputPath.string());
-
-        if (std::filesystem::exists(ImagesDirectoryPath)) {
-            StdOutput::PrintLine("[AssetZIP] Embedded image output directory: {}", ImagesDirectoryPath.string());
-        }
-
-        StdOutput::PrintLine("[AssetZIP] Node count: {}", ModelResultData.NodeCount());
-        StdOutput::PrintLine("[AssetZIP] Total vertices: {}", TotalVertices);
-        StdOutput::PrintLine("[AssetZIP] Total indices: {}", TotalIndices);
-        StdOutput::PrintLine("[AssetZIP] Material group count: {}", MaterialGroupCount);
-        StdOutput::PrintLine("[AssetZIP] UV flip enabled: {}", Options.IsUvFlipEnabled ? "true" : "false");
-
-        PrintMeshAxisBounds(ModelResultData);
-
+        StdOutput::PrintLine("[AssetZIP] Node count: {}", ModelData.NodeCount());
+        StdOutput::PrintLine("[AssetZIP] Material group count: {}", MaterialGroups.size());
+        StdOutput::PrintLine("[AssetZIP] UV flip enabled: {}", ParsedOptions.IsUvFlipEnabled ? "true" : "false");
         return 0;
-    }
-}
-
-int main(int ArgCount, char* ArgValues[]) {
-    RunOptions Options{};
-    if (!TryParseArguments(ArgCount, ArgValues, Options)) {
-        StdOutput::PrintErrorLine("[AssetZIP] Usage: AssetZIP <AssetFileName(.fbx|.gltf|.glb)> [--flip-uv=true|false]");
-        return 1;
-    }
-
-    try {
-        return Run(Options);
     }
     catch (const std::exception& ExceptionData) {
         StdOutput::PrintErrorLine("[AssetZIP] {}", ExceptionData.what());

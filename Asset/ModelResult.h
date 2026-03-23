@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <cstddef>
 #include <cstdint>
@@ -16,13 +16,7 @@ namespace asset {
     public:
         std::uint32_t SkinArrayIndex{ 0 };
         std::uint32_t JointArrayIndex{ 0 };
-        Mat4 InverseBindMatrix{ 1.0f };
-    };
-
-    struct ModelSkinBinding final {
-    public:
-        std::uint32_t SkinArrayIndex{ 0 };
-        ModelNode* BoneRootNode{ nullptr };
+        Mat4 InverseBindMatrix{ DirectX::SimpleMath::Matrix::Identity };
     };
 
     class ModelNode final {
@@ -68,10 +62,6 @@ namespace asset {
         const std::vector<ModelBoneInfo>& BoneInfos() const;
         bool HasBoneInfo() const;
 
-        void SetSkinBinding(const ModelSkinBinding& SkinBinding);
-        bool HasSkinBinding() const;
-        const ModelSkinBinding& GetSkinBinding() const;
-
         void SetIsSkinnedMesh(bool IsSkinnedMesh);
         bool IsSkinnedMesh() const;
 
@@ -82,15 +72,13 @@ namespace asset {
     private:
         Id mId{ 0 };
         std::string mName{};
-        Mat4 mNodeToParent{ 1.0f };
+        Mat4 mNodeToParent{ DirectX::SimpleMath::Matrix::Identity };
         ModelNode* mParent{ nullptr };
         std::vector<ModelNode*> mChildren{};
         VertexAttributes mVertices{};
         std::vector<std::uint32_t> mIndices{};
         std::vector<SubMesh> mSubMeshes{};
         std::vector<ModelBoneInfo> mBoneInfos{};
-        ModelSkinBinding mSkinBinding{};
-        bool mHasSkinBinding{ false };
         bool mIsSkinnedMesh{ false };
     };
 

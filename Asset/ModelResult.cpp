@@ -1,4 +1,4 @@
-﻿#include "ModelResult.h"
+#include "ModelResult.h"
 
 #include <algorithm>
 #include <utility>
@@ -75,19 +75,6 @@ namespace asset {
         return mBoneInfos.empty() == false;
     }
 
-    void ModelNode::SetSkinBinding(const ModelSkinBinding& SkinBinding) {
-        mSkinBinding = SkinBinding;
-        mHasSkinBinding = SkinBinding.BoneRootNode != nullptr;
-    }
-
-    bool ModelNode::HasSkinBinding() const {
-        return mHasSkinBinding;
-    }
-
-    const ModelSkinBinding& ModelNode::GetSkinBinding() const {
-        return mSkinBinding;
-    }
-
     void ModelNode::SetIsSkinnedMesh(bool IsSkinnedMesh) {
         mIsSkinnedMesh = IsSkinnedMesh;
     }
@@ -117,7 +104,8 @@ namespace asset {
         return mSubMeshes;
     }
 
-    ModelResult::ModelResult() = default;
+    ModelResult::ModelResult() {
+    }
 
     ModelNode* ModelResult::GetRoot() const {
         return mRoot;

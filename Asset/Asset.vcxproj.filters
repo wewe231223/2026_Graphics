@@ -28,38 +28,14 @@
     <ClCompile Include="AssetBinaryWriter.cpp">
       <Filter>Serializer</Filter>
     </ClCompile>
-    <ClCompile Include="UfbxAssetLoader.cpp">
-      <Filter>Importer</Filter>
-    </ClCompile>
     <ClCompile Include="FbxAssetImporter.cpp">
       <Filter>Importer</Filter>
     </ClCompile>
     <ClCompile Include="GltfAssetImporter.cpp">
       <Filter>Importer</Filter>
     </ClCompile>
-    <ClCompile Include="GltfAssetLoader.cpp">
-      <Filter>Importer</Filter>
-    </ClCompile>
-    <ClCompile Include="GltfMaterialVisitor.cpp">
-      <Filter>Visitor</Filter>
-    </ClCompile>
-    <ClCompile Include="GltfMeshHierarchyBuilder.cpp">
-      <Filter>Visitor</Filter>
-    </ClCompile>
     <ClCompile Include="DataList.cpp">
       <Filter>Defines</Filter>
-    </ClCompile>
-    <ClCompile Include="MaterialVisitor.cpp">
-      <Filter>Visitor</Filter>
-    </ClCompile>
-    <ClCompile Include="MeshHierarchyBuilder.cpp">
-      <Filter>Visitor</Filter>
-    </ClCompile>
-    <ClCompile Include="cgltf.c">
-      <Filter>Importer</Filter>
-    </ClCompile>
-    <ClCompile Include="ufbx.c">
-      <Filter>ufbx</Filter>
     </ClCompile>
     <ClCompile Include="Common.cpp">
       <Filter>Defines</Filter>
@@ -67,12 +43,10 @@
     <ClCompile Include="ModelResult.cpp">
       <Filter>Defines</Filter>
     </ClCompile>
-    <ClCompile Include="NumericTypes.cpp">
-      <Filter>Defines</Filter>
-    </ClCompile>
     <ClCompile Include="MaterialGroupJsonSerializer.cpp">
       <Filter>Serializer</Filter>
     </ClCompile>
+    <ClCompile Include="AssimpAssetImporter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssetBinaryReader.h">
@@ -81,35 +55,14 @@
     <ClInclude Include="AssetBinaryWriter.h">
       <Filter>Serializer</Filter>
     </ClInclude>
-    <ClInclude Include="UfbxAssetLoader.h">
-      <Filter>Importer</Filter>
-    </ClInclude>
     <ClInclude Include="FbxAssetImporter.h">
       <Filter>Importer</Filter>
     </ClInclude>
     <ClInclude Include="GltfAssetImporter.h">
       <Filter>Importer</Filter>
     </ClInclude>
-    <ClInclude Include="GltfAssetLoader.h">
-      <Filter>Importer</Filter>
-    </ClInclude>
-    <ClInclude Include="GltfMaterialVisitor.h">
-      <Filter>Visitor</Filter>
-    </ClInclude>
-    <ClInclude Include="GltfMeshHierarchyBuilder.h">
-      <Filter>Visitor</Filter>
-    </ClInclude>
-    <ClInclude Include="GltfSceneVisitor.h">
-      <Filter>Visitor</Filter>
-    </ClInclude>
     <ClInclude Include="DataList.h">
       <Filter>Defines</Filter>
-    </ClInclude>
-    <ClInclude Include="MaterialVisitor.h">
-      <Filter>Visitor</Filter>
-    </ClInclude>
-    <ClInclude Include="MeshHierarchyBuilder.h">
-      <Filter>Visitor</Filter>
     </ClInclude>
     <ClInclude Include="Common.h">
       <Filter>Defines</Filter>
@@ -117,14 +70,9 @@
     <ClInclude Include="ModelResult.h">
       <Filter>Defines</Filter>
     </ClInclude>
-    <ClInclude Include="NumericTypes.h">
-      <Filter>Defines</Filter>
-    </ClInclude>
-    <ClInclude Include="SceneVisitor.h">
-      <Filter>Visitor</Filter>
-    </ClInclude>
     <ClInclude Include="MaterialGroupJsonSerializer.h">
       <Filter>Serializer</Filter>
     </ClInclude>
+    <ClInclude Include="AssimpAssetImporter.h" />
   </ItemGroup>
 </Project>

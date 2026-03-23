@@ -2,7 +2,6 @@
 #include <cstring>
 #include "Core/DX/CopyQueueId.h"
 #include <utility>
-#include "Asset/NumericTypes.h"
 
 namespace {
     struct AttributeUploadSource final {
@@ -308,11 +307,11 @@ namespace Game {
                 ModelBoneInfo BoneInfo{};
                 BoneInfo.SkinArrayIndex = SourceBoneInfo.SkinArrayIndex;
                 BoneInfo.JointArrayIndex = SourceBoneInfo.JointArrayIndex;
-                BoneInfo.InverseBindMatrix = asset::ToSimpleMath(SourceBoneInfo.InverseBindMatrix);
+                BoneInfo.InverseBindMatrix = SourceBoneInfo.InverseBindMatrix;
                 BoneInfos.push_back(BoneInfo);
             }
 
-            DestinationNode.SetBasicData(SourceNode.GetId(), SourceNode.GetName(), asset::ToSimpleMath(SourceNode.GetNodeToParent()), std::move(Children), std::move(SubMeshes), std::move(BoneInfos), SourceNode.IsSkinnedMesh());
+            DestinationNode.SetBasicData(SourceNode.GetId(), SourceNode.GetName(), SourceNode.GetNodeToParent(), std::move(Children), std::move(SubMeshes), std::move(BoneInfos), SourceNode.IsSkinnedMesh());
 
             std::vector<std::byte> VertexRawData{};
             std::vector<ModelNode::VertexAttributeRange> VertexRanges{};

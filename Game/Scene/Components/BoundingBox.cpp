@@ -2,7 +2,6 @@
 
 #include <format>
 #include <vector>
-#include "Asset/NumericTypes.h"
 #include "Game/Model/Model.h"
 #include "Game/Scene/Components/ComponentInspection.h"
 
@@ -33,7 +32,7 @@ namespace {
         PositionPoints.reserve(VertexCount);
 
         for (std::size_t VertexIndex{ 0 }; VertexIndex < VertexCount; ++VertexIndex) {
-            PositionPoints.push_back(DirectX::XMFLOAT3{ Positions[VertexIndex].mX, Positions[VertexIndex].mY, Positions[VertexIndex].mZ });
+            PositionPoints.push_back(DirectX::XMFLOAT3{ Positions[VertexIndex].x, Positions[VertexIndex].y, Positions[VertexIndex].z });
         }
 
         if (PositionPoints.empty()) {

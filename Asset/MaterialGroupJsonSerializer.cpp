@@ -110,27 +110,27 @@ namespace asset {
             case MaterialMapKind::Vec2: {
                 const Vec2 Value{ MaterialMapData.GetVec2() };
                 rapidjson::Value Vec2Array{ rapidjson::kArrayType };
-                Vec2Array.PushBack(Value.mX, Allocator);
-                Vec2Array.PushBack(Value.mY, Allocator);
+                Vec2Array.PushBack(Value.x, Allocator);
+                Vec2Array.PushBack(Value.y, Allocator);
                 MaterialMapObject.AddMember("Vec2", Vec2Array, Allocator);
                 break;
             }
             case MaterialMapKind::Vec3: {
                 const Vec3 Value{ MaterialMapData.GetVec3() };
                 rapidjson::Value Vec3Array{ rapidjson::kArrayType };
-                Vec3Array.PushBack(Value.mX, Allocator);
-                Vec3Array.PushBack(Value.mY, Allocator);
-                Vec3Array.PushBack(Value.mZ, Allocator);
+                Vec3Array.PushBack(Value.x, Allocator);
+                Vec3Array.PushBack(Value.y, Allocator);
+                Vec3Array.PushBack(Value.z, Allocator);
                 MaterialMapObject.AddMember("Vec3", Vec3Array, Allocator);
                 break;
             }
             case MaterialMapKind::Vec4: {
                 const Vec4 Value{ MaterialMapData.GetVec4() };
                 rapidjson::Value Vec4Array{ rapidjson::kArrayType };
-                Vec4Array.PushBack(Value.mX, Allocator);
-                Vec4Array.PushBack(Value.mY, Allocator);
-                Vec4Array.PushBack(Value.mZ, Allocator);
-                Vec4Array.PushBack(Value.mW, Allocator);
+                Vec4Array.PushBack(Value.x, Allocator);
+                Vec4Array.PushBack(Value.y, Allocator);
+                Vec4Array.PushBack(Value.z, Allocator);
+                Vec4Array.PushBack(Value.w, Allocator);
                 MaterialMapObject.AddMember("Vec4", Vec4Array, Allocator);
                 break;
             }

@@ -73,7 +73,6 @@ namespace asset {
         void ReadModelResult(ModelResult& Result);
         void ReadNodes(ModelResult& Result, std::uint64_t NodeCount, std::vector<ModelNode*>& Nodes);
         std::vector<ModelBoneInfo> ReadBoneInfos();
-        void ReadSkinBinding(ModelNode& Node, std::span<ModelNode* const> Nodes);
         void ReadSkinnedMeshFlag(ModelNode& Node);
         void ReadVertexAttributes(VertexAttributes& Attributes);
         std::vector<ModelNode::SubMesh> ReadSubMeshes();
@@ -93,9 +92,6 @@ namespace asset {
         std::int64_t ReadInt64();
         float ReadFloat();
         bool ReadBool();
-        Vec2 ReadVec2();
-        Vec3 ReadVec3();
-        Vec4 ReadVec4();
         Mat4 ReadMat4();
         void ReadBytes(void* Data, std::size_t Size);
 

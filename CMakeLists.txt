@@ -64,21 +64,13 @@ target_compile_definitions(Arche PRIVATE
 add_library(Asset STATIC
     Asset/AssetBinaryReader.cpp
     Asset/AssetBinaryWriter.cpp
-    Asset/cgltf.c
     Asset/Common.cpp
     Asset/DataList.cpp
+    Asset/AssimpAssetImporter.cpp
     Asset/FbxAssetImporter.cpp
     Asset/GltfAssetImporter.cpp
-    Asset/GltfAssetLoader.cpp
-    Asset/GltfMaterialVisitor.cpp
-    Asset/GltfMeshHierarchyBuilder.cpp
-    Asset/MaterialVisitor.cpp
-    Asset/MeshHierarchyBuilder.cpp
     Asset/MaterialGroupJsonSerializer.cpp
     Asset/ModelResult.cpp
-    Asset/NumericTypes.cpp
-    Asset/ufbx.c
-    Asset/UfbxAssetLoader.cpp
 )
 
 target_include_directories(Asset PUBLIC
@@ -86,7 +78,7 @@ target_include_directories(Asset PUBLIC
     ${ExternalIncludeDir}
 )
 
-target_link_libraries(Asset PUBLIC Utility)
+target_link_libraries(Asset PUBLIC Utility assimp)
 
 target_compile_definitions(Asset PRIVATE
     _LIB
