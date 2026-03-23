@@ -316,6 +316,10 @@ namespace Game {
         return MaterialGroupSourcePaths[MaterialGroupIndex];
     }
 
+    Interface::IPipeline* AssetRegistry::GetPipelineByName(const std::string& PipelineName) {
+        return ResolvePipelineByName(PipelineName);
+    }
+
     std::uint32_t AssetRegistry::ResolveTextureTableIndex(const std::filesystem::path& TexturePath) {
         IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
         AssetRegistryStorage& Storage{ BackEnd->GetStorage() };

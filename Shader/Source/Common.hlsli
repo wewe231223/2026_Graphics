@@ -78,6 +78,7 @@ struct RootConstantsB1
 {
     uint FrameGlobalsSrvIndex;
     uint ModelContextSrvIndex;
+    uint BonePaletteSrvIndex;
     uint DrawRecordSrvIndex;
     uint DrawRecordBaseIndex;
     uint MaterialSrvIndex;

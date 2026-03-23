@@ -132,6 +132,7 @@ namespace Game {
         mAssetRegistry.Initialize(Device, CopyQueue, Allocator);
         mAssetRegistry.SetSrvHeap(SrvHeap);
         mFrameContext.MaterialGroups = &mAssetRegistry.GetMaterialGroups();
+        mFrameContext.AssetRegistryResource = &mAssetRegistry;
         mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
         mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
 
@@ -310,6 +311,7 @@ namespace Game {
         if (TargetPhase == Phase::PreUpdate) {
             mFrameContext.RenderData.modelContexts.clear();
             mFrameContext.RenderData.drawRecords.clear();
+            mFrameContext.RenderData.bonePalette.clear();
             mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
             mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
         }

@@ -6,14 +6,19 @@
 #include <vector>
 
 #include "Game/Base/Common.h"
+#include "Game/Model/AssetRegistry.h"
 #include "Game/Model/Model.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/SkinnedMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
 
 namespace {
+    constexpr std::uint32_t SkinnedModelContextFlagBitMask{ 0x1u };
+    constexpr const char* SkinnedGraphicsPipelineName{ "SkinnedGraphics" };
+
     SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
         const SimpleMath::Matrix TrsMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
         return TransformComponent.nodeToParent * TrsMatrix;
@@ -140,12 +145,16 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> SkinnedMeshRenderSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 1> Accesses{ { { typeid(RFD::RenderFrameData), Access::Write } } };
+        static std::array<ResourceAccess, 2> Accesses{ { { typeid(RFD::RenderFrameData), Access::Write }, { typeid(std::vector<RegisteredMaterialGroup>), Access::Read } } };
         return Accesses;
     }
 
     void SkinnedMeshRenderSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
         (void)Dt;
+
+        RFD::RenderFrameData& RenderData{ Ctx.RenderData };
+        const std::vector<RegisteredMaterialGroup>& MaterialGroups{ *Ctx.MaterialGroups };
+        Interface::IPipeline* SkinnedPipeline{ Ctx.AssetRegistryResource == nullptr ? nullptr : Ctx.AssetRegistryResource->GetPipelineByName(SkinnedGraphicsPipelineName) };
 
         for (auto [BoneSkinReferenceComponent, SkinnedMeshRendererComponent, TransformComponent, EntityHierarchyComponent] : World.Query<BoneSkinReference, SkinnedMeshRenderer, Transform, EntityHierarchy>()) {
             (void)TransformComponent;
@@ -178,6 +187,65 @@ namespace Game {
             BoneMatrices.resize(static_cast<std::size_t>(BoneMatrixCount), SimpleMath::Matrix::Identity);
 
             GatherBoneMatricesRecursive(World, BoneSkinReferenceComponent.boneRootEntityId, SkinnedMeshRendererComponent.model, MeshWorldInverseMatrix, Ctx.WorldMatrices, BoneMatrices);
+
+            const std::vector<ModelNode>& Nodes{ SkinnedMeshRendererComponent.model->GetNodes() };
+            if (SkinnedMeshRendererComponent.nodeIndex >= Nodes.size()) {
+                continue;
+            }
+
+            const ModelNode& Node{ Nodes[SkinnedMeshRendererComponent.nodeIndex] };
+            const std::vector<ModelSubMesh>& SubMeshes{ Node.GetSubMeshes() };
+            if (SubMeshes.empty()) {
+                continue;
+            }
+
+            const std::uint32_t BoneIndexStart{ static_cast<std::uint32_t>(RenderData.bonePalette.size()) };
+            RenderData.bonePalette.insert(RenderData.bonePalette.end(), BoneMatrices.begin(), BoneMatrices.end());
+
+            RFD::ModelContext ModelContext{};
+            ModelContext.world = MeshWorldMatrix;
+            ModelContext.prevWorld = ModelContext.world;
+            ModelContext.flags = SkinnedModelContextFlagBitMask;
+            ModelContext.boneIndexStart = BoneIndexStart;
+            ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());
+            RenderData.modelContexts.push_back(ModelContext);
+
+            const Material* MaterialComponent{ World.GetComponent<Material>(EntityId) };
+
+            for (std::size_t SubMeshIndex{ 0 }; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
+                const ModelSubMesh& SubMesh{ SubMeshes[SubMeshIndex] };
+                const Interface::IPipeline* Pipeline{ nullptr };
+                std::uint32_t ResolvedMaterialIndex{ 0 };
+                std::uint32_t ResolvedMaterialGroupIndex{ SkinnedMeshRendererComponent.materialGroupIndex };
+
+                if (MaterialGroups.empty() == false && (ResolvedMaterialGroupIndex >= MaterialGroups.size() || MaterialGroups[ResolvedMaterialGroupIndex].Items.empty())) {
+                    ResolvedMaterialGroupIndex = 0;
+                }
+
+                if (MaterialGroups.empty() == false && ResolvedMaterialGroupIndex < MaterialGroups.size()) {
+                    const RegisteredMaterialGroup& RegisteredGroup{ MaterialGroups[ResolvedMaterialGroupIndex] };
+                    std::size_t ResolvedItemIndex{ SubMesh.MaterialGroupItemIndex };
+                    if (ResolvedItemIndex >= RegisteredGroup.Items.size()) {
+                        ResolvedItemIndex = 0;
+                    }
+
+                    if (ResolvedItemIndex < RegisteredGroup.Items.size()) {
+                        const RegisteredMaterialGroupItem& RegisteredGroupItem{ RegisteredGroup.Items[ResolvedItemIndex] };
+                        Pipeline = SkinnedPipeline == nullptr ? RegisteredGroupItem.Pipeline : SkinnedPipeline;
+                        ResolvedMaterialIndex = RegisteredGroupItem.MaterialIndex;
+                    }
+                }
+
+                RFD::DrawRecord DrawRecord{};
+                DrawRecord.pso = Pipeline;
+                DrawRecord.mesh = &Node;
+                DrawRecord.submesh = static_cast<std::uint32_t>(SubMeshIndex);
+                DrawRecord.pass = 0;
+                DrawRecord.objectIndex = ModelContext.objectID;
+                DrawRecord.materialIndex = ResolvedMaterialIndex;
+                DrawRecord.flags = MaterialComponent == nullptr ? 0u : MaterialComponent->Flags;
+                RenderData.drawRecords.push_back(DrawRecord);
+            }
         }
     }
 }

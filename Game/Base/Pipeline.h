@@ -1,5 +1,7 @@
-﻿#pragma once
+#pragma once
+#include <span>
 #include <string>
+#include <vector>
 #include "Game/Base/Common.h"
 #include "RootSignature.h"
 
@@ -19,6 +21,7 @@ namespace Game {
 			const Interface::IPipeline* Set(const Interface::IPipeline* pipeline, ID3D12GraphicsCommandList* commandList) const;
 			ID3D12PipelineState* Get() const;
 			ID3D12RootSignature* GetRootSignature() const;
+			std::span<const VertexInputBinding> GetVertexInputBindings() const;
 
 			bool operator==(const Pipeline& other) const;
 			bool operator!=(const Pipeline& other) const;
@@ -29,6 +32,7 @@ namespace Game {
 		private:
 			ComPtr<ID3D12RootSignature> mRootSignature{};
 			ComPtr<ID3D12PipelineState> mPipelineState{};
+			std::vector<VertexInputBinding> mVertexInputBindings{};
 		};
 
 		bool PreCompilePipelines(ID3D12Device* device);

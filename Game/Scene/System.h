@@ -10,6 +10,7 @@
 #include "Utility/SimpleMathWrapper.h"
 
 namespace Game {
+    class AssetRegistry;
     struct RegisteredMaterialGroup;
 
     enum class Phase : std::uint32_t {
@@ -38,6 +39,7 @@ namespace Game {
     struct FrameContext final {
         RFD::RenderFrameData RenderData{};
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
+        AssetRegistry* AssetRegistryResource{ nullptr };
         Arche::EntityID PickedEntityId{ Arche::NullEntityID };
         std::unordered_map<Arche::EntityID, SimpleMath::Matrix> WorldMatrices{};
     };

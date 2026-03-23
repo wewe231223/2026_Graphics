@@ -12,7 +12,7 @@
       "Constants": {
         "ShaderRegister": 1,
         "RegisterSpace": 0,
-        "Num32BitValues": 10
+        "Num32BitValues": 11
       }
     }
   ],

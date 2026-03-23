@@ -40,6 +40,7 @@ namespace Game {
 
         std::size_t GetVertexAttributeBufferCount() const;
         VertexAttributeKind GetVertexAttributeKind(std::size_t AttributeIndex) const;
+        bool TryGetVertexBufferView(VertexAttributeKind Kind, D3D12_VERTEX_BUFFER_VIEW& OutView) const;
         std::span<const std::byte> GetVertexAttributeRawData(std::size_t AttributeIndex) const;
 
     private:

@@ -50,6 +50,7 @@ namespace Game {
         std::uint32_t FindMaterialGroupIndexBySourcePath(const std::string& MaterialSourcePath) const;
         std::string FindModelSelectorByPointer(const Model* ModelPointer) const;
         std::string FindMaterialGroupSourcePathByIndex(std::uint32_t MaterialGroupIndex) const;
+        Interface::IPipeline* GetPipelineByName(const std::string& PipelineName);
 
         void SetTextureResidencyDecider(TextureResidencyDecider NewDecider);
         void PrepareRenderTextures(const RFD::RenderFrameData& RenderData);

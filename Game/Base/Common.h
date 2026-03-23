@@ -14,6 +14,10 @@
 
 namespace SimpleMath = DirectX::SimpleMath;
 
+namespace Game {
+    struct VertexInputBinding;
+}
+
 namespace Interface {
     class IPipeline abstract {
     public:
@@ -23,6 +27,7 @@ namespace Interface {
         virtual const IPipeline* Set(const IPipeline* pipeline, ID3D12GraphicsCommandList* commandList) const       PURE;
         virtual ID3D12PipelineState* Get() const                                                                    PURE;
         virtual ID3D12RootSignature* GetRootSignature() const                                                       PURE;
+        virtual std::span<const Game::VertexInputBinding> GetVertexInputBindings() const                           PURE;
     };
 }
 
@@ -46,6 +51,11 @@ namespace Game {
         Bitangent,
         BoneIndices,
         BoneWeights
+    };
+
+    struct VertexInputBinding final {
+        VertexAttributeKind Kind{};
+        std::uint32_t InputSlot{ 0 };
     };
 
     struct ModelSubMesh final {
@@ -76,6 +86,7 @@ namespace Interface {
 
         virtual std::size_t GetVertexAttributeBufferCount() const                                       PURE;
         virtual Game::VertexAttributeKind GetVertexAttributeKind(std::size_t AttributeIndex) const            PURE;
+        virtual bool TryGetVertexBufferView(Game::VertexAttributeKind Kind, D3D12_VERTEX_BUFFER_VIEW& OutView) const PURE;
         virtual std::span<const std::byte> GetVertexAttributeRawData(std::size_t AttributeIndex) const  PURE;
     };
 }

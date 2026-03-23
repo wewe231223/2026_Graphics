@@ -185,6 +185,20 @@ namespace Game {
         return mVertexAttributeRanges[AttributeIndex].Kind;
     }
 
+    bool ModelNode::TryGetVertexBufferView(VertexAttributeKind Kind, D3D12_VERTEX_BUFFER_VIEW& OutView) const {
+        for (std::size_t AttributeIndex{ 0 }; AttributeIndex < mVertexAttributeRanges.size(); ++AttributeIndex) {
+            if (mVertexAttributeRanges[AttributeIndex].Kind != Kind) {
+                continue;
+            }
+
+            OutView = mVertexBufferViews[AttributeIndex];
+            return true;
+        }
+
+        OutView = D3D12_VERTEX_BUFFER_VIEW{};
+        return false;
+    }
+
     std::span<const std::byte> ModelNode::GetVertexAttributeRawData(std::size_t AttributeIndex) const {
         const VertexAttributeRange& Range{ mVertexAttributeRanges[AttributeIndex] };
         return std::span<const std::byte>{ mVertexRawData.data() + Range.Offset, Range.Size };
@@ -347,6 +361,18 @@ namespace Game {
 
     bool Model::UploadVertexData(const asset::VertexAttributes& Vertices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews) const {
         std::vector<AttributeUploadSource> Sources{};
+        const std::size_t VertexCount{ Vertices.VertexCount() };
+        std::vector<asset::UVec4> DefaultBoneIndices{};
+        std::vector<asset::Vec4> DefaultBoneWeights{};
+
+        if (VertexCount > 0 && Vertices.BoneIndices.size() != VertexCount) {
+            DefaultBoneIndices.resize(VertexCount);
+        }
+
+        if (VertexCount > 0 && Vertices.BoneWeights.size() != VertexCount) {
+            DefaultBoneWeights.resize(VertexCount);
+        }
+
         AppendAttributeSource(Sources, VertexAttributeKind::Position, Vertices.Positions.data(), Vertices.Positions.size() * sizeof(asset::Vec3), sizeof(asset::Vec3));
         AppendAttributeSource(Sources, VertexAttributeKind::Normal, Vertices.Normals.data(), Vertices.Normals.size() * sizeof(asset::Vec3), sizeof(asset::Vec3));
         AppendAttributeSource(Sources, VertexAttributeKind::TexCoord0, Vertices.TexCoords[0].data(), Vertices.TexCoords[0].size() * sizeof(asset::Vec2), sizeof(asset::Vec2));
@@ -356,8 +382,8 @@ namespace Game {
         AppendAttributeSource(Sources, VertexAttributeKind::Color, Vertices.Colors.data(), Vertices.Colors.size() * sizeof(asset::Vec4), sizeof(asset::Vec4));
         AppendAttributeSource(Sources, VertexAttributeKind::Tangent, Vertices.Tangents.data(), Vertices.Tangents.size() * sizeof(asset::Vec3), sizeof(asset::Vec3));
         AppendAttributeSource(Sources, VertexAttributeKind::Bitangent, Vertices.Bitangents.data(), Vertices.Bitangents.size() * sizeof(asset::Vec3), sizeof(asset::Vec3));
-        AppendAttributeSource(Sources, VertexAttributeKind::BoneIndices, Vertices.BoneIndices.data(), Vertices.BoneIndices.size() * sizeof(asset::UVec4), sizeof(asset::UVec4));
-        AppendAttributeSource(Sources, VertexAttributeKind::BoneWeights, Vertices.BoneWeights.data(), Vertices.BoneWeights.size() * sizeof(asset::Vec4), sizeof(asset::Vec4));
+        AppendAttributeSource(Sources, VertexAttributeKind::BoneIndices, Vertices.BoneIndices.size() == VertexCount ? Vertices.BoneIndices.data() : DefaultBoneIndices.data(), VertexCount * sizeof(asset::UVec4), sizeof(asset::UVec4));
+        AppendAttributeSource(Sources, VertexAttributeKind::BoneWeights, Vertices.BoneWeights.size() == VertexCount ? Vertices.BoneWeights.data() : DefaultBoneWeights.data(), VertexCount * sizeof(asset::Vec4), sizeof(asset::Vec4));
 
         if (Sources.empty()) {
             return false;
