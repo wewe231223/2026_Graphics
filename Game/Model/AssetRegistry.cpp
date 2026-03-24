@@ -4,6 +4,7 @@
 #include <limits>
 #include <unordered_set>
 #include "Asset/AssetBinaryReader.h"
+#include "Asset/AnimationBinaryReader.h"
 #include "Asset/MaterialGroupJsonSerializer.h"
 #include "PrimitiveModelFactory.h"
 
@@ -145,6 +146,28 @@ namespace Game {
         ModelBucket.mAssets.push_back(NewModel);
         ModelBucket.mNameLookup.insert_or_assign(ModelBinaryPath, NewIndex);
         return NewModel;
+    }
+
+    std::shared_ptr<asset::Animation> AssetRegistry::GetAnimation(const std::string& AnimationBinaryPath) {
+        IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
+        AssetRegistryStorage& Storage{ BackEnd->GetStorage() };
+        auto& AnimationBucket{ Storage.GetBucket<AnimationBucketTag>() };
+
+        const auto FoundAnimation{ AnimationBucket.mNameLookup.find(AnimationBinaryPath) };
+        if (FoundAnimation != AnimationBucket.mNameLookup.end() && FoundAnimation->second < AnimationBucket.mAssets.size()) {
+            return AnimationBucket.mAssets[FoundAnimation->second];
+        }
+
+        asset::Animation AnimationData{};
+        if (ReadAnimationData(AnimationBinaryPath, AnimationData) == false) {
+            return nullptr;
+        }
+
+        std::shared_ptr<asset::Animation> NewAnimation{ std::make_shared<asset::Animation>(std::move(AnimationData)) };
+        const std::uint32_t NewIndex{ static_cast<std::uint32_t>(AnimationBucket.mAssets.size()) };
+        AnimationBucket.mAssets.push_back(NewAnimation);
+        AnimationBucket.mNameLookup.insert_or_assign(AnimationBinaryPath, NewIndex);
+        return NewAnimation;
     }
 
     bool AssetRegistry::LoadMaterialGroups(const std::string& MaterialJsonPath) {
@@ -312,6 +335,29 @@ namespace Game {
 
             const std::shared_ptr<Model>& RegisteredModel{ ModelBucket.mAssets[ModelIndex] };
             if (RegisteredModel.get() == ModelPointer) {
+                return Pair.first;
+            }
+        }
+
+        return std::string{};
+    }
+
+    std::string AssetRegistry::FindAnimationSelectorByPointer(const asset::Animation* AnimationPointer) const {
+        if (AnimationPointer == nullptr) {
+            return std::string{};
+        }
+
+        const IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
+        const AssetRegistryStorage& Storage{ BackEnd->GetStorage() };
+        const auto& AnimationBucket{ Storage.GetBucket<AnimationBucketTag>() };
+        for (const auto& Pair : AnimationBucket.mNameLookup) {
+            const std::uint32_t AnimationIndex{ Pair.second };
+            if (AnimationIndex >= AnimationBucket.mAssets.size()) {
+                continue;
+            }
+
+            const std::shared_ptr<asset::Animation>& RegisteredAnimation{ AnimationBucket.mAssets[AnimationIndex] };
+            if (RegisteredAnimation.get() == AnimationPointer) {
                 return Pair.first;
             }
         }
@@ -614,6 +660,11 @@ namespace Game {
 
         asset::AssetBinaryReader Reader{};
         return Reader.ReadFromFile(ModelBinaryPath, OutModelData);
+    }
+
+    bool AssetRegistry::ReadAnimationData(const std::string& AnimationBinaryPath, asset::Animation& OutAnimationData) const {
+        asset::AnimationBinaryReader Reader{};
+        return Reader.ReadFromFile(AnimationBinaryPath, OutAnimationData);
     }
 
     bool AssetRegistry::ReadMaterialGroups(const std::string& MaterialJsonPath, std::vector<asset::MaterialGroup>& OutMaterialGroups) const {

@@ -3,6 +3,7 @@
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
+#include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PrefabInstance.h"
@@ -150,6 +151,9 @@ namespace Game {
                 BoneSkinReference NodeBoneSkinReference{};
                 NodeBoneSkinReference.boneRootEntityId = BoneRootEntityId;
                 AddBoneSkinReference(NodeEntities[NodeIndex], NodeBoneSkinReference);
+                Animator NodeAnimator{};
+                NodeAnimator.clipIndex = -1;
+                AddAnimator(NodeEntities[NodeIndex], NodeAnimator);
             }
 
             EnsureHierarchy(NodeEntities[NodeIndex]);
@@ -257,6 +261,16 @@ namespace Game {
         *ExistingBoneSkinReference = BoneSkinReferenceComponent;
     }
 
+
+    void SceneEntityFactory::AddAnimator(Arche::EntityID EntityId, const Animator& AnimatorComponent) {
+        Animator* ExistingAnimator{ mScene->GetWorld().GetComponent<Animator>(EntityId) };
+        if (ExistingAnimator == nullptr) {
+            mScene->GetWorld().AddComponent(EntityId, AnimatorComponent);
+            return;
+        }
+
+        *ExistingAnimator = AnimatorComponent;
+    }
 
     Arche::EntityID SceneEntityFactory::ResolveSingleBoneRootEntityId(const Model& ModelData, const std::vector<ModelNode>& ModelNodes, const std::vector<Arche::EntityID>& NodeEntities) const {
         if (ModelNodes.size() != NodeEntities.size()) {

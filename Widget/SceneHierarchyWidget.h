@@ -28,6 +28,13 @@ namespace Widget {
         void Render(const Game::SceneWorldSnapshot* Snapshot) override;
 
     private:
+        struct AnimatorClipOption final {
+        public:
+            std::int32_t mClipIndex{ -1 };
+            std::string mLabel{};
+        };
+
+    private:
         struct BoneEntityOption final {
         public:
             Arche::EntityID mEntityId{ Arche::NullEntityID };
@@ -38,6 +45,8 @@ namespace Widget {
         void RenderEntityNode(const Game::SceneWorldSnapshot& Snapshot, std::uint32_t EntityIndex);
         void RenderSelectedEntityPanel(const Game::SceneWorldSnapshot& Snapshot);
         void RenderComponentSectionTable(const char* ComponentName, const std::vector<Game::ComponentInspectionField>& Fields, const char* TableIdentifier) const;
+        void RenderAnimatorEditor(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId);
+        void BuildAnimatorClipOptions(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId, std::vector<AnimatorClipOption>& OutOptions) const;
         void RenderBoneSkinReferenceEditor(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId);
         void BuildBoneEntityOptions(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId, std::vector<BoneEntityOption>& OutOptions) const;
         Arche::EntityID FindHierarchyRootEntityId(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId) const;

@@ -105,6 +105,10 @@ Entities:
       PrefabInstance:
         <<: *Prefab1001
         prefabId: 1001
+      Animation:
+        text: testset3.animbin
+        initclip: 0
+        node: Paladin_J_Nordstrom_Sword
   - EntityId: 2
     ParentEntityId: -1
     Components:
@@ -192,4 +196,7 @@ Entities:
       PrefabInstance:
         <<: *Prefab1003
         prefabId: 1003
-
+      Animation:
+        text: untitled.animbin
+        initclip: 0
+        node: sol_8_low

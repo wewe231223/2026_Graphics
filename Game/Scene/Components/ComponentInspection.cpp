@@ -13,6 +13,7 @@
 #include "SkinnedMeshRenderer.h"
 #include "StaticMeshRenderer.h"
 #include "Transform.h"
+#include "Animator.h"
 
 namespace {
     template <typename T>
@@ -42,6 +43,7 @@ namespace Game {
         AppendComponentInspectionSection<Material>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<StaticMeshRenderer>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<SkinnedMeshRenderer>(ReadOnlyWorld, EntityId, OutSections);
+        AppendComponentInspectionSection<Animator>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<BoundingBox>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<PrefabInstance>(ReadOnlyWorld, EntityId, OutSections);
 

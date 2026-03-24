@@ -10,6 +10,7 @@
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
+#include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PrefabInstance.h"
 #include "Game/Scene/Components/SkinnedMeshRenderer.h"
@@ -58,6 +59,7 @@ namespace Game {
         void AddBoundingBox(Arche::EntityID EntityId, const BoundingBox& BoundingBoxComponent);
         void AddBone(Arche::EntityID EntityId, const Bone& BoneComponent);
         void AddBoneSkinReference(Arche::EntityID EntityId, const BoneSkinReference& BoneSkinReferenceComponent);
+        void AddAnimator(Arche::EntityID EntityId, const Animator& AnimatorComponent);
 
         Arche::EntityID ResolveSingleBoneRootEntityId(const Model& ModelData, const std::vector<ModelNode>& ModelNodes, const std::vector<Arche::EntityID>& NodeEntities) const;
         std::string ResolveNodeName(const ModelNode& SourceNode, std::size_t NodeIndex, std::size_t RootNodeIndex, const std::string& RootEntityName) const;

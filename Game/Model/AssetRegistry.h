@@ -11,6 +11,7 @@
 #include "Core/Common.h"
 #include "Core/DX/Texture.h"
 #include "Asset/ModelResult.h"
+#include "Asset/AnimationClipResult.h"
 #include "Model.h"
 #include "Game/Base/Common.h"
 #include "Game/Base/Pipeline.h"
@@ -38,6 +39,7 @@ namespace Game {
         std::shared_ptr<IAssetRegistryBackEnd> GetBackEnd() const;
 
         std::shared_ptr<Model> GetModel(const std::string& ModelBinaryPath);
+        std::shared_ptr<asset::Animation> GetAnimation(const std::string& AnimationBinaryPath);
         bool LoadMaterialGroups(const std::string& MaterialJsonPath);
 
         std::uint32_t AddMaterial(const asset::Material& MaterialData, const std::string& MaterialSourcePath);
@@ -49,6 +51,7 @@ namespace Game {
         const std::vector<RFD::MaterialTextureTableItemGpu>& GetMaterialTextureTable() const;
         std::uint32_t FindMaterialGroupIndexBySourcePath(const std::string& MaterialSourcePath) const;
         std::string FindModelSelectorByPointer(const Model* ModelPointer) const;
+        std::string FindAnimationSelectorByPointer(const asset::Animation* AnimationPointer) const;
         std::string FindMaterialGroupSourcePathByIndex(std::uint32_t MaterialGroupIndex) const;
         Interface::IPipeline* GetPipelineByName(const std::string& PipelineName);
 
@@ -69,6 +72,7 @@ namespace Game {
         std::uint32_t AddMaterialGroupWithSource(const asset::MaterialGroup& MaterialGroupData, const std::string& SourcePath);
 
         bool ReadModelData(const std::string& ModelBinaryPath, asset::ModelResult& OutModelData) const;
+        bool ReadAnimationData(const std::string& AnimationBinaryPath, asset::Animation& OutAnimationData) const;
         bool ReadMaterialGroups(const std::string& MaterialJsonPath, std::vector<asset::MaterialGroup>& OutMaterialGroups) const;
 
     private:

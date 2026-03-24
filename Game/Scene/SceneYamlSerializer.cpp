@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <format>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -14,6 +15,7 @@
 #include "Game/Scene/Components/Frustum.h"
 #include "Game/Scene/Components/Intents/CameraIntent.h"
 #include "Game/Scene/Components/Material.h"
+#include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
@@ -29,11 +31,14 @@
 #include "Game/Scene/Systems/PickingSystem.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
 #include "Game/Scene/SceneEntityFactory.h"
+#include "Utility/StdOutput.h"
 
 namespace {
     constexpr const char* TransformTypeName{ "Transform" };
     constexpr const char* MaterialTypeName{ "Material" };
     constexpr const char* StaticMeshRendererTypeName{ "StaticMeshRenderer" };
+    constexpr const char* AnimationTypeName{ "Animation" };
+    constexpr const char* AnimationNodeNameFieldName{ "node" };
     constexpr const char* CameraTypeName{ "Camera" };
     constexpr const char* CameraIntentTypeName{ "CameraIntent" };
     constexpr const char* LocalPlayerTagTypeName{ "LocalPlayerTag" };
@@ -48,6 +53,13 @@ namespace {
         std::string ModelSelector{};
         std::string MaterialPath{};
         bool Active{ true };
+    };
+
+    struct PendingAnimatorBinding final {
+        Arche::EntityID SourceEntityId{ Arche::NullEntityID };
+        std::string TargetNodeName{};
+        asset::Animation* AnimationData{ nullptr };
+        std::int32_t ClipIndex{ -1 };
     };
 
     bool ReadVector3(c4::yml::ConstNodeRef TargetNode, SimpleMath::Vector3& OutValue) {
@@ -294,6 +306,70 @@ namespace {
         Arche::EntityID ChildEntityId{ HierarchyComponent->firstChild };
         while (ChildEntityId != Arche::NullEntityID) {
             if (TryResolveMaterialGroupIndexInHierarchy(ReadOnlyWorld, ChildEntityId, OutMaterialGroupIndex) == true) {
+                return true;
+            }
+
+            const Game::EntityHierarchy* ChildHierarchyComponent{ ReadOnlyWorld->GetComponent<Game::EntityHierarchy>(ChildEntityId) };
+            if (ChildHierarchyComponent == nullptr) {
+                break;
+            }
+
+            ChildEntityId = ChildHierarchyComponent->nextSibling;
+        }
+
+        return false;
+    }
+
+    bool TryFindEntityByNameInHierarchy(const Arche::World* World, Arche::EntityID EntityId, const std::string& TargetNodeName, Arche::EntityID& OutEntityId, bool IncludeSelf) {
+        if (IncludeSelf == true) {
+            const Game::Name* NameComponent{ World->GetComponent<Game::Name>(EntityId) };
+            if (NameComponent != nullptr) {
+                const char* CurrentNameText{ Game::GetNameText(*NameComponent) };
+                if (CurrentNameText != nullptr && TargetNodeName == CurrentNameText) {
+                    OutEntityId = EntityId;
+                    return true;
+                }
+            }
+        }
+
+        const Game::EntityHierarchy* HierarchyComponent{ World->GetComponent<Game::EntityHierarchy>(EntityId) };
+        if (HierarchyComponent == nullptr) {
+            return false;
+        }
+
+        Arche::EntityID ChildEntityId{ HierarchyComponent->firstChild };
+        while (ChildEntityId != Arche::NullEntityID) {
+            if (TryFindEntityByNameInHierarchy(World, ChildEntityId, TargetNodeName, OutEntityId, true) == true) {
+                return true;
+            }
+
+            const Game::EntityHierarchy* ChildHierarchyComponent{ World->GetComponent<Game::EntityHierarchy>(ChildEntityId) };
+            if (ChildHierarchyComponent == nullptr) {
+                break;
+            }
+
+            ChildEntityId = ChildHierarchyComponent->nextSibling;
+        }
+
+        return false;
+    }
+
+    bool TryFindAnimatorForSerializationInHierarchy(const Arche::World::WorldReadOnlyView* ReadOnlyWorld, Arche::EntityID EntityId, const Game::Animator*& OutAnimatorComponent, Arche::EntityID& OutAnimatorEntityId) {
+        const Game::Animator* CurrentAnimatorComponent{ ReadOnlyWorld->GetComponent<Game::Animator>(EntityId) };
+        if (CurrentAnimatorComponent != nullptr && CurrentAnimatorComponent->animation != nullptr) {
+            OutAnimatorComponent = CurrentAnimatorComponent;
+            OutAnimatorEntityId = EntityId;
+            return true;
+        }
+
+        const Game::EntityHierarchy* HierarchyComponent{ ReadOnlyWorld->GetComponent<Game::EntityHierarchy>(EntityId) };
+        if (HierarchyComponent == nullptr) {
+            return false;
+        }
+
+        Arche::EntityID ChildEntityId{ HierarchyComponent->firstChild };
+        while (ChildEntityId != Arche::NullEntityID) {
+            if (TryFindAnimatorForSerializationInHierarchy(ReadOnlyWorld, ChildEntityId, OutAnimatorComponent, OutAnimatorEntityId) == true) {
                 return true;
             }
 
@@ -561,6 +637,7 @@ namespace Game {
         std::unordered_map<std::int64_t, Arche::EntityID> EntityBySerializedId{};
         std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredParents{};
         std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredBoneSkinReferenceEntities{};
+        std::vector<PendingAnimatorBinding> PendingAnimatorBindings{};
         const c4::yml::ConstNodeRef EntitiesNode{ RootNode["Entities"] };
         for (const c4::yml::ConstNodeRef EntityNode : EntitiesNode.children()) {
             const Arche::EntityID Entity{ EntityFactory.CreateEntity(false) };
@@ -802,6 +879,39 @@ namespace Game {
                 }
             }
 
+            if (ComponentsNode.has_child(AnimationTypeName)) {
+                const c4::yml::ConstNodeRef AnimationNode{ ComponentsNode[AnimationTypeName] };
+                std::string AnimationPath{};
+                PendingAnimatorBinding NewBinding{};
+                NewBinding.SourceEntityId = Entity;
+
+                if (AnimationNode.has_child("text")) {
+                    AnimationNode["text"] >> AnimationPath;
+                }
+
+                if (AnimationNode.has_child("initclip")) {
+                    AnimationNode["initclip"] >> NewBinding.ClipIndex;
+                }
+
+                if (AnimationNode.has_child(AnimationNodeNameFieldName)) {
+                    AnimationNode[AnimationNodeNameFieldName] >> NewBinding.TargetNodeName;
+                }
+
+                if (AnimationPath.empty() == false) {
+                    const std::string ResolvedAnimationPath{ ResolveSceneResourcePath(SceneName, AnimationPath) };
+                    const std::shared_ptr<asset::Animation> AnimationData{ OutScene.GetAssetRegistry().GetAnimation(ResolvedAnimationPath) };
+                    if (AnimationData == nullptr) {
+                        LoadResult.IsSuccess = false;
+                        LoadResult.UndecidedItems.push_back(std::string{ "Animation 파일 로드 실패: " } + ResolvedAnimationPath);
+                    }
+                    else {
+                        NewBinding.AnimationData = AnimationData.get();
+                    }
+                }
+
+                PendingAnimatorBindings.push_back(std::move(NewBinding));
+            }
+
             if (ComponentsNode.has_child(CameraTypeName)) {
                 Camera NewCamera{};
                 Frustum NewFrustum{};
@@ -944,6 +1054,37 @@ namespace Game {
             OutScene.GetWorld().WriteComponent<BoneSkinReference>(DeferredBoneSkinReferenceEntity.first, [ResolvedEntityId = BoneRootIter->second](BoneSkinReference& TargetComponent) {
                 TargetComponent.boneRootEntityId = ResolvedEntityId;
             });
+        }
+
+        for (const PendingAnimatorBinding& Binding : PendingAnimatorBindings) {
+            if (Binding.TargetNodeName.empty()) {
+                StdOutput::WriteWarningLine(std::format("[SceneYamlSerializer] Animation node name is empty. source={}:{}", Binding.SourceEntityId.index, Binding.SourceEntityId.generation));
+                continue;
+            }
+
+            if (Binding.AnimationData == nullptr) {
+                StdOutput::WriteWarningLine(std::format("[SceneYamlSerializer] Animation data is null. source={}:{} node={}", Binding.SourceEntityId.index, Binding.SourceEntityId.generation, Binding.TargetNodeName));
+                continue;
+            }
+
+            Arche::EntityID TargetEntityId{ Arche::NullEntityID };
+            const bool IsFound{ TryFindEntityByNameInHierarchy(&OutScene.GetWorld(), Binding.SourceEntityId, Binding.TargetNodeName, TargetEntityId, false) };
+            if (IsFound == false) {
+                StdOutput::WriteWarningLine(std::format("[SceneYamlSerializer] Animation target node not found. source={}:{} node={}", Binding.SourceEntityId.index, Binding.SourceEntityId.generation, Binding.TargetNodeName));
+                continue;
+            }
+
+            Animator NewAnimator{};
+            NewAnimator.animation = Binding.AnimationData;
+            NewAnimator.clipIndex = Binding.ClipIndex;
+
+            Animator* ExistingAnimator{ OutScene.GetWorld().GetComponent<Animator>(TargetEntityId) };
+            if (ExistingAnimator == nullptr) {
+                OutScene.GetWorld().AddComponent(TargetEntityId, NewAnimator);
+            }
+            else {
+                *ExistingAnimator = NewAnimator;
+            }
         }
 
         OutScene.InitializePickingGizmoEntities();
@@ -1095,6 +1236,10 @@ namespace Game {
             const Camera* CameraComponent{ ReadOnlyWorld->GetComponent<Camera>(EntityId) };
             const CameraIntent* CameraIntentComponent{ ReadOnlyWorld->GetComponent<CameraIntent>(EntityId) };
             const LocalPlayerTag* LocalPlayerTagComponent{ ReadOnlyWorld->GetComponent<LocalPlayerTag>(EntityId) };
+            const Animator* AnimatorComponent{ nullptr };
+            Arche::EntityID AnimatorEntityId{ Arche::NullEntityID };
+            const bool IsAnimatorFound{ TryFindAnimatorForSerializationInHierarchy(ReadOnlyWorld, EntityId, AnimatorComponent, AnimatorEntityId) };
+            static_cast<void>(IsAnimatorFound);
 
             if (ShouldSkipEntityInSceneExport(StaticMeshRendererComponent)) {
                 continue;
@@ -1132,6 +1277,17 @@ namespace Game {
 
                 const std::string MaterialPathForYaml{ IsDefaultMaterialPath(MaterialPath) ? std::string{} : MakeSceneRelativeResourcePath(TargetSnapshot.GetSceneName(), MaterialPath) };
                 AppendLine(Stream, 4, std::string{ "materialPath: " } + ToYamlText(MaterialPathForYaml));
+            }
+
+            if (AnimatorComponent != nullptr) {
+                AppendLine(Stream, 3, std::string{ AnimationTypeName } + std::string{ ":" });
+                const std::string AnimationSelector{ AssetRegistryInstance->FindAnimationSelectorByPointer(AnimatorComponent->animation) };
+                const std::string AnimationSelectorForYaml{ MakeSceneRelativeResourcePath(TargetSnapshot.GetSceneName(), AnimationSelector) };
+                const Name* AnimatorNodeNameComponent{ ReadOnlyWorld->GetComponent<Game::Name>(AnimatorEntityId) };
+                const char* AnimatorNodeNameText{ AnimatorNodeNameComponent == nullptr ? "" : Game::GetNameText(*AnimatorNodeNameComponent) };
+                AppendLine(Stream, 4, std::string{ "text: " } + ToYamlText(AnimationSelectorForYaml));
+                AppendLine(Stream, 4, std::string{ "initclip: " } + std::to_string(AnimatorComponent->clipIndex));
+                AppendLine(Stream, 4, std::string{ AnimationNodeNameFieldName } + std::string{ ": " } + ToYamlText(AnimatorNodeNameText));
             }
 
             const PrefabInstance* PrefabInstanceComponent{ ReadOnlyWorld->GetComponent<PrefabInstance>(EntityId) };

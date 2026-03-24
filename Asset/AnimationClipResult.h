@@ -59,4 +59,6 @@ namespace asset {
     private:
         std::vector<AnimationClip> mClips{};
     };
+
+    using Animation = AnimationClipResult;
 }

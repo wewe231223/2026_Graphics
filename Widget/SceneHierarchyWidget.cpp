@@ -9,6 +9,7 @@
 #include "External/Include/ImGui/imgui.h"
 #include "Core/Event/EventQueue.h"
 #include "Game/Scene/Components/Bone.h"
+#include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/ComponentInspection.h"
 #include "Game/Scene/Components/Name.h"
@@ -186,6 +187,7 @@ namespace Widget {
             RenderComponentSectionTable(Sections[SectionIndex].ComponentName.c_str(), Sections[SectionIndex].Fields, TableIdentifier.c_str());
         }
 
+        RenderAnimatorEditor(Snapshot, Entity.mEntityId);
         RenderBoneSkinReferenceEditor(Snapshot, Entity.mEntityId);
     }
 
@@ -216,6 +218,88 @@ namespace Widget {
         }
 
         ImGui::EndTable();
+    }
+
+    void SceneHierarchyWidget::RenderAnimatorEditor(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId) {
+        Arche::World* World{ Snapshot.GetWorld() };
+        const Arche::World::WorldReadOnlyView* ReadOnlyWorld{ Snapshot.GetReadOnlyWorld() };
+        if (World == nullptr || ReadOnlyWorld == nullptr) {
+            return;
+        }
+
+        const Game::Animator* AnimatorComponent{ ReadOnlyWorld->GetComponent<Game::Animator>(EntityId) };
+        if (AnimatorComponent == nullptr) {
+            return;
+        }
+
+        std::vector<AnimatorClipOption> Options{};
+        BuildAnimatorClipOptions(Snapshot, EntityId, Options);
+
+        std::string PreviewLabel{ "<None>" };
+        for (const AnimatorClipOption& Option : Options) {
+            if (Option.mClipIndex != AnimatorComponent->clipIndex) {
+                continue;
+            }
+
+            PreviewLabel = Option.mLabel;
+            break;
+        }
+
+        ImGui::SeparatorText("Animator");
+
+        const std::string ComboIdentifier{ std::format("##AnimatorClipSelector##{}:{}", EntityId.index, EntityId.generation) };
+        if (!ImGui::BeginCombo(ComboIdentifier.c_str(), PreviewLabel.c_str())) {
+            return;
+        }
+
+        for (const AnimatorClipOption& Option : Options) {
+            const bool IsSelected{ Option.mClipIndex == AnimatorComponent->clipIndex };
+            if (ImGui::Selectable(Option.mLabel.c_str(), IsSelected)) {
+                const std::int32_t SelectedClipIndex{ Option.mClipIndex };
+                World->WriteComponent<Game::Animator>(EntityId, [SelectedClipIndex](Game::Animator& TargetComponent) {
+                    TargetComponent.clipIndex = SelectedClipIndex;
+                });
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+
+    void SceneHierarchyWidget::BuildAnimatorClipOptions(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId, std::vector<AnimatorClipOption>& OutOptions) const {
+        OutOptions.clear();
+
+        const Arche::World::WorldReadOnlyView* ReadOnlyWorld{ Snapshot.GetReadOnlyWorld() };
+        if (ReadOnlyWorld == nullptr) {
+            return;
+        }
+
+        const Game::Animator* AnimatorComponent{ ReadOnlyWorld->GetComponent<Game::Animator>(EntityId) };
+        if (AnimatorComponent == nullptr) {
+            return;
+        }
+
+        AnimatorClipOption NoneOption{};
+        NoneOption.mClipIndex = -1;
+        NoneOption.mLabel = "<None>";
+        OutOptions.push_back(std::move(NoneOption));
+
+        if (AnimatorComponent->animation == nullptr) {
+            return;
+        }
+
+        const std::vector<asset::AnimationClip>& Clips{ AnimatorComponent->animation->Clips() };
+        for (std::size_t ClipIndex{ 0 }; ClipIndex < Clips.size(); ++ClipIndex) {
+            AnimatorClipOption Option{};
+            Option.mClipIndex = static_cast<std::int32_t>(ClipIndex);
+            if (Clips[ClipIndex].Name.empty()) {
+                Option.mLabel = std::format("Clip_{}", ClipIndex);
+            }
+            else {
+                Option.mLabel = Clips[ClipIndex].Name;
+            }
+
+            OutOptions.push_back(std::move(Option));
+        }
     }
 
     void SceneHierarchyWidget::RenderBoneSkinReferenceEditor(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId) {
