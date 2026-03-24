@@ -1,11 +1,11 @@
-﻿// Animation Clip Binary Format Specification (Current: Version 1):
+﻿// Animation Clip Binary Format Specification (Current: Version 2):
 //┌──────────────────────────────────────────────────────────────────────────────┐
 //│                                [HEADER SECTION]                              │
 //├──────────────┬────────────────┬──────────────────────────────────────────────┤
 //│    OFFSET    │      NAME      │                  DATA TYPE                   │
 //├──────────────┼────────────────┼──────────────────────────────────────────────┤
 //│    0x00      │     Magic      │ char[4]("ANCB")                              │
-//│    0x04      │ FormatVersion  │ uint32 (1)                                   │
+//│    0x04      │ FormatVersion  │ uint32 (2)                                   │
 //└──────────────┴────────────────┴──────────────────────────────────────────────┘
 //
 //                                   │
@@ -31,6 +31,7 @@
 //       │ [REPEATING CHANNEL RECORD]                                       │
 //       │ (Repeats 'ChannelCount' times)                                   │
 //       ├────────────────────────┬─────────────────────────────────────────┤
+//       │ NodeId                 │ uint32                                  │
 //       │ NodeName               │ string                                  │
 //       │ PositionKeyCount       │ uint64                                  │
 //       │ PositionKey            │ { double Time, Vec3 Value }[]           │

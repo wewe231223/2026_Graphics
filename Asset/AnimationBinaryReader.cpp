@@ -5,7 +5,7 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 1 };
+    constexpr std::uint32_t FormatVersion{ 2 };
     constexpr std::array<char, 4> FormatMagic{ 'A', 'N', 'C', 'B' };
 }
 
@@ -73,6 +73,7 @@ AnimationClip AnimationBinaryReader::ReadAnimationClip() {
 
 AnimationChannel AnimationBinaryReader::ReadAnimationChannel() {
     AnimationChannel ChannelData{};
+    ChannelData.NodeId = ReadUint32();
     ChannelData.NodeName = ReadString();
 
     const std::uint64_t PositionKeyCount{ ReadUint64() };

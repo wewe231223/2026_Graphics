@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "Game/Model/Model.h"
@@ -15,16 +16,6 @@
 #include "Game/Scene/Components/Transform.h"
 
 namespace {
-    const asset::AnimationChannel* FindChannelByNodeName(const asset::AnimationClip& ClipData, const std::string& NodeName) {
-        for (const asset::AnimationChannel& ChannelData : ClipData.Channels) {
-            if (ChannelData.NodeName == NodeName) {
-                return &ChannelData;
-            }
-        }
-
-        return nullptr;
-    }
-
     std::size_t ResolveFrameIndex(double AnimationTick, const std::vector<double>& Times) {
         if (Times.size() <= 1) {
             return 0;
@@ -138,7 +129,30 @@ namespace {
         return SimpleMath::Vector3::Lerp(StartScale, EndScale, BlendFactor);
     }
 
-    void ApplyAnimatedPoseRecursive(Arche::World& World, Arche::EntityID EntityId, const Game::Model& ModelData, const asset::AnimationClip& ClipData, double AnimationTick) {
+    std::vector<const asset::AnimationChannel*> BuildAnimationChannelLookup(const Game::Model& ModelData, const asset::AnimationClip& ClipData) {
+        const std::vector<Game::ModelNode>& Nodes{ ModelData.GetNodes() };
+        std::vector<const asset::AnimationChannel*> ChannelLookup{};
+        ChannelLookup.resize(Nodes.size(), nullptr);
+
+        for (const asset::AnimationChannel& ChannelData : ClipData.Channels) {
+            std::uint32_t NodeIndex{ 0 };
+            const bool IsNodeIndexFound{ ModelData.TryFindNodeIndexById(ChannelData.NodeId, NodeIndex) };
+            if (IsNodeIndexFound == false) {
+                continue;
+            }
+
+            const std::size_t LookupIndex{ static_cast<std::size_t>(NodeIndex) };
+            if (LookupIndex >= ChannelLookup.size()) {
+                continue;
+            }
+
+            ChannelLookup[LookupIndex] = &ChannelData;
+        }
+
+        return ChannelLookup;
+    }
+
+    void ApplyAnimatedPoseRecursive(Arche::World& World, Arche::EntityID EntityId, const Game::Model& ModelData, std::span<const asset::AnimationChannel* const> ChannelLookup, double AnimationTick) {
         if (EntityId == Arche::NullEntityID) {
             return;
         }
@@ -156,7 +170,7 @@ namespace {
             if (BoneComponent->nodeIndex < Nodes.size()) {
                 const std::uint32_t NodeIndex{ BoneComponent->nodeIndex };
                 const Game::ModelNode& CurrentNode{ Nodes[NodeIndex] };
-                const asset::AnimationChannel* ChannelData{ FindChannelByNodeName(ClipData, CurrentNode.GetName()) };
+                const asset::AnimationChannel* ChannelData{ ChannelLookup[NodeIndex] };
 
                 if (ChannelData != nullptr) {
 
@@ -182,7 +196,7 @@ namespace {
                 break;
             }
 
-            ApplyAnimatedPoseRecursive(World, ChildEntityId, ModelData, ClipData, AnimationTick);
+            ApplyAnimatedPoseRecursive(World, ChildEntityId, ModelData, ChannelLookup, AnimationTick);
             ChildEntityId = ChildHierarchyComponent->nextSibling;
         }
     }
@@ -249,7 +263,8 @@ namespace Game {
             }
 
             const double AnimationTick{ AnimatorComponent.counter * TicksPerSecond };
-            ApplyAnimatedPoseRecursive(World, BoneSkinReferenceComponent.boneRootEntityId, *SkinnedMeshRendererComponent.model, ClipData, AnimationTick);
+            const std::vector<const asset::AnimationChannel*> ChannelLookup{ BuildAnimationChannelLookup(*SkinnedMeshRendererComponent.model, ClipData) };
+            ApplyAnimatedPoseRecursive(World, BoneSkinReferenceComponent.boneRootEntityId, *SkinnedMeshRendererComponent.model, ChannelLookup, AnimationTick);
         }
     }
 }

@@ -231,6 +231,7 @@ namespace Game {
     Model::Model()
         : mNodes{},
         mNodeNameLookup{},
+        mNodeIdLookup{},
         mRuntimeBoneInfos{},
         mRuntimeBoneInfoRanges{},
         mRuntimeBoneMatrixCount{ 0 },
@@ -245,6 +246,7 @@ namespace Game {
     Model::Model(Model&& Other) noexcept
         : mNodes{ std::move(Other.mNodes) },
         mNodeNameLookup{ std::move(Other.mNodeNameLookup) },
+        mNodeIdLookup{ std::move(Other.mNodeIdLookup) },
         mRuntimeBoneInfos{ std::move(Other.mRuntimeBoneInfos) },
         mRuntimeBoneInfoRanges{ std::move(Other.mRuntimeBoneInfoRanges) },
         mRuntimeBoneMatrixCount{ Other.mRuntimeBoneMatrixCount },
@@ -264,6 +266,7 @@ namespace Game {
 
         mNodes = std::move(Other.mNodes);
         mNodeNameLookup = std::move(Other.mNodeNameLookup);
+        mNodeIdLookup = std::move(Other.mNodeIdLookup);
         mRuntimeBoneInfos = std::move(Other.mRuntimeBoneInfos);
         mRuntimeBoneInfoRanges = std::move(Other.mRuntimeBoneInfoRanges);
         mRuntimeBoneMatrixCount = Other.mRuntimeBoneMatrixCount;
@@ -284,6 +287,7 @@ namespace Game {
 
         mNodes.clear();
         mNodeNameLookup.clear();
+        mNodeIdLookup.clear();
         mRuntimeBoneInfos.clear();
         mRuntimeBoneInfoRanges.clear();
         mRuntimeBoneMatrixCount = 0;
@@ -349,6 +353,7 @@ namespace Game {
             DestinationNode.SetIndexData(std::move(IndexRawData), std::move(IndexAllocation), IndexBufferView);
 
             mNodeNameLookup.insert_or_assign(DestinationNode.GetName(), static_cast<std::uint32_t>(NodeIndex));
+            mNodeIdLookup.insert_or_assign(DestinationNode.GetId(), static_cast<std::uint32_t>(NodeIndex));
 
             if (SourceNode.GetParent() == nullptr) {
                 mRootNodeIndex = static_cast<std::uint32_t>(NodeIndex);
@@ -376,6 +381,16 @@ namespace Game {
         }
 
         return &mNodes[FoundNode->second];
+    }
+
+    bool Model::TryFindNodeIndexById(std::uint32_t NodeId, std::uint32_t& OutNodeIndex) const {
+        const std::unordered_map<std::uint32_t, std::uint32_t>::const_iterator FoundNode{ mNodeIdLookup.find(NodeId) };
+        if (FoundNode == mNodeIdLookup.end()) {
+            return false;
+        }
+
+        OutNodeIndex = FoundNode->second;
+        return true;
     }
 
     const std::vector<ModelNode>& Model::GetNodes() const {

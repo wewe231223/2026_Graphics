@@ -89,6 +89,7 @@ namespace Game {
         bool InitializeFromModelResult(const asset::ModelResult& ModelData, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue);
         const ModelNode* GetRootNode() const;
         const ModelNode* FindNodeByName(const std::string& NodeName) const;
+        bool TryFindNodeIndexById(std::uint32_t NodeId, std::uint32_t& OutNodeIndex) const;
         const std::vector<ModelNode>& GetNodes() const;
         bool TryGetRuntimeBoneInfoRange(std::uint32_t NodeIndex, std::uint32_t& OutOffset, std::uint32_t& OutCount) const;
         std::span<const RuntimeBoneInfo> GetRuntimeBoneInfos(std::uint32_t Offset, std::uint32_t Count) const;
@@ -110,6 +111,7 @@ namespace Game {
     private:
         std::vector<ModelNode> mNodes{};
         std::unordered_map<std::string, std::uint32_t> mNodeNameLookup{};
+        std::unordered_map<std::uint32_t, std::uint32_t> mNodeIdLookup{};
         std::vector<RuntimeBoneInfo> mRuntimeBoneInfos{};
         std::vector<RuntimeBoneInfoRange> mRuntimeBoneInfoRanges{};
         std::uint32_t mRuntimeBoneMatrixCount{ 0 };

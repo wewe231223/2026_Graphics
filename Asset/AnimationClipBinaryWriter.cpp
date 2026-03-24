@@ -4,7 +4,7 @@
 
 namespace asset {
     namespace {
-        constexpr std::uint32_t FormatVersion{ 1 };
+        constexpr std::uint32_t FormatVersion{ 2 };
         constexpr std::array<char, 4> FormatMagic{ 'A', 'N', 'C', 'B' };
     }
 
@@ -48,6 +48,7 @@ namespace asset {
     }
 
     void AnimationClipBinaryWriter::WriteAnimationChannel(const AnimationChannel& ChannelData) {
+        WriteUint32(ChannelData.NodeId);
         WriteString(ChannelData.NodeName);
         WriteUint64(static_cast<std::uint64_t>(ChannelData.PositionKeys.size()));
 

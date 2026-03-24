@@ -28,6 +28,7 @@ namespace asset {
 
     struct AnimationChannel final {
     public:
+        std::uint32_t NodeId{ 0 };
         std::string NodeName{};
         std::vector<AnimationKeyPosition> PositionKeys{};
         std::vector<AnimationKeyRotation> RotationKeys{};
