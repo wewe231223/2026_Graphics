@@ -19,7 +19,7 @@ namespace Game {
         };
 
         struct alignas(16) MaterialGpu final {
-            static constexpr std::uint32_t FieldCount{ 40 };
+            static constexpr std::uint32_t FieldCount{ 30 };
             MaterialFieldGpu Fields[FieldCount]{};
         };
 

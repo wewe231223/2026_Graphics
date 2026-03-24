@@ -1,12 +1,12 @@
 {
     "MaterialGroups": [
         {
-            "Name": "D:\\2026_Graphics\\out\\debug\\AssetZIP\\Asset\\testset2.glb",
+            "Name": "D:\\2026_Graphics\\out\\debug\\AssetZIP\\Asset\\testset3.glb",
             "Items": [
                 {
-                    "PipelineName": "DefaultGraphics",
+                    "PipelineName": "SkinnedGraphics",
                     "MaterialData": {
-                        "Name": "Guard_02",
+                        "Name": "Paladin_MAT",
                         "PBR": true,
                         "Properties": {
                             "Shading Model": {
@@ -86,7 +86,7 @@
                             },
                             "Roughness Factor": {
                                 "Kind": "Real",
-                                "Real": 0.7487671971321106
+                                "Real": 0.5527864098548889
                             },
                             "Normal Scale": {
                                 "Kind": "None"
@@ -99,11 +99,11 @@
                             },
                             "Diffuse Texture": {
                                 "Kind": "String",
-                                "String": "Guard_02__diffuse"
+                                "String": "Paladin_diffuse"
                             },
                             "Specular Texture": {
                                 "Kind": "String",
-                                "String": "Guard_02__specular"
+                                "String": "Paladin_specular"
                             },
                             "Ambient Texture": {
                                 "Kind": "None"
@@ -122,7 +122,7 @@
                             },
                             "Normal Texture": {
                                 "Kind": "String",
-                                "String": "Guard_02__normal"
+                                "String": "Paladin_normal"
                             },
                             "Displacement Texture": {
                                 "Kind": "None"

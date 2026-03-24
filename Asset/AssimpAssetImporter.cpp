@@ -2,10 +2,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cctype>
+#include <initializer_list>
 #include <limits>
 #include <string>
 #include <unordered_map>
 #include <assimp/Importer.hpp>
+#include <assimp/GltfMaterial.h>
 #include <assimp/material.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
@@ -34,58 +37,173 @@ namespace asset {
             OutMaterial.Properties.push_back(MaterialProperty{ Type, Data });
         }
 
-        void AppendTextureProperty(const aiMaterial& MaterialData, aiTextureType TextureType, MaterialType Type, Material& OutMaterial) {
+        bool TryParseEmbeddedTextureIndex(const std::string& TexturePath, unsigned int& OutTextureIndex) {
+            if (TexturePath.size() <= 1 || TexturePath[0] != '*') {
+                return false;
+            }
+
+            for (std::size_t CharacterIndex{ 1 }; CharacterIndex < TexturePath.size(); ++CharacterIndex) {
+                if (std::isdigit(static_cast<unsigned char>(TexturePath[CharacterIndex])) == 0) {
+                    return false;
+                }
+            }
+
+            OutTextureIndex = static_cast<unsigned int>(std::stoul(TexturePath.substr(1)));
+            return true;
+        }
+
+        std::string ResolveEmbeddedTexturePath(const aiScene& SceneData, const std::string& TexturePath) {
+            unsigned int TextureIndex{ 0 };
+            if (TryParseEmbeddedTextureIndex(TexturePath, TextureIndex) == false) {
+                return TexturePath;
+            }
+
+            if (TextureIndex >= SceneData.mNumTextures || SceneData.mTextures == nullptr || SceneData.mTextures[TextureIndex] == nullptr) {
+                return std::string{ "EmbeddedTexture_" } + std::to_string(TextureIndex);
+            }
+
+            const aiTexture& EmbeddedTexture{ *SceneData.mTextures[TextureIndex] };
+            if (EmbeddedTexture.mFilename.length > 0) {
+                return std::string{ EmbeddedTexture.mFilename.C_Str() };
+            }
+
+            std::string FormatHint{};
+            if (EmbeddedTexture.achFormatHint[0] != '\0') {
+                FormatHint = std::string{ EmbeddedTexture.achFormatHint };
+            }
+
+            if (FormatHint.empty()) {
+                FormatHint = std::string{ "bin" };
+            }
+
+            return std::string{ "EmbeddedTexture_" } + std::to_string(TextureIndex) + std::string{ "." } + FormatHint;
+        }
+
+        void AppendTextureProperty(const aiScene& SceneData, const aiMaterial& MaterialData, aiTextureType TextureType, MaterialType Type, Material& OutMaterial) {
             aiString TexturePath{};
             if (MaterialData.GetTexture(TextureType, 0, &TexturePath) == aiReturn_SUCCESS) {
-                AppendProperty(OutMaterial, Type, MaterialMap{ std::string{ TexturePath.C_Str() } });
+                const std::string ResolvedTexturePath{ ResolveEmbeddedTexturePath(SceneData, std::string{ TexturePath.C_Str() }) };
+                AppendProperty(OutMaterial, Type, MaterialMap{ ResolvedTexturePath });
             }
         }
 
-        void FillMaterial(const aiMaterial& MaterialData, Material& OutMaterial) {
+        void AppendTexturePropertyByTypes(const aiScene& SceneData, const aiMaterial& MaterialData, MaterialType Type, std::initializer_list<aiTextureType> TextureTypes, Material& OutMaterial) {
+            for (const aiTextureType TextureType : TextureTypes) {
+                aiString TexturePath{};
+                if (MaterialData.GetTexture(TextureType, 0, &TexturePath) == aiReturn_SUCCESS) {
+                    const std::string ResolvedTexturePath{ ResolveEmbeddedTexturePath(SceneData, std::string{ TexturePath.C_Str() }) };
+                    AppendProperty(OutMaterial, Type, MaterialMap{ ResolvedTexturePath });
+                    return;
+                }
+            }
+        }
+
+        void FillMaterial(const aiScene& SceneData, const aiMaterial& MaterialData, Material& OutMaterial) {
             aiString MaterialName{};
             if (MaterialData.Get(AI_MATKEY_NAME, MaterialName) == aiReturn_SUCCESS) {
                 OutMaterial.Name = MaterialName.C_Str();
             }
 
-            aiColor4D DiffuseColor{};
-            if (aiGetMaterialColor(&MaterialData, AI_MATKEY_COLOR_DIFFUSE, &DiffuseColor) == aiReturn_SUCCESS) {
-                AppendProperty(OutMaterial, MaterialType::DiffuseColor, MaterialMap{ ToVec4(DiffuseColor) });
+            int IntegerValue{ 0 };
+            if (aiGetMaterialInteger(&MaterialData, AI_MATKEY_SHADING_MODEL, &IntegerValue) == aiReturn_SUCCESS) {
+                AppendProperty(OutMaterial, MaterialType::ShadingModel, MaterialMap{ static_cast<std::int64_t>(IntegerValue) });
             }
 
-            aiColor4D BaseColor{};
-            if (aiGetMaterialColor(&MaterialData, AI_MATKEY_BASE_COLOR, &BaseColor) == aiReturn_SUCCESS) {
+            if (aiGetMaterialInteger(&MaterialData, AI_MATKEY_TWOSIDED, &IntegerValue) == aiReturn_SUCCESS) {
+                AppendProperty(OutMaterial, MaterialType::TwoSided, MaterialMap{ IntegerValue != 0 });
+            }
+
+            if (aiGetMaterialInteger(&MaterialData, AI_MATKEY_ENABLE_WIREFRAME, &IntegerValue) == aiReturn_SUCCESS) {
+                AppendProperty(OutMaterial, MaterialType::Wireframe, MaterialMap{ IntegerValue != 0 });
+            }
+
+            if (aiGetMaterialInteger(&MaterialData, AI_MATKEY_BLEND_FUNC, &IntegerValue) == aiReturn_SUCCESS) {
+                AppendProperty(OutMaterial, MaterialType::BlendMode, MaterialMap{ static_cast<std::int64_t>(IntegerValue) });
+            }
+
+            float FloatValue{ 0.0f };
+            if (aiGetMaterialFloat(&MaterialData, AI_MATKEY_OPACITY, &FloatValue) == aiReturn_SUCCESS) {
+                AppendProperty(OutMaterial, MaterialType::Opacity, MaterialMap{ FloatValue });
+            }
+
+            aiString AlphaMode{};
+#ifdef AI_MATKEY_GLTF_ALPHAMODE
+            if (MaterialData.Get(AI_MATKEY_GLTF_ALPHAMODE, AlphaMode) == aiReturn_SUCCESS) {
+                AppendProperty(OutMaterial, MaterialType::AlphaMode, MaterialMap{ std::string{ AlphaMode.C_Str() } });
+            }
+#endif
+
+#ifdef AI_MATKEY_GLTF_ALPHACUTOFF
+            if (aiGetMaterialFloat(&MaterialData, AI_MATKEY_GLTF_ALPHACUTOFF, &FloatValue) == aiReturn_SUCCESS) {
+                AppendProperty(OutMaterial, MaterialType::AlphaCutoff, MaterialMap{ FloatValue });
+            }
+#endif
+
+            aiColor4D ColorValue{};
+            if (aiGetMaterialColor(&MaterialData, AI_MATKEY_BASE_COLOR, &ColorValue) == aiReturn_SUCCESS) {
                 OutMaterial.PBR = true;
-                AppendProperty(OutMaterial, MaterialType::BaseColor, MaterialMap{ ToVec4(BaseColor) });
+                AppendProperty(OutMaterial, MaterialType::BaseColor, MaterialMap{ Vec4{ ColorValue.r, ColorValue.g, ColorValue.b, ColorValue.a } });
             }
 
-            float Value{ 0.0f };
-            if (aiGetMaterialFloat(&MaterialData, AI_MATKEY_ROUGHNESS_FACTOR, &Value) == aiReturn_SUCCESS) {
+            if (aiGetMaterialColor(&MaterialData, AI_MATKEY_COLOR_DIFFUSE, &ColorValue) == aiReturn_SUCCESS) {
+                AppendProperty(OutMaterial, MaterialType::DiffuseColor, MaterialMap{ Vec4{ ColorValue.r, ColorValue.g, ColorValue.b, ColorValue.a } });
+            }
+
+            if (aiGetMaterialColor(&MaterialData, AI_MATKEY_COLOR_AMBIENT, &ColorValue) == aiReturn_SUCCESS) {
+                AppendProperty(OutMaterial, MaterialType::AmbientColor, MaterialMap{ Vec4{ ColorValue.r, ColorValue.g, ColorValue.b, ColorValue.a } });
+            }
+
+            if (aiGetMaterialColor(&MaterialData, AI_MATKEY_COLOR_SPECULAR, &ColorValue) == aiReturn_SUCCESS) {
+                AppendProperty(OutMaterial, MaterialType::SpecularColor, MaterialMap{ Vec4{ ColorValue.r, ColorValue.g, ColorValue.b, ColorValue.a } });
+            }
+
+            if (aiGetMaterialColor(&MaterialData, AI_MATKEY_COLOR_EMISSIVE, &ColorValue) == aiReturn_SUCCESS) {
+                AppendProperty(OutMaterial, MaterialType::EmissiveColor, MaterialMap{ Vec4{ ColorValue.r, ColorValue.g, ColorValue.b, ColorValue.a } });
+            }
+
+            if (aiGetMaterialColor(&MaterialData, AI_MATKEY_COLOR_TRANSPARENT, &ColorValue) == aiReturn_SUCCESS) {
+                AppendProperty(OutMaterial, MaterialType::TransparentColor, MaterialMap{ Vec4{ ColorValue.r, ColorValue.g, ColorValue.b, ColorValue.a } });
+            }
+
+            if (aiGetMaterialColor(&MaterialData, AI_MATKEY_COLOR_REFLECTIVE, &ColorValue) == aiReturn_SUCCESS) {
+                AppendProperty(OutMaterial, MaterialType::ReflectiveColor, MaterialMap{ Vec4{ ColorValue.r, ColorValue.g, ColorValue.b, ColorValue.a } });
+            }
+
+            if (aiGetMaterialFloat(&MaterialData, AI_MATKEY_METALLIC_FACTOR, &FloatValue) == aiReturn_SUCCESS) {
                 OutMaterial.PBR = true;
-                AppendProperty(OutMaterial, MaterialType::Roughness, MaterialMap{ Value });
+                AppendProperty(OutMaterial, MaterialType::MetallicFactor, MaterialMap{ FloatValue });
             }
 
-            if (aiGetMaterialFloat(&MaterialData, AI_MATKEY_METALLIC_FACTOR, &Value) == aiReturn_SUCCESS) {
+            if (aiGetMaterialFloat(&MaterialData, AI_MATKEY_ROUGHNESS_FACTOR, &FloatValue) == aiReturn_SUCCESS) {
                 OutMaterial.PBR = true;
-                AppendProperty(OutMaterial, MaterialType::Metalness, MaterialMap{ Value });
+                AppendProperty(OutMaterial, MaterialType::RoughnessFactor, MaterialMap{ FloatValue });
             }
 
-            if (aiGetMaterialFloat(&MaterialData, AI_MATKEY_OPACITY, &Value) == aiReturn_SUCCESS) {
-                AppendProperty(OutMaterial, MaterialType::Opacity, MaterialMap{ Value });
+            if (aiGetMaterialFloat(&MaterialData, AI_MATKEY_BUMPSCALING, &FloatValue) == aiReturn_SUCCESS) {
+                AppendProperty(OutMaterial, MaterialType::NormalScale, MaterialMap{ FloatValue });
             }
 
-            aiColor4D Emissive{};
-            if (aiGetMaterialColor(&MaterialData, AI_MATKEY_COLOR_EMISSIVE, &Emissive) == aiReturn_SUCCESS) {
-                AppendProperty(OutMaterial, MaterialType::EmissionColorPbr, MaterialMap{ Vec3{ Emissive.r, Emissive.g, Emissive.b } });
+#ifdef AI_MATKEY_GLTF_TEXTURE_STRENGTH
+            if (aiGetMaterialFloat(&MaterialData, AI_MATKEY_GLTF_TEXTURE_STRENGTH(aiTextureType_AMBIENT_OCCLUSION, 0), &FloatValue) == aiReturn_SUCCESS) {
+                AppendProperty(OutMaterial, MaterialType::OcclusionStrength, MaterialMap{ FloatValue });
+            }
+#endif
+
+            if (aiGetMaterialFloat(&MaterialData, AI_MATKEY_EMISSIVE_INTENSITY, &FloatValue) == aiReturn_SUCCESS) {
+                AppendProperty(OutMaterial, MaterialType::EmissiveStrength, MaterialMap{ FloatValue });
             }
 
-            AppendTextureProperty(MaterialData, aiTextureType_DIFFUSE, MaterialType::DiffuseColorMap, OutMaterial);
-            AppendTextureProperty(MaterialData, aiTextureType_BASE_COLOR, MaterialType::BaseColorMap, OutMaterial);
-            AppendTextureProperty(MaterialData, aiTextureType_NORMALS, MaterialType::NormalMapPbrMap, OutMaterial);
-            AppendTextureProperty(MaterialData, aiTextureType_METALNESS, MaterialType::MetalnessMap, OutMaterial);
-            AppendTextureProperty(MaterialData, aiTextureType_DIFFUSE_ROUGHNESS, MaterialType::RoughnessMap, OutMaterial);
-            AppendTextureProperty(MaterialData, aiTextureType_EMISSIVE, MaterialType::EmissionColorPbrMap, OutMaterial);
-            AppendTextureProperty(MaterialData, aiTextureType_OPACITY, MaterialType::OpacityMap, OutMaterial);
-            AppendTextureProperty(MaterialData, aiTextureType_AMBIENT_OCCLUSION, MaterialType::AmbientOcclusionMap, OutMaterial);
+            AppendTexturePropertyByTypes(SceneData, MaterialData, MaterialType::DiffuseTexture, { aiTextureType_BASE_COLOR, aiTextureType_DIFFUSE }, OutMaterial);
+            AppendTextureProperty(SceneData, MaterialData, aiTextureType_SPECULAR, MaterialType::SpecularTexture, OutMaterial);
+            AppendTextureProperty(SceneData, MaterialData, aiTextureType_AMBIENT, MaterialType::AmbientTexture, OutMaterial);
+            AppendTextureProperty(SceneData, MaterialData, aiTextureType_EMISSIVE, MaterialType::EmissiveTexture, OutMaterial);
+            AppendTextureProperty(SceneData, MaterialData, aiTextureType_OPACITY, MaterialType::OpacityTexture, OutMaterial);
+            AppendTextureProperty(SceneData, MaterialData, aiTextureType_SHININESS, MaterialType::ShininessTexture, OutMaterial);
+            AppendTexturePropertyByTypes(SceneData, MaterialData, MaterialType::HeightBumpTexture, { aiTextureType_HEIGHT, aiTextureType_NORMAL_CAMERA }, OutMaterial);
+            AppendTextureProperty(SceneData, MaterialData, aiTextureType_NORMALS, MaterialType::NormalTexture, OutMaterial);
+            AppendTextureProperty(SceneData, MaterialData, aiTextureType_DISPLACEMENT, MaterialType::DisplacementTexture, OutMaterial);
+            AppendTextureProperty(SceneData, MaterialData, aiTextureType_REFLECTION, MaterialType::ReflectionTexture, OutMaterial);
+            AppendTexturePropertyByTypes(SceneData, MaterialData, MaterialType::LightmapTexture, { aiTextureType_LIGHTMAP, aiTextureType_AMBIENT_OCCLUSION }, OutMaterial);
         }
 
         struct BoneInfluence final {
@@ -281,7 +399,7 @@ namespace asset {
 
         for (unsigned int MaterialIndex{ 0 }; MaterialIndex < Scene->mNumMaterials; ++MaterialIndex) {
             MaterialGroupItem Item{};
-            FillMaterial(*Scene->mMaterials[MaterialIndex], Item.MaterialData);
+            FillMaterial(*Scene, *Scene->mMaterials[MaterialIndex], Item.MaterialData);
             Group.Items.push_back(std::move(Item));
         }
 

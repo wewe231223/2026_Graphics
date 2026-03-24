@@ -12,11 +12,25 @@
 #endif
 
 namespace {
-    constexpr std::uint32_t MaterialFieldCount{ 40 };
+    constexpr std::uint32_t MaterialFieldCount{ asset::MaterialTypeCount };
 
     bool IsSupportedMaterialType(asset::MaterialType MaterialTypeValue) {
         const std::uint32_t TypeValue{ static_cast<std::uint32_t>(MaterialTypeValue) };
         return TypeValue < MaterialFieldCount;
+    }
+
+    bool IsTextureMaterialType(asset::MaterialType MaterialTypeValue) {
+        return MaterialTypeValue == asset::MaterialType::DiffuseTexture
+            || MaterialTypeValue == asset::MaterialType::SpecularTexture
+            || MaterialTypeValue == asset::MaterialType::AmbientTexture
+            || MaterialTypeValue == asset::MaterialType::EmissiveTexture
+            || MaterialTypeValue == asset::MaterialType::OpacityTexture
+            || MaterialTypeValue == asset::MaterialType::ShininessTexture
+            || MaterialTypeValue == asset::MaterialType::HeightBumpTexture
+            || MaterialTypeValue == asset::MaterialType::NormalTexture
+            || MaterialTypeValue == asset::MaterialType::DisplacementTexture
+            || MaterialTypeValue == asset::MaterialType::ReflectionTexture
+            || MaterialTypeValue == asset::MaterialType::LightmapTexture;
     }
 }
 
@@ -403,7 +417,7 @@ namespace Game {
                 continue;
             }
 
-            if (IsSupportedMaterialType(PropertyData.Type) == false) {
+            if (IsSupportedMaterialType(PropertyData.Type) == false || IsTextureMaterialType(PropertyData.Type) == false) {
                 continue;
             }
 
@@ -494,7 +508,7 @@ namespace Game {
         return std::filesystem::path{ "Resources" } / SceneName / DdsTextureFileName;
     }
 
-    std::int64_t AssetRegistry::ToMaterialIntValue(const asset::MaterialMap& MaterialMapData, const std::string& MaterialSourcePath) {
+    std::int64_t AssetRegistry::ToMaterialIntValue(asset::MaterialType MaterialTypeValue, const asset::MaterialMap& MaterialMapData, const std::string& MaterialSourcePath) {
         if (MaterialMapData.GetKind() == asset::MaterialMapKind::Int) {
             return MaterialMapData.GetInt();
         }
@@ -503,7 +517,7 @@ namespace Game {
             return MaterialMapData.GetBool() == true ? 1 : 0;
         }
 
-        if (MaterialMapData.GetKind() == asset::MaterialMapKind::String) {
+        if (MaterialMapData.GetKind() == asset::MaterialMapKind::String && IsTextureMaterialType(MaterialTypeValue) == true) {
             const std::filesystem::path TexturePath{ BuildTexturePathFromMaterialPath(MaterialSourcePath, MaterialMapData.GetString()) };
             const std::uint32_t TextureTableIndex{ ResolveTextureTableIndex(TexturePath) };
             return static_cast<std::int64_t>(TextureTableIndex);
@@ -549,7 +563,7 @@ namespace Game {
             const std::uint32_t TypeIndex{ static_cast<std::uint32_t>(PropertyData.Type) };
             PackedMaterial.Fields[TypeIndex].Type = TypeIndex;
             PackedMaterial.Fields[TypeIndex].FloatValue = ToMaterialFloatValue(PropertyData.Data);
-            PackedMaterial.Fields[TypeIndex].IntValue = ToMaterialIntValue(PropertyData.Data, MaterialSourcePath);
+            PackedMaterial.Fields[TypeIndex].IntValue = ToMaterialIntValue(PropertyData.Type, PropertyData.Data, MaterialSourcePath);
         }
 
         return PackedMaterial;

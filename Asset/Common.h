@@ -46,8 +46,39 @@ namespace asset {
     };
 
     enum class MaterialType : std::uint16_t {
-        DiffuseFactor = 0, DiffuseFactorMap = 1, DiffuseColor = 2, DiffuseColorMap = 3, SpecularFactor = 4, SpecularFactorMap = 5, SpecularColor = 6, SpecularColorMap = 7, SpecularExponent = 8, SpecularExponentMap = 9, ReflectionFactor = 10, ReflectionFactorMap = 11, ReflectionColor = 12, ReflectionColorMap = 13, TransparencyFactor = 14, TransparencyFactorMap = 15, TransparencyColor = 16, TransparencyColorMap = 17, EmissionFactor = 18, EmissionFactorMap = 19, EmissionColor = 20, EmissionColorMap = 21, AmbientFactor = 22, AmbientFactorMap = 23, AmbientColor = 24, AmbientColorMap = 25, NormalMap = 26, NormalMapMap = 27, Bump = 28, BumpMap = 29, BumpFactor = 30, BumpFactorMap = 31, DisplacementFactor = 32, DisplacementFactorMap = 33, Displacement = 34, DisplacementMap = 35, VectorDisplacementFactor = 36, VectorDisplacementFactorMap = 37, VectorDisplacement = 38, VectorDisplacementMap = 39, BaseFactor = 40, BaseFactorMap = 41, BaseColor = 42, BaseColorMap = 43, Roughness = 44, RoughnessMap = 45, Metalness = 46, MetalnessMap = 47, DiffuseRoughness = 48, DiffuseRoughnessMap = 49, SpecularFactorPbr = 50, SpecularFactorPbrMap = 51, SpecularColorPbr = 52, SpecularColorPbrMap = 53, SpecularIor = 54, SpecularIorMap = 55, SpecularAnisotropy = 56, SpecularAnisotropyMap = 57, SpecularRotation = 58, SpecularRotationMap = 59, TransmissionFactor = 60, TransmissionFactorMap = 61, TransmissionColor = 62, TransmissionColorMap = 63, TransmissionDepth = 64, TransmissionDepthMap = 65, TransmissionScatter = 66, TransmissionScatterMap = 67, TransmissionScatterAnisotropy = 68, TransmissionScatterAnisotropyMap = 69, TransmissionDispersion = 70, TransmissionDispersionMap = 71, TransmissionRoughness = 72, TransmissionRoughnessMap = 73, TransmissionExtraRoughness = 74, TransmissionExtraRoughnessMap = 75, TransmissionPriority = 76, TransmissionPriorityMap = 77, TransmissionEnableInAov = 78, TransmissionEnableInAovMap = 79, SubsurfaceFactor = 80, SubsurfaceFactorMap = 81, SubsurfaceColor = 82, SubsurfaceColorMap = 83, SubsurfaceRadius = 84, SubsurfaceRadiusMap = 85, SubsurfaceScale = 86, SubsurfaceScaleMap = 87, SubsurfaceAnisotropy = 88, SubsurfaceAnisotropyMap = 89, SubsurfaceTintColor = 90, SubsurfaceTintColorMap = 91, SubsurfaceType = 92, SubsurfaceTypeMap = 93, SheenFactor = 94, SheenFactorMap = 95, SheenColor = 96, SheenColorMap = 97, SheenRoughness = 98, SheenRoughnessMap = 99, CoatFactor = 100, CoatFactorMap = 101, CoatColor = 102, CoatColorMap = 103, CoatRoughness = 104, CoatRoughnessMap = 105, CoatIor = 106, CoatIorMap = 107, CoatAnisotropy = 108, CoatAnisotropyMap = 109, CoatRotation = 110, CoatRotationMap = 111, CoatNormal = 112, CoatNormalMap = 113, CoatAffectBaseColor = 114, CoatAffectBaseColorMap = 115, CoatAffectBaseRoughness = 116, CoatAffectBaseRoughnessMap = 117, ThinFilmFactor = 118, ThinFilmFactorMap = 119, ThinFilmThickness = 120, ThinFilmThicknessMap = 121, ThinFilmIor = 122, ThinFilmIorMap = 123, EmissionFactorPbr = 124, EmissionFactorPbrMap = 125, EmissionColorPbr = 126, EmissionColorPbrMap = 127, Opacity = 128, OpacityMap = 129, IndirectDiffuse = 130, IndirectDiffuseMap = 131, IndirectSpecular = 132, IndirectSpecularMap = 133, NormalMapPbr = 134, NormalMapPbrMap = 135, TangentMap = 136, TangentMapMap = 137, DisplacementMapPbr = 138, DisplacementMapPbrMap = 139, MatteFactor = 140, MatteFactorMap = 141, MatteColor = 142, MatteColorMap = 143, AmbientOcclusion = 144, AmbientOcclusionMap = 145, Glossiness = 146, GlossinessMap = 147, CoatGlossiness = 148, CoatGlossinessMap = 149, TransmissionGlossiness = 150, TransmissionGlossinessMap = 151
+        ShadingModel = 0,
+        TwoSided = 1,
+        Wireframe = 2,
+        BlendMode = 3,
+        Opacity = 4,
+        AlphaMode = 5,
+        AlphaCutoff = 6,
+        BaseColor = 7,
+        DiffuseColor = 8,
+        AmbientColor = 9,
+        SpecularColor = 10,
+        EmissiveColor = 11,
+        TransparentColor = 12,
+        ReflectiveColor = 13,
+        MetallicFactor = 14,
+        RoughnessFactor = 15,
+        NormalScale = 16,
+        OcclusionStrength = 17,
+        EmissiveStrength = 18,
+        DiffuseTexture = 19,
+        SpecularTexture = 20,
+        AmbientTexture = 21,
+        EmissiveTexture = 22,
+        OpacityTexture = 23,
+        ShininessTexture = 24,
+        HeightBumpTexture = 25,
+        NormalTexture = 26,
+        DisplacementTexture = 27,
+        ReflectionTexture = 28,
+        LightmapTexture = 29
     };
+
+    inline constexpr std::uint32_t MaterialTypeCount{ 30 };
 
     enum class MaterialMapKind : std::uint8_t {
         None,

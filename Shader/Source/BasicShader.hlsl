@@ -32,7 +32,7 @@ float4 PsMain(VertexOutput Input) : SV_TARGET
     StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer = ResourceDescriptorHeap[RootConstants.MaterialTextureTableSrvIndex];
 
     const MaterialGpu MaterialData = MaterialBuffer[Input.MaterialIndex];
-    const int64_t DiffuseColorTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_COLOR_MAP].IntValue;
+    const int64_t DiffuseColorTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_TEXTURE].IntValue;
 
     if (DiffuseColorTextureTableIndex < 0) {
         return float4(1.0f, 0.0f, 1.0f, 1.0f);

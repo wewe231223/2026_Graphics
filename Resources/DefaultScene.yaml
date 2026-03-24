@@ -15,8 +15,8 @@ DefaultTransform: &DefaultTransform
 Prefabs:
   - &Prefab1001
     prefabId: 1001
-    modelPath: testset.bin
-    materialPath: testset_materials.json
+    modelPath: testset3.bin
+    materialPath: testset3_materials.json
     active: true
   - &Prefab1002
     prefabId: 1002

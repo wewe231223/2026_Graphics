@@ -62,7 +62,7 @@ namespace Game {
         std::vector<std::uint32_t> BuildMaterialTextureTableIndices(const asset::Material& MaterialData, const RFD::MaterialGpu& PackedMaterial) const;
 
         std::filesystem::path BuildTexturePathFromMaterialPath(const std::string& MaterialSourcePath, const std::string& TexturePath) const;
-        std::int64_t ToMaterialIntValue(const asset::MaterialMap& MaterialMapData, const std::string& MaterialSourcePath);
+        std::int64_t ToMaterialIntValue(asset::MaterialType MaterialTypeValue, const asset::MaterialMap& MaterialMapData, const std::string& MaterialSourcePath);
         SimpleMath::Vector4 ToMaterialFloatValue(const asset::MaterialMap& MaterialMapData);
         RFD::MaterialGpu BuildPackedMaterial(const asset::Material& MaterialData, const std::string& MaterialSourcePath);
         Interface::IPipeline* ResolvePipelineByName(const std::string& PipelineName);
