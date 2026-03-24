@@ -41,6 +41,7 @@ namespace Globals {
         bool IsKeyDown(DirectX::Keyboard::Keys key) const;
         bool IsKeyPressed(DirectX::Keyboard::Keys key) const;
         bool IsKeyReleased(DirectX::Keyboard::Keys key) const;
+        bool IsImGuiInputBlocked() const;
 
     private:
         void UpdateCursor(); 

@@ -112,6 +112,10 @@ namespace Globals {
 		return mKeyboardTracker.IsKeyReleased(key);
     }
 
+    bool Input::IsImGuiInputBlocked() const {
+        return mIsImGuiInputBlocked;
+    }
+
     void Input::UpdateCursor() {
         Input::SetVirtualMouse(mMouseTracker.rightButton); 
         if (mVirtualMouse) {

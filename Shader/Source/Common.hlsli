@@ -91,6 +91,46 @@ float4 ApplyBaseColor(float4 Color)
     return saturate(Color);
 }
 
+float4 ApplyMaterialScalarColor(float4 BaseColor, MaterialGpu MaterialData)
+{
+    const float4 MaterialBaseColor = MaterialData.Fields[MATERIAL_TYPE_BASE_COLOR].FloatValue;
+    const float4 MaterialDiffuseColor = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_COLOR].FloatValue;
+    const float Opacity = MaterialData.Fields[MATERIAL_TYPE_OPACITY].FloatValue.x;
+
+    float4 ScalarColor = MaterialBaseColor;
+    if (dot(ScalarColor, ScalarColor) <= 0.0f) {
+        ScalarColor = MaterialDiffuseColor;
+    }
+
+    if (dot(ScalarColor, ScalarColor) <= 0.0f) {
+        ScalarColor = float4(1.0f, 1.0f, 1.0f, 1.0f);
+    }
+
+    const float EffectiveOpacity = (Opacity > 0.0f) ? Opacity : ScalarColor.a;
+    float4 ResultColor = BaseColor * float4(ScalarColor.rgb, 1.0f);
+    ResultColor.a *= saturate(EffectiveOpacity);
+    return saturate(ResultColor);
+}
+
+float3 ApplyDirectionalLight(float3 BaseRgb, float3 WorldNormal)
+{
+    const float3 NormalizedNormal = normalize(WorldNormal);
+    const float3 LightDirection = normalize(float3(0.4f, -1.0f, 0.35f));
+    const float3 LightColor = float3(1.0f, 0.97f, 0.92f);
+    const float AmbientIntensity = 0.15f;
+    const float DiffuseIntensity = saturate(dot(NormalizedNormal, -LightDirection));
+
+    const float3 LitColor = BaseRgb * (AmbientIntensity + (DiffuseIntensity * LightColor));
+    return saturate(LitColor);
+}
+
+float4 ApplyMaterialLighting(float4 BaseColor, float3 WorldNormal)
+{
+    float4 ResultColor = BaseColor;
+    ResultColor.rgb = ApplyDirectionalLight(ResultColor.rgb, WorldNormal);
+    return ResultColor;
+}
+
 float4 ResolveFlags(float4 Color, uint Flags)
 {
     const uint PickedFlagMask = 0x1u;

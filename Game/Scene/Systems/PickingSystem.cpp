@@ -10,6 +10,7 @@
 #include "Core/Config.h"
 #include "Game/Base/Input.h"
 #include "Game/Scene/Components/BoundingBox.h"
+#include "Game/Scene/Components/Bone.h"
 #include "Utility/SimpleMathWrapper.h"
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
@@ -231,19 +232,34 @@ namespace {
             return;
         }
 
+        const Game::Bone* BoneComponent{ World.GetComponent<Game::Bone>(PickedEntityId) };
         SimpleMath::Vector3 BoundsCenter{};
         SimpleMath::Vector3 BoundsExtents{};
-        if (TryResolveMergedSubtreeBounds(WorldMatrices, World, PickedEntityId, BoundsCenter, BoundsExtents) == false && TryResolveEntityWorldPosition(World, PickedEntityId, BoundsCenter) == false) {
-            return;
+        SimpleMath::Quaternion AxisOrientation{ SimpleMath::Quaternion::Identity };
+
+        if (BoneComponent != nullptr) {
+            SimpleMath::Matrix BoneWorldMatrix{ SimpleMath::Matrix::Identity };
+            if (TryResolveEntityWorldMatrix(WorldMatrices, PickedEntityId, BoneWorldMatrix) == false) {
+                return;
+            }
+
+            BoundsCenter = BoneWorldMatrix.Translation();
+            AxisOrientation = SimpleMath::Quaternion::CreateFromRotationMatrix(BoneWorldMatrix);
+        }
+        else {
+            if (TryResolveMergedSubtreeBounds(WorldMatrices, World, PickedEntityId, BoundsCenter, BoundsExtents) == false && TryResolveEntityWorldPosition(World, PickedEntityId, BoundsCenter) == false) {
+                return;
+            }
+
+            const Game::Transform* RootTransformComponent{ World.GetComponent<Game::Transform>(PickedEntityId) };
+            AxisOrientation = RootTransformComponent == nullptr ? SimpleMath::Quaternion::Identity : RootTransformComponent->rotation;
         }
 
-        const Game::Transform* RootTransformComponent{ World.GetComponent<Game::Transform>(PickedEntityId) };
         const float Thickness{ 0.05f };
         const float Length{ 0.75f };
         const float Gap{ 0.06f };
         const float HoverScaleFactor{ 1.1f };
 
-        const SimpleMath::Quaternion AxisOrientation{ RootTransformComponent == nullptr ? SimpleMath::Quaternion::Identity : RootTransformComponent->rotation };
         const std::array<SimpleMath::Vector3, 3> AxisDirections{ {
             SimpleMath::Vector3::Transform(SimpleMath::Vector3::UnitX, AxisOrientation),
             SimpleMath::Vector3::Transform(SimpleMath::Vector3::UnitY, AxisOrientation),
@@ -401,6 +417,23 @@ namespace Game {
         (void)Dt;
 
         const Globals::Input& Input{ Globals::Input::Get() };
+
+        if (Input.IsImGuiInputBlocked()) {
+            if (mIsGizmoDragging) {
+                mIsGizmoDragging = false;
+                mDraggingTargetEntityId = Arche::NullEntityID;
+            }
+
+            const Arche::EntityID HoveredGizmoEntityId{ Arche::NullEntityID };
+            if (mLastGizmoPickedEntityId != Ctx.PickedEntityId || mLastHoveredGizmoEntityId != HoveredGizmoEntityId) {
+                UpdatePickingGizmos(Ctx.WorldMatrices, World, Ctx.PickedEntityId, HoveredGizmoEntityId);
+                mLastGizmoPickedEntityId = Ctx.PickedEntityId;
+                mLastHoveredGizmoEntityId = HoveredGizmoEntityId;
+            }
+
+            return;
+        }
+
         const DirectX::Mouse::ButtonStateTracker& MouseTracker{ Input.GetMouseTracker() };
         const bool IsMousePickRequested{ MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED };
         const bool IsMouseDragActive{ MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED || MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::HELD };

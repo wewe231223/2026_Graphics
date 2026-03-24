@@ -80,6 +80,10 @@ namespace Game {
             }
 
             mFrameContext.PickedEntityId = Payload->SelectedEntityId;
+
+            Game::PickedEntityChangedPayload PickedEntityChangedPayload{};
+            PickedEntityChangedPayload.PickedEntityId = Payload->SelectedEntityId;
+            Core::Event::Enqueue<Game::PickedEntityChangedEventTag, Game::PickedEntityChangedPayload>(std::move(PickedEntityChangedPayload), true);
         });
 
         mFileDropSubscriptionId = Core::Event::Subscribe<Core::Event::FbxBinFileDroppedEventTag>([this](const Core::Event::Event<Core::Event::FbxBinFileDroppedEventTag>& DroppedFileEvent) {

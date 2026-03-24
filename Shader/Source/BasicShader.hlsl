@@ -45,6 +45,8 @@ float4 PsMain(VertexOutput Input) : SV_TARGET
     }
     
     Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[TextureSrvIndex];
-    const float4 BaseColor = ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
-    return ResolveFlags(BaseColor, Input.Flags);
+    const float4 SampledColor = ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
+    const float4 ScalarAppliedColor = ApplyMaterialScalarColor(SampledColor, MaterialData);
+    const float4 LitColor = ApplyMaterialLighting(ScalarAppliedColor, Input.Normal);
+    return ResolveFlags(LitColor, Input.Flags);
 }
