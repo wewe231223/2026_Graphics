@@ -110,7 +110,12 @@ namespace Game {
         }
 
         Intent.moveDirection = MoveDirection * MoveSpeedScale;
-        Intent.lookDelta = SimpleMath::Vector2{ static_cast<float>(Input.GetMouseDeltaX()) * Dt, static_cast<float>(Input.GetMouseDeltaY()) * Dt };
+
+        const DirectX::Mouse::ButtonStateTracker& MouseTracker{ Input.GetMouseTracker() };
+        const bool IsPickingInteraction{ MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED || MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::HELD };
+        if (IsPickingInteraction == false) {
+            Intent.lookDelta = SimpleMath::Vector2{ static_cast<float>(Input.GetMouseDeltaX()) * Dt, static_cast<float>(Input.GetMouseDeltaY()) * Dt };
+        }
 
         const auto& MouseState{ Input.GetMouseState() };
         static int LastWheelValue{ MouseState.scrollWheelValue };
