@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AnimationBinaryReader.cpp" />
     <ClCompile Include="AnimationClipBinaryWriter.cpp" />
     <ClCompile Include="AnimationClipResult.cpp" />
     <ClCompile Include="AssimpAnimationClipImporter.cpp" />
@@ -33,6 +34,7 @@
     <ClCompile Include="ModelResult.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AnimationBinaryReader.h" />
     <ClInclude Include="AnimationClipBinaryWriter.h" />
     <ClInclude Include="AnimationClipResult.h" />
     <ClInclude Include="AssimpAnimationClipImporter.h" />

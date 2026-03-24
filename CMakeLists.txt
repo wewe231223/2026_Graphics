@@ -62,6 +62,7 @@ target_compile_definitions(Arche PRIVATE
 )
 
 add_library(Asset STATIC
+    Asset/AnimationBinaryReader.cpp
     Asset/AnimationClipBinaryWriter.cpp
     Asset/AnimationClipResult.cpp
     Asset/AssimpAnimationClipImporter.cpp

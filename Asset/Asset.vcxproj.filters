@@ -22,6 +22,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AnimationBinaryReader.cpp">
+      <Filter>Serializer</Filter>
+    </ClCompile>
     <ClCompile Include="AnimationClipBinaryWriter.cpp">
       <Filter>Serializer</Filter>
     </ClCompile>
@@ -60,6 +63,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AnimationBinaryReader.h">
+      <Filter>Serializer</Filter>
+    </ClInclude>
     <ClInclude Include="AnimationClipBinaryWriter.h">
       <Filter>Serializer</Filter>
     </ClInclude>
