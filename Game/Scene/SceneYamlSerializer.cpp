@@ -24,6 +24,7 @@
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Tags.h"
 #include "Game/Scene/Components/Transform.h"
+#include "Game/Scene/Systems/AnimateSystem.h"
 #include "Game/Scene/Systems/CameraInputSystem.h"
 #include "Game/Scene/Systems/IntentClentUpSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshRenderSystem.h"
@@ -140,6 +141,10 @@ namespace {
 
         if (SystemName == "CameraInputSystem") {
             return std::make_unique<Game::CameraInputSystem>();
+        }
+
+        if (SystemName == "AnimateSystem") {
+            return std::make_unique<Game::AnimateSystem>();
         }
 
         if (SystemName == "PickingSystem") {

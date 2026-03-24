@@ -53,6 +53,7 @@
     <ClInclude Include="Scene\SceneYamlSerializer.h" />
     <ClInclude Include="Scene\System.h" />
     <ClInclude Include="Scene\SystemSceduler.h" />
+    <ClInclude Include="Scene\Systems\AnimateSystem.h" />
     <ClInclude Include="Scene\Systems\CameraInputSystem.h" />
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
     <ClInclude Include="Scene\Systems\PickingSystem.h" />
@@ -92,6 +93,7 @@
     <ClCompile Include="Scene\Components\StaticMeshRenderer.cpp" />
     <ClCompile Include="Scene\Components\SkinnedMeshRenderer.cpp" />
     <ClCompile Include="Scene\Components\ComponentInspection.cpp" />
+    <ClCompile Include="Scene\Systems\AnimateSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraInputSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\PickingSystem.cpp" />

@@ -2,6 +2,7 @@
 Systems:
   - Type: CameraInputSystem
   - Type: PickingSystem
+  - Type: AnimateSystem
   - Type: StaticRenderSystem
   - Type: SkinnedMeshRenderSystem
   - Type: CleanUpSystem

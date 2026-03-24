@@ -32,5 +32,6 @@ namespace Game {
         OutFields.push_back(ComponentInspectionField{ "AnimationBound", animation == nullptr ? "false" : "true" });
         OutFields.push_back(ComponentInspectionField{ "ClipIndex", std::format("{}", clipIndex) });
         OutFields.push_back(ComponentInspectionField{ "CurrentClip", ResolveClipName(*this) });
+        OutFields.push_back(ComponentInspectionField{ "Counter", std::format("{}", counter) });
     }
 }
