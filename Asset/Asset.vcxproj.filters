@@ -22,6 +22,15 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AnimationClipBinaryWriter.cpp">
+      <Filter>Serializer</Filter>
+    </ClCompile>
+    <ClCompile Include="AnimationClipResult.cpp">
+      <Filter>Defines</Filter>
+    </ClCompile>
+    <ClCompile Include="AssimpAnimationClipImporter.cpp">
+      <Filter>Importer</Filter>
+    </ClCompile>
     <ClCompile Include="AssetBinaryReader.cpp">
       <Filter>Serializer</Filter>
     </ClCompile>
@@ -51,6 +60,15 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AnimationClipBinaryWriter.h">
+      <Filter>Serializer</Filter>
+    </ClInclude>
+    <ClInclude Include="AnimationClipResult.h">
+      <Filter>Defines</Filter>
+    </ClInclude>
+    <ClInclude Include="AssimpAnimationClipImporter.h">
+      <Filter>Importer</Filter>
+    </ClInclude>
     <ClInclude Include="AssetBinaryReader.h">
       <Filter>Serializer</Filter>
     </ClInclude>

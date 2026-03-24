@@ -4,11 +4,15 @@
 #include <cstdint>
 #include <exception>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <system_error>
 #include <vector>
 
+#include "Asset/AnimationClipBinaryWriter.h"
+#include "Asset/AnimationClipResult.h"
 #include "Asset/AssetBinaryWriter.h"
+#include "Asset/AssimpAnimationClipImporter.h"
 #include "Asset/AssimpAssetImporter.h"
 #include "Asset/MaterialGroupJsonSerializer.h"
 #include "Asset/ModelResult.h"
@@ -18,8 +22,15 @@
 #pragma comment(lib, "Asset.lib")
 
 namespace {
+    enum class ExportCommand : std::uint8_t {
+        Model,
+        AnimationClip,
+        Help,
+    };
+
     struct Options final {
     public:
+        ExportCommand Command{ ExportCommand::Model };
         std::string InputFileName{};
         bool IsUvFlipEnabled{ false };
     };
@@ -56,6 +67,28 @@ namespace {
         std::uintmax_t OutputMaterialJsonSizeInBytes{ 0 };
     };
 
+    struct AnimationSummary final {
+    public:
+        std::size_t ClipCount{ 0 };
+        std::size_t ChannelCount{ 0 };
+        std::size_t PositionKeyCount{ 0 };
+        std::size_t RotationKeyCount{ 0 };
+        std::size_t ScaleKeyCount{ 0 };
+        std::uintmax_t InputFileSizeInBytes{ 0 };
+        std::uintmax_t OutputBinarySizeInBytes{ 0 };
+    };
+
+    struct AnimationClipSummary final {
+    public:
+        std::string Name{};
+        double Duration{ 0.0 };
+        double TicksPerSecond{ 0.0 };
+        std::size_t ChannelCount{ 0 };
+        std::size_t PositionKeyCount{ 0 };
+        std::size_t RotationKeyCount{ 0 };
+        std::size_t ScaleKeyCount{ 0 };
+    };
+
     struct NodeSummary final {
     public:
         std::uint32_t Id{ 0 };
@@ -79,12 +112,52 @@ namespace {
         return Value;
     }
 
+    bool TryParseCommand(const std::string& Value, ExportCommand& OutCommand) {
+        const std::string LowercasedValue{ ToLowercase(Value) };
+        if (LowercasedValue == "model") {
+            OutCommand = ExportCommand::Model;
+            return true;
+        }
+
+        if (LowercasedValue == "anim" || LowercasedValue == "animation" || LowercasedValue == "animationclip") {
+            OutCommand = ExportCommand::AnimationClip;
+            return true;
+        }
+
+        if (LowercasedValue == "help" || LowercasedValue == "--help" || LowercasedValue == "-h") {
+            OutCommand = ExportCommand::Help;
+            return true;
+        }
+
+        return false;
+    }
+
+    void PrintHelp() {
+        StdOutput::PrintLine("[AssetZIP] Usage");
+        StdOutput::PrintLine("[AssetZIP]   AssetZIP help");
+        StdOutput::PrintLine("[AssetZIP]   AssetZIP model <AssetFileName(.fbx|.gltf|.glb)> [--flip-uv=true|false]");
+        StdOutput::PrintLine("[AssetZIP]   AssetZIP <AssetFileName(.fbx|.gltf|.glb)> [--flip-uv=true|false]");
+        StdOutput::PrintLine("[AssetZIP]   AssetZIP animation <AssetFileName(.fbx|.gltf|.glb)>");
+        StdOutput::PrintLine("[AssetZIP]");
+        StdOutput::PrintLine("[AssetZIP] Commands");
+        StdOutput::PrintLine("[AssetZIP]   help       : Display available commands and options.");
+        StdOutput::PrintLine("[AssetZIP]   model      : Generate model binary (.bin) and material JSON.");
+        StdOutput::PrintLine("[AssetZIP]   animation  : Generate animation clip binary (.animbin).");
+        StdOutput::PrintLine("[AssetZIP]");
+        StdOutput::PrintLine("[AssetZIP] Options");
+        StdOutput::PrintLine("[AssetZIP]   --flip-uv=true|false  : Set whether to flip the UV Y-axis (model command only).");
+    }
+
     std::filesystem::path GetAssetFilePath(const std::filesystem::path& ProjectDirectoryPath, const std::string& InputFileName) {
         return ProjectDirectoryPath / "Asset" / InputFileName;
     }
 
     std::filesystem::path GetBinaryOutputPath(const std::filesystem::path& BinDirectoryPath, const std::filesystem::path& AssetFilePath) {
         return BinDirectoryPath / (AssetFilePath.stem().string() + ".bin");
+    }
+
+    std::filesystem::path GetAnimationBinaryOutputPath(const std::filesystem::path& BinDirectoryPath, const std::filesystem::path& AssetFilePath) {
+        return BinDirectoryPath / (AssetFilePath.stem().string() + ".animbin");
     }
 
     std::filesystem::path GetMaterialOutputPath(const std::filesystem::path& BinDirectoryPath, const std::filesystem::path& AssetFilePath) {
@@ -101,13 +174,39 @@ namespace {
         Importer.LoadFromFile(AssetFilePath.string(), OutModelData, OutMaterialGroups, IsUvFlipEnabled);
     }
 
+    void LoadAnimationClipsFromAssetFile(const std::filesystem::path& AssetFilePath, asset::AnimationClipResult& OutClipData) {
+        asset::AssimpAnimationClipImporter Importer{ asset::GraphicsAPI::DirectX };
+        Importer.LoadFromFile(AssetFilePath.string(), OutClipData);
+    }
+
     bool ParseOptions(int ArgumentCount, char** Arguments, Options& OutOptions) {
         if (ArgumentCount < 2) {
             return false;
         }
 
-        OutOptions.InputFileName = Arguments[1];
+        ExportCommand ParsedCommand{ ExportCommand::Model };
+        if (TryParseCommand(Arguments[1], ParsedCommand)) {
+            OutOptions.Command = ParsedCommand;
+            if (ParsedCommand == ExportCommand::Help) {
+                return true;
+            }
 
+            if (ArgumentCount < 3) {
+                return false;
+            }
+
+            OutOptions.InputFileName = Arguments[2];
+            for (int ArgumentIndex{ 3 }; ArgumentIndex < ArgumentCount; ++ArgumentIndex) {
+                const std::string Argument{ Arguments[ArgumentIndex] };
+                if (Argument.rfind("--flip-uv=", 0) == 0) {
+                    OutOptions.IsUvFlipEnabled = ToLowercase(Argument.substr(10)) == "true";
+                }
+            }
+            return true;
+        }
+
+        OutOptions.Command = ExportCommand::Model;
+        OutOptions.InputFileName = Arguments[1];
         for (int ArgumentIndex{ 2 }; ArgumentIndex < ArgumentCount; ++ArgumentIndex) {
             const std::string Argument{ Arguments[ArgumentIndex] };
             if (Argument.rfind("--flip-uv=", 0) == 0) {
@@ -249,6 +348,51 @@ namespace {
         return Summary;
     }
 
+    AnimationSummary BuildAnimationSummary(const asset::AnimationClipResult& ClipData, const std::filesystem::path& AssetFilePath, const std::filesystem::path& AnimationBinaryOutputPath) {
+        AnimationSummary Summary{};
+        Summary.ClipCount = ClipData.ClipCount();
+        Summary.InputFileSizeInBytes = GetFileSizeOrZero(AssetFilePath);
+        Summary.OutputBinarySizeInBytes = GetFileSizeOrZero(AnimationBinaryOutputPath);
+
+        for (const asset::AnimationClip& Clip : ClipData.Clips()) {
+            Summary.ChannelCount += Clip.Channels.size();
+            for (const asset::AnimationChannel& Channel : Clip.Channels) {
+                Summary.PositionKeyCount += Channel.PositionKeys.size();
+                Summary.RotationKeyCount += Channel.RotationKeys.size();
+                Summary.ScaleKeyCount += Channel.ScaleKeys.size();
+            }
+        }
+
+        return Summary;
+    }
+
+    AnimationClipSummary BuildAnimationClipSummary(const asset::AnimationClip& Clip) {
+        AnimationClipSummary Summary{};
+        Summary.Name = Clip.Name.empty() ? "<Unnamed>" : Clip.Name;
+        Summary.Duration = Clip.Duration;
+        Summary.TicksPerSecond = Clip.TicksPerSecond;
+        Summary.ChannelCount = Clip.Channels.size();
+
+        for (const asset::AnimationChannel& Channel : Clip.Channels) {
+            Summary.PositionKeyCount += Channel.PositionKeys.size();
+            Summary.RotationKeyCount += Channel.RotationKeys.size();
+            Summary.ScaleKeyCount += Channel.ScaleKeys.size();
+        }
+
+        return Summary;
+    }
+
+    std::vector<AnimationClipSummary> BuildAnimationClipSummaries(const asset::AnimationClipResult& ClipData) {
+        std::vector<AnimationClipSummary> Summaries{};
+        Summaries.reserve(ClipData.ClipCount());
+
+        for (const asset::AnimationClip& Clip : ClipData.Clips()) {
+            Summaries.push_back(BuildAnimationClipSummary(Clip));
+        }
+
+        return Summaries;
+    }
+
     void PrintNodeSummary(const NodeSummary& Summary) {
         StdOutput::PrintLine("[AssetZIP] Node #{}: {}", Summary.Id, Summary.Name);
         StdOutput::PrintLine("[AssetZIP]   Path: {}", Summary.Path);
@@ -300,14 +444,46 @@ namespace {
         StdOutput::PrintLine("[AssetZIP] Texture path property count: {}", Summary.TexturePathPropertyCount);
         StdOutput::PrintLine("[AssetZIP] PBR material count: {}", Summary.PbrMaterialCount);
     }
+
+    void PrintAnimationClipSummary(const AnimationClipSummary& Summary, std::size_t ClipIndex) {
+        StdOutput::PrintLine("[AssetZIP] Animation clip #{}: {}", ClipIndex, Summary.Name);
+        StdOutput::PrintLine("[AssetZIP]   Duration: {}, TicksPerSecond: {}", Summary.Duration, Summary.TicksPerSecond);
+        StdOutput::PrintLine("[AssetZIP]   Channels: {}, PositionKeys: {}, RotationKeys: {}, ScaleKeys: {}", Summary.ChannelCount, Summary.PositionKeyCount, Summary.RotationKeyCount, Summary.ScaleKeyCount);
+    }
+
+    void PrintAnimationClipSummaries(const std::vector<AnimationClipSummary>& Summaries) {
+        StdOutput::PrintLine("[AssetZIP] Animation clip processing results begin");
+
+        for (std::size_t Index{ 0 }; Index < Summaries.size(); ++Index) {
+            PrintAnimationClipSummary(Summaries[Index], Index);
+            StdOutput::PrintLine("[AssetZIP]");
+        }
+
+        StdOutput::PrintLine("[AssetZIP] Animation clip processing results end");
+    }
+
+    void PrintAnimationSummary(const AnimationSummary& Summary) {
+        StdOutput::PrintLine("[AssetZIP] Animation clip count: {}", Summary.ClipCount);
+        StdOutput::PrintLine("[AssetZIP] Animation channel count: {}", Summary.ChannelCount);
+        StdOutput::PrintLine("[AssetZIP] Animation position key count: {}", Summary.PositionKeyCount);
+        StdOutput::PrintLine("[AssetZIP] Animation rotation key count: {}", Summary.RotationKeyCount);
+        StdOutput::PrintLine("[AssetZIP] Animation scale key count: {}", Summary.ScaleKeyCount);
+        StdOutput::PrintLine("[AssetZIP] Input file size(bytes): {}", Summary.InputFileSizeInBytes);
+        StdOutput::PrintLine("[AssetZIP] Output animation binary size(bytes): {}", Summary.OutputBinarySizeInBytes);
+    }
 }
 
 int main(int ArgumentCount, char** Arguments) {
     try {
         Options ParsedOptions{};
         if (ParseOptions(ArgumentCount, Arguments, ParsedOptions) == false) {
-            StdOutput::PrintErrorLine("[AssetZIP] Usage: AssetZIP <AssetFileName(.fbx|.gltf|.glb)> [--flip-uv=true|false]");
+            PrintHelp();
             return 1;
+        }
+
+        if (ParsedOptions.Command == ExportCommand::Help) {
+            PrintHelp();
+            return 0;
         }
 
         const std::filesystem::path ProjectDirectoryPath{ std::filesystem::current_path() };
@@ -315,6 +491,7 @@ int main(int ArgumentCount, char** Arguments) {
         const std::filesystem::path AssetFilePath{ GetAssetFilePath(ProjectDirectoryPath, ParsedOptions.InputFileName) };
         const std::filesystem::path BinaryOutputPath{ GetBinaryOutputPath(BinDirectoryPath, AssetFilePath) };
         const std::filesystem::path MaterialOutputPath{ GetMaterialOutputPath(BinDirectoryPath, AssetFilePath) };
+        const std::filesystem::path AnimationBinaryOutputPath{ GetAnimationBinaryOutputPath(BinDirectoryPath, AssetFilePath) };
 
         if (std::filesystem::exists(AssetFilePath) == false) {
             StdOutput::PrintErrorLine("[AssetZIP] Input asset file was not found: {}", AssetFilePath.string());
@@ -331,6 +508,26 @@ int main(int ArgumentCount, char** Arguments) {
         if (ErrorCode) {
             StdOutput::PrintErrorLine("[AssetZIP] Failed to create Bin directory: {}", BinDirectoryPath.string());
             return 1;
+        }
+
+        if (ParsedOptions.Command == ExportCommand::AnimationClip) {
+            asset::AnimationClipResult AnimationClipData{};
+            LoadAnimationClipsFromAssetFile(AssetFilePath, AnimationClipData);
+
+            asset::AnimationClipBinaryWriter AnimationBinaryWriter{};
+            if (AnimationBinaryWriter.WriteToFile(AnimationBinaryOutputPath.string(), AnimationClipData) == false) {
+                StdOutput::PrintErrorLine("[AssetZIP] Failed to create animation binary file: {}", AnimationBinaryOutputPath.string());
+                return 1;
+            }
+
+            const std::vector<AnimationClipSummary> AnimationClipSummaries{ BuildAnimationClipSummaries(AnimationClipData) };
+            const AnimationSummary AnimationDataSummary{ BuildAnimationSummary(AnimationClipData, AssetFilePath, AnimationBinaryOutputPath) };
+            StdOutput::PrintLine("[AssetZIP] Export command: animation");
+            StdOutput::PrintLine("[AssetZIP] Input file: {}", AssetFilePath.string());
+            StdOutput::PrintLine("[AssetZIP] Output animation binary: {}", AnimationBinaryOutputPath.string());
+            PrintAnimationClipSummaries(AnimationClipSummaries);
+            PrintAnimationSummary(AnimationDataSummary);
+            return 0;
         }
 
         asset::ModelResult ModelData{};
@@ -353,6 +550,7 @@ int main(int ArgumentCount, char** Arguments) {
         const ModelSummary ModelDataSummary{ BuildModelSummary(ModelData, AssetFilePath, BinaryOutputPath, MaterialOutputPath) };
         const MaterialSummary MaterialDataSummary{ BuildMaterialSummary(MaterialGroups) };
 
+        StdOutput::PrintLine("[AssetZIP] Export command: model");
         StdOutput::PrintLine("[AssetZIP] Input file: {}", AssetFilePath.string());
         StdOutput::PrintLine("[AssetZIP] Output binary: {}", BinaryOutputPath.string());
         StdOutput::PrintLine("[AssetZIP] Output material JSON: {}", MaterialOutputPath.string());
