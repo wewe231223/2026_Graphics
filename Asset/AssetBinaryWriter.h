@@ -1,11 +1,11 @@
-﻿// Asset Binary Format Specification (Current: Version 7):
+﻿// Asset Binary Format Specification (Current: Version 8):
 //┌──────────────────────────────────────────────────────────────────────────────┐
 //│                                [HEADER SECTION]                              │
 //├──────────────┬────────────────┬──────────────────────────────────────────────┤
 //│    OFFSET    │      NAME      │                  DATA TYPE                   │
 //├──────────────┼────────────────┼──────────────────────────────────────────────┤
 //│    0x00      │     Magic      │ char[4]("FBXB")                              │
-//│    0x04      │ FormatVersion  │ uint32 (7)                                   │
+//│    0x04      │ FormatVersion  │ uint32 (8)                                   │
 //└──────────────┴────────────────┴──────────────────────────────────────────────┘
 //
 //                                   │
@@ -34,6 +34,7 @@
 //       │ InverseBindMatrix     │ Mat4                                     │
 //       ├───────────────────────┴──────────────────────────────────────────┤
 //       │ IsSkinnedMesh         │ bool (stored as uint8)                   │
+//       │ SkinBoneRootNodeName  │ string                                   │
 //       ├───────────────────────┴──────────────────────────────────────────┤
 //       │ < VertexAttributes >                                               │
 //       ├───────────────────────┬──────────────────────────────────────────┤
@@ -84,6 +85,7 @@ namespace asset {
         void WriteNode(const ModelNode& Node, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices);
         void WriteBoneInfos(const std::vector<ModelBoneInfo>& BoneInfos);
         void WriteSkinnedMeshFlag(const ModelNode& Node);
+        void WriteSkinBoneRootNodeName(const ModelNode& Node);
         void WriteVertexAttributes(const VertexAttributes& Attributes);
         void WriteSubMeshes(const std::vector<ModelNode::SubMesh>& SubMeshes);
         void WriteVec2Array(std::span<const Vec2> Values);

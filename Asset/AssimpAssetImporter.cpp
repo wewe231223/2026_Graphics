@@ -6,6 +6,7 @@
 #include <initializer_list>
 #include <limits>
 #include <string>
+#include <unordered_set>
 #include <unordered_map>
 #include <assimp/Importer.hpp>
 #include <assimp/GltfMaterial.h>
@@ -358,7 +359,69 @@ namespace asset {
             }
         }
 
-        void BuildNodeRecursive(const aiScene& Scene, const aiNode& SceneNode, ModelResult& OutModelData, ModelNode* ParentNode, bool IsUvFlipEnabled) {
+        void BuildAssimpNodeLookupRecursive(const aiNode& SceneNode, std::unordered_map<std::string, const aiNode*>& InOutNodeLookup) {
+            InOutNodeLookup.insert_or_assign(std::string{ SceneNode.mName.C_Str() }, &SceneNode);
+
+            for (unsigned int ChildIndex{ 0 }; ChildIndex < SceneNode.mNumChildren; ++ChildIndex) {
+                BuildAssimpNodeLookupRecursive(*SceneNode.mChildren[ChildIndex], InOutNodeLookup);
+            }
+        }
+
+        const aiNode* FindLowestCommonAncestor(const aiNode* LeftNode, const aiNode* RightNode) {
+            if (LeftNode == nullptr || RightNode == nullptr) {
+                return nullptr;
+            }
+
+            std::unordered_set<const aiNode*> LeftAncestors{};
+            const aiNode* CurrentLeft{ LeftNode };
+            while (CurrentLeft != nullptr) {
+                LeftAncestors.insert(CurrentLeft);
+                CurrentLeft = CurrentLeft->mParent;
+            }
+
+            const aiNode* CurrentRight{ RightNode };
+            while (CurrentRight != nullptr) {
+                if (LeftAncestors.find(CurrentRight) != LeftAncestors.end()) {
+                    return CurrentRight;
+                }
+
+                CurrentRight = CurrentRight->mParent;
+            }
+
+            return nullptr;
+        }
+
+        const aiNode* ResolveSkinBoneRootNode(const aiScene& Scene, const aiNode& SceneNode, const std::unordered_map<std::string, const aiNode*>& NodeLookup) {
+            const aiNode* CommonAncestor{ nullptr };
+            bool HasBoneNode{ false };
+
+            for (unsigned int MeshIndex{ 0 }; MeshIndex < SceneNode.mNumMeshes; ++MeshIndex) {
+                const aiMesh& Mesh{ *Scene.mMeshes[SceneNode.mMeshes[MeshIndex]] };
+                for (unsigned int BoneIndex{ 0 }; BoneIndex < Mesh.mNumBones; ++BoneIndex) {
+                    const aiBone& Bone{ *Mesh.mBones[BoneIndex] };
+                    const std::unordered_map<std::string, const aiNode*>::const_iterator FoundBoneNode{ NodeLookup.find(std::string{ Bone.mName.C_Str() }) };
+                    if (FoundBoneNode == NodeLookup.end()) {
+                        continue;
+                    }
+
+                    if (HasBoneNode == false) {
+                        CommonAncestor = FoundBoneNode->second;
+                        HasBoneNode = true;
+                    }
+                    else {
+                        CommonAncestor = FindLowestCommonAncestor(CommonAncestor, FoundBoneNode->second);
+                    }
+
+                    if (CommonAncestor == nullptr) {
+                        return nullptr;
+                    }
+                }
+            }
+
+            return CommonAncestor;
+        }
+
+        void BuildNodeRecursive(const aiScene& Scene, const aiNode& SceneNode, const std::unordered_map<std::string, const aiNode*>& NodeLookup, ModelResult& OutModelData, ModelNode* ParentNode, bool IsUvFlipEnabled) {
             ModelNode& Node{ OutModelData.CreateNode(SceneNode.mName.C_Str(), ParentNode) };
             Node.SetNodeToParent(ToMat4(SceneNode.mTransformation));
             const std::uint32_t SkinArrayIndex{ Node.GetId() };
@@ -369,8 +432,15 @@ namespace asset {
                 ProcessMesh(Mesh, Mesh.mMaterialIndex, IsUvFlipEnabled, SkinArrayIndex, Node, JointLookup);
             }
 
+            if (Node.IsSkinnedMesh() == true) {
+                const aiNode* SkinBoneRootNode{ ResolveSkinBoneRootNode(Scene, SceneNode, NodeLookup) };
+                if (SkinBoneRootNode != nullptr) {
+                    Node.SetSkinBoneRootNodeName(std::string{ SkinBoneRootNode->mName.C_Str() });
+                }
+            }
+
             for (unsigned int ChildIndex{ 0 }; ChildIndex < SceneNode.mNumChildren; ++ChildIndex) {
-                BuildNodeRecursive(Scene, *SceneNode.mChildren[ChildIndex], OutModelData, &Node, IsUvFlipEnabled);
+                BuildNodeRecursive(Scene, *SceneNode.mChildren[ChildIndex], NodeLookup, OutModelData, &Node, IsUvFlipEnabled);
             }
         }
     }
@@ -409,6 +479,9 @@ namespace asset {
         }
 
         OutMaterialGroups.push_back(std::move(Group));
-        BuildNodeRecursive(*Scene, *Scene->mRootNode, OutModelData, nullptr, IsUvFlipEnabled);
+
+        std::unordered_map<std::string, const aiNode*> NodeLookup{};
+        BuildAssimpNodeLookupRecursive(*Scene->mRootNode, NodeLookup);
+        BuildNodeRecursive(*Scene, *Scene->mRootNode, NodeLookup, OutModelData, nullptr, IsUvFlipEnabled);
     }
 }

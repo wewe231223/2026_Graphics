@@ -104,8 +104,6 @@ namespace Game {
             NodeEntities[NodeIndex] = CreateEntity(true);
         }
 
-        const Arche::EntityID BoneRootEntityId{ ResolveSingleBoneRootEntityId(*SourceModel, ModelNodes, NodeEntities) };
-
         for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
             Transform NodeTransform{};
             NodeTransform.nodeToParent = ModelNodes[NodeIndex].GetNodeToParent();
@@ -148,6 +146,7 @@ namespace Game {
             }
 
             if (ModelNodes[NodeIndex].IsSkinnedMesh() == true) {
+                const Arche::EntityID BoneRootEntityId{ ResolveBoneRootEntityId(*SourceModel, ModelNodes[NodeIndex], NodeEntities) };
                 BoneSkinReference NodeBoneSkinReference{};
                 NodeBoneSkinReference.boneRootEntityId = BoneRootEntityId;
                 AddBoneSkinReference(NodeEntities[NodeIndex], NodeBoneSkinReference);
@@ -272,50 +271,27 @@ namespace Game {
         *ExistingAnimator = AnimatorComponent;
     }
 
-    Arche::EntityID SceneEntityFactory::ResolveSingleBoneRootEntityId(const Model& ModelData, const std::vector<ModelNode>& ModelNodes, const std::vector<Arche::EntityID>& NodeEntities) const {
-        if (ModelNodes.size() != NodeEntities.size()) {
+    Arche::EntityID SceneEntityFactory::ResolveBoneRootEntityId(const Model& ModelData, const ModelNode& ModelNodeData, const std::vector<Arche::EntityID>& NodeEntities) const {
+        const std::string& SkinBoneRootNodeName{ ModelNodeData.GetSkinBoneRootNodeName() };
+        if (SkinBoneRootNodeName.empty() == true) {
             return Arche::NullEntityID;
         }
 
-        std::vector<std::int32_t> ParentIndices(ModelNodes.size(), -1);
-        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
-            const std::vector<std::uint32_t>& Children{ ModelNodes[NodeIndex].GetChildren() };
-            for (std::uint32_t ChildNodeIndex : Children) {
-                if (ChildNodeIndex >= ParentIndices.size()) {
-                    continue;
-                }
-
-                ParentIndices[ChildNodeIndex] = static_cast<std::int32_t>(NodeIndex);
-            }
-        }
-
-        std::vector<std::size_t> BoneRootNodeIndices{};
-        for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
-            std::uint32_t RuntimeBoneInfoOffset{ 0 };
-            std::uint32_t RuntimeBoneInfoCount{ 0 };
-            const bool HasRuntimeBoneInfos{ ModelData.TryGetRuntimeBoneInfoRange(static_cast<std::uint32_t>(NodeIndex), RuntimeBoneInfoOffset, RuntimeBoneInfoCount) };
-            static_cast<void>(RuntimeBoneInfoOffset);
-            static_cast<void>(RuntimeBoneInfoCount);
-            if (HasRuntimeBoneInfos == false) {
-                continue;
-            }
-
-            const std::int32_t ParentIndex{ ParentIndices[NodeIndex] };
-            std::uint32_t ParentRuntimeBoneInfoOffset{ 0 };
-            std::uint32_t ParentRuntimeBoneInfoCount{ 0 };
-            const bool HasBoneParent{ ParentIndex >= 0 && ModelData.TryGetRuntimeBoneInfoRange(static_cast<std::uint32_t>(ParentIndex), ParentRuntimeBoneInfoOffset, ParentRuntimeBoneInfoCount) == true };
-            static_cast<void>(ParentRuntimeBoneInfoOffset);
-            static_cast<void>(ParentRuntimeBoneInfoCount);
-            if (HasBoneParent == false) {
-                BoneRootNodeIndices.push_back(NodeIndex);
-            }
-        }
-
-        if (BoneRootNodeIndices.size() != 1) {
+        const ModelNode* BoneRootNode{ ModelData.FindNodeByName(SkinBoneRootNodeName) };
+        if (BoneRootNode == nullptr) {
             return Arche::NullEntityID;
         }
 
-        return NodeEntities[BoneRootNodeIndices.front()];
+        std::uint32_t BoneRootNodeIndex{ 0 };
+        if (ModelData.TryFindNodeIndexById(BoneRootNode->GetId(), BoneRootNodeIndex) == false) {
+            return Arche::NullEntityID;
+        }
+
+        if (BoneRootNodeIndex >= NodeEntities.size()) {
+            return Arche::NullEntityID;
+        }
+
+        return NodeEntities[BoneRootNodeIndex];
     }
 
 

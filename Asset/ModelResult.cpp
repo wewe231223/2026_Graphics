@@ -83,6 +83,14 @@ namespace asset {
         return mIsSkinnedMesh;
     }
 
+    void ModelNode::SetSkinBoneRootNodeName(std::string SkinBoneRootNodeName) {
+        mSkinBoneRootNodeName = std::move(SkinBoneRootNodeName);
+    }
+
+    const std::string& ModelNode::GetSkinBoneRootNodeName() const {
+        return mSkinBoneRootNodeName;
+    }
+
     std::vector<const ModelNode*> ModelNode::GetChildChain() const {
         std::vector<const ModelNode*> Chain{};
         const ModelNode* Current{ this };

@@ -61,7 +61,7 @@ namespace Game {
         void AddBoneSkinReference(Arche::EntityID EntityId, const BoneSkinReference& BoneSkinReferenceComponent);
         void AddAnimator(Arche::EntityID EntityId, const Animator& AnimatorComponent);
 
-        Arche::EntityID ResolveSingleBoneRootEntityId(const Model& ModelData, const std::vector<ModelNode>& ModelNodes, const std::vector<Arche::EntityID>& NodeEntities) const;
+        Arche::EntityID ResolveBoneRootEntityId(const Model& ModelData, const ModelNode& ModelNodeData, const std::vector<Arche::EntityID>& NodeEntities) const;
         std::string ResolveNodeName(const ModelNode& SourceNode, std::size_t NodeIndex, std::size_t RootNodeIndex, const std::string& RootEntityName) const;
 
     private:

@@ -65,6 +65,8 @@ namespace asset {
 
         void SetIsSkinnedMesh(bool IsSkinnedMesh);
         bool IsSkinnedMesh() const;
+        void SetSkinBoneRootNodeName(std::string SkinBoneRootNodeName);
+        const std::string& GetSkinBoneRootNodeName() const;
 
         std::vector<const ModelNode*> GetChildChain() const;
         void SetSubMeshes(std::vector<SubMesh> SubMeshes);
@@ -81,6 +83,7 @@ namespace asset {
         std::vector<SubMesh> mSubMeshes{};
         std::vector<ModelBoneInfo> mBoneInfos{};
         bool mIsSkinnedMesh{ false };
+        std::string mSkinBoneRootNodeName{};
     };
 
     class ModelResult final {

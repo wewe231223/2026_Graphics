@@ -94,6 +94,7 @@ namespace {
         std::uint32_t Id{ 0 };
         std::string Name{};
         std::string Path{};
+        std::string SkinBoneRootNodeName{};
         std::size_t Depth{ 0 };
         std::size_t ChildCount{ 0 };
         std::size_t SubMeshCount{ 0 };
@@ -282,6 +283,7 @@ namespace {
         Summary.Id = Node.GetId();
         Summary.Name = Node.GetName().empty() ? "<Unnamed>" : Node.GetName();
         Summary.Path = BuildNodePath(Node);
+        Summary.SkinBoneRootNodeName = Node.GetSkinBoneRootNodeName();
         Summary.Depth = NodeChain.empty() ? 0 : NodeChain.size() - 1;
         Summary.ChildCount = Node.GetChildren().size();
         Summary.SubMeshCount = SubMeshes.size();
@@ -397,6 +399,7 @@ namespace {
         StdOutput::PrintLine("[AssetZIP] Node #{}: {}", Summary.Id, Summary.Name);
         StdOutput::PrintLine("[AssetZIP]   Path: {}", Summary.Path);
         StdOutput::PrintLine("[AssetZIP]   Depth: {}, Children: {}, Mesh: {}, Skinned: {}", Summary.Depth, Summary.ChildCount, Summary.IsMeshNode ? "true" : "false", Summary.IsSkinnedMesh ? "true" : "false");
+        StdOutput::PrintLine("[AssetZIP]   SkinBoneRootNodeName: {}", Summary.SkinBoneRootNodeName.empty() ? "<None>" : Summary.SkinBoneRootNodeName);
         StdOutput::PrintLine("[AssetZIP]   SubMeshes: {}, Vertices: {}, Indices: {}, Triangles: {}, Bones: {}", Summary.SubMeshCount, Summary.VertexCount, Summary.IndexCount, Summary.TriangleCount, Summary.BoneInfoCount);
     }
 

@@ -6,7 +6,7 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 7 };
+    constexpr std::uint32_t FormatVersion{ 8 };
     constexpr std::array<char, 4> FormatMagic{ 'F', 'B', 'X', 'B' };
 }
 
@@ -32,7 +32,7 @@ bool AssetBinaryReader::ReadHeader() {
         return false;
     }
     const std::uint32_t Version{ ReadUint32() };
-    if (Version != 1 && Version != 2 && Version != 3 && Version != 4 && Version != 5 && Version != 6 && Version != FormatVersion) {
+    if (Version != 1 && Version != 2 && Version != 3 && Version != 4 && Version != 5 && Version != 6 && Version != 7 && Version != FormatVersion) {
         return false;
     }
     mFormatVersion = Version;
@@ -70,6 +70,10 @@ void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, 
             }
             else {
                 Node.SetIsSkinnedMesh(ReadBool());
+            }
+
+            if (mFormatVersion >= 8) {
+                ReadSkinBoneRootNodeName(Node);
             }
         }
         else {
@@ -118,6 +122,10 @@ std::vector<ModelBoneInfo> AssetBinaryReader::ReadBoneInfos() {
 
 void AssetBinaryReader::ReadSkinnedMeshFlag(ModelNode& Node) {
     Node.SetIsSkinnedMesh(ReadBool());
+}
+
+void AssetBinaryReader::ReadSkinBoneRootNodeName(ModelNode& Node) {
+    Node.SetSkinBoneRootNodeName(ReadString());
 }
 
 void AssetBinaryReader::ReadVertexAttributes(VertexAttributes& Attributes) {

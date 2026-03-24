@@ -1,11 +1,11 @@
-﻿// Asset Binary Format Specification (Current: Version 7):
+﻿// Asset Binary Format Specification (Current: Version 8):
 //┌──────────────────────────────────────────────────────────────────────────────┐
 //│                                [HEADER SECTION]                              │
 //├──────────────┬────────────────┬──────────────────────────────────────────────┤
 //│    OFFSET    │      NAME      │                  DATA TYPE                   │
 //├──────────────┼────────────────┼──────────────────────────────────────────────┤
 //│    0x00      │     Magic      │ char[4]("FBXB")                              │
-//│    0x04      │ FormatVersion  │ uint32 (7)                                   │
+//│    0x04      │ FormatVersion  │ uint32 (8)                                   │
 //└──────────────┴────────────────┴──────────────────────────────────────────────┘
 //
 //                                   │
@@ -34,6 +34,7 @@
 //       │ InverseBindMatrix     │ Mat4                                     │
 //       ├───────────────────────┴──────────────────────────────────────────┤
 //       │ IsSkinnedMesh         │ bool (stored as uint8)                   │
+//       │ SkinBoneRootNodeName  │ string                                   │
 //       ├───────────────────────┴──────────────────────────────────────────┤
 //       │ < VertexAttributes >                                             │
 //       ├───────────────────────┬──────────────────────────────────────────┤
@@ -84,6 +85,7 @@ namespace asset {
         void ReadNodes(ModelResult& Result, std::uint64_t NodeCount, std::vector<ModelNode*>& Nodes);
         std::vector<ModelBoneInfo> ReadBoneInfos();
         void ReadSkinnedMeshFlag(ModelNode& Node);
+        void ReadSkinBoneRootNodeName(ModelNode& Node);
         void ReadVertexAttributes(VertexAttributes& Attributes);
         std::vector<ModelNode::SubMesh> ReadSubMeshes();
         std::vector<Vec2> ReadVec2Array();

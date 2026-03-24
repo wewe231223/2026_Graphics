@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.11.35312.102
+# Visual Studio Version 18
+VisualStudioVersion = 18.5.11612.153 insiders
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "2026_Graphics", "2026_Graphics.vcxproj", "{A0370B75-AC05-4833-A0FF-EE4F84B7BEBF}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -20,6 +20,9 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Game", "Game\Game.vcxproj", "{BE25E620-7914-415B-B62D-865E31371758}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AssetZIP", "AssetZIP\AssetZIP.vcxproj", "{F302356E-B4A6-47BB-B7CE-B34A764C979E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{9D456501-C3DF-4A7C-9E19-0AA43B1FA580} = {9D456501-C3DF-4A7C-9E19-0AA43B1FA580}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Widget", "Widget\Widget.vcxproj", "{D0FD78DB-4FD6-48A5-8AF9-E87351A3986B}"
 EndProject

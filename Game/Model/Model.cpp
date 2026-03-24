@@ -65,6 +65,7 @@ namespace Game {
         mSubMeshes{},
         mBoneInfos{},
         mIsSkinnedMesh{ false },
+        mSkinBoneRootNodeName{},
         mVertexRawData{},
         mVertexAttributeRanges{},
         mVertexAllocation{},
@@ -86,6 +87,7 @@ namespace Game {
         mSubMeshes{ std::move(Other.mSubMeshes) },
         mBoneInfos{ std::move(Other.mBoneInfos) },
         mIsSkinnedMesh{ Other.mIsSkinnedMesh },
+        mSkinBoneRootNodeName{ std::move(Other.mSkinBoneRootNodeName) },
         mVertexRawData{ std::move(Other.mVertexRawData) },
         mVertexAttributeRanges{ std::move(Other.mVertexAttributeRanges) },
         mVertexAllocation{ std::move(Other.mVertexAllocation) },
@@ -112,6 +114,7 @@ namespace Game {
         mSubMeshes = std::move(Other.mSubMeshes);
         mBoneInfos = std::move(Other.mBoneInfos);
         mIsSkinnedMesh = Other.mIsSkinnedMesh;
+        mSkinBoneRootNodeName = std::move(Other.mSkinBoneRootNodeName);
         mVertexRawData = std::move(Other.mVertexRawData);
         mVertexAttributeRanges = std::move(Other.mVertexAttributeRanges);
         mVertexAllocation = std::move(Other.mVertexAllocation);
@@ -165,6 +168,10 @@ namespace Game {
         return mIsSkinnedMesh;
     }
 
+    const std::string& ModelNode::GetSkinBoneRootNodeName() const {
+        return mSkinBoneRootNodeName;
+    }
+
     bool ModelNode::HasVertexData() const {
         return mHasVertexData;
     }
@@ -212,6 +219,10 @@ namespace Game {
         mSubMeshes = std::move(SubMeshesValue);
         mBoneInfos = std::move(BoneInfosValue);
         mIsSkinnedMesh = IsSkinnedMeshValue;
+    }
+
+    void ModelNode::SetSkinBoneRootNodeName(std::string SkinBoneRootNodeName) {
+        mSkinBoneRootNodeName = std::move(SkinBoneRootNodeName);
     }
 
     void ModelNode::SetVertexData(std::vector<std::byte> VertexRawDataValue, std::vector<VertexAttributeRange> VertexAttributeRangesValue, std::unique_ptr<Interface::IAllocationHandle> VertexAllocationValue, std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViewsValue) {
@@ -338,6 +349,7 @@ namespace Game {
             }
 
             DestinationNode.SetBasicData(SourceNode.GetId(), SourceNode.GetName(), SourceNode.GetNodeToParent(), std::move(Children), std::move(SubMeshes), std::move(BoneInfos), SourceNode.IsSkinnedMesh());
+            DestinationNode.SetSkinBoneRootNodeName(SourceNode.GetSkinBoneRootNodeName());
 
             std::vector<std::byte> VertexRawData{};
             std::vector<ModelNode::VertexAttributeRange> VertexRanges{};

@@ -5,7 +5,7 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 7 };
+    constexpr std::uint32_t FormatVersion{ 8 };
     constexpr char FormatMagic[4]{ 'F', 'B', 'X', 'B' };
 }
 
@@ -73,6 +73,7 @@ void AssetBinaryWriter::WriteNode(const ModelNode& Node, const std::unordered_ma
     static_cast<void>(NodeIndices);
     WriteBoneInfos(Node.BoneInfos());
     WriteSkinnedMeshFlag(Node);
+    WriteSkinBoneRootNodeName(Node);
     WriteVertexAttributes(Node.Vertices());
     WriteUint32Array(Node.Indices());
     WriteSubMeshes(Node.GetSubMeshes());
@@ -90,6 +91,10 @@ void AssetBinaryWriter::WriteBoneInfos(const std::vector<ModelBoneInfo>& BoneInf
 
 void AssetBinaryWriter::WriteSkinnedMeshFlag(const ModelNode& Node) {
     WriteBool(Node.IsSkinnedMesh());
+}
+
+void AssetBinaryWriter::WriteSkinBoneRootNodeName(const ModelNode& Node) {
+    WriteString(Node.GetSkinBoneRootNodeName());
 }
 
 void AssetBinaryWriter::WriteVertexAttributes(const VertexAttributes& Attributes) {
