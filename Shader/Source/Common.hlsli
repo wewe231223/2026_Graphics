@@ -117,7 +117,7 @@ float3 ApplyDirectionalLight(float3 BaseRgb, float3 WorldNormal)
     const float3 NormalizedNormal = normalize(WorldNormal);
     const float3 LightDirection = normalize(float3(0.4f, -1.0f, 0.35f));
     const float3 LightColor = float3(1.0f, 0.97f, 0.92f);
-    const float AmbientIntensity = 0.15f;
+    const float AmbientIntensity = 0.6f;
     const float DiffuseIntensity = saturate(dot(NormalizedNormal, -LightDirection));
 
     const float3 LitColor = BaseRgb * (AmbientIntensity + (DiffuseIntensity * LightColor));

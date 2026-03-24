@@ -98,7 +98,8 @@
                                 "Kind": "None"
                             },
                             "Diffuse Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String": "Body_Base_Color"
                             },
                             "Specular Texture": {
                                 "Kind": "None"
@@ -222,7 +223,8 @@
                                 "Kind": "None"
                             },
                             "Diffuse Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String": "HeadGear_Base_Color"
                             },
                             "Specular Texture": {
                                 "Kind": "None"
@@ -346,7 +348,8 @@
                                 "Kind": "None"
                             },
                             "Diffuse Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String": "eyslashes01"
                             },
                             "Specular Texture": {
                                 "Kind": "None"
@@ -470,7 +473,8 @@
                                 "Kind": "None"
                             },
                             "Diffuse Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String" : "KSVR_Base_Color"
                             },
                             "Specular Texture": {
                                 "Kind": "None"
