@@ -276,7 +276,7 @@ namespace asset {
             }
         }
 
-        std::uint32_t ResolveNodeGlobalJointIndex(const aiBone& Bone, std::unordered_map<std::string, std::uint32_t>& InOutJointLookup, std::vector<ModelBoneInfo>& InOutBoneInfos) {
+        std::uint32_t ResolveNodeGlobalJointIndex(const aiBone& Bone, std::uint32_t SkinArrayIndex, std::unordered_map<std::string, std::uint32_t>& InOutJointLookup, std::vector<ModelBoneInfo>& InOutBoneInfos) {
             const std::string BoneName{ Bone.mName.C_Str() };
             const std::unordered_map<std::string, std::uint32_t>::const_iterator FoundJointIndex{ InOutJointLookup.find(BoneName) };
             if (FoundJointIndex != InOutJointLookup.end()) {
@@ -285,7 +285,7 @@ namespace asset {
 
             const std::uint32_t JointIndex{ static_cast<std::uint32_t>(InOutBoneInfos.size()) };
             ModelBoneInfo BoneInfo{};
-            BoneInfo.SkinArrayIndex = 0;
+            BoneInfo.SkinArrayIndex = SkinArrayIndex;
             BoneInfo.JointArrayIndex = JointIndex;
             BoneInfo.BoneName = BoneName;
             BoneInfo.InverseBindMatrix = ToMat4(Bone.mOffsetMatrix);
@@ -294,7 +294,7 @@ namespace asset {
             return JointIndex;
         }
 
-        void ProcessMesh(const aiMesh& Mesh, std::uint32_t MaterialIndex, bool IsUvFlipEnabled, ModelNode& OutNode, std::unordered_map<std::string, std::uint32_t>& InOutJointLookup) {
+        void ProcessMesh(const aiMesh& Mesh, std::uint32_t MaterialIndex, bool IsUvFlipEnabled, std::uint32_t SkinArrayIndex, ModelNode& OutNode, std::unordered_map<std::string, std::uint32_t>& InOutJointLookup) {
             VertexAttributes& Vertices{ OutNode.Vertices() };
             std::vector<std::uint32_t>& Indices{ OutNode.Indices() };
             std::vector<ModelBoneInfo>& BoneInfos{ OutNode.BoneInfos() };
@@ -316,7 +316,7 @@ namespace asset {
 
             for (unsigned int BoneIndex{ 0 }; BoneIndex < Mesh.mNumBones; ++BoneIndex) {
                 const aiBone& Bone{ *Mesh.mBones[BoneIndex] };
-                const std::uint32_t JointIndex{ ResolveNodeGlobalJointIndex(Bone, InOutJointLookup, BoneInfos) };
+                const std::uint32_t JointIndex{ ResolveNodeGlobalJointIndex(Bone, SkinArrayIndex, InOutJointLookup, BoneInfos) };
 
                 for (unsigned int WeightIndex{ 0 }; WeightIndex < Bone.mNumWeights; ++WeightIndex) {
                     const aiVertexWeight& Weight{ Bone.mWeights[WeightIndex] };
@@ -361,11 +361,12 @@ namespace asset {
         void BuildNodeRecursive(const aiScene& Scene, const aiNode& SceneNode, ModelResult& OutModelData, ModelNode* ParentNode, bool IsUvFlipEnabled) {
             ModelNode& Node{ OutModelData.CreateNode(SceneNode.mName.C_Str(), ParentNode) };
             Node.SetNodeToParent(ToMat4(SceneNode.mTransformation));
+            const std::uint32_t SkinArrayIndex{ Node.GetId() };
 
             std::unordered_map<std::string, std::uint32_t> JointLookup{};
             for (unsigned int MeshIndex{ 0 }; MeshIndex < SceneNode.mNumMeshes; ++MeshIndex) {
                 const aiMesh& Mesh{ *Scene.mMeshes[SceneNode.mMeshes[MeshIndex]] };
-                ProcessMesh(Mesh, Mesh.mMaterialIndex, IsUvFlipEnabled, Node, JointLookup);
+                ProcessMesh(Mesh, Mesh.mMaterialIndex, IsUvFlipEnabled, SkinArrayIndex, Node, JointLookup);
             }
 
             for (unsigned int ChildIndex{ 0 }; ChildIndex < SceneNode.mNumChildren; ++ChildIndex) {

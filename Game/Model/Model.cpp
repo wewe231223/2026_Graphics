@@ -234,6 +234,7 @@ namespace Game {
         mRuntimeBoneInfos{},
         mRuntimeBoneInfoRanges{},
         mRuntimeBoneMatrixCount{ 0 },
+        mRuntimeBoneMatrixCountBySkin{},
         mRootNodeIndex{ 0 },
         mHasRootNode{ false } {
     }
@@ -247,9 +248,11 @@ namespace Game {
         mRuntimeBoneInfos{ std::move(Other.mRuntimeBoneInfos) },
         mRuntimeBoneInfoRanges{ std::move(Other.mRuntimeBoneInfoRanges) },
         mRuntimeBoneMatrixCount{ Other.mRuntimeBoneMatrixCount },
+        mRuntimeBoneMatrixCountBySkin{ std::move(Other.mRuntimeBoneMatrixCountBySkin) },
         mRootNodeIndex{ Other.mRootNodeIndex },
         mHasRootNode{ Other.mHasRootNode } {
         Other.mRuntimeBoneMatrixCount = 0;
+        Other.mRuntimeBoneMatrixCountBySkin.clear();
         Other.mRootNodeIndex = 0;
         Other.mHasRootNode = false;
     }
@@ -264,9 +267,11 @@ namespace Game {
         mRuntimeBoneInfos = std::move(Other.mRuntimeBoneInfos);
         mRuntimeBoneInfoRanges = std::move(Other.mRuntimeBoneInfoRanges);
         mRuntimeBoneMatrixCount = Other.mRuntimeBoneMatrixCount;
+        mRuntimeBoneMatrixCountBySkin = std::move(Other.mRuntimeBoneMatrixCountBySkin);
         mRootNodeIndex = Other.mRootNodeIndex;
         mHasRootNode = Other.mHasRootNode;
         Other.mRuntimeBoneMatrixCount = 0;
+        Other.mRuntimeBoneMatrixCountBySkin.clear();
         Other.mRootNodeIndex = 0;
         Other.mHasRootNode = false;
         return *this;
@@ -282,6 +287,7 @@ namespace Game {
         mRuntimeBoneInfos.clear();
         mRuntimeBoneInfoRanges.clear();
         mRuntimeBoneMatrixCount = 0;
+        mRuntimeBoneMatrixCountBySkin.clear();
         mRootNodeIndex = 0;
         mHasRootNode = false;
 
@@ -402,11 +408,23 @@ namespace Game {
         return mRuntimeBoneMatrixCount;
     }
 
+    bool Model::TryGetRuntimeBoneMatrixCount(std::uint32_t SkinArrayIndex, std::uint32_t& OutCount) const {
+        const std::unordered_map<std::uint32_t, std::uint32_t>::const_iterator FoundCount{ mRuntimeBoneMatrixCountBySkin.find(SkinArrayIndex) };
+        if (FoundCount == mRuntimeBoneMatrixCountBySkin.end()) {
+            OutCount = 0;
+            return false;
+        }
+
+        OutCount = FoundCount->second;
+        return OutCount > 0;
+    }
+
     void Model::BuildRuntimeBoneInfos() {
         mRuntimeBoneInfos.clear();
         mRuntimeBoneInfoRanges.clear();
         mRuntimeBoneInfoRanges.resize(mNodes.size());
         mRuntimeBoneMatrixCount = 0;
+        mRuntimeBoneMatrixCountBySkin.clear();
 
         std::vector<std::vector<RuntimeBoneInfo>> RuntimeBoneInfosByNodeIndex{};
         RuntimeBoneInfosByNodeIndex.resize(mNodes.size());
@@ -428,6 +446,16 @@ namespace Game {
                 const std::uint32_t RequiredBoneMatrixCount{ BoneInfo.JointArrayIndex + 1u };
                 if (RequiredBoneMatrixCount > mRuntimeBoneMatrixCount) {
                     mRuntimeBoneMatrixCount = RequiredBoneMatrixCount;
+                }
+
+                const std::unordered_map<std::uint32_t, std::uint32_t>::const_iterator FoundCount{ mRuntimeBoneMatrixCountBySkin.find(BoneInfo.SkinArrayIndex) };
+                if (FoundCount == mRuntimeBoneMatrixCountBySkin.end()) {
+                    mRuntimeBoneMatrixCountBySkin.insert_or_assign(BoneInfo.SkinArrayIndex, RequiredBoneMatrixCount);
+                    continue;
+                }
+
+                if (RequiredBoneMatrixCount > FoundCount->second) {
+                    mRuntimeBoneMatrixCountBySkin.insert_or_assign(BoneInfo.SkinArrayIndex, RequiredBoneMatrixCount);
                 }
             }
         }

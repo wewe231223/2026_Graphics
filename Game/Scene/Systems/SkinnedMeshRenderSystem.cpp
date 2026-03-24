@@ -67,11 +67,7 @@ namespace {
         return true;
     }
 
-    std::uint32_t ResolveBoneMatrixCount(const Game::Model& ModelData) {
-        return ModelData.GetRuntimeBoneMatrixCount();
-    }
-
-    void GatherBoneMatricesRecursive(Arche::World& World, Arche::EntityID EntityId, Game::Model* ModelData, const SimpleMath::Matrix& MeshWorldInverseMatrix, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, std::vector<SimpleMath::Matrix>& InOutBoneMatrices) {
+    void GatherBoneMatricesRecursive(Arche::World& World, Arche::EntityID EntityId, Game::Model* ModelData, std::uint32_t SkinArrayIndex, const SimpleMath::Matrix& MeshWorldInverseMatrix, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, std::vector<SimpleMath::Matrix>& InOutBoneMatrices) {
         if (EntityId == Arche::NullEntityID || ModelData == nullptr) {
             return;
         }
@@ -88,6 +84,10 @@ namespace {
             if (IsBoneWorldMatrixResolved == true) {
                 const std::span<const Game::RuntimeBoneInfo> RuntimeBoneInfos{ ModelData->GetRuntimeBoneInfos(BoneComponent->runtimeBoneInfoOffset, BoneComponent->runtimeBoneInfoCount) };
                 for (const Game::RuntimeBoneInfo& RuntimeBoneInfoItem : RuntimeBoneInfos) {
+                    if (RuntimeBoneInfoItem.SkinArrayIndex != SkinArrayIndex) {
+                        continue;
+                    }
+
                     if (RuntimeBoneInfoItem.JointArrayIndex >= InOutBoneMatrices.size()) {
                         continue;
                     }
@@ -104,7 +104,7 @@ namespace {
                 break;
             }
 
-            GatherBoneMatricesRecursive(World, ChildEntityId, ModelData, MeshWorldInverseMatrix, InOutWorldMatrices, InOutBoneMatrices);
+            GatherBoneMatricesRecursive(World, ChildEntityId, ModelData, SkinArrayIndex, MeshWorldInverseMatrix, InOutWorldMatrices, InOutBoneMatrices);
             ChildEntityId = ChildHierarchyComponent->nextSibling;
         }
     }
@@ -153,25 +153,27 @@ namespace Game {
                 continue;
             }
 
-            SimpleMath::Matrix MeshWorldInverseMatrix{ MeshWorldMatrix };
-            MeshWorldInverseMatrix = MeshWorldInverseMatrix.Invert();
-
-            const std::uint32_t BoneMatrixCount{ ResolveBoneMatrixCount(*SkinnedMeshRendererComponent.model) };
-            if (BoneMatrixCount == 0) {
-                continue;
-            }
-
-            std::vector<SimpleMath::Matrix> BoneMatrices{};
-            BoneMatrices.resize(static_cast<std::size_t>(BoneMatrixCount), SimpleMath::Matrix::Identity);
-
-            GatherBoneMatricesRecursive(World, BoneSkinReferenceComponent.boneRootEntityId, SkinnedMeshRendererComponent.model, MeshWorldInverseMatrix, Ctx.WorldMatrices, BoneMatrices);
-
             const std::vector<ModelNode>& Nodes{ SkinnedMeshRendererComponent.model->GetNodes() };
             if (SkinnedMeshRendererComponent.nodeIndex >= Nodes.size()) {
                 continue;
             }
 
             const ModelNode& Node{ Nodes[SkinnedMeshRendererComponent.nodeIndex] };
+            const std::uint32_t SkinArrayIndex{ Node.GetId() };
+            std::uint32_t BoneMatrixCount{ 0 };
+            const bool IsBoneMatrixCountResolved{ SkinnedMeshRendererComponent.model->TryGetRuntimeBoneMatrixCount(SkinArrayIndex, BoneMatrixCount) };
+            if (IsBoneMatrixCountResolved == false || BoneMatrixCount == 0) {
+                continue;
+            }
+
+            SimpleMath::Matrix MeshWorldInverseMatrix{ MeshWorldMatrix };
+            MeshWorldInverseMatrix = MeshWorldInverseMatrix.Invert();
+
+            std::vector<SimpleMath::Matrix> BoneMatrices{};
+            BoneMatrices.resize(static_cast<std::size_t>(BoneMatrixCount), SimpleMath::Matrix::Identity);
+
+            GatherBoneMatricesRecursive(World, BoneSkinReferenceComponent.boneRootEntityId, SkinnedMeshRendererComponent.model, SkinArrayIndex, MeshWorldInverseMatrix, Ctx.WorldMatrices, BoneMatrices);
+
             const std::vector<ModelSubMesh>& SubMeshes{ Node.GetSubMeshes() };
             if (SubMeshes.empty()) {
                 continue;

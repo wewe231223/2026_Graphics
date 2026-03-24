@@ -49,6 +49,10 @@ namespace {
     }
 
     SimpleMath::Vector3 SamplePosition(const asset::AnimationChannel& ChannelData, double AnimationTick) {
+        if (ChannelData.PositionKeys.empty()) {
+            return SimpleMath::Vector3::Zero;
+        }
+
         if (ChannelData.PositionKeys.size() == 1) {
             const asset::Vec3& PositionValue{ ChannelData.PositionKeys.front().Value };
             return SimpleMath::Vector3{ PositionValue.x, PositionValue.y, PositionValue.z };
@@ -73,6 +77,10 @@ namespace {
     }
 
     SimpleMath::Quaternion SampleRotation(const asset::AnimationChannel& ChannelData, double AnimationTick) {
+        if (ChannelData.RotationKeys.empty()) {
+            return SimpleMath::Quaternion::Identity;
+        }
+
         if (ChannelData.RotationKeys.size() == 1) {
             const asset::Vec4& RotationValue{ ChannelData.RotationKeys.front().Value };
             SimpleMath::Quaternion Result{ RotationValue.x, RotationValue.y, RotationValue.z, RotationValue.w };
@@ -103,6 +111,10 @@ namespace {
     }
 
     SimpleMath::Vector3 SampleScale(const asset::AnimationChannel& ChannelData, double AnimationTick) {
+        if (ChannelData.ScaleKeys.empty()) {
+            return SimpleMath::Vector3{ 1.0f, 1.0f, 1.0f };
+        }
+
         if (ChannelData.ScaleKeys.size() == 1) {
             const asset::Vec3& ScaleValue{ ChannelData.ScaleKeys.front().Value };
             return SimpleMath::Vector3{ ScaleValue.x, ScaleValue.y, ScaleValue.z };
@@ -229,8 +241,11 @@ namespace Game {
             AnimatorComponent.counter += static_cast<double>(Dt);
 
             const double DurationSeconds{ ClipData.Duration / TicksPerSecond };
-            if (DurationSeconds > 0.0 && AnimatorComponent.counter >= DurationSeconds) {
-                AnimatorComponent.counter = 0.0;
+            if (DurationSeconds > 0.0) {
+                AnimatorComponent.counter = std::fmod(AnimatorComponent.counter, DurationSeconds);
+                if (AnimatorComponent.counter < 0.0) {
+                    AnimatorComponent.counter += DurationSeconds;
+                }
             }
 
             const double AnimationTick{ AnimatorComponent.counter * TicksPerSecond };

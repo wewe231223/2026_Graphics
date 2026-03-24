@@ -93,6 +93,7 @@ namespace Game {
         bool TryGetRuntimeBoneInfoRange(std::uint32_t NodeIndex, std::uint32_t& OutOffset, std::uint32_t& OutCount) const;
         std::span<const RuntimeBoneInfo> GetRuntimeBoneInfos(std::uint32_t Offset, std::uint32_t Count) const;
         std::uint32_t GetRuntimeBoneMatrixCount() const;
+        bool TryGetRuntimeBoneMatrixCount(std::uint32_t SkinArrayIndex, std::uint32_t& OutCount) const;
 
     private:
         struct RuntimeBoneInfoRange final {
@@ -112,6 +113,7 @@ namespace Game {
         std::vector<RuntimeBoneInfo> mRuntimeBoneInfos{};
         std::vector<RuntimeBoneInfoRange> mRuntimeBoneInfoRanges{};
         std::uint32_t mRuntimeBoneMatrixCount{ 0 };
+        std::unordered_map<std::uint32_t, std::uint32_t> mRuntimeBoneMatrixCountBySkin{};
         std::uint32_t mRootNodeIndex{ 0 };
         bool mHasRootNode{ false };
     };
