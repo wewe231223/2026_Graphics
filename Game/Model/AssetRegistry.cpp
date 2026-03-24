@@ -509,18 +509,30 @@ namespace Game {
     }
 
     std::int64_t AssetRegistry::ToMaterialIntValue(asset::MaterialType MaterialTypeValue, const asset::MaterialMap& MaterialMapData, const std::string& MaterialSourcePath) {
+        if (IsTextureMaterialType(MaterialTypeValue) == true) {
+            if (MaterialMapData.GetKind() == asset::MaterialMapKind::String) {
+                const std::filesystem::path TexturePath{ BuildTexturePathFromMaterialPath(MaterialSourcePath, MaterialMapData.GetString()) };
+                const std::uint32_t TextureTableIndex{ ResolveTextureTableIndex(TexturePath) };
+                return static_cast<std::int64_t>(TextureTableIndex);
+            }
+
+            if (MaterialMapData.GetKind() == asset::MaterialMapKind::Int) {
+                return MaterialMapData.GetInt();
+            }
+
+            if (MaterialMapData.GetKind() == asset::MaterialMapKind::Bool) {
+                return MaterialMapData.GetBool() == true ? 1 : 0;
+            }
+
+            return static_cast<std::int64_t>(-1);
+        }
+
         if (MaterialMapData.GetKind() == asset::MaterialMapKind::Int) {
             return MaterialMapData.GetInt();
         }
 
         if (MaterialMapData.GetKind() == asset::MaterialMapKind::Bool) {
             return MaterialMapData.GetBool() == true ? 1 : 0;
-        }
-
-        if (MaterialMapData.GetKind() == asset::MaterialMapKind::String && IsTextureMaterialType(MaterialTypeValue) == true) {
-            const std::filesystem::path TexturePath{ BuildTexturePathFromMaterialPath(MaterialSourcePath, MaterialMapData.GetString()) };
-            const std::uint32_t TextureTableIndex{ ResolveTextureTableIndex(TexturePath) };
-            return static_cast<std::int64_t>(TextureTableIndex);
         }
 
         return 0;
