@@ -4,7 +4,9 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <span>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -20,6 +22,29 @@ namespace {
     struct ResolvedAnimator final {
         Arche::EntityID EntityId{ Arche::NullEntityID };
         Game::Animator* Component{ nullptr };
+    };
+
+    struct PoseApplyCacheKey final {
+        Arche::EntityID mAnimatorEntityId{ Arche::NullEntityID };
+        const Game::Model* mModel{};
+        Arche::EntityID mBoneRootEntityId{ Arche::NullEntityID };
+
+        bool operator==(const PoseApplyCacheKey& Other) const {
+            return mAnimatorEntityId == Other.mAnimatorEntityId && mModel == Other.mModel && mBoneRootEntityId == Other.mBoneRootEntityId;
+        }
+    };
+
+    struct PoseApplyCacheKeyHasher final {
+        std::size_t operator()(const PoseApplyCacheKey& Value) const {
+            std::size_t Seed{ 0u };
+            const std::size_t AnimatorHash{ std::hash<std::uint64_t>{}((static_cast<std::uint64_t>(Value.mAnimatorEntityId.generation) << 32ull) | Value.mAnimatorEntityId.index) };
+            const std::size_t ModelHash{ std::hash<const Game::Model*>{}(Value.mModel) };
+            const std::size_t BoneRootHash{ std::hash<std::uint64_t>{}((static_cast<std::uint64_t>(Value.mBoneRootEntityId.generation) << 32ull) | Value.mBoneRootEntityId.index) };
+            Seed ^= AnimatorHash + 0x9e3779b9u + (Seed << 6u) + (Seed >> 2u);
+            Seed ^= ModelHash + 0x9e3779b9u + (Seed << 6u) + (Seed >> 2u);
+            Seed ^= BoneRootHash + 0x9e3779b9u + (Seed << 6u) + (Seed >> 2u);
+            return Seed;
+        }
     };
 
     ResolvedAnimator ResolveAnimatorInHierarchy(Arche::World& World, const Game::EntityHierarchy& HierarchyComponent) {
@@ -44,18 +69,61 @@ namespace {
         return ResolvedAnimator{};
     }
 
-    std::size_t ResolveFrameIndex(double AnimationTick, const std::vector<double>& Times) {
-        if (Times.size() <= 1) {
+    std::size_t ResolveFrameIndexFromPositionKeys(double AnimationTick, const std::vector<asset::AnimationKeyPosition>& Keys) {
+        if (Keys.size() <= 1) {
             return 0;
         }
 
-        for (std::size_t KeyIndex{ 0 }; KeyIndex + 1 < Times.size(); ++KeyIndex) {
-            if (AnimationTick < Times[KeyIndex + 1]) {
-                return KeyIndex;
-            }
+        const auto FirstIter{ Keys.begin() };
+        const auto LastIter{ Keys.end() };
+        const auto UpperBoundIter{ std::upper_bound(FirstIter, LastIter, AnimationTick, [](double Left, const asset::AnimationKeyPosition& Right) { return Left < Right.Time; }) };
+        if (UpperBoundIter == FirstIter) {
+            return 0;
         }
 
-        return Times.size() - 2;
+        if (UpperBoundIter == LastIter) {
+            return Keys.size() - 2;
+        }
+
+        return static_cast<std::size_t>(std::distance(FirstIter, UpperBoundIter) - 1);
+    }
+
+    std::size_t ResolveFrameIndexFromRotationKeys(double AnimationTick, const std::vector<asset::AnimationKeyRotation>& Keys) {
+        if (Keys.size() <= 1) {
+            return 0;
+        }
+
+        const auto FirstIter{ Keys.begin() };
+        const auto LastIter{ Keys.end() };
+        const auto UpperBoundIter{ std::upper_bound(FirstIter, LastIter, AnimationTick, [](double Left, const asset::AnimationKeyRotation& Right) { return Left < Right.Time; }) };
+        if (UpperBoundIter == FirstIter) {
+            return 0;
+        }
+
+        if (UpperBoundIter == LastIter) {
+            return Keys.size() - 2;
+        }
+
+        return static_cast<std::size_t>(std::distance(FirstIter, UpperBoundIter) - 1);
+    }
+
+    std::size_t ResolveFrameIndexFromScaleKeys(double AnimationTick, const std::vector<asset::AnimationKeyScale>& Keys) {
+        if (Keys.size() <= 1) {
+            return 0;
+        }
+
+        const auto FirstIter{ Keys.begin() };
+        const auto LastIter{ Keys.end() };
+        const auto UpperBoundIter{ std::upper_bound(FirstIter, LastIter, AnimationTick, [](double Left, const asset::AnimationKeyScale& Right) { return Left < Right.Time; }) };
+        if (UpperBoundIter == FirstIter) {
+            return 0;
+        }
+
+        if (UpperBoundIter == LastIter) {
+            return Keys.size() - 2;
+        }
+
+        return static_cast<std::size_t>(std::distance(FirstIter, UpperBoundIter) - 1);
     }
 
     float ResolveFactor(double AnimationTick, double Start, double End) {
@@ -77,15 +145,9 @@ namespace {
             return SimpleMath::Vector3{ PositionValue.x, PositionValue.y, PositionValue.z };
         }
 
-        std::vector<double> Times{};
-        Times.reserve(ChannelData.PositionKeys.size());
-        for (const asset::AnimationKeyPosition& KeyData : ChannelData.PositionKeys) {
-            Times.push_back(KeyData.Time);
-        }
-
-        const std::size_t StartIndex{ ResolveFrameIndex(AnimationTick, Times) };
+        const std::size_t StartIndex{ ResolveFrameIndexFromPositionKeys(AnimationTick, ChannelData.PositionKeys) };
         const std::size_t EndIndex{ StartIndex + 1 };
-        const float BlendFactor{ ResolveFactor(AnimationTick, Times[StartIndex], Times[EndIndex]) };
+        const float BlendFactor{ ResolveFactor(AnimationTick, ChannelData.PositionKeys[StartIndex].Time, ChannelData.PositionKeys[EndIndex].Time) };
 
         const asset::Vec3& StartValue{ ChannelData.PositionKeys[StartIndex].Value };
         const asset::Vec3& EndValue{ ChannelData.PositionKeys[EndIndex].Value };
@@ -107,15 +169,9 @@ namespace {
             return Result;
         }
 
-        std::vector<double> Times{};
-        Times.reserve(ChannelData.RotationKeys.size());
-        for (const asset::AnimationKeyRotation& KeyData : ChannelData.RotationKeys) {
-            Times.push_back(KeyData.Time);
-        }
-
-        const std::size_t StartIndex{ ResolveFrameIndex(AnimationTick, Times) };
+        const std::size_t StartIndex{ ResolveFrameIndexFromRotationKeys(AnimationTick, ChannelData.RotationKeys) };
         const std::size_t EndIndex{ StartIndex + 1 };
-        const float BlendFactor{ ResolveFactor(AnimationTick, Times[StartIndex], Times[EndIndex]) };
+        const float BlendFactor{ ResolveFactor(AnimationTick, ChannelData.RotationKeys[StartIndex].Time, ChannelData.RotationKeys[EndIndex].Time) };
 
         const asset::Vec4& StartValue{ ChannelData.RotationKeys[StartIndex].Value };
         const asset::Vec4& EndValue{ ChannelData.RotationKeys[EndIndex].Value };
@@ -139,15 +195,9 @@ namespace {
             return SimpleMath::Vector3{ ScaleValue.x, ScaleValue.y, ScaleValue.z };
         }
 
-        std::vector<double> Times{};
-        Times.reserve(ChannelData.ScaleKeys.size());
-        for (const asset::AnimationKeyScale& KeyData : ChannelData.ScaleKeys) {
-            Times.push_back(KeyData.Time);
-        }
-
-        const std::size_t StartIndex{ ResolveFrameIndex(AnimationTick, Times) };
+        const std::size_t StartIndex{ ResolveFrameIndexFromScaleKeys(AnimationTick, ChannelData.ScaleKeys) };
         const std::size_t EndIndex{ StartIndex + 1 };
-        const float BlendFactor{ ResolveFactor(AnimationTick, Times[StartIndex], Times[EndIndex]) };
+        const float BlendFactor{ ResolveFactor(AnimationTick, ChannelData.ScaleKeys[StartIndex].Time, ChannelData.ScaleKeys[EndIndex].Time) };
 
         const asset::Vec3& StartValue{ ChannelData.ScaleKeys[StartIndex].Value };
         const asset::Vec3& EndValue{ ChannelData.ScaleKeys[EndIndex].Value };
@@ -253,6 +303,10 @@ namespace Game {
         (void)Ctx;
         std::unordered_set<Arche::EntityID> UpdatedAnimatorEntityIds{};
         UpdatedAnimatorEntityIds.reserve(32);
+        std::unordered_map<PoseApplyCacheKey, std::vector<const asset::AnimationChannel*>, PoseApplyCacheKeyHasher> ChannelLookupCache{};
+        ChannelLookupCache.reserve(32);
+        std::unordered_set<PoseApplyCacheKey, PoseApplyCacheKeyHasher> AppliedPoseKeys{};
+        AppliedPoseKeys.reserve(32);
 
         for (auto [BoneSkinReferenceComponent, SkinnedMeshRendererComponent, HierarchyComponent, TransformComponent] : World.Query<BoneSkinReference, SkinnedMeshRenderer, EntityHierarchy, Transform>()) {
             (void)TransformComponent;
@@ -277,6 +331,15 @@ namespace Game {
                 continue;
             }
 
+            PoseApplyCacheKey CacheKey{};
+            CacheKey.mAnimatorEntityId = ResolvedAnimatorComponent.EntityId;
+            CacheKey.mModel = SkinnedMeshRendererComponent.model;
+            CacheKey.mBoneRootEntityId = BoneSkinReferenceComponent.boneRootEntityId;
+            const std::pair<std::unordered_set<PoseApplyCacheKey, PoseApplyCacheKeyHasher>::iterator, bool> AppliedResult{ AppliedPoseKeys.insert(CacheKey) };
+            if (AppliedResult.second == false) {
+                continue;
+            }
+
             const asset::AnimationClip& ClipData{ Clips[ClipIndex] };
             if (ClipData.Duration <= 0.0) {
                 continue;
@@ -297,8 +360,14 @@ namespace Game {
             }
 
             const double AnimationTick{ AnimatorComponent->counter * TicksPerSecond };
-            const std::vector<const asset::AnimationChannel*> ChannelLookup{ BuildAnimationChannelLookup(*SkinnedMeshRendererComponent.model, ClipData) };
-            ApplyAnimatedPoseRecursive(World, BoneSkinReferenceComponent.boneRootEntityId, *SkinnedMeshRendererComponent.model, ChannelLookup, AnimationTick);
+            std::unordered_map<PoseApplyCacheKey, std::vector<const asset::AnimationChannel*>, PoseApplyCacheKeyHasher>::iterator ChannelLookupCacheIter{ ChannelLookupCache.find(CacheKey) };
+            if (ChannelLookupCacheIter == ChannelLookupCache.end()) {
+                std::vector<const asset::AnimationChannel*> NewChannelLookup{ BuildAnimationChannelLookup(*SkinnedMeshRendererComponent.model, ClipData) };
+                const std::pair<std::unordered_map<PoseApplyCacheKey, std::vector<const asset::AnimationChannel*>, PoseApplyCacheKeyHasher>::iterator, bool> InsertedResult{ ChannelLookupCache.emplace(CacheKey, std::move(NewChannelLookup)) };
+                ChannelLookupCacheIter = InsertedResult.first;
+            }
+
+            ApplyAnimatedPoseRecursive(World, BoneSkinReferenceComponent.boneRootEntityId, *SkinnedMeshRendererComponent.model, ChannelLookupCacheIter->second, AnimationTick);
         }
     }
 }

@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <span>
 #include <unordered_map>
 #include <vector>
 
@@ -211,13 +212,14 @@ namespace Game {
 
             std::uint32_t SkinArrayIndex{ 0 };
             std::vector<SimpleMath::Matrix> BoneMatrices{};
+            std::span<const SimpleMath::Matrix> ResolvedBoneMatrices{};
             bool IsCacheHit{ false };
             const std::unordered_map<Arche::EntityID, SkinnedPoseCacheEntry>::const_iterator CacheIter{ Ctx.SkinnedPoseCache.find(EntityId) };
             if (CacheIter != Ctx.SkinnedPoseCache.end()) {
                 const SkinnedPoseCacheEntry& CacheEntry{ CacheIter->second };
                 if (CacheEntry.IsValid == true && CacheEntry.SkinArrayIndex == Node.GetId() && CacheEntry.BoneMatrices.empty() == false) {
                     SkinArrayIndex = CacheEntry.SkinArrayIndex;
-                    BoneMatrices = CacheEntry.BoneMatrices;
+                    ResolvedBoneMatrices = CacheEntry.BoneMatrices;
                     IsCacheHit = true;
                 }
             }
@@ -227,6 +229,8 @@ namespace Game {
                 if (IsFallbackBuilt == false) {
                     continue;
                 }
+
+                ResolvedBoneMatrices = BoneMatrices;
             }
 
             const std::vector<ModelSubMesh>& SubMeshes{ Node.GetSubMeshes() };
@@ -234,8 +238,12 @@ namespace Game {
                 continue;
             }
 
+            if (ResolvedBoneMatrices.empty() == true) {
+                continue;
+            }
+
             const std::uint32_t BoneIndexStart{ static_cast<std::uint32_t>(RenderData.bonePalette.size()) };
-            RenderData.bonePalette.insert(RenderData.bonePalette.end(), BoneMatrices.begin(), BoneMatrices.end());
+            RenderData.bonePalette.insert(RenderData.bonePalette.end(), ResolvedBoneMatrices.begin(), ResolvedBoneMatrices.end());
 
             RFD::ModelContext ModelContext{};
             ModelContext.world = MeshWorldMatrix;
