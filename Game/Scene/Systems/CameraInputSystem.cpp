@@ -1,5 +1,6 @@
 ﻿#include "CameraInputSystem.h"
 #include <array>
+#include "Imgui/imgui.h"
 #include "Game/Base/Input.h"
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/Intents/CameraIntent.h"
@@ -26,6 +27,10 @@ namespace Game {
         const Globals::Input& Input{ Globals::Input::Get() };
         const DirectX::Mouse::ButtonStateTracker& MouseTracker{ Input.GetMouseTracker() };
         const bool IsSelectionDragInput{ Ctx.PickedEntityId != Arche::NullEntityID && (MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED || MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::HELD) };
+        const ImGuiIO& ImGuiInputState{ ImGui::GetIO() };
+        const bool IsUiCapturingMouseInput{ ImGuiInputState.WantCaptureMouse };
+        const bool IsUiCapturingKeyboardInput{ ImGuiInputState.WantCaptureKeyboard };
+        const bool IsUiCapturingInput{ IsUiCapturingMouseInput || IsUiCapturingKeyboardInput };
 
         for (auto [Intent, Camera] : World.Query<CameraIntent, Camera>()) {
             if (!Camera.isActive) {
@@ -33,7 +38,7 @@ namespace Game {
             }
 
             Intent.Reset();
-            if (IsSelectionDragInput) {
+            if (IsSelectionDragInput || IsUiCapturingInput) {
                 continue;
             }
 

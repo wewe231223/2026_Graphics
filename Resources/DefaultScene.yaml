@@ -26,8 +26,8 @@ Prefabs:
     active: true
   - &Prefab1003
     prefabId: 1003
-    modelPath: untitled.bin
-    materialPath: untitled_materials.json
+    modelPath: knight.bin
+    materialPath: knight_materials.json
     active: true
   - &Prefab2001
     prefabId: 2001
@@ -198,6 +198,6 @@ Entities:
         <<: *Prefab1003
         prefabId: 1003
       Animation:
-        text: untitled.animbin
+        text: knightanim.animbin
         initclip: 0
-        node: sol_8_low
+        node: SKM_DKM_Armor
