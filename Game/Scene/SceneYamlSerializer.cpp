@@ -40,7 +40,6 @@ namespace {
     constexpr const char* MaterialTypeName{ "Material" };
     constexpr const char* StaticMeshRendererTypeName{ "StaticMeshRenderer" };
     constexpr const char* AnimationTypeName{ "Animation" };
-    constexpr const char* AnimationNodeNameFieldName{ "node" };
     constexpr const char* CameraTypeName{ "Camera" };
     constexpr const char* CameraIntentTypeName{ "CameraIntent" };
     constexpr const char* LocalPlayerTagTypeName{ "LocalPlayerTag" };
@@ -903,8 +902,8 @@ namespace Game {
                     AnimationNode["initclip"] >> NewBinding.ClipIndex;
                 }
 
-                if (AnimationNode.has_child(AnimationNodeNameFieldName)) {
-                    AnimationNode[AnimationNodeNameFieldName] >> NewBinding.TargetNodeName;
+                if (AnimationNode.has_child("node")) {
+                    AnimationNode["node"] >> NewBinding.TargetNodeName;
                 }
 
                 if (AnimationPath.empty() == false) {
@@ -1067,21 +1066,18 @@ namespace Game {
         }
 
         for (const PendingAnimatorBinding& Binding : PendingAnimatorBindings) {
-            if (Binding.TargetNodeName.empty()) {
-                StdOutput::WriteWarningLine(std::format("[SceneYamlSerializer] Animation node name is empty. source={}:{}", Binding.SourceEntityId.index, Binding.SourceEntityId.generation));
-                continue;
-            }
-
             if (Binding.AnimationData == nullptr) {
                 StdOutput::WriteWarningLine(std::format("[SceneYamlSerializer] Animation data is null. source={}:{} node={}", Binding.SourceEntityId.index, Binding.SourceEntityId.generation, Binding.TargetNodeName));
                 continue;
             }
 
-            Arche::EntityID TargetEntityId{ Arche::NullEntityID };
-            const bool IsFound{ TryFindEntityByNameInHierarchy(&OutScene.GetWorld(), Binding.SourceEntityId, Binding.TargetNodeName, TargetEntityId, false) };
-            if (IsFound == false) {
-                StdOutput::WriteWarningLine(std::format("[SceneYamlSerializer] Animation target node not found. source={}:{} node={}", Binding.SourceEntityId.index, Binding.SourceEntityId.generation, Binding.TargetNodeName));
-                continue;
+            Arche::EntityID TargetEntityId{ Binding.SourceEntityId };
+            if (Binding.TargetNodeName.empty() == false) {
+                const bool IsFound{ TryFindEntityByNameInHierarchy(&OutScene.GetWorld(), Binding.SourceEntityId, Binding.TargetNodeName, TargetEntityId, false) };
+                if (IsFound == false) {
+                    StdOutput::WriteWarningLine(std::format("[SceneYamlSerializer] Animation target node not found. source={}:{} node={}", Binding.SourceEntityId.index, Binding.SourceEntityId.generation, Binding.TargetNodeName));
+                    continue;
+                }
             }
 
             Animator NewAnimator{};
@@ -1293,11 +1289,8 @@ namespace Game {
                 AppendLine(Stream, 3, std::string{ AnimationTypeName } + std::string{ ":" });
                 const std::string AnimationSelector{ AssetRegistryInstance->FindAnimationSelectorByPointer(AnimatorComponent->animation) };
                 const std::string AnimationSelectorForYaml{ MakeSceneRelativeResourcePath(TargetSnapshot.GetSceneName(), AnimationSelector) };
-                const Name* AnimatorNodeNameComponent{ ReadOnlyWorld->GetComponent<Game::Name>(AnimatorEntityId) };
-                const char* AnimatorNodeNameText{ AnimatorNodeNameComponent == nullptr ? "" : Game::GetNameText(*AnimatorNodeNameComponent) };
                 AppendLine(Stream, 4, std::string{ "text: " } + ToYamlText(AnimationSelectorForYaml));
                 AppendLine(Stream, 4, std::string{ "initclip: " } + std::to_string(AnimatorComponent->clipIndex));
-                AppendLine(Stream, 4, std::string{ AnimationNodeNameFieldName } + std::string{ ": " } + ToYamlText(AnimatorNodeNameText));
             }
 
             const PrefabInstance* PrefabInstanceComponent{ ReadOnlyWorld->GetComponent<PrefabInstance>(EntityId) };

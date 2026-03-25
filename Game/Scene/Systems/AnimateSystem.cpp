@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <span>
+#include <unordered_set>
 #include <vector>
 
 #include "Game/Model/Model.h"
@@ -16,6 +17,33 @@
 #include "Game/Scene/Components/Transform.h"
 
 namespace {
+    struct ResolvedAnimator final {
+        Arche::EntityID EntityId{ Arche::NullEntityID };
+        Game::Animator* Component{ nullptr };
+    };
+
+    ResolvedAnimator ResolveAnimatorInHierarchy(Arche::World& World, const Game::EntityHierarchy& HierarchyComponent) {
+        Arche::EntityID CurrentEntityId{ HierarchyComponent.self };
+        while (CurrentEntityId != Arche::NullEntityID) {
+            Game::Animator* AnimatorComponent{ World.GetComponent<Game::Animator>(CurrentEntityId) };
+            if (AnimatorComponent != nullptr) {
+                ResolvedAnimator Result{};
+                Result.EntityId = CurrentEntityId;
+                Result.Component = AnimatorComponent;
+                return Result;
+            }
+
+            const Game::EntityHierarchy* CurrentHierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
+            if (CurrentHierarchyComponent == nullptr) {
+                break;
+            }
+
+            CurrentEntityId = CurrentHierarchyComponent->parent;
+        }
+
+        return ResolvedAnimator{};
+    }
+
     std::size_t ResolveFrameIndex(double AnimationTick, const std::vector<double>& Times) {
         if (Times.size() <= 1) {
             return 0;
@@ -223,21 +251,24 @@ namespace Game {
 
     void AnimateSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
         (void)Ctx;
+        std::unordered_set<Arche::EntityID> UpdatedAnimatorEntityIds{};
+        UpdatedAnimatorEntityIds.reserve(32);
 
-        for (auto [AnimatorComponent, BoneSkinReferenceComponent, SkinnedMeshRendererComponent, HierarchyComponent, TransformComponent] : World.Query<Animator, BoneSkinReference, SkinnedMeshRenderer, EntityHierarchy, Transform>()) {
-            (void)HierarchyComponent;
+        for (auto [BoneSkinReferenceComponent, SkinnedMeshRendererComponent, HierarchyComponent, TransformComponent] : World.Query<BoneSkinReference, SkinnedMeshRenderer, EntityHierarchy, Transform>()) {
             (void)TransformComponent;
 
-            if (AnimatorComponent.animation == nullptr) {
+            const ResolvedAnimator ResolvedAnimatorComponent{ ResolveAnimatorInHierarchy(World, HierarchyComponent) };
+            Animator* AnimatorComponent{ ResolvedAnimatorComponent.Component };
+            if (AnimatorComponent == nullptr || AnimatorComponent->animation == nullptr) {
                 continue;
             }
 
-            if (AnimatorComponent.clipIndex < 0) {
+            if (AnimatorComponent->clipIndex < 0) {
                 continue;
             }
 
-            const std::vector<asset::AnimationClip>& Clips{ AnimatorComponent.animation->Clips() };
-            const std::size_t ClipIndex{ static_cast<std::size_t>(AnimatorComponent.clipIndex) };
+            const std::vector<asset::AnimationClip>& Clips{ AnimatorComponent->animation->Clips() };
+            const std::size_t ClipIndex{ static_cast<std::size_t>(AnimatorComponent->clipIndex) };
             if (ClipIndex >= Clips.size()) {
                 continue;
             }
@@ -252,17 +283,20 @@ namespace Game {
             }
 
             const double TicksPerSecond{ ClipData.TicksPerSecond > 0.0 ? ClipData.TicksPerSecond : 30.0 };
-            AnimatorComponent.counter += static_cast<double>(Dt);
+            const std::pair<std::unordered_set<Arche::EntityID>::iterator, bool> InsertResult{ UpdatedAnimatorEntityIds.insert(ResolvedAnimatorComponent.EntityId) };
+            if (InsertResult.second == true) {
+                AnimatorComponent->counter += static_cast<double>(Dt);
 
-            const double DurationSeconds{ ClipData.Duration / TicksPerSecond };
-            if (DurationSeconds > 0.0) {
-                AnimatorComponent.counter = std::fmod(AnimatorComponent.counter, DurationSeconds);
-                if (AnimatorComponent.counter < 0.0) {
-                    AnimatorComponent.counter += DurationSeconds;
+                const double DurationSeconds{ ClipData.Duration / TicksPerSecond };
+                if (DurationSeconds > 0.0) {
+                    AnimatorComponent->counter = std::fmod(AnimatorComponent->counter, DurationSeconds);
+                    if (AnimatorComponent->counter < 0.0) {
+                        AnimatorComponent->counter += DurationSeconds;
+                    }
                 }
             }
 
-            const double AnimationTick{ AnimatorComponent.counter * TicksPerSecond };
+            const double AnimationTick{ AnimatorComponent->counter * TicksPerSecond };
             const std::vector<const asset::AnimationChannel*> ChannelLookup{ BuildAnimationChannelLookup(*SkinnedMeshRendererComponent.model, ClipData) };
             ApplyAnimatedPoseRecursive(World, BoneSkinReferenceComponent.boneRootEntityId, *SkinnedMeshRendererComponent.model, ChannelLookup, AnimationTick);
         }

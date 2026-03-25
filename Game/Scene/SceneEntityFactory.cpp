@@ -96,6 +96,7 @@ namespace Game {
         NodeEntities[RootNodeIndex] = HasRootEntityId == true ? *SpawnRequest.RootEntityId : CreateEntity(SpawnRequest.IsDerivedEntity);
         EnsureHierarchy(NodeEntities[RootNodeIndex]);
 
+        bool HasSkinnedMeshNode{};
         for (std::size_t NodeIndex{ 0 }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
             if (NodeIndex == RootNodeIndex) {
                 continue;
@@ -146,13 +147,11 @@ namespace Game {
             }
 
             if (ModelNodes[NodeIndex].IsSkinnedMesh() == true) {
+                HasSkinnedMeshNode = true;
                 const Arche::EntityID BoneRootEntityId{ ResolveBoneRootEntityId(*SourceModel, ModelNodes[NodeIndex], NodeEntities) };
                 BoneSkinReference NodeBoneSkinReference{};
                 NodeBoneSkinReference.boneRootEntityId = BoneRootEntityId;
                 AddBoneSkinReference(NodeEntities[NodeIndex], NodeBoneSkinReference);
-                Animator NodeAnimator{};
-                NodeAnimator.clipIndex = -1;
-                AddAnimator(NodeEntities[NodeIndex], NodeAnimator);
             }
 
             EnsureHierarchy(NodeEntities[NodeIndex]);
@@ -170,6 +169,12 @@ namespace Game {
 
                 AttachChildEntity(NodeEntities[NodeIndex], NodeEntities[ChildNodeIndex]);
             }
+        }
+
+        if (HasSkinnedMeshNode == true) {
+            Animator RootAnimator{};
+            RootAnimator.clipIndex = -1;
+            AddAnimator(NodeEntities[RootNodeIndex], RootAnimator);
         }
 
         if (OutNodeEntities != nullptr) {

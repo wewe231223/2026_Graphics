@@ -110,7 +110,6 @@ Entities:
       Animation:
         text: testset3.animbin
         initclip: 0
-        node: Paladin_J_Nordstrom_Sword
   - EntityId: 2
     ParentEntityId: -1
     Components:
@@ -201,4 +200,3 @@ Entities:
       Animation:
         text: knight.animbin
         initclip: 0
-        node: SKM_DKM_Armor
