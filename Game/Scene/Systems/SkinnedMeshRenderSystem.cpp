@@ -17,9 +17,33 @@
 
 namespace {
     constexpr std::uint32_t SkinnedModelContextFlagBitMask{ 0x1u };
+    constexpr std::uint32_t PickedDrawFlagBitMask{ 0x1u };
+
     SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
         const SimpleMath::Matrix TrsMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
         return TransformComponent.nodeToParent * TrsMatrix;
+    }
+
+    bool IsEntityWithinPickedHierarchy(Arche::World& World, Arche::EntityID EntityId, Arche::EntityID PickedEntityId) {
+        if (PickedEntityId == Arche::NullEntityID) {
+            return false;
+        }
+
+        Arche::EntityID CurrentEntityId{ EntityId };
+        while (CurrentEntityId != Arche::NullEntityID) {
+            if (CurrentEntityId == PickedEntityId) {
+                return true;
+            }
+
+            const Game::EntityHierarchy* Hierarchy{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
+            if (Hierarchy == nullptr) {
+                break;
+            }
+
+            CurrentEntityId = Hierarchy->parent;
+        }
+
+        return false;
     }
 
     bool TryResolveWorldMatrix(Arche::World& World, Arche::EntityID EntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, SimpleMath::Matrix& OutWorldMatrix) {
@@ -223,7 +247,10 @@ namespace Game {
                 DrawRecord.pass = 0;
                 DrawRecord.objectIndex = ModelContext.objectID;
                 DrawRecord.materialIndex = ResolvedMaterialIndex;
-                DrawRecord.flags = MaterialComponent == nullptr ? 0u : MaterialComponent->Flags;
+                const std::uint32_t MaterialFlags{ MaterialComponent == nullptr ? 0u : MaterialComponent->Flags };
+                const bool IsPickedHierarchy{ IsEntityWithinPickedHierarchy(World, EntityId, Ctx.PickedEntityId) };
+                const std::uint32_t PickFlags{ IsPickedHierarchy ? PickedDrawFlagBitMask : 0u };
+                DrawRecord.flags = MaterialFlags | PickFlags;
                 RenderData.drawRecords.push_back(DrawRecord);
             }
         }

@@ -23,12 +23,19 @@ namespace Game {
     }
 
     void CameraInputSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
+        const Globals::Input& Input{ Globals::Input::Get() };
+        const DirectX::Mouse::ButtonStateTracker& MouseTracker{ Input.GetMouseTracker() };
+        const bool IsSelectionDragInput{ Ctx.PickedEntityId != Arche::NullEntityID && (MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED || MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::HELD) };
+
         for (auto [Intent, Camera] : World.Query<CameraIntent, Camera>()) {
             if (!Camera.isActive) {
                 continue;
             }
 
             Intent.Reset();
+            if (IsSelectionDragInput) {
+                continue;
+            }
 
             const CameraControlMode Mode{ ResolveMode(Camera, Dt) };
             ProcessMode(Intent, Mode, Dt);
