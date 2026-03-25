@@ -175,6 +175,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             Widget::PerformanceProvider::Get().BeginProfile("Update");
             SceneInstance.ExecutePhase(Game::Phase::PreUpdate, Globals::Time::Get().GetDeltaTime<float>());
             SceneInstance.ExecutePhase(Game::Phase::Update, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::Skinning, Globals::Time::Get().GetDeltaTime<float>());
             Widget::PerformanceProvider::Get().EndProfile();
 
             Widget::PerformanceProvider::Get().BeginProfile("Physics");

@@ -125,6 +125,7 @@ add_library(Game STATIC
     Game/Scene/Systems/PickingSystem.cpp
     Game/Scene/Systems/StaticRenderSystem.cpp
     Game/Scene/Systems/SkinnedMeshRenderSystem.cpp
+    Game/Scene/Systems/SkinningSystem.cpp
 )
 
 target_include_directories(Game PUBLIC

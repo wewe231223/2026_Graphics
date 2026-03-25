@@ -132,6 +132,31 @@ namespace {
             ChildEntityId = ChildHierarchyComponent->nextSibling;
         }
     }
+
+    bool TryBuildBoneMatricesFallback(Arche::World& World, Game::BoneSkinReference& BoneSkinReferenceComponent, Game::SkinnedMeshRenderer& SkinnedMeshRendererComponent, const SimpleMath::Matrix& MeshWorldMatrix, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, std::uint32_t& OutSkinArrayIndex, std::vector<SimpleMath::Matrix>& OutBoneMatrices) {
+        const std::vector<Game::ModelNode>& Nodes{ SkinnedMeshRendererComponent.model->GetNodes() };
+        if (SkinnedMeshRendererComponent.nodeIndex >= Nodes.size()) {
+            return false;
+        }
+
+        const Game::ModelNode& Node{ Nodes[SkinnedMeshRendererComponent.nodeIndex] };
+        const std::uint32_t SkinArrayIndex{ Node.GetId() };
+        std::uint32_t BoneMatrixCount{ 0 };
+        const bool IsBoneMatrixCountResolved{ SkinnedMeshRendererComponent.model->TryGetRuntimeBoneMatrixCount(SkinArrayIndex, BoneMatrixCount) };
+        if (IsBoneMatrixCountResolved == false || BoneMatrixCount == 0) {
+            return false;
+        }
+
+        SimpleMath::Matrix MeshWorldInverseMatrix{ MeshWorldMatrix };
+        MeshWorldInverseMatrix = MeshWorldInverseMatrix.Invert();
+
+        std::vector<SimpleMath::Matrix> BoneMatrices{};
+        BoneMatrices.resize(static_cast<std::size_t>(BoneMatrixCount), SimpleMath::Matrix::Identity);
+        GatherBoneMatricesRecursive(World, BoneSkinReferenceComponent.boneRootEntityId, SkinnedMeshRendererComponent.model, SkinArrayIndex, MeshWorldInverseMatrix, InOutWorldMatrices, BoneMatrices);
+        OutSkinArrayIndex = SkinArrayIndex;
+        OutBoneMatrices = std::move(BoneMatrices);
+        return true;
+    }
 }
 
 namespace Game {
@@ -183,20 +208,26 @@ namespace Game {
             }
 
             const ModelNode& Node{ Nodes[SkinnedMeshRendererComponent.nodeIndex] };
-            const std::uint32_t SkinArrayIndex{ Node.GetId() };
-            std::uint32_t BoneMatrixCount{ 0 };
-            const bool IsBoneMatrixCountResolved{ SkinnedMeshRendererComponent.model->TryGetRuntimeBoneMatrixCount(SkinArrayIndex, BoneMatrixCount) };
-            if (IsBoneMatrixCountResolved == false || BoneMatrixCount == 0) {
-                continue;
+
+            std::uint32_t SkinArrayIndex{ 0 };
+            std::vector<SimpleMath::Matrix> BoneMatrices{};
+            bool IsCacheHit{ false };
+            const std::unordered_map<Arche::EntityID, SkinnedPoseCacheEntry>::const_iterator CacheIter{ Ctx.SkinnedPoseCache.find(EntityId) };
+            if (CacheIter != Ctx.SkinnedPoseCache.end()) {
+                const SkinnedPoseCacheEntry& CacheEntry{ CacheIter->second };
+                if (CacheEntry.IsValid == true && CacheEntry.SkinArrayIndex == Node.GetId() && CacheEntry.BoneMatrices.empty() == false) {
+                    SkinArrayIndex = CacheEntry.SkinArrayIndex;
+                    BoneMatrices = CacheEntry.BoneMatrices;
+                    IsCacheHit = true;
+                }
             }
 
-            SimpleMath::Matrix MeshWorldInverseMatrix{ MeshWorldMatrix };
-            MeshWorldInverseMatrix = MeshWorldInverseMatrix.Invert();
-
-            std::vector<SimpleMath::Matrix> BoneMatrices{};
-            BoneMatrices.resize(static_cast<std::size_t>(BoneMatrixCount), SimpleMath::Matrix::Identity);
-
-            GatherBoneMatricesRecursive(World, BoneSkinReferenceComponent.boneRootEntityId, SkinnedMeshRendererComponent.model, SkinArrayIndex, MeshWorldInverseMatrix, Ctx.WorldMatrices, BoneMatrices);
+            if (IsCacheHit == false) {
+                const bool IsFallbackBuilt{ TryBuildBoneMatricesFallback(World, BoneSkinReferenceComponent, SkinnedMeshRendererComponent, MeshWorldMatrix, Ctx.WorldMatrices, SkinArrayIndex, BoneMatrices) };
+                if (IsFallbackBuilt == false) {
+                    continue;
+                }
+            }
 
             const std::vector<ModelSubMesh>& SubMeshes{ Node.GetSubMeshes() };
             if (SubMeshes.empty()) {

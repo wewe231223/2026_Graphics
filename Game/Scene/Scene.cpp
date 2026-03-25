@@ -318,6 +318,8 @@ namespace Game {
             mFrameContext.RenderData.bonePalette.clear();
             mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
             mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
+            mFrameContext.WorldMatrices.clear();
+            mFrameContext.SkinnedPoseCache.clear();
         }
 
         const SystemSceduler::PhaseBatchArray* PhaseBatches{ mSystemSceduler.GetPhaseBatches(TargetPhase) };

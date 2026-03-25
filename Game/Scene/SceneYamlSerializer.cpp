@@ -31,6 +31,7 @@
 #include "Game/Scene/Systems/StaticRenderSystem.h"
 #include "Game/Scene/Systems/PickingSystem.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
+#include "Game/Scene/Systems/SkinningSystem.h"
 #include "Game/Scene/SceneEntityFactory.h"
 #include "Utility/StdOutput.h"
 
@@ -145,6 +146,10 @@ namespace {
 
         if (SystemName == "AnimateSystem") {
             return std::make_unique<Game::AnimateSystem>();
+        }
+
+        if (SystemName == "SkinningSystem") {
+            return std::make_unique<Game::SkinningSystem>();
         }
 
         if (SystemName == "PickingSystem") {

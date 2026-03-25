@@ -141,6 +141,9 @@
     <ClInclude Include="Scene\Systems\PickingSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Systems\SkinningSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\EntityHierarchy.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -252,6 +255,9 @@
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\PickingSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\SkinningSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
   </ItemGroup>

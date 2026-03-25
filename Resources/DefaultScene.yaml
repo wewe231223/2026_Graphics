@@ -3,6 +3,7 @@ Systems:
   - Type: CameraInputSystem
   - Type: PickingSystem
   - Type: AnimateSystem
+  - Type: SkinningSystem
   - Type: StaticRenderSystem
   - Type: SkinnedMeshRenderSystem
   - Type: CleanUpSystem
@@ -198,6 +199,6 @@ Entities:
         <<: *Prefab1003
         prefabId: 1003
       Animation:
-        text: knightanim.animbin
+        text: knight.animbin
         initclip: 0
         node: SKM_DKM_Armor
