@@ -44,6 +44,7 @@ namespace Core {
             bool IsFenceComplete(std::uint64_t CopyId) const override;
             void GuaranteeCopy(std::uint64_t CopyId) const override;
             void Flush() override;
+            void WaitForExternalFence(ID3D12Fence* Fence, std::uint64_t FenceValue) override;
 
             std::uint64_t GetRequiredUploadBufferSize() const override;
 

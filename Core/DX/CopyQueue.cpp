@@ -156,6 +156,14 @@ void CopyQueue::Flush() {
     WaitForQueueIdle();
 }
 
+void CopyQueue::WaitForExternalFence(ID3D12Fence* Fence, std::uint64_t FenceValue) {
+    if (Fence == nullptr) {
+        return;
+    }
+
+    ErrorHandler::report(mCopyCommandQueue->Wait(Fence, FenceValue), "CopyQueue", "Failed to wait on external fence.", ErrorHandler::Level::Critical);
+}
+
 std::uint64_t CopyQueue::GetRequiredUploadBufferSize() const {
     return UploadAllocatorHeapSize;
 }

@@ -121,7 +121,7 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> SkinningSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 0> Accesses{};
+        static std::array<ResourceAccess, 2> Accesses{ { { typeid(std::unordered_map<Arche::EntityID, SimpleMath::Matrix>), Access::Write }, { typeid(std::unordered_map<Arche::EntityID, SkinnedPoseCacheEntry>), Access::Write } } };
         return Accesses;
     }
 

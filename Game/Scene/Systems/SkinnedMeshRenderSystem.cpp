@@ -175,7 +175,7 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> SkinnedMeshRenderSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 2> Accesses{ { { typeid(RFD::RenderFrameData), Access::Write }, { typeid(std::vector<RegisteredMaterialGroup>), Access::Read } } };
+        static std::array<ResourceAccess, 5> Accesses{ { { typeid(RFD::RenderFrameData), Access::Write }, { typeid(std::vector<RegisteredMaterialGroup>), Access::Read }, { typeid(Arche::EntityID), Access::Read }, { typeid(std::unordered_map<Arche::EntityID, SimpleMath::Matrix>), Access::Read }, { typeid(std::unordered_map<Arche::EntityID, SkinnedPoseCacheEntry>), Access::Read } } };
         return Accesses;
     }
 

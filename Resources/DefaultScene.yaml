@@ -200,3 +200,17 @@ Entities:
       Animation:
         text: knight.animbin
         initclip: 0
+  - EntityId: 10
+    ParentEntityId: -1
+    Components:
+      Name: 
+        text: untitled
+      Transform:
+        <<: *DefaultTransform 
+        position : [10.0, 0.0, 10.0]
+      PrefabInstance:
+        <<: *Prefab1003
+        prefabId: 1003
+      Animation:
+        text: knight.animbin
+        initclip: 0

@@ -104,7 +104,7 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> StaticRenderSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 2> Accesses{ { { typeid(RFD::RenderFrameData), Access::Write }, { typeid(std::vector<RegisteredMaterialGroup>), Access::Read } } };
+        static std::array<ResourceAccess, 4> Accesses{ { { typeid(RFD::RenderFrameData), Access::Write }, { typeid(std::vector<RegisteredMaterialGroup>), Access::Read }, { typeid(Arche::EntityID), Access::Read }, { typeid(std::unordered_map<Arche::EntityID, SimpleMath::Matrix>), Access::Write } } };
         return Accesses;
     }
 

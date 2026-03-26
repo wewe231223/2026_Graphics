@@ -79,6 +79,7 @@ namespace Interface {
         virtual bool IsFenceComplete(std::uint64_t CopyId) const = 0;
         virtual void GuaranteeCopy(std::uint64_t CopyId) const = 0;
         virtual void Flush() = 0;
+        virtual void WaitForExternalFence(ID3D12Fence* Fence, std::uint64_t FenceValue) = 0;
 
         virtual std::uint64_t GetRequiredUploadBufferSize() const = 0;
     };

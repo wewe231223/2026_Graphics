@@ -20,7 +20,8 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> CameraInputSystem::ResourceAccesses() const {
-        return std::span<const ResourceAccess>{};
+        static std::array<ResourceAccess, 1> Accesses{ { { typeid(Arche::EntityID), Access::Read } } };
+        return Accesses;
     }
 
     void CameraInputSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {

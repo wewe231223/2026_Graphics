@@ -338,7 +338,7 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> PickingSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 0> Accesses{};
+        static std::array<ResourceAccess, 2> Accesses{ { { typeid(Arche::EntityID), Access::Read }, { typeid(std::unordered_map<Arche::EntityID, SimpleMath::Matrix>), Access::Read } } };
         return Accesses;
     }
 

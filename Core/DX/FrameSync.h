@@ -23,6 +23,8 @@ namespace Core {
         public:
             void Sync(ID3D12CommandQueue* commandQueue);
             uint32_t GetCurrentIndex() const;
+            ID3D12Fence* GetFence() const;
+            uint64_t GetLatestSignaledValue() const;
 
             void Flush(ID3D12CommandQueue* commandQueue);
         private:

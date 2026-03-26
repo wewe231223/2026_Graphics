@@ -47,6 +47,7 @@ namespace Core {
 
 			ErrorHandler::report(mGraphicsAllocator == nullptr, "DirectQueue", "GraphicsAllocator is not set.", ErrorHandler::Level::Critical);
 			ErrorHandler::report(mCopyQueue == nullptr, "DirectQueue", "CopyQueue is not set.", ErrorHandler::Level::Critical);
+			mCopyQueue->WaitForExternalFence(mFrameSync.GetFence(), mFrameSync.GetLatestSignaledValue());
 
 			DrawCallResourceManager& DrawCallResources{ mDrawCallResourceManagers[mRTVIndex] };
 			mMaterialResourceManager.PrepareFrameResources(mRTVIndex, Data, *mGraphicsAllocator, mCopyQueue);
