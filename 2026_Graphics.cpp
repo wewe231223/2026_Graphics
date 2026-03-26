@@ -94,8 +94,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     MSG msg;
 
     Core::DX::DirectQueue directQueue(hWnd);
+    const bool IsImGuiBlocked{ Config::Query()->Get<bool>("Block_ImGui") };
     Widget::WidgetCore WidgetCoreInstance{};
-    WidgetCoreInstance.Initialize(hWnd, directQueue.GetDevice(), directQueue.GetPrimaryAdapter());
+    if (!IsImGuiBlocked) {
+        WidgetCoreInstance.Initialize(hWnd, directQueue.GetDevice(), directQueue.GetPrimaryAdapter());
+    }
 
     D3D12_HEAP_PROPERTIES defaultHeapProperties{};
     defaultHeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -167,32 +170,51 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             }
         }
         else {
-            Widget::PerformanceProvider::Get().BeginFrame();
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginFrame();
+            }
 
             Globals::Time::Get().AdvanceTime();
             Globals::Input::Get().Update();
 
-            Widget::PerformanceProvider::Get().BeginProfile("Update");
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginProfile("Update");
+            }
             SceneInstance.ExecutePhase(Game::Phase::PreUpdate, Globals::Time::Get().GetDeltaTime<float>());
             SceneInstance.ExecutePhase(Game::Phase::Update, Globals::Time::Get().GetDeltaTime<float>());
             SceneInstance.ExecutePhase(Game::Phase::Skinning, Globals::Time::Get().GetDeltaTime<float>());
-            Widget::PerformanceProvider::Get().EndProfile();
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndProfile();
+            }
 
-            Widget::PerformanceProvider::Get().BeginProfile("Physics");
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginProfile("Physics");
+            }
             SceneInstance.ExecutePhase(Game::Phase::Render, Globals::Time::Get().GetDeltaTime<float>());
-            Widget::PerformanceProvider::Get().EndProfile();
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndProfile();
+            }
 
-            Widget::PerformanceProvider::Get().BeginProfile("Render");
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginProfile("Render");
+            }
             SceneInstance.ExecutePhase(Game::Phase::PostRender, Globals::Time::Get().GetDeltaTime<float>());
 
             Core::Event::Flush(); 
 
-            SceneInstance.UpdateWorldSnapshotIfNeeded();
-            WidgetCoreInstance.SetSceneWorldSnapshot(&SceneInstance.GetWorldSnapshot());
+            if (!IsImGuiBlocked) {
+                SceneInstance.UpdateWorldSnapshotIfNeeded();
+                WidgetCoreInstance.SetSceneWorldSnapshot(&SceneInstance.GetWorldSnapshot());
+            }
 
             SceneInstance.PrepareRender();
             directQueue.PreRender(SceneInstance.GetRenderFrameData(), Globals::Time::Get().GetDeltaTime<float>());
-            directQueue.Render(SceneInstance.GetRenderFrameData(), &WidgetCoreInstance);
+            if (!IsImGuiBlocked) {
+                directQueue.Render(SceneInstance.GetRenderFrameData(), &WidgetCoreInstance);
+            }
+            else {
+                directQueue.Render(SceneInstance.GetRenderFrameData(), nullptr);
+            }
 
             frameCount++; 
         }
@@ -311,7 +333,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-    ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam);
+    if (!Config::Query()->Get<bool>("Block_ImGui")) {
+        ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam);
+    }
 
     constexpr UINT keyPressedCheckBitMask = 0x60000000;
     constexpr UINT keyPressedAtTime = 0x20000000;

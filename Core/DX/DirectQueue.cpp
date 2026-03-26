@@ -91,7 +91,9 @@ namespace Core {
 		
 			// Execute Render Tasks
 			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
-			Widget::PerformanceProvider::Get().EndProfile();
+			if (!Config::Query()->Get<bool>("Block_ImGui")) {
+				Widget::PerformanceProvider::Get().EndProfile();
+			}
 			if (WidgetCore != nullptr) {
 				WidgetCore->Render(mCommandList);
 			}
@@ -114,7 +116,9 @@ namespace Core {
 			mDirectCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
 
 			ErrorHandler::report(mSwapChain->Present(Constants::AllowTearing ? 0 : 1, Constants::AllowTearing ? DXGI_PRESENT_ALLOW_TEARING : 0), "DirectQueue", "Failed to present SwapChain.", ErrorHandler::Level::Critical);
-			Widget::PerformanceProvider::Get().EndFrame();
+			if (!Config::Query()->Get<bool>("Block_ImGui")) {
+				Widget::PerformanceProvider::Get().EndFrame();
+			}
 
 			DirectQueue::DrainDebugMessages();
 

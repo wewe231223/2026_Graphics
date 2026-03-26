@@ -19,6 +19,10 @@ namespace fs = std::filesystem;
 namespace Widget {
 
 	WidgetCore::~WidgetCore() {
+		if (!mIsInitialized) {
+			return;
+		}
+
 		ImGui_ImplDX12_Shutdown();
 		ImGui_ImplWin32_Shutdown();
 		ImGui::DestroyContext();
@@ -72,9 +76,14 @@ namespace Widget {
 		PerformanceProvider::Get().Initialize(Adapter);
 
 		WidgetCore::BuildWidgets();
+		mIsInitialized = true;
 	}
 
 	void WidgetCore::Render(ComPtr<ID3D12GraphicsCommandList>& commandList) {
+		if (!mIsInitialized) {
+			return;
+		}
+
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
