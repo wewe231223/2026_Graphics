@@ -157,7 +157,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     copyQueue.GuaranteeCopy(Core::DX::CopyQueueId::Model);
 
 
-
     // 기본 메시지 루프입니다:
     while (true) {
         if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {

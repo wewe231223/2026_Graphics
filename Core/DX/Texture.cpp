@@ -207,6 +207,11 @@ Texture::Ptr Texture::CreateTarget(ID3D12Device* device, uint32_t width, uint32_
         ErrorHandler::report("Texture", "Failed to create target texture.", ErrorHandler::Level::Critical);
     }
 
+    if (tex->mResource != nullptr) {
+        std::wstring ResourceName{ tex->mName.begin(), tex->mName.end() };
+        tex->mResource->SetName(ResourceName.c_str());
+    }
+
     return tex;
 }
 
@@ -216,6 +221,11 @@ Texture::Ptr Texture::CreateFromResource(ID3D12Resource* externalResource, const
     tex->mResource = externalResource;
     tex->mResourceDESC = externalResource->GetDesc();
     tex->mCurrentState = D3D12_RESOURCE_STATE_COMMON;
+
+    if (externalResource != nullptr) {
+        std::wstring ResourceName{ name.begin(), name.end() };
+        externalResource->SetName(ResourceName.c_str());
+    }
 
     return tex;
 }

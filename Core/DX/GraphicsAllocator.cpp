@@ -1,6 +1,7 @@
 ﻿#include "Core/DX/GraphicsAllocator.h"
 #include <algorithm>
 #include <bit>
+#include <string>
 #include "Utility/ErrorHandler.h"
 
 #ifdef max 
@@ -195,6 +196,9 @@ AllocationHandle GraphicsAllocator::AllocatePlacedResourceHandle(const D3D12_RES
         InsertToBin(mergedIndex);
         return EmptyHandle;
     }
+
+    std::wstring resourceName{ L"GraphicsAllocator.PlacedResource.Offset_" + std::to_wstring(allocatedBlock.Offset) + L".Size_" + std::to_wstring(allocatedBlock.Size) };
+    resource->SetName(resourceName.c_str());
 
     AllocationHandle AllocationHandleValue{ this, std::move(resource), allocatedBlock.Offset, allocatedBlock.Size };
     return AllocationHandleValue;
