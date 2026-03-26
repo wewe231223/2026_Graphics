@@ -369,7 +369,8 @@ bool CopyQueue::PrepareCopyRequests(std::span<const Interface::CopyQueueCopyRequ
         std::unique_ptr<Interface::IAllocationHandle> UploadAllocationHandle{};
         {
             std::lock_guard<std::mutex> UploadAllocatorGuard{ mUploadAllocatorMutex };
-            UploadAllocationHandle = mUploadAllocator.AllocatePlacedResource(UploadResourceDescription, D3D12_RESOURCE_STATE_GENERIC_READ);
+            Interface::AllocatePlacedResourceParameters UploadAllocationParameters{ UploadResourceDescription, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, L"CopyQueue.UploadBuffer" };
+            UploadAllocationHandle = mUploadAllocator.AllocatePlacedResource(UploadAllocationParameters);
         }
 
         if (UploadAllocationHandle == nullptr or UploadAllocationHandle->IsValid() == false) {
@@ -423,7 +424,8 @@ bool CopyQueue::PrepareTextureCopyRequests(std::span<const Interface::CopyQueueT
         std::unique_ptr<Interface::IAllocationHandle> UploadAllocationHandle{};
         {
             std::lock_guard<std::mutex> UploadAllocatorGuard{ mUploadAllocatorMutex };
-            UploadAllocationHandle = mUploadAllocator.AllocatePlacedResource(UploadResourceDescription, D3D12_RESOURCE_STATE_GENERIC_READ);
+            Interface::AllocatePlacedResourceParameters UploadAllocationParameters{ UploadResourceDescription, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, L"CopyQueue.UploadBuffer" };
+            UploadAllocationHandle = mUploadAllocator.AllocatePlacedResource(UploadAllocationParameters);
         }
 
         if (UploadAllocationHandle == nullptr or UploadAllocationHandle->IsValid() == false) {

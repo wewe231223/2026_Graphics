@@ -140,7 +140,9 @@ bool Texture::Load(Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocat
         return false;
     }
 
-    mAllocationHandle = Allocator->AllocatePlacedResource(mResourceDESC, mCurrentState, nullptr);
+    std::wstring resourceName{ mName.begin(), mName.end() };
+    Interface::AllocatePlacedResourceParameters allocationParameters{ mResourceDESC, mCurrentState, nullptr, resourceName.c_str() };
+    mAllocationHandle = Allocator->AllocatePlacedResource(allocationParameters);
     if (mAllocationHandle == nullptr || mAllocationHandle->IsValid() == false) {
         ErrorHandler::report("Texture", "Failed to create texture resource: " + mName, ErrorHandler::Level::Critical);
         return false;
@@ -148,8 +150,6 @@ bool Texture::Load(Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocat
 
     mResource = mAllocationHandle->GetResource();
 
-    std::wstring ResourceName{ mName.begin(), mName.end() };
-    mResource->SetName(ResourceName.c_str());
 
     Interface::CopyQueueTextureCopyRequest CopyRequest{};
     CopyRequest.DestinationTextureResource = mResource;

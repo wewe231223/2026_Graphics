@@ -206,7 +206,8 @@ bool GraphicsVector::Reallocate(GraphicsAllocator& graphicsAllocator, SizeType r
     resourceDescription.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
     resourceDescription.Flags = mResourceFlags;
 
-    AllocationHandle newAllocationHandle{ graphicsAllocator.AllocatePlacedResourceHandle(resourceDescription, mResourceState, nullptr) };
+    Interface::AllocatePlacedResourceParameters allocationParameters{ resourceDescription, mResourceState, nullptr, L"GraphicsVector.Buffer" };
+    AllocationHandle newAllocationHandle{ graphicsAllocator.AllocatePlacedResourceHandle(allocationParameters) };
     if (newAllocationHandle.IsValid() == false) {
         return false;
     }

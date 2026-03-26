@@ -26,6 +26,13 @@ namespace Interface {
         virtual std::uint64_t GetSize() const = 0;
     };
 
+    struct AllocatePlacedResourceParameters final {
+        const D3D12_RESOURCE_DESC& ResourceDesc;
+        D3D12_RESOURCE_STATES InitialState;
+        const D3D12_CLEAR_VALUE* OptimizedClearValue;
+        const wchar_t* ResourceName;
+    };
+
     class IGraphicsAllocator {
     public:
         virtual ~IGraphicsAllocator() = default;
@@ -35,7 +42,7 @@ namespace Interface {
         virtual void Reset() = 0;
 
         virtual bool CanAllocate(const D3D12_RESOURCE_DESC& ResourceDesc) const = 0;
-        virtual std::unique_ptr<IAllocationHandle> AllocatePlacedResource(const D3D12_RESOURCE_DESC& ResourceDesc, D3D12_RESOURCE_STATES InitialState, const D3D12_CLEAR_VALUE* OptimizedClearValue = nullptr) = 0;
+        virtual std::unique_ptr<IAllocationHandle> AllocatePlacedResource(const AllocatePlacedResourceParameters& Parameters) = 0;
 
         virtual ID3D12Heap* GetHeap() const = 0;
         virtual std::uint64_t GetHeapSize() const = 0;

@@ -12,8 +12,8 @@ namespace {
         UINT StrideInBytes{ 0 };
     };
 
-    bool AllocateBufferResource(Interface::IGraphicsAllocator* Allocator, std::size_t ByteSize, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation) {
-        if (Allocator == nullptr || ByteSize == 0) {
+    bool AllocateBufferResource(Interface::IGraphicsAllocator* Allocator, std::size_t ByteSize, const wchar_t* ResourceName, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation) {
+        if (Allocator == nullptr || ByteSize == 0 || ResourceName == nullptr) {
             return false;
         }
 
@@ -34,7 +34,8 @@ namespace {
             return false;
         }
 
-        OutAllocation = Allocator->AllocatePlacedResource(ResourceDescription, D3D12_RESOURCE_STATE_COPY_DEST, nullptr);
+        Interface::AllocatePlacedResourceParameters AllocationParameters{ ResourceDescription, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, ResourceName };
+        OutAllocation = Allocator->AllocatePlacedResource(AllocationParameters);
         if (OutAllocation == nullptr) {
             return false;
         }
@@ -531,7 +532,7 @@ namespace Game {
             TotalByteSize += Source.ByteSize;
         }
 
-        const bool AllocateResult{ AllocateBufferResource(Allocator, TotalByteSize, OutAllocation) };
+        const bool AllocateResult{ AllocateBufferResource(Allocator, TotalByteSize, L"Model.VertexBuffer", OutAllocation) };
         if (AllocateResult == false) {
             return false;
         }
@@ -580,7 +581,7 @@ namespace Game {
         }
 
         const std::size_t ByteSize{ Indices.size() * sizeof(std::uint32_t) };
-        const bool AllocateResult{ AllocateBufferResource(Allocator, ByteSize, OutAllocation) };
+        const bool AllocateResult{ AllocateBufferResource(Allocator, ByteSize, L"Model.IndexBuffer", OutAllocation) };
         if (AllocateResult == false) {
             OutView = D3D12_INDEX_BUFFER_VIEW{};
             return false;
