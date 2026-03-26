@@ -3,7 +3,6 @@
 #include <cstring>
 #include <cwctype>
 #include <stdexcept>
-#include "Core/DX/CopyQueueId.h"
 #include "Utility/ErrorHandler.h"
 
 using namespace DirectX;
@@ -26,6 +25,7 @@ Texture::Texture(const std::string& name)
     mName{ name },
     mSourceLayouts{},
     mSourceData{},
+    mCopyFuture{},
     mSRVHandle{},
     mRTVHandle{},
     mDSVHandle{},
@@ -44,6 +44,7 @@ Texture::Texture(Texture&& other) noexcept
     mName(std::move(other.mName)),
     mSourceLayouts(std::move(other.mSourceLayouts)),
     mSourceData(std::move(other.mSourceData)),
+    mCopyFuture(std::move(other.mCopyFuture)),
     mSRVHandle(std::move(other.mSRVHandle)),
     mRTVHandle(std::move(other.mRTVHandle)),
     mDSVHandle(std::move(other.mDSVHandle)),
@@ -61,6 +62,7 @@ Texture& Texture::operator=(Texture&& other) noexcept {
         mName = std::move(other.mName);
         mSourceLayouts = std::move(other.mSourceLayouts);
         mSourceData = std::move(other.mSourceData);
+        mCopyFuture = std::move(other.mCopyFuture);
         mSRVHandle = std::move(other.mSRVHandle);
         mRTVHandle = std::move(other.mRTVHandle);
         mDSVHandle = std::move(other.mDSVHandle);
@@ -155,8 +157,8 @@ bool Texture::Load(Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocat
     CopyRequest.DestinationTextureResource = mResource;
     CopyRequest.SourceLayouts = mSourceLayouts;
     CopyRequest.SourceData = mSourceData;
-    const bool EnqueueResult{ CopyQueue->EnqueueTextureCopy(CopyQueueId::Texture, CopyRequest) };
-    if (EnqueueResult == false) {
+    mCopyFuture = CopyQueue->EnqueueTextureCopyFuture(CopyRequest);
+    if (mCopyFuture.IsValid() == false) {
         ErrorHandler::report("Texture", "Failed to enqueue texture upload copy request: " + mName, ErrorHandler::Level::Critical);
         mResource.Reset();
         mAllocationHandle.reset();
@@ -168,12 +170,30 @@ bool Texture::Load(Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocat
 
 #include "utility/stdoutput.h"
 void Texture::Unload() {
+    if (mCopyFuture.IsInFlight() == true) {
+        mCopyFuture.Wait();
+    }
+
     mResource.Reset();
     mAllocationHandle.reset();
     mCurrentState = D3D12_RESOURCE_STATE_COMMON;
+    mCopyFuture = Interface::CopyFuture{};
 
 	StdOutput::Print("Texture unloaded: {}", mName);
     
+}
+
+
+bool Texture::IsCopyInFlight() const {
+    return mCopyFuture.IsInFlight();
+}
+
+void Texture::WaitForCopyCompletion() const {
+    mCopyFuture.Wait();
+}
+
+Interface::CopyFuture Texture::GetCopyFuture() const {
+    return mCopyFuture;
 }
 
 bool Texture::IsLoaded() const {

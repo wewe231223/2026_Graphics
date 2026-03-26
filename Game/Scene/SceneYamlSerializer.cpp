@@ -7,6 +7,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <ryml.hpp>
 #include <ryml_std.hpp>
@@ -131,39 +132,24 @@ namespace {
     }
 
     std::unique_ptr<Game::ISystem> CreateSystemByName(const std::string& SystemName) {
-        if (SystemName == "StaticRenderSystem") {
-            return std::make_unique<Game::StaticRenderSystem>();
+        using SystemFactory = std::unique_ptr<Game::ISystem>(*)();
+        static const std::unordered_map<std::string_view, SystemFactory> SystemFactories{
+            { "StaticRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::StaticRenderSystem>(); } },
+            { "SkinnedMeshRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshRenderSystem>(); } },
+            { "CameraInputSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraInputSystem>(); } },
+            { "AnimateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimateSystem>(); } },
+            { "SkinningSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinningSystem>(); } },
+            { "PickingSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::PickingSystem>(); } },
+            { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },
+            { "CleanUpSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CleanUpSystem<Game::CameraIntent>>(); } },
+            { "CleanUpSystem<CameraIntent>", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CleanUpSystem<Game::CameraIntent>>(); } },
+        };
+        const std::unordered_map<std::string_view, SystemFactory>::const_iterator FactoryIter{ SystemFactories.find(SystemName) };
+        if (FactoryIter == SystemFactories.end()) {
+            return nullptr;
         }
 
-        if (SystemName == "SkinnedMeshRenderSystem") {
-            return std::make_unique<Game::SkinnedMeshRenderSystem>();
-        }
-
-        if (SystemName == "CameraInputSystem") {
-            return std::make_unique<Game::CameraInputSystem>();
-        }
-
-        if (SystemName == "AnimateSystem") {
-            return std::make_unique<Game::AnimateSystem>();
-        }
-
-        if (SystemName == "SkinningSystem") {
-            return std::make_unique<Game::SkinningSystem>();
-        }
-
-        if (SystemName == "PickingSystem") {
-            return std::make_unique<Game::PickingSystem>();
-        }
-
-        if (SystemName == "CameraRenderSystem") {
-            return std::make_unique<Game::CameraRenderSystem>();
-        }
-
-        if (SystemName == "CleanUpSystem" || SystemName == "CleanUpSystem<CameraIntent>") {
-            return std::make_unique<Game::CleanUpSystem<Game::CameraIntent>>();
-        }
-
-        return nullptr;
+        return FactoryIter->second();
     }
 
     bool TryReadSystemName(c4::yml::ConstNodeRef SystemNode, std::string& OutSystemName) {

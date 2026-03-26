@@ -183,6 +183,7 @@ exit 0
   <ItemGroup>
     <ClCompile Include="2026_Graphics.cpp" />
     <ClCompile Include="Core\Config.cpp" />
+    <ClCompile Include="Core\CopyFuture.cpp" />
     <ClCompile Include="Core\Event\Event.cpp" />
     <ClCompile Include="Core\Event\EventQueue.cpp" />
     <ClCompile Include="Core\Event\FileDropEvent.cpp" />
@@ -212,7 +213,6 @@ exit 0
     <ClInclude Include="Core\DX\AllocationHandle.h" />
     <ClInclude Include="Core\DX\ComputeQueue.h" />
     <ClInclude Include="Core\DX\CopyQueue.h" />
-    <ClInclude Include="Core\DX\CopyQueueId.h" />
     <ClInclude Include="Core\DX\DesciptorHeap.h" />
     <ClInclude Include="Core\DX\DrawCallDispatcher.h" />
     <ClInclude Include="Core\DX\DrawCallResourceManager.h" />

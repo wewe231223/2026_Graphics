@@ -38,6 +38,9 @@
     <ClCompile Include="Core\Config.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="Core\CopyFuture.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
     <ClCompile Include="Core\Event\Event.cpp">
       <Filter>Core\Event</Filter>
     </ClCompile>
@@ -155,9 +158,6 @@
       <Filter>Core\DX</Filter>
     </ClInclude>
     <ClInclude Include="Core\DX\DrawCallDispatcher.h">
-      <Filter>Core\DX</Filter>
-    </ClInclude>
-    <ClInclude Include="Core\DX\CopyQueueId.h">
       <Filter>Core\DX</Filter>
     </ClInclude>
   </ItemGroup>

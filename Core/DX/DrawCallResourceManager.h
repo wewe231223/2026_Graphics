@@ -61,8 +61,7 @@ namespace Core {
 			GraphicsVector mBonePaletteVector{};
 			GraphicsVector mDrawRecordVector{};
 
-			std::uint64_t mCopyFenceValue{};
-			std::uint64_t mCopyId{};
+			Interface::CopyFuture mCopyFuture{};
 			std::vector<DrawRecordGPU> mDrawRecordsGpu{};
 		};
 	}

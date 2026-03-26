@@ -27,7 +27,8 @@ CopyQueue::CopyQueue(ID3D12Device* Device)
     mWorkerThread{},
     mIsRunning{ true },
     mSubmitFenceValueCounter{ 0 },
-    mCopyIdFenceStates{} {
+    mCopyTicketCounter{ 0 },
+    mCopyTicketFenceStates{} {
     bool InitializeResult{ Initialize(Device) };
     ErrorHandler::report(InitializeResult == false, "CopyQueue", "Failed to initialize copy queue.", ErrorHandler::Level::Critical);
 }
@@ -76,60 +77,47 @@ bool CopyQueue::Initialize(ID3D12Device* Device) {
     return true;
 }
 
-bool CopyQueue::EnqueueCopy(std::uint64_t CopyId, const Interface::CopyQueueCopyRequest& CopyRequest) {
+
+Interface::CopyFuture CopyQueue::EnqueueCopyFuture(const Interface::CopyQueueCopyRequest& CopyRequest) {
     std::span<const Interface::CopyQueueCopyRequest> CopyRequests{ &CopyRequest, 1 };
-    return EnqueueCopy(CopyId, CopyRequests);
+    return EnqueueCopyFuture(CopyRequests);
 }
 
-bool CopyQueue::EnqueueCopy(std::uint64_t CopyId, std::span<const Interface::CopyQueueCopyRequest> CopyRequests) {
-    CopyRequestBatch RequestBatch{};
-    RequestBatch.CopyId = CopyId;
-
-    bool IsPrepared{ PrepareCopyRequests(CopyRequests, RequestBatch.CopyRequests) };
+Interface::CopyFuture CopyQueue::EnqueueCopyFuture(std::span<const Interface::CopyQueueCopyRequest> CopyRequests) {
+    std::vector<PreparedCopyRequest> PreparedRequests{};
+    bool IsPrepared{ PrepareCopyRequests(CopyRequests, PreparedRequests) };
     if (IsPrepared == false) {
-        return false;
+        return Interface::CopyFuture{};
     }
 
-    {
-        std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
-        CopyIdFenceState& FenceState{ mCopyIdFenceStates[CopyId] };
-        FenceState.PendingBatchCount += 1;
+    std::uint64_t CopyTicket{ GenerateCopyTicket() };
+    bool IsEnqueued{ EnqueuePreparedCopyRequests(CopyTicket, PreparedRequests) };
+    if (IsEnqueued == false) {
+        return Interface::CopyFuture{};
     }
 
-    {
-        std::lock_guard<std::mutex> QueueGuard{ mQueueMutex };
-        mPendingRequestBatches.push(std::move(RequestBatch));
-    }
-
-    return true;
+    return Interface::CopyFuture{ this, CopyTicket };
 }
 
-bool CopyQueue::EnqueueTextureCopy(std::uint64_t CopyId, const Interface::CopyQueueTextureCopyRequest& CopyRequest) {
+Interface::CopyFuture CopyQueue::EnqueueTextureCopyFuture(const Interface::CopyQueueTextureCopyRequest& CopyRequest) {
     std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests{ &CopyRequest, 1 };
-    return EnqueueTextureCopy(CopyId, CopyRequests);
+    return EnqueueTextureCopyFuture(CopyRequests);
 }
 
-bool CopyQueue::EnqueueTextureCopy(std::uint64_t CopyId, std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests) {
-    CopyRequestBatch RequestBatch{};
-    RequestBatch.CopyId = CopyId;
-
-    bool IsPrepared{ PrepareTextureCopyRequests(CopyRequests, RequestBatch.CopyRequests) };
+Interface::CopyFuture CopyQueue::EnqueueTextureCopyFuture(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests) {
+    std::vector<PreparedCopyRequest> PreparedRequests{};
+    bool IsPrepared{ PrepareTextureCopyRequests(CopyRequests, PreparedRequests) };
     if (IsPrepared == false) {
-        return false;
+        return Interface::CopyFuture{};
     }
 
-    {
-        std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
-        CopyIdFenceState& FenceState{ mCopyIdFenceStates[CopyId] };
-        FenceState.PendingBatchCount += 1;
+    std::uint64_t CopyTicket{ GenerateCopyTicket() };
+    bool IsEnqueued{ EnqueuePreparedCopyRequests(CopyTicket, PreparedRequests) };
+    if (IsEnqueued == false) {
+        return Interface::CopyFuture{};
     }
 
-    {
-        std::lock_guard<std::mutex> QueueGuard{ mQueueMutex };
-        mPendingRequestBatches.push(std::move(RequestBatch));
-    }
-
-    return true;
+    return Interface::CopyFuture{ this, CopyTicket };
 }
 
 void CopyQueue::DispatchCopies() {
@@ -141,27 +129,19 @@ void CopyQueue::DispatchCopies() {
     mQueueCondition.notify_one();
 }
 
-bool CopyQueue::IsFenceComplete(std::uint64_t CopyId) const {
-    std::uint64_t SubmitFenceValue{ ResolveCopyIdToFenceValue(CopyId) };
+bool CopyQueue::IsFutureComplete(std::uint64_t CopyTicket) const {
+    std::uint64_t SubmitFenceValue{ ResolveCopyTicketToFenceValue(CopyTicket) };
     return IsSubmitFenceComplete(SubmitFenceValue);
 }
 
-void CopyQueue::GuaranteeCopy(std::uint64_t CopyId) const {
-    std::uint64_t SubmitFenceValue{ ResolveCopyIdToFenceValue(CopyId) };
+void CopyQueue::WaitFuture(std::uint64_t CopyTicket) const {
+    std::uint64_t SubmitFenceValue{ ResolveCopyTicketToFenceValue(CopyTicket) };
     WaitForSubmitFence(SubmitFenceValue);
 }
 
 void CopyQueue::Flush() {
     DispatchCopies();
     WaitForQueueIdle();
-}
-
-void CopyQueue::WaitForExternalFence(ID3D12Fence* Fence, std::uint64_t FenceValue) {
-    if (Fence == nullptr) {
-        return;
-    }
-
-    ErrorHandler::report(mCopyCommandQueue->Wait(Fence, FenceValue), "CopyQueue", "Failed to wait on external fence.", ErrorHandler::Level::Critical);
 }
 
 std::uint64_t CopyQueue::GetRequiredUploadBufferSize() const {
@@ -198,7 +178,7 @@ void CopyQueue::ExecuteRequestBatch(CopyRequestBatch& RequestBatch) {
     if (RequestBatch.CopyRequests.empty() == true) {
         {
             std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
-            CopyIdFenceState& FenceState{ mCopyIdFenceStates[RequestBatch.CopyId] };
+            CopyTicketFenceState& FenceState{ mCopyTicketFenceStates[RequestBatch.CopyTicket] };
             FenceState.LastSubmitFenceValue = mSubmitFenceValueCounter.load();
             if (FenceState.PendingBatchCount > 0) {
                 FenceState.PendingBatchCount -= 1;
@@ -259,7 +239,7 @@ void CopyQueue::ExecuteRequestBatch(CopyRequestBatch& RequestBatch) {
 
     {
         std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
-        CopyIdFenceState& FenceState{ mCopyIdFenceStates[RequestBatch.CopyId] };
+        CopyTicketFenceState& FenceState{ mCopyTicketFenceStates[RequestBatch.CopyTicket] };
         if (FenceState.LastSubmitFenceValue < SubmitFenceValue) {
             FenceState.LastSubmitFenceValue = SubmitFenceValue;
         }
@@ -292,11 +272,12 @@ void CopyQueue::StopWorker() {
 }
 
 void CopyQueue::WaitForQueueIdle() {
-    static constexpr std::uint64_t IdleCopyId{ std::numeric_limits<std::uint64_t>::max() };
-    bool EnqueueResult{ EnqueueCopy(IdleCopyId, std::span<const Interface::CopyQueueCopyRequest>{}) };
+    std::uint64_t IdleCopyTicket{ GenerateCopyTicket() };
+    std::vector<PreparedCopyRequest> PreparedRequests{};
+    bool EnqueueResult{ EnqueuePreparedCopyRequests(IdleCopyTicket, PreparedRequests) };
     ErrorHandler::report(EnqueueResult == false, "CopyQueue", "Failed to enqueue idle marker.", ErrorHandler::Level::Critical);
     DispatchCopies();
-    GuaranteeCopy(IdleCopyId);
+    WaitFuture(IdleCopyTicket);
 }
 
 bool CopyQueue::IsSubmitFenceComplete(std::uint64_t FenceValue) const {
@@ -316,25 +297,48 @@ void CopyQueue::WaitForSubmitFence(std::uint64_t FenceValue) const {
     WaitForSingleObjectEx(mFenceEvent, INFINITE, FALSE);
 }
 
-std::uint64_t CopyQueue::ResolveCopyIdToFenceValue(std::uint64_t CopyId) const {
-    std::unique_lock<std::mutex> FenceGuard{ mFenceMutex };
-    std::unordered_map<std::uint64_t, CopyIdFenceState>::const_iterator FoundFence{ mCopyIdFenceStates.find(CopyId) };
-    if (FoundFence == mCopyIdFenceStates.end()) {
-        return CopyId;
+std::uint64_t CopyQueue::GenerateCopyTicket() {
+    return mCopyTicketCounter.fetch_add(1) + 1;
+}
+
+bool CopyQueue::EnqueuePreparedCopyRequests(std::uint64_t CopyTicket, std::vector<PreparedCopyRequest>& PreparedRequests) {
+    CopyRequestBatch RequestBatch{};
+    RequestBatch.CopyTicket = CopyTicket;
+    RequestBatch.CopyRequests = std::move(PreparedRequests);
+
+    {
+        std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
+        CopyTicketFenceState& FenceState{ mCopyTicketFenceStates[CopyTicket] };
+        FenceState.PendingBatchCount += 1;
     }
 
-    mFenceCondition.wait(FenceGuard, [this, CopyId] {
-        std::unordered_map<std::uint64_t, CopyIdFenceState>::const_iterator CurrentFence{ mCopyIdFenceStates.find(CopyId) };
-        if (CurrentFence == mCopyIdFenceStates.end()) {
+    {
+        std::lock_guard<std::mutex> QueueGuard{ mQueueMutex };
+        mPendingRequestBatches.push(std::move(RequestBatch));
+    }
+
+    return true;
+}
+
+std::uint64_t CopyQueue::ResolveCopyTicketToFenceValue(std::uint64_t CopyTicket) const {
+    std::unique_lock<std::mutex> FenceGuard{ mFenceMutex };
+    std::unordered_map<std::uint64_t, CopyTicketFenceState>::const_iterator FoundFence{ mCopyTicketFenceStates.find(CopyTicket) };
+    if (FoundFence == mCopyTicketFenceStates.end()) {
+        return CopyTicket;
+    }
+
+    mFenceCondition.wait(FenceGuard, [this, CopyTicket] {
+        std::unordered_map<std::uint64_t, CopyTicketFenceState>::const_iterator CurrentFence{ mCopyTicketFenceStates.find(CopyTicket) };
+        if (CurrentFence == mCopyTicketFenceStates.end()) {
             return true;
         }
 
         return CurrentFence->second.PendingBatchCount == 0;
     });
 
-    FoundFence = mCopyIdFenceStates.find(CopyId);
-    if (FoundFence == mCopyIdFenceStates.end()) {
-        return CopyId;
+    FoundFence = mCopyTicketFenceStates.find(CopyTicket);
+    if (FoundFence == mCopyTicketFenceStates.end()) {
+        return CopyTicket;
     }
 
     return FoundFence->second.LastSubmitFenceValue;

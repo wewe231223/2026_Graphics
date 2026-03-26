@@ -32,7 +32,6 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "External/Include/ImGui/imgui.h"
 #include "Widget/PerformanceProvider.h"
 #include "Widget/WidgetCore.h"
-#include "Core/DX/CopyQueueId.h"
 #include "Core/Event/EventQueue.h"
 #include "Core/Event/FileDropEvent.h"
 
@@ -154,7 +153,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
 
     copyQueue.DispatchCopies();
-    copyQueue.GuaranteeCopy(Core::DX::CopyQueueId::Model);
+    copyQueue.Flush();
 
 
     // 기본 메시지 루프입니다:

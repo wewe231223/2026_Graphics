@@ -254,26 +254,34 @@ namespace Game {
             RenderData.modelContexts.push_back(ModelContext);
 
             const Material* MaterialComponent{ World.GetComponent<Material>(EntityId) };
+            const std::uint32_t MaterialFlags{ MaterialComponent == nullptr ? 0u : MaterialComponent->Flags };
+            const bool IsPickedHierarchy{ IsEntityWithinPickedHierarchy(World, EntityId, Ctx.PickedEntityId) };
+            const std::uint32_t PickFlags{ IsPickedHierarchy ? PickedDrawFlagBitMask : 0u };
+            const RegisteredMaterialGroup* ResolvedMaterialGroup{ nullptr };
+            if (MaterialGroups.empty() == false) {
+                std::size_t ResolvedMaterialGroupIndex{ SkinnedMeshRendererComponent.materialGroupIndex };
+                if (ResolvedMaterialGroupIndex >= MaterialGroups.size() || MaterialGroups[ResolvedMaterialGroupIndex].Items.empty()) {
+                    ResolvedMaterialGroupIndex = 0;
+                }
+
+                if (ResolvedMaterialGroupIndex < MaterialGroups.size() && MaterialGroups[ResolvedMaterialGroupIndex].Items.empty() == false) {
+                    ResolvedMaterialGroup = &MaterialGroups[ResolvedMaterialGroupIndex];
+                }
+            }
 
             for (std::size_t SubMeshIndex{ 0 }; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
                 const ModelSubMesh& SubMesh{ SubMeshes[SubMeshIndex] };
                 const Interface::IPipeline* Pipeline{ nullptr };
                 std::uint32_t ResolvedMaterialIndex{ 0 };
-                std::uint32_t ResolvedMaterialGroupIndex{ SkinnedMeshRendererComponent.materialGroupIndex };
 
-                if (MaterialGroups.empty() == false && (ResolvedMaterialGroupIndex >= MaterialGroups.size() || MaterialGroups[ResolvedMaterialGroupIndex].Items.empty())) {
-                    ResolvedMaterialGroupIndex = 0;
-                }
-
-                if (MaterialGroups.empty() == false && ResolvedMaterialGroupIndex < MaterialGroups.size()) {
-                    const RegisteredMaterialGroup& RegisteredGroup{ MaterialGroups[ResolvedMaterialGroupIndex] };
+                if (ResolvedMaterialGroup != nullptr) {
                     std::size_t ResolvedItemIndex{ SubMesh.MaterialGroupItemIndex };
-                    if (ResolvedItemIndex >= RegisteredGroup.Items.size()) {
+                    if (ResolvedItemIndex >= ResolvedMaterialGroup->Items.size()) {
                         ResolvedItemIndex = 0;
                     }
 
-                    if (ResolvedItemIndex < RegisteredGroup.Items.size()) {
-                        const RegisteredMaterialGroupItem& RegisteredGroupItem{ RegisteredGroup.Items[ResolvedItemIndex] };
+                    if (ResolvedItemIndex < ResolvedMaterialGroup->Items.size()) {
+                        const RegisteredMaterialGroupItem& RegisteredGroupItem{ ResolvedMaterialGroup->Items[ResolvedItemIndex] };
                         Pipeline = RegisteredGroupItem.Pipeline;
                         ResolvedMaterialIndex = RegisteredGroupItem.MaterialIndex;
                     }
@@ -286,9 +294,6 @@ namespace Game {
                 DrawRecord.pass = 0;
                 DrawRecord.objectIndex = ModelContext.objectID;
                 DrawRecord.materialIndex = ResolvedMaterialIndex;
-                const std::uint32_t MaterialFlags{ MaterialComponent == nullptr ? 0u : MaterialComponent->Flags };
-                const bool IsPickedHierarchy{ IsEntityWithinPickedHierarchy(World, EntityId, Ctx.PickedEntityId) };
-                const std::uint32_t PickFlags{ IsPickedHierarchy ? PickedDrawFlagBitMask : 0u };
                 DrawRecord.flags = MaterialFlags | PickFlags;
                 RenderData.drawRecords.push_back(DrawRecord);
             }

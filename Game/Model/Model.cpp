@@ -1,7 +1,6 @@
 ﻿#include "Model.h"
 #include <algorithm>
 #include <cstring>
-#include "Core/DX/CopyQueueId.h"
 #include <utility>
 
 namespace {
@@ -310,6 +309,7 @@ namespace Game {
         const std::vector<std::unique_ptr<asset::ModelNode>>& SourceNodes{ ModelData.Nodes() };
         mNodes.resize(SourceNodes.size());
 
+
         for (std::size_t NodeIndex{ 0 }; NodeIndex < SourceNodes.size(); ++NodeIndex) {
             const asset::ModelNode& SourceNode{ *SourceNodes[NodeIndex] };
             ModelNode& DestinationNode{ mNodes[NodeIndex] };
@@ -356,13 +356,15 @@ namespace Game {
             std::vector<ModelNode::VertexAttributeRange> VertexRanges{};
             std::unique_ptr<Interface::IAllocationHandle> VertexAllocation{};
             std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{};
-            UploadVertexData(SourceNode.Vertices(), Allocator, CopyQueue, VertexRawData, VertexRanges, VertexAllocation, VertexBufferViews);
+            Interface::CopyFuture VertexCopyFuture{};
+            UploadVertexData(SourceNode.Vertices(), Allocator, CopyQueue, VertexRawData, VertexRanges, VertexAllocation, VertexBufferViews, VertexCopyFuture);
             DestinationNode.SetVertexData(std::move(VertexRawData), std::move(VertexRanges), std::move(VertexAllocation), std::move(VertexBufferViews));
 
             std::vector<std::byte> IndexRawData{};
             std::unique_ptr<Interface::IAllocationHandle> IndexAllocation{};
             D3D12_INDEX_BUFFER_VIEW IndexBufferView{};
-            UploadIndexData(SourceNode.Indices(), Allocator, CopyQueue, IndexRawData, IndexAllocation, IndexBufferView);
+            Interface::CopyFuture IndexCopyFuture{};
+            UploadIndexData(SourceNode.Indices(), Allocator, CopyQueue, IndexRawData, IndexAllocation, IndexBufferView, IndexCopyFuture);
             DestinationNode.SetIndexData(std::move(IndexRawData), std::move(IndexAllocation), IndexBufferView);
 
             mNodeNameLookup.insert_or_assign(DestinationNode.GetName(), static_cast<std::uint32_t>(NodeIndex));
@@ -375,6 +377,7 @@ namespace Game {
         }
 
         BuildRuntimeBoneInfos();
+
 
         return true;
     }
@@ -497,7 +500,7 @@ namespace Game {
         }
     }
 
-    bool Model::UploadVertexData(const asset::VertexAttributes& Vertices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews) const {
+    bool Model::UploadVertexData(const asset::VertexAttributes& Vertices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews, Interface::CopyFuture& OutCopyFuture) const {
         std::vector<AttributeUploadSource> Sources{};
         const std::size_t VertexCount{ Vertices.VertexCount() };
         std::vector<asset::UVec4> DefaultBoneIndices{};
@@ -567,16 +570,18 @@ namespace Game {
         Request.DestinationDefaultResource = OutAllocation->GetResource();
         Request.DestinationOffset = 0;
         Request.SourceData = OutRawData;
-        bool EnqueueResult{ CopyQueue->EnqueueCopy(Core::DX::CopyQueueId::Model, Request) };
-        if (EnqueueResult == false) {
+        OutCopyFuture = CopyQueue->EnqueueCopyFuture(Request);
+        if (OutCopyFuture.IsValid() == false) {
             return false;
         }
+
         return true;
     }
 
-    bool Model::UploadIndexData(const std::vector<std::uint32_t>& Indices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, D3D12_INDEX_BUFFER_VIEW& OutView) const {
+    bool Model::UploadIndexData(const std::vector<std::uint32_t>& Indices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, D3D12_INDEX_BUFFER_VIEW& OutView, Interface::CopyFuture& OutCopyFuture) const {
         if (Indices.empty()) {
             OutView = D3D12_INDEX_BUFFER_VIEW{};
+            OutCopyFuture = Interface::CopyFuture{};
             return false;
         }
 
@@ -584,6 +589,7 @@ namespace Game {
         const bool AllocateResult{ AllocateBufferResource(Allocator, ByteSize, L"Model.IndexBuffer", OutAllocation) };
         if (AllocateResult == false) {
             OutView = D3D12_INDEX_BUFFER_VIEW{};
+            OutCopyFuture = Interface::CopyFuture{};
             return false;
         }
 
@@ -594,9 +600,10 @@ namespace Game {
         Request.DestinationDefaultResource = OutAllocation->GetResource();
         Request.DestinationOffset = 0;
         Request.SourceData = OutRawData;
-        bool EnqueueResult{ CopyQueue->EnqueueCopy(Core::DX::CopyQueueId::Model, Request) };
-        if (EnqueueResult == false) {
+        OutCopyFuture = CopyQueue->EnqueueCopyFuture(Request);
+        if (OutCopyFuture.IsValid() == false) {
             OutView = D3D12_INDEX_BUFFER_VIEW{};
+            OutCopyFuture = Interface::CopyFuture{};
             return false;
         }
 
