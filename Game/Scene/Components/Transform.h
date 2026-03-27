@@ -16,6 +16,7 @@ namespace Game {
 		void RotateRadians(float PitchRadians, float YawRadians, float RollRadians);
 		void ClampPitchRadians(float MinPitchRadians, float MaxPitchRadians);
 		void UpdateRotationFromEulerRadians();
+		void UpdateEulerRadiansFromRotation();
 		SimpleMath::Vector3 GetForwardDirection() const;
 		SimpleMath::Vector3 TransformDirectionToWorld(const SimpleMath::Vector3& LocalDirection) const;
 

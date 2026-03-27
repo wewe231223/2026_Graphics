@@ -25,7 +25,7 @@ Transitions:
     ExitTimeNormalized: 0.0
     CanInterrupt: true
     Priority: 0
-    BlendDuration: 0.2
+    BlendDuration: 0.09
     Conditions:
       - Parameter: IsMoving
         Operator: Equals
@@ -36,7 +36,7 @@ Transitions:
     ExitTimeNormalized: 0.0
     CanInterrupt: true
     Priority: 0
-    BlendDuration: 0.2
+    BlendDuration: 0.09
     Conditions:
       - Parameter: IsMoving
         Operator: Equals

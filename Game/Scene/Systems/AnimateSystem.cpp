@@ -283,6 +283,7 @@ namespace {
                     SimpleMath::Matrix DeltaLocal = BindLocal.Invert() * AnimLocal;
 
                     DeltaLocal.Decompose(TransformComponent->scale, TransformComponent->rotation, TransformComponent->position);
+                    TransformComponent->UpdateEulerRadiansFromRotation();
                 }
             }
         }

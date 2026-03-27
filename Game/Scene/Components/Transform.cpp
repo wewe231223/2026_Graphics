@@ -77,6 +77,27 @@ namespace Game {
         rotation.Normalize();
     }
 
+    void Transform::UpdateEulerRadiansFromRotation() {
+        const SimpleMath::Matrix RotationMatrix{ SimpleMath::Matrix::CreateFromQuaternion(rotation) };
+        const float SinPitch{ -RotationMatrix._32 };
+        const float PitchRadians{ std::asin(std::clamp(SinPitch, -1.0f, 1.0f)) };
+        const float CosPitch{ std::cos(PitchRadians) };
+
+        float YawRadians{ 0.0f };
+        float RollRadians{ 0.0f };
+
+        if (std::fabs(CosPitch) > 0.0001f) {
+            YawRadians = std::atan2(RotationMatrix._31, RotationMatrix._33);
+            RollRadians = std::atan2(RotationMatrix._12, RotationMatrix._22);
+        }
+        else {
+            YawRadians = std::atan2(-RotationMatrix._13, RotationMatrix._11);
+            RollRadians = 0.0f;
+        }
+
+        rotationEuler = SimpleMath::Vector3{ PitchRadians, YawRadians, RollRadians };
+    }
+
     SimpleMath::Vector3 Transform::GetForwardDirection() const {
         return SimpleMath::Vector3::Transform(SimpleMath::Vector3::Forward, rotation);
     }
@@ -114,6 +135,7 @@ namespace Game {
         const SimpleMath::Matrix WorldMatrix{ SimpleMath::Matrix::CreateWorld(SimpleMath::Vector3::Zero, ForwardDirection, UpDirection) };
         rotation = SimpleMath::Quaternion::CreateFromRotationMatrix(WorldMatrix);
         rotation.Normalize();
+        UpdateEulerRadiansFromRotation();
     }
 
     bool Transform::IsBehind(const SimpleMath::Vector3& Target) const {
