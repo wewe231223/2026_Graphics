@@ -22,6 +22,8 @@ namespace Game {
 
         std::int32_t SampleSourceClipIndex{ -1 };
         std::int32_t SampleDestinationClipIndex{ -1 };
+        float SampleSourceLocalTime{};
+        float SampleDestinationLocalTime{};
         float SampleBlendAlpha{};
         float SamplePlaySpeed{ 1.0f };
         bool SampleIsLoop{ true };

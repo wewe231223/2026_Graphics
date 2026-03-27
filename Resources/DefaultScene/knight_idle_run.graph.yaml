@@ -6,14 +6,14 @@ ParameterDefinitions:
 
 Nodes:
   - NodeName: Idle
-    AnimationFile: knight.animbin
+    AnimationFile: Mannequinn_Idle_Run.animbin
     ClipIndex: 0
     IsLoop: true
     PlaySpeed: 1.0
     IsDefault: true
   - NodeName: Run
-    AnimationFile: knight.animbin
-    ClipIndex: 4
+    AnimationFile: Mannequinn_Idle_Run.animbin
+    ClipIndex: 1
     IsLoop: true
     PlaySpeed: 1.0
     IsDefault: false
@@ -25,7 +25,7 @@ Transitions:
     ExitTimeNormalized: 0.0
     CanInterrupt: true
     Priority: 0
-    BlendDuration: 0.5
+    BlendDuration: 0.2
     Conditions:
       - Parameter: IsMoving
         Operator: Equals
@@ -36,7 +36,7 @@ Transitions:
     ExitTimeNormalized: 0.0
     CanInterrupt: true
     Priority: 0
-    BlendDuration: 0.5
+    BlendDuration: 0.2
     Conditions:
       - Parameter: IsMoving
         Operator: Equals

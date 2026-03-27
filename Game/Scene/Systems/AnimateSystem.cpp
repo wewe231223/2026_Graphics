@@ -347,6 +347,8 @@ namespace Game {
             const std::int32_t SourceClipIndexValue{ GraphPlayer != nullptr ? GraphPlayer->SampleSourceClipIndex : AnimatorComponent->clipIndex };
             const std::int32_t DestinationClipIndexValue{ GraphPlayer != nullptr ? GraphPlayer->SampleDestinationClipIndex : SourceClipIndexValue };
             const float BlendAlpha{ GraphPlayer != nullptr ? std::clamp(GraphPlayer->SampleBlendAlpha, 0.0f, 1.0f) : 0.0f };
+            const double SourceLocalTime{ GraphPlayer != nullptr ? static_cast<double>(GraphPlayer->SampleSourceLocalTime) : AnimatorComponent->counter };
+            const double DestinationLocalTime{ GraphPlayer != nullptr ? static_cast<double>(GraphPlayer->SampleDestinationLocalTime) : AnimatorComponent->counter };
             if (SourceClipIndexValue < 0) {
                 continue;
             }
@@ -377,7 +379,7 @@ namespace Game {
             const double SourceTicksPerSecond{ SourceClipData.TicksPerSecond > 0.0 ? SourceClipData.TicksPerSecond : 30.0 };
             const double DestinationTicksPerSecond{ DestinationClipData.TicksPerSecond > 0.0 ? DestinationClipData.TicksPerSecond : 30.0 };
             const std::pair<std::unordered_set<Arche::EntityID>::iterator, bool> InsertResult{ UpdatedAnimatorEntityIds.insert(ResolvedAnimatorComponent.EntityId) };
-            if (InsertResult.second == true) {
+            if (InsertResult.second == true && GraphPlayer == nullptr) {
                 AnimatorComponent->counter += static_cast<double>(Dt);
 
                 const double DurationSeconds{ SourceClipData.Duration / SourceTicksPerSecond };
@@ -389,8 +391,8 @@ namespace Game {
                 }
             }
 
-            const double SourceAnimationTick{ AnimatorComponent->counter * SourceTicksPerSecond };
-            const double DestinationAnimationTick{ AnimatorComponent->counter * DestinationTicksPerSecond };
+            const double SourceAnimationTick{ SourceLocalTime * SourceTicksPerSecond };
+            const double DestinationAnimationTick{ DestinationLocalTime * DestinationTicksPerSecond };
             std::unordered_map<PoseApplyCacheKey, std::vector<const asset::AnimationChannel*>, PoseApplyCacheKeyHasher>::iterator ChannelLookupCacheIter{ ChannelLookupCache.find(CacheKey) };
             if (ChannelLookupCacheIter == ChannelLookupCache.end()) {
                 std::vector<const asset::AnimationChannel*> NewChannelLookup{ BuildAnimationChannelLookup(*SkinnedMeshRendererComponent.model, SourceClipData) };

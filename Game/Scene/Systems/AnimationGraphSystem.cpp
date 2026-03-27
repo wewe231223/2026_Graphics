@@ -98,7 +98,13 @@ namespace Game {
     void AnimationGraphSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
 #pragma region TemporaryIsMovingInputTest
         const Globals::Input& Input{ Globals::Input::Get() };
-        const bool IsMovingParameterValue{ Input.IsKeyDown(DirectX::Keyboard::Keys::V) };
+        static bool IsMovingParameterValue{};
+        if (Input.IsKeyPressed(DirectX::Keyboard::Keys::V)) {
+            IsMovingParameterValue = true;
+        }
+        else if (Input.IsKeyReleased(DirectX::Keyboard::Keys::V)) {
+            IsMovingParameterValue = false;
+        }
 
         if (Ctx.PickedEntityId != Arche::NullEntityID) {
             Animator* PickedAnimator{ World.GetComponent<Animator>(Ctx.PickedEntityId) };
@@ -135,7 +141,7 @@ namespace Game {
             const AnimationGraphAsset::AnimationGraphNodeAsset& CurrentNode{ Nodes[GraphPlayer.CurrentNodeIndex] };
             const float PlaybackSpeed{ CurrentNode.PlaySpeed <= 0.0f ? 1.0f : CurrentNode.PlaySpeed };
 
-            if (AnimatorComponent.animation != nullptr) {
+            if (AnimatorComponent.animation != nullptr && GraphPlayer.IsInTransition == false) {
                 const std::size_t ClipIndex{ static_cast<std::size_t>(std::max(CurrentNode.ClipIndex, 0)) };
                 const std::vector<asset::AnimationClip>& Clips{ AnimatorComponent.animation->Clips() };
                 if (ClipIndex < Clips.size()) {
@@ -159,35 +165,33 @@ namespace Game {
             }
 
             const AnimationGraphAsset::AnimationGraphTransitionAsset* SelectedTransition{ nullptr };
-            for (const AnimationGraphAsset::AnimationGraphTransitionAsset& Transition : Transitions) {
-                if (Transition.FromNodeIndex != static_cast<std::uint32_t>(GraphPlayer.CurrentNodeIndex)) {
-                    continue;
-                }
-
-                if (GraphPlayer.IsInTransition && Transition.CanInterrupt == false) {
-                    continue;
-                }
-
-                if (Transition.HasExitTime && GraphPlayer.CurrentNormalizedTime < Clamp01(Transition.ExitTimeNormalized)) {
-                    continue;
-                }
-
-                bool IsSatisfied{ true };
-                for (const AnimationGraphAsset::AnimationGraphConditionAsset& Condition : Transition.Conditions) {
-                    if (Condition.ParameterIndex >= ParameterDefinitions.size()) {
-                        IsSatisfied = false;
-                        break;
+            if (GraphPlayer.IsInTransition == false) {
+                for (const AnimationGraphAsset::AnimationGraphTransitionAsset& Transition : Transitions) {
+                    if (Transition.FromNodeIndex != static_cast<std::uint32_t>(GraphPlayer.CurrentNodeIndex)) {
+                        continue;
                     }
 
-                    if (EvaluateCondition(Condition, ParameterDefinitions[Condition.ParameterIndex], GraphPlayer) == false) {
-                        IsSatisfied = false;
+                    if (Transition.HasExitTime && GraphPlayer.CurrentNormalizedTime < Clamp01(Transition.ExitTimeNormalized)) {
+                        continue;
+                    }
+
+                    bool IsSatisfied{ true };
+                    for (const AnimationGraphAsset::AnimationGraphConditionAsset& Condition : Transition.Conditions) {
+                        if (Condition.ParameterIndex >= ParameterDefinitions.size()) {
+                            IsSatisfied = false;
+                            break;
+                        }
+
+                        if (EvaluateCondition(Condition, ParameterDefinitions[Condition.ParameterIndex], GraphPlayer) == false) {
+                            IsSatisfied = false;
+                            break;
+                        }
+                    }
+
+                    if (IsSatisfied) {
+                        SelectedTransition = &Transition;
                         break;
                     }
-                }
-
-                if (IsSatisfied) {
-                    SelectedTransition = &Transition;
-                    break;
                 }
             }
 
@@ -196,12 +200,16 @@ namespace Game {
                 GraphPlayer.IsInTransition = true;
                 GraphPlayer.BlendElapsed = 0.0f;
                 GraphPlayer.BlendDuration = std::max(SelectedTransition->BlendDuration, 0.0f);
+                GraphPlayer.SampleSourceLocalTime = GraphPlayer.CurrentLocalTime;
+                GraphPlayer.SampleDestinationLocalTime = 0.0f;
             }
 
             if (GraphPlayer.IsInTransition) {
                 GraphPlayer.BlendElapsed += Dt;
                 GraphPlayer.SampleBlendAlpha = GraphPlayer.BlendDuration <= 0.0f ? 1.0f : Clamp01(GraphPlayer.BlendElapsed / GraphPlayer.BlendDuration);
                 GraphPlayer.SampleSourceClipIndex = Nodes[GraphPlayer.CurrentNodeIndex].ClipIndex;
+                GraphPlayer.SampleSourceLocalTime = GraphPlayer.CurrentLocalTime;
+                GraphPlayer.SampleDestinationLocalTime = 0.0f;
                 if (GraphPlayer.NextNodeIndex >= 0 && static_cast<std::size_t>(GraphPlayer.NextNodeIndex) < Nodes.size()) {
                     GraphPlayer.SampleDestinationClipIndex = Nodes[GraphPlayer.NextNodeIndex].ClipIndex;
                 }
@@ -216,18 +224,24 @@ namespace Game {
                     GraphPlayer.CurrentNormalizedTime = 0.0f;
                     GraphPlayer.IsInTransition = false;
                     GraphPlayer.SampleBlendAlpha = 0.0f;
+                    GraphPlayer.SampleSourceClipIndex = Nodes[GraphPlayer.CurrentNodeIndex].ClipIndex;
+                    GraphPlayer.SampleDestinationClipIndex = GraphPlayer.SampleSourceClipIndex;
+                    GraphPlayer.SampleSourceLocalTime = GraphPlayer.CurrentLocalTime;
+                    GraphPlayer.SampleDestinationLocalTime = GraphPlayer.CurrentLocalTime;
                 }
             }
             else {
                 GraphPlayer.SampleBlendAlpha = 0.0f;
                 GraphPlayer.SampleSourceClipIndex = Nodes[GraphPlayer.CurrentNodeIndex].ClipIndex;
                 GraphPlayer.SampleDestinationClipIndex = GraphPlayer.SampleSourceClipIndex;
+                GraphPlayer.SampleSourceLocalTime = GraphPlayer.CurrentLocalTime;
+                GraphPlayer.SampleDestinationLocalTime = GraphPlayer.CurrentLocalTime;
             }
 
             GraphPlayer.SampleIsLoop = CurrentNode.IsLoop;
             GraphPlayer.SamplePlaySpeed = PlaybackSpeed;
             AnimatorComponent.clipIndex = GraphPlayer.SampleSourceClipIndex;
-            AnimatorComponent.counter = GraphPlayer.CurrentLocalTime;
+            AnimatorComponent.counter = GraphPlayer.SampleSourceLocalTime;
         }
     }
 }
