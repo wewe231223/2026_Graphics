@@ -13,7 +13,7 @@ Nodes:
     IsDefault: true
   - NodeName: Run
     AnimationFile: knight.animbin
-    ClipIndex: 1
+    ClipIndex: 4
     IsLoop: true
     PlaySpeed: 1.0
     IsDefault: false
@@ -25,7 +25,7 @@ Transitions:
     ExitTimeNormalized: 0.0
     CanInterrupt: true
     Priority: 0
-    BlendDuration: 0.2
+    BlendDuration: 0.5
     Conditions:
       - Parameter: IsMoving
         Operator: Equals
@@ -36,7 +36,7 @@ Transitions:
     ExitTimeNormalized: 0.0
     CanInterrupt: true
     Priority: 0
-    BlendDuration: 0.2
+    BlendDuration: 0.5
     Conditions:
       - Parameter: IsMoving
         Operator: Equals

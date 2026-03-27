@@ -6,6 +6,7 @@
 #include <span>
 
 #include "Game/Asset/AnimationGraphAsset.h"
+#include "Game/Base/Input.h"
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/AnimatorGraphPlayer.h"
 
@@ -95,7 +96,20 @@ namespace Game {
     }
 
     void AnimationGraphSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
-        (void)Ctx;
+#pragma region TemporaryIsMovingInputTest
+        const Globals::Input& Input{ Globals::Input::Get() };
+        const bool IsMovingParameterValue{ Input.IsKeyDown(DirectX::Keyboard::Keys::V) };
+
+        if (Ctx.PickedEntityId != Arche::NullEntityID) {
+            Animator* PickedAnimator{ World.GetComponent<Animator>(Ctx.PickedEntityId) };
+            AnimatorGraphPlayer* PickedGraphPlayer{ World.GetComponent<AnimatorGraphPlayer>(Ctx.PickedEntityId) };
+            if (PickedAnimator != nullptr && PickedGraphPlayer != nullptr && PickedAnimator->GraphAsset != nullptr && PickedAnimator->IsGraphEnabled) {
+                const std::vector<AnimationGraphAsset::AnimationGraphParameterDefinition>& ParameterDefinitions{ PickedAnimator->GraphAsset->GetParameterDefinitions() };
+                PickedGraphPlayer->TrySetBoolParameter(ParameterDefinitions, "IsMoving", IsMovingParameterValue);
+            }
+        }
+#pragma endregion
+
         for (auto [AnimatorComponent, GraphPlayer] : World.Query<Animator, AnimatorGraphPlayer>()) {
             if (AnimatorComponent.GraphAsset == nullptr || AnimatorComponent.IsGraphEnabled == false) {
                 AnimatorComponent.clipIndex = AnimatorComponent.FallbackClipIndex;
