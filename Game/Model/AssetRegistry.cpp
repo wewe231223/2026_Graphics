@@ -3,14 +3,16 @@
 #include <filesystem>
 #include <limits>
 #include <unordered_set>
+#include <unordered_map>
+#include <string_view>
+#include <sstream>
+#include <fstream>
+#include <ryml_std.hpp>
+#include <ryml.hpp>
 #include "Asset/AssetBinaryReader.h"
 #include "Asset/AnimationBinaryReader.h"
 #include "Asset/MaterialGroupJsonSerializer.h"
 #include "PrimitiveModelFactory.h"
-
-#ifdef max
-#undef max
-#endif
 
 namespace {
     constexpr std::uint32_t MaterialFieldCount{ asset::MaterialTypeCount };
@@ -168,6 +170,28 @@ namespace Game {
         AnimationBucket.mAssets.push_back(NewAnimation);
         AnimationBucket.mNameLookup.insert_or_assign(AnimationBinaryPath, NewIndex);
         return NewAnimation;
+    }
+
+    std::shared_ptr<AnimationGraphAsset> AssetRegistry::GetAnimationGraph(const std::string& AnimationGraphPath) {
+        IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
+        AssetRegistryStorage& Storage{ BackEnd->GetStorage() };
+        auto& AnimationGraphBucket{ Storage.GetBucket<AnimationGraphBucketTag>() };
+
+        const auto FoundGraph{ AnimationGraphBucket.mNameLookup.find(AnimationGraphPath) };
+        if (FoundGraph != AnimationGraphBucket.mNameLookup.end() && FoundGraph->second < AnimationGraphBucket.mAssets.size()) {
+            return AnimationGraphBucket.mAssets[FoundGraph->second];
+        }
+
+        AnimationGraphAsset AnimationGraphData{};
+        if (ReadAnimationGraphData(AnimationGraphPath, AnimationGraphData) == false) {
+            return nullptr;
+        }
+
+        std::shared_ptr<AnimationGraphAsset> NewGraph{ std::make_shared<AnimationGraphAsset>(std::move(AnimationGraphData)) };
+        const std::uint32_t NewIndex{ static_cast<std::uint32_t>(AnimationGraphBucket.mAssets.size()) };
+        AnimationGraphBucket.mAssets.push_back(NewGraph);
+        AnimationGraphBucket.mNameLookup.insert_or_assign(AnimationGraphPath, NewIndex);
+        return NewGraph;
     }
 
     bool AssetRegistry::LoadMaterialGroups(const std::string& MaterialJsonPath) {
@@ -358,6 +382,29 @@ namespace Game {
 
             const std::shared_ptr<asset::Animation>& RegisteredAnimation{ AnimationBucket.mAssets[AnimationIndex] };
             if (RegisteredAnimation.get() == AnimationPointer) {
+                return Pair.first;
+            }
+        }
+
+        return std::string{};
+    }
+
+    std::string AssetRegistry::FindAnimationGraphSelectorByPointer(const AnimationGraphAsset* AnimationGraphPointer) const {
+        if (AnimationGraphPointer == nullptr) {
+            return std::string{};
+        }
+
+        const IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
+        const AssetRegistryStorage& Storage{ BackEnd->GetStorage() };
+        const auto& AnimationGraphBucket{ Storage.GetBucket<AnimationGraphBucketTag>() };
+        for (const auto& Pair : AnimationGraphBucket.mNameLookup) {
+            const std::uint32_t GraphIndex{ Pair.second };
+            if (GraphIndex >= AnimationGraphBucket.mAssets.size()) {
+                continue;
+            }
+
+            const std::shared_ptr<AnimationGraphAsset>& RegisteredGraph{ AnimationGraphBucket.mAssets[GraphIndex] };
+            if (RegisteredGraph.get() == AnimationGraphPointer) {
                 return Pair.first;
             }
         }
@@ -665,6 +712,214 @@ namespace Game {
     bool AssetRegistry::ReadAnimationData(const std::string& AnimationBinaryPath, asset::Animation& OutAnimationData) const {
         asset::AnimationBinaryReader Reader{};
         return Reader.ReadFromFile(AnimationBinaryPath, OutAnimationData);
+    }
+
+
+    bool AssetRegistry::ReadAnimationGraphData(const std::string& AnimationGraphPath, AnimationGraphAsset& OutAnimationGraphData) const {
+        std::ifstream InputStream{ AnimationGraphPath, std::ios::in | std::ios::binary };
+        if (InputStream.is_open() == false) {
+            return false;
+        }
+
+        std::stringstream Buffer{};
+        Buffer << InputStream.rdbuf();
+        const std::string YamlText{ Buffer.str() };
+
+        c4::yml::Tree Tree{};
+        c4::yml::parse_in_arena(c4::to_csubstr(YamlText), &Tree);
+        const c4::yml::ConstNodeRef RootNode{ Tree.rootref() };
+
+        std::string GraphName{};
+        if (RootNode.has_child("GraphName")) {
+            RootNode["GraphName"] >> GraphName;
+        }
+        OutAnimationGraphData.SetGraphName(GraphName);
+
+        std::unordered_map<std::string, std::uint32_t> ParameterNameToIndex{};
+        std::vector<AnimationGraphAsset::AnimationGraphParameterDefinition> ParameterDefinitions{};
+        if (RootNode.has_child("ParameterDefinitions")) {
+            for (const c4::yml::ConstNodeRef ParameterNode : RootNode["ParameterDefinitions"].children()) {
+                AnimationGraphAsset::AnimationGraphParameterDefinition NewDefinition{};
+                std::string ParameterTypeText{};
+                if (ParameterNode.has_child("ParameterName")) {
+                    ParameterNode["ParameterName"] >> NewDefinition.ParameterName;
+                }
+                if (ParameterNode.has_child("ParameterType")) {
+                    ParameterNode["ParameterType"] >> ParameterTypeText;
+                }
+
+                if (ParameterTypeText == "Int") {
+                    NewDefinition.ParameterTypeValue = AnimationGraphAsset::ParameterType::Int;
+                    std::int32_t DefaultIntValue{};
+                    if (ParameterNode.has_child("DefaultValue")) {
+                        ParameterNode["DefaultValue"] >> DefaultIntValue;
+                    }
+                    NewDefinition.DefaultValue = DefaultIntValue;
+                }
+                else if (ParameterTypeText == "Float") {
+                    NewDefinition.ParameterTypeValue = AnimationGraphAsset::ParameterType::Float;
+                    float DefaultFloatValue{};
+                    if (ParameterNode.has_child("DefaultValue")) {
+                        ParameterNode["DefaultValue"] >> DefaultFloatValue;
+                    }
+                    NewDefinition.DefaultValue = DefaultFloatValue;
+                }
+                else if (ParameterTypeText == "Trigger") {
+                    NewDefinition.ParameterTypeValue = AnimationGraphAsset::ParameterType::Trigger;
+                    bool DefaultTriggerValue{};
+                    if (ParameterNode.has_child("DefaultValue")) {
+                        ParameterNode["DefaultValue"] >> DefaultTriggerValue;
+                    }
+                    NewDefinition.DefaultValue = DefaultTriggerValue;
+                }
+                else {
+                    NewDefinition.ParameterTypeValue = AnimationGraphAsset::ParameterType::Bool;
+                    bool DefaultBoolValue{};
+                    if (ParameterNode.has_child("DefaultValue")) {
+                        ParameterNode["DefaultValue"] >> DefaultBoolValue;
+                    }
+                    NewDefinition.DefaultValue = DefaultBoolValue;
+                }
+
+                const std::uint32_t ParameterIndex{ static_cast<std::uint32_t>(ParameterDefinitions.size()) };
+                ParameterNameToIndex.insert_or_assign(NewDefinition.ParameterName, ParameterIndex);
+                ParameterDefinitions.push_back(std::move(NewDefinition));
+            }
+        }
+        OutAnimationGraphData.SetParameterDefinitions(std::move(ParameterDefinitions));
+
+        std::unordered_map<std::string, std::uint32_t> NodeNameToIndex{};
+        std::vector<AnimationGraphAsset::AnimationGraphNodeAsset> Nodes{};
+        if (RootNode.has_child("Nodes")) {
+            for (const c4::yml::ConstNodeRef NodeNode : RootNode["Nodes"].children()) {
+                AnimationGraphAsset::AnimationGraphNodeAsset NewNode{};
+                if (NodeNode.has_child("NodeName")) {
+                    NodeNode["NodeName"] >> NewNode.NodeName;
+                }
+                if (NodeNode.has_child("AnimationFile")) {
+                    NodeNode["AnimationFile"] >> NewNode.AnimationFile;
+                }
+                if (NodeNode.has_child("ClipIndex")) {
+                    NodeNode["ClipIndex"] >> NewNode.ClipIndex;
+                }
+                if (NodeNode.has_child("IsLoop")) {
+                    NodeNode["IsLoop"] >> NewNode.IsLoop;
+                }
+                if (NodeNode.has_child("PlaySpeed")) {
+                    NodeNode["PlaySpeed"] >> NewNode.PlaySpeed;
+                }
+                if (NodeNode.has_child("IsDefault")) {
+                    NodeNode["IsDefault"] >> NewNode.IsDefault;
+                }
+
+                const std::uint32_t NodeIndex{ static_cast<std::uint32_t>(Nodes.size()) };
+                NodeNameToIndex.insert_or_assign(NewNode.NodeName, NodeIndex);
+                Nodes.push_back(std::move(NewNode));
+            }
+        }
+        OutAnimationGraphData.SetNodes(std::move(Nodes));
+
+        std::vector<AnimationGraphAsset::AnimationGraphTransitionAsset> Transitions{};
+        std::uint32_t FileOrder{};
+        if (RootNode.has_child("Transitions")) {
+            for (const c4::yml::ConstNodeRef TransitionNode : RootNode["Transitions"].children()) {
+                AnimationGraphAsset::AnimationGraphTransitionAsset NewTransition{};
+                std::string FromNodeName{};
+                std::string ToNodeName{};
+                if (TransitionNode.has_child("FromNode")) {
+                    TransitionNode["FromNode"] >> FromNodeName;
+                }
+                if (TransitionNode.has_child("ToNode")) {
+                    TransitionNode["ToNode"] >> ToNodeName;
+                }
+
+                const std::unordered_map<std::string, std::uint32_t>::const_iterator FoundFromNode{ NodeNameToIndex.find(FromNodeName) };
+                const std::unordered_map<std::string, std::uint32_t>::const_iterator FoundToNode{ NodeNameToIndex.find(ToNodeName) };
+                if (FoundFromNode == NodeNameToIndex.end() || FoundToNode == NodeNameToIndex.end()) {
+                    return false;
+                }
+
+                NewTransition.FromNodeIndex = FoundFromNode->second;
+                NewTransition.ToNodeIndex = FoundToNode->second;
+                NewTransition.FileOrder = FileOrder;
+                FileOrder += 1;
+
+                if (TransitionNode.has_child("HasExitTime")) {
+                    TransitionNode["HasExitTime"] >> NewTransition.HasExitTime;
+                }
+                if (TransitionNode.has_child("ExitTimeNormalized")) {
+                    TransitionNode["ExitTimeNormalized"] >> NewTransition.ExitTimeNormalized;
+                }
+                if (TransitionNode.has_child("CanInterrupt")) {
+                    TransitionNode["CanInterrupt"] >> NewTransition.CanInterrupt;
+                }
+                if (TransitionNode.has_child("Priority")) {
+                    TransitionNode["Priority"] >> NewTransition.Priority;
+                }
+                if (TransitionNode.has_child("BlendDuration")) {
+                    TransitionNode["BlendDuration"] >> NewTransition.BlendDuration;
+                }
+
+                if (TransitionNode.has_child("Conditions")) {
+                    for (const c4::yml::ConstNodeRef ConditionNode : TransitionNode["Conditions"].children()) {
+                        AnimationGraphAsset::AnimationGraphConditionAsset NewCondition{};
+                        std::string ParameterName{};
+                        std::string OperatorText{};
+
+                        if (ConditionNode.has_child("Parameter")) {
+                            ConditionNode["Parameter"] >> ParameterName;
+                        }
+                        if (ConditionNode.has_child("Operator")) {
+                            ConditionNode["Operator"] >> OperatorText;
+                        }
+
+                        const std::unordered_map<std::string, std::uint32_t>::const_iterator FoundParameter{ ParameterNameToIndex.find(ParameterName) };
+                        if (FoundParameter == ParameterNameToIndex.end()) {
+                            return false;
+                        }
+
+                        NewCondition.ParameterIndex = FoundParameter->second;
+                        if (OperatorText == "NotEquals") {
+                            NewCondition.Operator = AnimationGraphAsset::ConditionOperator::NotEquals;
+                        }
+                        else if (OperatorText == "Greater") {
+                            NewCondition.Operator = AnimationGraphAsset::ConditionOperator::Greater;
+                        }
+                        else if (OperatorText == "GreaterOrEqual") {
+                            NewCondition.Operator = AnimationGraphAsset::ConditionOperator::GreaterOrEqual;
+                        }
+                        else if (OperatorText == "Less") {
+                            NewCondition.Operator = AnimationGraphAsset::ConditionOperator::Less;
+                        }
+                        else if (OperatorText == "LessOrEqual") {
+                            NewCondition.Operator = AnimationGraphAsset::ConditionOperator::LessOrEqual;
+                        }
+                        else {
+                            NewCondition.Operator = AnimationGraphAsset::ConditionOperator::Equals;
+                        }
+
+                        if (ConditionNode.has_child("BoolValue")) {
+                            ConditionNode["BoolValue"] >> NewCondition.BoolValue;
+                        }
+                        if (ConditionNode.has_child("IntValue")) {
+                            ConditionNode["IntValue"] >> NewCondition.IntValue;
+                        }
+                        if (ConditionNode.has_child("FloatValue")) {
+                            ConditionNode["FloatValue"] >> NewCondition.FloatValue;
+                        }
+
+                        NewTransition.Conditions.push_back(std::move(NewCondition));
+                    }
+                }
+
+                Transitions.push_back(std::move(NewTransition));
+            }
+        }
+
+        OutAnimationGraphData.SetTransitions(std::move(Transitions));
+
+        std::string ErrorText{};
+        return OutAnimationGraphData.Validate(ErrorText);
     }
 
     bool AssetRegistry::ReadMaterialGroups(const std::string& MaterialJsonPath, std::vector<asset::MaterialGroup>& OutMaterialGroups) const {

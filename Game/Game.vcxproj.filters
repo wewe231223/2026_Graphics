@@ -51,6 +51,9 @@
     <ClInclude Include="Model\AssetRegistry.h">
       <Filter>Model</Filter>
     </ClInclude>
+    <ClInclude Include="Asset\AnimationGraphAsset.h">
+      <Filter>Model</Filter>
+    </ClInclude>
     <ClInclude Include="Model\AssetRegistryBackEnd.h">
       <Filter>Model</Filter>
     </ClInclude>
@@ -105,6 +108,9 @@
     <ClInclude Include="Scene\Components\Animator.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\AnimatorGraphPlayer.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\Name.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -112,6 +118,9 @@
       <Filter>Scene\Components</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\IntentClentUpSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\AnimationGraphSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\AnimateSystem.h">
@@ -200,6 +209,9 @@
     <ClCompile Include="Scene\Components\Animator.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Components\AnimatorGraphPlayer.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
@@ -234,6 +246,9 @@
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\AnimateSystem.cpp">
@@ -281,6 +296,9 @@
       <Filter>PSO</Filter>
     </None>
     <None Include="..\Resources\DefaultScene.yaml">
+      <Filter>Scene\Scene YAML</Filter>
+    </None>
+    <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml">
       <Filter>Scene\Scene YAML</Filter>
     </None>
     <None Include="..\Shader\Source\defines.hlsli">

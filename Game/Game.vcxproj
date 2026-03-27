@@ -27,6 +27,7 @@
     <ClInclude Include="Base\Pipeline.h" />
     <ClInclude Include="Base\Time.h" />
     <ClInclude Include="Model\AssetRegistry.h" />
+    <ClInclude Include="Asset\AnimationGraphAsset.h" />
     <ClInclude Include="Model\AssetRegistryBackEnd.h" />
     <ClInclude Include="Model\Model.h" />
     <ClInclude Include="Model\PrimitiveModelFactory.h" />
@@ -39,6 +40,7 @@
     <ClInclude Include="Scene\Components\Intents\CameraIntent.h" />
     <ClInclude Include="Scene\Components\Material.h" />
     <ClInclude Include="Scene\Components\Animator.h" />
+    <ClInclude Include="Scene\Components\AnimatorGraphPlayer.h" />
     <ClInclude Include="Scene\Components\Name.h" />
     <ClInclude Include="Scene\Components\ComponentInspection.h" />
     <ClInclude Include="Scene\Components\PickingGizmo.h" />
@@ -53,6 +55,7 @@
     <ClInclude Include="Scene\SceneYamlSerializer.h" />
     <ClInclude Include="Scene\System.h" />
     <ClInclude Include="Scene\SystemSceduler.h" />
+    <ClInclude Include="Scene\Systems\AnimationGraphSystem.h" />
     <ClInclude Include="Scene\Systems\AnimateSystem.h" />
     <ClInclude Include="Scene\Systems\CameraInputSystem.h" />
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
@@ -72,6 +75,7 @@
     <ClCompile Include="Model\AssetRegistryBackEnd.cpp" />
     <ClCompile Include="Model\Model.cpp" />
     <ClCompile Include="Model\PrimitiveModelFactory.cpp" />
+    <ClCompile Include="Asset\AnimationGraphAsset.cpp" />
     <ClCompile Include="Scene\Components\PrefabInstance.cpp" />
     <ClCompile Include="Scene\Components\Bone.cpp" />
     <ClCompile Include="Scene\Components\BoneSkinReference.cpp" />
@@ -85,6 +89,7 @@
     <ClCompile Include="Scene\Components\Name.cpp" />
     <ClCompile Include="Scene\Components\Material.cpp" />
     <ClCompile Include="Scene\Components\Animator.cpp" />
+    <ClCompile Include="Scene\Components\AnimatorGraphPlayer.cpp" />
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp" />
     <ClCompile Include="Scene\Components\Tags.cpp" />
     <ClCompile Include="Scene\Components\Intents\CameraIntent.cpp" />
@@ -94,6 +99,7 @@
     <ClCompile Include="Scene\Components\StaticMeshRenderer.cpp" />
     <ClCompile Include="Scene\Components\SkinnedMeshRenderer.cpp" />
     <ClCompile Include="Scene\Components\ComponentInspection.cpp" />
+    <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp" />
     <ClCompile Include="Scene\Systems\AnimateSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraInputSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
@@ -118,6 +124,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Resources\DefaultScene.yaml" />
+    <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml" />
     <None Include="..\Shader\PSO\DefaultGraphics.json" />
     <None Include="..\Shader\PSO\SkinnedGraphics.json" />
     <None Include="..\Shader\PSO\Schema.Pipeline.json" />

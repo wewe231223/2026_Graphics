@@ -2,6 +2,7 @@
 Systems:
   - Type: CameraInputSystem
   - Type: PickingSystem
+  - Type: AnimationGraphSystem
   - Type: AnimateSystem
   - Type: SkinningSystem
   - Type: StaticRenderSystem
@@ -200,6 +201,7 @@ Entities:
       Animation:
         text: knight.animbin
         initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
   - EntityId: 10
     ParentEntityId: -1
     Components:

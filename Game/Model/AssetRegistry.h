@@ -12,11 +12,22 @@
 #include "Core/DX/Texture.h"
 #include "Asset/ModelResult.h"
 #include "Asset/AnimationClipResult.h"
+#include "Game/Asset/AnimationGraphAsset.h"
 #include "Model.h"
 #include "Game/Base/Common.h"
 #include "Game/Base/Pipeline.h"
 #include "Game/Base/RenderFrameData.h"
 #include "Game/Model/AssetRegistryBackEnd.h"
+
+
+#ifdef min
+#undef min
+#endif
+
+#ifdef max
+#undef max
+#endif
+
 
 namespace Game {
     class AssetRegistry final {
@@ -40,6 +51,7 @@ namespace Game {
 
         std::shared_ptr<Model> GetModel(const std::string& ModelBinaryPath);
         std::shared_ptr<asset::Animation> GetAnimation(const std::string& AnimationBinaryPath);
+        std::shared_ptr<AnimationGraphAsset> GetAnimationGraph(const std::string& AnimationGraphPath);
         bool LoadMaterialGroups(const std::string& MaterialJsonPath);
 
         std::uint32_t AddMaterial(const asset::Material& MaterialData, const std::string& MaterialSourcePath);
@@ -52,6 +64,7 @@ namespace Game {
         std::uint32_t FindMaterialGroupIndexBySourcePath(const std::string& MaterialSourcePath) const;
         std::string FindModelSelectorByPointer(const Model* ModelPointer) const;
         std::string FindAnimationSelectorByPointer(const asset::Animation* AnimationPointer) const;
+        std::string FindAnimationGraphSelectorByPointer(const AnimationGraphAsset* AnimationGraphPointer) const;
         std::string FindMaterialGroupSourcePathByIndex(std::uint32_t MaterialGroupIndex) const;
         Interface::IPipeline* GetPipelineByName(const std::string& PipelineName);
 
@@ -73,6 +86,7 @@ namespace Game {
 
         bool ReadModelData(const std::string& ModelBinaryPath, asset::ModelResult& OutModelData) const;
         bool ReadAnimationData(const std::string& AnimationBinaryPath, asset::Animation& OutAnimationData) const;
+        bool ReadAnimationGraphData(const std::string& AnimationGraphPath, AnimationGraphAsset& OutAnimationGraphData) const;
         bool ReadMaterialGroups(const std::string& MaterialJsonPath, std::vector<asset::MaterialGroup>& OutMaterialGroups) const;
 
     private:

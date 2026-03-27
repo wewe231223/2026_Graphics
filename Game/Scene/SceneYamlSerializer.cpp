@@ -17,6 +17,7 @@
 #include "Game/Scene/Components/Intents/CameraIntent.h"
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Animator.h"
+#include "Game/Scene/Components/AnimatorGraphPlayer.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
@@ -25,6 +26,7 @@
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Tags.h"
 #include "Game/Scene/Components/Transform.h"
+#include "Game/Scene/Systems/AnimationGraphSystem.h"
 #include "Game/Scene/Systems/AnimateSystem.h"
 #include "Game/Scene/Systems/CameraInputSystem.h"
 #include "Game/Scene/Systems/IntentClentUpSystem.h"
@@ -61,7 +63,9 @@ namespace {
         Arche::EntityID SourceEntityId{ Arche::NullEntityID };
         std::string TargetNodeName{};
         asset::Animation* AnimationData{ nullptr };
+        Game::AnimationGraphAsset* AnimationGraphData{ nullptr };
         std::int32_t ClipIndex{ -1 };
+        std::int32_t FallbackClipIndex{ -1 };
     };
 
     bool ReadVector3(c4::yml::ConstNodeRef TargetNode, SimpleMath::Vector3& OutValue) {
@@ -137,6 +141,7 @@ namespace {
             { "StaticRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::StaticRenderSystem>(); } },
             { "SkinnedMeshRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshRenderSystem>(); } },
             { "CameraInputSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraInputSystem>(); } },
+            { "AnimationGraphSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimationGraphSystem>(); } },
             { "AnimateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimateSystem>(); } },
             { "SkinningSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinningSystem>(); } },
             { "PickingSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::PickingSystem>(); } },
@@ -886,6 +891,21 @@ namespace Game {
 
                 if (AnimationNode.has_child("initclip")) {
                     AnimationNode["initclip"] >> NewBinding.ClipIndex;
+                    NewBinding.FallbackClipIndex = NewBinding.ClipIndex;
+                }
+
+                if (AnimationNode.has_child("AnimationGraph")) {
+                    std::string AnimationGraphPath{};
+                    AnimationNode["AnimationGraph"] >> AnimationGraphPath;
+                    const std::string ResolvedAnimationGraphPath{ ResolveSceneResourcePath(SceneName, AnimationGraphPath) };
+                    const std::shared_ptr<AnimationGraphAsset> AnimationGraphData{ OutScene.GetAssetRegistry().GetAnimationGraph(ResolvedAnimationGraphPath) };
+                    if (AnimationGraphData == nullptr) {
+                        LoadResult.IsSuccess = false;
+                        LoadResult.UndecidedItems.push_back(std::string{ "AnimationGraph 파일 로드 실패: " } + ResolvedAnimationGraphPath);
+                    }
+                    else {
+                        NewBinding.AnimationGraphData = AnimationGraphData.get();
+                    }
                 }
 
                 if (AnimationNode.has_child("node")) {
@@ -1069,6 +1089,9 @@ namespace Game {
             Animator NewAnimator{};
             NewAnimator.animation = Binding.AnimationData;
             NewAnimator.clipIndex = Binding.ClipIndex;
+            NewAnimator.FallbackClipIndex = Binding.FallbackClipIndex;
+            NewAnimator.GraphAsset = Binding.AnimationGraphData;
+            NewAnimator.IsGraphEnabled = Binding.AnimationGraphData != nullptr;
 
             Animator* ExistingAnimator{ OutScene.GetWorld().GetComponent<Animator>(TargetEntityId) };
             if (ExistingAnimator == nullptr) {
@@ -1076,6 +1099,41 @@ namespace Game {
             }
             else {
                 *ExistingAnimator = NewAnimator;
+            }
+
+            if (NewAnimator.IsGraphEnabled) {
+                AnimatorGraphPlayer Player{};
+                const std::int32_t DefaultNodeIndex{ NewAnimator.GraphAsset->GetDefaultNodeIndex() };
+                Player.CurrentNodeIndex = DefaultNodeIndex;
+                if (DefaultNodeIndex >= 0 && static_cast<std::size_t>(DefaultNodeIndex) < NewAnimator.GraphAsset->GetNodes().size()) {
+                    const AnimationGraphAsset::AnimationGraphNodeAsset& DefaultNode{ NewAnimator.GraphAsset->GetNodes()[DefaultNodeIndex] };
+                    Player.SampleSourceClipIndex = DefaultNode.ClipIndex;
+                    Player.SampleDestinationClipIndex = DefaultNode.ClipIndex;
+                    Player.SamplePlaySpeed = DefaultNode.PlaySpeed;
+                    Player.SampleIsLoop = DefaultNode.IsLoop;
+                    NewAnimator.clipIndex = DefaultNode.ClipIndex;
+                }
+
+                const std::vector<AnimationGraphAsset::AnimationGraphParameterDefinition>& Definitions{ NewAnimator.GraphAsset->GetParameterDefinitions() };
+                for (std::size_t ParameterIndex{ 0 }; ParameterIndex < Definitions.size() && ParameterIndex < AnimatorGraphPlayer::MaxParameterCount; ++ParameterIndex) {
+                    if (Definitions[ParameterIndex].ParameterTypeValue == AnimationGraphAsset::ParameterType::Int) {
+                        Player.IntValues[ParameterIndex] = std::get<std::int32_t>(Definitions[ParameterIndex].DefaultValue);
+                    }
+                    else if (Definitions[ParameterIndex].ParameterTypeValue == AnimationGraphAsset::ParameterType::Float) {
+                        Player.FloatValues[ParameterIndex] = std::get<float>(Definitions[ParameterIndex].DefaultValue);
+                    }
+                    else {
+                        Player.BoolValues[ParameterIndex] = std::get<bool>(Definitions[ParameterIndex].DefaultValue);
+                    }
+                }
+
+                AnimatorGraphPlayer* ExistingPlayer{ OutScene.GetWorld().GetComponent<AnimatorGraphPlayer>(TargetEntityId) };
+                if (ExistingPlayer == nullptr) {
+                    OutScene.GetWorld().AddComponent(TargetEntityId, Player);
+                }
+                else {
+                    *ExistingPlayer = Player;
+                }
             }
         }
 
@@ -1276,7 +1334,12 @@ namespace Game {
                 const std::string AnimationSelector{ AssetRegistryInstance->FindAnimationSelectorByPointer(AnimatorComponent->animation) };
                 const std::string AnimationSelectorForYaml{ MakeSceneRelativeResourcePath(TargetSnapshot.GetSceneName(), AnimationSelector) };
                 AppendLine(Stream, 4, std::string{ "text: " } + ToYamlText(AnimationSelectorForYaml));
-                AppendLine(Stream, 4, std::string{ "initclip: " } + std::to_string(AnimatorComponent->clipIndex));
+                AppendLine(Stream, 4, std::string{ "initclip: " } + std::to_string(AnimatorComponent->FallbackClipIndex));
+                const std::string AnimationGraphSelector{ AssetRegistryInstance->FindAnimationGraphSelectorByPointer(AnimatorComponent->GraphAsset) };
+                const std::string AnimationGraphSelectorForYaml{ MakeSceneRelativeResourcePath(TargetSnapshot.GetSceneName(), AnimationGraphSelector) };
+                if (AnimationGraphSelectorForYaml.empty() == false) {
+                    AppendLine(Stream, 4, std::string{ "AnimationGraph: " } + ToYamlText(AnimationGraphSelectorForYaml));
+                }
             }
 
             const PrefabInstance* PrefabInstanceComponent{ ReadOnlyWorld->GetComponent<PrefabInstance>(EntityId) };

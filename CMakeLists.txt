@@ -93,6 +93,7 @@ target_compile_definitions(Asset PRIVATE
 )
 
 add_library(Game STATIC
+    Game/Asset/AnimationGraphAsset.cpp
     Game/Base/Shader.cpp
     Game/Base/RootSignature.cpp
     Game/Base/Pipeline.cpp
@@ -123,6 +124,8 @@ add_library(Game STATIC
     Game/Scene/Systems/CameraInputSystem.cpp
     Game/Scene/Systems/CameraRenderSystem.cpp
     Game/Scene/Systems/PickingSystem.cpp
+    Game/Scene/Systems/AnimationGraphSystem.cpp
+    Game/Scene/Systems/AnimateSystem.cpp
     Game/Scene/Systems/StaticRenderSystem.cpp
     Game/Scene/Systems/SkinnedMeshRenderSystem.cpp
     Game/Scene/Systems/SkinningSystem.cpp

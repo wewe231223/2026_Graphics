@@ -33,5 +33,8 @@ namespace Game {
         OutFields.push_back(ComponentInspectionField{ "ClipIndex", std::format("{}", clipIndex) });
         OutFields.push_back(ComponentInspectionField{ "CurrentClip", ResolveClipName(*this) });
         OutFields.push_back(ComponentInspectionField{ "Counter", std::format("{}", counter) });
+        OutFields.push_back(ComponentInspectionField{ "GraphBound", GraphAsset == nullptr ? "false" : "true" });
+        OutFields.push_back(ComponentInspectionField{ "IsGraphEnabled", IsGraphEnabled ? "true" : "false" });
+        OutFields.push_back(ComponentInspectionField{ "FallbackClipIndex", std::format("{}", FallbackClipIndex) });
     }
 }
