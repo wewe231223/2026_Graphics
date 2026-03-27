@@ -59,19 +59,22 @@ float4 PsMain(VertexOutput Input) : SV_TARGET
     const MaterialGpu MaterialData = MaterialBuffer[Input.MaterialIndex];
     const int64_t DiffuseColorTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_TEXTURE].IntValue;
 
-    if (DiffuseColorTextureTableIndex < 0) {
-        return float4(1.0f, 0.0f, 1.0f, 1.0f);
+    float4 SampledColor = float4(1.0f, 1.0f, 1.0f, 1.0f);
+
+    if (DiffuseColorTextureTableIndex >= 0)
+    {
+        const uint TextureTableIndex = (uint) DiffuseColorTextureTableIndex;
+        const uint TextureSrvIndex = MaterialTextureTableBuffer[TextureTableIndex].TextureSrvDescriptorIndex;
+        
+        if (TextureSrvIndex != 0xffffffffu)
+        {
+            Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[TextureSrvIndex];
+            SampledColor = ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
+        }
     }
 
-    const uint TextureTableIndex = (uint)DiffuseColorTextureTableIndex;
-    const uint TextureSrvIndex = MaterialTextureTableBuffer[TextureTableIndex].TextureSrvDescriptorIndex;
-    if (TextureSrvIndex == 0xffffffffu) {
-        return float4(1.0f, 0.0f, 1.0f, 1.0f);
-    }
-
-    Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[TextureSrvIndex];
-    const float4 SampledColor = ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
     const float4 ScalarAppliedColor = ApplyMaterialScalarColor(SampledColor, MaterialData);
     const float4 LitColor = ApplyMaterialLighting(ScalarAppliedColor, Input.Normal);
+    
     return ResolveFlags(LitColor, Input.Flags);
 }

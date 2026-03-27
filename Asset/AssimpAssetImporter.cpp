@@ -367,33 +367,34 @@ namespace asset {
             }
         }
 
-        const aiNode* FindLowestCommonAncestor(const aiNode* LeftNode, const aiNode* RightNode) {
-            if (LeftNode == nullptr || RightNode == nullptr) {
-                return nullptr;
-            }
-
-            std::unordered_set<const aiNode*> LeftAncestors{};
-            const aiNode* CurrentLeft{ LeftNode };
-            while (CurrentLeft != nullptr) {
-                LeftAncestors.insert(CurrentLeft);
-                CurrentLeft = CurrentLeft->mParent;
-            }
-
-            const aiNode* CurrentRight{ RightNode };
-            while (CurrentRight != nullptr) {
-                if (LeftAncestors.find(CurrentRight) != LeftAncestors.end()) {
-                    return CurrentRight;
+        bool HasAncestorInSet(const aiNode* Node, const std::unordered_set<const aiNode*>& CandidateSet) {
+            const aiNode* CurrentNode{ Node->mParent };
+            while (CurrentNode != nullptr) {
+                if (CandidateSet.find(CurrentNode) != CandidateSet.end()) {
+                    return true;
                 }
 
-                CurrentRight = CurrentRight->mParent;
+                CurrentNode = CurrentNode->mParent;
             }
 
-            return nullptr;
+            return false;
+        }
+
+        bool IsAncestorOrSame(const aiNode* AncestorNode, const aiNode* DescendantNode) {
+            const aiNode* CurrentNode{ DescendantNode };
+            while (CurrentNode != nullptr) {
+                if (CurrentNode == AncestorNode) {
+                    return true;
+                }
+
+                CurrentNode = CurrentNode->mParent;
+            }
+
+            return false;
         }
 
         const aiNode* ResolveSkinBoneRootNode(const aiScene& Scene, const aiNode& SceneNode, const std::unordered_map<std::string, const aiNode*>& NodeLookup) {
-            const aiNode* CommonAncestor{ nullptr };
-            bool HasBoneNode{ false };
+            std::unordered_set<const aiNode*> BoneNodeSet{};
 
             for (unsigned int MeshIndex{ 0 }; MeshIndex < SceneNode.mNumMeshes; ++MeshIndex) {
                 const aiMesh& Mesh{ *Scene.mMeshes[SceneNode.mMeshes[MeshIndex]] };
@@ -404,21 +405,53 @@ namespace asset {
                         continue;
                     }
 
-                    if (HasBoneNode == false) {
-                        CommonAncestor = FoundBoneNode->second;
-                        HasBoneNode = true;
-                    }
-                    else {
-                        CommonAncestor = FindLowestCommonAncestor(CommonAncestor, FoundBoneNode->second);
-                    }
+                    BoneNodeSet.insert(FoundBoneNode->second);
+                }
+            }
 
-                    if (CommonAncestor == nullptr) {
-                        return nullptr;
+            if (BoneNodeSet.empty() == true) {
+                return nullptr;
+            }
+
+            std::vector<const aiNode*> RootBoneCandidates{};
+            RootBoneCandidates.reserve(BoneNodeSet.size());
+            for (const aiNode* BoneNode : BoneNodeSet) {
+                if (HasAncestorInSet(BoneNode, BoneNodeSet) == false) {
+                    RootBoneCandidates.push_back(BoneNode);
+                }
+            }
+
+            if (RootBoneCandidates.size() == 1) {
+                return RootBoneCandidates[0];
+            }
+
+            const aiNode* BestRootBoneCandidate{ nullptr };
+            std::size_t BestInfluencedBoneCount{ 0 };
+            for (const aiNode* CandidateRootBone : RootBoneCandidates) {
+                std::size_t InfluencedBoneCount{ 0 };
+                for (const aiNode* BoneNode : BoneNodeSet) {
+                    if (IsAncestorOrSame(CandidateRootBone, BoneNode) == true) {
+                        ++InfluencedBoneCount;
+                    }
+                }
+
+                if (BestRootBoneCandidate == nullptr || InfluencedBoneCount > BestInfluencedBoneCount) {
+                    BestRootBoneCandidate = CandidateRootBone;
+                    BestInfluencedBoneCount = InfluencedBoneCount;
+                    continue;
+                }
+
+                if (InfluencedBoneCount == BestInfluencedBoneCount) {
+                    const std::string CurrentBestCandidateName{ BestRootBoneCandidate->mName.C_Str() };
+                    const std::string NewCandidateName{ CandidateRootBone->mName.C_Str() };
+                    if (NewCandidateName < CurrentBestCandidateName) {
+                        BestRootBoneCandidate = CandidateRootBone;
+                        BestInfluencedBoneCount = InfluencedBoneCount;
                     }
                 }
             }
 
-            return CommonAncestor;
+            return BestRootBoneCandidate;
         }
 
         void BuildNodeRecursive(const aiScene& Scene, const aiNode& SceneNode, const std::unordered_map<std::string, const aiNode*>& NodeLookup, ModelResult& OutModelData, ModelNode* ParentNode, bool IsUvFlipEnabled) {
