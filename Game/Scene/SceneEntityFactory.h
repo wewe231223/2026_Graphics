@@ -11,6 +11,7 @@
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/Animator.h"
+#include "Game/Scene/Components/AnimatorRootBoneDeltaDebug.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PrefabInstance.h"
 #include "Game/Scene/Components/SkinnedMeshRenderer.h"
@@ -60,6 +61,7 @@ namespace Game {
         void AddBone(Arche::EntityID EntityId, const Bone& BoneComponent);
         void AddBoneSkinReference(Arche::EntityID EntityId, const BoneSkinReference& BoneSkinReferenceComponent);
         void AddAnimator(Arche::EntityID EntityId, const Animator& AnimatorComponent);
+        void AddAnimatorRootBoneDeltaDebug(Arche::EntityID EntityId, const AnimatorRootBoneDeltaDebug& AnimatorRootBoneDeltaDebugComponent);
 
         Arche::EntityID ResolveBoneRootEntityId(const Model& ModelData, const ModelNode& ModelNodeData, const std::vector<Arche::EntityID>& NodeEntities) const;
         std::string ResolveNodeName(const ModelNode& SourceNode, std::size_t NodeIndex, std::size_t RootNodeIndex, const std::string& RootEntityName) const;

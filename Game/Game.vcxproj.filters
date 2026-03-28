@@ -108,6 +108,9 @@
     <ClInclude Include="Scene\Components\Animator.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\AnimatorRootBoneDeltaDebug.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\AnimatorGraphPlayer.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -207,6 +210,9 @@
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\Animator.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\AnimatorRootBoneDeltaDebug.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\AnimatorGraphPlayer.cpp">

@@ -40,6 +40,7 @@
     <ClInclude Include="Scene\Components\Intents\CameraIntent.h" />
     <ClInclude Include="Scene\Components\Material.h" />
     <ClInclude Include="Scene\Components\Animator.h" />
+    <ClInclude Include="Scene\Components\AnimatorRootBoneDeltaDebug.h" />
     <ClInclude Include="Scene\Components\AnimatorGraphPlayer.h" />
     <ClInclude Include="Scene\Components\Name.h" />
     <ClInclude Include="Scene\Components\ComponentInspection.h" />
@@ -89,6 +90,7 @@
     <ClCompile Include="Scene\Components\Name.cpp" />
     <ClCompile Include="Scene\Components\Material.cpp" />
     <ClCompile Include="Scene\Components\Animator.cpp" />
+    <ClCompile Include="Scene\Components\AnimatorRootBoneDeltaDebug.cpp" />
     <ClCompile Include="Scene\Components\AnimatorGraphPlayer.cpp" />
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp" />
     <ClCompile Include="Scene\Components\Tags.cpp" />

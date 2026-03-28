@@ -4,6 +4,7 @@
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/Animator.h"
+#include "Game/Scene/Components/AnimatorRootBoneDeltaDebug.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PrefabInstance.h"
@@ -175,6 +176,9 @@ namespace Game {
             Animator RootAnimator{};
             RootAnimator.clipIndex = -1;
             AddAnimator(NodeEntities[RootNodeIndex], RootAnimator);
+
+            AnimatorRootBoneDeltaDebug RootBoneDeltaDebug{};
+            AddAnimatorRootBoneDeltaDebug(NodeEntities[RootNodeIndex], RootBoneDeltaDebug);
         }
 
         if (OutNodeEntities != nullptr) {
@@ -274,6 +278,16 @@ namespace Game {
         }
 
         *ExistingAnimator = AnimatorComponent;
+    }
+
+    void SceneEntityFactory::AddAnimatorRootBoneDeltaDebug(Arche::EntityID EntityId, const AnimatorRootBoneDeltaDebug& AnimatorRootBoneDeltaDebugComponent) {
+        AnimatorRootBoneDeltaDebug* ExistingAnimatorRootBoneDeltaDebug{ mScene->GetWorld().GetComponent<AnimatorRootBoneDeltaDebug>(EntityId) };
+        if (ExistingAnimatorRootBoneDeltaDebug == nullptr) {
+            mScene->GetWorld().AddComponent(EntityId, AnimatorRootBoneDeltaDebugComponent);
+            return;
+        }
+
+        *ExistingAnimatorRootBoneDeltaDebug = AnimatorRootBoneDeltaDebugComponent;
     }
 
     Arche::EntityID SceneEntityFactory::ResolveBoneRootEntityId(const Model& ModelData, const ModelNode& ModelNodeData, const std::vector<Arche::EntityID>& NodeEntities) const {
