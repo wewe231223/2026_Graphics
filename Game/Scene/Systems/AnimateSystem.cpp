@@ -12,7 +12,6 @@
 
 #include "Game/Model/Model.h"
 #include "Game/Scene/Components/Animator.h"
-#include "Game/Scene/Components/AnimatorRootBoneDeltaDebug.h"
 #include "Game/Scene/Components/AnimatorGraphPlayer.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
@@ -245,125 +244,6 @@ namespace {
         InOutPosition = SimpleMath::Vector3::Lerp(InOutPosition, TargetPosition, Alpha);
     }
 
-    SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
-        const SimpleMath::Matrix TrsMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
-        return TransformComponent.nodeToParent * TrsMatrix;
-    }
-
-    bool TryResolveWorldMatrix(Arche::World& World, Arche::EntityID EntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, SimpleMath::Matrix& OutWorldMatrix) {
-        const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>::const_iterator CachedWorldMatrixIter{ InOutWorldMatrices.find(EntityId) };
-        if (CachedWorldMatrixIter != InOutWorldMatrices.end()) {
-            OutWorldMatrix = CachedWorldMatrixIter->second;
-            return true;
-        }
-
-        std::vector<Arche::EntityID> EntityPath{};
-        Arche::EntityID CurrentEntityId{ EntityId };
-        SimpleMath::Matrix ParentWorldMatrix{ SimpleMath::Matrix::Identity };
-
-        while (CurrentEntityId != Arche::NullEntityID) {
-            const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>::const_iterator CurrentCachedWorldMatrixIter{ InOutWorldMatrices.find(CurrentEntityId) };
-            if (CurrentCachedWorldMatrixIter != InOutWorldMatrices.end()) {
-                ParentWorldMatrix = CurrentCachedWorldMatrixIter->second;
-                break;
-            }
-
-            const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(CurrentEntityId) };
-            const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
-            if (TransformComponent == nullptr || HierarchyComponent == nullptr) {
-                return false;
-            }
-
-            EntityPath.push_back(CurrentEntityId);
-            CurrentEntityId = HierarchyComponent->parent;
-        }
-
-        for (std::vector<Arche::EntityID>::const_reverse_iterator EntityPathIter{ EntityPath.crbegin() }; EntityPathIter != EntityPath.crend(); ++EntityPathIter) {
-            const Arche::EntityID CurrentPathEntityId{ *EntityPathIter };
-            const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(CurrentPathEntityId) };
-            if (TransformComponent == nullptr) {
-                return false;
-            }
-
-            const SimpleMath::Matrix LocalWorldMatrix{ BuildLocalWorldMatrix(*TransformComponent) };
-            const SimpleMath::Matrix CurrentWorldMatrix{ LocalWorldMatrix * ParentWorldMatrix };
-            InOutWorldMatrices[CurrentPathEntityId] = CurrentWorldMatrix;
-            ParentWorldMatrix = CurrentWorldMatrix;
-        }
-
-        OutWorldMatrix = ParentWorldMatrix;
-        return true;
-    }
-
-    Arche::EntityID FindTopLevelEntityId(Arche::World& World, Arche::EntityID EntityId) {
-        Arche::EntityID CurrentEntityId{ EntityId };
-        Arche::EntityID LastValidEntityId{ EntityId };
-        while (CurrentEntityId != Arche::NullEntityID) {
-            const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
-            if (HierarchyComponent == nullptr) {
-                return LastValidEntityId;
-            }
-
-            LastValidEntityId = CurrentEntityId;
-            CurrentEntityId = HierarchyComponent->parent;
-        }
-
-        return LastValidEntityId;
-    }
-
-    void UpdateAnimatorRootBoneDeltaDebug(Arche::World& World, Game::FrameContext& Ctx, Arche::EntityID AnimatorEntityId, Arche::EntityID RootBoneEntityId) {
-        Game::AnimatorRootBoneDeltaDebug* AnimatorRootBoneDeltaDebugComponent{ World.GetComponent<Game::AnimatorRootBoneDeltaDebug>(AnimatorEntityId) };
-        if (AnimatorRootBoneDeltaDebugComponent == nullptr) {
-            World.AddComponent(AnimatorEntityId, Game::AnimatorRootBoneDeltaDebug{});
-            AnimatorRootBoneDeltaDebugComponent = World.GetComponent<Game::AnimatorRootBoneDeltaDebug>(AnimatorEntityId);
-        }
-
-        if (AnimatorRootBoneDeltaDebugComponent == nullptr || RootBoneEntityId == Arche::NullEntityID) {
-            return;
-        }
-
-        SimpleMath::Matrix RootBoneWorldMatrix{};
-        const bool IsRootBoneWorldMatrixResolved{ TryResolveWorldMatrix(World, RootBoneEntityId, Ctx.WorldMatrices, RootBoneWorldMatrix) };
-        if (IsRootBoneWorldMatrixResolved == false) {
-            return;
-        }
-
-        const Arche::EntityID TopLevelEntityId{ FindTopLevelEntityId(World, AnimatorEntityId) };
-        SimpleMath::Matrix TopLevelWorldMatrix{};
-        const bool IsTopLevelWorldMatrixResolved{ TryResolveWorldMatrix(World, TopLevelEntityId, Ctx.WorldMatrices, TopLevelWorldMatrix) };
-        if (IsTopLevelWorldMatrixResolved == false) {
-            return;
-        }
-
-        const SimpleMath::Vector3 CurrentRootBoneWorldPosition{ RootBoneWorldMatrix.Translation() };
-
-        if (AnimatorRootBoneDeltaDebugComponent->TrackedRootBoneEntityId != RootBoneEntityId) {
-            AnimatorRootBoneDeltaDebugComponent->TrackedRootBoneEntityId = RootBoneEntityId;
-            AnimatorRootBoneDeltaDebugComponent->PreviousRootBoneWorldPosition = CurrentRootBoneWorldPosition;
-            AnimatorRootBoneDeltaDebugComponent->RootBoneDeltaWorldSpace = SimpleMath::Vector3::Zero;
-            AnimatorRootBoneDeltaDebugComponent->RootBoneDeltaTopLevelSpace = SimpleMath::Vector3::Zero;
-            AnimatorRootBoneDeltaDebugComponent->IsInitialized = false;
-            return;
-        }
-
-        if (AnimatorRootBoneDeltaDebugComponent->IsInitialized == false) {
-            AnimatorRootBoneDeltaDebugComponent->PreviousRootBoneWorldPosition = CurrentRootBoneWorldPosition;
-            AnimatorRootBoneDeltaDebugComponent->RootBoneDeltaWorldSpace = SimpleMath::Vector3::Zero;
-            AnimatorRootBoneDeltaDebugComponent->RootBoneDeltaTopLevelSpace = SimpleMath::Vector3::Zero;
-            AnimatorRootBoneDeltaDebugComponent->IsInitialized = true;
-            return;
-        }
-
-        const SimpleMath::Vector3 RootBoneDeltaWorldSpace{ CurrentRootBoneWorldPosition - AnimatorRootBoneDeltaDebugComponent->PreviousRootBoneWorldPosition };
-        SimpleMath::Matrix TopLevelWorldInverseMatrix{ TopLevelWorldMatrix };
-        TopLevelWorldInverseMatrix = TopLevelWorldInverseMatrix.Invert();
-        const SimpleMath::Vector3 RootBoneDeltaTopLevelSpace{ SimpleMath::Vector3::TransformNormal(RootBoneDeltaWorldSpace, TopLevelWorldInverseMatrix) };
-
-        AnimatorRootBoneDeltaDebugComponent->RootBoneDeltaWorldSpace = RootBoneDeltaWorldSpace;
-        AnimatorRootBoneDeltaDebugComponent->RootBoneDeltaTopLevelSpace = RootBoneDeltaTopLevelSpace;
-        AnimatorRootBoneDeltaDebugComponent->PreviousRootBoneWorldPosition = CurrentRootBoneWorldPosition;
-    }
-
     void ApplyAnimatedPoseIterative(Arche::World& World, Arche::EntityID RootEntityId, const Game::Model& ModelData, std::span<const asset::AnimationChannel* const> SourceChannelLookup, double SourceAnimationTick, std::span<const asset::AnimationChannel* const> DestinationChannelLookup, double DestinationAnimationTick, float BlendAlpha) {
         const std::vector<Game::ModelNode>& Nodes{ ModelData.GetNodes() };
 
@@ -446,7 +326,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> AnimateSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 8> Accesses{ { { typeid(Animator), Access::Write }, { typeid(AnimatorRootBoneDeltaDebug), Access::Write }, { typeid(AnimatorGraphPlayer), Access::Read }, { typeid(BoneSkinReference), Access::Read }, { typeid(SkinnedMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(Bone), Access::Read }, { typeid(Transform), Access::Write } } };
+        static std::array<ComponentAccess, 7> Accesses{ { { typeid(Animator), Access::Write }, { typeid(AnimatorGraphPlayer), Access::Read }, { typeid(BoneSkinReference), Access::Read }, { typeid(SkinnedMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(Bone), Access::Read }, { typeid(Transform), Access::Write } } };
         return Accesses;
     }
 
@@ -557,7 +437,6 @@ namespace Game {
             }
 
             ApplyAnimatedPoseIterative(World, BoneSkinReferenceComponent.boneRootEntityId, *SkinnedMeshRendererComponent.model, ChannelLookupCacheIter->second, SourceAnimationTick, DestinationChannelLookupCacheIter->second, DestinationAnimationTick, BlendAlpha);
-            UpdateAnimatorRootBoneDeltaDebug(World, Ctx, ResolvedAnimatorComponent.EntityId, BoneSkinReferenceComponent.boneRootEntityId);
         }
     }
 }

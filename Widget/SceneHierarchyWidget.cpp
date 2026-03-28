@@ -10,7 +10,6 @@
 #include "Core/Event/EventQueue.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/Animator.h"
-#include "Game/Scene/Components/AnimatorRootBoneDeltaDebug.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/ComponentInspection.h"
 #include "Game/Scene/Components/Name.h"
@@ -119,11 +118,7 @@ namespace Widget {
 
         const bool IsLeaf{ ChildIndices.empty() };
         const bool IsSelected{ mSelectedEntityIndex == EntityIndex };
-        std::string EntityNameText{ NameText };
-        const Game::AnimatorRootBoneDeltaDebug* AnimatorRootBoneDeltaDebugComponent{ ReadOnlyWorld->GetComponent<Game::AnimatorRootBoneDeltaDebug>(Entity.mEntityId) };
-
-
-        const std::string Label{ std::format("{}##{}:{}", EntityNameText, Entity.mEntityId.index, Entity.mEntityId.generation) };
+        const std::string Label{ std::format("{}##{}:{}", NameText, Entity.mEntityId.index, Entity.mEntityId.generation) };
 
         ImGuiTreeNodeFlags Flags{ ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding };
 
