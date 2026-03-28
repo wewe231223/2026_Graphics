@@ -5,6 +5,7 @@
 #include <exception>
 #include <filesystem>
 #include <memory>
+#include <unordered_set>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -104,6 +105,7 @@ namespace {
         std::size_t BoneInfoCount{ 0 };
         bool IsMeshNode{ false };
         bool IsSkinnedMesh{ false };
+        bool IsBoneNode{ false };
     };
 
     std::string ToLowercase(std::string Value) {
@@ -273,7 +275,7 @@ namespace {
         return Path;
     }
 
-    NodeSummary BuildNodeSummary(const asset::ModelNode& Node) {
+    NodeSummary BuildNodeSummary(const asset::ModelNode& Node, const std::unordered_set<std::string>& BoneNodeNameSet) {
         const asset::VertexAttributes& Vertices{ Node.Vertices() };
         const std::vector<std::uint32_t>& Indices{ Node.Indices() };
         const std::vector<asset::ModelNode::SubMesh>& SubMeshes{ Node.GetSubMeshes() };
@@ -293,15 +295,29 @@ namespace {
         Summary.BoneInfoCount = BoneInfos.size();
         Summary.IsMeshNode = SubMeshes.empty() == false;
         Summary.IsSkinnedMesh = Node.IsSkinnedMesh();
+        Summary.IsBoneNode = BoneNodeNameSet.find(Node.GetName()) != BoneNodeNameSet.end();
         return Summary;
+    }
+
+    std::unordered_set<std::string> BuildBoneNodeNameSet(const asset::ModelResult& ModelData) {
+        std::unordered_set<std::string> BoneNodeNameSet{};
+
+        for (const std::unique_ptr<asset::ModelNode>& NodePointer : ModelData.Nodes()) {
+            for (const asset::ModelBoneInfo& BoneInfo : NodePointer->BoneInfos()) {
+                BoneNodeNameSet.insert(BoneInfo.BoneName);
+            }
+        }
+
+        return BoneNodeNameSet;
     }
 
     std::vector<NodeSummary> BuildNodeSummaries(const asset::ModelResult& ModelData) {
         std::vector<NodeSummary> Summaries{};
         Summaries.reserve(ModelData.NodeCount());
+        const std::unordered_set<std::string> BoneNodeNameSet{ BuildBoneNodeNameSet(ModelData) };
 
         for (const std::unique_ptr<asset::ModelNode>& NodePointer : ModelData.Nodes()) {
-            Summaries.push_back(BuildNodeSummary(*NodePointer));
+            Summaries.push_back(BuildNodeSummary(*NodePointer, BoneNodeNameSet));
         }
 
         return Summaries;
@@ -396,9 +412,9 @@ namespace {
     }
 
     void PrintNodeSummary(const NodeSummary& Summary) {
-        StdOutput::PrintLine("[AssetZIP] Node #{}: {}", Summary.Id, Summary.Name);
+        StdOutput::PrintLine("[AssetZIP] Node #{}: {}{}", Summary.Id, Summary.Name, Summary.IsBoneNode ? " [Bone]" : "");
         StdOutput::PrintLine("[AssetZIP]   Path: {}", Summary.Path);
-        StdOutput::PrintLine("[AssetZIP]   Depth: {}, Children: {}, Mesh: {}, Skinned: {}", Summary.Depth, Summary.ChildCount, Summary.IsMeshNode ? "true" : "false", Summary.IsSkinnedMesh ? "true" : "false");
+        StdOutput::PrintLine("[AssetZIP]   Depth: {}, Children: {}, Mesh: {}, Skinned: {}, Bone: {}", Summary.Depth, Summary.ChildCount, Summary.IsMeshNode ? "true" : "false", Summary.IsSkinnedMesh ? "true" : "false", Summary.IsBoneNode ? "true" : "false");
         StdOutput::PrintLine("[AssetZIP]   SkinBoneRootNodeName: {}", Summary.SkinBoneRootNodeName.empty() ? "<None>" : Summary.SkinBoneRootNodeName);
         StdOutput::PrintLine("[AssetZIP]   SubMeshes: {}, Vertices: {}, Indices: {}, Triangles: {}, Bones: {}", Summary.SubMeshCount, Summary.VertexCount, Summary.IndexCount, Summary.TriangleCount, Summary.BoneInfoCount);
     }
