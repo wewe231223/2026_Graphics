@@ -393,8 +393,34 @@ namespace asset {
             return false;
         }
 
+        void CollectSceneBoneNodes(const aiScene& Scene, const std::unordered_map<std::string, const aiNode*>& NodeLookup, std::unordered_set<const aiNode*>& OutBoneNodeSet) {
+            for (unsigned int MeshIndex{ 0 }; MeshIndex < Scene.mNumMeshes; ++MeshIndex) {
+                const aiMesh& Mesh{ *Scene.mMeshes[MeshIndex] };
+                for (unsigned int BoneIndex{ 0 }; BoneIndex < Mesh.mNumBones; ++BoneIndex) {
+                    const aiBone& Bone{ *Mesh.mBones[BoneIndex] };
+                    const std::unordered_map<std::string, const aiNode*>::const_iterator FoundBoneNode{ NodeLookup.find(std::string{ Bone.mName.C_Str() }) };
+                    if (FoundBoneNode == NodeLookup.end()) {
+                        continue;
+                    }
+
+                    OutBoneNodeSet.insert(FoundBoneNode->second);
+                }
+            }
+        }
+
+        const aiNode* ResolveTopBoneTreeRootNode(const aiNode* BoneNode, const std::unordered_set<const aiNode*>& SceneBoneNodeSet) {
+            const aiNode* TopBoneTreeRootNode{ BoneNode };
+            while (TopBoneTreeRootNode->mParent != nullptr && SceneBoneNodeSet.find(TopBoneTreeRootNode->mParent) != SceneBoneNodeSet.end()) {
+                TopBoneTreeRootNode = TopBoneTreeRootNode->mParent;
+            }
+
+            return TopBoneTreeRootNode;
+        }
+
         const aiNode* ResolveSkinBoneRootNode(const aiScene& Scene, const aiNode& SceneNode, const std::unordered_map<std::string, const aiNode*>& NodeLookup) {
             std::unordered_set<const aiNode*> BoneNodeSet{};
+            std::unordered_set<const aiNode*> SceneBoneNodeSet{};
+            CollectSceneBoneNodes(Scene, NodeLookup, SceneBoneNodeSet);
 
             for (unsigned int MeshIndex{ 0 }; MeshIndex < SceneNode.mNumMeshes; ++MeshIndex) {
                 const aiMesh& Mesh{ *Scene.mMeshes[SceneNode.mMeshes[MeshIndex]] };
@@ -422,7 +448,7 @@ namespace asset {
             }
 
             if (RootBoneCandidates.size() == 1) {
-                return RootBoneCandidates[0];
+                return ResolveTopBoneTreeRootNode(RootBoneCandidates[0], SceneBoneNodeSet);
             }
 
             const aiNode* BestRootBoneCandidate{ nullptr };
@@ -451,7 +477,11 @@ namespace asset {
                 }
             }
 
-            return BestRootBoneCandidate;
+            if (BestRootBoneCandidate == nullptr) {
+                return nullptr;
+            }
+
+            return ResolveTopBoneTreeRootNode(BestRootBoneCandidate, SceneBoneNodeSet);
         }
 
         void BuildNodeRecursive(const aiScene& Scene, const aiNode& SceneNode, const std::unordered_map<std::string, const aiNode*>& NodeLookup, ModelResult& OutModelData, ModelNode* ParentNode, bool IsUvFlipEnabled) {

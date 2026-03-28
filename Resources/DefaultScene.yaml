@@ -31,6 +31,11 @@ Prefabs:
     modelPath: ManneQuinn_Idle_Run.bin
     materialPath: ManneQuinn_Idle_Run_materials.json
     active: true
+  - &Prefab1004
+    prefabId: 1004
+    modelPath: knight.bin
+    materialPath: knight_materials.json
+    active: true
   - &Prefab2001
     prefabId: 2001
     modelPath: primitive:box;size=1.370000;color=0.910000,0.230000,0.480000,1.000000
@@ -202,3 +207,17 @@ Entities:
         text: Mannequinn_Idle_Run.animbin
         initclip: 0
         AnimationGraph: knight_idle_run.graph.yaml
+  - EntityId: 10
+    ParentEntityId: -1
+    Components:
+      Name:
+        text: knight
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 0.00, -30.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
