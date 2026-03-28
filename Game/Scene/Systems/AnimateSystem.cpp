@@ -244,6 +244,19 @@ namespace {
         InOutPosition = SimpleMath::Vector3::Lerp(InOutPosition, TargetPosition, Alpha);
     }
 
+    void ApplyRootNodeAnimation(const asset::AnimationChannel* SourceChannelData, double SourceAnimationTick, const asset::AnimationChannel* DestinationChannelData, double DestinationAnimationTick, float BlendAlpha, SimpleMath::Vector3& OutScale, SimpleMath::Quaternion& OutRotation, SimpleMath::Vector3& OutPosition) {
+        OutScale = SourceChannelData != nullptr ? SampleScale(*SourceChannelData, SourceAnimationTick) : SimpleMath::Vector3{ 1.0f, 1.0f, 1.0f };
+        OutRotation = SourceChannelData != nullptr ? SampleRotation(*SourceChannelData, SourceAnimationTick) : SimpleMath::Quaternion::Identity;
+        OutPosition = SimpleMath::Vector3::Zero;
+
+        if (DestinationChannelData != nullptr) {
+            const SimpleMath::Vector3 DestinationScale{ SampleScale(*DestinationChannelData, DestinationAnimationTick) };
+            const SimpleMath::Quaternion DestinationRotation{ SampleRotation(*DestinationChannelData, DestinationAnimationTick) };
+            const SimpleMath::Vector3 DestinationPosition{ SimpleMath::Vector3::Zero };
+            BlendTransforms(OutScale, OutRotation, OutPosition, DestinationScale, DestinationRotation, DestinationPosition, BlendAlpha);
+        }
+    }
+
     void ApplyAnimatedPoseIterative(Arche::World& World, Arche::EntityID RootEntityId, const Game::Model& ModelData, std::span<const asset::AnimationChannel* const> SourceChannelLookup, double SourceAnimationTick, std::span<const asset::AnimationChannel* const> DestinationChannelLookup, double DestinationAnimationTick, float BlendAlpha) {
         const std::vector<Game::ModelNode>& Nodes{ ModelData.GetNodes() };
 
@@ -288,22 +301,30 @@ namespace {
             const Game::ModelNode& CurrentNode{ Nodes[NodeIndex] };
             const asset::AnimationChannel* SourceChannelData{ SourceChannelLookup[NodeIndex] };
             const asset::AnimationChannel* DestinationChannelData{ DestinationChannelLookup[NodeIndex] };
+            const bool IsRootNode{ EntityId == RootEntityId };
 
             if (SourceChannelData == nullptr && DestinationChannelData == nullptr) {
                 continue;
             }
 
             SimpleMath::Matrix BindLocal{ CurrentNode.GetNodeToParent() };
+            SimpleMath::Vector3 S{};
+            SimpleMath::Quaternion R{};
+            SimpleMath::Vector3 T{};
 
-            SimpleMath::Vector3 S{ SourceChannelData != nullptr ? SampleScale(*SourceChannelData, SourceAnimationTick) : SimpleMath::Vector3{ 1.0f, 1.0f, 1.0f } };
-            SimpleMath::Quaternion R{ SourceChannelData != nullptr ? SampleRotation(*SourceChannelData, SourceAnimationTick) : SimpleMath::Quaternion::Identity };
-            SimpleMath::Vector3 T{ SourceChannelData != nullptr ? SamplePosition(*SourceChannelData, SourceAnimationTick) : SimpleMath::Vector3::Zero };
+            if (IsRootNode == true) {
+                ApplyRootNodeAnimation(SourceChannelData, SourceAnimationTick, DestinationChannelData, DestinationAnimationTick, BlendAlpha, S, R, T);
+            } else {
+                S = SourceChannelData != nullptr ? SampleScale(*SourceChannelData, SourceAnimationTick) : SimpleMath::Vector3{ 1.0f, 1.0f, 1.0f };
+                R = SourceChannelData != nullptr ? SampleRotation(*SourceChannelData, SourceAnimationTick) : SimpleMath::Quaternion::Identity;
+                T = SourceChannelData != nullptr ? SamplePosition(*SourceChannelData, SourceAnimationTick) : SimpleMath::Vector3::Zero;
 
-            if (DestinationChannelData != nullptr) {
-                const SimpleMath::Vector3 DestinationScale{ SampleScale(*DestinationChannelData, DestinationAnimationTick) };
-                const SimpleMath::Quaternion DestinationRotation{ SampleRotation(*DestinationChannelData, DestinationAnimationTick) };
-                const SimpleMath::Vector3 DestinationPosition{ SamplePosition(*DestinationChannelData, DestinationAnimationTick) };
-                BlendTransforms(S, R, T, DestinationScale, DestinationRotation, DestinationPosition, BlendAlpha);
+                if (DestinationChannelData != nullptr) {
+                    const SimpleMath::Vector3 DestinationScale{ SampleScale(*DestinationChannelData, DestinationAnimationTick) };
+                    const SimpleMath::Quaternion DestinationRotation{ SampleRotation(*DestinationChannelData, DestinationAnimationTick) };
+                    const SimpleMath::Vector3 DestinationPosition{ SamplePosition(*DestinationChannelData, DestinationAnimationTick) };
+                    BlendTransforms(S, R, T, DestinationScale, DestinationRotation, DestinationPosition, BlendAlpha);
+                }
             }
 
             SimpleMath::Matrix AnimLocal{ SimpleMath::Matrix::CreateScale(S) * SimpleMath::Matrix::CreateFromQuaternion(R) * SimpleMath::Matrix::CreateTranslation(T) };
