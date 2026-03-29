@@ -247,12 +247,12 @@ namespace {
     void ApplyRootNodeAnimation(const asset::AnimationChannel* SourceChannelData, double SourceAnimationTick, const asset::AnimationChannel* DestinationChannelData, double DestinationAnimationTick, float BlendAlpha, SimpleMath::Vector3& OutScale, SimpleMath::Quaternion& OutRotation, SimpleMath::Vector3& OutPosition) {
         OutScale = SourceChannelData != nullptr ? SampleScale(*SourceChannelData, SourceAnimationTick) : SimpleMath::Vector3{ 1.0f, 1.0f, 1.0f };
         OutRotation = SourceChannelData != nullptr ? SampleRotation(*SourceChannelData, SourceAnimationTick) : SimpleMath::Quaternion::Identity;
-        OutPosition = SimpleMath::Vector3::Zero;
+        OutPosition = SourceChannelData != nullptr ? SamplePosition(*SourceChannelData, SourceAnimationTick) : SimpleMath::Vector3::Zero;
 
         if (DestinationChannelData != nullptr) {
             const SimpleMath::Vector3 DestinationScale{ SampleScale(*DestinationChannelData, DestinationAnimationTick) };
             const SimpleMath::Quaternion DestinationRotation{ SampleRotation(*DestinationChannelData, DestinationAnimationTick) };
-            const SimpleMath::Vector3 DestinationPosition{ SimpleMath::Vector3::Zero };
+            const SimpleMath::Vector3 DestinationPosition{ SamplePosition(*DestinationChannelData, DestinationAnimationTick) };
             BlendTransforms(OutScale, OutRotation, OutPosition, DestinationScale, DestinationRotation, DestinationPosition, BlendAlpha);
         }
     }
@@ -400,7 +400,7 @@ namespace Game {
             CacheKey.mBoneRootEntityId = BoneSkinReferenceComponent.boneRootEntityId;
             CacheKey.mSourceClipIndex = SourceClipIndexValue;
             CacheKey.mDestinationClipIndex = DestinationClipIndexValue;
-            const std::pair<std::unordered_set<PoseApplyCacheKey, PoseApplyCacheKeyHasher>::iterator, bool> AppliedResult{ AppliedPoseKeys.insert(CacheKey) };
+            const auto AppliedResult{ AppliedPoseKeys.insert(CacheKey) };
             if (AppliedResult.second == false) {
                 continue;
             }
@@ -420,7 +420,7 @@ namespace Game {
 
             const double SourceTicksPerSecond{ SourceClipData.TicksPerSecond > 0.0 ? SourceClipData.TicksPerSecond : 30.0 };
             const double DestinationTicksPerSecond{ DestinationClipData.TicksPerSecond > 0.0 ? DestinationClipData.TicksPerSecond : 30.0 };
-            const std::pair<std::unordered_set<Arche::EntityID>::iterator, bool> InsertResult{ UpdatedAnimatorEntityIds.insert(ResolvedAnimatorComponent.EntityId) };
+            const auto InsertResult{ UpdatedAnimatorEntityIds.insert(ResolvedAnimatorComponent.EntityId) };
             if (InsertResult.second == true && GraphPlayer == nullptr) {
                 AnimatorComponent->counter += static_cast<double>(Dt);
 
@@ -439,10 +439,10 @@ namespace Game {
             SourceLookupCacheKey.mModel = SkinnedMeshRendererComponent.model;
             SourceLookupCacheKey.mClip = &SourceClipData;
 
-            std::unordered_map<AnimationChannelLookupCacheKey, std::vector<const asset::AnimationChannel*>, AnimationChannelLookupCacheKeyHasher>::iterator ChannelLookupCacheIter{ ChannelLookupCache.find(SourceLookupCacheKey) };
+            auto ChannelLookupCacheIter{ ChannelLookupCache.find(SourceLookupCacheKey) };
             if (ChannelLookupCacheIter == ChannelLookupCache.end()) {
                 std::vector<const asset::AnimationChannel*> NewChannelLookup{ BuildAnimationChannelLookup(*SkinnedMeshRendererComponent.model, SourceClipData) };
-                const std::pair<std::unordered_map<AnimationChannelLookupCacheKey, std::vector<const asset::AnimationChannel*>, AnimationChannelLookupCacheKeyHasher>::iterator, bool> InsertedResult{ ChannelLookupCache.emplace(SourceLookupCacheKey, std::move(NewChannelLookup)) };
+                const auto InsertedResult{ ChannelLookupCache.emplace(SourceLookupCacheKey, std::move(NewChannelLookup)) };
                 ChannelLookupCacheIter = InsertedResult.first;
             }
 
@@ -450,10 +450,10 @@ namespace Game {
             DestinationLookupCacheKey.mModel = SkinnedMeshRendererComponent.model;
             DestinationLookupCacheKey.mClip = &DestinationClipData;
 
-            std::unordered_map<AnimationChannelLookupCacheKey, std::vector<const asset::AnimationChannel*>, AnimationChannelLookupCacheKeyHasher>::iterator DestinationChannelLookupCacheIter{ ChannelLookupCache.find(DestinationLookupCacheKey) };
+            auto DestinationChannelLookupCacheIter{ ChannelLookupCache.find(DestinationLookupCacheKey) };
             if (DestinationChannelLookupCacheIter == ChannelLookupCache.end()) {
                 std::vector<const asset::AnimationChannel*> NewDestinationChannelLookup{ BuildAnimationChannelLookup(*SkinnedMeshRendererComponent.model, DestinationClipData) };
-                const std::pair<std::unordered_map<AnimationChannelLookupCacheKey, std::vector<const asset::AnimationChannel*>, AnimationChannelLookupCacheKeyHasher>::iterator, bool> InsertedDestinationResult{ ChannelLookupCache.emplace(DestinationLookupCacheKey, std::move(NewDestinationChannelLookup)) };
+                const auto InsertedDestinationResult{ ChannelLookupCache.emplace(DestinationLookupCacheKey, std::move(NewDestinationChannelLookup)) };
                 DestinationChannelLookupCacheIter = InsertedDestinationResult.first;
             }
 
