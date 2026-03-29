@@ -88,6 +88,15 @@ namespace {
         std::size_t PositionKeyCount{ 0 };
         std::size_t RotationKeyCount{ 0 };
         std::size_t ScaleKeyCount{ 0 };
+        struct ChannelSummary final {
+        public:
+            std::uint32_t NodeId{ 0 };
+            std::string NodeName{};
+            std::size_t PositionKeyCount{ 0 };
+            std::size_t RotationKeyCount{ 0 };
+            std::size_t ScaleKeyCount{ 0 };
+        };
+        std::vector<ChannelSummary> ChannelSummaries{};
     };
 
     struct NodeSummary final {
@@ -390,8 +399,16 @@ namespace {
         Summary.Duration = Clip.Duration;
         Summary.TicksPerSecond = Clip.TicksPerSecond;
         Summary.ChannelCount = Clip.Channels.size();
+        Summary.ChannelSummaries.reserve(Clip.Channels.size());
 
         for (const asset::AnimationChannel& Channel : Clip.Channels) {
+            AnimationClipSummary::ChannelSummary ChannelSummary{};
+            ChannelSummary.NodeId = Channel.NodeId;
+            ChannelSummary.NodeName = Channel.NodeName.empty() ? "<Unnamed>" : Channel.NodeName;
+            ChannelSummary.PositionKeyCount = Channel.PositionKeys.size();
+            ChannelSummary.RotationKeyCount = Channel.RotationKeys.size();
+            ChannelSummary.ScaleKeyCount = Channel.ScaleKeys.size();
+            Summary.ChannelSummaries.push_back(ChannelSummary);
             Summary.PositionKeyCount += Channel.PositionKeys.size();
             Summary.RotationKeyCount += Channel.RotationKeys.size();
             Summary.ScaleKeyCount += Channel.ScaleKeys.size();
@@ -468,6 +485,9 @@ namespace {
         StdOutput::PrintLine("[AssetZIP] Animation clip #{}: {}", ClipIndex, Summary.Name);
         StdOutput::PrintLine("[AssetZIP]   Duration: {}, TicksPerSecond: {}", Summary.Duration, Summary.TicksPerSecond);
         StdOutput::PrintLine("[AssetZIP]   Channels: {}, PositionKeys: {}, RotationKeys: {}, ScaleKeys: {}", Summary.ChannelCount, Summary.PositionKeyCount, Summary.RotationKeyCount, Summary.ScaleKeyCount);
+        for (const AnimationClipSummary::ChannelSummary& ChannelSummary : Summary.ChannelSummaries) {
+            StdOutput::PrintLine("[AssetZIP]   Channel NodeId: {}, Name: {}, PositionKeys: {}, RotationKeys: {}, ScaleKeys: {}", ChannelSummary.NodeId, ChannelSummary.NodeName, ChannelSummary.PositionKeyCount, ChannelSummary.RotationKeyCount, ChannelSummary.ScaleKeyCount);
+        }
     }
 
     void PrintAnimationClipSummaries(const std::vector<AnimationClipSummary>& Summaries) {
