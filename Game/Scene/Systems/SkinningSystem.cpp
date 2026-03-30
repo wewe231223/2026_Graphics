@@ -7,12 +7,61 @@
 
 #include "Game/Model/Model.h"
 #include "Game/Scene/Components/Bone.h"
+#include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/SkinnedMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
 
 namespace {
+    struct ResolvedBoneSkinReference final {
+        Arche::EntityID EntityId{ Arche::NullEntityID };
+        const Game::BoneSkinReference* Component{ nullptr };
+    };
+
+    struct ResolvedAnimator final {
+        Arche::EntityID EntityId{ Arche::NullEntityID };
+        const Game::Animator* Component{ nullptr };
+    };
+
+    ResolvedAnimator ResolveAnimatorInHierarchy(Arche::World& World, Arche::EntityID StartEntityId) {
+        Arche::EntityID CurrentEntityId{ StartEntityId };
+        while (CurrentEntityId != Arche::NullEntityID) {
+            const Game::Animator* AnimatorComponent{ World.GetComponent<Game::Animator>(CurrentEntityId) };
+            if (AnimatorComponent != nullptr) {
+                return ResolvedAnimator{ CurrentEntityId, AnimatorComponent };
+            }
+
+            const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
+            if (HierarchyComponent == nullptr) {
+                break;
+            }
+
+            CurrentEntityId = HierarchyComponent->parent;
+        }
+
+        return ResolvedAnimator{};
+    }
+
+    ResolvedBoneSkinReference ResolveBoneSkinReferenceInHierarchy(Arche::World& World, Arche::EntityID StartEntityId) {
+        Arche::EntityID CurrentEntityId{ StartEntityId };
+        while (CurrentEntityId != Arche::NullEntityID) {
+            const Game::BoneSkinReference* BoneSkinReferenceComponent{ World.GetComponent<Game::BoneSkinReference>(CurrentEntityId) };
+            if (BoneSkinReferenceComponent != nullptr) {
+                return ResolvedBoneSkinReference{ CurrentEntityId, BoneSkinReferenceComponent };
+            }
+
+            const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
+            if (HierarchyComponent == nullptr) {
+                break;
+            }
+
+            CurrentEntityId = HierarchyComponent->parent;
+        }
+
+        return ResolvedBoneSkinReference{};
+    }
+
     SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
         const SimpleMath::Matrix TrsMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
         return TransformComponent.nodeToParent * TrsMatrix;
@@ -146,7 +195,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> SkinningSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 5> Accesses{ { { typeid(BoneSkinReference), Access::Read }, { typeid(SkinnedMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(Bone), Access::Read }, { typeid(Transform), Access::Write } } };
+        static std::array<ComponentAccess, 6> Accesses{ { { typeid(Animator), Access::Read }, { typeid(BoneSkinReference), Access::Read }, { typeid(SkinnedMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(Bone), Access::Read }, { typeid(Transform), Access::Write } } };
         return Accesses;
     }
 
@@ -164,27 +213,38 @@ namespace Game {
             TransformComponent.hasRootBoneWorldPosition = false;
         }
 
-        for (auto [BoneSkinReferenceComponent, SkinnedMeshRendererComponent, EntityHierarchyComponent] : World.Query<BoneSkinReference, SkinnedMeshRenderer, EntityHierarchy>()) {
+        for (auto [SkinnedMeshRendererComponent, EntityHierarchyComponent] : World.Query<SkinnedMeshRenderer, EntityHierarchy>()) {
 
             if (SkinnedMeshRendererComponent.active == false || SkinnedMeshRendererComponent.model == nullptr) {
                 continue;
             }
 
-            if (BoneSkinReferenceComponent.boneRootEntityId == Arche::NullEntityID) {
+            const Arche::EntityID EntityId{ EntityHierarchyComponent.self };
+            const ResolvedAnimator ResolvedAnimatorComponent{ ResolveAnimatorInHierarchy(World, EntityId) };
+            if (ResolvedAnimatorComponent.Component == nullptr) {
+                continue;
+            }
+
+            const ResolvedBoneSkinReference ResolvedBoneSkinReferenceComponent{ ResolveBoneSkinReferenceInHierarchy(World, EntityId) };
+            if (ResolvedBoneSkinReferenceComponent.Component == nullptr) {
+                continue;
+            }
+
+            const Arche::EntityID BoneRootEntityId{ ResolvedBoneSkinReferenceComponent.Component->boneRootEntityId };
+            if (BoneRootEntityId == Arche::NullEntityID) {
                 continue;
             }
 
             SimpleMath::Vector3 RootBoneWorldPosition{};
-            const bool IsRootBoneWorldPositionResolved{ TryResolveWorldPositionFromNodeToParent(World, BoneSkinReferenceComponent.boneRootEntityId, RootBoneWorldPosition) };
+            const bool IsRootBoneWorldPositionResolved{ TryResolveWorldPositionFromNodeToParent(World, BoneRootEntityId, RootBoneWorldPosition) };
             if (IsRootBoneWorldPositionResolved == true) {
-                Transform* RootBoneTransformComponent{ World.GetComponent<Transform>(BoneSkinReferenceComponent.boneRootEntityId) };
+                Transform* RootBoneTransformComponent{ World.GetComponent<Transform>(BoneRootEntityId) };
                 if (RootBoneTransformComponent != nullptr) {
                     RootBoneTransformComponent->rootBoneWorldPosition = RootBoneWorldPosition;
                     RootBoneTransformComponent->hasRootBoneWorldPosition = true;
                 }
             }
 
-            const Arche::EntityID EntityId{ EntityHierarchyComponent.self };
             SimpleMath::Matrix MeshWorldMatrix{};
             const bool IsMeshWorldMatrixResolved{ TryResolveWorldMatrix(World, EntityId, Ctx.WorldMatrices, MeshWorldMatrix) };
             if (IsMeshWorldMatrixResolved == false) {
@@ -209,7 +269,7 @@ namespace Game {
 
             std::vector<SimpleMath::Matrix> BoneMatrices{};
             BoneMatrices.resize(static_cast<std::size_t>(BoneMatrixCount), SimpleMath::Matrix::Identity);
-            GatherBoneMatricesRecursive(World, BoneSkinReferenceComponent.boneRootEntityId, SkinnedMeshRendererComponent.model, SkinArrayIndex, MeshWorldInverseMatrix, Ctx.WorldMatrices, BoneMatrices);
+            GatherBoneMatricesRecursive(World, BoneRootEntityId, SkinnedMeshRendererComponent.model, SkinArrayIndex, MeshWorldInverseMatrix, Ctx.WorldMatrices, BoneMatrices);
 
             SkinnedPoseCacheEntry CacheEntry{};
             CacheEntry.SkinArrayIndex = SkinArrayIndex;

@@ -34,6 +34,11 @@ namespace {
         Game::Animator* Component{ nullptr };
     };
 
+    struct ResolvedBoneSkinReference final {
+        Arche::EntityID EntityId{ Arche::NullEntityID };
+        const Game::BoneSkinReference* Component{ nullptr };
+    };
+
     struct PoseApplyCacheKey final {
         Arche::EntityID mAnimatorEntityId{ Arche::NullEntityID };
         const Game::Model* mModel{};
@@ -101,6 +106,25 @@ namespace {
             }
         }
         return Cache[startId] = {};
+    }
+
+    ResolvedBoneSkinReference ResolveBoneSkinReferenceInHierarchy(Arche::World& World, Arche::EntityID StartEntityId) {
+        Arche::EntityID CurrentEntityId{ StartEntityId };
+        while (CurrentEntityId != Arche::NullEntityID) {
+            const Game::BoneSkinReference* BoneSkinReferenceComponent{ World.GetComponent<Game::BoneSkinReference>(CurrentEntityId) };
+            if (BoneSkinReferenceComponent != nullptr) {
+                return ResolvedBoneSkinReference{ CurrentEntityId, BoneSkinReferenceComponent };
+            }
+
+            const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
+            if (HierarchyComponent == nullptr) {
+                break;
+            }
+
+            CurrentEntityId = HierarchyComponent->parent;
+        }
+
+        return ResolvedBoneSkinReference{};
     }
 
     template<typename TKey>
@@ -240,9 +264,16 @@ namespace Game {
         std::unordered_map<AnimationChannelLookupCacheKey, std::vector<const asset::AnimationChannel*>, AnimationChannelLookupCacheKeyHasher> ChannelCache; ChannelCache.reserve(32);
         std::unordered_set<PoseApplyCacheKey, PoseApplyCacheKeyHasher> AppliedPoses; AppliedPoses.reserve(32);
 
-        for (auto [BoneSkin, SMR, Hierarchy, Trans] : World.Query<BoneSkinReference, SkinnedMeshRenderer, EntityHierarchy, Transform>()) {
+        for (auto [SMR, Hierarchy, Trans] : World.Query<SkinnedMeshRenderer, EntityHierarchy, Transform>()) {
+            (void)Trans;
             auto Resolved = ResolveAnimatorInHierarchy(World, Hierarchy.self, AnimatorCache);
-            if (!Resolved.Component || !Resolved.Component->animation || !SMR.model || BoneSkin.boneRootEntityId == Arche::NullEntityID) continue;
+            if (!Resolved.Component || !Resolved.Component->animation || !SMR.model) continue;
+
+            const ResolvedBoneSkinReference ResolvedBoneSkinReferenceComponent{ ResolveBoneSkinReferenceInHierarchy(World, Hierarchy.self) };
+            if (ResolvedBoneSkinReferenceComponent.Component == nullptr) continue;
+
+            const Arche::EntityID BoneRootEntityId{ ResolvedBoneSkinReferenceComponent.Component->boneRootEntityId };
+            if (BoneRootEntityId == Arche::NullEntityID) continue;
 
             const auto& Clips = Resolved.Component->animation->Clips();
             auto* GraphPlayer = World.GetComponent<AnimatorGraphPlayer>(Resolved.EntityId);
@@ -255,7 +286,7 @@ namespace Game {
             const double SrcLocalTime = GraphPlayer ? GraphPlayer->SampleSourceLocalTime : Resolved.Component->counter;
             const double DstLocalTime = GraphPlayer ? GraphPlayer->SampleDestinationLocalTime : Resolved.Component->counter;
 
-            PoseApplyCacheKey CacheKey{ Resolved.EntityId, SMR.model, BoneSkin.boneRootEntityId, SrcClipIdx, DstClipIdx };
+            PoseApplyCacheKey CacheKey{ Resolved.EntityId, SMR.model, BoneRootEntityId, SrcClipIdx, DstClipIdx };
             if (!AppliedPoses.insert(CacheKey).second) continue;
 
             const size_t SafeDstClipIdx = (DstClipIdx >= 0 && static_cast<size_t>(DstClipIdx) < Clips.size()) ? DstClipIdx : SrcClipIdx;
@@ -281,7 +312,7 @@ namespace Game {
                 return ChannelCache.emplace(key, BuildAnimationChannelLookup(*SMR.model, clip)).first->second;
                 };
 
-            ApplyAnimatedPoseIterative(World, BoneSkin.boneRootEntityId, *SMR.model,
+            ApplyAnimatedPoseIterative(World, BoneRootEntityId, *SMR.model,
                 GetLookup(SrcClip), SrcLocalTime * SrcTPS,
                 GetLookup(DstClip), DstLocalTime * DstTPS, BlendAlpha);
         }
