@@ -6,7 +6,7 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 8 };
+    constexpr std::uint32_t FormatVersion{ 9 };
     constexpr std::array<char, 4> FormatMagic{ 'F', 'B', 'X', 'B' };
 }
 
@@ -32,7 +32,7 @@ bool AssetBinaryReader::ReadHeader() {
         return false;
     }
     const std::uint32_t Version{ ReadUint32() };
-    if (Version != 1 && Version != 2 && Version != 3 && Version != 4 && Version != 5 && Version != 6 && Version != 7 && Version != FormatVersion) {
+    if (Version != 1 && Version != 2 && Version != 3 && Version != 4 && Version != 5 && Version != 6 && Version != 7 && Version != 8 && Version != FormatVersion) {
         return false;
     }
     mFormatVersion = Version;
@@ -41,12 +41,17 @@ bool AssetBinaryReader::ReadHeader() {
 
 void AssetBinaryReader::ReadModelResult(ModelResult& Result) {
     const std::uint64_t NodeCount{ ReadUint64() };
+    std::string UnifiedSkinBoneRootNodeName{};
+    if (mFormatVersion >= 9) {
+        UnifiedSkinBoneRootNodeName = ReadString();
+    }
+
     std::vector<ModelNode*> Nodes{};
     Nodes.reserve(static_cast<std::size_t>(NodeCount));
-    ReadNodes(Result, NodeCount, Nodes);
+    ReadNodes(Result, NodeCount, UnifiedSkinBoneRootNodeName, Nodes);
 }
 
-void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, std::vector<ModelNode*>& Nodes) {
+void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, const std::string& UnifiedSkinBoneRootNodeName, std::vector<ModelNode*>& Nodes) {
     for (std::uint64_t Index{ 0 }; Index < NodeCount; ++Index) {
         const std::string Name{ ReadString() };
         const std::int32_t ParentIndex{ ReadInt32() };
@@ -72,7 +77,12 @@ void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, 
                 Node.SetIsSkinnedMesh(ReadBool());
             }
 
-            if (mFormatVersion >= 8) {
+            if (mFormatVersion >= 9) {
+                if (Node.IsSkinnedMesh() == true) {
+                    Node.SetSkinBoneRootNodeName(UnifiedSkinBoneRootNodeName);
+                }
+            }
+            else if (mFormatVersion >= 8) {
                 ReadSkinBoneRootNodeName(Node);
             }
         }

@@ -506,6 +506,25 @@ namespace asset {
                 BuildNodeRecursive(Scene, *SceneNode.mChildren[ChildIndex], NodeLookup, OutModelData, &Node, IsUvFlipEnabled);
             }
         }
+
+        void UnifySkinBoneRootNodeName(ModelResult& InOutModelData) {
+            std::string UnifiedRootBoneNodeName{};
+            bool IsUnifiedRootResolved{ false };
+
+            for (const std::unique_ptr<ModelNode>& NodePointer : InOutModelData.Nodes()) {
+                ModelNode& Node{ *NodePointer };
+                if (Node.IsSkinnedMesh() == false) {
+                    continue;
+                }
+
+                if (IsUnifiedRootResolved == false) {
+                    UnifiedRootBoneNodeName = Node.GetSkinBoneRootNodeName();
+                    IsUnifiedRootResolved = true;
+                }
+
+                Node.SetSkinBoneRootNodeName(UnifiedRootBoneNodeName);
+            }
+        }
     }
 
     AssimpAssetImporter::AssimpAssetImporter(GraphicsAPI Api)
@@ -546,5 +565,6 @@ namespace asset {
         std::unordered_map<std::string, const aiNode*> NodeLookup{};
         BuildAssimpNodeLookupRecursive(*Scene->mRootNode, NodeLookup);
         BuildNodeRecursive(*Scene, *Scene->mRootNode, NodeLookup, OutModelData, nullptr, IsUvFlipEnabled);
+        UnifySkinBoneRootNodeName(OutModelData);
     }
 }

@@ -1,11 +1,11 @@
-﻿// Asset Binary Format Specification (Current: Version 8):
+﻿// Asset Binary Format Specification (Current: Version 9):
 //┌──────────────────────────────────────────────────────────────────────────────┐
 //│                                [HEADER SECTION]                              │
 //├──────────────┬────────────────┬──────────────────────────────────────────────┤
 //│    OFFSET    │      NAME      │                  DATA TYPE                   │
 //├──────────────┼────────────────┼──────────────────────────────────────────────┤
 //│    0x00      │     Magic      │ char[4]("FBXB")                              │
-//│    0x04      │ FormatVersion  │ uint32 (8)                                   │
+//│    0x04      │ FormatVersion  │ uint32 (9)                                   │
 //└──────────────┴────────────────┴──────────────────────────────────────────────┘
 //
 //                                   │
@@ -15,6 +15,7 @@
 //│                                 [BODY SECTION]                               │
 //├──────────────┬────────────────┬──────────────────────────────────────────────┤
 //│    0x08      │   NodeCount    │ uint64 (Number of Node Records)              │
+//│    0x10      │ UnifiedSkinBoneRootNodeName │ string                         │
 //└──────────────┴────────────────┴──────────────────────────────────────────────┘
 //
 //       ┌──────────────────────────────────────────────────────────────────┐
@@ -34,7 +35,6 @@
 //       │ InverseBindMatrix     │ Mat4                                     │
 //       ├───────────────────────┴──────────────────────────────────────────┤
 //       │ IsSkinnedMesh         │ bool (stored as uint8)                   │
-//       │ SkinBoneRootNodeName  │ string                                   │
 //       ├───────────────────────┴──────────────────────────────────────────┤
 //       │ < VertexAttributes >                                               │
 //       ├───────────────────────┬──────────────────────────────────────────┤
@@ -83,9 +83,9 @@ namespace asset {
         void WriteModelResult(const ModelResult& Result);
         void WriteNodes(const std::vector<const ModelNode*>& Nodes, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices);
         void WriteNode(const ModelNode& Node, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices);
+        std::string ResolveUnifiedSkinBoneRootNodeName(const std::vector<const ModelNode*>& Nodes) const;
         void WriteBoneInfos(const std::vector<ModelBoneInfo>& BoneInfos);
         void WriteSkinnedMeshFlag(const ModelNode& Node);
-        void WriteSkinBoneRootNodeName(const ModelNode& Node);
         void WriteVertexAttributes(const VertexAttributes& Attributes);
         void WriteSubMeshes(const std::vector<ModelNode::SubMesh>& SubMeshes);
         void WriteVec2Array(std::span<const Vec2> Values);

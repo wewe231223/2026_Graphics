@@ -47,6 +47,7 @@ namespace {
 
     struct ModelSummary final {
     public:
+        std::string UnifiedSkinBoneRootNodeName{};
         std::size_t NodeCount{ 0 };
         std::size_t MeshNodeCount{ 0 };
         std::size_t SkinnedMeshNodeCount{ 0 };
@@ -369,6 +370,9 @@ namespace {
 
             if (Node.IsSkinnedMesh()) {
                 ++Summary.SkinnedMeshNodeCount;
+                if (Summary.UnifiedSkinBoneRootNodeName.empty() == true) {
+                    Summary.UnifiedSkinBoneRootNodeName = Node.GetSkinBoneRootNodeName();
+                }
             }
         }
 
@@ -451,6 +455,7 @@ namespace {
         StdOutput::PrintLine("[AssetZIP] Node count: {}", Summary.NodeCount);
         StdOutput::PrintLine("[AssetZIP] Mesh node count: {}", Summary.MeshNodeCount);
         StdOutput::PrintLine("[AssetZIP] Skinned mesh node count: {}", Summary.SkinnedMeshNodeCount);
+        StdOutput::PrintLine("[AssetZIP] Unified skin bone root node name: {}", Summary.UnifiedSkinBoneRootNodeName.empty() ? "<None>" : Summary.UnifiedSkinBoneRootNodeName);
         StdOutput::PrintLine("[AssetZIP] Child link count: {}", Summary.ChildLinkCount);
         StdOutput::PrintLine("[AssetZIP] Submesh count: {}", Summary.SubMeshCount);
         StdOutput::PrintLine("[AssetZIP] Vertex count: {}", Summary.VertexCount);
