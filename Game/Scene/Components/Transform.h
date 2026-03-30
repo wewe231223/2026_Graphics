@@ -38,6 +38,8 @@ namespace Game {
 		SimpleMath::Vector3 scale{ 1.0f, 1.0f, 1.0f };
 		SimpleMath::Matrix nodeToParent{ SimpleMath::Matrix::Identity };
 		SimpleMath::Matrix worldMatrix{ SimpleMath::Matrix::Identity };
+		SimpleMath::Vector3 rootBoneWorldPosition{};
+		bool hasRootBoneWorldPosition{ false };
 	EndComponent(Transform)
 
 }
