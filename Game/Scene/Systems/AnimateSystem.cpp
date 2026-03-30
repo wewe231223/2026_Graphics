@@ -20,6 +20,15 @@
 #include "Game/Scene/Components/Transform.h"
 
 namespace {
+    template <class T>
+    inline void HashCombine(std::size_t& seed, const T& v) {
+        seed ^= std::hash<T>{}(v)+0x9e3779b9u + (seed << 6u) + (seed >> 2u);
+    }
+
+    inline std::uint64_t PackEntityID(Arche::EntityID id) {
+        return (static_cast<std::uint64_t>(id.generation) << 32ull) | id.index;
+    }
+
     struct ResolvedAnimator final {
         Arche::EntityID EntityId{ Arche::NullEntityID };
         Game::Animator* Component{ nullptr };
@@ -32,25 +41,22 @@ namespace {
         std::int32_t mSourceClipIndex{ -1 };
         std::int32_t mDestinationClipIndex{ -1 };
 
-        bool operator==(const PoseApplyCacheKey& Other) const {
-            return mAnimatorEntityId == Other.mAnimatorEntityId && mModel == Other.mModel && mBoneRootEntityId == Other.mBoneRootEntityId && mSourceClipIndex == Other.mSourceClipIndex && mDestinationClipIndex == Other.mDestinationClipIndex;
+        bool operator==(const PoseApplyCacheKey& O) const {
+            return mAnimatorEntityId == O.mAnimatorEntityId && mModel == O.mModel &&
+                mBoneRootEntityId == O.mBoneRootEntityId && mSourceClipIndex == O.mSourceClipIndex &&
+                mDestinationClipIndex == O.mDestinationClipIndex;
         }
     };
 
     struct PoseApplyCacheKeyHasher final {
-        std::size_t operator()(const PoseApplyCacheKey& Value) const {
-            std::size_t Seed{ 0u };
-            const std::size_t AnimatorHash{ std::hash<std::uint64_t>{}((static_cast<std::uint64_t>(Value.mAnimatorEntityId.generation) << 32ull) | Value.mAnimatorEntityId.index) };
-            const std::size_t ModelHash{ std::hash<const Game::Model*>{}(Value.mModel) };
-            const std::size_t BoneRootHash{ std::hash<std::uint64_t>{}((static_cast<std::uint64_t>(Value.mBoneRootEntityId.generation) << 32ull) | Value.mBoneRootEntityId.index) };
-            const std::size_t SourceClipHash{ std::hash<std::int32_t>{}(Value.mSourceClipIndex) };
-            const std::size_t DestinationClipHash{ std::hash<std::int32_t>{}(Value.mDestinationClipIndex) };
-            Seed ^= AnimatorHash + 0x9e3779b9u + (Seed << 6u) + (Seed >> 2u);
-            Seed ^= ModelHash + 0x9e3779b9u + (Seed << 6u) + (Seed >> 2u);
-            Seed ^= BoneRootHash + 0x9e3779b9u + (Seed << 6u) + (Seed >> 2u);
-            Seed ^= SourceClipHash + 0x9e3779b9u + (Seed << 6u) + (Seed >> 2u);
-            Seed ^= DestinationClipHash + 0x9e3779b9u + (Seed << 6u) + (Seed >> 2u);
-            return Seed;
+        std::size_t operator()(const PoseApplyCacheKey& V) const {
+            std::size_t seed{ 0u };
+            HashCombine(seed, PackEntityID(V.mAnimatorEntityId));
+            HashCombine(seed, V.mModel);
+            HashCombine(seed, PackEntityID(V.mBoneRootEntityId));
+            HashCombine(seed, V.mSourceClipIndex);
+            HashCombine(seed, V.mDestinationClipIndex);
+            return seed;
         }
     };
 
@@ -58,406 +64,226 @@ namespace {
         const Game::Model* mModel{};
         const asset::AnimationClip* mClip{};
 
-        bool operator==(const AnimationChannelLookupCacheKey& Other) const {
-            return mModel == Other.mModel && mClip == Other.mClip;
+        bool operator==(const AnimationChannelLookupCacheKey& O) const {
+            return mModel == O.mModel && mClip == O.mClip;
         }
     };
 
     struct AnimationChannelLookupCacheKeyHasher final {
-        std::size_t operator()(const AnimationChannelLookupCacheKey& Value) const {
-            std::size_t Seed{ 0u };
-            const std::size_t ModelHash{ std::hash<const Game::Model*>{}(Value.mModel) };
-            const std::size_t ClipHash{ std::hash<const asset::AnimationClip*>{}(Value.mClip) };
-            Seed ^= ModelHash + 0x9e3779b9u + (Seed << 6u) + (Seed >> 2u);
-            Seed ^= ClipHash + 0x9e3779b9u + (Seed << 6u) + (Seed >> 2u);
-            return Seed;
+        std::size_t operator()(const AnimationChannelLookupCacheKey& V) const {
+            std::size_t seed{ 0u };
+            HashCombine(seed, V.mModel);
+            HashCombine(seed, V.mClip);
+            return seed;
         }
     };
 
     using ResolvedAnimatorCache = std::unordered_map<Arche::EntityID, ResolvedAnimator>;
 
-    ResolvedAnimator ResolveAnimatorInHierarchy(Arche::World& World, const Game::EntityHierarchy& HierarchyComponent, ResolvedAnimatorCache& Cache) {
-        {
-            const ResolvedAnimatorCache::iterator CachedIter{ Cache.find(HierarchyComponent.self) };
-            if (CachedIter != Cache.end()) {
-                return CachedIter->second;
-            }
-        }
+    ResolvedAnimator ResolveAnimatorInHierarchy(Arche::World& World, Arche::EntityID startId, ResolvedAnimatorCache& Cache) {
+        if (auto it = Cache.find(startId); it != Cache.end()) return it->second;
 
-        Arche::EntityID CurrentEntityId{ HierarchyComponent.self };
-        while (CurrentEntityId != Arche::NullEntityID) {
-            {
-                const ResolvedAnimatorCache::iterator CachedIter{ Cache.find(CurrentEntityId) };
-                if (CachedIter != Cache.end()) {
-                    Cache[HierarchyComponent.self] = CachedIter->second;
-                    return CachedIter->second;
-                }
+        Arche::EntityID currId = startId;
+        while (currId != Arche::NullEntityID) {
+            if (auto it = Cache.find(currId); it != Cache.end()) {
+                return Cache[startId] = it->second;
             }
 
-            Game::Animator* AnimatorComponent{ World.GetComponent<Game::Animator>(CurrentEntityId) };
-            if (AnimatorComponent != nullptr) {
-                ResolvedAnimator Result{};
-                Result.EntityId = CurrentEntityId;
-                Result.Component = AnimatorComponent;
-                Cache[HierarchyComponent.self] = Result;
-                return Result;
+            if (auto* anim = World.GetComponent<Game::Animator>(currId)) {
+                return Cache[startId] = { currId, anim };
             }
 
-            const Game::EntityHierarchy* CurrentHierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
-            if (CurrentHierarchyComponent == nullptr) {
+            if (auto* hierarchy = World.GetComponent<Game::EntityHierarchy>(currId)) {
+                currId = hierarchy->parent;
+            }
+            else {
                 break;
             }
-
-            CurrentEntityId = CurrentHierarchyComponent->parent;
         }
-
-        Cache[HierarchyComponent.self] = ResolvedAnimator{};
-        return ResolvedAnimator{};
+        return Cache[startId] = {};
     }
 
     template<typename TKey>
     std::size_t ResolveFrameIndexFromKeys(double AnimationTick, const std::vector<TKey>& Keys) {
-        if (Keys.size() <= 1) {
-            return 0;
-        }
-
-        const auto FirstIter{ Keys.begin() };
-        const auto LastIter{ Keys.end() };
-        const auto UpperBoundIter{ std::upper_bound(FirstIter, LastIter, AnimationTick, [](double Left, const TKey& Right) { return Left < Right.Time; }) };
-        if (UpperBoundIter == FirstIter) {
-            return 0;
-        }
-
-        if (UpperBoundIter == LastIter) {
-            return Keys.size() - 2;
-        }
-
-        return static_cast<std::size_t>(std::distance(FirstIter, UpperBoundIter) - 1);
+        if (Keys.size() <= 1) return 0;
+        auto it = std::upper_bound(Keys.begin(), Keys.end(), AnimationTick, [](double L, const TKey& R) { return L < R.Time; });
+        if (it == Keys.begin()) return 0;
+        if (it == Keys.end()) return Keys.size() - 2;
+        return static_cast<std::size_t>(std::distance(Keys.begin(), it) - 1);
     }
 
-    float ResolveFactor(double AnimationTick, double Start, double End) {
-        if (End <= Start) {
-            return 0.0f;
-        }
-
-        const double RawFactor{ (AnimationTick - Start) / (End - Start) };
-        return static_cast<float>(std::clamp(RawFactor, 0.0, 1.0));
+    float ResolveFactor(double Tick, double Start, double End) {
+        return (End <= Start) ? 0.0f : static_cast<float>(std::clamp((Tick - Start) / (End - Start), 0.0, 1.0));
     }
 
-    SimpleMath::Vector3 SamplePosition(const asset::AnimationChannel& ChannelData, double AnimationTick) {
-        if (ChannelData.PositionKeys.empty()) {
-            return SimpleMath::Vector3::Zero;
-        }
+    template<typename TKeys, typename TRet, typename TConv, typename TLerp>
+    TRet SampleTrack(const TKeys& keys, double tick, const TRet& fallback, TConv conv, TLerp lerp) {
+        if (keys.empty()) return fallback;
+        if (keys.size() == 1) return conv(keys.front().Value);
 
-        if (ChannelData.PositionKeys.size() == 1) {
-            const asset::Vec3& PositionValue{ ChannelData.PositionKeys.front().Value };
-            return SimpleMath::Vector3{ PositionValue.x, PositionValue.y, PositionValue.z };
-        }
-
-        const std::size_t StartIndex{ ResolveFrameIndexFromKeys(AnimationTick, ChannelData.PositionKeys) };
-        const std::size_t EndIndex{ StartIndex + 1 };
-        const float BlendFactor{ ResolveFactor(AnimationTick, ChannelData.PositionKeys[StartIndex].Time, ChannelData.PositionKeys[EndIndex].Time) };
-
-        const asset::Vec3& StartValue{ ChannelData.PositionKeys[StartIndex].Value };
-        const asset::Vec3& EndValue{ ChannelData.PositionKeys[EndIndex].Value };
-        const SimpleMath::Vector3 StartPosition{ StartValue.x, StartValue.y, StartValue.z };
-        const SimpleMath::Vector3 EndPosition{ EndValue.x, EndValue.y, EndValue.z };
-
-        return SimpleMath::Vector3::Lerp(StartPosition, EndPosition, BlendFactor);
+        const std::size_t i = ResolveFrameIndexFromKeys(tick, keys);
+        const float alpha = ResolveFactor(tick, keys[i].Time, keys[i + 1].Time);
+        return lerp(conv(keys[i].Value), conv(keys[i + 1].Value), alpha);
     }
 
-    SimpleMath::Quaternion SampleRotation(const asset::AnimationChannel& ChannelData, double AnimationTick) {
-        if (ChannelData.RotationKeys.empty()) {
-            return SimpleMath::Quaternion::Identity;
-        }
-
-        if (ChannelData.RotationKeys.size() == 1) {
-            const asset::Vec4& RotationValue{ ChannelData.RotationKeys.front().Value };
-            SimpleMath::Quaternion Result{ RotationValue.x, RotationValue.y, RotationValue.z, RotationValue.w };
-            Result.Normalize();
-            return Result;
-        }
-
-        const std::size_t StartIndex{ ResolveFrameIndexFromKeys(AnimationTick, ChannelData.RotationKeys) };
-        const std::size_t EndIndex{ StartIndex + 1 };
-        const float BlendFactor{ ResolveFactor(AnimationTick, ChannelData.RotationKeys[StartIndex].Time, ChannelData.RotationKeys[EndIndex].Time) };
-
-        const asset::Vec4& StartValue{ ChannelData.RotationKeys[StartIndex].Value };
-        const asset::Vec4& EndValue{ ChannelData.RotationKeys[EndIndex].Value };
-        SimpleMath::Quaternion StartRotation{ StartValue.x, StartValue.y, StartValue.z, StartValue.w };
-        SimpleMath::Quaternion EndRotation{ EndValue.x, EndValue.y, EndValue.z, EndValue.w };
-        StartRotation.Normalize();
-        EndRotation.Normalize();
-
-        return SimpleMath::Quaternion::Slerp(StartRotation, EndRotation, BlendFactor);
+    SimpleMath::Vector3 SamplePosition(const asset::AnimationChannel& Ch, double Tick) {
+        return SampleTrack(Ch.PositionKeys, Tick, SimpleMath::Vector3::Zero,
+            [](const auto& v) { return SimpleMath::Vector3{ v.x, v.y, v.z }; },
+            [](const auto& a, const auto& b, float t) { return SimpleMath::Vector3::Lerp(a, b, t); });
     }
 
-    SimpleMath::Vector3 SampleScale(const asset::AnimationChannel& ChannelData, double AnimationTick) {
-        if (ChannelData.ScaleKeys.empty()) {
-            return SimpleMath::Vector3{ 1.0f, 1.0f, 1.0f };
-        }
-
-        if (ChannelData.ScaleKeys.size() == 1) {
-            const asset::Vec3& ScaleValue{ ChannelData.ScaleKeys.front().Value };
-            return SimpleMath::Vector3{ ScaleValue.x, ScaleValue.y, ScaleValue.z };
-        }
-
-        const std::size_t StartIndex{ ResolveFrameIndexFromKeys(AnimationTick, ChannelData.ScaleKeys) };
-        const std::size_t EndIndex{ StartIndex + 1 };
-        const float BlendFactor{ ResolveFactor(AnimationTick, ChannelData.ScaleKeys[StartIndex].Time, ChannelData.ScaleKeys[EndIndex].Time) };
-
-        const asset::Vec3& StartValue{ ChannelData.ScaleKeys[StartIndex].Value };
-        const asset::Vec3& EndValue{ ChannelData.ScaleKeys[EndIndex].Value };
-        const SimpleMath::Vector3 StartScale{ StartValue.x, StartValue.y, StartValue.z };
-        const SimpleMath::Vector3 EndScale{ EndValue.x, EndValue.y, EndValue.z };
-
-        return SimpleMath::Vector3::Lerp(StartScale, EndScale, BlendFactor);
+    SimpleMath::Quaternion SampleRotation(const asset::AnimationChannel& Ch, double Tick) {
+        return SampleTrack(Ch.RotationKeys, Tick, SimpleMath::Quaternion::Identity,
+            [](const auto& v) { auto q = SimpleMath::Quaternion{ v.x, v.y, v.z, v.w }; q.Normalize(); return q; },
+            [](const auto& a, const auto& b, float t) { return SimpleMath::Quaternion::Slerp(a, b, t); });
     }
 
-    std::vector<const asset::AnimationChannel*> BuildAnimationChannelLookup(const Game::Model& ModelData, const asset::AnimationClip& ClipData) {
-        const std::vector<Game::ModelNode>& Nodes{ ModelData.GetNodes() };
-        std::vector<const asset::AnimationChannel*> ChannelLookup{};
-        ChannelLookup.resize(Nodes.size(), nullptr);
+    SimpleMath::Vector3 SampleScale(const asset::AnimationChannel& Ch, double Tick) {
+        return SampleTrack(Ch.ScaleKeys, Tick, SimpleMath::Vector3{ 1.0f, 1.0f, 1.0f },
+            [](const auto& v) { return SimpleMath::Vector3{ v.x, v.y, v.z }; },
+            [](const auto& a, const auto& b, float t) { return SimpleMath::Vector3::Lerp(a, b, t); });
+    }
 
-        for (const asset::AnimationChannel& ChannelData : ClipData.Channels) {
-            std::uint32_t NodeIndex{ 0 };
-            const bool IsNodeIndexFound{ ModelData.TryFindNodeIndexById(ChannelData.NodeId, NodeIndex) };
-            if (IsNodeIndexFound == false) {
-                continue;
+    std::vector<const asset::AnimationChannel*> BuildAnimationChannelLookup(const Game::Model& Model, const asset::AnimationClip& Clip) {
+        std::vector<const asset::AnimationChannel*> Lookup(Model.GetNodes().size(), nullptr);
+        for (const auto& Ch : Clip.Channels) {
+            std::uint32_t idx = 0;
+            if (Model.TryFindNodeIndexById(Ch.NodeId, idx) && idx < Lookup.size()) {
+                Lookup[idx] = &Ch;
             }
-
-            const std::size_t LookupIndex{ static_cast<std::size_t>(NodeIndex) };
-            if (LookupIndex >= ChannelLookup.size()) {
-                continue;
-            }
-
-            ChannelLookup[LookupIndex] = &ChannelData;
         }
-
-        return ChannelLookup;
+        return Lookup;
     }
 
-    void BlendTransforms(SimpleMath::Vector3& InOutScale, SimpleMath::Quaternion& InOutRotation, SimpleMath::Vector3& InOutPosition, const SimpleMath::Vector3& TargetScale, const SimpleMath::Quaternion& TargetRotation, const SimpleMath::Vector3& TargetPosition, float Alpha) {
-        InOutScale = SimpleMath::Vector3::Lerp(InOutScale, TargetScale, Alpha);
-        InOutRotation = SimpleMath::Quaternion::Slerp(InOutRotation, TargetRotation, Alpha);
-        InOutRotation.Normalize();
-        InOutPosition = SimpleMath::Vector3::Lerp(InOutPosition, TargetPosition, Alpha);
+    void BlendTransforms(SimpleMath::Vector3& S, SimpleMath::Quaternion& R, SimpleMath::Vector3& T, const SimpleMath::Vector3& TS, const SimpleMath::Quaternion& TR, const SimpleMath::Vector3& TT, float Alpha) {
+        S = SimpleMath::Vector3::Lerp(S, TS, Alpha);
+        R = SimpleMath::Quaternion::Slerp(R, TR, Alpha);
+        R.Normalize();
+        T = SimpleMath::Vector3::Lerp(T, TT, Alpha);
     }
 
-    void ApplyRootNodeAnimation(const asset::AnimationChannel* SourceChannelData, double SourceAnimationTick, const asset::AnimationChannel* DestinationChannelData, double DestinationAnimationTick, float BlendAlpha, SimpleMath::Vector3& OutScale, SimpleMath::Quaternion& OutRotation, SimpleMath::Vector3& OutPosition) {
-        OutScale = SourceChannelData != nullptr ? SampleScale(*SourceChannelData, SourceAnimationTick) : SimpleMath::Vector3{ 1.0f, 1.0f, 1.0f };
-        OutRotation = SourceChannelData != nullptr ? SampleRotation(*SourceChannelData, SourceAnimationTick) : SimpleMath::Quaternion::Identity;
-        OutPosition = SourceChannelData != nullptr ? SamplePosition(*SourceChannelData, SourceAnimationTick) : SimpleMath::Vector3::Zero;
+    void ApplyAnimatedPoseIterative(Arche::World& World, Arche::EntityID RootId, const Game::Model& Model, std::span<const asset::AnimationChannel* const> SrcLookup, double SrcTick, std::span<const asset::AnimationChannel* const> DstLookup, double DstTick, float BlendAlpha) {
+        const auto& Nodes = Model.GetNodes();
+        std::vector<Arche::EntityID> Stack;
+        Stack.reserve(256);
+        Stack.push_back(RootId);
 
-        if (DestinationChannelData != nullptr) {
-            const SimpleMath::Vector3 DestinationScale{ SampleScale(*DestinationChannelData, DestinationAnimationTick) };
-            const SimpleMath::Quaternion DestinationRotation{ SampleRotation(*DestinationChannelData, DestinationAnimationTick) };
-            const SimpleMath::Vector3 DestinationPosition{ SamplePosition(*DestinationChannelData, DestinationAnimationTick) };
-            BlendTransforms(OutScale, OutRotation, OutPosition, DestinationScale, DestinationRotation, DestinationPosition, BlendAlpha);
-        }
-    }
+        while (!Stack.empty()) {
+            const Arche::EntityID EntityId = Stack.back();
+            Stack.pop_back();
 
-    void ApplyAnimatedPoseIterative(Arche::World& World, Arche::EntityID RootEntityId, const Game::Model& ModelData, std::span<const asset::AnimationChannel* const> SourceChannelLookup, double SourceAnimationTick, std::span<const asset::AnimationChannel* const> DestinationChannelLookup, double DestinationAnimationTick, float BlendAlpha) {
-        const std::vector<Game::ModelNode>& Nodes{ ModelData.GetNodes() };
+            if (EntityId == Arche::NullEntityID) continue;
 
-        std::array<Arche::EntityID, 256> TraversalStack{};
-        std::int32_t StackTop{ 0 };
-        TraversalStack[StackTop++] = RootEntityId;
-
-        while (StackTop > 0) {
-            const Arche::EntityID EntityId{ TraversalStack[--StackTop] };
-            if (EntityId == Arche::NullEntityID) {
-                continue;
-            }
-
-            const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(EntityId) };
-            if (HierarchyComponent == nullptr) {
-                continue;
-            }
-
-            {
-                const std::int32_t ChildRangeStart{ StackTop };
-                Arche::EntityID ChildEntityId{ HierarchyComponent->firstChild };
-                while (ChildEntityId != Arche::NullEntityID && StackTop < static_cast<std::int32_t>(TraversalStack.size())) {
-                    const Game::EntityHierarchy* ChildHierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(ChildEntityId) };
-                    TraversalStack[StackTop++] = ChildEntityId;
-                    ChildEntityId = ChildHierarchyComponent != nullptr ? ChildHierarchyComponent->nextSibling : Arche::NullEntityID;
+            if (auto* Hierarchy = World.GetComponent<Game::EntityHierarchy>(EntityId)) {
+                Arche::EntityID ChildId = Hierarchy->firstChild;
+                std::vector<Arche::EntityID> Children;
+                while (ChildId != Arche::NullEntityID) {
+                    Children.push_back(ChildId);
+                    auto* ChildHierarchy = World.GetComponent<Game::EntityHierarchy>(ChildId);
+                    ChildId = ChildHierarchy ? ChildHierarchy->nextSibling : Arche::NullEntityID;
                 }
-                std::reverse(TraversalStack.begin() + ChildRangeStart, TraversalStack.begin() + StackTop);
-            }
-
-            const Game::Bone* BoneComponent{ World.GetComponent<Game::Bone>(EntityId) };
-            Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(EntityId) };
-
-            if (BoneComponent == nullptr || TransformComponent == nullptr || BoneComponent->model != &ModelData) {
-                continue;
-            }
-
-            if (BoneComponent->nodeIndex >= Nodes.size()) {
-                continue;
-            }
-
-            const std::uint32_t NodeIndex{ BoneComponent->nodeIndex };
-            const Game::ModelNode& CurrentNode{ Nodes[NodeIndex] };
-            const asset::AnimationChannel* SourceChannelData{ SourceChannelLookup[NodeIndex] };
-            const asset::AnimationChannel* DestinationChannelData{ DestinationChannelLookup[NodeIndex] };
-            const bool IsRootNode{ EntityId == RootEntityId };
-
-            if (SourceChannelData == nullptr && DestinationChannelData == nullptr) {
-                continue;
-            }
-
-            SimpleMath::Matrix BindLocal{ CurrentNode.GetNodeToParent() };
-            SimpleMath::Vector3 S{};
-            SimpleMath::Quaternion R{};
-            SimpleMath::Vector3 T{};
-
-            if (IsRootNode == true) {
-                ApplyRootNodeAnimation(SourceChannelData, SourceAnimationTick, DestinationChannelData, DestinationAnimationTick, BlendAlpha, S, R, T);
-            } else {
-                S = SourceChannelData != nullptr ? SampleScale(*SourceChannelData, SourceAnimationTick) : SimpleMath::Vector3{ 1.0f, 1.0f, 1.0f };
-                R = SourceChannelData != nullptr ? SampleRotation(*SourceChannelData, SourceAnimationTick) : SimpleMath::Quaternion::Identity;
-                T = SourceChannelData != nullptr ? SamplePosition(*SourceChannelData, SourceAnimationTick) : SimpleMath::Vector3::Zero;
-
-                if (DestinationChannelData != nullptr) {
-                    const SimpleMath::Vector3 DestinationScale{ SampleScale(*DestinationChannelData, DestinationAnimationTick) };
-                    const SimpleMath::Quaternion DestinationRotation{ SampleRotation(*DestinationChannelData, DestinationAnimationTick) };
-                    const SimpleMath::Vector3 DestinationPosition{ SamplePosition(*DestinationChannelData, DestinationAnimationTick) };
-                    BlendTransforms(S, R, T, DestinationScale, DestinationRotation, DestinationPosition, BlendAlpha);
+                for (auto it = Children.rbegin(); it != Children.rend(); ++it) {
+                    Stack.push_back(*it);
                 }
             }
 
-            SimpleMath::Matrix AnimLocal{ SimpleMath::Matrix::CreateScale(S) * SimpleMath::Matrix::CreateFromQuaternion(R) * SimpleMath::Matrix::CreateTranslation(T) };
+            auto* Bone = World.GetComponent<Game::Bone>(EntityId);
+            auto* Transform = World.GetComponent<Game::Transform>(EntityId);
 
-            SimpleMath::Matrix DeltaLocal = BindLocal.Invert() * AnimLocal;
+            if (!Bone || !Transform || Bone->model != &Model || Bone->nodeIndex >= Nodes.size()) continue;
 
-            DeltaLocal.Decompose(TransformComponent->scale, TransformComponent->rotation, TransformComponent->position);
-            TransformComponent->UpdateEulerRadiansFromRotation();
+            const auto* SrcCh = SrcLookup[Bone->nodeIndex];
+            const auto* DstCh = DstLookup[Bone->nodeIndex];
+
+            if (!SrcCh && !DstCh) continue;
+
+            SimpleMath::Vector3 S{ 1.0f, 1.0f, 1.0f }, T{ 0.0f, 0.0f, 0.0f };
+            SimpleMath::Quaternion R = SimpleMath::Quaternion::Identity;
+
+            if (SrcCh) {
+                S = SampleScale(*SrcCh, SrcTick);
+                R = SampleRotation(*SrcCh, SrcTick);
+                T = SamplePosition(*SrcCh, SrcTick);
+            }
+
+            if (DstCh) {
+                BlendTransforms(S, R, T, SampleScale(*DstCh, DstTick), SampleRotation(*DstCh, DstTick), SamplePosition(*DstCh, DstTick), BlendAlpha);
+            }
+
+            SimpleMath::Matrix AnimLocal = SimpleMath::Matrix::CreateScale(S) * SimpleMath::Matrix::CreateFromQuaternion(R) * SimpleMath::Matrix::CreateTranslation(T);
+            SimpleMath::Matrix DeltaLocal = Nodes[Bone->nodeIndex].GetNodeToParent().Invert() * AnimLocal;
+
+            DeltaLocal.Decompose(Transform->scale, Transform->rotation, Transform->position);
+            Transform->UpdateEulerRadiansFromRotation();
         }
     }
 }
 
 namespace Game {
-    const std::string& AnimateSystem::Name() const {
-        return mName;
-    }
-
-    Phase AnimateSystem::GetPhase() const {
-        return Phase::Update;
-    }
+    const std::string& AnimateSystem::Name() const { return mName; }
+    Phase AnimateSystem::GetPhase() const { return Phase::Update; }
 
     std::span<const ComponentAccess> AnimateSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 7> Accesses{ { { typeid(Animator), Access::Write }, { typeid(AnimatorGraphPlayer), Access::Read }, { typeid(BoneSkinReference), Access::Read }, { typeid(SkinnedMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(Bone), Access::Read }, { typeid(Transform), Access::Write } } };
+        static std::array<ComponentAccess, 7> Accesses{ {
+            { typeid(Animator), Access::Write }, { typeid(AnimatorGraphPlayer), Access::Read },
+            { typeid(BoneSkinReference), Access::Read }, { typeid(SkinnedMeshRenderer), Access::Read },
+            { typeid(EntityHierarchy), Access::Read }, { typeid(Bone), Access::Read }, { typeid(Transform), Access::Write }
+        } };
         return Accesses;
     }
 
-    std::span<const ResourceAccess> AnimateSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 0> Accesses{};
-        return Accesses;
-    }
+    std::span<const ResourceAccess> AnimateSystem::ResourceAccesses() const { return {}; }
 
-    void AnimateSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
-        (void)Ctx;
+    void AnimateSystem::Execute(Arche::World& World, FrameContext&, float Dt) {
+        ResolvedAnimatorCache AnimatorCache; AnimatorCache.reserve(32);
+        std::unordered_set<Arche::EntityID> UpdatedAnimators; UpdatedAnimators.reserve(32);
+        std::unordered_map<AnimationChannelLookupCacheKey, std::vector<const asset::AnimationChannel*>, AnimationChannelLookupCacheKeyHasher> ChannelCache; ChannelCache.reserve(32);
+        std::unordered_set<PoseApplyCacheKey, PoseApplyCacheKeyHasher> AppliedPoses; AppliedPoses.reserve(32);
 
-        ResolvedAnimatorCache AnimatorCache{};
-        AnimatorCache.reserve(32);
+        for (auto [BoneSkin, SMR, Hierarchy, Trans] : World.Query<BoneSkinReference, SkinnedMeshRenderer, EntityHierarchy, Transform>()) {
+            auto Resolved = ResolveAnimatorInHierarchy(World, Hierarchy.self, AnimatorCache);
+            if (!Resolved.Component || !Resolved.Component->animation || !SMR.model || BoneSkin.boneRootEntityId == Arche::NullEntityID) continue;
 
-        std::unordered_set<Arche::EntityID> UpdatedAnimatorEntityIds{};
-        UpdatedAnimatorEntityIds.reserve(32);
-        std::unordered_map<AnimationChannelLookupCacheKey, std::vector<const asset::AnimationChannel*>, AnimationChannelLookupCacheKeyHasher> ChannelLookupCache{};
-        ChannelLookupCache.reserve(32);
-        std::unordered_set<PoseApplyCacheKey, PoseApplyCacheKeyHasher> AppliedPoseKeys{};
-        AppliedPoseKeys.reserve(32);
+            const auto& Clips = Resolved.Component->animation->Clips();
+            auto* GraphPlayer = World.GetComponent<AnimatorGraphPlayer>(Resolved.EntityId);
 
-        for (auto [BoneSkinReferenceComponent, SkinnedMeshRendererComponent, HierarchyComponent, TransformComponent] : World.Query<BoneSkinReference, SkinnedMeshRenderer, EntityHierarchy, Transform>()) {
-            (void)TransformComponent;
+            const int32_t SrcClipIdx = GraphPlayer ? GraphPlayer->SampleSourceClipIndex : Resolved.Component->clipIndex;
+            if (SrcClipIdx < 0 || static_cast<size_t>(SrcClipIdx) >= Clips.size()) continue;
 
-            const ResolvedAnimator ResolvedAnimatorComponent{ ResolveAnimatorInHierarchy(World, HierarchyComponent, AnimatorCache) };
-            Animator* AnimatorComponent{ ResolvedAnimatorComponent.Component };
-            if (AnimatorComponent == nullptr || AnimatorComponent->animation == nullptr) {
-                continue;
-            }
+            const int32_t DstClipIdx = GraphPlayer ? GraphPlayer->SampleDestinationClipIndex : SrcClipIdx;
+            const float BlendAlpha = GraphPlayer ? std::clamp(GraphPlayer->SampleBlendAlpha, 0.0f, 1.0f) : 0.0f;
+            const double SrcLocalTime = GraphPlayer ? GraphPlayer->SampleSourceLocalTime : Resolved.Component->counter;
+            const double DstLocalTime = GraphPlayer ? GraphPlayer->SampleDestinationLocalTime : Resolved.Component->counter;
 
-            const std::vector<asset::AnimationClip>& Clips{ AnimatorComponent->animation->Clips() };
+            PoseApplyCacheKey CacheKey{ Resolved.EntityId, SMR.model, BoneSkin.boneRootEntityId, SrcClipIdx, DstClipIdx };
+            if (!AppliedPoses.insert(CacheKey).second) continue;
 
-            if (SkinnedMeshRendererComponent.model == nullptr || BoneSkinReferenceComponent.boneRootEntityId == Arche::NullEntityID) {
-                continue;
-            }
+            const size_t SafeDstClipIdx = (DstClipIdx >= 0 && static_cast<size_t>(DstClipIdx) < Clips.size()) ? DstClipIdx : SrcClipIdx;
+            const auto& SrcClip = Clips[SrcClipIdx];
+            const auto& DstClip = Clips[SafeDstClipIdx];
 
-            const AnimatorGraphPlayer* GraphPlayer{ World.GetComponent<AnimatorGraphPlayer>(ResolvedAnimatorComponent.EntityId) };
-            const std::int32_t SourceClipIndexValue{ GraphPlayer != nullptr ? GraphPlayer->SampleSourceClipIndex : AnimatorComponent->clipIndex };
-            const std::int32_t DestinationClipIndexValue{ GraphPlayer != nullptr ? GraphPlayer->SampleDestinationClipIndex : SourceClipIndexValue };
-            const float BlendAlpha{ GraphPlayer != nullptr ? std::clamp(GraphPlayer->SampleBlendAlpha, 0.0f, 1.0f) : 0.0f };
-            const double SourceLocalTime{ GraphPlayer != nullptr ? static_cast<double>(GraphPlayer->SampleSourceLocalTime) : AnimatorComponent->counter };
-            const double DestinationLocalTime{ GraphPlayer != nullptr ? static_cast<double>(GraphPlayer->SampleDestinationLocalTime) : AnimatorComponent->counter };
-            if (SourceClipIndexValue < 0) {
-                continue;
-            }
+            if (SrcClip.Duration <= 0.0) continue;
 
-            PoseApplyCacheKey CacheKey{};
-            CacheKey.mAnimatorEntityId = ResolvedAnimatorComponent.EntityId;
-            CacheKey.mModel = SkinnedMeshRendererComponent.model;
-            CacheKey.mBoneRootEntityId = BoneSkinReferenceComponent.boneRootEntityId;
-            CacheKey.mSourceClipIndex = SourceClipIndexValue;
-            CacheKey.mDestinationClipIndex = DestinationClipIndexValue;
-            const auto AppliedResult{ AppliedPoseKeys.insert(CacheKey) };
-            if (AppliedResult.second == false) {
-                continue;
-            }
+            const double SrcTPS = SrcClip.TicksPerSecond > 0.0 ? SrcClip.TicksPerSecond : 30.0;
+            const double DstTPS = DstClip.TicksPerSecond > 0.0 ? DstClip.TicksPerSecond : 30.0;
 
-            const std::size_t SourceClipIndex{ static_cast<std::size_t>(SourceClipIndexValue) };
-            if (SourceClipIndex >= Clips.size()) {
-                continue;
-            }
-            const std::size_t DestinationClipIndex{ DestinationClipIndexValue >= 0 ? static_cast<std::size_t>(DestinationClipIndexValue) : SourceClipIndex };
-            const std::size_t SafeDestinationClipIndex{ DestinationClipIndex < Clips.size() ? DestinationClipIndex : SourceClipIndex };
-
-            const asset::AnimationClip& SourceClipData{ Clips[SourceClipIndex] };
-            const asset::AnimationClip& DestinationClipData{ Clips[SafeDestinationClipIndex] };
-            if (SourceClipData.Duration <= 0.0) {
-                continue;
-            }
-
-            const double SourceTicksPerSecond{ SourceClipData.TicksPerSecond > 0.0 ? SourceClipData.TicksPerSecond : 30.0 };
-            const double DestinationTicksPerSecond{ DestinationClipData.TicksPerSecond > 0.0 ? DestinationClipData.TicksPerSecond : 30.0 };
-            const auto InsertResult{ UpdatedAnimatorEntityIds.insert(ResolvedAnimatorComponent.EntityId) };
-            if (InsertResult.second == true && GraphPlayer == nullptr) {
-                AnimatorComponent->counter += static_cast<double>(Dt);
-
-                const double DurationSeconds{ SourceClipData.Duration / SourceTicksPerSecond };
-                if (DurationSeconds > 0.0) {
-                    AnimatorComponent->counter = std::fmod(AnimatorComponent->counter, DurationSeconds);
-                    if (AnimatorComponent->counter < 0.0) {
-                        AnimatorComponent->counter += DurationSeconds;
-                    }
+            if (UpdatedAnimators.insert(Resolved.EntityId).second && !GraphPlayer) {
+                Resolved.Component->counter += Dt;
+                if (double DurSec = SrcClip.Duration / SrcTPS; DurSec > 0.0) {
+                    Resolved.Component->counter = std::fmod(Resolved.Component->counter, DurSec);
+                    if (Resolved.Component->counter < 0.0) Resolved.Component->counter += DurSec;
                 }
             }
 
-            const double SourceAnimationTick{ SourceLocalTime * SourceTicksPerSecond };
-            const double DestinationAnimationTick{ DestinationLocalTime * DestinationTicksPerSecond };
-            AnimationChannelLookupCacheKey SourceLookupCacheKey{};
-            SourceLookupCacheKey.mModel = SkinnedMeshRendererComponent.model;
-            SourceLookupCacheKey.mClip = &SourceClipData;
+            auto GetLookup = [&](const asset::AnimationClip& clip) {
+                AnimationChannelLookupCacheKey key{ SMR.model, &clip };
+                if (auto it = ChannelCache.find(key); it != ChannelCache.end()) return it->second;
+                return ChannelCache.emplace(key, BuildAnimationChannelLookup(*SMR.model, clip)).first->second;
+                };
 
-            auto ChannelLookupCacheIter{ ChannelLookupCache.find(SourceLookupCacheKey) };
-            if (ChannelLookupCacheIter == ChannelLookupCache.end()) {
-                std::vector<const asset::AnimationChannel*> NewChannelLookup{ BuildAnimationChannelLookup(*SkinnedMeshRendererComponent.model, SourceClipData) };
-                const auto InsertedResult{ ChannelLookupCache.emplace(SourceLookupCacheKey, std::move(NewChannelLookup)) };
-                ChannelLookupCacheIter = InsertedResult.first;
-            }
-
-            AnimationChannelLookupCacheKey DestinationLookupCacheKey{};
-            DestinationLookupCacheKey.mModel = SkinnedMeshRendererComponent.model;
-            DestinationLookupCacheKey.mClip = &DestinationClipData;
-
-            auto DestinationChannelLookupCacheIter{ ChannelLookupCache.find(DestinationLookupCacheKey) };
-            if (DestinationChannelLookupCacheIter == ChannelLookupCache.end()) {
-                std::vector<const asset::AnimationChannel*> NewDestinationChannelLookup{ BuildAnimationChannelLookup(*SkinnedMeshRendererComponent.model, DestinationClipData) };
-                const auto InsertedDestinationResult{ ChannelLookupCache.emplace(DestinationLookupCacheKey, std::move(NewDestinationChannelLookup)) };
-                DestinationChannelLookupCacheIter = InsertedDestinationResult.first;
-            }
-
-            ApplyAnimatedPoseIterative(World, BoneSkinReferenceComponent.boneRootEntityId, *SkinnedMeshRendererComponent.model, ChannelLookupCacheIter->second, SourceAnimationTick, DestinationChannelLookupCacheIter->second, DestinationAnimationTick, BlendAlpha);
+            ApplyAnimatedPoseIterative(World, BoneSkin.boneRootEntityId, *SMR.model,
+                GetLookup(SrcClip), SrcLocalTime * SrcTPS,
+                GetLookup(DstClip), DstLocalTime * DstTPS, BlendAlpha);
         }
     }
 }
