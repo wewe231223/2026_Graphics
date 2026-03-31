@@ -29,6 +29,7 @@ namespace Globals {
 
 		void SetVirtualMouse(bool enable);
 		void ToggleVirtualMouse();
+        void SetRightButtonVirtualMouseEnabled(bool IsEnabled);
 
         const DirectX::Keyboard::State& GetKeyboardState() const;
         const DirectX::Mouse::State& GetMouseState() const;
@@ -58,6 +59,7 @@ namespace Globals {
 
         HWND mhwnd{ nullptr };
         bool mVirtualMouse{ false };
+        bool mRightButtonVirtualMouseEnabled{ true };
         bool mIsImGuiInputBlocked{ false };
 		POINT mVirtualMousePosition{};
     };

@@ -11,8 +11,10 @@
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
+#include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/ComponentInspection.h"
 #include "Game/Scene/Components/Name.h"
+#include "Game/Scene/Components/Transform.h"
 #include "Game/Scene/Events/SelectionEvent.h"
 #include "Game/Scene/SceneWorldSnapshot.h"
 
@@ -189,6 +191,7 @@ namespace Widget {
 
         RenderAnimatorEditor(Snapshot, Entity.mEntityId);
         RenderBoneSkinReferenceEditor(Snapshot, Entity.mEntityId);
+        RenderCameraEditor(Snapshot, Entity.mEntityId);
     }
 
     void SceneHierarchyWidget::RenderComponentSectionTable(const char* ComponentName, const std::vector<Game::ComponentInspectionField>& Fields, const char* TableIdentifier) const {
@@ -349,6 +352,54 @@ namespace Widget {
         ImGui::EndCombo();
     }
 
+    void SceneHierarchyWidget::RenderCameraEditor(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId) {
+        Arche::World* World{ Snapshot.GetWorld() };
+        const Arche::World::WorldReadOnlyView* ReadOnlyWorld{ Snapshot.GetReadOnlyWorld() };
+        if (World == nullptr || ReadOnlyWorld == nullptr) {
+            return;
+        }
+
+        const Game::Camera* CameraComponent{ ReadOnlyWorld->GetComponent<Game::Camera>(EntityId) };
+        if (CameraComponent == nullptr) {
+            return;
+        }
+
+        std::vector<BoneEntityOption> Options{};
+        BuildCameraFollowTargetOptions(Snapshot, EntityId, Options);
+
+        std::string PreviewLabel{ BuildBoneEntityLabel(Snapshot, CameraComponent->thirdPersonFollowTarget) };
+        if (PreviewLabel.empty()) {
+            PreviewLabel = "<None>";
+        }
+
+        ImGui::SeparatorText("Camera");
+        const std::string ComboIdentifier{ std::format("##CameraFollowTargetSelector##{}:{}", EntityId.index, EntityId.generation) };
+        if (!ImGui::BeginCombo(ComboIdentifier.c_str(), PreviewLabel.c_str())) {
+            return;
+        }
+
+        const bool IsSelectedNone{ CameraComponent->thirdPersonFollowTarget == Arche::NullEntityID };
+        if (ImGui::Selectable("<None>", IsSelectedNone)) {
+            World->WriteComponent<Game::Camera>(EntityId, [](Game::Camera& TargetComponent) {
+                TargetComponent.thirdPersonFollowTarget = Arche::NullEntityID;
+                TargetComponent.thirdPersonFollowTargetSerializedId = -1;
+            });
+        }
+
+        for (const BoneEntityOption& Option : Options) {
+            const bool IsSelected{ CameraComponent->thirdPersonFollowTarget == Option.mEntityId };
+            if (ImGui::Selectable(Option.mLabel.c_str(), IsSelected)) {
+                const Arche::EntityID SelectedEntityId{ Option.mEntityId };
+                World->WriteComponent<Game::Camera>(EntityId, [SelectedEntityId](Game::Camera& TargetComponent) {
+                    TargetComponent.thirdPersonFollowTarget = SelectedEntityId;
+                    TargetComponent.thirdPersonFollowTargetSerializedId = -1;
+                });
+            }
+        }
+
+        ImGui::EndCombo();
+    }
+
     void SceneHierarchyWidget::BuildBoneEntityOptions(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId, std::vector<BoneEntityOption>& OutOptions) const {
         OutOptions.clear();
 
@@ -366,6 +417,30 @@ namespace Widget {
             }
 
             if (FindHierarchyRootEntityId(Snapshot, EntitySnapshot.mEntityId) != HierarchyRootEntityId) {
+                continue;
+            }
+
+            BoneEntityOption Option{};
+            Option.mEntityId = EntitySnapshot.mEntityId;
+            Option.mLabel = BuildBoneEntityLabel(Snapshot, EntitySnapshot.mEntityId);
+            OutOptions.push_back(std::move(Option));
+        }
+    }
+
+    void SceneHierarchyWidget::BuildCameraFollowTargetOptions(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId, std::vector<BoneEntityOption>& OutOptions) const {
+        OutOptions.clear();
+        const Arche::World::WorldReadOnlyView* ReadOnlyWorld{ Snapshot.GetReadOnlyWorld() };
+        if (ReadOnlyWorld == nullptr) {
+            return;
+        }
+
+        for (const Game::SceneWorldSnapshot::SceneEntitySnapshot& EntitySnapshot : Snapshot.GetEntities()) {
+            if (EntitySnapshot.mEntityId == EntityId) {
+                continue;
+            }
+
+            const Game::Transform* TransformComponent{ ReadOnlyWorld->GetComponent<Game::Transform>(EntitySnapshot.mEntityId) };
+            if (TransformComponent == nullptr) {
                 continue;
             }
 

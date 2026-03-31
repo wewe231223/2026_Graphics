@@ -637,6 +637,7 @@ namespace Game {
         std::unordered_map<std::int64_t, Arche::EntityID> EntityBySerializedId{};
         std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredParents{};
         std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredBoneSkinReferenceEntities{};
+        std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredThirdPersonFollowTargetEntities{};
         std::vector<PendingAnimatorBinding> PendingAnimatorBindings{};
         const c4::yml::ConstNodeRef EntitiesNode{ RootNode["Entities"] };
         for (const c4::yml::ConstNodeRef EntityNode : EntitiesNode.children()) {
@@ -995,6 +996,43 @@ namespace Game {
                     CameraNode["cameraFlags"] >> NewCamera.cameraFlags;
                 }
 
+                if (CameraNode.has_child("thirdPersonFollowTargetEntityId")) {
+                    CameraNode["thirdPersonFollowTargetEntityId"] >> NewCamera.thirdPersonFollowTargetSerializedId;
+                    DeferredThirdPersonFollowTargetEntities.push_back(std::pair<Arche::EntityID, std::int64_t>{ Entity, NewCamera.thirdPersonFollowTargetSerializedId });
+                }
+
+                if (CameraNode.has_child("thirdPersonDistance")) {
+                    CameraNode["thirdPersonDistance"] >> NewCamera.thirdPersonDistance;
+                }
+
+                if (CameraNode.has_child("thirdPersonMinDistance")) {
+                    CameraNode["thirdPersonMinDistance"] >> NewCamera.thirdPersonMinDistance;
+                }
+
+                if (CameraNode.has_child("thirdPersonMaxDistance")) {
+                    CameraNode["thirdPersonMaxDistance"] >> NewCamera.thirdPersonMaxDistance;
+                }
+
+                if (CameraNode.has_child("thirdPersonHeightOffset")) {
+                    CameraNode["thirdPersonHeightOffset"] >> NewCamera.thirdPersonHeightOffset;
+                }
+
+                if (CameraNode.has_child("thirdPersonOrbitYaw")) {
+                    CameraNode["thirdPersonOrbitYaw"] >> NewCamera.thirdPersonOrbitYaw;
+                }
+
+                if (CameraNode.has_child("thirdPersonOrbitPitch")) {
+                    CameraNode["thirdPersonOrbitPitch"] >> NewCamera.thirdPersonOrbitPitch;
+                }
+
+                if (CameraNode.has_child("thirdPersonPositionLerpSpeed")) {
+                    CameraNode["thirdPersonPositionLerpSpeed"] >> NewCamera.thirdPersonPositionLerpSpeed;
+                }
+
+                if (CameraNode.has_child("thirdPersonZoomSpeed")) {
+                    CameraNode["thirdPersonZoomSpeed"] >> NewCamera.thirdPersonZoomSpeed;
+                }
+
                 OutScene.GetWorld().AddComponent(Entity, NewCamera);
                 OutScene.GetWorld().AddComponent(Entity, NewFrustum);
             }
@@ -1068,6 +1106,17 @@ namespace Game {
 
             OutScene.GetWorld().WriteComponent<BoneSkinReference>(DeferredBoneSkinReferenceEntity.first, [ResolvedEntityId = BoneRootIter->second](BoneSkinReference& TargetComponent) {
                 TargetComponent.boneRootEntityId = ResolvedEntityId;
+            });
+        }
+
+        for (const std::pair<Arche::EntityID, std::int64_t>& DeferredThirdPersonFollowTargetEntity : DeferredThirdPersonFollowTargetEntities) {
+            const std::unordered_map<std::int64_t, Arche::EntityID>::const_iterator FollowTargetIter{ EntityBySerializedId.find(DeferredThirdPersonFollowTargetEntity.second) };
+            if (FollowTargetIter == EntityBySerializedId.end()) {
+                continue;
+            }
+
+            OutScene.GetWorld().WriteComponent<Camera>(DeferredThirdPersonFollowTargetEntity.first, [ResolvedEntityId = FollowTargetIter->second](Camera& TargetComponent) {
+                TargetComponent.thirdPersonFollowTarget = ResolvedEntityId;
             });
         }
 
@@ -1379,6 +1428,17 @@ namespace Game {
                 AppendLine(Stream, 4, std::string{ "currentShakeIntensity: " } + std::to_string(CameraComponent->currentShakeIntensity));
                 AppendLine(Stream, 4, std::string{ "lockOnTargetIndex: " } + std::to_string(CameraComponent->lockOnTarget.index));
                 AppendLine(Stream, 4, std::string{ "lockOnTargetGeneration: " } + std::to_string(CameraComponent->lockOnTarget.generation));
+                const std::unordered_map<Arche::EntityID, std::uint32_t>::const_iterator ThirdPersonFollowTargetSerializedIter{ SerializedEntityIds.find(CameraComponent->thirdPersonFollowTarget) };
+                const std::int32_t ThirdPersonFollowTargetSerializedId{ ThirdPersonFollowTargetSerializedIter == SerializedEntityIds.end() ? -1 : static_cast<std::int32_t>(ThirdPersonFollowTargetSerializedIter->second) };
+                AppendLine(Stream, 4, std::string{ "thirdPersonFollowTargetEntityId: " } + std::to_string(ThirdPersonFollowTargetSerializedId));
+                AppendLine(Stream, 4, std::string{ "thirdPersonDistance: " } + std::to_string(CameraComponent->thirdPersonDistance));
+                AppendLine(Stream, 4, std::string{ "thirdPersonMinDistance: " } + std::to_string(CameraComponent->thirdPersonMinDistance));
+                AppendLine(Stream, 4, std::string{ "thirdPersonMaxDistance: " } + std::to_string(CameraComponent->thirdPersonMaxDistance));
+                AppendLine(Stream, 4, std::string{ "thirdPersonHeightOffset: " } + std::to_string(CameraComponent->thirdPersonHeightOffset));
+                AppendLine(Stream, 4, std::string{ "thirdPersonOrbitYaw: " } + std::to_string(CameraComponent->thirdPersonOrbitYaw));
+                AppendLine(Stream, 4, std::string{ "thirdPersonOrbitPitch: " } + std::to_string(CameraComponent->thirdPersonOrbitPitch));
+                AppendLine(Stream, 4, std::string{ "thirdPersonPositionLerpSpeed: " } + std::to_string(CameraComponent->thirdPersonPositionLerpSpeed));
+                AppendLine(Stream, 4, std::string{ "thirdPersonZoomSpeed: " } + std::to_string(CameraComponent->thirdPersonZoomSpeed));
                 AppendLine(Stream, 4, std::string{ "cameraFlags: " } + std::to_string(CameraComponent->cameraFlags));
             }
 

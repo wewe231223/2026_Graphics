@@ -48,7 +48,9 @@ namespace Widget {
         void RenderAnimatorEditor(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId);
         void BuildAnimatorClipOptions(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId, std::vector<AnimatorClipOption>& OutOptions) const;
         void RenderBoneSkinReferenceEditor(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId);
+        void RenderCameraEditor(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId);
         void BuildBoneEntityOptions(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId, std::vector<BoneEntityOption>& OutOptions) const;
+        void BuildCameraFollowTargetOptions(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId, std::vector<BoneEntityOption>& OutOptions) const;
         Arche::EntityID FindHierarchyRootEntityId(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId) const;
         std::string BuildBoneEntityLabel(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId) const;
         void SyncSelectedEntityFromSelectedEntityId(const Game::SceneWorldSnapshot& Snapshot);

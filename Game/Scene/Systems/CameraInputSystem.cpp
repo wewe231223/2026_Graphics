@@ -27,6 +27,8 @@ namespace Game {
 
     void CameraInputSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
         const Globals::Input& Input{ Globals::Input::Get() };
+        Globals::Input& MutableInput{ Globals::Input::Get() };
+        const bool IsThirdPersonToggleRequested{ Input.IsKeyPressed(DirectX::Keyboard::Keys::F8) };
         const DirectX::Mouse::ButtonStateTracker& MouseTracker{ Input.GetMouseTracker() };
         const bool IsSelectionDragInput{ Ctx.PickedEntityId != Arche::NullEntityID && (MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED || MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::HELD) };
         bool IsUiCapturingInput{ false };
@@ -42,12 +44,36 @@ namespace Game {
                 continue;
             }
 
+            if (IsThirdPersonToggleRequested) {
+                const bool IsThirdPersonMode{ (Camera.cameraFlags & Camera::Flags::ThirdPerson) != 0u };
+                if (IsThirdPersonMode) {
+                    Camera.cameraFlags &= ~Camera::Flags::ThirdPerson;
+                    Camera.cameraFlags |= Camera::Flags::FreeLook;
+                    MutableInput.SetRightButtonVirtualMouseEnabled(true);
+                    MutableInput.SetVirtualMouse(false);
+                }
+                else {
+                    Camera.cameraFlags |= Camera::Flags::ThirdPerson;
+                    Camera.cameraFlags &= ~Camera::Flags::FreeLook;
+                    MutableInput.SetRightButtonVirtualMouseEnabled(false);
+                    MutableInput.SetVirtualMouse(true);
+                }
+            }
+
             Intent.Reset();
             if (IsSelectionDragInput || IsUiCapturingInput) {
                 continue;
             }
 
             const CameraControlMode Mode{ ResolveMode(Camera, Dt) };
+            if (Mode == CameraControlMode::ThirdPerson) {
+                MutableInput.SetRightButtonVirtualMouseEnabled(false);
+                MutableInput.SetVirtualMouse(true);
+            }
+            else {
+                MutableInput.SetRightButtonVirtualMouseEnabled(true);
+            }
+
             ProcessMode(Intent, Mode, Dt);
         }
     }
@@ -57,12 +83,12 @@ namespace Game {
             return CameraControlMode::Cinematic;
         }
 
-        if ((Camera.cameraFlags & Camera::Flags::FreeLook) != 0) {
-            return CameraControlMode::FreeLook;
-        }
-
         if ((Camera.cameraFlags & Camera::Flags::ThirdPerson) != 0) {
             return CameraControlMode::ThirdPerson;
+        }
+
+        if ((Camera.cameraFlags & Camera::Flags::FreeLook) != 0) {
+            return CameraControlMode::FreeLook;
         }
 
         return CameraControlMode::None;
@@ -145,7 +171,15 @@ namespace Game {
     }
 
     void CameraInputSystem::ProcessThirdPersonMode(CameraIntent& Intent, float Dt) {
-        (void)Intent;
+        const Globals::Input& Input{ Globals::Input::Get() };
+        Intent.lookDelta = SimpleMath::Vector2{ static_cast<float>(Input.GetMouseDeltaX()) * Dt, static_cast<float>(Input.GetMouseDeltaY()) * Dt };
+
+        const auto& MouseState{ Input.GetMouseState() };
+        static int LastWheelValue{ MouseState.scrollWheelValue };
+        const int CurrentWheelValue{ MouseState.scrollWheelValue };
+        const int WheelDelta{ CurrentWheelValue - LastWheelValue };
+        LastWheelValue = CurrentWheelValue;
+        Intent.zoomDelta = static_cast<float>(WheelDelta) / 120.0f;
     }
 
     void CameraInputSystem::ProcessDefaultMode(CameraIntent& Intent, float Dt) {

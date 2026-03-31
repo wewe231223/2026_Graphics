@@ -45,8 +45,18 @@ namespace Game {
         /** @name 3. 관계 및 모드 제어 (Targeting & Flags)
          * 특정 대상을 추적하거나 카메라의 고유 동작 모드를 유지합니다. */
 
-         /// @brief 현재 추적 중인 대상 엔티티
+        /// @brief 현재 추적 중인 대상 엔티티
         Arche::EntityID lockOnTarget{ Arche::NullEntityID };
+        Arche::EntityID thirdPersonFollowTarget{ Arche::NullEntityID };
+        std::int64_t thirdPersonFollowTargetSerializedId{ -1 };
+        float thirdPersonDistance{ 4.0f };
+        float thirdPersonMinDistance{ 1.5f };
+        float thirdPersonMaxDistance{ 8.0f };
+        float thirdPersonHeightOffset{ 1.6f };
+        float thirdPersonOrbitYaw{ 0.0f };
+        float thirdPersonOrbitPitch{ 0.25f };
+        float thirdPersonPositionLerpSpeed{ 12.0f };
+        float thirdPersonZoomSpeed{ 0.5f };
 
         enum Flags : uint32_t {
             None = 0,

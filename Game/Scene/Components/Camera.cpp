@@ -13,5 +13,9 @@ namespace Game {
         OutFields.push_back(ComponentInspectionField{ "NearPlane", std::format("{:.3f}", nearPlane) });
         OutFields.push_back(ComponentInspectionField{ "FarPlane", std::format("{:.3f}", farPlane) });
         OutFields.push_back(ComponentInspectionField{ "IsActive", isActive ? "true" : "false" });
+        OutFields.push_back(ComponentInspectionField{ "ThirdPersonFollowTarget", std::format("{}:{}", thirdPersonFollowTarget.index, thirdPersonFollowTarget.generation) });
+        OutFields.push_back(ComponentInspectionField{ "ThirdPersonDistance", std::format("{:.3f}", thirdPersonDistance) });
+        OutFields.push_back(ComponentInspectionField{ "ThirdPersonOrbitYaw", std::format("{:.3f}", thirdPersonOrbitYaw) });
+        OutFields.push_back(ComponentInspectionField{ "ThirdPersonOrbitPitch", std::format("{:.3f}", thirdPersonOrbitPitch) });
     }
 }
