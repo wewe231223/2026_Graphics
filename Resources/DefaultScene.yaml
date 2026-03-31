@@ -1,10 +1,14 @@
 ﻿SceneName: DefaultScene
 Systems:
-  - CameraInputSystem
-  - PickingSystem
-  - StaticRenderSystem
-  - CleanUpSystem
-  - CameraRenderSystem
+  - Type: CameraInputSystem
+  - Type: PickingSystem
+  - Type: AnimationGraphSystem
+  - Type: AnimateSystem
+  - Type: SkinningSystem
+  - Type: StaticRenderSystem
+  - Type: SkinnedMeshRenderSystem
+  - Type: CleanUpSystem
+  - Type: CameraRenderSystem
 
 DefaultTransform: &DefaultTransform
   rotationEuler: [0.0, 0.0, 0.0]
@@ -14,13 +18,23 @@ DefaultTransform: &DefaultTransform
 Prefabs:
   - &Prefab1001
     prefabId: 1001
-    modelPath: testset.bin
-    materialPath: testset_materials.json
+    modelPath: testset3.bin
+    materialPath: testset3_materials.json
     active: true
   - &Prefab1002
     prefabId: 1002
     modelPath: testset2.bin
     materialPath: testset2_materials.json
+    active: true
+  - &Prefab1003
+    prefabId: 1003
+    modelPath: ManneQuinn_Idle_Run.bin
+    materialPath: ManneQuinn_Idle_Run_materials.json
+    active: true
+  - &Prefab1004
+    prefabId: 1004
+    modelPath: knight.bin
+    materialPath: knight_materials.json
     active: true
   - &Prefab2001
     prefabId: 2001
@@ -99,6 +113,9 @@ Entities:
       PrefabInstance:
         <<: *Prefab1001
         prefabId: 1001
+      Animation:
+        text: testset3.animbin
+        initclip: 0
   - EntityId: 2
     ParentEntityId: -1
     Components:
@@ -176,3 +193,31 @@ Entities:
       PrefabInstance:
         <<: *Prefab2006
         prefabId: 2006
+  - EntityId: 9
+    ParentEntityId: -1
+    Components:
+      Name: 
+        text: untitled
+      Transform:
+        <<: *DefaultTransform 
+      PrefabInstance:
+        <<: *Prefab1003
+        prefabId: 1003
+      Animation:
+        text: Mannequinn_Idle_Run.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+  - EntityId: 10
+    ParentEntityId: -1
+    Components:
+      Name:
+        text: knight
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 0.00, -30.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0

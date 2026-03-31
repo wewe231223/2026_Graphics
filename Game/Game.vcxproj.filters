@@ -51,6 +51,9 @@
     <ClInclude Include="Model\AssetRegistry.h">
       <Filter>Model</Filter>
     </ClInclude>
+    <ClInclude Include="Asset\AnimationGraphAsset.h">
+      <Filter>Model</Filter>
+    </ClInclude>
     <ClInclude Include="Model\AssetRegistryBackEnd.h">
       <Filter>Model</Filter>
     </ClInclude>
@@ -58,6 +61,9 @@
       <Filter>Base</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Scene.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneEntityFactory.h">
       <Filter>Scene</Filter>
     </ClInclude>
     <ClInclude Include="Scene\SceneYamlSerializer.h">
@@ -78,16 +84,34 @@
     <ClInclude Include="Scene\Components\BoundingBox.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\Bone.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\BoneSkinReference.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\Camera.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Components\StaticMeshRenderer.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\SkinnedMeshRenderer.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\Transform.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Components\Material.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\Animator.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\AnimatorGraphPlayer.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\RootMotion.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Components\Name.h">
@@ -97,6 +121,12 @@
       <Filter>Scene\Components</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\IntentClentUpSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\AnimationGraphSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\AnimateSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Components\Tags.h">
@@ -114,10 +144,16 @@
     <ClInclude Include="Base\Time.h">
       <Filter>Base</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\PickingSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\SkinningSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Components\EntityHierarchy.h">
@@ -149,6 +185,9 @@
     <ClCompile Include="Scene\Scene.cpp">
       <Filter>Scene</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\SceneEntityFactory.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\SceneYamlSerializer.cpp">
       <Filter>Scene</Filter>
     </ClCompile>
@@ -170,6 +209,15 @@
     <ClCompile Include="Scene\Components\Material.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Components\Animator.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\AnimatorGraphPlayer.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\RootMotion.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
@@ -182,6 +230,12 @@
     <ClCompile Include="Scene\Components\BoundingBox.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Components\Bone.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\BoneSkinReference.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\Components\Camera.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
@@ -191,10 +245,19 @@
     <ClCompile Include="Scene\Components\StaticMeshRenderer.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Components\SkinnedMeshRenderer.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\Components\ComponentInspection.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\AnimateSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\CameraInputSystem.cpp">
@@ -206,10 +269,16 @@
     <ClCompile Include="Base\Time.cpp">
       <Filter>Base</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Systems\SkinnedMeshRenderSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\PickingSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\SkinningSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
   </ItemGroup>
@@ -229,7 +298,13 @@
     <None Include="..\Shader\PSO\DefaultGraphics.json">
       <Filter>PSO</Filter>
     </None>
+    <None Include="..\Shader\PSO\SkinnedGraphics.json">
+      <Filter>PSO</Filter>
+    </None>
     <None Include="..\Resources\DefaultScene.yaml">
+      <Filter>Scene\Scene YAML</Filter>
+    </None>
+    <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml">
       <Filter>Scene\Scene YAML</Filter>
     </None>
     <None Include="..\Shader\Source\defines.hlsli">
@@ -238,6 +313,9 @@
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shader\Source\BasicShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\SkinnedMeshShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
   </ItemGroup>

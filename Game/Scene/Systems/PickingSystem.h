@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include "Game/Scene/System.h"
 #include "Utility/SimpleMathWrapper.h"
@@ -25,13 +26,12 @@ namespace Game {
 
     private:
         const std::string mName{ "PickingSystem" };
-        Arche::EntityID mLastGizmoPickedEntityId{ Arche::NullEntityID };
-        Arche::EntityID mLastHoveredGizmoEntityId{ Arche::NullEntityID };
         bool mIsGizmoDragging{ false };
         Arche::EntityID mDraggingTargetEntityId{ Arche::NullEntityID };
         float mDraggingStartAxisParameter{ 0.0f };
-        SimpleMath::Vector3 mDraggingStartWorldPosition{};
-        SimpleMath::Vector3 mDraggingAxisOrigin{};
-        SimpleMath::Vector3 mDraggingAxisDirection{};
+        SimpleMath::Vector3 mDraggingTargetStartLocalPosition{};
+        SimpleMath::Vector3 mDraggingAxisOriginParentSpace{};
+        SimpleMath::Vector3 mDraggingAxisDirectionParentSpace{};
+        SimpleMath::Matrix mDraggingParentWorldInverseMatrix{ SimpleMath::Matrix::Identity };
     };
 }

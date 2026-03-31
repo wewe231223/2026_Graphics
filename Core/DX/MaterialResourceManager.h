@@ -59,7 +59,7 @@ namespace Core {
 			std::array<std::uint64_t, Constants::FrameCount<std::size_t>> mPerFrameMaterialTextureTableHashes{};
 			std::array<std::size_t, Constants::FrameCount<std::size_t>> mPerFrameMaterialTextureTableSizesInBytes{};
 
-			std::array<std::uint64_t, Constants::FrameCount<std::size_t>> mPerFrameCopyFenceValues{};
+			std::array<Interface::CopyFuture, Constants::FrameCount<std::size_t>> mPerFrameCopyFutures{};
 		};
 	}
 }

@@ -79,3 +79,11 @@ void FrameSync::Flush(ID3D12CommandQueue* commandQueue) {
 uint32_t Core::DX::FrameSync::GetCurrentIndex() const {
     return mFrameIndex;
 }
+
+ID3D12Fence* FrameSync::GetFence() const {
+    return mFence.Get();
+}
+
+uint64_t FrameSync::GetLatestSignaledValue() const {
+    return mValueCounter;
+}

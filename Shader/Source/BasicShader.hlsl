@@ -17,7 +17,6 @@ VertexOutput VsMain(VertexInput Input, uint InstanceId : SV_InstanceID)
     VertexOutput Output;
 
     float4x4 World = transpose(ModelContext.World);
-
     const float4 WorldPosition = mul(float4(Input.Position, 1.0f), World);
     Output.Position = mul(WorldPosition, transpose(FrameGlobals.ViewProj));
     Output.Normal = normalize(mul(Input.Normal, (float3x3)World));
@@ -33,7 +32,7 @@ float4 PsMain(VertexOutput Input) : SV_TARGET
     StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer = ResourceDescriptorHeap[RootConstants.MaterialTextureTableSrvIndex];
 
     const MaterialGpu MaterialData = MaterialBuffer[Input.MaterialIndex];
-    const int64_t DiffuseColorTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_COLOR_MAP].IntValue;
+    const int64_t DiffuseColorTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_TEXTURE].IntValue;
 
     if (DiffuseColorTextureTableIndex < 0) {
         return float4(1.0f, 0.0f, 1.0f, 1.0f);
@@ -46,6 +45,8 @@ float4 PsMain(VertexOutput Input) : SV_TARGET
     }
     
     Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[TextureSrvIndex];
-    const float4 BaseColor = ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
-    return ResolveFlags(BaseColor, Input.Flags);
+    const float4 SampledColor = ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
+    const float4 ScalarAppliedColor = ApplyMaterialScalarColor(SampledColor, MaterialData);
+    const float4 LitColor = ApplyMaterialLighting(ScalarAppliedColor, Input.Normal);
+    return ResolveFlags(LitColor, Input.Flags);
 }

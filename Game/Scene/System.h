@@ -10,11 +10,13 @@
 #include "Utility/SimpleMathWrapper.h"
 
 namespace Game {
+    class AssetRegistry;
     struct RegisteredMaterialGroup;
 
     enum class Phase : std::uint32_t {
         PreUpdate,
         Update,
+        Skinning,
         Render,
         PostRender, 
         Count
@@ -35,11 +37,19 @@ namespace Game {
         Access AccessMode{ Access::Read };
     };
 
+    struct SkinnedPoseCacheEntry final {
+        std::uint32_t SkinArrayIndex{};
+        std::vector<SimpleMath::Matrix> BoneMatrices{};
+        bool IsValid{};
+    };
+
     struct FrameContext final {
         RFD::RenderFrameData RenderData{};
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
+        AssetRegistry* AssetRegistryResource{ nullptr };
         Arche::EntityID PickedEntityId{ Arche::NullEntityID };
         std::unordered_map<Arche::EntityID, SimpleMath::Matrix> WorldMatrices{};
+        std::unordered_map<Arche::EntityID, SkinnedPoseCacheEntry> SkinnedPoseCache{};
     };
 
     class ISystem abstract {

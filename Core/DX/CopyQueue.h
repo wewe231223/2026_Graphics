@@ -35,14 +35,14 @@ namespace Core {
 
         public:
             bool Initialize(ID3D12Device* Device) override;
-            bool EnqueueCopy(std::uint64_t CopyId, const Interface::CopyQueueCopyRequest& CopyRequest) override;
-            bool EnqueueCopy(std::uint64_t CopyId, std::span<const Interface::CopyQueueCopyRequest> CopyRequests) override;
-            bool EnqueueTextureCopy(std::uint64_t CopyId, const Interface::CopyQueueTextureCopyRequest& CopyRequest) override;
-            bool EnqueueTextureCopy(std::uint64_t CopyId, std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests) override;
+            Interface::CopyFuture EnqueueCopyFuture(const Interface::CopyQueueCopyRequest& CopyRequest) override;
+            Interface::CopyFuture EnqueueCopyFuture(std::span<const Interface::CopyQueueCopyRequest> CopyRequests) override;
+            Interface::CopyFuture EnqueueTextureCopyFuture(const Interface::CopyQueueTextureCopyRequest& CopyRequest) override;
+            Interface::CopyFuture EnqueueTextureCopyFuture(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests) override;
 
             void DispatchCopies() override;
-            bool IsFenceComplete(std::uint64_t CopyId) const override;
-            void GuaranteeCopy(std::uint64_t CopyId) const override;
+            bool IsFutureComplete(std::uint64_t CopyTicket) const override;
+            void WaitFuture(std::uint64_t CopyTicket) const override;
             void Flush() override;
 
             std::uint64_t GetRequiredUploadBufferSize() const override;
@@ -63,7 +63,7 @@ namespace Core {
 
             struct CopyRequestBatch final {
                 std::vector<PreparedCopyRequest> CopyRequests{};
-                std::uint64_t CopyId{};
+                std::uint64_t CopyTicket{};
             };
 
             struct InFlightUpload final {
@@ -71,7 +71,7 @@ namespace Core {
                 std::vector<UploadAllocation> Uploads{};
             };
 
-            struct CopyIdFenceState final {
+            struct CopyTicketFenceState final {
                 std::uint64_t LastSubmitFenceValue{};
                 std::uint64_t PendingBatchCount{};
             };
@@ -83,7 +83,9 @@ namespace Core {
             void WaitForQueueIdle();
             bool IsSubmitFenceComplete(std::uint64_t FenceValue) const;
             void WaitForSubmitFence(std::uint64_t FenceValue) const;
-            std::uint64_t ResolveCopyIdToFenceValue(std::uint64_t CopyId) const;
+            bool EnqueuePreparedCopyRequests(std::uint64_t CopyTicket, std::vector<PreparedCopyRequest>& PreparedRequests);
+            std::uint64_t ResolveCopyTicketToFenceValue(std::uint64_t CopyTicket) const;
+            std::uint64_t GenerateCopyTicket();
             bool PrepareCopyRequests(std::span<const Interface::CopyQueueCopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests);
             bool PrepareTextureCopyRequests(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests);
             void CollectCompletedUploads();
@@ -116,7 +118,8 @@ namespace Core {
             std::thread mWorkerThread{};
             std::atomic_bool mIsRunning{};
             std::atomic<std::uint64_t> mSubmitFenceValueCounter{};
-            std::unordered_map<std::uint64_t, CopyIdFenceState> mCopyIdFenceStates{};
+            std::atomic<std::uint64_t> mCopyTicketCounter{};
+            std::unordered_map<std::uint64_t, CopyTicketFenceState> mCopyTicketFenceStates{};
         };
     }
 }

@@ -1,6 +1,7 @@
 ﻿#include "Core/DX/GraphicsAllocator.h"
 #include <algorithm>
 #include <bit>
+#include <string>
 #include "Utility/ErrorHandler.h"
 
 #ifdef max 
@@ -147,8 +148,8 @@ bool GraphicsAllocator::CanAllocate(const D3D12_RESOURCE_DESC& resourceDesc) con
     return false;
 }
 
-std::unique_ptr<Interface::IAllocationHandle> GraphicsAllocator::AllocatePlacedResource(const D3D12_RESOURCE_DESC& resourceDesc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE* optimizedClearValue) {
-    AllocationHandle AllocationHandleValue{ AllocatePlacedResourceHandle(resourceDesc, initialState, optimizedClearValue) };
+std::unique_ptr<Interface::IAllocationHandle> GraphicsAllocator::AllocatePlacedResource(const Interface::AllocatePlacedResourceParameters& parameters) {
+    AllocationHandle AllocationHandleValue{ AllocatePlacedResourceHandle(parameters) };
     if (AllocationHandleValue.IsValid() == false) {
         return nullptr;
     }
@@ -157,17 +158,17 @@ std::unique_ptr<Interface::IAllocationHandle> GraphicsAllocator::AllocatePlacedR
     return HandlePointer;
 }
 
-AllocationHandle GraphicsAllocator::AllocatePlacedResourceHandle(const D3D12_RESOURCE_DESC& resourceDesc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE* optimizedClearValue) {
+AllocationHandle GraphicsAllocator::AllocatePlacedResourceHandle(const Interface::AllocatePlacedResourceParameters& parameters) {
     AllocationHandle EmptyHandle{};
 
     if (mDevice == nullptr || mHeap == nullptr) {
         return EmptyHandle;
     }
-    if (CanAllocate(resourceDesc) == false) {
+    if (CanAllocate(parameters.ResourceDesc) == false) {
         return EmptyHandle;
     }
 
-    D3D12_RESOURCE_ALLOCATION_INFO allocationInfo{ mDevice->GetResourceAllocationInfo(0, 1, &resourceDesc) };
+    D3D12_RESOURCE_ALLOCATION_INFO allocationInfo{ mDevice->GetResourceAllocationInfo(0, 1, &parameters.ResourceDesc) };
     SizeType allocationAlignment{ std::max(allocationInfo.Alignment, static_cast<uint64_t>(D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT)) };
     SizeType requestedSize{ AlignUp(allocationInfo.SizeInBytes, allocationAlignment) };
     int32_t blockIndex{ FindSuitableBlock(requestedSize, allocationAlignment) };
@@ -186,7 +187,7 @@ AllocationHandle GraphicsAllocator::AllocatePlacedResourceHandle(const D3D12_RES
     mUsedSize += allocatedBlock.Size;
 
     ComPtr<ID3D12Resource> resource{};
-    HRESULT result{ mDevice->CreatePlacedResource(mHeap.Get(), allocatedBlock.Offset, &resourceDesc, initialState, optimizedClearValue, IID_PPV_ARGS(&resource)) };
+    HRESULT result{ mDevice->CreatePlacedResource(mHeap.Get(), allocatedBlock.Offset, &parameters.ResourceDesc, parameters.InitialState, parameters.OptimizedClearValue, IID_PPV_ARGS(&resource)) };
 
     if (FAILED(result)) {
         allocatedBlock.IsFree = true;
@@ -195,6 +196,12 @@ AllocationHandle GraphicsAllocator::AllocatePlacedResourceHandle(const D3D12_RES
         InsertToBin(mergedIndex);
         return EmptyHandle;
     }
+
+    std::wstring resourceName{ L"GraphicsAllocator.PlacedResource.Offset_" + std::to_wstring(allocatedBlock.Offset) + L".Size_" + std::to_wstring(allocatedBlock.Size) };
+    if (parameters.ResourceName != nullptr) {
+        resourceName = parameters.ResourceName;
+    }
+    resource->SetName(resourceName.c_str());
 
     AllocationHandle AllocationHandleValue{ this, std::move(resource), allocatedBlock.Offset, allocatedBlock.Size };
     return AllocationHandleValue;

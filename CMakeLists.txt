@@ -62,18 +62,19 @@ target_compile_definitions(Arche PRIVATE
 )
 
 add_library(Asset STATIC
+    Asset/AnimationBinaryReader.cpp
+    Asset/AnimationClipBinaryWriter.cpp
+    Asset/AnimationClipResult.cpp
+    Asset/AssimpAnimationClipImporter.cpp
     Asset/AssetBinaryReader.cpp
     Asset/AssetBinaryWriter.cpp
     Asset/Common.cpp
     Asset/DataList.cpp
+    Asset/AssimpAssetImporter.cpp
     Asset/FbxAssetImporter.cpp
-    Asset/MaterialVisitor.cpp
-    Asset/MeshHierarchyBuilder.cpp
+    Asset/GltfAssetImporter.cpp
     Asset/MaterialGroupJsonSerializer.cpp
     Asset/ModelResult.cpp
-    Asset/NumericTypes.cpp
-    Asset/ufbx.c
-    Asset/UfbxAssetLoader.cpp
 )
 
 target_include_directories(Asset PUBLIC
@@ -81,7 +82,7 @@ target_include_directories(Asset PUBLIC
     ${ExternalIncludeDir}
 )
 
-target_link_libraries(Asset PUBLIC Utility)
+target_link_libraries(Asset PUBLIC Utility assimp)
 
 target_compile_definitions(Asset PRIVATE
     _LIB
@@ -92,6 +93,7 @@ target_compile_definitions(Asset PRIVATE
 )
 
 add_library(Game STATIC
+    Game/Asset/AnimationGraphAsset.cpp
     Game/Base/Shader.cpp
     Game/Base/RootSignature.cpp
     Game/Base/Pipeline.cpp
@@ -100,6 +102,7 @@ add_library(Game STATIC
     Game/Model/Model.cpp
     Game/Model/PrimitiveModelFactory.cpp
     Game/Scene/Scene.cpp
+    Game/Scene/SceneEntityFactory.cpp
     Game/Scene/SceneYamlSerializer.cpp
     Game/Scene/System.cpp
     Game/Scene/SystemSceduler.cpp
@@ -110,7 +113,10 @@ add_library(Game STATIC
     Game/Scene/Components/Tags.cpp
     Game/Scene/Components/Intents/CameraIntent.cpp
     Game/Scene/Components/StaticMeshRenderer.cpp
+    Game/Scene/Components/SkinnedMeshRenderer.cpp
     Game/Scene/Components/BoundingBox.cpp
+    Game/Scene/Components/Bone.cpp
+    Game/Scene/Components/BoneSkinReference.cpp
     Game/Scene/Components/Camera.cpp
     Game/Scene/Components/Frustum.cpp
     Game/Scene/Components/PrefabInstance.cpp
@@ -118,7 +124,11 @@ add_library(Game STATIC
     Game/Scene/Systems/CameraInputSystem.cpp
     Game/Scene/Systems/CameraRenderSystem.cpp
     Game/Scene/Systems/PickingSystem.cpp
+    Game/Scene/Systems/AnimationGraphSystem.cpp
+    Game/Scene/Systems/AnimateSystem.cpp
     Game/Scene/Systems/StaticRenderSystem.cpp
+    Game/Scene/Systems/SkinnedMeshRenderSystem.cpp
+    Game/Scene/Systems/SkinningSystem.cpp
 )
 
 target_include_directories(Game PUBLIC
@@ -140,6 +150,7 @@ add_executable(2026_Graphics WIN32
     2026_Graphics.cpp
     2026_Graphics.rc
     Core/Config.cpp
+    Core/CopyFuture.cpp
     Core/Event/Event.cpp
     Core/Event/EventQueue.cpp
     Core/Event/FileDropEvent.cpp

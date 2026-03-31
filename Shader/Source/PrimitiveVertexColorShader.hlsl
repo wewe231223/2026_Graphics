@@ -13,7 +13,9 @@ struct PrimitiveVertexInput
 struct PrimitiveVertexOutput
 {
     float4 Position : SV_POSITION;
+    float3 Normal : NORMAL;
     float4 Color : COLOR0;
+    uint MaterialIndex : MATERIAL_INDEX;
     uint Flags : FLAGS;
 };
 
@@ -33,13 +35,20 @@ PrimitiveVertexOutput VsMain(PrimitiveVertexInput Input, uint InstanceId : SV_In
     float4x4 World = transpose(ModelContext.World);
     const float4 WorldPosition = mul(float4(Input.Position, 1.0f), World);
     Output.Position = mul(WorldPosition, transpose(FrameGlobals.ViewProj));
+    Output.Normal = normalize(mul(Input.Normal, (float3x3)World));
     Output.Color = Input.Color;
+    Output.MaterialIndex = DrawRecord.MaterialIndex;
     Output.Flags = DrawRecord.Flags;
     return Output;
 }
 
 float4 PsMain(PrimitiveVertexOutput Input) : SV_TARGET
 {
+    StructuredBuffer<MaterialGpu> MaterialBuffer = ResourceDescriptorHeap[RootConstants.MaterialSrvIndex];
+
+    const MaterialGpu MaterialData = MaterialBuffer[Input.MaterialIndex];
     const float4 BaseColor = ApplyBaseColor(Input.Color);
-    return ResolveFlags(BaseColor, Input.Flags);
+    const float4 ScalarAppliedColor = ApplyMaterialScalarColor(BaseColor, MaterialData);
+    const float4 LitColor = ApplyMaterialLighting(ScalarAppliedColor, Input.Normal);
+    return ResolveFlags(LitColor, Input.Flags);
 }

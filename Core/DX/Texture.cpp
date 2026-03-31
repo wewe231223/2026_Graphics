@@ -3,7 +3,6 @@
 #include <cstring>
 #include <cwctype>
 #include <stdexcept>
-#include "Core/DX/CopyQueueId.h"
 #include "Utility/ErrorHandler.h"
 
 using namespace DirectX;
@@ -26,6 +25,7 @@ Texture::Texture(const std::string& name)
     mName{ name },
     mSourceLayouts{},
     mSourceData{},
+    mCopyFuture{},
     mSRVHandle{},
     mRTVHandle{},
     mDSVHandle{},
@@ -44,6 +44,7 @@ Texture::Texture(Texture&& other) noexcept
     mName(std::move(other.mName)),
     mSourceLayouts(std::move(other.mSourceLayouts)),
     mSourceData(std::move(other.mSourceData)),
+    mCopyFuture(std::move(other.mCopyFuture)),
     mSRVHandle(std::move(other.mSRVHandle)),
     mRTVHandle(std::move(other.mRTVHandle)),
     mDSVHandle(std::move(other.mDSVHandle)),
@@ -61,6 +62,7 @@ Texture& Texture::operator=(Texture&& other) noexcept {
         mName = std::move(other.mName);
         mSourceLayouts = std::move(other.mSourceLayouts);
         mSourceData = std::move(other.mSourceData);
+        mCopyFuture = std::move(other.mCopyFuture);
         mSRVHandle = std::move(other.mSRVHandle);
         mRTVHandle = std::move(other.mRTVHandle);
         mDSVHandle = std::move(other.mDSVHandle);
@@ -140,7 +142,9 @@ bool Texture::Load(Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocat
         return false;
     }
 
-    mAllocationHandle = Allocator->AllocatePlacedResource(mResourceDESC, mCurrentState, nullptr);
+    std::wstring resourceName{ mName.begin(), mName.end() };
+    Interface::AllocatePlacedResourceParameters allocationParameters{ mResourceDESC, mCurrentState, nullptr, resourceName.c_str() };
+    mAllocationHandle = Allocator->AllocatePlacedResource(allocationParameters);
     if (mAllocationHandle == nullptr || mAllocationHandle->IsValid() == false) {
         ErrorHandler::report("Texture", "Failed to create texture resource: " + mName, ErrorHandler::Level::Critical);
         return false;
@@ -148,15 +152,13 @@ bool Texture::Load(Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocat
 
     mResource = mAllocationHandle->GetResource();
 
-    std::wstring ResourceName{ mName.begin(), mName.end() };
-    mResource->SetName(ResourceName.c_str());
 
     Interface::CopyQueueTextureCopyRequest CopyRequest{};
     CopyRequest.DestinationTextureResource = mResource;
     CopyRequest.SourceLayouts = mSourceLayouts;
     CopyRequest.SourceData = mSourceData;
-    const bool EnqueueResult{ CopyQueue->EnqueueTextureCopy(CopyQueueId::Texture, CopyRequest) };
-    if (EnqueueResult == false) {
+    mCopyFuture = CopyQueue->EnqueueTextureCopyFuture(CopyRequest);
+    if (mCopyFuture.IsValid() == false) {
         ErrorHandler::report("Texture", "Failed to enqueue texture upload copy request: " + mName, ErrorHandler::Level::Critical);
         mResource.Reset();
         mAllocationHandle.reset();
@@ -168,12 +170,30 @@ bool Texture::Load(Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocat
 
 #include "utility/stdoutput.h"
 void Texture::Unload() {
+    if (mCopyFuture.IsInFlight() == true) {
+        mCopyFuture.Wait();
+    }
+
     mResource.Reset();
     mAllocationHandle.reset();
     mCurrentState = D3D12_RESOURCE_STATE_COMMON;
+    mCopyFuture = Interface::CopyFuture{};
 
 	StdOutput::Print("Texture unloaded: {}", mName);
     
+}
+
+
+bool Texture::IsCopyInFlight() const {
+    return mCopyFuture.IsInFlight();
+}
+
+void Texture::WaitForCopyCompletion() const {
+    mCopyFuture.Wait();
+}
+
+Interface::CopyFuture Texture::GetCopyFuture() const {
+    return mCopyFuture;
 }
 
 bool Texture::IsLoaded() const {
@@ -207,6 +227,11 @@ Texture::Ptr Texture::CreateTarget(ID3D12Device* device, uint32_t width, uint32_
         ErrorHandler::report("Texture", "Failed to create target texture.", ErrorHandler::Level::Critical);
     }
 
+    if (tex->mResource != nullptr) {
+        std::wstring ResourceName{ tex->mName.begin(), tex->mName.end() };
+        tex->mResource->SetName(ResourceName.c_str());
+    }
+
     return tex;
 }
 
@@ -216,6 +241,11 @@ Texture::Ptr Texture::CreateFromResource(ID3D12Resource* externalResource, const
     tex->mResource = externalResource;
     tex->mResourceDESC = externalResource->GetDesc();
     tex->mCurrentState = D3D12_RESOURCE_STATE_COMMON;
+
+    if (externalResource != nullptr) {
+        std::wstring ResourceName{ name.begin(), name.end() };
+        externalResource->SetName(ResourceName.c_str());
+    }
 
     return tex;
 }

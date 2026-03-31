@@ -14,6 +14,39 @@ namespace Core {
 }
 
 namespace Interface {
+    class ICopyQueue;
+
+    class CopyFuture final {
+    public:
+        CopyFuture();
+        ~CopyFuture();
+        CopyFuture(const CopyFuture& Other);
+        CopyFuture& operator=(const CopyFuture& Other);
+        CopyFuture(CopyFuture&& Other) noexcept;
+        CopyFuture& operator=(CopyFuture&& Other) noexcept;
+
+    public:
+        static CopyFuture Merge(std::span<const CopyFuture> Futures);
+
+        bool IsValid() const;
+        bool IsComplete() const;
+        bool IsInFlight() const;
+        void Wait() const;
+
+        CopyFuture(const ICopyQueue* Queue, std::uint64_t Ticket);
+
+    private:
+        struct FuturePoint final {
+            const ICopyQueue* Queue{};
+            std::uint64_t Ticket{};
+        };
+
+        bool Contains(const ICopyQueue* Queue, std::uint64_t Ticket) const;
+
+    private:
+        std::vector<FuturePoint> mFuturePoints{};
+    };
+
     class IAllocationHandle {
     public:
         virtual ~IAllocationHandle() = default;
@@ -26,6 +59,13 @@ namespace Interface {
         virtual std::uint64_t GetSize() const = 0;
     };
 
+    struct AllocatePlacedResourceParameters final {
+        const D3D12_RESOURCE_DESC& ResourceDesc;
+        D3D12_RESOURCE_STATES InitialState;
+        const D3D12_CLEAR_VALUE* OptimizedClearValue;
+        const wchar_t* ResourceName;
+    };
+
     class IGraphicsAllocator {
     public:
         virtual ~IGraphicsAllocator() = default;
@@ -35,7 +75,7 @@ namespace Interface {
         virtual void Reset() = 0;
 
         virtual bool CanAllocate(const D3D12_RESOURCE_DESC& ResourceDesc) const = 0;
-        virtual std::unique_ptr<IAllocationHandle> AllocatePlacedResource(const D3D12_RESOURCE_DESC& ResourceDesc, D3D12_RESOURCE_STATES InitialState, const D3D12_CLEAR_VALUE* OptimizedClearValue = nullptr) = 0;
+        virtual std::unique_ptr<IAllocationHandle> AllocatePlacedResource(const AllocatePlacedResourceParameters& Parameters) = 0;
 
         virtual ID3D12Heap* GetHeap() const = 0;
         virtual std::uint64_t GetHeapSize() const = 0;
@@ -70,14 +110,14 @@ namespace Interface {
 
     public:
         virtual bool Initialize(ID3D12Device* Device) = 0;
-        virtual bool EnqueueCopy(std::uint64_t CopyId, const CopyQueueCopyRequest& CopyRequest) = 0;
-        virtual bool EnqueueCopy(std::uint64_t CopyId, std::span<const CopyQueueCopyRequest> CopyRequests) = 0;
-        virtual bool EnqueueTextureCopy(std::uint64_t CopyId, const CopyQueueTextureCopyRequest& CopyRequest) = 0;
-        virtual bool EnqueueTextureCopy(std::uint64_t CopyId, std::span<const CopyQueueTextureCopyRequest> CopyRequests) = 0;
+        virtual CopyFuture EnqueueCopyFuture(const CopyQueueCopyRequest& CopyRequest) = 0;
+        virtual CopyFuture EnqueueCopyFuture(std::span<const CopyQueueCopyRequest> CopyRequests) = 0;
+        virtual CopyFuture EnqueueTextureCopyFuture(const CopyQueueTextureCopyRequest& CopyRequest) = 0;
+        virtual CopyFuture EnqueueTextureCopyFuture(std::span<const CopyQueueTextureCopyRequest> CopyRequests) = 0;
 
         virtual void DispatchCopies() = 0;
-        virtual bool IsFenceComplete(std::uint64_t CopyId) const = 0;
-        virtual void GuaranteeCopy(std::uint64_t CopyId) const = 0;
+        virtual bool IsFutureComplete(std::uint64_t CopyTicket) const = 0;
+        virtual void WaitFuture(std::uint64_t CopyTicket) const = 0;
         virtual void Flush() = 0;
 
         virtual std::uint64_t GetRequiredUploadBufferSize() const = 0;

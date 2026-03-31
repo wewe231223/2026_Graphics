@@ -14,6 +14,10 @@
 
 namespace SimpleMath = DirectX::SimpleMath;
 
+namespace Game {
+    struct VertexInputBinding;
+}
+
 namespace Interface {
     class IPipeline abstract {
     public:
@@ -23,11 +27,25 @@ namespace Interface {
         virtual const IPipeline* Set(const IPipeline* pipeline, ID3D12GraphicsCommandList* commandList) const       PURE;
         virtual ID3D12PipelineState* Get() const                                                                    PURE;
         virtual ID3D12RootSignature* GetRootSignature() const                                                       PURE;
+        virtual std::span<const Game::VertexInputBinding> GetVertexInputBindings() const                           PURE;
     };
 }
 
 
 namespace Game {
+    struct ModelBoneInfo final {
+        std::uint32_t SkinArrayIndex{ 0 };
+        std::uint32_t JointArrayIndex{ 0 };
+        std::string BoneName{};
+        SimpleMath::Matrix InverseBindMatrix{};
+    };
+
+    struct RuntimeBoneInfo final {
+        std::uint32_t SkinArrayIndex{ 0 };
+        std::uint32_t JointArrayIndex{ 0 };
+        SimpleMath::Matrix InverseBindMatrix{};
+    };
+
     enum class VertexAttributeKind : std::uint32_t {
         Position,
         Normal,
@@ -40,6 +58,11 @@ namespace Game {
         Bitangent,
         BoneIndices,
         BoneWeights
+    };
+
+    struct VertexInputBinding final {
+        VertexAttributeKind Kind{};
+        std::uint32_t InputSlot{ 0 };
     };
 
     struct ModelSubMesh final {
@@ -58,10 +81,11 @@ namespace Interface {
         virtual std::uint32_t GetId() const                                                             PURE;
         virtual const std::string& GetName() const                                                      PURE;
         virtual const SimpleMath::Matrix& GetNodeToParent() const                                       PURE;
-        virtual const SimpleMath::Matrix& GetGeometryToNode() const                                     PURE;
         virtual const std::vector<std::uint32_t>& GetChildren() const                                   PURE;
-        virtual const std::vector<Game::ModelSubMesh>& GetSubMeshes() const                                   PURE;
-        virtual const Game::ModelSubMesh& GetSubMesh(std::size_t index) const                                 PURE;
+        virtual const std::vector<Game::ModelSubMesh>& GetSubMeshes() const                             PURE;
+        virtual const Game::ModelSubMesh& GetSubMesh(std::size_t index) const                           PURE;
+        virtual const std::vector<Game::ModelBoneInfo>& GetBoneInfos() const                            PURE;
+        virtual bool HasBoneInfo() const                                                                 PURE;
 
         virtual bool HasVertexData() const                                                              PURE;
         virtual const std::vector<D3D12_VERTEX_BUFFER_VIEW>& GetVertexBufferViews() const               PURE;
@@ -69,6 +93,7 @@ namespace Interface {
 
         virtual std::size_t GetVertexAttributeBufferCount() const                                       PURE;
         virtual Game::VertexAttributeKind GetVertexAttributeKind(std::size_t AttributeIndex) const            PURE;
+        virtual bool TryGetVertexBufferView(Game::VertexAttributeKind Kind, D3D12_VERTEX_BUFFER_VIEW& OutView) const PURE;
         virtual std::span<const std::byte> GetVertexAttributeRawData(std::size_t AttributeIndex) const  PURE;
     };
 }

@@ -71,6 +71,7 @@ namespace {
 	struct CompiledPipelineData {
 		ComPtr<ID3D12RootSignature> RootSignature{};
 		ComPtr<ID3D12PipelineState> PipelineState{};
+		std::vector<Game::VertexInputBinding> VertexInputBindings{};
 	};
 
 	std::unordered_map<std::string, CompiledPipelineData>& GetCompiledPipelinesStorage() {
@@ -81,6 +82,76 @@ namespace {
 	std::mutex& GetCompiledPipelinesMutex() {
 		static std::mutex mutex{};
 		return mutex;
+	}
+
+	std::optional<Game::VertexAttributeKind> ParseVertexAttributeKind(const D3D12_INPUT_ELEMENT_DESC& Element) {
+		const std::string SemanticName{ Element.SemanticName == nullptr ? "" : Element.SemanticName };
+		if (SemanticName == "POSITION") {
+			return Game::VertexAttributeKind::Position;
+		}
+
+		if (SemanticName == "NORMAL") {
+			return Game::VertexAttributeKind::Normal;
+		}
+
+		if (SemanticName == "TEXCOORD") {
+			if (Element.SemanticIndex == 0) {
+				return Game::VertexAttributeKind::TexCoord0;
+			}
+
+			if (Element.SemanticIndex == 1) {
+				return Game::VertexAttributeKind::TexCoord1;
+			}
+
+			if (Element.SemanticIndex == 2) {
+				return Game::VertexAttributeKind::TexCoord2;
+			}
+
+			if (Element.SemanticIndex == 3) {
+				return Game::VertexAttributeKind::TexCoord3;
+			}
+		}
+
+		if (SemanticName == "COLOR") {
+			return Game::VertexAttributeKind::Color;
+		}
+
+		if (SemanticName == "TANGENT") {
+			return Game::VertexAttributeKind::Tangent;
+		}
+
+		if (SemanticName == "BITANGENT" || SemanticName == "BINORMAL") {
+			return Game::VertexAttributeKind::Bitangent;
+		}
+
+		if (SemanticName == "BLENDINDICES") {
+			return Game::VertexAttributeKind::BoneIndices;
+		}
+
+		if (SemanticName == "BLENDWEIGHT") {
+			return Game::VertexAttributeKind::BoneWeights;
+		}
+
+		return std::nullopt;
+	}
+
+	std::vector<Game::VertexInputBinding> BuildVertexInputBindings(const PipelineInputLayoutData& InputLayout) {
+		std::vector<Game::VertexInputBinding> VertexInputBindings{};
+		VertexInputBindings.reserve(InputLayout.Elements.size());
+
+		for (const D3D12_INPUT_ELEMENT_DESC& Element : InputLayout.Elements) {
+			const std::optional<Game::VertexAttributeKind> Kind{ ParseVertexAttributeKind(Element) };
+			if (Kind.has_value() == false) {
+				continue;
+			}
+
+			Game::VertexInputBinding Binding{};
+			Binding.Kind = Kind.value();
+			Binding.InputSlot = Element.InputSlot;
+			VertexInputBindings.push_back(Binding);
+		}
+
+		return VertexInputBindings;
 	}
 
 	std::string ReadOptionalString(const rapidjson::Value& object, const char* key, const std::string& defaultValue) {
@@ -945,6 +1016,7 @@ namespace {
 		CompiledPipelineData compiledPipelineData{};
 		compiledPipelineData.RootSignature = rootSignature.Get();
 		compiledPipelineData.PipelineState = pipelineState;
+		compiledPipelineData.VertexInputBindings = BuildVertexInputBindings(pipelineData.InputLayout);
 		pipelines[pipelineData.Name] = compiledPipelineData;
 		return true;
 	}
@@ -971,6 +1043,7 @@ namespace Game {
 
 			mRootSignature = iterator->second.RootSignature;
 			mPipelineState = iterator->second.PipelineState;
+			mVertexInputBindings = iterator->second.VertexInputBindings;
 			return true;
 		}
 
@@ -996,6 +1069,10 @@ namespace Game {
 
 		ID3D12RootSignature* Pipeline::GetRootSignature() const {
 			return mRootSignature.Get();
+		}
+
+		std::span<const VertexInputBinding> Pipeline::GetVertexInputBindings() const {
+			return mVertexInputBindings;
 		}
 
 		bool Pipeline::operator==(const Pipeline& other) const {

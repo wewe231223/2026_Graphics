@@ -39,5 +39,6 @@ namespace Widget {
         ComPtr<ID3D12DescriptorHeap> mSRVHeap{ nullptr };
         std::vector<std::unique_ptr<IWidget>> mWidgets{};
         const Game::SceneWorldSnapshot* mSceneWorldSnapshot{};
+        bool mIsInitialized{ false };
     };
 }

@@ -1,521 +1,136 @@
 {
     "MaterialGroups": [
         {
-            "Name": "D:\\2026_Graphics\\out\\debug\\AssetZIP\\Asset\\testset2.fbx",
+            "Name": "D:\\2026_Graphics\\out\\debug\\AssetZIP\\Asset\\testset2.glb",
             "Items": [
                 {
                     "PipelineName": "DefaultGraphics",
                     "MaterialData": {
                         "Name": "Guard_02",
-                        "PBR": false,
+                        "PBR": true,
                         "Properties": {
-                            "DiffuseFactor": {
-                                "Kind": "Real",
-                                "Real": 0.800000011920929
+                            "Shading Model": {
+                                "Kind": "Int",
+                                "Int": 11
                             },
-                            "DiffuseFactorMap": {
+                            "Two Sided": {
+                                "Kind": "Bool",
+                                "Bool": true
+                            },
+                            "Wireframe": {
                                 "Kind": "None"
                             },
-                            "DiffuseColor": {
-                                "Kind": "Vec3",
-                                "Vec3": [
+                            "Blend Mode": {
+                                "Kind": "None"
+                            },
+                            "Opacity": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Alpha Mode": {
+                                "Kind": "String",
+                                "String": "OPAQUE"
+                            },
+                            "Alpha Cutoff": {
+                                "Kind": "Real",
+                                "Real": 0.5
+                            },
+                            "Base Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    1.0,
                                     1.0,
                                     1.0,
                                     1.0
                                 ]
                             },
-                            "DiffuseColorMap": {
-                                "Kind": "String",
-                                "String": "Guard_02__diffuse.png"
-                            },
-                            "SpecularFactor": {
-                                "Kind": "Real",
-                                "Real": 1.0
-                            },
-                            "SpecularFactorMap": {
-                                "Kind": "None"
-                            },
-                            "SpecularColor": {
-                                "Kind": "Vec3",
-                                "Vec3": [
-                                    0.5,
-                                    0.5,
-                                    0.5
+                            "Diffuse Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    1.0,
+                                    1.0,
+                                    1.0,
+                                    1.0
                                 ]
                             },
-                            "SpecularColorMap": {
-                                "Kind": "String",
-                                "String": "Guard_02__specular.png"
-                            },
-                            "SpecularExponent": {
-                                "Kind": "Real",
-                                "Real": 6.311790943145752
-                            },
-                            "SpecularExponentMap": {
+                            "Ambient Color": {
                                 "Kind": "None"
                             },
-                            "ReflectionFactor": {
+                            "Specular Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    1.0,
+                                    1.0,
+                                    1.0,
+                                    1.0
+                                ]
+                            },
+                            "Emissive Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.0,
+                                    0.0,
+                                    0.0,
+                                    1.0
+                                ]
+                            },
+                            "Transparent Color": {
+                                "Kind": "None"
+                            },
+                            "Reflective Color": {
+                                "Kind": "None"
+                            },
+                            "Metallic Factor": {
                                 "Kind": "Real",
                                 "Real": 0.5
                             },
-                            "ReflectionFactorMap": {
-                                "Kind": "None"
-                            },
-                            "ReflectionColor": {
-                                "Kind": "Vec3",
-                                "Vec3": [
-                                    0.0,
-                                    0.0,
-                                    0.0
-                                ]
-                            },
-                            "ReflectionColorMap": {
-                                "Kind": "None"
-                            },
-                            "TransparencyFactor": {
+                            "Roughness Factor": {
                                 "Kind": "Real",
-                                "Real": 1.0
+                                "Real": 0.7487671971321106
                             },
-                            "TransparencyFactorMap": {
+                            "Normal Scale": {
                                 "Kind": "None"
                             },
-                            "TransparencyColor": {
-                                "Kind": "Vec3",
-                                "Vec3": [
-                                    0.0,
-                                    0.0,
-                                    0.0
-                                ]
-                            },
-                            "TransparencyColorMap": {
+                            "Occlusion Strength": {
                                 "Kind": "None"
                             },
-                            "EmissionFactor": {
-                                "Kind": "Real",
-                                "Real": 1.0
-                            },
-                            "EmissionFactorMap": {
+                            "Emissive Strength": {
                                 "Kind": "None"
                             },
-                            "EmissionColor": {
-                                "Kind": "Vec3",
-                                "Vec3": [
-                                    0.0,
-                                    0.0,
-                                    0.0
-                                ]
-                            },
-                            "EmissionColorMap": {
-                                "Kind": "None"
-                            },
-                            "AmbientFactor": {
-                                "Kind": "Real",
-                                "Real": 1.0
-                            },
-                            "AmbientFactorMap": {
-                                "Kind": "None"
-                            },
-                            "AmbientColor": {
-                                "Kind": "Vec3",
-                                "Vec3": [
-                                    0.0,
-                                    0.0,
-                                    0.0
-                                ]
-                            },
-                            "AmbientColorMap": {
-                                "Kind": "None"
-                            },
-                            "NormalMap": {
-                                "Kind": "Vec3",
-                                "Vec3": [
-                                    0.0,
-                                    0.0,
-                                    0.0
-                                ]
-                            },
-                            "NormalMapMap": {
+                            "Diffuse Texture": {
                                 "Kind": "String",
-                                "String": "Guard_02__normal.png"
+                                "String": "Guard_02__diffuse"
                             },
-                            "Bump": {
-                                "Kind": "Vec3",
-                                "Vec3": [
-                                    0.0,
-                                    0.0,
-                                    0.0
-                                ]
+                            "Specular Texture": {
+                                "Kind": "String",
+                                "String": "Guard_02__specular"
                             },
-                            "BumpMap": {
+                            "Ambient Texture": {
                                 "Kind": "None"
                             },
-                            "BumpFactor": {
-                                "Kind": "Real",
-                                "Real": 1.0
-                            },
-                            "BumpFactorMap": {
-                                "Kind": "None"
-                            },
-                            "DisplacementFactor": {
-                                "Kind": "Real",
-                                "Real": 1.0
-                            },
-                            "DisplacementFactorMap": {
-                                "Kind": "None"
-                            },
-                            "Displacement": {
-                                "Kind": "None"
-                            },
-                            "DisplacementMap": {
-                                "Kind": "None"
-                            },
-                            "VectorDisplacementFactor": {
-                                "Kind": "Real",
-                                "Real": 1.0
-                            },
-                            "VectorDisplacementFactorMap": {
-                                "Kind": "None"
-                            },
-                            "VectorDisplacement": {
-                                "Kind": "None"
-                            },
-                            "VectorDisplacementMap": {
-                                "Kind": "None"
-                            },
-                            "BaseFactor": {
-                                "Kind": "None"
-                            },
-                            "BaseFactorMap": {
-                                "Kind": "None"
-                            },
-                            "BaseColor": {
-                                "Kind": "None"
-                            },
-                            "BaseColorMap": {
-                                "Kind": "None"
-                            },
-                            "Roughness": {
-                                "Kind": "None"
-                            },
-                            "RoughnessMap": {
-                                "Kind": "None"
-                            },
-                            "Metalness": {
-                                "Kind": "None"
-                            },
-                            "MetalnessMap": {
-                                "Kind": "None"
-                            },
-                            "DiffuseRoughness": {
-                                "Kind": "None"
-                            },
-                            "DiffuseRoughnessMap": {
-                                "Kind": "None"
-                            },
-                            "SpecularFactorPbr": {
-                                "Kind": "None"
-                            },
-                            "SpecularFactorPbrMap": {
-                                "Kind": "None"
-                            },
-                            "SpecularColorPbr": {
-                                "Kind": "None"
-                            },
-                            "SpecularColorPbrMap": {
-                                "Kind": "None"
-                            },
-                            "SpecularIor": {
-                                "Kind": "None"
-                            },
-                            "SpecularIorMap": {
-                                "Kind": "None"
-                            },
-                            "SpecularAnisotropy": {
-                                "Kind": "None"
-                            },
-                            "SpecularAnisotropyMap": {
-                                "Kind": "None"
-                            },
-                            "SpecularRotation": {
-                                "Kind": "None"
-                            },
-                            "SpecularRotationMap": {
-                                "Kind": "None"
-                            },
-                            "TransmissionFactor": {
-                                "Kind": "None"
-                            },
-                            "TransmissionFactorMap": {
-                                "Kind": "None"
-                            },
-                            "TransmissionColor": {
-                                "Kind": "None"
-                            },
-                            "TransmissionColorMap": {
-                                "Kind": "None"
-                            },
-                            "TransmissionDepth": {
-                                "Kind": "None"
-                            },
-                            "TransmissionDepthMap": {
-                                "Kind": "None"
-                            },
-                            "TransmissionScatter": {
-                                "Kind": "None"
-                            },
-                            "TransmissionScatterMap": {
-                                "Kind": "None"
-                            },
-                            "TransmissionScatterAnisotropy": {
-                                "Kind": "None"
-                            },
-                            "TransmissionScatterAnisotropyMap": {
-                                "Kind": "None"
-                            },
-                            "TransmissionDispersion": {
-                                "Kind": "None"
-                            },
-                            "TransmissionDispersionMap": {
-                                "Kind": "None"
-                            },
-                            "TransmissionRoughness": {
-                                "Kind": "None"
-                            },
-                            "TransmissionRoughnessMap": {
-                                "Kind": "None"
-                            },
-                            "TransmissionExtraRoughness": {
-                                "Kind": "None"
-                            },
-                            "TransmissionExtraRoughnessMap": {
-                                "Kind": "None"
-                            },
-                            "TransmissionPriority": {
-                                "Kind": "None"
-                            },
-                            "TransmissionPriorityMap": {
-                                "Kind": "None"
-                            },
-                            "TransmissionEnableInAov": {
-                                "Kind": "None"
-                            },
-                            "TransmissionEnableInAovMap": {
-                                "Kind": "None"
-                            },
-                            "SubsurfaceFactor": {
-                                "Kind": "None"
-                            },
-                            "SubsurfaceFactorMap": {
-                                "Kind": "None"
-                            },
-                            "SubsurfaceColor": {
-                                "Kind": "None"
-                            },
-                            "SubsurfaceColorMap": {
-                                "Kind": "None"
-                            },
-                            "SubsurfaceRadius": {
-                                "Kind": "None"
-                            },
-                            "SubsurfaceRadiusMap": {
-                                "Kind": "None"
-                            },
-                            "SubsurfaceScale": {
-                                "Kind": "None"
-                            },
-                            "SubsurfaceScaleMap": {
-                                "Kind": "None"
-                            },
-                            "SubsurfaceAnisotropy": {
+                            "Emissive Texture": {
                                 "Kind": "None"
                             },
-                            "SubsurfaceAnisotropyMap": {
+                            "Opacity Texture": {
                                 "Kind": "None"
                             },
-                            "SubsurfaceTintColor": {
+                            "Shininess Texture": {
                                 "Kind": "None"
                             },
-                            "SubsurfaceTintColorMap": {
+                            "Height / Bump Texture": {
                                 "Kind": "None"
                             },
-                            "SubsurfaceType": {
-                                "Kind": "None"
-                            },
-                            "SubsurfaceTypeMap": {
-                                "Kind": "None"
-                            },
-                            "SheenFactor": {
-                                "Kind": "None"
-                            },
-                            "SheenFactorMap": {
-                                "Kind": "None"
-                            },
-                            "SheenColor": {
-                                "Kind": "None"
-                            },
-                            "SheenColorMap": {
-                                "Kind": "None"
-                            },
-                            "SheenRoughness": {
-                                "Kind": "None"
-                            },
-                            "SheenRoughnessMap": {
-                                "Kind": "None"
-                            },
-                            "CoatFactor": {
-                                "Kind": "None"
-                            },
-                            "CoatFactorMap": {
-                                "Kind": "None"
-                            },
-                            "CoatColor": {
-                                "Kind": "None"
-                            },
-                            "CoatColorMap": {
-                                "Kind": "None"
-                            },
-                            "CoatRoughness": {
-                                "Kind": "None"
-                            },
-                            "CoatRoughnessMap": {
-                                "Kind": "None"
-                            },
-                            "CoatIor": {
-                                "Kind": "None"
-                            },
-                            "CoatIorMap": {
-                                "Kind": "None"
-                            },
-                            "CoatAnisotropy": {
-                                "Kind": "None"
-                            },
-                            "CoatAnisotropyMap": {
-                                "Kind": "None"
-                            },
-                            "CoatRotation": {
-                                "Kind": "None"
-                            },
-                            "CoatRotationMap": {
-                                "Kind": "None"
-                            },
-                            "CoatNormal": {
-                                "Kind": "None"
-                            },
-                            "CoatNormalMap": {
-                                "Kind": "None"
-                            },
-                            "CoatAffectBaseColor": {
-                                "Kind": "None"
-                            },
-                            "CoatAffectBaseColorMap": {
-                                "Kind": "None"
-                            },
-                            "CoatAffectBaseRoughness": {
-                                "Kind": "None"
-                            },
-                            "CoatAffectBaseRoughnessMap": {
-                                "Kind": "None"
-                            },
-                            "ThinFilmFactor": {
-                                "Kind": "None"
-                            },
-                            "ThinFilmFactorMap": {
-                                "Kind": "None"
-                            },
-                            "ThinFilmThickness": {
-                                "Kind": "None"
-                            },
-                            "ThinFilmThicknessMap": {
-                                "Kind": "None"
-                            },
-                            "ThinFilmIor": {
-                                "Kind": "None"
-                            },
-                            "ThinFilmIorMap": {
-                                "Kind": "None"
-                            },
-                            "EmissionFactorPbr": {
-                                "Kind": "None"
-                            },
-                            "EmissionFactorPbrMap": {
-                                "Kind": "None"
-                            },
-                            "EmissionColorPbr": {
-                                "Kind": "None"
-                            },
-                            "EmissionColorPbrMap": {
-                                "Kind": "None"
-                            },
-                            "Opacity": {
-                                "Kind": "None"
-                            },
-                            "OpacityMap": {
-                                "Kind": "None"
-                            },
-                            "IndirectDiffuse": {
-                                "Kind": "None"
-                            },
-                            "IndirectDiffuseMap": {
-                                "Kind": "None"
-                            },
-                            "IndirectSpecular": {
-                                "Kind": "None"
-                            },
-                            "IndirectSpecularMap": {
-                                "Kind": "None"
-                            },
-                            "NormalMapPbr": {
-                                "Kind": "None"
-                            },
-                            "NormalMapPbrMap": {
-                                "Kind": "None"
-                            },
-                            "TangentMap": {
-                                "Kind": "None"
-                            },
-                            "TangentMapMap": {
-                                "Kind": "None"
-                            },
-                            "DisplacementMapPbr": {
-                                "Kind": "None"
-                            },
-                            "DisplacementMapPbrMap": {
-                                "Kind": "None"
-                            },
-                            "MatteFactor": {
-                                "Kind": "None"
-                            },
-                            "MatteFactorMap": {
-                                "Kind": "None"
-                            },
-                            "MatteColor": {
-                                "Kind": "None"
-                            },
-                            "MatteColorMap": {
-                                "Kind": "None"
-                            },
-                            "AmbientOcclusion": {
-                                "Kind": "None"
-                            },
-                            "AmbientOcclusionMap": {
-                                "Kind": "None"
-                            },
-                            "Glossiness": {
-                                "Kind": "None"
-                            },
-                            "GlossinessMap": {
-                                "Kind": "None"
-                            },
-                            "CoatGlossiness": {
-                                "Kind": "None"
+                            "Normal Texture": {
+                                "Kind": "String",
+                                "String": "Guard_02__normal"
                             },
-                            "CoatGlossinessMap": {
+                            "Displacement Texture": {
                                 "Kind": "None"
                             },
-                            "TransmissionGlossiness": {
+                            "Reflection Texture": {
                                 "Kind": "None"
                             },
-                            "TransmissionGlossinessMap": {
+                            "Lightmap Texture": {
                                 "Kind": "None"
                             }
                         }

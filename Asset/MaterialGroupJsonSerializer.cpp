@@ -10,11 +10,11 @@
 
 namespace asset {
     namespace {
-        constexpr std::size_t MaterialTypeCount{ 152 };
+        constexpr std::size_t LocalMaterialTypeCount{ static_cast<std::size_t>(asset::MaterialTypeCount) };
 
-        const std::array<std::string_view, MaterialTypeCount>& GetMaterialTypeNames() {
-            static const std::array<std::string_view, MaterialTypeCount> MaterialTypeNames{
-                "DiffuseFactor", "DiffuseFactorMap", "DiffuseColor", "DiffuseColorMap", "SpecularFactor", "SpecularFactorMap", "SpecularColor", "SpecularColorMap", "SpecularExponent", "SpecularExponentMap", "ReflectionFactor", "ReflectionFactorMap", "ReflectionColor", "ReflectionColorMap", "TransparencyFactor", "TransparencyFactorMap", "TransparencyColor", "TransparencyColorMap", "EmissionFactor", "EmissionFactorMap", "EmissionColor", "EmissionColorMap", "AmbientFactor", "AmbientFactorMap", "AmbientColor", "AmbientColorMap", "NormalMap", "NormalMapMap", "Bump", "BumpMap", "BumpFactor", "BumpFactorMap", "DisplacementFactor", "DisplacementFactorMap", "Displacement", "DisplacementMap", "VectorDisplacementFactor", "VectorDisplacementFactorMap", "VectorDisplacement", "VectorDisplacementMap", "BaseFactor", "BaseFactorMap", "BaseColor", "BaseColorMap", "Roughness", "RoughnessMap", "Metalness", "MetalnessMap", "DiffuseRoughness", "DiffuseRoughnessMap", "SpecularFactorPbr", "SpecularFactorPbrMap", "SpecularColorPbr", "SpecularColorPbrMap", "SpecularIor", "SpecularIorMap", "SpecularAnisotropy", "SpecularAnisotropyMap", "SpecularRotation", "SpecularRotationMap", "TransmissionFactor", "TransmissionFactorMap", "TransmissionColor", "TransmissionColorMap", "TransmissionDepth", "TransmissionDepthMap", "TransmissionScatter", "TransmissionScatterMap", "TransmissionScatterAnisotropy", "TransmissionScatterAnisotropyMap", "TransmissionDispersion", "TransmissionDispersionMap", "TransmissionRoughness", "TransmissionRoughnessMap", "TransmissionExtraRoughness", "TransmissionExtraRoughnessMap", "TransmissionPriority", "TransmissionPriorityMap", "TransmissionEnableInAov", "TransmissionEnableInAovMap", "SubsurfaceFactor", "SubsurfaceFactorMap", "SubsurfaceColor", "SubsurfaceColorMap", "SubsurfaceRadius", "SubsurfaceRadiusMap", "SubsurfaceScale", "SubsurfaceScaleMap", "SubsurfaceAnisotropy", "SubsurfaceAnisotropyMap", "SubsurfaceTintColor", "SubsurfaceTintColorMap", "SubsurfaceType", "SubsurfaceTypeMap", "SheenFactor", "SheenFactorMap", "SheenColor", "SheenColorMap", "SheenRoughness", "SheenRoughnessMap", "CoatFactor", "CoatFactorMap", "CoatColor", "CoatColorMap", "CoatRoughness", "CoatRoughnessMap", "CoatIor", "CoatIorMap", "CoatAnisotropy", "CoatAnisotropyMap", "CoatRotation", "CoatRotationMap", "CoatNormal", "CoatNormalMap", "CoatAffectBaseColor", "CoatAffectBaseColorMap", "CoatAffectBaseRoughness", "CoatAffectBaseRoughnessMap", "ThinFilmFactor", "ThinFilmFactorMap", "ThinFilmThickness", "ThinFilmThicknessMap", "ThinFilmIor", "ThinFilmIorMap", "EmissionFactorPbr", "EmissionFactorPbrMap", "EmissionColorPbr", "EmissionColorPbrMap", "Opacity", "OpacityMap", "IndirectDiffuse", "IndirectDiffuseMap", "IndirectSpecular", "IndirectSpecularMap", "NormalMapPbr", "NormalMapPbrMap", "TangentMap", "TangentMapMap", "DisplacementMapPbr", "DisplacementMapPbrMap", "MatteFactor", "MatteFactorMap", "MatteColor", "MatteColorMap", "AmbientOcclusion", "AmbientOcclusionMap", "Glossiness", "GlossinessMap", "CoatGlossiness", "CoatGlossinessMap", "TransmissionGlossiness", "TransmissionGlossinessMap"
+        const std::array<std::string_view, LocalMaterialTypeCount>& GetMaterialTypeNames() {
+            static const std::array<std::string_view, LocalMaterialTypeCount> MaterialTypeNames{
+                "Shading Model", "Two Sided", "Wireframe", "Blend Mode", "Opacity", "Alpha Mode", "Alpha Cutoff", "Base Color", "Diffuse Color", "Ambient Color", "Specular Color", "Emissive Color", "Transparent Color", "Reflective Color", "Metallic Factor", "Roughness Factor", "Normal Scale", "Occlusion Strength", "Emissive Strength", "Diffuse Texture", "Specular Texture", "Ambient Texture", "Emissive Texture", "Opacity Texture", "Shininess Texture", "Height / Bump Texture", "Normal Texture", "Displacement Texture", "Reflection Texture", "Lightmap Texture"
             };
 
             return MaterialTypeNames;
@@ -74,7 +74,7 @@ namespace asset {
 
         std::string_view MaterialTypeToString(const MaterialType Type) {
             const std::size_t Index{ static_cast<std::size_t>(Type) };
-            const std::array<std::string_view, MaterialTypeCount>& MaterialTypeNames{ GetMaterialTypeNames() };
+            const std::array<std::string_view, LocalMaterialTypeCount>& MaterialTypeNames{ GetMaterialTypeNames() };
             if (Index >= MaterialTypeNames.size()) {
                 return std::string_view{};
             }
@@ -83,7 +83,11 @@ namespace asset {
         }
 
         bool TryParseMaterialType(const std::string_view TypeName, MaterialType& Type) {
-            const std::array<std::string_view, MaterialTypeCount>& MaterialTypeNames{ GetMaterialTypeNames() };
+            const std::array<std::string_view, LocalMaterialTypeCount>& MaterialTypeNames{ GetMaterialTypeNames() };
+            if (TypeName == "HeightBumpTexture" || TypeName == "Height/Bump" || TypeName == "Height / Bump Texture") {
+                Type = MaterialType::HeightBumpTexture;
+                return true;
+            }
             for (std::size_t Index{ 0 }; Index < MaterialTypeNames.size(); ++Index) {
                 if (MaterialTypeNames[Index] == TypeName) {
                     Type = static_cast<MaterialType>(Index);
@@ -110,27 +114,27 @@ namespace asset {
             case MaterialMapKind::Vec2: {
                 const Vec2 Value{ MaterialMapData.GetVec2() };
                 rapidjson::Value Vec2Array{ rapidjson::kArrayType };
-                Vec2Array.PushBack(Value.mX, Allocator);
-                Vec2Array.PushBack(Value.mY, Allocator);
+                Vec2Array.PushBack(Value.x, Allocator);
+                Vec2Array.PushBack(Value.y, Allocator);
                 MaterialMapObject.AddMember("Vec2", Vec2Array, Allocator);
                 break;
             }
             case MaterialMapKind::Vec3: {
                 const Vec3 Value{ MaterialMapData.GetVec3() };
                 rapidjson::Value Vec3Array{ rapidjson::kArrayType };
-                Vec3Array.PushBack(Value.mX, Allocator);
-                Vec3Array.PushBack(Value.mY, Allocator);
-                Vec3Array.PushBack(Value.mZ, Allocator);
+                Vec3Array.PushBack(Value.x, Allocator);
+                Vec3Array.PushBack(Value.y, Allocator);
+                Vec3Array.PushBack(Value.z, Allocator);
                 MaterialMapObject.AddMember("Vec3", Vec3Array, Allocator);
                 break;
             }
             case MaterialMapKind::Vec4: {
                 const Vec4 Value{ MaterialMapData.GetVec4() };
                 rapidjson::Value Vec4Array{ rapidjson::kArrayType };
-                Vec4Array.PushBack(Value.mX, Allocator);
-                Vec4Array.PushBack(Value.mY, Allocator);
-                Vec4Array.PushBack(Value.mZ, Allocator);
-                Vec4Array.PushBack(Value.mW, Allocator);
+                Vec4Array.PushBack(Value.x, Allocator);
+                Vec4Array.PushBack(Value.y, Allocator);
+                Vec4Array.PushBack(Value.z, Allocator);
+                Vec4Array.PushBack(Value.w, Allocator);
                 MaterialMapObject.AddMember("Vec4", Vec4Array, Allocator);
                 break;
             }
@@ -224,13 +228,17 @@ namespace asset {
                 ItemObject.AddMember("PipelineName", PipelineNameValue, Allocator);
 
                 const Material& MaterialData{ MaterialGroupItemData.MaterialData };
+                if (MaterialData.Name.empty()) {
+                    continue;
+                }
+
                 rapidjson::Value MaterialObject{ rapidjson::kObjectType };
                 rapidjson::Value MaterialNameValue{};
                 MaterialNameValue.SetString(MaterialData.Name.c_str(), static_cast<rapidjson::SizeType>(MaterialData.Name.size()), Allocator);
                 MaterialObject.AddMember("Name", MaterialNameValue, Allocator);
                 MaterialObject.AddMember("PBR", MaterialData.PBR, Allocator);
 
-                std::array<MaterialMap, MaterialTypeCount> PropertyValues{};
+                std::array<MaterialMap, LocalMaterialTypeCount> PropertyValues{};
                 for (const MaterialProperty& MaterialPropertyData : MaterialData.Properties) {
                     const std::size_t PropertyIndex{ static_cast<std::size_t>(MaterialPropertyData.Type) };
                     if (PropertyIndex < PropertyValues.size()) {
@@ -239,7 +247,7 @@ namespace asset {
                 }
 
                 rapidjson::Value PropertyObject{ rapidjson::kObjectType };
-                for (std::size_t TypeIndex{ 0 }; TypeIndex < MaterialTypeCount; ++TypeIndex) {
+                for (std::size_t TypeIndex{ 0 }; TypeIndex < LocalMaterialTypeCount; ++TypeIndex) {
                     const MaterialType TypeValue{ static_cast<MaterialType>(TypeIndex) };
                     const std::string_view TypeName{ MaterialTypeToString(TypeValue) };
                     if (TypeName.empty()) {

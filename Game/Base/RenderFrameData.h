@@ -19,7 +19,7 @@ namespace Game {
         };
 
         struct alignas(16) MaterialGpu final {
-            static constexpr std::uint32_t FieldCount{ 40 };
+            static constexpr std::uint32_t FieldCount{ 30 };
             MaterialFieldGpu Fields[FieldCount]{};
         };
 
@@ -105,6 +105,7 @@ namespace Game {
             std::vector<DrawRecord> drawRecords{};       // CPU
             std::vector<MaterialGpu> materials{};
             std::vector<MaterialTextureTableItemGpu> materialTextureTable{};
+            std::vector<SimpleMath::Matrix> bonePalette{};
 
 
             // Render Loop 참고 순서
@@ -120,7 +121,6 @@ namespace Game {
             // 6) run 시작 인덱스는 루트 셰이더 상수(예: DrawRecordBaseIndex)로 셰이더에 전달한다.
             // 7) 셰이더에서는 drawIndex = DrawRecordBaseIndex + SV_InstanceID로 GPU 드로우 레코드를 조회한다.
             // 8) 조회한 record.objectIndex로 modelContexts를, record.materialIndex로 머티리얼 테이블을 인덱싱한다.
-            // std::vector<DirectX::XMFLOAT4X4> bonePalette;
         };
     }
 }

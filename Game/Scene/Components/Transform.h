@@ -16,6 +16,7 @@ namespace Game {
 		void RotateRadians(float PitchRadians, float YawRadians, float RollRadians);
 		void ClampPitchRadians(float MinPitchRadians, float MaxPitchRadians);
 		void UpdateRotationFromEulerRadians();
+		void UpdateEulerRadiansFromRotation();
 		SimpleMath::Vector3 GetForwardDirection() const;
 		SimpleMath::Vector3 TransformDirectionToWorld(const SimpleMath::Vector3& LocalDirection) const;
 
@@ -35,8 +36,8 @@ namespace Game {
 		SimpleMath::Vector3 rotationEuler{};
 		SimpleMath::Quaternion rotation{};
 		SimpleMath::Vector3 scale{ 1.0f, 1.0f, 1.0f };
-		SimpleMath::Matrix geometryToNode{ SimpleMath::Matrix::Identity };
 		SimpleMath::Matrix nodeToParent{ SimpleMath::Matrix::Identity };
+		SimpleMath::Matrix worldMatrix{ SimpleMath::Matrix::Identity };
 	EndComponent(Transform)
 
 }

@@ -9,6 +9,8 @@
 #include <vector>
 #include "Core/DX/Texture.h"
 #include "Asset/ModelResult.h"
+#include "Asset/AnimationClipResult.h"
+#include "Game/Asset/AnimationGraphAsset.h"
 #include "Model.h"
 #include "Game/Base/Common.h"
 #include "Game/Base/Pipeline.h"
@@ -51,6 +53,16 @@ namespace Game {
 
     struct ModelBucketTag final {
         using BucketType = ResourceBucket<std::shared_ptr<Model>>;
+    };
+
+
+    struct AnimationBucketTag final {
+        using BucketType = ResourceBucket<std::shared_ptr<asset::Animation>>;
+    };
+
+
+    struct AnimationGraphBucketTag final {
+        using BucketType = ResourceBucket<std::shared_ptr<AnimationGraphAsset>>;
     };
 
     struct MaterialBucketTag final {
@@ -102,6 +114,8 @@ namespace Game {
 
     private:
         ResourceBucket<std::shared_ptr<Model>> mModelBucket{};
+        ResourceBucket<std::shared_ptr<asset::Animation>> mAnimationBucket{};
+        ResourceBucket<std::shared_ptr<AnimationGraphAsset>> mAnimationGraphBucket{};
         ResourceBucket<RegisteredMaterial, RFD::MaterialGpu> mMaterialBucket{};
         ResourceBucket<RegisteredMaterialGroup> mMaterialGroupBucket{};
         ResourceBucket<RFD::MaterialTextureTableItemGpu> mTextureTableBucket{};
@@ -156,6 +170,27 @@ namespace Game {
     template<>
     inline const ModelBucketTag::BucketType& AssetRegistryStorage::GetBucket<ModelBucketTag>() const {
         return mModelBucket;
+    }
+
+    template<>
+    inline AnimationBucketTag::BucketType& AssetRegistryStorage::GetBucket<AnimationBucketTag>() {
+        return mAnimationBucket;
+    }
+
+    template<>
+    inline const AnimationBucketTag::BucketType& AssetRegistryStorage::GetBucket<AnimationBucketTag>() const {
+        return mAnimationBucket;
+    }
+
+
+    template<>
+    inline AnimationGraphBucketTag::BucketType& AssetRegistryStorage::GetBucket<AnimationGraphBucketTag>() {
+        return mAnimationGraphBucket;
+    }
+
+    template<>
+    inline const AnimationGraphBucketTag::BucketType& AssetRegistryStorage::GetBucket<AnimationGraphBucketTag>() const {
+        return mAnimationGraphBucket;
     }
 
     template<>

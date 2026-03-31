@@ -1,0 +1,789 @@
+{
+    "MaterialGroups": [
+        {
+            "Name": "D:\\2026_Graphics\\out\\debug\\AssetZIP\\Asset\\knight.glb",
+            "Items": [
+                {
+                    "PipelineName": "SkinnedGraphics",
+                    "MaterialData": {
+                        "Name": "M_DKM_Armor",
+                        "PBR": true,
+                        "Properties": {
+                            "Shading Model": {
+                                "Kind": "Int",
+                                "Int": 11
+                            },
+                            "Two Sided": {
+                                "Kind": "Bool",
+                                "Bool": true
+                            },
+                            "Wireframe": {
+                                "Kind": "None"
+                            },
+                            "Blend Mode": {
+                                "Kind": "None"
+                            },
+                            "Opacity": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Alpha Mode": {
+                                "Kind": "String",
+                                "String": "OPAQUE"
+                            },
+                            "Alpha Cutoff": {
+                                "Kind": "Real",
+                                "Real": 0.5
+                            },
+                            "Base Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    1.0
+                                ]
+                            },
+                            "Diffuse Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    1.0
+                                ]
+                            },
+                            "Ambient Color": {
+                                "Kind": "None"
+                            },
+                            "Specular Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    2.0,
+                                    2.0,
+                                    2.0,
+                                    1.0
+                                ]
+                            },
+                            "Emissive Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.0,
+                                    0.0,
+                                    0.0,
+                                    1.0
+                                ]
+                            },
+                            "Transparent Color": {
+                                "Kind": "None"
+                            },
+                            "Reflective Color": {
+                                "Kind": "None"
+                            },
+                            "Metallic Factor": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Roughness Factor": {
+                                "Kind": "Real",
+                                "Real": 0.858578622341156
+                            },
+                            "Normal Scale": {
+                                "Kind": "None"
+                            },
+                            "Occlusion Strength": {
+                                "Kind": "None"
+                            },
+                            "Emissive Strength": {
+                                "Kind": "None"
+                            },
+                            "Diffuse Texture": {
+                                "Kind": "None"
+                            },
+                            "Specular Texture": {
+                                "Kind": "None"
+                            },
+                            "Ambient Texture": {
+                                "Kind": "None"
+                            },
+                            "Emissive Texture": {
+                                "Kind": "None"
+                            },
+                            "Opacity Texture": {
+                                "Kind": "None"
+                            },
+                            "Shininess Texture": {
+                                "Kind": "None"
+                            },
+                            "Height / Bump Texture": {
+                                "Kind": "None"
+                            },
+                            "Normal Texture": {
+                                "Kind": "None"
+                            },
+                            "Displacement Texture": {
+                                "Kind": "None"
+                            },
+                            "Reflection Texture": {
+                                "Kind": "None"
+                            },
+                            "Lightmap Texture": {
+                                "Kind": "None"
+                            }
+                        }
+                    }
+                },
+                {
+                    "PipelineName": "SkinnedGraphics",
+                    "MaterialData": {
+                        "Name": "M_DKM_Boots",
+                        "PBR": true,
+                        "Properties": {
+                            "Shading Model": {
+                                "Kind": "Int",
+                                "Int": 11
+                            },
+                            "Two Sided": {
+                                "Kind": "Bool",
+                                "Bool": true
+                            },
+                            "Wireframe": {
+                                "Kind": "None"
+                            },
+                            "Blend Mode": {
+                                "Kind": "None"
+                            },
+                            "Opacity": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Alpha Mode": {
+                                "Kind": "String",
+                                "String": "OPAQUE"
+                            },
+                            "Alpha Cutoff": {
+                                "Kind": "Real",
+                                "Real": 0.5
+                            },
+                            "Base Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    1.0
+                                ]
+                            },
+                            "Diffuse Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    1.0
+                                ]
+                            },
+                            "Ambient Color": {
+                                "Kind": "None"
+                            },
+                            "Specular Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    2.0,
+                                    2.0,
+                                    2.0,
+                                    1.0
+                                ]
+                            },
+                            "Emissive Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.0,
+                                    0.0,
+                                    0.0,
+                                    1.0
+                                ]
+                            },
+                            "Transparent Color": {
+                                "Kind": "None"
+                            },
+                            "Reflective Color": {
+                                "Kind": "None"
+                            },
+                            "Metallic Factor": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Roughness Factor": {
+                                "Kind": "Real",
+                                "Real": 0.858578622341156
+                            },
+                            "Normal Scale": {
+                                "Kind": "None"
+                            },
+                            "Occlusion Strength": {
+                                "Kind": "None"
+                            },
+                            "Emissive Strength": {
+                                "Kind": "None"
+                            },
+                            "Diffuse Texture": {
+                                "Kind": "None"
+                            },
+                            "Specular Texture": {
+                                "Kind": "None"
+                            },
+                            "Ambient Texture": {
+                                "Kind": "None"
+                            },
+                            "Emissive Texture": {
+                                "Kind": "None"
+                            },
+                            "Opacity Texture": {
+                                "Kind": "None"
+                            },
+                            "Shininess Texture": {
+                                "Kind": "None"
+                            },
+                            "Height / Bump Texture": {
+                                "Kind": "None"
+                            },
+                            "Normal Texture": {
+                                "Kind": "None"
+                            },
+                            "Displacement Texture": {
+                                "Kind": "None"
+                            },
+                            "Reflection Texture": {
+                                "Kind": "None"
+                            },
+                            "Lightmap Texture": {
+                                "Kind": "None"
+                            }
+                        }
+                    }
+                },
+                {
+                    "PipelineName": "SkinnedGraphics",
+                    "MaterialData": {
+                        "Name": "M_DKM_Cloak",
+                        "PBR": true,
+                        "Properties": {
+                            "Shading Model": {
+                                "Kind": "Int",
+                                "Int": 11
+                            },
+                            "Two Sided": {
+                                "Kind": "Bool",
+                                "Bool": true
+                            },
+                            "Wireframe": {
+                                "Kind": "None"
+                            },
+                            "Blend Mode": {
+                                "Kind": "None"
+                            },
+                            "Opacity": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Alpha Mode": {
+                                "Kind": "String",
+                                "String": "OPAQUE"
+                            },
+                            "Alpha Cutoff": {
+                                "Kind": "Real",
+                                "Real": 0.5
+                            },
+                            "Base Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    1.0
+                                ]
+                            },
+                            "Diffuse Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    1.0
+                                ]
+                            },
+                            "Ambient Color": {
+                                "Kind": "None"
+                            },
+                            "Specular Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    2.0,
+                                    2.0,
+                                    2.0,
+                                    1.0
+                                ]
+                            },
+                            "Emissive Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.0,
+                                    0.0,
+                                    0.0,
+                                    1.0
+                                ]
+                            },
+                            "Transparent Color": {
+                                "Kind": "None"
+                            },
+                            "Reflective Color": {
+                                "Kind": "None"
+                            },
+                            "Metallic Factor": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Roughness Factor": {
+                                "Kind": "Real",
+                                "Real": 0.858578622341156
+                            },
+                            "Normal Scale": {
+                                "Kind": "None"
+                            },
+                            "Occlusion Strength": {
+                                "Kind": "None"
+                            },
+                            "Emissive Strength": {
+                                "Kind": "None"
+                            },
+                            "Diffuse Texture": {
+                                "Kind": "None"
+                            },
+                            "Specular Texture": {
+                                "Kind": "None"
+                            },
+                            "Ambient Texture": {
+                                "Kind": "None"
+                            },
+                            "Emissive Texture": {
+                                "Kind": "None"
+                            },
+                            "Opacity Texture": {
+                                "Kind": "None"
+                            },
+                            "Shininess Texture": {
+                                "Kind": "None"
+                            },
+                            "Height / Bump Texture": {
+                                "Kind": "None"
+                            },
+                            "Normal Texture": {
+                                "Kind": "None"
+                            },
+                            "Displacement Texture": {
+                                "Kind": "None"
+                            },
+                            "Reflection Texture": {
+                                "Kind": "None"
+                            },
+                            "Lightmap Texture": {
+                                "Kind": "None"
+                            }
+                        }
+                    }
+                },
+                {
+                    "PipelineName": "SkinnedGraphics",
+                    "MaterialData": {
+                        "Name": "M_DKM_Gauntlets",
+                        "PBR": true,
+                        "Properties": {
+                            "Shading Model": {
+                                "Kind": "Int",
+                                "Int": 11
+                            },
+                            "Two Sided": {
+                                "Kind": "Bool",
+                                "Bool": true
+                            },
+                            "Wireframe": {
+                                "Kind": "None"
+                            },
+                            "Blend Mode": {
+                                "Kind": "None"
+                            },
+                            "Opacity": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Alpha Mode": {
+                                "Kind": "String",
+                                "String": "OPAQUE"
+                            },
+                            "Alpha Cutoff": {
+                                "Kind": "Real",
+                                "Real": 0.5
+                            },
+                            "Base Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    1.0
+                                ]
+                            },
+                            "Diffuse Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    1.0
+                                ]
+                            },
+                            "Ambient Color": {
+                                "Kind": "None"
+                            },
+                            "Specular Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    2.0,
+                                    2.0,
+                                    2.0,
+                                    1.0
+                                ]
+                            },
+                            "Emissive Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.0,
+                                    0.0,
+                                    0.0,
+                                    1.0
+                                ]
+                            },
+                            "Transparent Color": {
+                                "Kind": "None"
+                            },
+                            "Reflective Color": {
+                                "Kind": "None"
+                            },
+                            "Metallic Factor": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Roughness Factor": {
+                                "Kind": "Real",
+                                "Real": 0.858578622341156
+                            },
+                            "Normal Scale": {
+                                "Kind": "None"
+                            },
+                            "Occlusion Strength": {
+                                "Kind": "None"
+                            },
+                            "Emissive Strength": {
+                                "Kind": "None"
+                            },
+                            "Diffuse Texture": {
+                                "Kind": "None"
+                            },
+                            "Specular Texture": {
+                                "Kind": "None"
+                            },
+                            "Ambient Texture": {
+                                "Kind": "None"
+                            },
+                            "Emissive Texture": {
+                                "Kind": "None"
+                            },
+                            "Opacity Texture": {
+                                "Kind": "None"
+                            },
+                            "Shininess Texture": {
+                                "Kind": "None"
+                            },
+                            "Height / Bump Texture": {
+                                "Kind": "None"
+                            },
+                            "Normal Texture": {
+                                "Kind": "None"
+                            },
+                            "Displacement Texture": {
+                                "Kind": "None"
+                            },
+                            "Reflection Texture": {
+                                "Kind": "None"
+                            },
+                            "Lightmap Texture": {
+                                "Kind": "None"
+                            }
+                        }
+                    }
+                },
+                {
+                    "PipelineName": "SkinnedGraphics",
+                    "MaterialData": {
+                        "Name": "M_DKM_Helmet",
+                        "PBR": true,
+                        "Properties": {
+                            "Shading Model": {
+                                "Kind": "Int",
+                                "Int": 11
+                            },
+                            "Two Sided": {
+                                "Kind": "Bool",
+                                "Bool": true
+                            },
+                            "Wireframe": {
+                                "Kind": "None"
+                            },
+                            "Blend Mode": {
+                                "Kind": "None"
+                            },
+                            "Opacity": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Alpha Mode": {
+                                "Kind": "String",
+                                "String": "OPAQUE"
+                            },
+                            "Alpha Cutoff": {
+                                "Kind": "Real",
+                                "Real": 0.5
+                            },
+                            "Base Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    1.0
+                                ]
+                            },
+                            "Diffuse Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    1.0
+                                ]
+                            },
+                            "Ambient Color": {
+                                "Kind": "None"
+                            },
+                            "Specular Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    2.0,
+                                    2.0,
+                                    2.0,
+                                    1.0
+                                ]
+                            },
+                            "Emissive Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.0,
+                                    0.0,
+                                    0.0,
+                                    1.0
+                                ]
+                            },
+                            "Transparent Color": {
+                                "Kind": "None"
+                            },
+                            "Reflective Color": {
+                                "Kind": "None"
+                            },
+                            "Metallic Factor": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Roughness Factor": {
+                                "Kind": "Real",
+                                "Real": 0.858578622341156
+                            },
+                            "Normal Scale": {
+                                "Kind": "None"
+                            },
+                            "Occlusion Strength": {
+                                "Kind": "None"
+                            },
+                            "Emissive Strength": {
+                                "Kind": "None"
+                            },
+                            "Diffuse Texture": {
+                                "Kind": "None"
+                            },
+                            "Specular Texture": {
+                                "Kind": "None"
+                            },
+                            "Ambient Texture": {
+                                "Kind": "None"
+                            },
+                            "Emissive Texture": {
+                                "Kind": "None"
+                            },
+                            "Opacity Texture": {
+                                "Kind": "None"
+                            },
+                            "Shininess Texture": {
+                                "Kind": "None"
+                            },
+                            "Height / Bump Texture": {
+                                "Kind": "None"
+                            },
+                            "Normal Texture": {
+                                "Kind": "None"
+                            },
+                            "Displacement Texture": {
+                                "Kind": "None"
+                            },
+                            "Reflection Texture": {
+                                "Kind": "None"
+                            },
+                            "Lightmap Texture": {
+                                "Kind": "None"
+                            }
+                        }
+                    }
+                },
+                {
+                    "PipelineName": "SkinnedGraphics",
+                    "MaterialData": {
+                        "Name": "M_DKM_Pants",
+                        "PBR": true,
+                        "Properties": {
+                            "Shading Model": {
+                                "Kind": "Int",
+                                "Int": 11
+                            },
+                            "Two Sided": {
+                                "Kind": "Bool",
+                                "Bool": true
+                            },
+                            "Wireframe": {
+                                "Kind": "None"
+                            },
+                            "Blend Mode": {
+                                "Kind": "None"
+                            },
+                            "Opacity": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Alpha Mode": {
+                                "Kind": "String",
+                                "String": "OPAQUE"
+                            },
+                            "Alpha Cutoff": {
+                                "Kind": "Real",
+                                "Real": 0.5
+                            },
+                            "Base Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    1.0
+                                ]
+                            },
+                            "Diffuse Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    1.0
+                                ]
+                            },
+                            "Ambient Color": {
+                                "Kind": "None"
+                            },
+                            "Specular Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    2.0,
+                                    2.0,
+                                    2.0,
+                                    1.0
+                                ]
+                            },
+                            "Emissive Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.0,
+                                    0.0,
+                                    0.0,
+                                    1.0
+                                ]
+                            },
+                            "Transparent Color": {
+                                "Kind": "None"
+                            },
+                            "Reflective Color": {
+                                "Kind": "None"
+                            },
+                            "Metallic Factor": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Roughness Factor": {
+                                "Kind": "Real",
+                                "Real": 0.858578622341156
+                            },
+                            "Normal Scale": {
+                                "Kind": "None"
+                            },
+                            "Occlusion Strength": {
+                                "Kind": "None"
+                            },
+                            "Emissive Strength": {
+                                "Kind": "None"
+                            },
+                            "Diffuse Texture": {
+                                "Kind": "None"
+                            },
+                            "Specular Texture": {
+                                "Kind": "None"
+                            },
+                            "Ambient Texture": {
+                                "Kind": "None"
+                            },
+                            "Emissive Texture": {
+                                "Kind": "None"
+                            },
+                            "Opacity Texture": {
+                                "Kind": "None"
+                            },
+                            "Shininess Texture": {
+                                "Kind": "None"
+                            },
+                            "Height / Bump Texture": {
+                                "Kind": "None"
+                            },
+                            "Normal Texture": {
+                                "Kind": "None"
+                            },
+                            "Displacement Texture": {
+                                "Kind": "None"
+                            },
+                            "Reflection Texture": {
+                                "Kind": "None"
+                            },
+                            "Lightmap Texture": {
+                                "Kind": "None"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

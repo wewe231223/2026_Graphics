@@ -1,34 +1,25 @@
 #include "PickingSystem.h"
 
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <limits>
-#include <utility>
 #include <unordered_map>
-#include <DirectXMath.h>
+
 #include "Core/Config.h"
 #include "Game/Base/Input.h"
+#include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoundingBox.h"
-#include "Utility/SimpleMathWrapper.h"
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/PickingGizmo.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
-#include "Game/Scene/Events/SelectionEvent.h"
-#include "Core/Event/EventQueue.h"
 
-#ifdef max 
-#undef max 
-#endif 
+#ifdef max
+#undef max
+#endif
 
 namespace {
-    SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
-        const SimpleMath::Matrix TrsMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
-        return TransformComponent.nodeToParent * TrsMatrix;
-    }
-
     bool TryFindActiveCamera(Arche::World& World, const Game::Transform*& OutTransform, const Game::Camera*& OutCamera) {
         for (const auto [TransformComponent, CameraComponent] : World.Query<Game::Transform, Game::Camera>()) {
             if (CameraComponent.isActive == false) {
@@ -166,11 +157,6 @@ namespace {
     }
 
     bool TryResolveMergedSubtreeBounds(const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, Arche::EntityID RootEntityId, SimpleMath::Vector3& OutCenter, SimpleMath::Vector3& OutExtents) {
-        SimpleMath::Matrix RootWorld{};
-        if (TryResolveEntityWorldMatrix(WorldMatrices, RootEntityId, RootWorld) == false) {
-            return false;
-        }
-
         bool HasBounds{ false };
         SimpleMath::Vector3 BoundsMinimum{};
         SimpleMath::Vector3 BoundsMaximum{};
@@ -200,29 +186,60 @@ namespace {
         return true;
     }
 
-    bool TryApplyTargetWorldPosition(Arche::World& World, Arche::EntityID TargetEntityId, const SimpleMath::Vector3& TargetWorldPosition) {
-        Game::Transform* TargetTransform{ World.GetComponent<Game::Transform>(TargetEntityId) };
-        const Game::EntityHierarchy* TargetHierarchy{ World.GetComponent<Game::EntityHierarchy>(TargetEntityId) };
-        if (TargetTransform == nullptr || TargetHierarchy == nullptr) {
-            return false;
+    bool TryResolveParentWorldMatrix(const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, Arche::EntityID EntityId, SimpleMath::Matrix& OutParentWorldMatrix) {
+        const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(EntityId) };
+        if (HierarchyComponent == nullptr || HierarchyComponent->parent == Arche::NullEntityID) {
+            OutParentWorldMatrix = SimpleMath::Matrix::Identity;
+            return true;
         }
 
-        SimpleMath::Matrix ParentWorldMatrix{ SimpleMath::Matrix::Identity };
-        Arche::EntityID CurrentParentId{ TargetHierarchy->parent };
-        while (CurrentParentId != Arche::NullEntityID) {
-            const Game::Transform* ParentTransform{ World.GetComponent<Game::Transform>(CurrentParentId) };
-            const Game::EntityHierarchy* ParentHierarchy{ World.GetComponent<Game::EntityHierarchy>(CurrentParentId) };
-            if (ParentTransform == nullptr || ParentHierarchy == nullptr) {
-                return false;
+        return TryResolveEntityWorldMatrix(WorldMatrices, HierarchyComponent->parent, OutParentWorldMatrix);
+    }
+
+    Arche::EntityID ResolveHoveredGizmoEntity(const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, DirectX::FXMVECTOR RayOrigin, DirectX::FXMVECTOR RayDirection) {
+        float NearestDistance{ std::numeric_limits<float>::max() };
+        Arche::EntityID HoveredGizmoEntityId{ Arche::NullEntityID };
+
+        for (const auto [MeshRenderer, HierarchyComponent, Gizmo] : World.Query<Game::StaticMeshRenderer, Game::EntityHierarchy, Game::PickingGizmo>()) {
+            (void)Gizmo;
+            if (MeshRenderer.active == false) {
+                continue;
             }
 
-            ParentWorldMatrix = ParentWorldMatrix * BuildLocalWorldMatrix(*ParentTransform);
-            CurrentParentId = ParentHierarchy->parent;
+            SimpleMath::Matrix GizmoWorldMatrix{ SimpleMath::Matrix::Identity };
+            DirectX::BoundingOrientedBox GizmoWorldBounds{};
+            if (TryResolveEntityWorldAndBounds(WorldMatrices, World, HierarchyComponent.self, GizmoWorldMatrix, GizmoWorldBounds) == false) {
+                continue;
+            }
+
+            float HitDistance{ 0.0f };
+            const bool IsIntersects{ GizmoWorldBounds.Intersects(RayOrigin, RayDirection, HitDistance) };
+            if (IsIntersects && HitDistance < NearestDistance) {
+                NearestDistance = HitDistance;
+                HoveredGizmoEntityId = HierarchyComponent.self;
+            }
         }
 
-        const SimpleMath::Matrix ParentWorldInverseMatrix{ ParentWorldMatrix.Invert() };
-        TargetTransform->position = SimpleMath::Vector3::Transform(TargetWorldPosition, ParentWorldInverseMatrix);
-        return true;
+        return HoveredGizmoEntityId;
+    }
+
+    bool TryResolveGizmoAxisDirection(std::uint32_t AxisIndex, SimpleMath::Vector3& OutAxisDirection) {
+        if (AxisIndex == 0u) {
+            OutAxisDirection = SimpleMath::Vector3::UnitX;
+            return true;
+        }
+
+        if (AxisIndex == 1u) {
+            OutAxisDirection = SimpleMath::Vector3::UnitY;
+            return true;
+        }
+
+        if (AxisIndex == 2u) {
+            OutAxisDirection = SimpleMath::Vector3::UnitZ;
+            return true;
+        }
+
+        return false;
     }
 
     void UpdatePickingGizmos(const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, Arche::EntityID PickedEntityId, Arche::EntityID HoveredGizmoEntityId) {
@@ -231,19 +248,44 @@ namespace {
             return;
         }
 
-        SimpleMath::Vector3 BoundsCenter{};
-        SimpleMath::Vector3 BoundsExtents{};
-        if (TryResolveMergedSubtreeBounds(WorldMatrices, World, PickedEntityId, BoundsCenter, BoundsExtents) == false && TryResolveEntityWorldPosition(World, PickedEntityId, BoundsCenter) == false) {
+        const Game::Transform* SelectedTransformComponent{ World.GetComponent<Game::Transform>(PickedEntityId) };
+        if (SelectedTransformComponent == nullptr) {
             return;
         }
 
-        const Game::Transform* RootTransformComponent{ World.GetComponent<Game::Transform>(PickedEntityId) };
+        const Game::Bone* BoneComponent{ World.GetComponent<Game::Bone>(PickedEntityId) };
+        SimpleMath::Vector3 BoundsCenter{};
+        SimpleMath::Vector3 BoundsExtents{};
+        SimpleMath::Quaternion AxisOrientation{ SimpleMath::Quaternion::Identity };
+
+        if (BoneComponent != nullptr) {
+            SimpleMath::Matrix BoneWorldMatrix{ SimpleMath::Matrix::Identity };
+            if (TryResolveEntityWorldMatrix(WorldMatrices, PickedEntityId, BoneWorldMatrix) == false) {
+                return;
+            }
+
+            BoundsCenter = BoneWorldMatrix.Translation();
+            AxisOrientation = SimpleMath::Quaternion::CreateFromRotationMatrix(BoneWorldMatrix);
+        }
+        else {
+            if (TryResolveMergedSubtreeBounds(WorldMatrices, World, PickedEntityId, BoundsCenter, BoundsExtents) == false && TryResolveEntityWorldPosition(World, PickedEntityId, BoundsCenter) == false) {
+                return;
+            }
+
+            SimpleMath::Matrix SelectedWorldMatrix{};
+            if (TryResolveEntityWorldMatrix(WorldMatrices, PickedEntityId, SelectedWorldMatrix)) {
+                AxisOrientation = SimpleMath::Quaternion::CreateFromRotationMatrix(SelectedWorldMatrix);
+            }
+            else {
+                AxisOrientation = SelectedTransformComponent->rotation;
+            }
+        }
+
         const float Thickness{ 0.05f };
         const float Length{ 0.75f };
         const float Gap{ 0.06f };
         const float HoverScaleFactor{ 1.1f };
 
-        const SimpleMath::Quaternion AxisOrientation{ RootTransformComponent == nullptr ? SimpleMath::Quaternion::Identity : RootTransformComponent->rotation };
         const std::array<SimpleMath::Vector3, 3> AxisDirections{ {
             SimpleMath::Vector3::Transform(SimpleMath::Vector3::UnitX, AxisOrientation),
             SimpleMath::Vector3::Transform(SimpleMath::Vector3::UnitY, AxisOrientation),
@@ -279,103 +321,6 @@ namespace {
             MeshRenderer.active = true;
         }
     }
-
-    void ResolvePickedEntityRecursive(const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, Arche::EntityID EntityId, DirectX::FXMVECTOR RayOrigin, DirectX::FXMVECTOR RayDirection, float& InOutNearestDistance, Arche::EntityID& InOutPickedEntityId) {
-        const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(EntityId) };
-        const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(EntityId) };
-
-        if (TransformComponent == nullptr || HierarchyComponent == nullptr) {
-            return;
-        }
-
-        SimpleMath::Matrix NodeWorld{};
-        if (TryResolveEntityWorldMatrix(WorldMatrices, EntityId, NodeWorld) == false) {
-            return;
-        }
-        const Game::BoundingBox* BoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(EntityId) };
-
-        if (BoundingBoxComponent != nullptr) {
-            DirectX::BoundingOrientedBox WorldBoundingBox{};
-            BoundingBoxComponent->GetObb().Transform(WorldBoundingBox, NodeWorld);
-
-            float HitDistance{ 0.0f };
-            const bool IsIntersects{ WorldBoundingBox.Intersects(RayOrigin, RayDirection, HitDistance) };
-            if (IsIntersects && HitDistance < InOutNearestDistance) {
-                InOutNearestDistance = HitDistance;
-                InOutPickedEntityId = EntityId;
-            }
-        }
-
-        Arche::EntityID ChildEntityId{ HierarchyComponent->firstChild };
-        while (ChildEntityId != Arche::NullEntityID) {
-            const Game::EntityHierarchy* ChildHierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(ChildEntityId) };
-            if (ChildHierarchyComponent == nullptr) {
-                break;
-            }
-
-            ResolvePickedEntityRecursive(WorldMatrices, World, ChildEntityId, RayOrigin, RayDirection, InOutNearestDistance, InOutPickedEntityId);
-            ChildEntityId = ChildHierarchyComponent->nextSibling;
-        }
-    }
-
-    Arche::EntityID ResolveTopLevelEntityId(Arche::World& World, Arche::EntityID EntityId) {
-        if (EntityId == Arche::NullEntityID) {
-            return Arche::NullEntityID;
-        }
-
-        Arche::EntityID ResolvedEntityId{ EntityId };
-        const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(ResolvedEntityId) };
-        while (HierarchyComponent != nullptr && HierarchyComponent->parent != Arche::NullEntityID) {
-            ResolvedEntityId = HierarchyComponent->parent;
-            HierarchyComponent = World.GetComponent<Game::EntityHierarchy>(ResolvedEntityId);
-        }
-
-        return ResolvedEntityId;
-    }
-
-    Arche::EntityID ResolvePickedEntityForSelection(Arche::World& World, Arche::EntityID PickedEntityId, Arche::EntityID PreviouslyPickedEntityId) {
-        if (PickedEntityId == Arche::NullEntityID) {
-            return Arche::NullEntityID;
-        }
-
-        const Arche::EntityID TopLevelEntityId{ ResolveTopLevelEntityId(World, PickedEntityId) };
-        if (TopLevelEntityId == Arche::NullEntityID) {
-            return Arche::NullEntityID;
-        }
-
-        if (PreviouslyPickedEntityId == TopLevelEntityId && PickedEntityId != TopLevelEntityId) {
-            return PickedEntityId;
-        }
-
-        return TopLevelEntityId;
-    }
-
-    Arche::EntityID ResolveHoveredGizmoEntity(const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices, Arche::World& World, DirectX::FXMVECTOR RayOrigin, DirectX::FXMVECTOR RayDirection) {
-        float NearestDistance{ std::numeric_limits<float>::max() };
-        Arche::EntityID HoveredGizmoEntityId{ Arche::NullEntityID };
-
-        for (const auto [MeshRenderer, HierarchyComponent, Gizmo] : World.Query<Game::StaticMeshRenderer, Game::EntityHierarchy, Game::PickingGizmo>()) {
-            (void)Gizmo;
-            if (MeshRenderer.active == false) {
-                continue;
-            }
-
-            SimpleMath::Matrix GizmoWorldMatrix{ SimpleMath::Matrix::Identity };
-            DirectX::BoundingOrientedBox GizmoWorldBounds{};
-            if (TryResolveEntityWorldAndBounds(WorldMatrices, World, HierarchyComponent.self, GizmoWorldMatrix, GizmoWorldBounds) == false) {
-                continue;
-            }
-
-            float HitDistance{ 0.0f };
-            const bool IsIntersects{ GizmoWorldBounds.Intersects(RayOrigin, RayDirection, HitDistance) };
-            if (IsIntersects && HitDistance < NearestDistance) {
-                NearestDistance = HitDistance;
-                HoveredGizmoEntityId = HierarchyComponent.self;
-            }
-        }
-
-        return HoveredGizmoEntityId;
-    }
 }
 
 namespace Game {
@@ -393,7 +338,7 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> PickingSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 0> Accesses{};
+        static std::array<ResourceAccess, 2> Accesses{ { { typeid(Arche::EntityID), Access::Read }, { typeid(std::unordered_map<Arche::EntityID, SimpleMath::Matrix>), Access::Read } } };
         return Accesses;
     }
 
@@ -402,151 +347,101 @@ namespace Game {
 
         const Globals::Input& Input{ Globals::Input::Get() };
         const DirectX::Mouse::ButtonStateTracker& MouseTracker{ Input.GetMouseTracker() };
-        const bool IsMousePickRequested{ MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED };
-        const bool IsMouseDragActive{ MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED || MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::HELD };
-        const bool IsMouseDragReleased{ MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::RELEASED || MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::UP };
-        const Arche::EntityID PreviouslyPickedEntityId{ Ctx.PickedEntityId };
+        const bool IsMousePressed{ MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED };
+        const bool IsMouseHeld{ MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::HELD };
+        const bool IsMouseReleased{ MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::RELEASED || MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::UP };
 
-        if (IsMousePickRequested) {
-            const Transform* CameraTransform{ nullptr };
-            const Camera* CameraComponent{ nullptr };
-            if (TryFindActiveCamera(World, CameraTransform, CameraComponent) == false || CameraTransform == nullptr || CameraComponent == nullptr) {
-                Ctx.PickedEntityId = Arche::NullEntityID;
+        DirectX::XMVECTOR RayOriginVector{};
+        DirectX::XMVECTOR RayDirectionVector{};
+        Arche::EntityID HoveredGizmoEntityId{ Arche::NullEntityID };
 
-                Game::PickedEntityChangedPayload PickedEntityChangedPayload{};
-                PickedEntityChangedPayload.PickedEntityId = Arche::NullEntityID;
-                Core::Event::Enqueue<Game::PickedEntityChangedEventTag, Game::PickedEntityChangedPayload>(std::move(PickedEntityChangedPayload), true);
-            }
-            else {
-                DirectX::XMVECTOR RayOrigin{};
-                DirectX::XMVECTOR RayDirection{};
-                if (TryBuildPickingRay(*CameraTransform, *CameraComponent, RayOrigin, RayDirection) == false) {
-                    Ctx.PickedEntityId = Arche::NullEntityID;
-
-                    Game::PickedEntityChangedPayload PickedEntityChangedPayload{};
-                    PickedEntityChangedPayload.PickedEntityId = Arche::NullEntityID;
-                    Core::Event::Enqueue<Game::PickedEntityChangedEventTag, Game::PickedEntityChangedPayload>(std::move(PickedEntityChangedPayload), true);
-                }
-                else {
-                    Arche::EntityID PickedEntityId{ ResolveHoveredGizmoEntity(Ctx.WorldMatrices, World, RayOrigin, RayDirection) };
-                    if (PickedEntityId == Arche::NullEntityID) {
-                        float NearestDistance{ std::numeric_limits<float>::max() };
-
-                        for (const auto [TransformComponent, HierarchyComponent] : World.Query<Transform, EntityHierarchy>()) {
-                            (void)TransformComponent;
-
-                            if (HierarchyComponent.parent != Arche::NullEntityID) {
-                                continue;
-                            }
-
-                            ResolvePickedEntityRecursive(Ctx.WorldMatrices, World, HierarchyComponent.self, RayOrigin, RayDirection, NearestDistance, PickedEntityId);
-                        }
-                    }
-
-                    const PickingGizmo* PickedGizmo{ World.GetComponent<PickingGizmo>(PickedEntityId) };
-                    if (PickedGizmo != nullptr) {
-                        mIsGizmoDragging = false;
-                        mDraggingTargetEntityId = Arche::NullEntityID;
-
-                        Arche::EntityID DragTargetEntityId{ PreviouslyPickedEntityId };
-                        if (DragTargetEntityId != Arche::NullEntityID && World.GetComponent<PickingGizmo>(DragTargetEntityId) != nullptr) {
-                            DragTargetEntityId = Arche::NullEntityID;
-                        }
-
-                        Ctx.PickedEntityId = DragTargetEntityId;
-
-                        if (DragTargetEntityId != Arche::NullEntityID) {
-                            SimpleMath::Matrix TargetWorldMatrix{ SimpleMath::Matrix::Identity };
-                            if (TryResolveEntityWorldMatrix(Ctx.WorldMatrices, DragTargetEntityId, TargetWorldMatrix)) {
-                                const Transform* DragCameraTransform{ nullptr };
-                                const Camera* DragCameraComponent{ nullptr };
-                                DirectX::XMVECTOR DragRayOriginVector{};
-                                DirectX::XMVECTOR DragRayDirectionVector{};
-                                if (TryFindActiveCamera(World, DragCameraTransform, DragCameraComponent) && DragCameraTransform != nullptr && DragCameraComponent != nullptr && TryBuildPickingRay(*DragCameraTransform, *DragCameraComponent, DragRayOriginVector, DragRayDirectionVector)) {
-                                    SimpleMath::Vector3 DragRayOrigin{};
-                                    SimpleMath::Vector3 DragRayDirection{};
-                                    DirectX::XMStoreFloat3(&DragRayOrigin, DragRayOriginVector);
-                                    DirectX::XMStoreFloat3(&DragRayDirection, DragRayDirectionVector);
-
-                                    const SimpleMath::Quaternion AxisOrientation{ SimpleMath::Quaternion::CreateFromRotationMatrix(TargetWorldMatrix) };
-                                    const std::array<SimpleMath::Vector3, 3> AxisDirections{ { SimpleMath::Vector3::Transform(SimpleMath::Vector3::UnitX, AxisOrientation), SimpleMath::Vector3::Transform(SimpleMath::Vector3::UnitY, AxisOrientation), SimpleMath::Vector3::Transform(SimpleMath::Vector3::UnitZ, AxisOrientation) } };
-                                    if (PickedGizmo->axisIndex < AxisDirections.size()) {
-                                        const SimpleMath::Vector3 AxisDirection{ AxisDirections[PickedGizmo->axisIndex] };
-                                        const SimpleMath::Vector3 AxisOrigin{ TargetWorldMatrix.Translation() };
-                                        float AxisParameter{ 0.0f };
-                                        if (TryResolveAxisRayParameter(DragRayOrigin, DragRayDirection, AxisOrigin, AxisDirection, AxisParameter)) {
-                                            mIsGizmoDragging = true;
-                                            mDraggingTargetEntityId = DragTargetEntityId;
-                                            mDraggingStartAxisParameter = AxisParameter;
-                                            mDraggingStartWorldPosition = TargetWorldMatrix.Translation();
-                                            mDraggingAxisOrigin = AxisOrigin;
-                                            mDraggingAxisDirection = AxisDirection;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    else {
-                        mIsGizmoDragging = false;
-                        mDraggingTargetEntityId = Arche::NullEntityID;
-                        const Arche::EntityID ResolvedEntityId{ ResolvePickedEntityForSelection(World, PickedEntityId, PreviouslyPickedEntityId) };
-                        Ctx.PickedEntityId = ResolvedEntityId;
-
-                        Game::PickedEntityChangedPayload PickedEntityChangedPayload{};
-                        PickedEntityChangedPayload.PickedEntityId = ResolvedEntityId;
-                        Core::Event::Enqueue<Game::PickedEntityChangedEventTag, Game::PickedEntityChangedPayload>(std::move(PickedEntityChangedPayload), true);
-                    }
-                }
-            }
+        const Transform* CameraTransform{ nullptr };
+        const Camera* CameraComponent{ nullptr };
+        const bool IsRayAvailable{ Ctx.PickedEntityId != Arche::NullEntityID && TryFindActiveCamera(World, CameraTransform, CameraComponent) && CameraTransform != nullptr && CameraComponent != nullptr && TryBuildPickingRay(*CameraTransform, *CameraComponent, RayOriginVector, RayDirectionVector) };
+        if (IsRayAvailable) {
+            HoveredGizmoEntityId = ResolveHoveredGizmoEntity(Ctx.WorldMatrices, World, RayOriginVector, RayDirectionVector);
         }
 
-        if (mIsGizmoDragging && IsMouseDragActive && mDraggingTargetEntityId != Arche::NullEntityID) {
-            const Transform* CameraTransform{ nullptr };
-            const Camera* CameraComponent{ nullptr };
-            DirectX::XMVECTOR RayOriginVector{};
-            DirectX::XMVECTOR RayDirectionVector{};
-            if (TryFindActiveCamera(World, CameraTransform, CameraComponent) && CameraTransform != nullptr && CameraComponent != nullptr && TryBuildPickingRay(*CameraTransform, *CameraComponent, RayOriginVector, RayDirectionVector)) {
+        if (IsMousePressed && HoveredGizmoEntityId != Arche::NullEntityID && Ctx.PickedEntityId != Arche::NullEntityID) {
+            const PickingGizmo* HoveredGizmoComponent{ World.GetComponent<PickingGizmo>(HoveredGizmoEntityId) };
+            const Transform* TargetTransform{ World.GetComponent<Transform>(Ctx.PickedEntityId) };
+            SimpleMath::Matrix TargetWorldMatrix{};
+            SimpleMath::Matrix ParentWorldMatrix{};
+            if (HoveredGizmoComponent != nullptr && TargetTransform != nullptr && TryResolveEntityWorldMatrix(Ctx.WorldMatrices, Ctx.PickedEntityId, TargetWorldMatrix) && TryResolveParentWorldMatrix(Ctx.WorldMatrices, World, Ctx.PickedEntityId, ParentWorldMatrix)) {
                 SimpleMath::Vector3 RayOrigin{};
                 SimpleMath::Vector3 RayDirection{};
                 DirectX::XMStoreFloat3(&RayOrigin, RayOriginVector);
                 DirectX::XMStoreFloat3(&RayDirection, RayDirectionVector);
 
-                float CurrentAxisParameter{ 0.0f };
-                if (TryResolveAxisRayParameter(RayOrigin, RayDirection, mDraggingAxisOrigin, mDraggingAxisDirection, CurrentAxisParameter)) {
-                    const float DragDelta{ mDraggingStartAxisParameter - CurrentAxisParameter };
-                    const SimpleMath::Vector3 TargetWorldPosition{ mDraggingStartWorldPosition + mDraggingAxisDirection * DragDelta };
-                    if (TryApplyTargetWorldPosition(World, mDraggingTargetEntityId, TargetWorldPosition)) {
-                        Ctx.PickedEntityId = mDraggingTargetEntityId;
-                        UpdatePickingGizmos(Ctx.WorldMatrices, World, Ctx.PickedEntityId, Arche::NullEntityID);
+                const SimpleMath::Quaternion AxisOrientation{ SimpleMath::Quaternion::CreateFromRotationMatrix(TargetWorldMatrix) };
+                const std::array<SimpleMath::Vector3, 3> AxisDirections{ { SimpleMath::Vector3::Transform(SimpleMath::Vector3::UnitX, AxisOrientation), SimpleMath::Vector3::Transform(SimpleMath::Vector3::UnitY, AxisOrientation), SimpleMath::Vector3::Transform(SimpleMath::Vector3::UnitZ, AxisOrientation) } };
+                if (HoveredGizmoComponent->axisIndex < AxisDirections.size()) {
+                    const SimpleMath::Vector3 AxisDirection{ AxisDirections[HoveredGizmoComponent->axisIndex] };
+                    const SimpleMath::Vector3 AxisOrigin{ TargetWorldMatrix.Translation() };
+                    float AxisParameter{};
+                    if (TryResolveAxisRayParameter(RayOrigin, RayDirection, AxisOrigin, AxisDirection, AxisParameter)) {
+                        SimpleMath::Vector3 AxisDirectionLocal{};
+                        if (TryResolveGizmoAxisDirection(HoveredGizmoComponent->axisIndex, AxisDirectionLocal)) {
+                            SimpleMath::Vector3 AxisDirectionParentSpace{ SimpleMath::Vector3::TransformNormal(AxisDirectionLocal, SimpleMath::Matrix::CreateFromQuaternion(TargetTransform->rotation)) };
+                            if (AxisDirectionParentSpace.LengthSquared() > 0.0f) {
+                                AxisDirectionParentSpace.Normalize();
+
+                                SimpleMath::Matrix ParentWorldInverseMatrix{ ParentWorldMatrix };
+                                ParentWorldInverseMatrix = ParentWorldInverseMatrix.Invert();
+
+                                const SimpleMath::Vector3 RayOriginParentSpace{ SimpleMath::Vector3::Transform(RayOrigin, ParentWorldInverseMatrix) };
+                                const SimpleMath::Vector3 RayDirectionParentSpace{ SimpleMath::Vector3::TransformNormal(RayDirection, ParentWorldInverseMatrix) };
+                                float ParentAxisParameter{};
+                                if (TryResolveAxisRayParameter(RayOriginParentSpace, RayDirectionParentSpace, TargetTransform->position, AxisDirectionParentSpace, ParentAxisParameter)) {
+                                    mIsGizmoDragging = true;
+                                    mDraggingTargetEntityId = Ctx.PickedEntityId;
+                                    mDraggingTargetStartLocalPosition = TargetTransform->position;
+                                    mDraggingAxisOriginParentSpace = TargetTransform->position;
+                                    mDraggingAxisDirectionParentSpace = AxisDirectionParentSpace;
+                                    mDraggingParentWorldInverseMatrix = ParentWorldInverseMatrix;
+                                    mDraggingStartAxisParameter = ParentAxisParameter;
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
 
-        if (mIsGizmoDragging && IsMouseDragReleased) {
+        if (mIsGizmoDragging && IsMouseHeld && mDraggingTargetEntityId != Arche::NullEntityID) {
+            if (IsRayAvailable) {
+                Game::Transform* TargetTransform{ World.GetComponent<Transform>(mDraggingTargetEntityId) };
+                if (TargetTransform != nullptr) {
+                    SimpleMath::Vector3 RayOrigin{};
+                    SimpleMath::Vector3 RayDirection{};
+                    DirectX::XMStoreFloat3(&RayOrigin, RayOriginVector);
+                    DirectX::XMStoreFloat3(&RayDirection, RayDirectionVector);
+
+                    const SimpleMath::Vector3 RayOriginParentSpace{ SimpleMath::Vector3::Transform(RayOrigin, mDraggingParentWorldInverseMatrix) };
+                    const SimpleMath::Vector3 RayDirectionParentSpace{ SimpleMath::Vector3::TransformNormal(RayDirection, mDraggingParentWorldInverseMatrix) };
+                    float CurrentAxisParameter{};
+                    if (TryResolveAxisRayParameter(RayOriginParentSpace, RayDirectionParentSpace, mDraggingAxisOriginParentSpace, mDraggingAxisDirectionParentSpace, CurrentAxisParameter)) {
+                        const float DeltaAxisParameter{ mDraggingStartAxisParameter - CurrentAxisParameter };
+                        TargetTransform->position = mDraggingTargetStartLocalPosition + mDraggingAxisDirectionParentSpace * DeltaAxisParameter;
+                    }
+                }
+            }
+        }
+
+        if (mIsGizmoDragging && IsMouseReleased) {
             mIsGizmoDragging = false;
             mDraggingTargetEntityId = Arche::NullEntityID;
+            mDraggingStartAxisParameter = 0.0f;
+            mDraggingTargetStartLocalPosition = SimpleMath::Vector3{};
+            mDraggingAxisOriginParentSpace = SimpleMath::Vector3{};
+            mDraggingAxisDirectionParentSpace = SimpleMath::Vector3{};
+            mDraggingParentWorldInverseMatrix = SimpleMath::Matrix::Identity;
         }
 
-        DirectX::XMVECTOR HoverRayOrigin{};
-        DirectX::XMVECTOR HoverRayDirection{};
-        Arche::EntityID HoveredGizmoEntityId{ Arche::NullEntityID };
-
-        const Transform* CameraTransform{ nullptr };
-        const Camera* CameraComponent{ nullptr };
-        const bool IsHoverRayAvailable{ mIsGizmoDragging == false && Ctx.PickedEntityId != Arche::NullEntityID && TryFindActiveCamera(World, CameraTransform, CameraComponent) && CameraTransform != nullptr && CameraComponent != nullptr && TryBuildPickingRay(*CameraTransform, *CameraComponent, HoverRayOrigin, HoverRayDirection) };
-        if (IsHoverRayAvailable) {
-            HoveredGizmoEntityId = ResolveHoveredGizmoEntity(Ctx.WorldMatrices, World, HoverRayOrigin, HoverRayDirection);
+        if (mIsGizmoDragging) {
+            HoveredGizmoEntityId = Arche::NullEntityID;
         }
 
-        if (mLastGizmoPickedEntityId != Ctx.PickedEntityId || mLastHoveredGizmoEntityId != HoveredGizmoEntityId) {
-            UpdatePickingGizmos(Ctx.WorldMatrices, World, Ctx.PickedEntityId, HoveredGizmoEntityId);
-            mLastGizmoPickedEntityId = Ctx.PickedEntityId;
-            mLastHoveredGizmoEntityId = HoveredGizmoEntityId;
-        }
+        UpdatePickingGizmos(Ctx.WorldMatrices, World, Ctx.PickedEntityId, HoveredGizmoEntityId);
     }
-
-
-
 }

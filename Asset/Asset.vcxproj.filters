@@ -22,29 +22,32 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AnimationBinaryReader.cpp">
+      <Filter>Serializer</Filter>
+    </ClCompile>
+    <ClCompile Include="AnimationClipBinaryWriter.cpp">
+      <Filter>Serializer</Filter>
+    </ClCompile>
+    <ClCompile Include="AnimationClipResult.cpp">
+      <Filter>Defines</Filter>
+    </ClCompile>
+    <ClCompile Include="AssimpAnimationClipImporter.cpp">
+      <Filter>Importer</Filter>
+    </ClCompile>
     <ClCompile Include="AssetBinaryReader.cpp">
       <Filter>Serializer</Filter>
     </ClCompile>
     <ClCompile Include="AssetBinaryWriter.cpp">
       <Filter>Serializer</Filter>
     </ClCompile>
-    <ClCompile Include="UfbxAssetLoader.cpp">
-      <Filter>Importer</Filter>
-    </ClCompile>
     <ClCompile Include="FbxAssetImporter.cpp">
       <Filter>Importer</Filter>
     </ClCompile>
-    <ClCompile Include="ufbx.c">
-      <Filter>ufbx</Filter>
+    <ClCompile Include="GltfAssetImporter.cpp">
+      <Filter>Importer</Filter>
     </ClCompile>
     <ClCompile Include="DataList.cpp">
       <Filter>Defines</Filter>
-    </ClCompile>
-    <ClCompile Include="MaterialVisitor.cpp">
-      <Filter>Visitor</Filter>
-    </ClCompile>
-    <ClCompile Include="MeshHierarchyBuilder.cpp">
-      <Filter>Visitor</Filter>
     </ClCompile>
     <ClCompile Include="Common.cpp">
       <Filter>Defines</Filter>
@@ -52,37 +55,40 @@
     <ClCompile Include="ModelResult.cpp">
       <Filter>Defines</Filter>
     </ClCompile>
-    <ClCompile Include="NumericTypes.cpp">
-      <Filter>Defines</Filter>
-    </ClCompile>
     <ClCompile Include="MaterialGroupJsonSerializer.cpp">
       <Filter>Serializer</Filter>
     </ClCompile>
+    <ClCompile Include="AssimpAssetImporter.cpp">
+      <Filter>Importer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AnimationBinaryReader.h">
+      <Filter>Serializer</Filter>
+    </ClInclude>
+    <ClInclude Include="AnimationClipBinaryWriter.h">
+      <Filter>Serializer</Filter>
+    </ClInclude>
+    <ClInclude Include="AnimationClipResult.h">
+      <Filter>Defines</Filter>
+    </ClInclude>
+    <ClInclude Include="AssimpAnimationClipImporter.h">
+      <Filter>Importer</Filter>
+    </ClInclude>
     <ClInclude Include="AssetBinaryReader.h">
       <Filter>Serializer</Filter>
     </ClInclude>
     <ClInclude Include="AssetBinaryWriter.h">
       <Filter>Serializer</Filter>
     </ClInclude>
-    <ClInclude Include="UfbxAssetLoader.h">
-      <Filter>Importer</Filter>
-    </ClInclude>
     <ClInclude Include="FbxAssetImporter.h">
       <Filter>Importer</Filter>
     </ClInclude>
-    <ClInclude Include="ufbx.h">
-      <Filter>ufbx</Filter>
+    <ClInclude Include="GltfAssetImporter.h">
+      <Filter>Importer</Filter>
     </ClInclude>
     <ClInclude Include="DataList.h">
       <Filter>Defines</Filter>
-    </ClInclude>
-    <ClInclude Include="MaterialVisitor.h">
-      <Filter>Visitor</Filter>
-    </ClInclude>
-    <ClInclude Include="MeshHierarchyBuilder.h">
-      <Filter>Visitor</Filter>
     </ClInclude>
     <ClInclude Include="Common.h">
       <Filter>Defines</Filter>
@@ -90,14 +96,11 @@
     <ClInclude Include="ModelResult.h">
       <Filter>Defines</Filter>
     </ClInclude>
-    <ClInclude Include="NumericTypes.h">
-      <Filter>Defines</Filter>
-    </ClInclude>
-    <ClInclude Include="SceneVisitor.h">
-      <Filter>Visitor</Filter>
-    </ClInclude>
     <ClInclude Include="MaterialGroupJsonSerializer.h">
       <Filter>Serializer</Filter>
+    </ClInclude>
+    <ClInclude Include="AssimpAssetImporter.h">
+      <Filter>Importer</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -46,9 +46,9 @@ namespace Core {
             void Reset() override;
 
             bool CanAllocate(const D3D12_RESOURCE_DESC& ResourceDesc) const override;
-            std::unique_ptr<Interface::IAllocationHandle> AllocatePlacedResource(const D3D12_RESOURCE_DESC& ResourceDesc, D3D12_RESOURCE_STATES InitialState, const D3D12_CLEAR_VALUE* OptimizedClearValue = nullptr) override;
+            std::unique_ptr<Interface::IAllocationHandle> AllocatePlacedResource(const Interface::AllocatePlacedResourceParameters& Parameters) override;
 
-            AllocationHandle AllocatePlacedResourceHandle(const D3D12_RESOURCE_DESC& ResourceDesc, D3D12_RESOURCE_STATES InitialState, const D3D12_CLEAR_VALUE* OptimizedClearValue = nullptr);
+            AllocationHandle AllocatePlacedResourceHandle(const Interface::AllocatePlacedResourceParameters& Parameters);
 
             ID3D12Heap* GetHeap() const override;
             SizeType GetHeapSize() const override;

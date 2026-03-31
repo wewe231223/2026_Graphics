@@ -1,0 +1,43 @@
+GraphName: KnightIdleRun
+ParameterDefinitions:
+  - ParameterName: IsMoving
+    ParameterType: Bool
+    DefaultValue: false
+
+Nodes:
+  - NodeName: Idle
+    AnimationFile: Mannequinn_Idle_Run.animbin
+    ClipIndex: 0
+    IsLoop: true
+    PlaySpeed: 1.0
+    IsDefault: true
+  - NodeName: Run
+    AnimationFile: Mannequinn_Idle_Run.animbin
+    ClipIndex: 1
+    IsLoop: true
+    PlaySpeed: 1.0
+    IsDefault: false
+
+Transitions:
+  - FromNode: Idle
+    ToNode: Run
+    HasExitTime: false
+    ExitTimeNormalized: 0.0
+    CanInterrupt: true
+    Priority: 0
+    BlendDuration: 0.09
+    Conditions:
+      - Parameter: IsMoving
+        Operator: Equals
+        BoolValue: true
+  - FromNode: Run
+    ToNode: Idle
+    HasExitTime: false
+    ExitTimeNormalized: 0.0
+    CanInterrupt: true
+    Priority: 0
+    BlendDuration: 0.09
+    Conditions:
+      - Parameter: IsMoving
+        Operator: Equals
+        BoolValue: false

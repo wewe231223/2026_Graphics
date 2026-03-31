@@ -1,6 +1,5 @@
 #include "MaterialResourceManager.h"
 #include <vector>
-#include "Core/DX/CopyQueueId.h"
 #include "Core/DX/GraphicsAllocator.h"
 #include "Utility/ErrorHandler.h"
 
@@ -19,7 +18,7 @@ namespace Core {
 			mMaterialSrvHandle = mSrvHeap->Allocate();
 			for (std::size_t Index{ 0 }; Index < Constants::FrameCount<std::size_t>; ++Index) {
 				mMaterialTextureTableSrvHandles[Index] = mSrvHeap->Allocate();
-				mPerFrameCopyFenceValues[Index] = 0;
+				mPerFrameCopyFutures[Index] = Interface::CopyFuture{};
 				mPerFrameMaterialTextureTableHashes[Index] = 0;
 				mPerFrameMaterialTextureTableSizesInBytes[Index] = 0;
 			}
@@ -63,15 +62,11 @@ namespace Core {
 			}
 
 			if (CopyRequests.empty() == false) {
-				std::uint64_t CopyId{ CopyQueueId::DrawCallBegin + Constants::FrameCount<std::uint64_t> + static_cast<std::uint64_t>(RtvIndex) };
-				bool IsCopyIdValid{ CopyId <= CopyQueueId::DrawCallEnd };
-				ErrorHandler::report(IsCopyIdValid == false, "MaterialResourceManager", "Invalid material copy id.", ErrorHandler::Level::Critical);
-				bool EnqueueResult{ CopyQueue->EnqueueCopy(CopyId, CopyRequests) };
-				ErrorHandler::report(EnqueueResult == false, "MaterialResourceManager", "Failed to enqueue material upload copy requests.", ErrorHandler::Level::Critical);
-				mPerFrameCopyFenceValues[RtvIndex] = CopyId;
+				mPerFrameCopyFutures[RtvIndex] = CopyQueue->EnqueueCopyFuture(CopyRequests);
+				ErrorHandler::report(mPerFrameCopyFutures[RtvIndex].IsValid() == false, "MaterialResourceManager", "Failed to enqueue material upload copy requests.", ErrorHandler::Level::Critical);
 			}
 			else {
-				mPerFrameCopyFenceValues[RtvIndex] = 0;
+				mPerFrameCopyFutures[RtvIndex] = Interface::CopyFuture{};
 			}
 
 			MaterialResourceManager::UpdateMaterialShaderResourceView(static_cast<std::uint32_t>(Data.materials.size()));
@@ -105,12 +100,13 @@ namespace Core {
 		}
 
 		void MaterialResourceManager::WaitForUpload(Interface::ICopyQueue* CopyQueue, std::uint32_t RtvIndex) const {
-			std::uint64_t CopyFenceValue{ mPerFrameCopyFenceValues[RtvIndex] };
-			if (CopyFenceValue == 0) {
+			static_cast<void>(CopyQueue);
+
+			if (mPerFrameCopyFutures[RtvIndex].IsValid() == false) {
 				return;
 			}
 
-			CopyQueue->GuaranteeCopy(CopyFenceValue);
+			mPerFrameCopyFutures[RtvIndex].Wait();
 		}
 
 		DescriptorHandle MaterialResourceManager::GetMaterialSrvHandle() const {

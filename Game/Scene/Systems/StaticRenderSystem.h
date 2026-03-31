@@ -12,12 +12,10 @@ namespace Game {
     public:
         StaticRenderSystem() = default;
         ~StaticRenderSystem() override = default;
-
-        StaticRenderSystem(const StaticRenderSystem&) = default;
-        StaticRenderSystem& operator=(const StaticRenderSystem&) = default;
-
-        StaticRenderSystem(StaticRenderSystem&&) noexcept = default;
-        StaticRenderSystem& operator=(StaticRenderSystem&&) noexcept = default;
+        StaticRenderSystem(const StaticRenderSystem& Other) = default;
+        StaticRenderSystem& operator=(const StaticRenderSystem& Other) = default;
+        StaticRenderSystem(StaticRenderSystem&& Other) noexcept = default;
+        StaticRenderSystem& operator=(StaticRenderSystem&& Other) noexcept = default;
 
     public:
         const std::string& Name() const override;
@@ -27,7 +25,6 @@ namespace Game {
         void Execute(Arche::World& World, FrameContext& Ctx, float Dt) override;
 
     private:
-        void TraverseHierarchy(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& ParentWorld, const Frustum* CullingFrustumComponent, RFD::RenderFrameData& RenderData, const std::vector<RegisteredMaterialGroup>& MaterialGroups, Arche::EntityID PickedEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& WorldMatrices) const;
         bool IsVisibleByFrustum(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& NodeWorld, const Frustum* CullingFrustumComponent) const;
 
     private:

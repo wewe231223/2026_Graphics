@@ -67,6 +67,10 @@ namespace Globals {
         Input::SetVirtualMouse(not mVirtualMouse);
     }
 
+    void Input::SetRightButtonVirtualMouseEnabled(bool IsEnabled) {
+        mRightButtonVirtualMouseEnabled = IsEnabled;
+    }
+
 
     const DirectX::Keyboard::State& Input::GetKeyboardState() const {
         return mKeyboardState;
@@ -112,8 +116,15 @@ namespace Globals {
 		return mKeyboardTracker.IsKeyReleased(key);
     }
 
+    bool Input::IsImGuiInputBlocked() const {
+        return mIsImGuiInputBlocked;
+    }
+
     void Input::UpdateCursor() {
-        Input::SetVirtualMouse(mMouseTracker.rightButton); 
+        if (mRightButtonVirtualMouseEnabled) {
+            Input::SetVirtualMouse(mMouseTracker.rightButton);
+        }
+
         if (mVirtualMouse) {
             POINT virtualMouseScreenPosition{ mVirtualMousePosition };
             ClientToScreen(mhwnd, &virtualMouseScreenPosition);

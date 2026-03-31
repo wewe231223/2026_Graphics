@@ -21,7 +21,7 @@ namespace {
     };
 
     asset::Vec3 ScalePosition(const asset::Vec3& Position, float Size) {
-        return asset::Vec3{ Position.mX * Size, Position.mY * Size, Position.mZ * Size };
+        return asset::Vec3{ Position.x * Size, Position.y * Size, Position.z * Size };
     }
 
     bool TryParseFloat(const std::string& Text, float& OutValue) {
@@ -109,7 +109,7 @@ namespace {
                 const float CosTheta{ std::cos(Theta) };
 
                 const asset::Vec3 Normal{ SinPhi * CosTheta, CosPhi, SinPhi * SinTheta };
-                const asset::Vec3 Position{ Radius * Normal.mX, Radius * Normal.mY, Radius * Normal.mZ };
+                const asset::Vec3 Position{ Radius * Normal.x, Radius * Normal.y, Radius * Normal.z };
                 const asset::Vec2 TexCoord{ U, V };
                 AddVertex(Data, Position, Normal, TexCoord, Parameters.Color);
             }
@@ -196,10 +196,10 @@ namespace {
             const float CosTheta{ std::cos(Theta) };
             const asset::Vec3 BasePoint{ Radius * CosTheta, -HalfHeight, Radius * SinTheta };
             const asset::Vec3 Tangent{ -SinTheta, 0.0f, CosTheta };
-            const asset::Vec3 ToApex{ Apex.mX - BasePoint.mX, Apex.mY - BasePoint.mY, Apex.mZ - BasePoint.mZ };
-            const asset::Vec3 Normal{ ToApex.mY * Tangent.mZ - ToApex.mZ * Tangent.mY, ToApex.mZ * Tangent.mX - ToApex.mX * Tangent.mZ, ToApex.mX * Tangent.mY - ToApex.mY * Tangent.mX };
-            const float Length{ std::sqrt(Normal.mX * Normal.mX + Normal.mY * Normal.mY + Normal.mZ * Normal.mZ) };
-            const asset::Vec3 UnitNormal{ Normal.mX / Length, Normal.mY / Length, Normal.mZ / Length };
+            const asset::Vec3 ToApex{ Apex.x - BasePoint.x, Apex.y - BasePoint.y, Apex.z - BasePoint.z };
+            const asset::Vec3 Normal{ ToApex.y * Tangent.z - ToApex.z * Tangent.y, ToApex.z * Tangent.x - ToApex.x * Tangent.z, ToApex.x * Tangent.y - ToApex.y * Tangent.x };
+            const float Length{ std::sqrt(Normal.x * Normal.x + Normal.y * Normal.y + Normal.z * Normal.z) };
+            const asset::Vec3 UnitNormal{ Normal.x / Length, Normal.y / Length, Normal.z / Length };
             AddVertex(Data, BasePoint, UnitNormal, asset::Vec2{ U, 1.0f }, Parameters.Color);
             AddVertex(Data, Apex, UnitNormal, asset::Vec2{ U, 0.0f }, Parameters.Color);
         }
@@ -244,11 +244,11 @@ namespace {
         const std::array<asset::Vec2, 3> FaceUv{ { asset::Vec2{ 0.0f, 1.0f }, asset::Vec2{ 0.5f, 0.0f }, asset::Vec2{ 1.0f, 1.0f } } };
 
         for (const std::array<asset::Vec3, 3>& Face : Faces) {
-            const asset::Vec3 Edge0{ Face[1].mX - Face[0].mX, Face[1].mY - Face[0].mY, Face[1].mZ - Face[0].mZ };
-            const asset::Vec3 Edge1{ Face[2].mX - Face[0].mX, Face[2].mY - Face[0].mY, Face[2].mZ - Face[0].mZ };
-            const asset::Vec3 NormalRaw{ Edge0.mY * Edge1.mZ - Edge0.mZ * Edge1.mY, Edge0.mZ * Edge1.mX - Edge0.mX * Edge1.mZ, Edge0.mX * Edge1.mY - Edge0.mY * Edge1.mX };
-            const float Length{ std::sqrt(NormalRaw.mX * NormalRaw.mX + NormalRaw.mY * NormalRaw.mY + NormalRaw.mZ * NormalRaw.mZ) };
-            const asset::Vec3 Normal{ NormalRaw.mX / Length, NormalRaw.mY / Length, NormalRaw.mZ / Length };
+            const asset::Vec3 Edge0{ Face[1].x - Face[0].x, Face[1].y - Face[0].y, Face[1].z - Face[0].z };
+            const asset::Vec3 Edge1{ Face[2].x - Face[0].x, Face[2].y - Face[0].y, Face[2].z - Face[0].z };
+            const asset::Vec3 NormalRaw{ Edge0.y * Edge1.z - Edge0.z * Edge1.y, Edge0.z * Edge1.x - Edge0.x * Edge1.z, Edge0.x * Edge1.y - Edge0.y * Edge1.x };
+            const float Length{ std::sqrt(NormalRaw.x * NormalRaw.x + NormalRaw.y * NormalRaw.y + NormalRaw.z * NormalRaw.z) };
+            const asset::Vec3 Normal{ NormalRaw.x / Length, NormalRaw.y / Length, NormalRaw.z / Length };
             const std::uint32_t BaseIndex{ static_cast<std::uint32_t>(Data.Vertices.VertexCount()) };
             AddVertex(Data, Face[0], Normal, FaceUv[0], Parameters.Color);
             AddVertex(Data, Face[1], Normal, FaceUv[1], Parameters.Color);
@@ -280,11 +280,11 @@ namespace {
         const std::array<asset::Vec2, 3> FaceUv{ { asset::Vec2{ 0.0f, 1.0f }, asset::Vec2{ 0.5f, 0.0f }, asset::Vec2{ 1.0f, 1.0f } } };
 
         for (const std::array<asset::Vec3, 3>& Face : Faces) {
-            const asset::Vec3 Edge0{ Face[1].mX - Face[0].mX, Face[1].mY - Face[0].mY, Face[1].mZ - Face[0].mZ };
-            const asset::Vec3 Edge1{ Face[2].mX - Face[0].mX, Face[2].mY - Face[0].mY, Face[2].mZ - Face[0].mZ };
-            const asset::Vec3 NormalRaw{ Edge0.mY * Edge1.mZ - Edge0.mZ * Edge1.mY, Edge0.mZ * Edge1.mX - Edge0.mX * Edge1.mZ, Edge0.mX * Edge1.mY - Edge0.mY * Edge1.mX };
-            const float Length{ std::sqrt(NormalRaw.mX * NormalRaw.mX + NormalRaw.mY * NormalRaw.mY + NormalRaw.mZ * NormalRaw.mZ) };
-            const asset::Vec3 Normal{ NormalRaw.mX / Length, NormalRaw.mY / Length, NormalRaw.mZ / Length };
+            const asset::Vec3 Edge0{ Face[1].x - Face[0].x, Face[1].y - Face[0].y, Face[1].z - Face[0].z };
+            const asset::Vec3 Edge1{ Face[2].x - Face[0].x, Face[2].y - Face[0].y, Face[2].z - Face[0].z };
+            const asset::Vec3 NormalRaw{ Edge0.y * Edge1.z - Edge0.z * Edge1.y, Edge0.z * Edge1.x - Edge0.x * Edge1.z, Edge0.x * Edge1.y - Edge0.y * Edge1.x };
+            const float Length{ std::sqrt(NormalRaw.x * NormalRaw.x + NormalRaw.y * NormalRaw.y + NormalRaw.z * NormalRaw.z) };
+            const asset::Vec3 Normal{ NormalRaw.x / Length, NormalRaw.y / Length, NormalRaw.z / Length };
             const std::uint32_t BaseIndex{ static_cast<std::uint32_t>(Data.Vertices.VertexCount()) };
             AddVertex(Data, Face[0], Normal, FaceUv[0], Parameters.Color);
             AddVertex(Data, Face[1], Normal, FaceUv[1], Parameters.Color);

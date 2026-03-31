@@ -1,53 +1,65 @@
-﻿// Asset Binary Format Specification:
-//┌─────────────────────────────────────────────────────────────────────────┐
-//│                            [HEADER SECTION]                             │
-//├──────────────┬───────────────┬──────────────────────────────────────────┤
-//│    OFFSET    │      NAME     │                DATA TYPE                 │
-//├──────────────┼───────────────┼──────────────────────────────────────────┤
-//│    0x00      │     Magic     │  char[4]("FBXB")                         │
-//│    0x04      │ FormatVersion │  uint32                                  │
-//└──────────────┴───────────────┴──────────────────────────────────────────┘
+﻿// Asset Binary Format Specification (Current: Version 9):
+//┌──────────────────────────────────────────────────────────────────────────────┐
+//│                                [HEADER SECTION]                              │
+//├──────────────┬────────────────┬──────────────────────────────────────────────┤
+//│    OFFSET    │      NAME      │                  DATA TYPE                   │
+//├──────────────┼────────────────┼──────────────────────────────────────────────┤
+//│    0x00      │     Magic      │ char[4]("FBXB")                              │
+//│    0x04      │ FormatVersion  │ uint32 (9)                                   │
+//└──────────────┴────────────────┴──────────────────────────────────────────────┘
 //
-//                               │
-//                               ▼
+//                                   │
+//                                   ▼
 //
-//┌─────────────────────────────────────────────────────────────────────────┐
-//│                              [BODY SECTION]                             │
-//├──────────────┬───────────────┬──────────────────────────────────────────┤
-//│    0x08      │   NodeCount   │  uint64(Number of Node Records)          │
-//└──────────────┴───────────────┴──────────────────────────────────────────┘
+//┌──────────────────────────────────────────────────────────────────────────────┐
+//│                                 [BODY SECTION]                               │
+//├──────────────┬────────────────┬──────────────────────────────────────────────┤
+//│    0x08      │   NodeCount    │ uint64 (Number of Node Records)              │
+//│    0x10      │ UnifiedSkinBoneRootNodeName │ string                         │
+//└──────────────┴────────────────┴──────────────────────────────────────────────┘
 //
-//       ┌────────────────────────────────────────────────────────┐
-//       │[REPEATING NODE RECORD]                                 │
-//       │(Repeats 'NodeCount' times)                             │
-//       ├───────────────────┬────────────────────────────────────┤
-//       │ Name              │ string                             │
-//       │ ParentNodeIndex   │ int32(-1 for Root)                 │
-//       │ NodeToParent      │ Mat4(4x4 Matrix)                   │
-//       │ GeometryToNode    │ Mat4(4x4 Matrix)                   │
-//       ├───────────────────┴────────────────────────────────────┤
-//       │             < VertexAttributes >                       │
-//       ├───────────────────┬────────────────────────────────────┤
-//       │ Positions         │ Vec3[]                             │
-//       │ Normals           │ Vec3[]                             │
-//       │ TexCoords         │ Vec2[][MAX_TEXCOORDS]              │
-//       │ Colors            │ Vec4[]                             │
-//       │ Tangents          │ Vec3[]                             │
-//       │ Bitangents        │ Vec3[]                             │
-//       │ BoneIndices       │ UVec4[]                            │
-//       │ BoneWeights       │ Vec4[]                             │
-//       ├───────────────────┴────────────────────────────────────┤
-//       │ Indices           │ uint32[]                           │
-//       ├───────────────────┴────────────────────────────────────┤
-//       │                 < SubMesh[] >                          │
-//       ├───────────────────┬────────────────────────────────────┤
-//       │ IndexOffset       │ uint64                             │
-//       │ IndexCount        │ uint64                             │
-//       │ MatGroupItemIndex │ uint64                             │
-//       └───────────────────┴────────────────────────────────────┘
+//       ┌──────────────────────────────────────────────────────────────────┐
+//       │ [REPEATING NODE RECORD]                                          │
+//       │ (Repeats 'NodeCount' times)                                      │
+//       ├───────────────────────┬──────────────────────────────────────────┤
+//       │ Name                  │ string (uint64 length + bytes)           │
+//       │ ParentNodeIndex       │ int32 (-1 for Root)                      │
+//       │ NodeToParent          │ Mat4                                     │
+//       ├───────────────────────┴──────────────────────────────────────────┤
+//       │ < BoneInfos >                                                    │
+//       ├───────────────────────┬──────────────────────────────────────────┤
+//       │ BoneInfoCount         │ uint64                                   │
+//       │ SkinArrayIndex        │ uint32                                   │
+//       │ JointArrayIndex       │ uint32                                   │
+//       │ BoneName              │ string                                   │
+//       │ InverseBindMatrix     │ Mat4                                     │
+//       ├───────────────────────┴──────────────────────────────────────────┤
+//       │ IsSkinnedMesh         │ bool (stored as uint8)                   │
+//       ├───────────────────────┴──────────────────────────────────────────┤
+//       │ < VertexAttributes >                                             │
+//       ├───────────────────────┬──────────────────────────────────────────┤
+//       │ Positions             │ Vec3[] (uint64 count + raw bytes)        │
+//       │ Normals               │ Vec3[]                                   │
+//       │ TexCoords[0..N-1]     │ Vec2[] for each MAX_TEXCOORDS slot       │
+//       │ Colors                │ Vec4[]                                   │
+//       │ Tangents              │ Vec3[]                                   │
+//       │ Bitangents            │ Vec3[]                                   │
+//       │ BoneIndices           │ UVec4[]                                  │
+//       │ BoneWeights           │ Vec4[]                                   │
+//       ├───────────────────────┴──────────────────────────────────────────┤
+//       │ Indices               │ uint32[]                                 │
+//       ├───────────────────────┴──────────────────────────────────────────┤
+//       │ < SubMeshes >                                                    │
+//       ├───────────────────────┬──────────────────────────────────────────┤
+//       │ SubMeshCount          │ uint64                                   │
+//       │ IndexOffset           │ uint64                                   │
+//       │ IndexCount            │ uint64                                   │
+//       │ MaterialGroupItemIndex│ uint64                                   │
+//       └───────────────────────┴──────────────────────────────────────────┘
 #pragma once
 
 #include <fstream>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -70,7 +82,10 @@ namespace asset {
     private:
         bool ReadHeader();
         void ReadModelResult(ModelResult& Result);
-        void ReadNodes(ModelResult& Result, std::uint64_t NodeCount, std::vector<ModelNode*>& Nodes);
+        void ReadNodes(ModelResult& Result, std::uint64_t NodeCount, const std::string& UnifiedSkinBoneRootNodeName, std::vector<ModelNode*>& Nodes);
+        std::vector<ModelBoneInfo> ReadBoneInfos();
+        void ReadSkinnedMeshFlag(ModelNode& Node);
+        void ReadSkinBoneRootNodeName(ModelNode& Node);
         void ReadVertexAttributes(VertexAttributes& Attributes);
         std::vector<ModelNode::SubMesh> ReadSubMeshes();
         std::vector<Vec2> ReadVec2Array();
@@ -89,9 +104,6 @@ namespace asset {
         std::int64_t ReadInt64();
         float ReadFloat();
         bool ReadBool();
-        Vec2 ReadVec2();
-        Vec3 ReadVec3();
-        Vec4 ReadVec4();
         Mat4 ReadMat4();
         void ReadBytes(void* Data, std::size_t Size);
 
