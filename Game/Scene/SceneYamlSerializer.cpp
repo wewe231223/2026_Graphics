@@ -50,6 +50,9 @@ namespace {
     constexpr const char* PrefabInstanceTypeName{ "PrefabInstance" };
     constexpr const char* BoneSkinReferenceTypeName{ "BoneSkinReference" };
     constexpr const char* DefaultMaterialPathText{ "Resources/DefaultResource/DefaultMaterial.json" };
+    constexpr const char* CameraModeFreeLookText{ "FreeLook" };
+    constexpr const char* CameraModeThirdPersonText{ "ThirdPerson" };
+    constexpr const char* CameraModeCinematicText{ "Cinematic" };
 
 
     struct PrefabDescriptor final {
@@ -133,6 +136,43 @@ namespace {
         OutValue[2] = Values[2];
         OutValue[3] = Values[3];
         return true;
+    }
+
+    bool TryParseCameraModeText(const std::string& CameraModeText, std::uint32_t& OutCameraFlags) {
+        if (CameraModeText == CameraModeFreeLookText) {
+            OutCameraFlags &= ~Game::Camera::Flags::ThirdPerson;
+            OutCameraFlags &= ~Game::Camera::Flags::Cinematic;
+            OutCameraFlags |= Game::Camera::Flags::FreeLook;
+            return true;
+        }
+
+        if (CameraModeText == CameraModeThirdPersonText) {
+            OutCameraFlags &= ~Game::Camera::Flags::FreeLook;
+            OutCameraFlags &= ~Game::Camera::Flags::Cinematic;
+            OutCameraFlags |= Game::Camera::Flags::ThirdPerson;
+            return true;
+        }
+
+        if (CameraModeText == CameraModeCinematicText) {
+            OutCameraFlags &= ~Game::Camera::Flags::FreeLook;
+            OutCameraFlags &= ~Game::Camera::Flags::ThirdPerson;
+            OutCameraFlags |= Game::Camera::Flags::Cinematic;
+            return true;
+        }
+
+        return false;
+    }
+
+    const char* ResolveCameraModeText(std::uint32_t CameraFlags) {
+        if ((CameraFlags & Game::Camera::Flags::Cinematic) != 0u) {
+            return CameraModeCinematicText;
+        }
+
+        if ((CameraFlags & Game::Camera::Flags::ThirdPerson) != 0u) {
+            return CameraModeThirdPersonText;
+        }
+
+        return CameraModeFreeLookText;
     }
 
     std::unique_ptr<Game::ISystem> CreateSystemByName(const std::string& SystemName) {
@@ -960,39 +1000,16 @@ namespace Game {
                     CameraNode["orthoSize"] >> NewCamera.orthoSize;
                 }
 
-                if (CameraNode.has_child("cullingMask")) {
-                    CameraNode["cullingMask"] >> NewCamera.cullingMask;
-                }
-
                 if (CameraNode.has_child("clearColor")) {
                     ReadColor4(CameraNode["clearColor"], NewCamera.clearColor);
                 }
 
-                if (CameraNode.has_child("priority")) {
-                    CameraNode["priority"] >> NewCamera.priority;
+                if (CameraNode.has_child("startMode")) {
+                    std::string CameraModeText{};
+                    CameraNode["startMode"] >> CameraModeText;
+                    TryParseCameraModeText(CameraModeText, NewCamera.cameraFlags);
                 }
-
-                if (CameraNode.has_child("smoothingFactor")) {
-                    CameraNode["smoothingFactor"] >> NewCamera.smoothingFactor;
-                }
-
-                if (CameraNode.has_child("currentFovBias")) {
-                    CameraNode["currentFovBias"] >> NewCamera.currentFovBias;
-                }
-
-                if (CameraNode.has_child("currentShakeIntensity")) {
-                    CameraNode["currentShakeIntensity"] >> NewCamera.currentShakeIntensity;
-                }
-
-                if (CameraNode.has_child("lockOnTargetIndex")) {
-                    CameraNode["lockOnTargetIndex"] >> NewCamera.lockOnTarget.index;
-                }
-
-                if (CameraNode.has_child("lockOnTargetGeneration")) {
-                    CameraNode["lockOnTargetGeneration"] >> NewCamera.lockOnTarget.generation;
-                }
-
-                if (CameraNode.has_child("cameraFlags")) {
+                else if (CameraNode.has_child("cameraFlags")) {
                     CameraNode["cameraFlags"] >> NewCamera.cameraFlags;
                 }
 
@@ -1420,14 +1437,7 @@ namespace Game {
                 AppendLine(Stream, 4, std::string{ "isActive: " } + ToYamlBooleanText(CameraComponent->isActive));
                 AppendLine(Stream, 4, std::string{ "isOrthographic: " } + ToYamlBooleanText(CameraComponent->isOrthographic));
                 AppendLine(Stream, 4, std::string{ "orthoSize: " } + std::to_string(CameraComponent->orthoSize));
-                AppendLine(Stream, 4, std::string{ "cullingMask: " } + std::to_string(CameraComponent->cullingMask));
                 AppendColor4(Stream, 4, "clearColor", CameraComponent->clearColor);
-                AppendLine(Stream, 4, std::string{ "priority: " } + std::to_string(CameraComponent->priority));
-                AppendLine(Stream, 4, std::string{ "smoothingFactor: " } + std::to_string(CameraComponent->smoothingFactor));
-                AppendLine(Stream, 4, std::string{ "currentFovBias: " } + std::to_string(CameraComponent->currentFovBias));
-                AppendLine(Stream, 4, std::string{ "currentShakeIntensity: " } + std::to_string(CameraComponent->currentShakeIntensity));
-                AppendLine(Stream, 4, std::string{ "lockOnTargetIndex: " } + std::to_string(CameraComponent->lockOnTarget.index));
-                AppendLine(Stream, 4, std::string{ "lockOnTargetGeneration: " } + std::to_string(CameraComponent->lockOnTarget.generation));
                 const std::unordered_map<Arche::EntityID, std::uint32_t>::const_iterator ThirdPersonFollowTargetSerializedIter{ SerializedEntityIds.find(CameraComponent->thirdPersonFollowTarget) };
                 const std::int32_t ThirdPersonFollowTargetSerializedId{ ThirdPersonFollowTargetSerializedIter == SerializedEntityIds.end() ? -1 : static_cast<std::int32_t>(ThirdPersonFollowTargetSerializedIter->second) };
                 AppendLine(Stream, 4, std::string{ "thirdPersonFollowTargetEntityId: " } + std::to_string(ThirdPersonFollowTargetSerializedId));
@@ -1439,7 +1449,7 @@ namespace Game {
                 AppendLine(Stream, 4, std::string{ "thirdPersonOrbitPitch: " } + std::to_string(CameraComponent->thirdPersonOrbitPitch));
                 AppendLine(Stream, 4, std::string{ "thirdPersonPositionLerpSpeed: " } + std::to_string(CameraComponent->thirdPersonPositionLerpSpeed));
                 AppendLine(Stream, 4, std::string{ "thirdPersonZoomSpeed: " } + std::to_string(CameraComponent->thirdPersonZoomSpeed));
-                AppendLine(Stream, 4, std::string{ "cameraFlags: " } + std::to_string(CameraComponent->cameraFlags));
+                AppendLine(Stream, 4, std::string{ "startMode: " } + ResolveCameraModeText(CameraComponent->cameraFlags));
             }
 
             if (CameraIntentComponent != nullptr) {
