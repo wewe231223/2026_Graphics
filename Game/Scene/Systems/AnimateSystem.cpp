@@ -298,6 +298,28 @@ namespace {
 
         }
     }
+
+    SimpleMath::Vector3 BuildRootMotionTranslationDelta(const SimpleMath::Vector3& RootBoneWorldDelta, const Game::Transform& OwnerTransform) {
+        SimpleMath::Vector3 Forward{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Forward, OwnerTransform.rotation) };
+        if (Forward.LengthSquared() > 0.0f) {
+            Forward.Normalize();
+        }
+
+        auto fors = SimpleMath::Vector3::Forward;
+
+        SimpleMath::Vector3 Right{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Right, OwnerTransform.rotation) };
+        if (Right.LengthSquared() > 0.0f) {
+            Right.Normalize();
+        }
+
+        SimpleMath::Vector3 Up{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Up, OwnerTransform.rotation) };
+        if (Up.LengthSquared() > 0.0f) {
+            Up.Normalize();
+        }
+
+        const SimpleMath::Vector3 TranslationDelta{ (Forward * RootBoneWorldDelta.x) + (Right * RootBoneWorldDelta.z) + (Up * RootBoneWorldDelta.y) };
+        return -TranslationDelta;
+    }
 }
 
 namespace Game {
@@ -414,7 +436,11 @@ namespace Game {
                             RootMotionComponent->rootBoneWorldDelta = SimpleMath::Vector3::TransformNormal(RootSpaceDelta, RootBoneWorldMatrix);
                             RootMotionComponent->hasRootBoneWorldDelta = true;
                         }
-                        World.GetComponent<Transform>(Resolved.EntityId)->position += SimpleMath::Vector3{0.f, 0.f, RootMotionComponent->rootBoneWorldDelta.x};
+                        Transform* OwnerTransform{ World.GetComponent<Transform>(Resolved.EntityId) };
+                        if (OwnerTransform != nullptr) {
+                            const SimpleMath::Vector3 TranslationDelta{ BuildRootMotionTranslationDelta(RootMotionComponent->rootBoneWorldDelta, *OwnerTransform) };
+                            OwnerTransform->position += SimpleMath::Vector3{ 0.f, 0.f, TranslationDelta.z };
+                        }
                     }
 
 
