@@ -5,6 +5,7 @@
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PrefabInstance.h"
 #include "Game/Scene/Components/SkinnedMeshRenderer.h"
@@ -117,7 +118,6 @@ namespace Game {
                     SkinnedMeshRenderer NodeRenderer{};
                     NodeRenderer.model = SpawnRequest.ModelData.get();
                     NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
-                    NodeRenderer.materialGroupIndex = SpawnRequest.MaterialGroupIndex;
                     NodeRenderer.active = SpawnRequest.IsActive;
                     AddSkinnedMeshRenderer(NodeEntities[NodeIndex], NodeRenderer);
                 }
@@ -125,10 +125,13 @@ namespace Game {
                     StaticMeshRenderer NodeRenderer{};
                     NodeRenderer.model = SpawnRequest.ModelData.get();
                     NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
-                    NodeRenderer.materialGroupIndex = SpawnRequest.MaterialGroupIndex;
                     NodeRenderer.active = SpawnRequest.IsActive;
                     AddStaticMeshRenderer(NodeEntities[NodeIndex], NodeRenderer);
                 }
+
+                Material NodeMaterial{};
+                NodeMaterial.MaterialGroupIndex = SpawnRequest.MaterialGroupIndex;
+                AddMaterial(NodeEntities[NodeIndex], NodeMaterial);
 
                 BoundingBox NodeBoundingBox{};
                 NodeBoundingBox.UpdateFromModel(SpawnRequest.ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
@@ -239,6 +242,16 @@ namespace Game {
         }
 
         *ExistingRenderer = SkinnedMeshRendererComponent;
+    }
+
+    void SceneEntityFactory::AddMaterial(Arche::EntityID EntityId, const Material& MaterialComponent) {
+        Material* ExistingMaterial{ mScene->GetWorld().GetComponent<Material>(EntityId) };
+        if (ExistingMaterial == nullptr) {
+            mScene->GetWorld().AddComponent(EntityId, MaterialComponent);
+            return;
+        }
+
+        *ExistingMaterial = MaterialComponent;
     }
 
     void SceneEntityFactory::AddBoundingBox(Arche::EntityID EntityId, const BoundingBox& BoundingBoxComponent) {

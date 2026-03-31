@@ -8,7 +8,6 @@ namespace Game {
     Component(SkinnedMeshRenderer)
         Model* model{ nullptr };
         std::uint32_t nodeIndex{ 0 };
-        std::uint32_t materialGroupIndex{ 0 };
         bool active{ true };
     EndComponent(SkinnedMeshRenderer)
 }

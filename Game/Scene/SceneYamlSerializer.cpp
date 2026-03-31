@@ -349,12 +349,6 @@ namespace {
             return true;
         }
 
-        const Game::StaticMeshRenderer* CurrentRenderer{ ReadOnlyWorld->GetComponent<Game::StaticMeshRenderer>(EntityId) };
-        if (CurrentRenderer != nullptr) {
-            OutMaterialGroupIndex = CurrentRenderer->materialGroupIndex;
-            return true;
-        }
-
         const Game::EntityHierarchy* HierarchyComponent{ ReadOnlyWorld->GetComponent<Game::EntityHierarchy>(EntityId) };
         if (HierarchyComponent == nullptr) {
             return false;

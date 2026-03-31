@@ -319,7 +319,7 @@ namespace Game {
             const std::uint32_t PickFlags{ IsPickedHierarchy ? PickedDrawFlagBitMask : 0u };
             const RegisteredMaterialGroup* ResolvedMaterialGroup{ nullptr };
             if (MaterialGroups.empty() == false) {
-                std::size_t ResolvedMaterialGroupIndex{ SkinnedMeshRendererComponent.materialGroupIndex };
+                std::size_t ResolvedMaterialGroupIndex{ MaterialComponent == nullptr ? 0u : MaterialComponent->MaterialGroupIndex };
                 if (ResolvedMaterialGroupIndex >= MaterialGroups.size() || MaterialGroups[ResolvedMaterialGroupIndex].Items.empty()) {
                     ResolvedMaterialGroupIndex = 0;
                 }

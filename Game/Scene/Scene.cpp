@@ -8,6 +8,7 @@
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PickingGizmo.h"
 #include "Game/Scene/Components/PrefabInstance.h"
@@ -197,9 +198,12 @@ namespace Game {
 
             StaticMeshRenderer MeshRenderer{};
             MeshRenderer.model = GizmoModel.get();
-            MeshRenderer.materialGroupIndex = GizmoMaterialGroupIndex;
             MeshRenderer.active = false;
             mWorld.AddComponent(EntityId, MeshRenderer);
+
+            Material MaterialComponent{};
+            MaterialComponent.MaterialGroupIndex = GizmoMaterialGroupIndex;
+            mWorld.AddComponent(EntityId, MaterialComponent);
 
             BoundingBox GizmoBoundingBox{};
             mWorld.AddComponent(EntityId, GizmoBoundingBox);
