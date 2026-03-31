@@ -41,6 +41,7 @@
     <ClInclude Include="Scene\Components\Material.h" />
     <ClInclude Include="Scene\Components\Animator.h" />
     <ClInclude Include="Scene\Components\AnimatorGraphPlayer.h" />
+    <ClInclude Include="Scene\Components\RuntimeVariableTable.h" />
     <ClInclude Include="Scene\Components\Name.h" />
     <ClInclude Include="Scene\Components\ComponentInspection.h" />
     <ClInclude Include="Scene\Components\PickingGizmo.h" />
@@ -90,6 +91,7 @@
     <ClCompile Include="Scene\Components\Material.cpp" />
     <ClCompile Include="Scene\Components\Animator.cpp" />
     <ClCompile Include="Scene\Components\AnimatorGraphPlayer.cpp" />
+    <ClCompile Include="Scene\Components\RuntimeVariableTable.cpp" />
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp" />
     <ClCompile Include="Scene\Components\Tags.cpp" />
     <ClCompile Include="Scene\Components\Intents\CameraIntent.cpp" />

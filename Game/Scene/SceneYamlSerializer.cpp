@@ -18,6 +18,7 @@
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/AnimatorGraphPlayer.h"
+#include "Game/Scene/Components/RuntimeVariableTable.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
@@ -49,6 +50,7 @@ namespace {
     constexpr const char* NameTypeName{ "Name" };
     constexpr const char* PrefabInstanceTypeName{ "PrefabInstance" };
     constexpr const char* BoneSkinReferenceTypeName{ "BoneSkinReference" };
+    constexpr const char* RuntimeVariablesTypeName{ "RuntimeVariables" };
     constexpr const char* DefaultMaterialPathText{ "Resources/DefaultResource/DefaultMaterial.json" };
     constexpr const char* CameraModeFreeLookText{ "FreeLook" };
     constexpr const char* CameraModeThirdPersonText{ "ThirdPerson" };
@@ -63,12 +65,27 @@ namespace {
     };
 
     struct PendingAnimatorBinding final {
+        struct PendingRuntimeVariableInitialization final {
+            enum class RuntimeVariableType : std::uint8_t {
+                Bool,
+                Int,
+                Float,
+            };
+
+            std::string ParameterName{};
+            RuntimeVariableType Type{ RuntimeVariableType::Bool };
+            bool BoolValue{};
+            std::int32_t IntValue{};
+            float FloatValue{};
+        };
+
         Arche::EntityID SourceEntityId{ Arche::NullEntityID };
         std::string TargetNodeName{};
         asset::Animation* AnimationData{ nullptr };
         Game::AnimationGraphAsset* AnimationGraphData{ nullptr };
         std::int32_t ClipIndex{ -1 };
         std::int32_t FallbackClipIndex{ -1 };
+        std::vector<PendingRuntimeVariableInitialization> RuntimeVariableInitializations{};
     };
 
     bool ReadVector3(c4::yml::ConstNodeRef TargetNode, SimpleMath::Vector3& OutValue) {
@@ -953,6 +970,36 @@ namespace Game {
                     AnimationNode["node"] >> NewBinding.TargetNodeName;
                 }
 
+                if (ComponentsNode.has_child(RuntimeVariablesTypeName)) {
+                    const c4::yml::ConstNodeRef RuntimeVariablesNode{ ComponentsNode[RuntimeVariablesTypeName] };
+                    for (const c4::yml::ConstNodeRef RuntimeVariableNode : RuntimeVariablesNode.children()) {
+                        PendingAnimatorBinding::PendingRuntimeVariableInitialization NewInitialization{};
+                        std::string TypeText{};
+                        RuntimeVariableNode["Name"] >> NewInitialization.ParameterName;
+                        RuntimeVariableNode["Type"] >> TypeText;
+
+                        if (TypeText == "Bool") {
+                            NewInitialization.Type = PendingAnimatorBinding::PendingRuntimeVariableInitialization::RuntimeVariableType::Bool;
+                            RuntimeVariableNode["Value"] >> NewInitialization.BoolValue;
+                        }
+                        else if (TypeText == "Int") {
+                            NewInitialization.Type = PendingAnimatorBinding::PendingRuntimeVariableInitialization::RuntimeVariableType::Int;
+                            RuntimeVariableNode["Value"] >> NewInitialization.IntValue;
+                        }
+                        else if (TypeText == "Float") {
+                            NewInitialization.Type = PendingAnimatorBinding::PendingRuntimeVariableInitialization::RuntimeVariableType::Float;
+                            RuntimeVariableNode["Value"] >> NewInitialization.FloatValue;
+                        }
+                        else {
+                            LoadResult.IsSuccess = false;
+                            LoadResult.UndecidedItems.push_back(std::string{ "RuntimeVariables Type 값 오류: " } + TypeText);
+                            continue;
+                        }
+
+                        NewBinding.RuntimeVariableInitializations.push_back(std::move(NewInitialization));
+                    }
+                }
+
                 if (AnimationPath.empty() == false) {
                     const std::string ResolvedAnimationPath{ ResolveSceneResourcePath(SceneName, AnimationPath) };
                     const std::shared_ptr<asset::Animation> AnimationData{ OutScene.GetAssetRegistry().GetAnimation(ResolvedAnimationPath) };
@@ -1169,6 +1216,7 @@ namespace Game {
 
             if (NewAnimator.IsGraphEnabled) {
                 AnimatorGraphPlayer Player{};
+                RuntimeVariableTable VariableTable{};
                 const std::int32_t DefaultNodeIndex{ NewAnimator.GraphAsset->GetDefaultNodeIndex() };
                 Player.CurrentNodeIndex = DefaultNodeIndex;
                 if (DefaultNodeIndex >= 0 && static_cast<std::size_t>(DefaultNodeIndex) < NewAnimator.GraphAsset->GetNodes().size()) {
@@ -1181,15 +1229,27 @@ namespace Game {
                 }
 
                 const std::vector<AnimationGraphAsset::AnimationGraphParameterDefinition>& Definitions{ NewAnimator.GraphAsset->GetParameterDefinitions() };
-                for (std::size_t ParameterIndex{ 0 }; ParameterIndex < Definitions.size() && ParameterIndex < AnimatorGraphPlayer::MaxParameterCount; ++ParameterIndex) {
+                for (std::size_t ParameterIndex{ 0 }; ParameterIndex < Definitions.size() && ParameterIndex < RuntimeVariableTable::MaxParameterCount; ++ParameterIndex) {
                     if (Definitions[ParameterIndex].ParameterTypeValue == AnimationGraphAsset::ParameterType::Int) {
-                        Player.IntValues[ParameterIndex] = std::get<std::int32_t>(Definitions[ParameterIndex].DefaultValue);
+                        VariableTable.IntValues[ParameterIndex] = std::get<std::int32_t>(Definitions[ParameterIndex].DefaultValue);
                     }
                     else if (Definitions[ParameterIndex].ParameterTypeValue == AnimationGraphAsset::ParameterType::Float) {
-                        Player.FloatValues[ParameterIndex] = std::get<float>(Definitions[ParameterIndex].DefaultValue);
+                        VariableTable.FloatValues[ParameterIndex] = std::get<float>(Definitions[ParameterIndex].DefaultValue);
                     }
                     else {
-                        Player.BoolValues[ParameterIndex] = std::get<bool>(Definitions[ParameterIndex].DefaultValue);
+                        VariableTable.BoolValues[ParameterIndex] = std::get<bool>(Definitions[ParameterIndex].DefaultValue);
+                    }
+                }
+
+                for (const PendingAnimatorBinding::PendingRuntimeVariableInitialization& Initialization : Binding.RuntimeVariableInitializations) {
+                    if (Initialization.Type == PendingAnimatorBinding::PendingRuntimeVariableInitialization::RuntimeVariableType::Bool) {
+                        VariableTable.TrySetBoolParameter(Definitions, Initialization.ParameterName, Initialization.BoolValue);
+                    }
+                    else if (Initialization.Type == PendingAnimatorBinding::PendingRuntimeVariableInitialization::RuntimeVariableType::Int) {
+                        VariableTable.TrySetIntParameter(Definitions, Initialization.ParameterName, Initialization.IntValue);
+                    }
+                    else {
+                        VariableTable.TrySetFloatParameter(Definitions, Initialization.ParameterName, Initialization.FloatValue);
                     }
                 }
 
@@ -1199,6 +1259,14 @@ namespace Game {
                 }
                 else {
                     *ExistingPlayer = Player;
+                }
+
+                RuntimeVariableTable* ExistingVariableTable{ OutScene.GetWorld().GetComponent<RuntimeVariableTable>(TargetEntityId) };
+                if (ExistingVariableTable == nullptr) {
+                    OutScene.GetWorld().AddComponent(TargetEntityId, VariableTable);
+                }
+                else {
+                    *ExistingVariableTable = VariableTable;
                 }
             }
         }

@@ -1,4 +1,4 @@
-#include "AnimationGraphSystem.h"
+﻿#include "AnimationGraphSystem.h"
 
 #include <algorithm>
 #include <array>
@@ -9,6 +9,7 @@
 #include "Game/Base/Input.h"
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/AnimatorGraphPlayer.h"
+#include "Game/Scene/Components/RuntimeVariableTable.h"
 
 #ifdef min
 #undef min
@@ -42,13 +43,13 @@ namespace {
         return std::clamp(NextLocalTime, 0.0f, DurationSeconds);
     }
 
-    bool EvaluateCondition(const Game::AnimationGraphAsset::AnimationGraphConditionAsset& Condition, const Game::AnimationGraphAsset::AnimationGraphParameterDefinition& Definition, const Game::AnimatorGraphPlayer& Player) {
-        if (Condition.ParameterIndex >= Game::AnimatorGraphPlayer::MaxParameterCount) {
+    bool EvaluateCondition(const Game::AnimationGraphAsset::AnimationGraphConditionAsset& Condition, const Game::AnimationGraphAsset::AnimationGraphParameterDefinition& Definition, const Game::RuntimeVariableTable& VariableTable) {
+        if (Condition.ParameterIndex >= Game::RuntimeVariableTable::MaxParameterCount) {
             return false;
         }
 
         if (Definition.ParameterTypeValue == Game::AnimationGraphAsset::ParameterType::Bool || Definition.ParameterTypeValue == Game::AnimationGraphAsset::ParameterType::Trigger) {
-            const bool LeftValue{ Player.BoolValues[Condition.ParameterIndex] };
+            const bool LeftValue{ VariableTable.BoolValues[Condition.ParameterIndex] };
             if (Condition.Operator == Game::AnimationGraphAsset::ConditionOperator::NotEquals) {
                 return LeftValue != Condition.BoolValue;
             }
@@ -56,7 +57,7 @@ namespace {
         }
 
         if (Definition.ParameterTypeValue == Game::AnimationGraphAsset::ParameterType::Int) {
-            const std::int32_t LeftValue{ Player.IntValues[Condition.ParameterIndex] };
+            const std::int32_t LeftValue{ VariableTable.IntValues[Condition.ParameterIndex] };
             if (Condition.Operator == Game::AnimationGraphAsset::ConditionOperator::NotEquals) {
                 return LeftValue != Condition.IntValue;
             }
@@ -75,7 +76,7 @@ namespace {
             return LeftValue == Condition.IntValue;
         }
 
-        const float LeftValue{ Player.FloatValues[Condition.ParameterIndex] };
+        const float LeftValue{ VariableTable.FloatValues[Condition.ParameterIndex] };
         if (Condition.Operator == Game::AnimationGraphAsset::ConditionOperator::NotEquals) {
             return LeftValue != Condition.FloatValue;
         }
@@ -105,7 +106,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> AnimationGraphSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 2> Accesses{ { { typeid(Animator), Access::Write }, { typeid(AnimatorGraphPlayer), Access::Write } } };
+        static std::array<ComponentAccess, 3> Accesses{ { { typeid(Animator), Access::Write }, { typeid(AnimatorGraphPlayer), Access::Write }, { typeid(RuntimeVariableTable), Access::Write } } };
         return Accesses;
     }
 
@@ -115,27 +116,7 @@ namespace Game {
     }
 
     void AnimationGraphSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
-#pragma region TemporaryIsMovingInputTest
-        const Globals::Input& Input{ Globals::Input::Get() };
-        static bool IsMovingParameterValue{};
-        if (Input.IsKeyPressed(DirectX::Keyboard::Keys::V)) {
-            IsMovingParameterValue = true;
-        }
-        else if (Input.IsKeyReleased(DirectX::Keyboard::Keys::V)) {
-            IsMovingParameterValue = false;
-        }
-
-        if (Ctx.PickedEntityId != Arche::NullEntityID) {
-            Animator* PickedAnimator{ World.GetComponent<Animator>(Ctx.PickedEntityId) };
-            AnimatorGraphPlayer* PickedGraphPlayer{ World.GetComponent<AnimatorGraphPlayer>(Ctx.PickedEntityId) };
-            if (PickedAnimator != nullptr && PickedGraphPlayer != nullptr && PickedAnimator->GraphAsset != nullptr && PickedAnimator->IsGraphEnabled) {
-                const std::vector<AnimationGraphAsset::AnimationGraphParameterDefinition>& ParameterDefinitions{ PickedAnimator->GraphAsset->GetParameterDefinitions() };
-                PickedGraphPlayer->TrySetBoolParameter(ParameterDefinitions, "IsMoving", IsMovingParameterValue);
-            }
-        }
-#pragma endregion
-
-        for (auto [AnimatorComponent, GraphPlayer] : World.Query<Animator, AnimatorGraphPlayer>()) {
+        for (auto [AnimatorComponent, GraphPlayer, VariableTable] : World.Query<Animator, AnimatorGraphPlayer, RuntimeVariableTable>()) {
             if (AnimatorComponent.GraphAsset == nullptr || AnimatorComponent.IsGraphEnabled == false) {
                 AnimatorComponent.clipIndex = AnimatorComponent.FallbackClipIndex;
                 continue;
@@ -201,7 +182,7 @@ namespace Game {
                             break;
                         }
 
-                        if (EvaluateCondition(Condition, ParameterDefinitions[Condition.ParameterIndex], GraphPlayer) == false) {
+                        if (EvaluateCondition(Condition, ParameterDefinitions[Condition.ParameterIndex], VariableTable) == false) {
                             IsSatisfied = false;
                             break;
                         }
