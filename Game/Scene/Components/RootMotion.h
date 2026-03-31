@@ -7,9 +7,11 @@ namespace SimpleMath = DirectX::SimpleMath;
 
 namespace Game {
     Component(RootMotion)
-        SimpleMath::Vector3 rootBoneWorldPosition{};
-        SimpleMath::Vector3 previousRootBoneWorldPosition{};
-        bool hasRootBoneWorldPosition{ false };
-        bool hasPreviousRootBoneWorldPosition{ false };
+        SimpleMath::Vector3 rootBonePosition{};
+        SimpleMath::Vector3 previousRootBonePosition{};
+        SimpleMath::Vector3 rootBoneWorldDelta{};
+        bool hasRootBonePosition{ false };
+        bool hasPreviousRootBonePosition{ false };
+        bool hasRootBoneWorldDelta{ false };
     EndComponent(RootMotion)
 }

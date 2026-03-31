@@ -17,14 +17,20 @@ namespace Game {
     }
 
     void RootMotion::BuildComponentInspectionFields(std::vector<ComponentInspectionField>& OutFields) const {
-        OutFields.push_back(ComponentInspectionField{ "RootBoneWorldPosition", hasRootBoneWorldPosition == true ? "true" : "false" });
+        OutFields.push_back(ComponentInspectionField{ "HasRootBonePosition", hasRootBonePosition == true ? "true" : "false" });
 
-        if (hasRootBoneWorldPosition == true) {
-            OutFields.push_back(ComponentInspectionField{ "RootBonePosition", FormatVector3(rootBoneWorldPosition) });
+        if (hasRootBonePosition == true) {
+            OutFields.push_back(ComponentInspectionField{ "RootBonePosition", FormatVector3(rootBonePosition) });
         }
 
-        if (hasRootBoneWorldPosition == true && hasPreviousRootBoneWorldPosition == true) {
-            const SimpleMath::Vector3 Delta{ rootBoneWorldPosition - previousRootBoneWorldPosition };
+        if (hasPreviousRootBonePosition == true) {
+            OutFields.push_back(ComponentInspectionField{ "PreviousRootBonePosition", FormatVector3(previousRootBonePosition) });
+        }
+
+        OutFields.push_back(ComponentInspectionField{ "HasRootBoneWorldDelta", hasRootBoneWorldDelta == true ? "true" : "false" });
+
+        if (hasRootBoneWorldDelta == true) {
+            const SimpleMath::Vector3 Delta{ rootBoneWorldDelta };
             OutFields.push_back(ComponentInspectionField{ "RootBoneDelta", FormatVector3(Delta) });
         }
     }
