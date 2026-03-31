@@ -111,7 +111,7 @@ namespace Arche {
     template <TrivialComponent... Ts>
     World::QueryView<Ts...> World::Query() {
         std::shared_lock<std::shared_mutex> Lock{ mWorldRwLock };
-        return QueryView<Ts...>(*GetTargetArchetypes<Ts...>());
+        return QueryView<Ts...>(GetTargetArchetypes<Ts...>());
     }
 
     template <TrivialComponent... Ts>
@@ -300,7 +300,7 @@ namespace Arche {
     }
 
     template <TrivialComponent... Ts>
-    World::QueryView<Ts...>::Iterator::Iterator(std::vector<Archetype*>::iterator It, std::vector<Archetype*>::iterator End)
+    World::QueryView<Ts...>::Iterator::Iterator(std::vector<Archetype*>::const_iterator It, std::vector<Archetype*>::const_iterator End)
         : mArchIt{ It }, mArchEnd{ End }, mChunkIt{}, mEntityIndex{ 0 }, mCurrentTargetArray{} {
         if (mArchIt != mArchEnd) {
             mChunkIt = (*mArchIt)->GetChunks().begin();
@@ -377,17 +377,25 @@ namespace Arche {
     }
 
     template <TrivialComponent... Ts>
-    World::QueryView<Ts...>::QueryView(std::vector<Archetype*> Archs)
-        : mArcheTypes{ std::move(Archs) } {
+    World::QueryView<Ts...>::QueryView(const std::vector<Archetype*>* Archetypes)
+        : mArcheTypes{ Archetypes } {
     }
 
     template <TrivialComponent... Ts>
     typename World::QueryView<Ts...>::Iterator World::QueryView<Ts...>::begin() {
-        return Iterator{ mArcheTypes.begin(), mArcheTypes.end() };
+        if (mArcheTypes == nullptr) {
+            return Iterator{ std::vector<Archetype*>::const_iterator{}, std::vector<Archetype*>::const_iterator{} };
+        }
+
+        return Iterator{ mArcheTypes->cbegin(), mArcheTypes->cend() };
     }
 
     template <TrivialComponent... Ts>
     typename World::QueryView<Ts...>::Iterator World::QueryView<Ts...>::end() {
-        return Iterator{ mArcheTypes.end(), mArcheTypes.end() };
+        if (mArcheTypes == nullptr) {
+            return Iterator{ std::vector<Archetype*>::const_iterator{}, std::vector<Archetype*>::const_iterator{} };
+        }
+
+        return Iterator{ mArcheTypes->cend(), mArcheTypes->cend() };
     }
 }

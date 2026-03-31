@@ -147,7 +147,7 @@ namespace Arche {
             using ReferenceTuple = std::tuple<Ts&...>;
 
         public:
-            Iterator(std::vector<Archetype*>::iterator It, std::vector<Archetype*>::iterator End);
+            Iterator(std::vector<Archetype*>::const_iterator It, std::vector<Archetype*>::const_iterator End);
             ~Iterator() = default;
 
             Iterator(const Iterator& Other) = default;
@@ -167,15 +167,15 @@ namespace Arche {
             void UpdatePointers();
 
         private:
-            std::vector<Archetype*>::iterator mArchIt{};
-            std::vector<Archetype*>::iterator mArchEnd{};
+            std::vector<Archetype*>::const_iterator mArchIt{};
+            std::vector<Archetype*>::const_iterator mArchEnd{};
             std::vector<Chunk*>::const_iterator mChunkIt{};
             std::uint32_t mEntityIndex{};
             PointerTuple mCurrentTargetArray{};
         };
 
     public:
-        QueryView(std::vector<Archetype*> Archs);
+        QueryView(const std::vector<Archetype*>* Archetypes);
         ~QueryView() = default;
 
         QueryView(const QueryView& Other) = default;
@@ -189,7 +189,7 @@ namespace Arche {
         Iterator end();
 
     private:
-        std::vector<Archetype*> mArcheTypes{};
+        const std::vector<Archetype*>* mArcheTypes{};
     };
 }
 
