@@ -237,15 +237,11 @@ namespace {
             if (EntityId == Arche::NullEntityID) continue;
 
             if (auto* Hierarchy = World.GetComponent<Game::EntityHierarchy>(EntityId)) {
-                Arche::EntityID ChildId = Hierarchy->firstChild;
-                std::vector<Arche::EntityID> Children;
+                Arche::EntityID ChildId{ Hierarchy->firstChild };
                 while (ChildId != Arche::NullEntityID) {
-                    Children.push_back(ChildId);
-                    auto* ChildHierarchy = World.GetComponent<Game::EntityHierarchy>(ChildId);
-                    ChildId = ChildHierarchy ? ChildHierarchy->nextSibling : Arche::NullEntityID;
-                }
-                for (auto it = Children.rbegin(); it != Children.rend(); ++it) {
-                    Stack.push_back(*it);
+                    Stack.push_back(ChildId);
+                    const Game::EntityHierarchy* ChildHierarchy{ World.GetComponent<Game::EntityHierarchy>(ChildId) };
+                    ChildId = ChildHierarchy == nullptr ? Arche::NullEntityID : ChildHierarchy->nextSibling;
                 }
             }
 
@@ -393,10 +389,13 @@ namespace Game {
                 }
             }
 
-            auto GetLookup = [&](const asset::AnimationClip& clip) {
-                AnimationChannelLookupCacheKey key{ SMR.model, &clip };
-                if (auto it = ChannelCache.find(key); it != ChannelCache.end()) return it->second;
-                return ChannelCache.emplace(key, BuildAnimationChannelLookup(*SMR.model, clip)).first->second;
+            auto GetLookup = [&](const asset::AnimationClip& Clip) -> const std::vector<const asset::AnimationChannel*>& {
+                AnimationChannelLookupCacheKey Key{ SMR.model, &Clip };
+                const auto Iterator{ ChannelCache.find(Key) };
+                if (Iterator != ChannelCache.end()) {
+                    return Iterator->second;
+                }
+                return ChannelCache.emplace(Key, BuildAnimationChannelLookup(*SMR.model, Clip)).first->second;
                 };
 
             RootMotion* RootMotionComponent{ World.GetComponent<RootMotion>(BoneRootEntityId) };
