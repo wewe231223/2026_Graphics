@@ -414,7 +414,7 @@ namespace Game {
                             RootMotionComponent->rootBoneWorldDelta = SimpleMath::Vector3::TransformNormal(RootSpaceDelta, RootBoneWorldMatrix);
                             RootMotionComponent->hasRootBoneWorldDelta = true;
                         }
-                        World.GetComponent<Transform>(Resolved.EntityId)->position += SimpleMath::Vector3{RootMotionComponent->rootBoneWorldDelta.z, 0.f, RootMotionComponent->rootBoneWorldDelta.x};
+                        World.GetComponent<Transform>(Resolved.EntityId)->position += SimpleMath::Vector3{0.f, 0.f, RootMotionComponent->rootBoneWorldDelta.x};
                     }
 
 
