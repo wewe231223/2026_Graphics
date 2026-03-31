@@ -209,6 +209,8 @@ namespace Game {
 
         for (auto [BoneComponent, TransformComponent] : World.Query<Bone, Transform>()) {
             (void)BoneComponent;
+            TransformComponent.previousRootBoneWorldPosition = TransformComponent.rootBoneWorldPosition;
+            TransformComponent.hasPreviousRootBoneWorldPosition = TransformComponent.hasRootBoneWorldPosition;
             TransformComponent.rootBoneWorldPosition = SimpleMath::Vector3::Zero;
             TransformComponent.hasRootBoneWorldPosition = false;
         }

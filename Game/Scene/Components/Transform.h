@@ -39,7 +39,9 @@ namespace Game {
 		SimpleMath::Matrix nodeToParent{ SimpleMath::Matrix::Identity };
 		SimpleMath::Matrix worldMatrix{ SimpleMath::Matrix::Identity };
 		SimpleMath::Vector3 rootBoneWorldPosition{};
+		SimpleMath::Vector3 previousRootBoneWorldPosition{};
 		bool hasRootBoneWorldPosition{ false };
+		bool hasPreviousRootBoneWorldPosition{ false };
 	EndComponent(Transform)
 
 }
