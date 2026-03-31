@@ -23,6 +23,25 @@ namespace {
         return std::clamp(Value, 0.0f, 1.0f);
     }
 
+    float AdvanceAnimationLocalTime(float CurrentLocalTime, float DeltaTime, float PlaySpeed, bool IsLoop, const asset::AnimationClip& Clip) {
+        const double TicksPerSecond{ Clip.TicksPerSecond > 0.0 ? Clip.TicksPerSecond : 30.0 };
+        const float DurationSeconds{ static_cast<float>(Clip.Duration / TicksPerSecond) };
+        if (DurationSeconds <= 0.0f) {
+            return 0.0f;
+        }
+
+        float NextLocalTime{ CurrentLocalTime + (DeltaTime * PlaySpeed) };
+        if (IsLoop == true) {
+            NextLocalTime = std::fmod(NextLocalTime, DurationSeconds);
+            if (NextLocalTime < 0.0f) {
+                NextLocalTime += DurationSeconds;
+            }
+            return NextLocalTime;
+        }
+
+        return std::clamp(NextLocalTime, 0.0f, DurationSeconds);
+    }
+
     bool EvaluateCondition(const Game::AnimationGraphAsset::AnimationGraphConditionAsset& Condition, const Game::AnimationGraphAsset::AnimationGraphParameterDefinition& Definition, const Game::AnimatorGraphPlayer& Player) {
         if (Condition.ParameterIndex >= Game::AnimatorGraphPlayer::MaxParameterCount) {
             return false;
@@ -209,9 +228,19 @@ namespace Game {
                 GraphPlayer.SampleBlendAlpha = GraphPlayer.BlendDuration <= 0.0f ? 1.0f : Clamp01(GraphPlayer.BlendElapsed / GraphPlayer.BlendDuration);
                 GraphPlayer.SampleSourceClipIndex = Nodes[GraphPlayer.CurrentNodeIndex].ClipIndex;
                 GraphPlayer.SampleSourceLocalTime = GraphPlayer.CurrentLocalTime;
-                GraphPlayer.SampleDestinationLocalTime = 0.0f;
+                GraphPlayer.SampleDestinationLocalTime = GraphPlayer.BlendElapsed;
                 if (GraphPlayer.NextNodeIndex >= 0 && static_cast<std::size_t>(GraphPlayer.NextNodeIndex) < Nodes.size()) {
-                    GraphPlayer.SampleDestinationClipIndex = Nodes[GraphPlayer.NextNodeIndex].ClipIndex;
+                    const AnimationGraphAsset::AnimationGraphNodeAsset& DestinationNode{ Nodes[GraphPlayer.NextNodeIndex] };
+                    GraphPlayer.SampleDestinationClipIndex = DestinationNode.ClipIndex;
+
+                    if (AnimatorComponent.animation != nullptr) {
+                        const std::size_t DestinationClipIndex{ static_cast<std::size_t>(std::max(DestinationNode.ClipIndex, 0)) };
+                        const std::vector<asset::AnimationClip>& Clips{ AnimatorComponent.animation->Clips() };
+                        if (DestinationClipIndex < Clips.size()) {
+                            const float DestinationPlaySpeed{ DestinationNode.PlaySpeed <= 0.0f ? 1.0f : DestinationNode.PlaySpeed };
+                            GraphPlayer.SampleDestinationLocalTime = AdvanceAnimationLocalTime(0.0f, GraphPlayer.BlendElapsed, DestinationPlaySpeed, DestinationNode.IsLoop, Clips[DestinationClipIndex]);
+                        }
+                    }
                 }
                 else {
                     GraphPlayer.SampleDestinationClipIndex = GraphPlayer.SampleSourceClipIndex;
@@ -220,8 +249,20 @@ namespace Game {
                 if (GraphPlayer.SampleBlendAlpha >= 1.0f && GraphPlayer.NextNodeIndex >= 0 && static_cast<std::size_t>(GraphPlayer.NextNodeIndex) < Nodes.size()) {
                     GraphPlayer.CurrentNodeIndex = GraphPlayer.NextNodeIndex;
                     GraphPlayer.NextNodeIndex = -1;
-                    GraphPlayer.CurrentLocalTime = 0.0f;
+                    GraphPlayer.CurrentLocalTime = GraphPlayer.SampleDestinationLocalTime;
                     GraphPlayer.CurrentNormalizedTime = 0.0f;
+                    if (AnimatorComponent.animation != nullptr) {
+                        const std::size_t CurrentClipIndex{ static_cast<std::size_t>(std::max(Nodes[GraphPlayer.CurrentNodeIndex].ClipIndex, 0)) };
+                        const std::vector<asset::AnimationClip>& Clips{ AnimatorComponent.animation->Clips() };
+                        if (CurrentClipIndex < Clips.size()) {
+                            const asset::AnimationClip& CurrentClip{ Clips[CurrentClipIndex] };
+                            const double TicksPerSecond{ CurrentClip.TicksPerSecond > 0.0 ? CurrentClip.TicksPerSecond : 30.0 };
+                            const float DurationSeconds{ static_cast<float>(CurrentClip.Duration / TicksPerSecond) };
+                            if (DurationSeconds > 0.0f) {
+                                GraphPlayer.CurrentNormalizedTime = Clamp01(GraphPlayer.CurrentLocalTime / DurationSeconds);
+                            }
+                        }
+                    }
                     GraphPlayer.IsInTransition = false;
                     GraphPlayer.SampleBlendAlpha = 0.0f;
                     GraphPlayer.SampleSourceClipIndex = Nodes[GraphPlayer.CurrentNodeIndex].ClipIndex;

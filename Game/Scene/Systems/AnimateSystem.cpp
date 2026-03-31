@@ -305,8 +305,6 @@ namespace {
             Forward.Normalize();
         }
 
-        auto fors = SimpleMath::Vector3::Forward;
-
         SimpleMath::Vector3 Right{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Right, OwnerTransform.rotation) };
         if (Right.LengthSquared() > 0.0f) {
             Right.Normalize();
@@ -412,6 +410,12 @@ namespace Game {
                 continue;
             }
 
+            const bool HasPreviousSourceSample{ RootMotionComponent->hasPreviousSourceSample };
+            const bool IsSourceClipChanged{ HasPreviousSourceSample == true && RootMotionComponent->previousSourceClipIndex != SrcClipIdx };
+            const bool IsSourceTimeWrapped{ HasPreviousSourceSample == true && RootMotionComponent->previousSourceClipIndex == SrcClipIdx && static_cast<float>(SrcLocalTime) < RootMotionComponent->previousSourceLocalTime };
+            const bool IsTransitioning{ GraphPlayer != nullptr && GraphPlayer->IsInTransition == true };
+            const bool ShouldResetRootMotionDelta{ IsSourceClipChanged == true || IsSourceTimeWrapped == true || IsTransitioning == true };
+
             const SimpleMath::Vector3 PreviousRootBonePosition{ RootMotionComponent->rootBonePosition };
             const bool HasPreviousRootBonePosition{ RootMotionComponent->hasRootBonePosition };
 
@@ -424,8 +428,14 @@ namespace Game {
                 if (RootMotionComponent != nullptr) {
                     RootMotionComponent->previousRootBonePosition = PreviousRootBonePosition;
                     RootMotionComponent->hasPreviousRootBonePosition = HasPreviousRootBonePosition;
+                    if (ShouldResetRootMotionDelta == true) {
+                        RootMotionComponent->hasPreviousRootBonePosition = false;
+                    }
                     RootMotionComponent->rootBoneWorldDelta = SimpleMath::Vector3::Zero;
                     RootMotionComponent->hasRootBoneWorldDelta = false;
+                    RootMotionComponent->previousSourceClipIndex = SrcClipIdx;
+                    RootMotionComponent->previousSourceLocalTime = static_cast<float>(SrcLocalTime);
+                    RootMotionComponent->hasPreviousSourceSample = true;
 
                     if (RootMotionComponent->hasRootBonePosition == true && RootMotionComponent->hasPreviousRootBonePosition == true) {
                         const SimpleMath::Vector3 RootSpaceDelta{ RootMotionComponent->rootBonePosition - RootMotionComponent->previousRootBonePosition };
