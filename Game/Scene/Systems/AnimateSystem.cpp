@@ -17,7 +17,6 @@
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/SkinnedMeshRenderer.h"
-#include "Game/Scene/Components/RootMotion.h"
 #include "Game/Scene/Components/Transform.h"
 
 namespace {
@@ -128,40 +127,6 @@ namespace {
         return ResolvedBoneSkinReference{};
     }
 
-    SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
-        const SimpleMath::Matrix TrsMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
-        return TransformComponent.nodeToParent * TrsMatrix;
-    }
-
-    bool TryResolveWorldMatrixFromNodeToParent(Arche::World& World, Arche::EntityID EntityId, SimpleMath::Matrix& OutWorldMatrix) {
-        std::vector<Arche::EntityID> EntityPath{};
-        Arche::EntityID CurrentEntityId{ EntityId };
-
-        while (CurrentEntityId != Arche::NullEntityID) {
-            const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(CurrentEntityId) };
-            const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
-            if (TransformComponent == nullptr || HierarchyComponent == nullptr) {
-                return false;
-            }
-
-            EntityPath.push_back(CurrentEntityId);
-            CurrentEntityId = HierarchyComponent->parent;
-        }
-
-        OutWorldMatrix = SimpleMath::Matrix::Identity;
-        for (std::vector<Arche::EntityID>::const_reverse_iterator EntityPathIter{ EntityPath.crbegin() }; EntityPathIter != EntityPath.crend(); ++EntityPathIter) {
-            const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(*EntityPathIter) };
-            if (TransformComponent == nullptr) {
-                return false;
-            }
-
-            const SimpleMath::Matrix LocalNodeToParentMatrix{ BuildLocalWorldMatrix(*TransformComponent) };
-            OutWorldMatrix = LocalNodeToParentMatrix * OutWorldMatrix;
-        }
-
-        return true;
-    }
-
     template<typename TKey>
     std::size_t ResolveFrameIndexFromKeys(double AnimationTick, const std::vector<TKey>& Keys) {
         if (Keys.size() <= 1) return 0;
@@ -221,9 +186,7 @@ namespace {
         T = SimpleMath::Vector3::Lerp(T, TT, Alpha);
     }
 
-    void ApplyAnimatedPoseIterative(Arche::World& World, Arche::EntityID RootId, const Game::Model& Model, std::span<const asset::AnimationChannel* const> SrcLookup, double SrcTick, std::span<const asset::AnimationChannel* const> DstLookup, double DstTick, float BlendAlpha, Game::RootMotion& RootMotionComponent) {
-        RootMotionComponent.rootBonePosition = SimpleMath::Vector3::Zero;
-        RootMotionComponent.hasRootBonePosition = false;
+    void ApplyAnimatedPoseIterative(Arche::World& World, Arche::EntityID RootId, const Game::Model& Model, std::span<const asset::AnimationChannel* const> SrcLookup, double SrcTick, std::span<const asset::AnimationChannel* const> DstLookup, double DstTick, float BlendAlpha) {
 
         const auto& Nodes = Model.GetNodes();
         std::vector<Arche::EntityID> Stack;
@@ -248,11 +211,6 @@ namespace {
             auto* Bone = World.GetComponent<Game::Bone>(EntityId);
             auto* Transform = World.GetComponent<Game::Transform>(EntityId);
 
-            if (EntityId == RootId && Transform != nullptr) {
-                RootMotionComponent.rootBonePosition = Transform->position;
-                RootMotionComponent.hasRootBonePosition = true;
-            }
-
             if (!Bone || !Transform || Bone->model != &Model || Bone->nodeIndex >= Nodes.size()) continue;
 
             const auto* SrcCh = SrcLookup[Bone->nodeIndex];
@@ -273,46 +231,17 @@ namespace {
                 BlendTransforms(S, R, T, SampleScale(*DstCh, DstTick), SampleRotation(*DstCh, DstTick), SamplePosition(*DstCh, DstTick), BlendAlpha);
             }
 
+            if (EntityId == RootId) {
+                T = SimpleMath::Vector3::Zero;
+            }
+
             SimpleMath::Matrix AnimLocal = SimpleMath::Matrix::CreateScale(S) * SimpleMath::Matrix::CreateFromQuaternion(R) * SimpleMath::Matrix::CreateTranslation(T);
             SimpleMath::Matrix DeltaLocal = Nodes[Bone->nodeIndex].GetNodeToParent().Invert() * AnimLocal;
 
             DeltaLocal.Decompose(Transform->scale, Transform->rotation, Transform->position);
             Transform->UpdateEulerRadiansFromRotation();
 
-
-            if (EntityId == RootId) {
-                RootMotionComponent.rootBonePosition = Transform->position;
-                RootMotionComponent.hasRootBonePosition = true;
-
-                SimpleMath::Matrix RootAnimLocal = SimpleMath::Matrix::CreateScale(S) * SimpleMath::Matrix::CreateFromQuaternion(R);
-                SimpleMath::Matrix RootDeltaLocal = Nodes[Bone->nodeIndex].GetNodeToParent().Invert() * RootAnimLocal;
-
-                RootDeltaLocal.Decompose(Transform->scale, Transform->rotation, Transform->position);
-                Transform->UpdateEulerRadiansFromRotation();
-            }
-
-
         }
-    }
-
-    SimpleMath::Vector3 BuildRootMotionTranslationDelta(const SimpleMath::Vector3& RootBoneWorldDelta, const Game::Transform& OwnerTransform) {
-        SimpleMath::Vector3 Forward{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Forward, OwnerTransform.rotation) };
-        if (Forward.LengthSquared() > 0.0f) {
-            Forward.Normalize();
-        }
-
-        SimpleMath::Vector3 Right{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Right, OwnerTransform.rotation) };
-        if (Right.LengthSquared() > 0.0f) {
-            Right.Normalize();
-        }
-
-        SimpleMath::Vector3 Up{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Up, OwnerTransform.rotation) };
-        if (Up.LengthSquared() > 0.0f) {
-            Up.Normalize();
-        }
-
-        const SimpleMath::Vector3 TranslationDelta{ (Forward * RootBoneWorldDelta.x) + (Right * RootBoneWorldDelta.z) + (Up * RootBoneWorldDelta.y) };
-        return -TranslationDelta;
     }
 }
 
@@ -321,10 +250,10 @@ namespace Game {
     Phase AnimateSystem::GetPhase() const { return Phase::Update; }
 
     std::span<const ComponentAccess> AnimateSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 8> Accesses{ {
+        static std::array<ComponentAccess, 7> Accesses{ {
             { typeid(Animator), Access::Write }, { typeid(AnimatorGraphPlayer), Access::Read },
             { typeid(BoneSkinReference), Access::Read }, { typeid(SkinnedMeshRenderer), Access::Read },
-            { typeid(EntityHierarchy), Access::Read }, { typeid(Bone), Access::Read }, { typeid(Transform), Access::Read }, { typeid(RootMotion), Access::Write }
+            { typeid(EntityHierarchy), Access::Read }, { typeid(Bone), Access::Read }, { typeid(Transform), Access::Read }
         } };
         return Accesses;
     }
@@ -344,8 +273,6 @@ namespace Game {
         std::unordered_set<PoseApplyCacheKey, PoseApplyCacheKeyHasher> AppliedPoses{};
         AppliedPoses.reserve(32);
 
-        std::unordered_set<Arche::EntityID> UpdatedRootMotions{};
-        UpdatedRootMotions.reserve(64);
 
         for (auto [SMR, Hierarchy, Trans] : World.Query<SkinnedMeshRenderer, EntityHierarchy, Transform>()) {
             (void)Trans;
@@ -395,68 +322,11 @@ namespace Game {
                 if (Iterator != ChannelCache.end()) {
                     return Iterator->second;
                 }
+
                 return ChannelCache.emplace(Key, BuildAnimationChannelLookup(*SMR.model, Clip)).first->second;
-                };
+            };
 
-            RootMotion* RootMotionComponent{ World.GetComponent<RootMotion>(BoneRootEntityId) };
-            if (RootMotionComponent == nullptr) {
-                RootMotion NewRootMotion{};
-                World.AddComponent(BoneRootEntityId, NewRootMotion);
-                RootMotionComponent = World.GetComponent<RootMotion>(BoneRootEntityId);
-            }
-
-            if (RootMotionComponent == nullptr) {
-                continue;
-            }
-
-            const bool HasPreviousSourceSample{ RootMotionComponent->hasPreviousSourceSample };
-            const bool IsSourceClipChanged{ HasPreviousSourceSample == true && RootMotionComponent->previousSourceClipIndex != SrcClipIdx };
-            const bool IsSourceTimeWrapped{ HasPreviousSourceSample == true && RootMotionComponent->previousSourceClipIndex == SrcClipIdx && static_cast<float>(SrcLocalTime) < RootMotionComponent->previousSourceLocalTime };
-            const bool IsTransitioning{ GraphPlayer != nullptr && GraphPlayer->IsInTransition == true };
-            const bool ShouldResetRootMotionDelta{ IsSourceClipChanged == true || IsSourceTimeWrapped == true || IsTransitioning == true };
-
-            const SimpleMath::Vector3 PreviousRootBonePosition{ RootMotionComponent->rootBonePosition };
-            const bool HasPreviousRootBonePosition{ RootMotionComponent->hasRootBonePosition };
-
-            ApplyAnimatedPoseIterative(World, BoneRootEntityId, *SMR.model,
-                GetLookup(SrcClip), SrcLocalTime * SrcTPS,
-                GetLookup(DstClip), DstLocalTime * DstTPS, BlendAlpha,
-                *RootMotionComponent);
-
-            if (UpdatedRootMotions.contains(BoneRootEntityId) == false) {
-                if (RootMotionComponent != nullptr) {
-                    RootMotionComponent->previousRootBonePosition = PreviousRootBonePosition;
-                    RootMotionComponent->hasPreviousRootBonePosition = HasPreviousRootBonePosition;
-                    if (ShouldResetRootMotionDelta == true) {
-                        RootMotionComponent->hasPreviousRootBonePosition = false;
-                    }
-                    RootMotionComponent->rootBoneWorldDelta = SimpleMath::Vector3::Zero;
-                    RootMotionComponent->hasRootBoneWorldDelta = false;
-                    RootMotionComponent->previousSourceClipIndex = SrcClipIdx;
-                    RootMotionComponent->previousSourceLocalTime = static_cast<float>(SrcLocalTime);
-                    RootMotionComponent->hasPreviousSourceSample = true;
-
-                    if (RootMotionComponent->hasRootBonePosition == true && RootMotionComponent->hasPreviousRootBonePosition == true) {
-                        const SimpleMath::Vector3 RootSpaceDelta{ RootMotionComponent->rootBonePosition - RootMotionComponent->previousRootBonePosition };
-
-                        SimpleMath::Matrix RootBoneWorldMatrix{};
-                        const bool IsRootBoneWorldMatrixResolved{ TryResolveWorldMatrixFromNodeToParent(World, BoneRootEntityId, RootBoneWorldMatrix) };
-                        if (IsRootBoneWorldMatrixResolved == true) {
-                            RootMotionComponent->rootBoneWorldDelta = SimpleMath::Vector3::TransformNormal(RootSpaceDelta, RootBoneWorldMatrix);
-                            RootMotionComponent->hasRootBoneWorldDelta = true;
-                        }
-                        Transform* OwnerTransform{ World.GetComponent<Transform>(Resolved.EntityId) };
-                        if (OwnerTransform != nullptr) {
-                            const SimpleMath::Vector3 TranslationDelta{ BuildRootMotionTranslationDelta(RootMotionComponent->rootBoneWorldDelta, *OwnerTransform) };
-                            OwnerTransform->position += SimpleMath::Vector3{ 0.f, 0.f, TranslationDelta.z };
-                        }
-                    }
-
-
-                }
-
-                UpdatedRootMotions.insert(BoneRootEntityId);
-            }
+            ApplyAnimatedPoseIterative(World, BoneRootEntityId, *SMR.model, GetLookup(SrcClip), SrcLocalTime * SrcTPS, GetLookup(DstClip), DstLocalTime * DstTPS, BlendAlpha);
         }
     }
 }
