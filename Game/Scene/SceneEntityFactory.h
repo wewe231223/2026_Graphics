@@ -13,6 +13,7 @@
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PrefabInstance.h"
+#include "Game/Scene/Components/RootMotion.h"
 #include "Game/Scene/Components/SkinnedMeshRenderer.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
@@ -59,6 +60,7 @@ namespace Game {
         void AddBoundingBox(Arche::EntityID EntityId, const BoundingBox& BoundingBoxComponent);
         void AddBone(Arche::EntityID EntityId, const Bone& BoneComponent);
         void AddBoneSkinReference(Arche::EntityID EntityId, const BoneSkinReference& BoneSkinReferenceComponent);
+        void AddRootMotion(Arche::EntityID EntityId, const RootMotion& RootMotionComponent);
         void AddAnimator(Arche::EntityID EntityId, const Animator& AnimatorComponent);
 
         Arche::EntityID ResolveBoneRootEntityId(const Model& ModelData, const ModelNode& ModelNodeData, const std::vector<Arche::EntityID>& NodeEntities) const;

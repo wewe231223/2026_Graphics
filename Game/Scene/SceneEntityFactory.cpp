@@ -7,6 +7,7 @@
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PrefabInstance.h"
+#include "Game/Scene/Components/RootMotion.h"
 #include "Game/Scene/Components/SkinnedMeshRenderer.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
@@ -180,6 +181,11 @@ namespace Game {
             BoneSkinReference RootBoneSkinReference{};
             RootBoneSkinReference.boneRootEntityId = RootBoneReferenceEntityId;
             AddBoneSkinReference(NodeEntities[RootNodeIndex], RootBoneSkinReference);
+
+            if (RootBoneReferenceEntityId != Arche::NullEntityID) {
+                RootMotion NewRootMotion{};
+                AddRootMotion(RootBoneReferenceEntityId, NewRootMotion);
+            }
         }
 
         if (OutNodeEntities != nullptr) {
@@ -270,6 +276,15 @@ namespace Game {
         *ExistingBoneSkinReference = BoneSkinReferenceComponent;
     }
 
+    void SceneEntityFactory::AddRootMotion(Arche::EntityID EntityId, const RootMotion& RootMotionComponent) {
+        RootMotion* ExistingRootMotion{ mScene->GetWorld().GetComponent<RootMotion>(EntityId) };
+        if (ExistingRootMotion == nullptr) {
+            mScene->GetWorld().AddComponent(EntityId, RootMotionComponent);
+            return;
+        }
+
+        *ExistingRootMotion = RootMotionComponent;
+    }
 
     void SceneEntityFactory::AddAnimator(Arche::EntityID EntityId, const Animator& AnimatorComponent) {
         Animator* ExistingAnimator{ mScene->GetWorld().GetComponent<Animator>(EntityId) };

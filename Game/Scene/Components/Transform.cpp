@@ -35,11 +35,6 @@ namespace Game {
         OutFields.push_back(ComponentInspectionField{ "Position", FormatVector3(position) });
         OutFields.push_back(ComponentInspectionField{ "Rotation", FormatVector3(rotationEuler) });
         OutFields.push_back(ComponentInspectionField{ "Scale", FormatVector3(scale) });
-        if (hasRootBoneWorldPosition == true && hasPreviousRootBoneWorldPosition == true) {
-            const SimpleMath::Vector3 RootBoneWorldPositionDelta{ rootBoneWorldPosition - previousRootBoneWorldPosition };
-            OutFields.push_back(ComponentInspectionField{ "Root Bone World Position Delta", FormatVector3(RootBoneWorldPositionDelta) });
-        }
-
         OutFields.push_back(ComponentInspectionField{ "World Matrix", FormatMatrix(worldMatrix) });
         OutFields.push_back(ComponentInspectionField{ "Node To Parent", FormatMatrix(nodeToParent) });
     }
@@ -182,10 +177,6 @@ namespace Game {
         scale = SimpleMath::Vector3{ 1.0f, 1.0f, 1.0f };
         nodeToParent = SimpleMath::Matrix::Identity;
         worldMatrix = SimpleMath::Matrix::Identity;
-        rootBoneWorldPosition = SimpleMath::Vector3::Zero;
-        previousRootBoneWorldPosition = SimpleMath::Vector3::Zero;
-        hasRootBoneWorldPosition = false;
-        hasPreviousRootBoneWorldPosition = false;
     }
 
 }

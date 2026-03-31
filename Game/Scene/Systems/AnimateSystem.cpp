@@ -17,6 +17,7 @@
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/SkinnedMeshRenderer.h"
+#include "Game/Scene/Components/RootMotion.h"
 #include "Game/Scene/Components/Transform.h"
 
 namespace {
@@ -126,6 +127,42 @@ namespace {
 
         return ResolvedBoneSkinReference{};
     }
+
+    SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
+        const SimpleMath::Matrix TrsMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
+        return TransformComponent.nodeToParent * TrsMatrix;
+    }
+
+    bool TryResolveWorldPositionFromNodeToParent(Arche::World& World, Arche::EntityID EntityId, SimpleMath::Vector3& OutWorldPosition) {
+        std::vector<Arche::EntityID> EntityPath{};
+        Arche::EntityID CurrentEntityId{ EntityId };
+
+        while (CurrentEntityId != Arche::NullEntityID) {
+            const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(CurrentEntityId) };
+            const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
+            if (TransformComponent == nullptr || HierarchyComponent == nullptr) {
+                return false;
+            }
+
+            EntityPath.push_back(CurrentEntityId);
+            CurrentEntityId = HierarchyComponent->parent;
+        }
+
+        SimpleMath::Matrix CurrentWorldMatrix{ SimpleMath::Matrix::Identity };
+        for (std::vector<Arche::EntityID>::const_reverse_iterator EntityPathIter{ EntityPath.crbegin() }; EntityPathIter != EntityPath.crend(); ++EntityPathIter) {
+            const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(*EntityPathIter) };
+            if (TransformComponent == nullptr) {
+                return false;
+            }
+
+            const SimpleMath::Matrix LocalNodeToParentMatrix{ BuildLocalWorldMatrix(*TransformComponent) };
+            CurrentWorldMatrix = LocalNodeToParentMatrix * CurrentWorldMatrix;
+        }
+
+        OutWorldPosition = SimpleMath::Vector3{ CurrentWorldMatrix._41, CurrentWorldMatrix._42, CurrentWorldMatrix._43 };
+        return true;
+    }
+
 
     template<typename TKey>
     std::size_t ResolveFrameIndexFromKeys(double AnimationTick, const std::vector<TKey>& Keys) {
@@ -248,10 +285,10 @@ namespace Game {
     Phase AnimateSystem::GetPhase() const { return Phase::Update; }
 
     std::span<const ComponentAccess> AnimateSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 7> Accesses{ {
+        static std::array<ComponentAccess, 8> Accesses{ {
             { typeid(Animator), Access::Write }, { typeid(AnimatorGraphPlayer), Access::Read },
             { typeid(BoneSkinReference), Access::Read }, { typeid(SkinnedMeshRenderer), Access::Read },
-            { typeid(EntityHierarchy), Access::Read }, { typeid(Bone), Access::Read }, { typeid(Transform), Access::Write }
+            { typeid(EntityHierarchy), Access::Read }, { typeid(Bone), Access::Read }, { typeid(Transform), Access::Read }, { typeid(RootMotion), Access::Write }
         } };
         return Accesses;
     }
@@ -259,10 +296,27 @@ namespace Game {
     std::span<const ResourceAccess> AnimateSystem::ResourceAccesses() const { return {}; }
 
     void AnimateSystem::Execute(Arche::World& World, FrameContext&, float Dt) {
-        ResolvedAnimatorCache AnimatorCache; AnimatorCache.reserve(32);
-        std::unordered_set<Arche::EntityID> UpdatedAnimators; UpdatedAnimators.reserve(32);
-        std::unordered_map<AnimationChannelLookupCacheKey, std::vector<const asset::AnimationChannel*>, AnimationChannelLookupCacheKeyHasher> ChannelCache; ChannelCache.reserve(32);
-        std::unordered_set<PoseApplyCacheKey, PoseApplyCacheKeyHasher> AppliedPoses; AppliedPoses.reserve(32);
+        ResolvedAnimatorCache AnimatorCache{};
+        AnimatorCache.reserve(32);
+
+        std::unordered_set<Arche::EntityID> UpdatedAnimators{};
+        UpdatedAnimators.reserve(32);
+
+        std::unordered_map<AnimationChannelLookupCacheKey, std::vector<const asset::AnimationChannel*>, AnimationChannelLookupCacheKeyHasher> ChannelCache{};
+        ChannelCache.reserve(32);
+
+        std::unordered_set<PoseApplyCacheKey, PoseApplyCacheKeyHasher> AppliedPoses{};
+        AppliedPoses.reserve(32);
+
+        std::unordered_set<Arche::EntityID> UpdatedRootMotions{};
+        UpdatedRootMotions.reserve(64);
+
+        for (auto [RootMotionComponent] : World.Query<RootMotion>()) {
+            RootMotionComponent.previousRootBoneWorldPosition = RootMotionComponent.rootBoneWorldPosition;
+            RootMotionComponent.hasPreviousRootBoneWorldPosition = RootMotionComponent.hasRootBoneWorldPosition;
+            RootMotionComponent.rootBoneWorldPosition = SimpleMath::Vector3::Zero;
+            RootMotionComponent.hasRootBoneWorldPosition = false;
+        }
 
         for (auto [SMR, Hierarchy, Trans] : World.Query<SkinnedMeshRenderer, EntityHierarchy, Transform>()) {
             (void)Trans;
@@ -274,6 +328,31 @@ namespace Game {
 
             const Arche::EntityID BoneRootEntityId{ ResolvedBoneSkinReferenceComponent.Component->boneRootEntityId };
             if (BoneRootEntityId == Arche::NullEntityID) continue;
+
+            if (UpdatedRootMotions.contains(BoneRootEntityId) == false) {
+                SimpleMath::Vector3 RootBoneWorldPosition{};
+                const bool IsRootBoneWorldPositionResolved{ TryResolveWorldPositionFromNodeToParent(World, BoneRootEntityId, RootBoneWorldPosition) };
+
+                RootMotion* RootMotionComponent{ World.GetComponent<RootMotion>(BoneRootEntityId) };
+                if (RootMotionComponent == nullptr) {
+                    RootMotion NewRootMotion{};
+                    World.AddComponent(BoneRootEntityId, NewRootMotion);
+                    RootMotionComponent = World.GetComponent<RootMotion>(BoneRootEntityId);
+                }
+
+                if (RootMotionComponent != nullptr) {
+                    if (IsRootBoneWorldPositionResolved == true) {
+                        RootMotionComponent->rootBoneWorldPosition = RootBoneWorldPosition;
+                        RootMotionComponent->hasRootBoneWorldPosition = true;
+                    }
+                    else {
+                        RootMotionComponent->rootBoneWorldPosition = SimpleMath::Vector3::Zero;
+                        RootMotionComponent->hasRootBoneWorldPosition = false;
+                    }
+                }
+
+                UpdatedRootMotions.insert(BoneRootEntityId);
+            }
 
             const auto& Clips = Resolved.Component->animation->Clips();
             auto* GraphPlayer = World.GetComponent<AnimatorGraphPlayer>(Resolved.EntityId);

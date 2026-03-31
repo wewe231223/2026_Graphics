@@ -111,6 +111,9 @@
     <ClInclude Include="Scene\Components\AnimatorGraphPlayer.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\RootMotion.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\Name.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -210,6 +213,9 @@
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\AnimatorGraphPlayer.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\RootMotion.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp">
