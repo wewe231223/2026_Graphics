@@ -11,6 +11,7 @@
 
 namespace Game {
     class AssetRegistry;
+    class RuntimeVariableInputTable;
     struct RegisteredMaterialGroup;
 
     enum class Phase : std::uint32_t {
@@ -47,6 +48,7 @@ namespace Game {
         RFD::RenderFrameData RenderData{};
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
         AssetRegistry* AssetRegistryResource{ nullptr };
+        RuntimeVariableInputTable* RuntimeVariableInputTableResource{ nullptr };
         Arche::EntityID PickedEntityId{ Arche::NullEntityID };
         std::unordered_map<Arche::EntityID, SimpleMath::Matrix> WorldMatrices{};
         std::unordered_map<Arche::EntityID, SkinnedPoseCacheEntry> SkinnedPoseCache{};

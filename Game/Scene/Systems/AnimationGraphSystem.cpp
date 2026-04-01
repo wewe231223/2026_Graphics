@@ -6,10 +6,10 @@
 #include <span>
 
 #include "Game/Asset/AnimationGraphAsset.h"
-#include "Game/Base/Input.h"
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/AnimatorGraphPlayer.h"
 #include "Game/Scene/Components/RuntimeVariableTable.h"
+#include "Game/Scene/RuntimeVariableInputTable.h"
 
 #ifdef min
 #undef min
@@ -43,12 +43,25 @@ namespace {
         return std::clamp(NextLocalTime, 0.0f, DurationSeconds);
     }
 
-    bool EvaluateCondition(const Game::AnimationGraphAsset::AnimationGraphConditionAsset& Condition, const Game::AnimationGraphAsset::AnimationGraphParameterDefinition& Definition, const Game::RuntimeVariableTable& VariableTable) {
+    bool EvaluateCondition(const Game::AnimationGraphAsset::AnimationGraphConditionAsset& Condition, const Game::RuntimeParameterDefinition& Definition, const Game::RuntimeVariableTable& VariableTable) {
         if (Condition.ParameterIndex >= Game::RuntimeVariableTable::MaxParameterCount) {
             return false;
         }
 
-        if (Definition.ParameterTypeValue == Game::AnimationGraphAsset::ParameterType::Bool || Definition.ParameterTypeValue == Game::AnimationGraphAsset::ParameterType::Trigger) {
+        if (Definition.ParameterTypeValue == Game::RuntimeParameterDefinition::ParameterType::Trigger) {
+            if (VariableTable.TriggerConsumed[Condition.ParameterIndex]) {
+                return false;
+            }
+
+            const bool LeftValue{ VariableTable.BoolValues[Condition.ParameterIndex] };
+            if (Condition.Operator == Game::AnimationGraphAsset::ConditionOperator::NotEquals) {
+                return LeftValue != Condition.BoolValue;
+            }
+
+            return LeftValue == Condition.BoolValue;
+        }
+
+        if (Definition.ParameterTypeValue == Game::RuntimeParameterDefinition::ParameterType::Bool) {
             const bool LeftValue{ VariableTable.BoolValues[Condition.ParameterIndex] };
             if (Condition.Operator == Game::AnimationGraphAsset::ConditionOperator::NotEquals) {
                 return LeftValue != Condition.BoolValue;
@@ -56,7 +69,7 @@ namespace {
             return LeftValue == Condition.BoolValue;
         }
 
-        if (Definition.ParameterTypeValue == Game::AnimationGraphAsset::ParameterType::Int) {
+        if (Definition.ParameterTypeValue == Game::RuntimeParameterDefinition::ParameterType::Int) {
             const std::int32_t LeftValue{ VariableTable.IntValues[Condition.ParameterIndex] };
             if (Condition.Operator == Game::AnimationGraphAsset::ConditionOperator::NotEquals) {
                 return LeftValue != Condition.IntValue;
@@ -94,6 +107,21 @@ namespace {
         }
         return LeftValue == Condition.FloatValue;
     }
+
+    void ConsumeTriggerParameters(const Game::AnimationGraphAsset::AnimationGraphTransitionAsset& Transition, const std::vector<Game::RuntimeParameterDefinition>& ParameterDefinitions, Game::RuntimeVariableTable& OutVariableTable) {
+        for (const Game::AnimationGraphAsset::AnimationGraphConditionAsset& Condition : Transition.Conditions) {
+            if (Condition.ParameterIndex >= ParameterDefinitions.size() || Condition.ParameterIndex >= Game::RuntimeVariableTable::MaxParameterCount) {
+                continue;
+            }
+
+            if (ParameterDefinitions[Condition.ParameterIndex].ParameterTypeValue != Game::RuntimeParameterDefinition::ParameterType::Trigger) {
+                continue;
+            }
+
+            OutVariableTable.BoolValues[Condition.ParameterIndex] = false;
+            OutVariableTable.TriggerConsumed[Condition.ParameterIndex] = true;
+        }
+    }
 }
 
 namespace Game {
@@ -124,7 +152,11 @@ namespace Game {
 
             const std::vector<AnimationGraphAsset::AnimationGraphNodeAsset>& Nodes{ AnimatorComponent.GraphAsset->GetNodes() };
             const std::vector<AnimationGraphAsset::AnimationGraphTransitionAsset>& Transitions{ AnimatorComponent.GraphAsset->GetTransitions() };
-            const std::vector<AnimationGraphAsset::AnimationGraphParameterDefinition>& ParameterDefinitions{ AnimatorComponent.GraphAsset->GetParameterDefinitions() };
+            const std::vector<RuntimeParameterDefinition>& ParameterDefinitions{ AnimatorComponent.GraphAsset->GetParameterDefinitions() };
+            if (Ctx.RuntimeVariableInputTableResource != nullptr) {
+                Ctx.RuntimeVariableInputTableResource->ApplyInputBindings(VariableTable, ParameterDefinitions);
+            }
+
             if (Nodes.empty()) {
                 AnimatorComponent.clipIndex = AnimatorComponent.FallbackClipIndex;
                 continue;
@@ -196,6 +228,7 @@ namespace Game {
             }
 
             if (SelectedTransition != nullptr) {
+                ConsumeTriggerParameters(*SelectedTransition, ParameterDefinitions, VariableTable);
                 GraphPlayer.NextNodeIndex = static_cast<std::int32_t>(SelectedTransition->ToNodeIndex);
                 GraphPlayer.IsInTransition = true;
                 GraphPlayer.BlendElapsed = 0.0f;

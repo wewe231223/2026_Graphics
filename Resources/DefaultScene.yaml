@@ -1,4 +1,5 @@
 ﻿SceneName: DefaultScene
+RuntimeVariableInputTable: RuntimeVariableInputTable.yaml
 Systems:
   - Type: CameraInputSystem
   - Type: PickingSystem
@@ -209,10 +210,6 @@ Entities:
         text: Mannequinn_Idle_Run.animbin
         initclip: 0
         AnimationGraph: knight_idle_run.graph.yaml
-      RuntimeVariables:
-        - Name: IsMoving
-          Type: Bool
-          Value: false
   - EntityId: 10
     ParentEntityId: -1
     Components:

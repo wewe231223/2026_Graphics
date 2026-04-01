@@ -4,7 +4,7 @@
 
 
 namespace {
-    std::optional<std::size_t> TryFindParameterIndex(const std::vector<Game::AnimationGraphAsset::AnimationGraphParameterDefinition>& ParameterDefinitions, const std::string_view ParameterName) {
+    std::optional<std::size_t> TryFindParameterIndex(const std::vector<Game::RuntimeParameterDefinition>& ParameterDefinitions, const std::string_view ParameterName) {
         for (std::size_t ParameterIndex{ 0 }; ParameterIndex < ParameterDefinitions.size(); ++ParameterIndex) {
             if (ParameterDefinitions[ParameterIndex].ParameterName == ParameterName) {
                 return ParameterIndex;
@@ -24,14 +24,14 @@ namespace Game {
         OutFields.clear();
     }
 
-    bool RuntimeVariableTable::TrySetBoolParameter(const std::vector<AnimationGraphAsset::AnimationGraphParameterDefinition>& ParameterDefinitions, const std::string_view ParameterName, const bool Value) {
+    bool RuntimeVariableTable::TrySetBoolParameter(const std::vector<RuntimeParameterDefinition>& ParameterDefinitions, const std::string_view ParameterName, const bool Value) {
         const std::optional<std::size_t> ParameterIndex{ TryFindParameterIndex(ParameterDefinitions, ParameterName) };
         if (ParameterIndex.has_value() == false || ParameterIndex.value() >= MaxParameterCount) {
             return false;
         }
 
-        const AnimationGraphAsset::AnimationGraphParameterDefinition& Definition{ ParameterDefinitions[ParameterIndex.value()] };
-        if (Definition.ParameterTypeValue != AnimationGraphAsset::ParameterType::Bool) {
+        const RuntimeParameterDefinition& Definition{ ParameterDefinitions[ParameterIndex.value()] };
+        if (Definition.ParameterTypeValue != RuntimeParameterDefinition::ParameterType::Bool) {
             return false;
         }
 
@@ -39,14 +39,14 @@ namespace Game {
         return true;
     }
 
-    bool RuntimeVariableTable::TrySetIntParameter(const std::vector<AnimationGraphAsset::AnimationGraphParameterDefinition>& ParameterDefinitions, const std::string_view ParameterName, const std::int32_t Value) {
+    bool RuntimeVariableTable::TrySetIntParameter(const std::vector<RuntimeParameterDefinition>& ParameterDefinitions, const std::string_view ParameterName, const std::int32_t Value) {
         const std::optional<std::size_t> ParameterIndex{ TryFindParameterIndex(ParameterDefinitions, ParameterName) };
         if (ParameterIndex.has_value() == false || ParameterIndex.value() >= MaxParameterCount) {
             return false;
         }
 
-        const AnimationGraphAsset::AnimationGraphParameterDefinition& Definition{ ParameterDefinitions[ParameterIndex.value()] };
-        if (Definition.ParameterTypeValue != AnimationGraphAsset::ParameterType::Int) {
+        const RuntimeParameterDefinition& Definition{ ParameterDefinitions[ParameterIndex.value()] };
+        if (Definition.ParameterTypeValue != RuntimeParameterDefinition::ParameterType::Int) {
             return false;
         }
 
@@ -54,14 +54,14 @@ namespace Game {
         return true;
     }
 
-    bool RuntimeVariableTable::TrySetFloatParameter(const std::vector<AnimationGraphAsset::AnimationGraphParameterDefinition>& ParameterDefinitions, const std::string_view ParameterName, const float Value) {
+    bool RuntimeVariableTable::TrySetFloatParameter(const std::vector<RuntimeParameterDefinition>& ParameterDefinitions, const std::string_view ParameterName, const float Value) {
         const std::optional<std::size_t> ParameterIndex{ TryFindParameterIndex(ParameterDefinitions, ParameterName) };
         if (ParameterIndex.has_value() == false || ParameterIndex.value() >= MaxParameterCount) {
             return false;
         }
 
-        const AnimationGraphAsset::AnimationGraphParameterDefinition& Definition{ ParameterDefinitions[ParameterIndex.value()] };
-        if (Definition.ParameterTypeValue != AnimationGraphAsset::ParameterType::Float) {
+        const RuntimeParameterDefinition& Definition{ ParameterDefinitions[ParameterIndex.value()] };
+        if (Definition.ParameterTypeValue != RuntimeParameterDefinition::ParameterType::Float) {
             return false;
         }
 
@@ -69,14 +69,14 @@ namespace Game {
         return true;
     }
 
-    bool RuntimeVariableTable::TrySetTriggerParameter(const std::vector<AnimationGraphAsset::AnimationGraphParameterDefinition>& ParameterDefinitions, const std::string_view ParameterName) {
+    bool RuntimeVariableTable::TrySetTriggerParameter(const std::vector<RuntimeParameterDefinition>& ParameterDefinitions, const std::string_view ParameterName) {
         const std::optional<std::size_t> ParameterIndex{ TryFindParameterIndex(ParameterDefinitions, ParameterName) };
         if (ParameterIndex.has_value() == false || ParameterIndex.value() >= MaxParameterCount) {
             return false;
         }
 
-        const AnimationGraphAsset::AnimationGraphParameterDefinition& Definition{ ParameterDefinitions[ParameterIndex.value()] };
-        if (Definition.ParameterTypeValue != AnimationGraphAsset::ParameterType::Trigger) {
+        const RuntimeParameterDefinition& Definition{ ParameterDefinitions[ParameterIndex.value()] };
+        if (Definition.ParameterTypeValue != RuntimeParameterDefinition::ParameterType::Trigger) {
             return false;
         }
 

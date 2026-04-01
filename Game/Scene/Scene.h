@@ -8,6 +8,7 @@
 #include "SystemSceduler.h"
 #include "SceneWorldSnapshot.h"
 #include "Game/Model/AssetRegistry.h"
+#include "RuntimeVariableInputTable.h"
 
 namespace Game {
     class Scene final {
@@ -33,6 +34,8 @@ namespace Game {
 
         AssetRegistry& GetAssetRegistry();
         const AssetRegistry& GetAssetRegistry() const;
+        RuntimeVariableInputTable& GetRuntimeVariableInputTable();
+        const RuntimeVariableInputTable& GetRuntimeVariableInputTable() const;
 
         void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap);
         void SetName(const std::string& NewName);
@@ -59,6 +62,7 @@ namespace Game {
         Arche::World mWorld{};
         FrameContext mFrameContext{};
         AssetRegistry mAssetRegistry{};
+        RuntimeVariableInputTable mRuntimeVariableInputTable{};
         std::vector<std::unique_ptr<ISystem>> mSystems{};
         SystemSceduler mSystemSceduler{};
 

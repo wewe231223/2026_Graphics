@@ -63,6 +63,7 @@ namespace Game {
         mWorld{},
         mFrameContext{},
         mAssetRegistry{},
+        mRuntimeVariableInputTable{},
         mSystems{},
         mSystemSceduler{},
         mWorldSnapshot{},
@@ -72,6 +73,7 @@ namespace Game {
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
         mWorldSnapshot.BindWorld(&mWorld);
         mWorldSnapshot.BindAssetRegistry(&mAssetRegistry);
+        mFrameContext.RuntimeVariableInputTableResource = &mRuntimeVariableInputTable;
 
         mHierarchyEntitySelectedSubscriptionId = Core::Event::Subscribe<Game::HierarchyEntitySelectedEventTag>([this](const Core::Event::Event<Game::HierarchyEntitySelectedEventTag>& HierarchyEntitySelectedEvent) {
             const Game::HierarchyEntitySelectedPayload* Payload{ HierarchyEntitySelectedEvent.GetPayloadAs<Game::HierarchyEntitySelectedPayload>() };
@@ -131,6 +133,14 @@ namespace Game {
 
     const AssetRegistry& Scene::GetAssetRegistry() const {
         return mAssetRegistry;
+    }
+
+    RuntimeVariableInputTable& Scene::GetRuntimeVariableInputTable() {
+        return mRuntimeVariableInputTable;
+    }
+
+    const RuntimeVariableInputTable& Scene::GetRuntimeVariableInputTable() const {
+        return mRuntimeVariableInputTable;
     }
 
     void Scene::InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap) {

@@ -736,10 +736,10 @@ namespace Game {
         OutAnimationGraphData.SetGraphName(GraphName);
 
         std::unordered_map<std::string, std::uint32_t> ParameterNameToIndex{};
-        std::vector<AnimationGraphAsset::AnimationGraphParameterDefinition> ParameterDefinitions{};
+        std::vector<RuntimeParameterDefinition> ParameterDefinitions{};
         if (RootNode.has_child("ParameterDefinitions")) {
             for (const c4::yml::ConstNodeRef ParameterNode : RootNode["ParameterDefinitions"].children()) {
-                AnimationGraphAsset::AnimationGraphParameterDefinition NewDefinition{};
+                RuntimeParameterDefinition NewDefinition{};
                 std::string ParameterTypeText{};
                 if (ParameterNode.has_child("ParameterName")) {
                     ParameterNode["ParameterName"] >> NewDefinition.ParameterName;
@@ -749,7 +749,7 @@ namespace Game {
                 }
 
                 if (ParameterTypeText == "Int") {
-                    NewDefinition.ParameterTypeValue = AnimationGraphAsset::ParameterType::Int;
+                    NewDefinition.ParameterTypeValue = RuntimeParameterDefinition::ParameterType::Int;
                     std::int32_t DefaultIntValue{};
                     if (ParameterNode.has_child("DefaultValue")) {
                         ParameterNode["DefaultValue"] >> DefaultIntValue;
@@ -757,7 +757,7 @@ namespace Game {
                     NewDefinition.DefaultValue = DefaultIntValue;
                 }
                 else if (ParameterTypeText == "Float") {
-                    NewDefinition.ParameterTypeValue = AnimationGraphAsset::ParameterType::Float;
+                    NewDefinition.ParameterTypeValue = RuntimeParameterDefinition::ParameterType::Float;
                     float DefaultFloatValue{};
                     if (ParameterNode.has_child("DefaultValue")) {
                         ParameterNode["DefaultValue"] >> DefaultFloatValue;
@@ -765,7 +765,7 @@ namespace Game {
                     NewDefinition.DefaultValue = DefaultFloatValue;
                 }
                 else if (ParameterTypeText == "Trigger") {
-                    NewDefinition.ParameterTypeValue = AnimationGraphAsset::ParameterType::Trigger;
+                    NewDefinition.ParameterTypeValue = RuntimeParameterDefinition::ParameterType::Trigger;
                     bool DefaultTriggerValue{};
                     if (ParameterNode.has_child("DefaultValue")) {
                         ParameterNode["DefaultValue"] >> DefaultTriggerValue;
@@ -773,7 +773,7 @@ namespace Game {
                     NewDefinition.DefaultValue = DefaultTriggerValue;
                 }
                 else {
-                    NewDefinition.ParameterTypeValue = AnimationGraphAsset::ParameterType::Bool;
+                    NewDefinition.ParameterTypeValue = RuntimeParameterDefinition::ParameterType::Bool;
                     bool DefaultBoolValue{};
                     if (ParameterNode.has_child("DefaultValue")) {
                         ParameterNode["DefaultValue"] >> DefaultBoolValue;
