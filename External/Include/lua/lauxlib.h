@@ -1,4 +1,4 @@
-﻿/*
+/*
 ** $Id: lauxlib.h $
 ** Auxiliary functions for building Lua libraries
 ** See Copyright Notice in lua.h

@@ -1,4 +1,4 @@
-﻿/*
+/*
 ** $Id: lundump.h $
 ** load precompiled Lua chunks
 ** See Copyright Notice in lua.h
