@@ -190,7 +190,7 @@ concept HasLuaTypeDefinition = requires {
     { LuaTypeDefinitionTraits<TType>::Create() };
 };
 
-#define COMPONENT_DECL_DECLARE_FIELD_HELPER(R, Data, Element) ::BOOST_PP_TUPLE_ELEM(3, 0, Element) BOOST_PP_TUPLE_ELEM(3, 1, Element){ BOOST_PP_TUPLE_ELEM(3, 2, Element) };
+#define COMPONENT_DECL_DECLARE_FIELD_HELPER(R, Data, Element) BOOST_PP_TUPLE_ELEM(3, 0, Element) BOOST_PP_TUPLE_ELEM(3, 1, Element){ BOOST_PP_TUPLE_ELEM(3, 2, Element) };
 #define COMPONENT_DECL_DECLARE_METHOD_HELPER(R, Data, Element) BOOST_PP_TUPLE_ELEM(2, 0, Element);
 #define COMPONENT_DECL_APPEND_FIELD_BINDING_HELPER(R, TypeName, Element) , std::pair<const char*, decltype(&TypeName::BOOST_PP_TUPLE_ELEM(3, 1, Element))>{ BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(3, 1, Element)), &TypeName::BOOST_PP_TUPLE_ELEM(3, 1, Element) }
 #define COMPONENT_DECL_APPEND_METHOD_BINDING_HELPER(R, TypeName, Element) , std::pair<const char*, decltype(&TypeName::BOOST_PP_TUPLE_ELEM(2, 1, Element))>{ BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(2, 1, Element)), &TypeName::BOOST_PP_TUPLE_ELEM(2, 1, Element) }
