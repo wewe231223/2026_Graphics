@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -15,7 +16,7 @@
 #undef max
 #endif
 #include "Arche/Common.h"
-#include "sol/sol.hpp"
+#include "sol/forward.hpp"
 #include "Utility/ComponentRestraint.h"
 
 namespace Arche {
@@ -24,8 +25,6 @@ namespace Arche {
 
 namespace Script {
     class LuaBehaviorFramework final {
-    public:
-        using ComponentGetter = std::function<sol::object(sol::state_view, Arche::World&, Arche::EntityID)>;
 
     public:
         enum class BehaviorErrorCode {
@@ -88,25 +87,8 @@ namespace Script {
         };
 
     private:
-        struct BehaviorEntries final {
-            sol::protected_function mAwake{};
-            sol::protected_function mOnEnable{};
-            sol::protected_function mStart{};
-            sol::protected_function mUpdate{};
-            sol::protected_function mFixedUpdate{};
-            sol::protected_function mLateUpdate{};
-            sol::protected_function mOnDisable{};
-            sol::protected_function mOnDestroy{};
-        };
-
-        struct RuntimeBehaviorInstance final {
-            BehaviorContext mContext{};
-            sol::environment mEnvironment{};
-            BehaviorEntries mEntries{};
-            std::string mBehaviorFileName{};
-            std::uint32_t mFixedTick{};
-            bool mIsEnabled{ true };
-        };
+        struct RuntimeBehaviorInstance;
+        struct Impl;
 
     public:
         static constexpr std::uint32_t InvalidBehaviorInstanceId{ std::numeric_limits<std::uint32_t>::max() };
@@ -180,14 +162,8 @@ namespace Script {
 
     private:
         Arche::World* mWorld{};
-        sol::state mLuaState{};
-
-        std::unordered_map<std::string, ComponentGetter> mComponentGetters{};
-        std::unordered_map<std::string, std::string> mBehaviorFilePaths{};
-        std::unordered_map<std::uint32_t, RuntimeBehaviorInstance> mRuntimeInstances{};
-
-        std::uint32_t mLastIssuedBehaviorInstanceId{};
-        std::uint32_t mLastIssuedBehaviorAssetId{};
+        std::unique_ptr<sol::state> mLuaState{};
+        std::unique_ptr<Impl> mImpl{};
 
         float mFixedDeltaSeconds{ 1.0f };
         std::thread mFixedUpdateThread{};
@@ -200,5 +176,3 @@ namespace Script {
         BehaviorError mLastError{};
     };
 }
-
-#include "LuaScriptFramework.inl"
