@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <sol/string_view.hpp>
 #include <array>

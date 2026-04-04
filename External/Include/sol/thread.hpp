@@ -1,4 +1,4 @@
-// sol2
+﻿// sol2
 
 // The MIT License (MIT)
 
