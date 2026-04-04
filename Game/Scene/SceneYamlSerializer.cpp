@@ -159,23 +159,23 @@ namespace {
 
     bool TryParseCameraModeText(const std::string& CameraModeText, std::uint32_t& OutCameraFlags) {
         if (CameraModeText == CameraModeFreeLookText) {
-            OutCameraFlags &= ~Game::Camera::Flags::ThirdPerson;
-            OutCameraFlags &= ~Game::Camera::Flags::Cinematic;
-            OutCameraFlags |= Game::Camera::Flags::FreeLook;
+            OutCameraFlags &= ~Game::CameraFlagThirdPerson;
+            OutCameraFlags &= ~Game::CameraFlagCinematic;
+            OutCameraFlags |= Game::CameraFlagFreeLook;
             return true;
         }
 
         if (CameraModeText == CameraModeThirdPersonText) {
-            OutCameraFlags &= ~Game::Camera::Flags::FreeLook;
-            OutCameraFlags &= ~Game::Camera::Flags::Cinematic;
-            OutCameraFlags |= Game::Camera::Flags::ThirdPerson;
+            OutCameraFlags &= ~Game::CameraFlagFreeLook;
+            OutCameraFlags &= ~Game::CameraFlagCinematic;
+            OutCameraFlags |= Game::CameraFlagThirdPerson;
             return true;
         }
 
         if (CameraModeText == CameraModeCinematicText) {
-            OutCameraFlags &= ~Game::Camera::Flags::FreeLook;
-            OutCameraFlags &= ~Game::Camera::Flags::ThirdPerson;
-            OutCameraFlags |= Game::Camera::Flags::Cinematic;
+            OutCameraFlags &= ~Game::CameraFlagFreeLook;
+            OutCameraFlags &= ~Game::CameraFlagThirdPerson;
+            OutCameraFlags |= Game::CameraFlagCinematic;
             return true;
         }
 
@@ -183,11 +183,11 @@ namespace {
     }
 
     const char* ResolveCameraModeText(std::uint32_t CameraFlags) {
-        if ((CameraFlags & Game::Camera::Flags::Cinematic) != 0u) {
+        if ((CameraFlags & Game::CameraFlagCinematic) != 0u) {
             return CameraModeCinematicText;
         }
 
-        if ((CameraFlags & Game::Camera::Flags::ThirdPerson) != 0u) {
+        if ((CameraFlags & Game::CameraFlagThirdPerson) != 0u) {
             return CameraModeThirdPersonText;
         }
 
@@ -1241,7 +1241,7 @@ namespace Game {
                 }
 
                 const std::vector<RuntimeParameterDefinition>& Definitions{ NewAnimator.GraphAsset->GetParameterDefinitions() };
-                for (std::size_t ParameterIndex{ 0 }; ParameterIndex < Definitions.size() && ParameterIndex < RuntimeVariableTable::MaxParameterCount; ++ParameterIndex) {
+                for (std::size_t ParameterIndex{ 0 }; ParameterIndex < Definitions.size() && ParameterIndex < RuntimeVariableTableMaxParameterCount; ++ParameterIndex) {
                     if (Definitions[ParameterIndex].ParameterTypeValue == RuntimeParameterDefinition::ParameterType::Int) {
                         VariableTable.IntValues[ParameterIndex] = std::get<std::int32_t>(Definitions[ParameterIndex].DefaultValue);
                     }

@@ -6,9 +6,10 @@
 #include "Utility/ComponentRestraint.h"
 
 namespace Game {
+    inline constexpr std::size_t NameMaxLength{ 128 };
+
     Component(Name)
-        static constexpr std::size_t MaxLength{ 128 };
-        std::array<char, MaxLength + 1> Text{};
+        std::array<char, NameMaxLength + 1> Text{};
     EndComponent(Name)
 
     Name CreateNameComponent(std::string_view SourceText);

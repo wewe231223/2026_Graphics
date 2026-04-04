@@ -8,13 +8,13 @@
 #include "Utility/ComponentRestraint.h"
 
 namespace Game {
-    Component(RuntimeVariableTable)
-        static constexpr std::uint32_t MaxParameterCount{ 64 };
+    inline constexpr std::uint32_t RuntimeVariableTableMaxParameterCount{ 64 };
 
-        std::array<bool, MaxParameterCount> BoolValues{};
-        std::array<std::int32_t, MaxParameterCount> IntValues{};
-        std::array<float, MaxParameterCount> FloatValues{};
-        std::array<bool, MaxParameterCount> TriggerConsumed{};
+    Component(RuntimeVariableTable)
+        std::array<bool, RuntimeVariableTableMaxParameterCount> BoolValues{};
+        std::array<std::int32_t, RuntimeVariableTableMaxParameterCount> IntValues{};
+        std::array<float, RuntimeVariableTableMaxParameterCount> FloatValues{};
+        std::array<bool, RuntimeVariableTableMaxParameterCount> TriggerConsumed{};
 
         bool TrySetBoolParameter(const std::vector<RuntimeParameterDefinition>& ParameterDefinitions, std::string_view ParameterName, bool Value);
         bool TrySetIntParameter(const std::vector<RuntimeParameterDefinition>& ParameterDefinitions, std::string_view ParameterName, std::int32_t Value);

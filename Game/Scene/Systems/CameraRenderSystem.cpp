@@ -56,7 +56,7 @@ namespace Game {
     }
 
     void CameraRenderSystem::ApplyIntentToTransform(Arche::World& World, Transform& TransformComponent, Camera& CameraComponent, const CameraIntent& CameraIntentComponent, float Dt) const {
-        const bool IsThirdPersonMode{ (CameraComponent.cameraFlags & Camera::Flags::ThirdPerson) != 0u };
+        const bool IsThirdPersonMode{ (CameraComponent.cameraFlags & CameraFlagThirdPerson) != 0u };
         if (IsThirdPersonMode && CameraComponent.thirdPersonFollowTarget != Arche::NullEntityID) {
             Transform* TargetTransformComponent{ World.GetComponent<Transform>(CameraComponent.thirdPersonFollowTarget) };
             if (TargetTransformComponent != nullptr) {

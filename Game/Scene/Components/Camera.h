@@ -6,6 +6,14 @@
 #include "Arche/Common.h"
 
 namespace Game {
+    enum CameraFlag : std::uint32_t {
+        CameraFlagNone = 0,
+        CameraFlagInvertY = 1 << 0, ///< Y축 입력 반전
+        CameraFlagFreeLook = 1 << 1, ///< 캐릭터 방향과 카메라 회전 분리
+        CameraFlagCinematic = 1 << 2, ///< 연출 상태 (입력 무시)
+        CameraFlagThirdPerson = 1 << 3  ///< 3인칭 모드 여부
+    };
+
     Component(Camera)
         float fov{ 60.0f };
         float aspectRatio{ 1.777777f }; // 16:9
@@ -27,15 +35,7 @@ namespace Game {
         float thirdPersonPositionLerpSpeed{ 12.0f };
         float thirdPersonZoomSpeed{ 0.5f };
 
-        enum Flags : uint32_t {
-            None = 0,
-            InvertY = 1 << 0, ///< Y축 입력 반전
-            FreeLook = 1 << 1, ///< 캐릭터 방향과 카메라 회전 분리
-            Cinematic = 1 << 2, ///< 연출 상태 (입력 무시)
-            ThirdPerson = 1 << 3  ///< 3인칭 모드 여부
-        };
-
-        uint32_t cameraFlags{ Flags::FreeLook };
+        std::uint32_t cameraFlags{ CameraFlagFreeLook };
 
         SimpleMath::Matrix viewMatrix = SimpleMath::Matrix::Identity;
         SimpleMath::Matrix projMatrix = SimpleMath::Matrix::Identity;

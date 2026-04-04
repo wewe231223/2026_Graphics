@@ -44,7 +44,7 @@ namespace {
     }
 
     bool EvaluateCondition(const Game::AnimationGraphAsset::AnimationGraphConditionAsset& Condition, const Game::RuntimeParameterDefinition& Definition, const Game::RuntimeVariableTable& VariableTable) {
-        if (Condition.ParameterIndex >= Game::RuntimeVariableTable::MaxParameterCount) {
+        if (Condition.ParameterIndex >= Game::RuntimeVariableTableMaxParameterCount) {
             return false;
         }
 
@@ -110,7 +110,7 @@ namespace {
 
     void ConsumeTriggerParameters(const Game::AnimationGraphAsset::AnimationGraphTransitionAsset& Transition, const std::vector<Game::RuntimeParameterDefinition>& ParameterDefinitions, Game::RuntimeVariableTable& OutVariableTable) {
         for (const Game::AnimationGraphAsset::AnimationGraphConditionAsset& Condition : Transition.Conditions) {
-            if (Condition.ParameterIndex >= ParameterDefinitions.size() || Condition.ParameterIndex >= Game::RuntimeVariableTable::MaxParameterCount) {
+            if (Condition.ParameterIndex >= ParameterDefinitions.size() || Condition.ParameterIndex >= Game::RuntimeVariableTableMaxParameterCount) {
                 continue;
             }
 

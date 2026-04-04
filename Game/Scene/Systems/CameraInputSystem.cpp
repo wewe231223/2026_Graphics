@@ -45,16 +45,16 @@ namespace Game {
             }
 
             if (IsThirdPersonToggleRequested) {
-                const bool IsThirdPersonMode{ (Camera.cameraFlags & Camera::Flags::ThirdPerson) != 0u };
+                const bool IsThirdPersonMode{ (Camera.cameraFlags & CameraFlagThirdPerson) != 0u };
                 if (IsThirdPersonMode) {
-                    Camera.cameraFlags &= ~Camera::Flags::ThirdPerson;
-                    Camera.cameraFlags |= Camera::Flags::FreeLook;
+                    Camera.cameraFlags &= ~CameraFlagThirdPerson;
+                    Camera.cameraFlags |= CameraFlagFreeLook;
                     MutableInput.SetRightButtonVirtualMouseEnabled(true);
                     MutableInput.SetVirtualMouse(false);
                 }
                 else {
-                    Camera.cameraFlags |= Camera::Flags::ThirdPerson;
-                    Camera.cameraFlags &= ~Camera::Flags::FreeLook;
+                    Camera.cameraFlags |= CameraFlagThirdPerson;
+                    Camera.cameraFlags &= ~CameraFlagFreeLook;
                     MutableInput.SetRightButtonVirtualMouseEnabled(false);
                     MutableInput.SetVirtualMouse(true);
                 }
@@ -79,15 +79,15 @@ namespace Game {
     }
 
     CameraInputSystem::CameraControlMode CameraInputSystem::ResolveMode(const Camera& Camera, float Dt) const {
-        if ((Camera.cameraFlags & Camera::Flags::Cinematic) != 0) {
+        if ((Camera.cameraFlags & CameraFlagCinematic) != 0) {
             return CameraControlMode::Cinematic;
         }
 
-        if ((Camera.cameraFlags & Camera::Flags::ThirdPerson) != 0) {
+        if ((Camera.cameraFlags & CameraFlagThirdPerson) != 0) {
             return CameraControlMode::ThirdPerson;
         }
 
-        if ((Camera.cameraFlags & Camera::Flags::FreeLook) != 0) {
+        if ((Camera.cameraFlags & CameraFlagFreeLook) != 0) {
             return CameraControlMode::FreeLook;
         }
 
