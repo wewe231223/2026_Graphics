@@ -1,4 +1,4 @@
-#include <sol/compatibility/compat-5.3.h>
+﻿#include <sol/compatibility/compat-5.3.h>
 
 #include <stddef.h>
 #include <stdlib.h>

@@ -1,4 +1,4 @@
-#ifndef KEPLER_PROJECT_COMPAT53_H_
+﻿#ifndef KEPLER_PROJECT_COMPAT53_H_
 #define KEPLER_PROJECT_COMPAT53_H_
 
 #include <stddef.h>

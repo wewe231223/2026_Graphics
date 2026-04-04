@@ -1,4 +1,4 @@
-#ifndef NOT_KEPLER_PROJECT_COMPAT54_H_
+﻿#ifndef NOT_KEPLER_PROJECT_COMPAT54_H_
 #define NOT_KEPLER_PROJECT_COMPAT54_H_
 
 #if defined(__cplusplus) && !defined(COMPAT53_LUA_CPP)
