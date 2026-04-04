@@ -48,6 +48,7 @@
     <ClInclude Include="Scene\Components\ComponentInspection.h" />
     <ClInclude Include="Scene\Components\PickingGizmo.h" />
     <ClInclude Include="Scene\Components\PrefabInstance.h" />
+    <ClInclude Include="Scene\Components\ScriptComponents.h" />
     <ClInclude Include="Scene\Components\StaticMeshRenderer.h" />
     <ClInclude Include="Scene\Components\SkinnedMeshRenderer.h" />
     <ClInclude Include="Scene\Components\Tags.h" />
