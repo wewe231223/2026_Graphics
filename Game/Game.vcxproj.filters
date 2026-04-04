@@ -168,6 +168,12 @@
     <ClInclude Include="Scene\Components\Frustum.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Model\PrimitiveModelFactory.h" />
+    <ClInclude Include="Scene\Components\PickingGizmo.h" />
+    <ClInclude Include="Scene\Components\PrefabInstance.h" />
+    <ClInclude Include="Scene\Components\ComponentLuaTypeDefinitions.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Shader.cpp">
@@ -290,6 +296,12 @@
     <ClCompile Include="Scene\Systems\SkinningSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
+    <ClCompile Include="Model\PrimitiveModelFactory.cpp" />
+    <ClCompile Include="Asset\AnimationGraphAsset.cpp" />
+    <ClCompile Include="Scene\Components\PrefabInstance.cpp" />
+    <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Shader\Source\Common.hlsli">
@@ -330,5 +342,6 @@
     <FxCompile Include="..\Shader\Source\SkinnedMeshShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
+    <FxCompile Include="..\Shader\Source\PrimitiveVertexColorShader.hlsl" />
   </ItemGroup>
 </Project>

@@ -4,7 +4,11 @@
 #include "Utility/ComponentRestraint.h"
 
 namespace Game {
-    Component(PrefabInstance)
-        std::uint64_t PrefabId{};
-    EndComponent(PrefabInstance)
+    ComponentDecl(
+        PrefabInstance,
+        ComponentFields(
+            ComponentField(::std::uint64_t, PrefabId, 0)
+        ),
+        BOOST_PP_SEQ_NIL
+    );
 }

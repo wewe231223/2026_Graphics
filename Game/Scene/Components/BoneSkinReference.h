@@ -4,7 +4,11 @@
 #include "Utility/ComponentRestraint.h"
 
 namespace Game {
-    Component(BoneSkinReference)
-        Arche::EntityID boneRootEntityId{ Arche::NullEntityID };
-    EndComponent(BoneSkinReference)
+    ComponentDecl(
+        BoneSkinReference,
+        ComponentFields(
+            ComponentField(Arche::EntityID, boneRootEntityId, Arche::NullEntityID)
+        ),
+        BOOST_PP_SEQ_NIL
+    );
 }

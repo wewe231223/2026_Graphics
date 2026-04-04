@@ -16,4 +16,16 @@ namespace Game {
         OutFields.push_back(ComponentInspectionField{ "RequestSkip", requestSkip ? "true" : "false" });
         OutFields.push_back(ComponentInspectionField{ "ShakeImpulse", std::format("{:.3f}", shakeImpulse) });
     }
+
+    void CameraIntent::Reset() {
+        moveDirection = { 0.0f, 0.0f, 0.0f };
+        lookDelta = { 0.0f, 0.0f };
+        zoomDelta = 0.0f;
+
+        targetToLockOn = Arche::NullEntityID;
+        requestUnlock = false;
+        requestSkip = false;
+
+        shakeImpulse = 0.0f;
+    }
 }

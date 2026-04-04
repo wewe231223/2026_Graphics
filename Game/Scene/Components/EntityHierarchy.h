@@ -4,10 +4,14 @@
 #include "Utility/ComponentRestraint.h"
 
 namespace Game {
-    Component(EntityHierarchy)
-        Arche::EntityID self{ Arche::NullEntityID };
-        Arche::EntityID parent{ Arche::NullEntityID };
-        Arche::EntityID firstChild{ Arche::NullEntityID };
-        Arche::EntityID nextSibling{ Arche::NullEntityID };
-    EndComponent(EntityHierarchy)
+    ComponentDecl(
+        EntityHierarchy,
+        ComponentFields(
+            ComponentField(Arche::EntityID, self, Arche::NullEntityID)
+            ComponentField(Arche::EntityID, parent, Arche::NullEntityID)
+            ComponentField(Arche::EntityID, firstChild, Arche::NullEntityID)
+            ComponentField(Arche::EntityID, nextSibling, Arche::NullEntityID)
+        ),
+        BOOST_PP_SEQ_NIL
+    );
 }

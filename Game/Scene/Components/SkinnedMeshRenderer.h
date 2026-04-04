@@ -5,9 +5,13 @@
 #include "Utility/ComponentRestraint.h"
 
 namespace Game {
-    Component(SkinnedMeshRenderer)
-        Model* model{ nullptr };
-        std::uint32_t nodeIndex{ 0 };
-        bool active{ true };
-    EndComponent(SkinnedMeshRenderer)
+    ComponentDecl(
+        SkinnedMeshRenderer,
+        ComponentFields(
+            ComponentField(Model*, model, nullptr)
+            ComponentField(::std::uint32_t, nodeIndex, 0)
+            ComponentField(bool, active, true)
+        ),
+        BOOST_PP_SEQ_NIL
+    );
 }

@@ -1,4 +1,5 @@
-﻿#pragma once 
+﻿#pragma once
+#include <cstdint>
 #include "Utility/ComponentRestraint.h"
 
 namespace Game {
@@ -16,8 +17,12 @@ namespace Game {
 	           ▼
 	RenderFrameData.DrawRecord.materialIndex
 	*/
-	Component(Material)
-		uint32_t MaterialGroupIndex{ 0 };
-		uint32_t Flags{ 0 };
-	EndComponent(Material)
+    ComponentDecl(
+        Material,
+        ComponentFields(
+            ComponentField(::std::uint32_t, MaterialGroupIndex, 0)
+            ComponentField(::std::uint32_t, Flags, 0)
+        ),
+        BOOST_PP_SEQ_NIL
+    );
 }

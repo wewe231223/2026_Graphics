@@ -191,21 +191,22 @@ concept HasLuaTypeDefinition = requires {
 };
 
 #define COMPONENT_DECL_DECLARE_FIELD_HELPER(R, Data, Element) BOOST_PP_TUPLE_ELEM(3, 0, Element) BOOST_PP_TUPLE_ELEM(3, 1, Element){ BOOST_PP_TUPLE_ELEM(3, 2, Element) };
-#define COMPONENT_DECL_DECLARE_METHOD_HELPER(R, Data, Element) BOOST_PP_TUPLE_ELEM(2, 0, Element);
+#define COMPONENT_DECL_DECLARE_METHOD_HELPER(R, Data, Element) BOOST_PP_TUPLE_ELEM(3, 0, Element);
 #define COMPONENT_DECL_APPEND_FIELD_BINDING_HELPER(R, TypeName, Element) , std::pair<const char*, decltype(&TypeName::BOOST_PP_TUPLE_ELEM(3, 1, Element))>{ BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(3, 1, Element)), &TypeName::BOOST_PP_TUPLE_ELEM(3, 1, Element) }
-#define COMPONENT_DECL_APPEND_METHOD_BINDING_HELPER(R, TypeName, Element) , std::pair<const char*, decltype(&TypeName::BOOST_PP_TUPLE_ELEM(2, 1, Element))>{ BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(2, 1, Element)), &TypeName::BOOST_PP_TUPLE_ELEM(2, 1, Element) }
+#define COMPONENT_DECL_APPEND_METHOD_BINDING_HELPER(R, TypeName, Element) , std::pair<const char*, decltype(&TypeName::BOOST_PP_TUPLE_ELEM(3, 1, Element))>{ BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(3, 2, Element)), &TypeName::BOOST_PP_TUPLE_ELEM(3, 1, Element) }
 #define ComponentField(Type, Name, ...) ((Type, Name, __VA_ARGS__))
-#define ComponentMethod(Signature, Name) ((Signature, Name))
+#define ComponentMethodNamed(Signature, Name, LuaName) ((Signature, Name, LuaName))
+#define ComponentMethod(Signature, Name) ComponentMethodNamed(Signature, Name, Name)
 #define ComponentFields(...) __VA_ARGS__
 #define ComponentMethods(...) __VA_ARGS__
 #define LUA_TYPE_APPEND_FIELD_BINDING_HELPER(R, TypeName, Element) , std::pair<const char*, decltype(&TypeName::BOOST_PP_TUPLE_ELEM(3, 1, Element))>{ BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(3, 1, Element)), &TypeName::BOOST_PP_TUPLE_ELEM(3, 1, Element) }
-#define LUA_TYPE_APPEND_METHOD_BINDING_HELPER(R, TypeName, Element) , std::pair<const char*, decltype(&TypeName::BOOST_PP_TUPLE_ELEM(2, 1, Element))>{ BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(2, 1, Element)), &TypeName::BOOST_PP_TUPLE_ELEM(2, 1, Element) }
+#define LUA_TYPE_APPEND_METHOD_BINDING_HELPER(R, TypeName, Element) , std::pair<const char*, decltype(&TypeName::BOOST_PP_TUPLE_ELEM(3, 1, Element))>{ BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(3, 2, Element)), &TypeName::BOOST_PP_TUPLE_ELEM(3, 1, Element) }
 
 #define ComponentDecl(TypeName, FieldsSeq, MethodsSeq) \
 struct TypeName { \
     BOOST_PP_SEQ_FOR_EACH(COMPONENT_DECL_DECLARE_FIELD_HELPER, _, FieldsSeq) \
     static const char* GetComponentInspectionName(); \
-    void BuildComponentInspectionFields(std::vector<Game::ComponentInspectionField>& OutFields) const; \
+    void BuildComponentInspectionFields(std::vector<::Game::ComponentInspectionField>& OutFields) const; \
     BOOST_PP_SEQ_FOR_EACH(COMPONENT_DECL_DECLARE_METHOD_HELPER, _, MethodsSeq) \
 }; \
 static_assert(TrivialComponent<TypeName>, \

@@ -1060,7 +1060,7 @@ namespace Game {
                 }
 
                 if (CameraNode.has_child("clearColor")) {
-                    ReadColor4(CameraNode["clearColor"], NewCamera.clearColor);
+                    ReadColor4(CameraNode["clearColor"], NewCamera.clearColor.data());
                 }
 
                 if (CameraNode.has_child("startMode")) {
@@ -1520,7 +1520,7 @@ namespace Game {
                 AppendLine(Stream, 4, std::string{ "isActive: " } + ToYamlBooleanText(CameraComponent->isActive));
                 AppendLine(Stream, 4, std::string{ "isOrthographic: " } + ToYamlBooleanText(CameraComponent->isOrthographic));
                 AppendLine(Stream, 4, std::string{ "orthoSize: " } + std::to_string(CameraComponent->orthoSize));
-                AppendColor4(Stream, 4, "clearColor", CameraComponent->clearColor);
+                AppendColor4(Stream, 4, "clearColor", CameraComponent->clearColor.data());
                 const std::unordered_map<Arche::EntityID, std::uint32_t>::const_iterator ThirdPersonFollowTargetSerializedIter{ SerializedEntityIds.find(CameraComponent->thirdPersonFollowTarget) };
                 const std::int32_t ThirdPersonFollowTargetSerializedId{ ThirdPersonFollowTargetSerializedIter == SerializedEntityIds.end() ? -1 : static_cast<std::int32_t>(ThirdPersonFollowTargetSerializedIter->second) };
                 AppendLine(Stream, 4, std::string{ "thirdPersonFollowTargetEntityId: " } + std::to_string(ThirdPersonFollowTargetSerializedId));

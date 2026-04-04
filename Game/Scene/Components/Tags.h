@@ -1,10 +1,11 @@
-﻿#pragma once 
+#pragma once
 
 #include "Utility/ComponentRestraint.h"
 
 namespace Game {
-	Component(LocalPlayerTag)
-	EndComponent(LocalPlayerTag)
-
-
+    ComponentDecl(
+        LocalPlayerTag,
+        BOOST_PP_SEQ_NIL,
+        BOOST_PP_SEQ_NIL
+    );
 }

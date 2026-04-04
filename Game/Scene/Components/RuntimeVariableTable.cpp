@@ -26,7 +26,7 @@ namespace Game {
 
     bool RuntimeVariableTable::TrySetBoolParameter(const std::vector<RuntimeParameterDefinition>& ParameterDefinitions, const std::string_view ParameterName, const bool Value) {
         const std::optional<std::size_t> ParameterIndex{ TryFindParameterIndex(ParameterDefinitions, ParameterName) };
-        if (ParameterIndex.has_value() == false || ParameterIndex.value() >= MaxParameterCount) {
+        if (ParameterIndex.has_value() == false || ParameterIndex.value() >= RuntimeVariableTableMaxParameterCount) {
             return false;
         }
 
@@ -41,7 +41,7 @@ namespace Game {
 
     bool RuntimeVariableTable::TrySetIntParameter(const std::vector<RuntimeParameterDefinition>& ParameterDefinitions, const std::string_view ParameterName, const std::int32_t Value) {
         const std::optional<std::size_t> ParameterIndex{ TryFindParameterIndex(ParameterDefinitions, ParameterName) };
-        if (ParameterIndex.has_value() == false || ParameterIndex.value() >= MaxParameterCount) {
+        if (ParameterIndex.has_value() == false || ParameterIndex.value() >= RuntimeVariableTableMaxParameterCount) {
             return false;
         }
 
@@ -56,7 +56,7 @@ namespace Game {
 
     bool RuntimeVariableTable::TrySetFloatParameter(const std::vector<RuntimeParameterDefinition>& ParameterDefinitions, const std::string_view ParameterName, const float Value) {
         const std::optional<std::size_t> ParameterIndex{ TryFindParameterIndex(ParameterDefinitions, ParameterName) };
-        if (ParameterIndex.has_value() == false || ParameterIndex.value() >= MaxParameterCount) {
+        if (ParameterIndex.has_value() == false || ParameterIndex.value() >= RuntimeVariableTableMaxParameterCount) {
             return false;
         }
 
@@ -71,7 +71,7 @@ namespace Game {
 
     bool RuntimeVariableTable::TrySetTriggerParameter(const std::vector<RuntimeParameterDefinition>& ParameterDefinitions, const std::string_view ParameterName) {
         const std::optional<std::size_t> ParameterIndex{ TryFindParameterIndex(ParameterDefinitions, ParameterName) };
-        if (ParameterIndex.has_value() == false || ParameterIndex.value() >= MaxParameterCount) {
+        if (ParameterIndex.has_value() == false || ParameterIndex.value() >= RuntimeVariableTableMaxParameterCount) {
             return false;
         }
 

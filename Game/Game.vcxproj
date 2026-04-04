@@ -36,6 +36,7 @@
     <ClInclude Include="Scene\Components\Bone.h" />
     <ClInclude Include="Scene\Components\BoneSkinReference.h" />
     <ClInclude Include="Scene\Components\Camera.h" />
+    <ClInclude Include="Scene\Components\ComponentLuaTypeDefinitions.h" />
     <ClInclude Include="Scene\Components\EntityHierarchy.h" />
     <ClInclude Include="Scene\Components\Frustum.h" />
     <ClInclude Include="Scene\Components\Intents\CameraIntent.h" />
@@ -79,6 +80,7 @@
     <ClCompile Include="Model\Model.cpp" />
     <ClCompile Include="Model\PrimitiveModelFactory.cpp" />
     <ClCompile Include="Asset\AnimationGraphAsset.cpp" />
+    <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp" />
     <ClCompile Include="Scene\Components\PrefabInstance.cpp" />
     <ClCompile Include="Scene\Components\Bone.cpp" />
     <ClCompile Include="Scene\Components\BoneSkinReference.cpp" />
