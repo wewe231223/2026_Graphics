@@ -1,19 +1,22 @@
 ﻿/*
 +--------------------------------------------------------------------------------------------------+
-|                                  ComponentRestraint 사용 가이드 (최신)
+|                               ComponentRestraint 사용 가이드 (2026-04)
 +--------------------------------------------------------------------------------------------------+
-| [이 파일이 하는 일]
-| - C++ 타입 정의에서 필드/메서드 메타데이터를 추출해 Lua 등록 파이프라인이 사용할 수 있게 만든다.
-| - 핵심 결과물은 아래 두 Traits 의 Create() 반환값이다.
+| [이 파일의 역할]
+| - C++ 타입 정의에서 필드/메서드 메타데이터를 추출해 Lua 등록 파이프라인에서 재사용한다.
+| - 핵심 진입점은 아래 Traits 의 Create() 반환값이다.
 |   - LuaComponentDefinitionTraits<T>::Create()
 |   - LuaTypeDefinitionTraits<T>::Create()
 |
-| [언제 무엇을 쓰는가]
-| 1) 새 컴포넌트를 선언하면서 동시에 Lua 바인딩 정보를 만들고 싶다.
-|    -> ComponentDecl(TypeName, FieldsSeq, MethodsSeq) 사용
+| [무엇을 써야 하는가]
+| 1) 새 컴포넌트를 선언하면서 Lua 바인딩까지 한 번에 만들고 싶다.
+|    -> ComponentDecl(TypeName, FieldsSeq, MethodsSeq)
 |
-| 2) 이미 프로젝트에 존재하는 타입을 Lua에 노출하고 싶다.
-|    -> LuaTypeDefinitionDecl 또는 LuaTypeDefinitionDeclWithName 사용
+| 2) 이미 존재하는 타입(구조체/클래스)을 Lua에 노출하고 싶다.
+|    -> LuaTypeDefinitionDecl / LuaTypeDefinitionDeclWithName
+|
+| 3) std::array 를 Lua 스크립트에서 배열처럼 사용하고 싶다.
+|    -> LuaStdArrayTypeDefinitionDeclWithName(ElementType, ElementCount, LuaTypeName)
 |
 | [매크로 구성 요소]
 | - ComponentField(Type, Name[, DefaultValue])
@@ -21,10 +24,10 @@
 | - ComponentMethod(Signature, Name)
 |   예) ComponentMethod(float GetLengthSquared() const, GetLengthSquared)
 | - ComponentFields(...) / ComponentMethods(...)
-|   여러 항목을 Boost Preprocessor Seq 형태로 묶을 때 사용
-| - 메서드가 없으면 MethodsSeq 자리에 BOOST_PP_SEQ_NIL 사용
+|   여러 항목을 Boost Preprocessor Seq 로 묶을 때 사용
+| - 메서드가 없으면 MethodsSeq 자리에 BOOST_PP_SEQ_NIL 전달
 |
-| [빠른 시작: 새 컴포넌트 선언]
+| [빠른 시작 1: 새 컴포넌트 선언]
 | ComponentDecl(Transform,
 |     ComponentFields(
 |         ComponentField(float, mX, 0.0f)
@@ -39,7 +42,7 @@
 | - LuaComponentDefinitionTraits<Transform>::Create() 자동 생성
 | - TrivialComponent 제약 위반 시 static_assert 로 즉시 실패
 |
-| [빠른 시작: 기존 타입 바인딩]
+| [빠른 시작 2: 기존 타입 바인딩]
 | struct Vec2 {
 |     float mX{};
 |     float mY{};
@@ -52,7 +55,7 @@
 |     ),
 |     BOOST_PP_SEQ_NIL);
 |
-| 또는 Lua 이름을 별도로 지정:
+| Lua 이름을 별도로 지정하려면:
 | LuaTypeDefinitionDeclWithName(Vec2, "Vector2",
 |     ComponentFields(
 |         ComponentField(float, mX)
@@ -60,24 +63,49 @@
 |     ),
 |     BOOST_PP_SEQ_NIL);
 |
-| [컴포넌트 정의 시 체크리스트]
+| [빠른 시작 3: std::array 를 Lua 에서 쓰기]
+| 1) C++ 등록
+| LuaStdArrayTypeDefinitionDeclWithName(float, 3, "Float3Array");
+|
+| 2) Lua 스크립트 사용
+| local Values = Float3Array.new()
+| Values[0] = 1.25
+| Values[1] = 2.5
+| Values[2] = 3.75
+|
+| local Sum = 0.0
+| local Count = Values:Size()    -- 현재 배열 크기(예: 3)
+| local Index = 0
+| while Index < Count do
+|     Sum = Sum + Values[Index]
+|     Index = Index + 1
+| end
+|
+| 3) 인덱스 규칙
+| - [] 연산자는 0 기반 인덱스를 사용한다. (0 ~ ElementCount-1)
+| - Get(Index), Set(Index, Value) 도 동일하게 0 기반 인덱스다.
+| - 범위를 벗어난 접근은 std::out_of_range 예외를 발생시킨다.
+|
+| [컴포넌트 정의 체크리스트]
 | - 필드 이름과 실제 멤버 이름이 정확히 일치하는가
-| - 메서드 시그니처와 실제 선언이 일치하는가 (const 포함)
-| - 메서드가 없을 때 BOOST_PP_SEQ_NIL 을 전달했는가
+| - 메서드 시그니처가 실제 선언과 일치하는가 (const 포함)
+| - 메서드가 없으면 BOOST_PP_SEQ_NIL 을 전달했는가
 | - ComponentDecl 대상 타입이 trivially copyable / trivially destructible / standard layout 인가
 |
 | [자주 발생하는 실수]
-| - ComponentMethod 에서 Name 과 실제 멤버 함수 이름 불일치
+| - ComponentMethod 의 Name 과 실제 멤버 함수 이름 불일치
 | - const 멤버 함수를 non-const 시그니처로 작성
-| - BOOST_PP_SEQ_NIL 대신 빈 괄호를 전달
-| - 기본값 인자를 넣었지만 타입과 값이 맞지 않음
+| - BOOST_PP_SEQ_NIL 대신 빈 괄호 전달
+| - 배열 인덱스를 Lua 관성대로 1부터 사용해서 첫 원소를 건너뜀
+| - 기본값 인자 타입과 값 불일치
 |
 | [내부 표현 참고]
-| - 각 바인딩 항목은 std::pair<const char*, decltype(&Type::Member)> 형태로 저장된다.
+| - 바인딩 항목은 std::pair<const char*, decltype(&Type::Member)> 형태로 저장된다.
 | - Create() 는 constexpr 이며 tuple 기반 정의 객체를 반환한다.
 +--------------------------------------------------------------------------------------------------+
 */
 #pragma once
+#include <array>
 #include <concepts>
 #include <tuple>
 #include <utility>
@@ -140,6 +168,20 @@ constexpr LuaTypeDefinition<TType, TMemberPointers...> MakeLuaTypeDefinition(con
     return Definition;
 }
 
+template <typename TElement, std::size_t TElementCount>
+struct LuaArrayTypeDefinition final {
+    using ValueType = std::array<TElement, TElementCount>;
+
+    const char* mTypeName{};
+};
+
+template <typename TElement, std::size_t TElementCount>
+constexpr LuaArrayTypeDefinition<TElement, TElementCount> MakeLuaArrayTypeDefinition(const char* TypeName) {
+    LuaArrayTypeDefinition<TElement, TElementCount> Definition{};
+    Definition.mTypeName = TypeName;
+    return Definition;
+}
+
 template <typename TType>
 struct LuaTypeDefinitionTraits;
 
@@ -185,3 +227,10 @@ struct LuaTypeDefinitionTraits<TypeName> final { \
 }
 
 #define LuaTypeDefinitionDecl(TypeName, FieldsSeq, MethodsSeq) LuaTypeDefinitionDeclWithName(TypeName, BOOST_PP_STRINGIZE(TypeName), FieldsSeq, MethodsSeq)
+#define LuaStdArrayTypeDefinitionDeclWithName(ElementType, ElementCount, LuaTypeName) \
+template <> \
+struct LuaTypeDefinitionTraits<std::array<ElementType, ElementCount>> final { \
+    static constexpr auto Create() { \
+        return MakeLuaArrayTypeDefinition<ElementType, ElementCount>(LuaTypeName); \
+    } \
+}
