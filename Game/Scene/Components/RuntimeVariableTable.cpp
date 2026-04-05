@@ -22,6 +22,7 @@ namespace Game {
 
     void RuntimeVariableTable::BuildComponentInspectionFields(std::vector<ComponentInspectionField>& OutFields) const {
         OutFields.clear();
+        OutFields.push_back(ComponentInspectionField{ "Summary", "세부 값은 RuntimeVariableTable 패널에서 확인" });
     }
 
     bool RuntimeVariableTable::TrySetBoolParameter(const std::vector<RuntimeParameterDefinition>& ParameterDefinitions, const std::string_view ParameterName, const bool Value) {

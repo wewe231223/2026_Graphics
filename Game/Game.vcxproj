@@ -36,6 +36,7 @@
     <ClInclude Include="Scene\Components\Bone.h" />
     <ClInclude Include="Scene\Components\BoneSkinReference.h" />
     <ClInclude Include="Scene\Components\Camera.h" />
+    <ClInclude Include="Scene\Components\ComponentText.h" />
     <ClInclude Include="Scene\Components\ComponentLuaTypeDefinitions.h" />
     <ClInclude Include="Scene\Components\EntityHierarchy.h" />
     <ClInclude Include="Scene\Components\Frustum.h" />
@@ -93,6 +94,7 @@
     <ClCompile Include="Scene\Components\Animator.cpp" />
     <ClCompile Include="Scene\Components\AnimatorGraphPlayer.cpp" />
     <ClCompile Include="Scene\Components\RuntimeVariableTable.cpp" />
+    <ClCompile Include="Scene\Components\ScriptComponent.cpp" />
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp" />
     <ClCompile Include="Scene\Components\Tags.cpp" />
     <ClCompile Include="Scene\Components\BoundingBox.cpp" />

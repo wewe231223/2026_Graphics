@@ -159,6 +159,9 @@
     <ClInclude Include="Scene\Components\ComponentLuaTypeDefinitions.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\ComponentText.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Model\PrimitiveModelFactory.h">
       <Filter>Model</Filter>
     </ClInclude>
@@ -225,6 +228,9 @@
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\RuntimeVariableTable.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\ScriptComponent.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp">

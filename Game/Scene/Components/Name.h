@@ -1,18 +1,14 @@
 #pragma once
 
-#include <array>
-#include <cstddef>
 #include <string_view>
+#include "Game/Scene/Components/ComponentText.h"
 #include "Utility/ComponentRestraint.h"
 
 namespace Game {
-    inline constexpr ::std::size_t NameMaxLength{ 128 };
-    using NameTextArray = ::std::array<char, NameMaxLength + 1>;
-
     ComponentDecl(
         Name,
         ComponentFields(
-            ComponentField(NameTextArray, Text, {})
+            ComponentField(ComponentTextArray, Text, {})
         ),
         BOOST_PP_SEQ_NIL
     );

@@ -119,6 +119,9 @@ add_library(Game STATIC
     Game/Scene/Components/Camera.cpp
     Game/Scene/Components/Frustum.cpp
     Game/Scene/Components/PrefabInstance.cpp
+    Game/Scene/Components/ScriptComponent.cpp
+    Game/Scene/Components/RuntimeVariableTable.cpp
+    Game/Scene/Components/AnimatorGraphPlayer.cpp
     Game/Scene/Components/ComponentInspection.cpp
     Game/Scene/Systems/CameraRenderSystem.cpp
     Game/Scene/Systems/PickingSystem.cpp

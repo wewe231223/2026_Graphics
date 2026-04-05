@@ -12,6 +12,7 @@
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/Camera.h"
+#include "Game/Scene/Components/RuntimeVariableTable.h"
 #include "Game/Scene/Components/ComponentInspection.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/Transform.h"
@@ -20,6 +21,7 @@
 
 #ifdef max 
 #undef max
+#undef min
 #endif 
 
 namespace Widget {
@@ -192,6 +194,7 @@ namespace Widget {
         RenderAnimatorEditor(Snapshot, Entity.mEntityId);
         RenderBoneSkinReferenceEditor(Snapshot, Entity.mEntityId);
         RenderCameraEditor(Snapshot, Entity.mEntityId);
+        RenderRuntimeVariableTablePanel(Snapshot, Entity.mEntityId);
     }
 
     void SceneHierarchyWidget::RenderComponentSectionTable(const char* ComponentName, const std::vector<Game::ComponentInspectionField>& Fields, const char* TableIdentifier) const {
@@ -398,6 +401,82 @@ namespace Widget {
         }
 
         ImGui::EndCombo();
+    }
+
+    void SceneHierarchyWidget::RenderRuntimeVariableTablePanel(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId) {
+        const Arche::World::WorldReadOnlyView* ReadOnlyWorld{ Snapshot.GetReadOnlyWorld() };
+        if (ReadOnlyWorld == nullptr) {
+            return;
+        }
+
+        const Game::RuntimeVariableTable* RuntimeVariableTableComponent{ ReadOnlyWorld->GetComponent<Game::RuntimeVariableTable>(EntityId) };
+        if (RuntimeVariableTableComponent == nullptr) {
+            return;
+        }
+
+        const Game::Animator* AnimatorComponent{ ReadOnlyWorld->GetComponent<Game::Animator>(EntityId) };
+        if (AnimatorComponent == nullptr || AnimatorComponent->GraphAsset == nullptr) {
+            return;
+        }
+
+        const ::std::vector<Game::RuntimeParameterDefinition>& ParameterDefinitions{ AnimatorComponent->GraphAsset->GetParameterDefinitions() };
+        if (ParameterDefinitions.empty()) {
+            return;
+        }
+
+        ImGui::SeparatorText("RuntimeVariableTable");
+
+        const ::std::size_t MaxCount{ ::std::min(ParameterDefinitions.size(), static_cast<::std::size_t>(Game::RuntimeVariableTableMaxParameterCount)) };
+
+        if (ImGui::TreeNode("Bool")) {
+            for (::std::size_t ParameterIndex{ 0 }; ParameterIndex < MaxCount; ++ParameterIndex) {
+                const Game::RuntimeParameterDefinition& Definition{ ParameterDefinitions[ParameterIndex] };
+                if (Definition.ParameterTypeValue != Game::RuntimeParameterDefinition::ParameterType::Bool) {
+                    continue;
+                }
+
+                const bool Value{ RuntimeVariableTableComponent->BoolValues[ParameterIndex] };
+                ImGui::BulletText("%s: %s", Definition.ParameterName.c_str(), Value ? "true" : "false");
+            }
+            ImGui::TreePop();
+        }
+
+        if (ImGui::TreeNode("Trigger")) {
+            for (::std::size_t ParameterIndex{ 0 }; ParameterIndex < MaxCount; ++ParameterIndex) {
+                const Game::RuntimeParameterDefinition& Definition{ ParameterDefinitions[ParameterIndex] };
+                if (Definition.ParameterTypeValue != Game::RuntimeParameterDefinition::ParameterType::Trigger) {
+                    continue;
+                }
+
+                const bool Value{ RuntimeVariableTableComponent->BoolValues[ParameterIndex] };
+                ImGui::BulletText("%s: %s", Definition.ParameterName.c_str(), Value ? "set" : "unset");
+            }
+            ImGui::TreePop();
+        }
+
+        if (ImGui::TreeNode("Int")) {
+            for (::std::size_t ParameterIndex{ 0 }; ParameterIndex < MaxCount; ++ParameterIndex) {
+                const Game::RuntimeParameterDefinition& Definition{ ParameterDefinitions[ParameterIndex] };
+                if (Definition.ParameterTypeValue != Game::RuntimeParameterDefinition::ParameterType::Int) {
+                    continue;
+                }
+
+                ImGui::BulletText("%s: %d", Definition.ParameterName.c_str(), RuntimeVariableTableComponent->IntValues[ParameterIndex]);
+            }
+            ImGui::TreePop();
+        }
+
+        if (ImGui::TreeNode("Float")) {
+            for (::std::size_t ParameterIndex{ 0 }; ParameterIndex < MaxCount; ++ParameterIndex) {
+                const Game::RuntimeParameterDefinition& Definition{ ParameterDefinitions[ParameterIndex] };
+                if (Definition.ParameterTypeValue != Game::RuntimeParameterDefinition::ParameterType::Float) {
+                    continue;
+                }
+
+                ImGui::BulletText("%s: %.3f", Definition.ParameterName.c_str(), RuntimeVariableTableComponent->FloatValues[ParameterIndex]);
+            }
+            ImGui::TreePop();
+        }
     }
 
     void SceneHierarchyWidget::BuildBoneEntityOptions(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId, std::vector<BoneEntityOption>& OutOptions) const {

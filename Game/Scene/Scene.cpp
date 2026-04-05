@@ -312,7 +312,7 @@ namespace Game {
         mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector3>();
         mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Quaternion>();
         mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Matrix>();
-        mLuaScriptFramework.RegisterTypeByDefinition<Game::NameTextArray>();
+        mLuaScriptFramework.RegisterTypeByDefinition<Game::ComponentTextArray>();
         mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableBoolArray>();
         mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableIntArray>();
         mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableFloatArray>();
