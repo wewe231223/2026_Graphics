@@ -72,12 +72,12 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>D:\2026_Graphics\External\Include\DirectX;$(SolutionDir)\External\Include;$(SolutionDir);$(IncludePath)</IncludePath>
+    <IncludePath>D:\2026_Graphics\External\Include\DirectX;$(SolutionDir)\External\Include;$(SolutionDir);$(SolutionDir)\External\Include\lua;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)\External\lib\debug;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)out\debug\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>D:\2026_Graphics\External\Include\DirectX;$(SolutionDir)\External\Include;$(SolutionDir);$(IncludePath)</IncludePath>
+    <IncludePath>D:\2026_Graphics\External\Include\DirectX;$(SolutionDir)\External\Include;$(SolutionDir);$(SolutionDir)\External\Include\lua;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)\External\lib\release;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)out\release\</OutDir>
   </PropertyGroup>

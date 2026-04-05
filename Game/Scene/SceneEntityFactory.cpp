@@ -5,9 +5,9 @@
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PrefabInstance.h"
-#include "Game/Scene/Components/RootMotion.h"
 #include "Game/Scene/Components/SkinnedMeshRenderer.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
@@ -118,7 +118,6 @@ namespace Game {
                     SkinnedMeshRenderer NodeRenderer{};
                     NodeRenderer.model = SpawnRequest.ModelData.get();
                     NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
-                    NodeRenderer.materialGroupIndex = SpawnRequest.MaterialGroupIndex;
                     NodeRenderer.active = SpawnRequest.IsActive;
                     AddSkinnedMeshRenderer(NodeEntities[NodeIndex], NodeRenderer);
                 }
@@ -126,10 +125,13 @@ namespace Game {
                     StaticMeshRenderer NodeRenderer{};
                     NodeRenderer.model = SpawnRequest.ModelData.get();
                     NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
-                    NodeRenderer.materialGroupIndex = SpawnRequest.MaterialGroupIndex;
                     NodeRenderer.active = SpawnRequest.IsActive;
                     AddStaticMeshRenderer(NodeEntities[NodeIndex], NodeRenderer);
                 }
+
+                Material NodeMaterial{};
+                NodeMaterial.MaterialGroupIndex = SpawnRequest.MaterialGroupIndex;
+                AddMaterial(NodeEntities[NodeIndex], NodeMaterial);
 
                 BoundingBox NodeBoundingBox{};
                 NodeBoundingBox.UpdateFromModel(SpawnRequest.ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
@@ -182,10 +184,6 @@ namespace Game {
             RootBoneSkinReference.boneRootEntityId = RootBoneReferenceEntityId;
             AddBoneSkinReference(NodeEntities[RootNodeIndex], RootBoneSkinReference);
 
-            if (RootBoneReferenceEntityId != Arche::NullEntityID) {
-                RootMotion NewRootMotion{};
-                AddRootMotion(RootBoneReferenceEntityId, NewRootMotion);
-            }
         }
 
         if (OutNodeEntities != nullptr) {
@@ -246,6 +244,16 @@ namespace Game {
         *ExistingRenderer = SkinnedMeshRendererComponent;
     }
 
+    void SceneEntityFactory::AddMaterial(Arche::EntityID EntityId, const Material& MaterialComponent) {
+        Material* ExistingMaterial{ mScene->GetWorld().GetComponent<Material>(EntityId) };
+        if (ExistingMaterial == nullptr) {
+            mScene->GetWorld().AddComponent(EntityId, MaterialComponent);
+            return;
+        }
+
+        *ExistingMaterial = MaterialComponent;
+    }
+
     void SceneEntityFactory::AddBoundingBox(Arche::EntityID EntityId, const BoundingBox& BoundingBoxComponent) {
         BoundingBox* ExistingBoundingBox{ mScene->GetWorld().GetComponent<BoundingBox>(EntityId) };
         if (ExistingBoundingBox == nullptr) {
@@ -274,16 +282,6 @@ namespace Game {
         }
 
         *ExistingBoneSkinReference = BoneSkinReferenceComponent;
-    }
-
-    void SceneEntityFactory::AddRootMotion(Arche::EntityID EntityId, const RootMotion& RootMotionComponent) {
-        RootMotion* ExistingRootMotion{ mScene->GetWorld().GetComponent<RootMotion>(EntityId) };
-        if (ExistingRootMotion == nullptr) {
-            mScene->GetWorld().AddComponent(EntityId, RootMotionComponent);
-            return;
-        }
-
-        *ExistingRootMotion = RootMotionComponent;
     }
 
     void SceneEntityFactory::AddAnimator(Arche::EntityID EntityId, const Animator& AnimatorComponent) {

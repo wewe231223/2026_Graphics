@@ -3,19 +3,12 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
-#include <variant>
 #include <vector>
+#include "Game/Base/RuntimeParameterDefinition.h"
 
 namespace Game {
     class AnimationGraphAsset final {
     public:
-        enum class ParameterType : std::uint8_t {
-            Bool,
-            Int,
-            Float,
-            Trigger,
-        };
-
         enum class ConditionOperator : std::uint8_t {
             Equals,
             NotEquals,
@@ -54,12 +47,6 @@ namespace Game {
             std::uint32_t FileOrder{};
         };
 
-        struct AnimationGraphParameterDefinition final {
-            std::string ParameterName{};
-            ParameterType ParameterTypeValue{ ParameterType::Bool };
-            std::variant<bool, std::int32_t, float> DefaultValue{ false };
-        };
-
     public:
         AnimationGraphAsset();
         ~AnimationGraphAsset();
@@ -72,14 +59,14 @@ namespace Game {
         const std::string& GetGraphName() const;
         const std::vector<AnimationGraphNodeAsset>& GetNodes() const;
         const std::vector<AnimationGraphTransitionAsset>& GetTransitions() const;
-        const std::vector<AnimationGraphParameterDefinition>& GetParameterDefinitions() const;
+        const std::vector<RuntimeParameterDefinition>& GetParameterDefinitions() const;
         std::int32_t GetDefaultNodeIndex() const;
         bool TryGetNodeIndexByName(const std::string& NodeName, std::uint32_t& OutNodeIndex) const;
 
         void SetGraphName(const std::string& GraphName);
         void SetNodes(std::vector<AnimationGraphNodeAsset> Nodes);
         void SetTransitions(std::vector<AnimationGraphTransitionAsset> Transitions);
-        void SetParameterDefinitions(std::vector<AnimationGraphParameterDefinition> ParameterDefinitions);
+        void SetParameterDefinitions(std::vector<RuntimeParameterDefinition> ParameterDefinitions);
 
         bool Validate(std::string& OutErrorText);
 
@@ -90,7 +77,7 @@ namespace Game {
         std::string mGraphName{};
         std::vector<AnimationGraphNodeAsset> mNodes{};
         std::vector<AnimationGraphTransitionAsset> mTransitions{};
-        std::vector<AnimationGraphParameterDefinition> mParameterDefinitions{};
+        std::vector<RuntimeParameterDefinition> mParameterDefinitions{};
         std::int32_t mDefaultNodeIndex{ -1 };
         std::unordered_map<std::string, std::uint32_t> mNodeNameToIndex{};
     };

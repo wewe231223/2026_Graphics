@@ -14,10 +14,10 @@
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/Frustum.h"
-#include "Game/Scene/Components/Intents/CameraIntent.h"
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/AnimatorGraphPlayer.h"
+#include "Game/Scene/Components/RuntimeVariableTable.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
@@ -28,8 +28,6 @@
 #include "Game/Scene/Components/Transform.h"
 #include "Game/Scene/Systems/AnimationGraphSystem.h"
 #include "Game/Scene/Systems/AnimateSystem.h"
-#include "Game/Scene/Systems/CameraInputSystem.h"
-#include "Game/Scene/Systems/IntentClentUpSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshRenderSystem.h"
 #include "Game/Scene/Systems/StaticRenderSystem.h"
 #include "Game/Scene/Systems/PickingSystem.h"
@@ -44,12 +42,18 @@ namespace {
     constexpr const char* StaticMeshRendererTypeName{ "StaticMeshRenderer" };
     constexpr const char* AnimationTypeName{ "Animation" };
     constexpr const char* CameraTypeName{ "Camera" };
-    constexpr const char* CameraIntentTypeName{ "CameraIntent" };
     constexpr const char* LocalPlayerTagTypeName{ "LocalPlayerTag" };
+    constexpr const char* ScriptTypeName{ "Script" };
+    constexpr const char* ScriptComponentTypeName{ "ScriptComponent" };
+    constexpr const char* BehaviorInstanceComponentTypeName{ "BehaviorInstanceComponent" };
     constexpr const char* NameTypeName{ "Name" };
     constexpr const char* PrefabInstanceTypeName{ "PrefabInstance" };
     constexpr const char* BoneSkinReferenceTypeName{ "BoneSkinReference" };
+    constexpr const char* RuntimeVariablesTypeName{ "RuntimeVariables" };
     constexpr const char* DefaultMaterialPathText{ "Resources/DefaultResource/DefaultMaterial.json" };
+    constexpr const char* CameraModeFreeLookText{ "FreeLook" };
+    constexpr const char* CameraModeThirdPersonText{ "ThirdPerson" };
+    constexpr const char* CameraModeCinematicText{ "Cinematic" };
 
 
     struct PrefabDescriptor final {
@@ -60,12 +64,27 @@ namespace {
     };
 
     struct PendingAnimatorBinding final {
+        struct PendingRuntimeVariableInitialization final {
+            enum class RuntimeVariableType : std::uint8_t {
+                Bool,
+                Int,
+                Float,
+            };
+
+            std::string ParameterName{};
+            RuntimeVariableType Type{ RuntimeVariableType::Bool };
+            bool BoolValue{};
+            std::int32_t IntValue{};
+            float FloatValue{};
+        };
+
         Arche::EntityID SourceEntityId{ Arche::NullEntityID };
         std::string TargetNodeName{};
         asset::Animation* AnimationData{ nullptr };
         Game::AnimationGraphAsset* AnimationGraphData{ nullptr };
         std::int32_t ClipIndex{ -1 };
         std::int32_t FallbackClipIndex{ -1 };
+        std::vector<PendingRuntimeVariableInitialization> RuntimeVariableInitializations{};
     };
 
     bool ReadVector3(c4::yml::ConstNodeRef TargetNode, SimpleMath::Vector3& OutValue) {
@@ -135,19 +154,53 @@ namespace {
         return true;
     }
 
+    bool TryParseCameraModeText(const std::string& CameraModeText, std::uint32_t& OutCameraFlags) {
+        if (CameraModeText == CameraModeFreeLookText) {
+            OutCameraFlags &= ~Game::CameraFlagThirdPerson;
+            OutCameraFlags &= ~Game::CameraFlagCinematic;
+            OutCameraFlags |= Game::CameraFlagFreeLook;
+            return true;
+        }
+
+        if (CameraModeText == CameraModeThirdPersonText) {
+            OutCameraFlags &= ~Game::CameraFlagFreeLook;
+            OutCameraFlags &= ~Game::CameraFlagCinematic;
+            OutCameraFlags |= Game::CameraFlagThirdPerson;
+            return true;
+        }
+
+        if (CameraModeText == CameraModeCinematicText) {
+            OutCameraFlags &= ~Game::CameraFlagFreeLook;
+            OutCameraFlags &= ~Game::CameraFlagThirdPerson;
+            OutCameraFlags |= Game::CameraFlagCinematic;
+            return true;
+        }
+
+        return false;
+    }
+
+    const char* ResolveCameraModeText(std::uint32_t CameraFlags) {
+        if ((CameraFlags & Game::CameraFlagCinematic) != 0u) {
+            return CameraModeCinematicText;
+        }
+
+        if ((CameraFlags & Game::CameraFlagThirdPerson) != 0u) {
+            return CameraModeThirdPersonText;
+        }
+
+        return CameraModeFreeLookText;
+    }
+
     std::unique_ptr<Game::ISystem> CreateSystemByName(const std::string& SystemName) {
         using SystemFactory = std::unique_ptr<Game::ISystem>(*)();
         static const std::unordered_map<std::string_view, SystemFactory> SystemFactories{
             { "StaticRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::StaticRenderSystem>(); } },
             { "SkinnedMeshRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshRenderSystem>(); } },
-            { "CameraInputSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraInputSystem>(); } },
             { "AnimationGraphSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimationGraphSystem>(); } },
             { "AnimateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimateSystem>(); } },
             { "SkinningSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinningSystem>(); } },
             { "PickingSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::PickingSystem>(); } },
             { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },
-            { "CleanUpSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CleanUpSystem<Game::CameraIntent>>(); } },
-            { "CleanUpSystem<CameraIntent>", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CleanUpSystem<Game::CameraIntent>>(); } },
         };
         const std::unordered_map<std::string_view, SystemFactory>::const_iterator FactoryIter{ SystemFactories.find(SystemName) };
         if (FactoryIter == SystemFactories.end()) {
@@ -209,6 +262,10 @@ namespace {
 
         const std::string NormalizedText{ SourcePath.lexically_normal().generic_string() };
         if (StartsWith(NormalizedText, "Resources/")) {
+            return NormalizedText;
+        }
+
+        if (StartsWith(NormalizedText, "Script/")) {
             return NormalizedText;
         }
 
@@ -289,12 +346,6 @@ namespace {
         const Game::Material* CurrentMaterial{ ReadOnlyWorld->GetComponent<Game::Material>(EntityId) };
         if (CurrentMaterial != nullptr) {
             OutMaterialGroupIndex = CurrentMaterial->MaterialGroupIndex;
-            return true;
-        }
-
-        const Game::StaticMeshRenderer* CurrentRenderer{ ReadOnlyWorld->GetComponent<Game::StaticMeshRenderer>(EntityId) };
-        if (CurrentRenderer != nullptr) {
-            OutMaterialGroupIndex = CurrentRenderer->materialGroupIndex;
             return true;
         }
 
@@ -913,6 +964,36 @@ namespace Game {
                     AnimationNode["node"] >> NewBinding.TargetNodeName;
                 }
 
+                if (ComponentsNode.has_child(RuntimeVariablesTypeName)) {
+                    const c4::yml::ConstNodeRef RuntimeVariablesNode{ ComponentsNode[RuntimeVariablesTypeName] };
+                    for (const c4::yml::ConstNodeRef RuntimeVariableNode : RuntimeVariablesNode.children()) {
+                        PendingAnimatorBinding::PendingRuntimeVariableInitialization NewInitialization{};
+                        std::string TypeText{};
+                        RuntimeVariableNode["Name"] >> NewInitialization.ParameterName;
+                        RuntimeVariableNode["Type"] >> TypeText;
+
+                        if (TypeText == "Bool") {
+                            NewInitialization.Type = PendingAnimatorBinding::PendingRuntimeVariableInitialization::RuntimeVariableType::Bool;
+                            RuntimeVariableNode["Value"] >> NewInitialization.BoolValue;
+                        }
+                        else if (TypeText == "Int") {
+                            NewInitialization.Type = PendingAnimatorBinding::PendingRuntimeVariableInitialization::RuntimeVariableType::Int;
+                            RuntimeVariableNode["Value"] >> NewInitialization.IntValue;
+                        }
+                        else if (TypeText == "Float") {
+                            NewInitialization.Type = PendingAnimatorBinding::PendingRuntimeVariableInitialization::RuntimeVariableType::Float;
+                            RuntimeVariableNode["Value"] >> NewInitialization.FloatValue;
+                        }
+                        else {
+                            LoadResult.IsSuccess = false;
+                            LoadResult.UndecidedItems.push_back(std::string{ "RuntimeVariables Type 값 오류: " } + TypeText);
+                            continue;
+                        }
+
+                        NewBinding.RuntimeVariableInitializations.push_back(std::move(NewInitialization));
+                    }
+                }
+
                 if (AnimationPath.empty() == false) {
                     const std::string ResolvedAnimationPath{ ResolveSceneResourcePath(SceneName, AnimationPath) };
                     const std::shared_ptr<asset::Animation> AnimationData{ OutScene.GetAssetRegistry().GetAnimation(ResolvedAnimationPath) };
@@ -960,39 +1041,16 @@ namespace Game {
                     CameraNode["orthoSize"] >> NewCamera.orthoSize;
                 }
 
-                if (CameraNode.has_child("cullingMask")) {
-                    CameraNode["cullingMask"] >> NewCamera.cullingMask;
-                }
-
                 if (CameraNode.has_child("clearColor")) {
-                    ReadColor4(CameraNode["clearColor"], NewCamera.clearColor);
+                    ReadColor4(CameraNode["clearColor"], NewCamera.clearColor.data());
                 }
 
-                if (CameraNode.has_child("priority")) {
-                    CameraNode["priority"] >> NewCamera.priority;
+                if (CameraNode.has_child("startMode")) {
+                    std::string CameraModeText{};
+                    CameraNode["startMode"] >> CameraModeText;
+                    TryParseCameraModeText(CameraModeText, NewCamera.cameraFlags);
                 }
-
-                if (CameraNode.has_child("smoothingFactor")) {
-                    CameraNode["smoothingFactor"] >> NewCamera.smoothingFactor;
-                }
-
-                if (CameraNode.has_child("currentFovBias")) {
-                    CameraNode["currentFovBias"] >> NewCamera.currentFovBias;
-                }
-
-                if (CameraNode.has_child("currentShakeIntensity")) {
-                    CameraNode["currentShakeIntensity"] >> NewCamera.currentShakeIntensity;
-                }
-
-                if (CameraNode.has_child("lockOnTargetIndex")) {
-                    CameraNode["lockOnTargetIndex"] >> NewCamera.lockOnTarget.index;
-                }
-
-                if (CameraNode.has_child("lockOnTargetGeneration")) {
-                    CameraNode["lockOnTargetGeneration"] >> NewCamera.lockOnTarget.generation;
-                }
-
-                if (CameraNode.has_child("cameraFlags")) {
+                else if (CameraNode.has_child("cameraFlags")) {
                     CameraNode["cameraFlags"] >> NewCamera.cameraFlags;
                 }
 
@@ -1037,47 +1095,48 @@ namespace Game {
                 OutScene.GetWorld().AddComponent(Entity, NewFrustum);
             }
 
-            if (ComponentsNode.has_child(CameraIntentTypeName)) {
-                CameraIntent NewCameraIntent{};
-                const c4::yml::ConstNodeRef CameraIntentNode{ ComponentsNode[CameraIntentTypeName] };
-                if (CameraIntentNode.has_child("moveDirection")) {
-                    ReadVector3(CameraIntentNode["moveDirection"], NewCameraIntent.moveDirection);
-                }
-
-                if (CameraIntentNode.has_child("lookDelta")) {
-                    ReadVector2(CameraIntentNode["lookDelta"], NewCameraIntent.lookDelta);
-                }
-
-                if (CameraIntentNode.has_child("zoomDelta")) {
-                    CameraIntentNode["zoomDelta"] >> NewCameraIntent.zoomDelta;
-                }
-
-                if (CameraIntentNode.has_child("targetToLockOnIndex")) {
-                    CameraIntentNode["targetToLockOnIndex"] >> NewCameraIntent.targetToLockOn.index;
-                }
-
-                if (CameraIntentNode.has_child("targetToLockOnGeneration")) {
-                    CameraIntentNode["targetToLockOnGeneration"] >> NewCameraIntent.targetToLockOn.generation;
-                }
-
-                if (CameraIntentNode.has_child("requestUnlock")) {
-                    CameraIntentNode["requestUnlock"] >> NewCameraIntent.requestUnlock;
-                }
-
-                if (CameraIntentNode.has_child("requestSkip")) {
-                    CameraIntentNode["requestSkip"] >> NewCameraIntent.requestSkip;
-                }
-
-                if (CameraIntentNode.has_child("shakeImpulse")) {
-                    CameraIntentNode["shakeImpulse"] >> NewCameraIntent.shakeImpulse;
-                }
-
-                OutScene.GetWorld().AddComponent(Entity, NewCameraIntent);
-            }
-
             if (ComponentsNode.has_child(LocalPlayerTagTypeName)) {
                 LocalPlayerTag NewLocalPlayerTag{};
                 OutScene.GetWorld().AddComponent(Entity, NewLocalPlayerTag);
+            }
+
+            const bool HasScriptNode{ ComponentsNode.has_child(ScriptTypeName) || ComponentsNode.has_child(ScriptComponentTypeName) || ComponentsNode.has_child(BehaviorInstanceComponentTypeName) };
+            if (HasScriptNode) {
+                c4::yml::ConstNodeRef ScriptNode{ ComponentsNode };
+                if (ComponentsNode.has_child(ScriptTypeName)) {
+                    ScriptNode = ComponentsNode[ScriptTypeName];
+                }
+                else if (ComponentsNode.has_child(ScriptComponentTypeName)) {
+                    ScriptNode = ComponentsNode[ScriptComponentTypeName];
+                }
+                else {
+                    ScriptNode = ComponentsNode[BehaviorInstanceComponentTypeName];
+                }
+
+                std::string ScriptPath{};
+                if (ScriptNode.is_val() || ScriptNode.is_keyval()) {
+                    ScriptNode >> ScriptPath;
+                }
+                else {
+                    if (ScriptNode.has_child("path")) {
+                        ScriptNode["path"] >> ScriptPath;
+                    }
+                    else if (ScriptNode.has_child("scriptPath")) {
+                        ScriptNode["scriptPath"] >> ScriptPath;
+                    }
+                    else if (ScriptNode.has_child("text")) {
+                        ScriptNode["text"] >> ScriptPath;
+                    }
+                }
+
+                if (ScriptPath.empty() == false) {
+                    const std::string ResolvedScriptPath{ ResolveSceneResourcePath(SceneName, ScriptPath) };
+                    const Script::LuaBehaviorFramework::BehaviorOperationResult AttachResult{ OutScene.GetLuaScriptFramework().AttachBehaviorFromFile(Entity, ResolvedScriptPath) };
+                    if (!AttachResult) {
+                        LoadResult.IsSuccess = false;
+                        LoadResult.UndecidedItems.push_back(std::string{ "Script 부착 실패: " } + ResolvedScriptPath + std::string{ " / " } + AttachResult.mError.mMessage);
+                    }
+                }
             }
         }
 
@@ -1152,6 +1211,7 @@ namespace Game {
 
             if (NewAnimator.IsGraphEnabled) {
                 AnimatorGraphPlayer Player{};
+                RuntimeVariableTable VariableTable{};
                 const std::int32_t DefaultNodeIndex{ NewAnimator.GraphAsset->GetDefaultNodeIndex() };
                 Player.CurrentNodeIndex = DefaultNodeIndex;
                 if (DefaultNodeIndex >= 0 && static_cast<std::size_t>(DefaultNodeIndex) < NewAnimator.GraphAsset->GetNodes().size()) {
@@ -1163,16 +1223,28 @@ namespace Game {
                     NewAnimator.clipIndex = DefaultNode.ClipIndex;
                 }
 
-                const std::vector<AnimationGraphAsset::AnimationGraphParameterDefinition>& Definitions{ NewAnimator.GraphAsset->GetParameterDefinitions() };
-                for (std::size_t ParameterIndex{ 0 }; ParameterIndex < Definitions.size() && ParameterIndex < AnimatorGraphPlayer::MaxParameterCount; ++ParameterIndex) {
-                    if (Definitions[ParameterIndex].ParameterTypeValue == AnimationGraphAsset::ParameterType::Int) {
-                        Player.IntValues[ParameterIndex] = std::get<std::int32_t>(Definitions[ParameterIndex].DefaultValue);
+                const std::vector<RuntimeParameterDefinition>& Definitions{ NewAnimator.GraphAsset->GetParameterDefinitions() };
+                for (std::size_t ParameterIndex{ 0 }; ParameterIndex < Definitions.size() && ParameterIndex < RuntimeVariableTableMaxParameterCount; ++ParameterIndex) {
+                    if (Definitions[ParameterIndex].ParameterTypeValue == RuntimeParameterDefinition::ParameterType::Int) {
+                        VariableTable.IntValues[ParameterIndex] = std::get<std::int32_t>(Definitions[ParameterIndex].DefaultValue);
                     }
-                    else if (Definitions[ParameterIndex].ParameterTypeValue == AnimationGraphAsset::ParameterType::Float) {
-                        Player.FloatValues[ParameterIndex] = std::get<float>(Definitions[ParameterIndex].DefaultValue);
+                    else if (Definitions[ParameterIndex].ParameterTypeValue == RuntimeParameterDefinition::ParameterType::Float) {
+                        VariableTable.FloatValues[ParameterIndex] = std::get<float>(Definitions[ParameterIndex].DefaultValue);
                     }
                     else {
-                        Player.BoolValues[ParameterIndex] = std::get<bool>(Definitions[ParameterIndex].DefaultValue);
+                        VariableTable.BoolValues[ParameterIndex] = std::get<bool>(Definitions[ParameterIndex].DefaultValue);
+                    }
+                }
+
+                for (const PendingAnimatorBinding::PendingRuntimeVariableInitialization& Initialization : Binding.RuntimeVariableInitializations) {
+                    if (Initialization.Type == PendingAnimatorBinding::PendingRuntimeVariableInitialization::RuntimeVariableType::Bool) {
+                        VariableTable.TrySetBoolParameter(Definitions, Initialization.ParameterName, Initialization.BoolValue);
+                    }
+                    else if (Initialization.Type == PendingAnimatorBinding::PendingRuntimeVariableInitialization::RuntimeVariableType::Int) {
+                        VariableTable.TrySetIntParameter(Definitions, Initialization.ParameterName, Initialization.IntValue);
+                    }
+                    else {
+                        VariableTable.TrySetFloatParameter(Definitions, Initialization.ParameterName, Initialization.FloatValue);
                     }
                 }
 
@@ -1182,6 +1254,14 @@ namespace Game {
                 }
                 else {
                     *ExistingPlayer = Player;
+                }
+
+                RuntimeVariableTable* ExistingVariableTable{ OutScene.GetWorld().GetComponent<RuntimeVariableTable>(TargetEntityId) };
+                if (ExistingVariableTable == nullptr) {
+                    OutScene.GetWorld().AddComponent(TargetEntityId, VariableTable);
+                }
+                else {
+                    *ExistingVariableTable = VariableTable;
                 }
             }
         }
@@ -1232,7 +1312,6 @@ namespace Game {
         }
 
         AppendLine(Stream, 0, std::string{ "SceneName: " } + ToYamlText(TargetSnapshot.GetSceneName()));
-
         if (TargetSnapshot.GetSystemNames().empty()) {
             AppendLine(Stream, 0, "Systems: []");
         }
@@ -1333,7 +1412,6 @@ namespace Game {
             const Material* MaterialComponent{ ReadOnlyWorld->GetComponent<Material>(EntityId) };
             const StaticMeshRenderer* StaticMeshRendererComponent{ ReadOnlyWorld->GetComponent<StaticMeshRenderer>(EntityId) };
             const Camera* CameraComponent{ ReadOnlyWorld->GetComponent<Camera>(EntityId) };
-            const CameraIntent* CameraIntentComponent{ ReadOnlyWorld->GetComponent<CameraIntent>(EntityId) };
             const LocalPlayerTag* LocalPlayerTagComponent{ ReadOnlyWorld->GetComponent<LocalPlayerTag>(EntityId) };
             const Animator* AnimatorComponent{ nullptr };
             Arche::EntityID AnimatorEntityId{ Arche::NullEntityID };
@@ -1420,14 +1498,7 @@ namespace Game {
                 AppendLine(Stream, 4, std::string{ "isActive: " } + ToYamlBooleanText(CameraComponent->isActive));
                 AppendLine(Stream, 4, std::string{ "isOrthographic: " } + ToYamlBooleanText(CameraComponent->isOrthographic));
                 AppendLine(Stream, 4, std::string{ "orthoSize: " } + std::to_string(CameraComponent->orthoSize));
-                AppendLine(Stream, 4, std::string{ "cullingMask: " } + std::to_string(CameraComponent->cullingMask));
-                AppendColor4(Stream, 4, "clearColor", CameraComponent->clearColor);
-                AppendLine(Stream, 4, std::string{ "priority: " } + std::to_string(CameraComponent->priority));
-                AppendLine(Stream, 4, std::string{ "smoothingFactor: " } + std::to_string(CameraComponent->smoothingFactor));
-                AppendLine(Stream, 4, std::string{ "currentFovBias: " } + std::to_string(CameraComponent->currentFovBias));
-                AppendLine(Stream, 4, std::string{ "currentShakeIntensity: " } + std::to_string(CameraComponent->currentShakeIntensity));
-                AppendLine(Stream, 4, std::string{ "lockOnTargetIndex: " } + std::to_string(CameraComponent->lockOnTarget.index));
-                AppendLine(Stream, 4, std::string{ "lockOnTargetGeneration: " } + std::to_string(CameraComponent->lockOnTarget.generation));
+                AppendColor4(Stream, 4, "clearColor", CameraComponent->clearColor.data());
                 const std::unordered_map<Arche::EntityID, std::uint32_t>::const_iterator ThirdPersonFollowTargetSerializedIter{ SerializedEntityIds.find(CameraComponent->thirdPersonFollowTarget) };
                 const std::int32_t ThirdPersonFollowTargetSerializedId{ ThirdPersonFollowTargetSerializedIter == SerializedEntityIds.end() ? -1 : static_cast<std::int32_t>(ThirdPersonFollowTargetSerializedIter->second) };
                 AppendLine(Stream, 4, std::string{ "thirdPersonFollowTargetEntityId: " } + std::to_string(ThirdPersonFollowTargetSerializedId));
@@ -1439,19 +1510,7 @@ namespace Game {
                 AppendLine(Stream, 4, std::string{ "thirdPersonOrbitPitch: " } + std::to_string(CameraComponent->thirdPersonOrbitPitch));
                 AppendLine(Stream, 4, std::string{ "thirdPersonPositionLerpSpeed: " } + std::to_string(CameraComponent->thirdPersonPositionLerpSpeed));
                 AppendLine(Stream, 4, std::string{ "thirdPersonZoomSpeed: " } + std::to_string(CameraComponent->thirdPersonZoomSpeed));
-                AppendLine(Stream, 4, std::string{ "cameraFlags: " } + std::to_string(CameraComponent->cameraFlags));
-            }
-
-            if (CameraIntentComponent != nullptr) {
-                AppendLine(Stream, 3, std::string{ CameraIntentTypeName } + std::string{ ":" });
-                AppendVector3(Stream, 4, "moveDirection", CameraIntentComponent->moveDirection);
-                AppendVector2(Stream, 4, "lookDelta", CameraIntentComponent->lookDelta);
-                AppendLine(Stream, 4, std::string{ "zoomDelta: " } + std::to_string(CameraIntentComponent->zoomDelta));
-                AppendLine(Stream, 4, std::string{ "targetToLockOnIndex: " } + std::to_string(CameraIntentComponent->targetToLockOn.index));
-                AppendLine(Stream, 4, std::string{ "targetToLockOnGeneration: " } + std::to_string(CameraIntentComponent->targetToLockOn.generation));
-                AppendLine(Stream, 4, std::string{ "requestUnlock: " } + ToYamlBooleanText(CameraIntentComponent->requestUnlock));
-                AppendLine(Stream, 4, std::string{ "requestSkip: " } + ToYamlBooleanText(CameraIntentComponent->requestSkip));
-                AppendLine(Stream, 4, std::string{ "shakeImpulse: " } + std::to_string(CameraIntentComponent->shakeImpulse));
+                AppendLine(Stream, 4, std::string{ "startMode: " } + ResolveCameraModeText(CameraComponent->cameraFlags));
             }
 
             if (LocalPlayerTagComponent != nullptr) {

@@ -3,16 +3,30 @@
 #include <array>
 #include <cctype>
 #include <unordered_set>
+#include "Imgui/imgui.h"
+#include "Core/Config.h"
 #include "Asset/Common.h"
+
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PickingGizmo.h"
 #include "Game/Scene/Components/PrefabInstance.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
+#include "Game/Scene/Components/ComponentLuaTypeDefinitions.h"
+#include "Game/Scene/Components/Camera.h"
+#include "Game/Scene/Components/Frustum.h"
+#include "Game/Scene/Components/RuntimeVariableTable.h"
+#include "Game/Scene/Components/Animator.h"
+#include "Game/Scene/Components/AnimatorGraphPlayer.h"
+#include "Game/Scene/Components/ScriptComponent.h"
+#include "Game/Scene/Components/Tags.h"
+#include "Game/Base/Input.h"
+
 #include "Game/Scene/Events/SelectionEvent.h"
 #include "Core/Event/EventQueue.h"
 #include "Core/Event/FileDropEvent.h"
@@ -35,7 +49,6 @@ namespace {
         return AssetRegistry.AddMaterialGroup(MaterialGroup);
     }
 
-
     std::uint64_t GenerateNextPrefabId(Game::Scene& TargetScene) {
         std::unordered_set<std::uint64_t> UsedPrefabIds{};
         for (const auto [PrefabComponent] : TargetScene.GetWorld().Query<Game::PrefabInstance>()) {
@@ -53,7 +66,6 @@ namespace {
 
         return NextPrefabId;
     }
-
 }
 
 namespace Game {
@@ -67,10 +79,16 @@ namespace Game {
         mWorldSnapshot{},
         mWorldSnapshotVersion{},
         mHierarchyEntitySelectedSubscriptionId{},
-        mFileDropSubscriptionId{} {
+        mFileDropSubscriptionId{},
+        mIsDefaultCameraControlBehaviorAttached{} {
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
         mWorldSnapshot.BindWorld(&mWorld);
         mWorldSnapshot.BindAssetRegistry(&mAssetRegistry);
+
+		mLuaScriptFramework.Initialize(&mWorld);
+        mLuaScriptFramework.SetFixedUpdateInterval(1.f); 
+        mLuaScriptFramework.OpenDefaultLibraries(); 
+        RegisterScriptTypes();
 
         mHierarchyEntitySelectedSubscriptionId = Core::Event::Subscribe<Game::HierarchyEntitySelectedEventTag>([this](const Core::Event::Event<Game::HierarchyEntitySelectedEventTag>& HierarchyEntitySelectedEvent) {
             const Game::HierarchyEntitySelectedPayload* Payload{ HierarchyEntitySelectedEvent.GetPayloadAs<Game::HierarchyEntitySelectedPayload>() };
@@ -130,6 +148,14 @@ namespace Game {
 
     const AssetRegistry& Scene::GetAssetRegistry() const {
         return mAssetRegistry;
+    }
+
+    Script::LuaBehaviorFramework& Scene::GetLuaScriptFramework() {
+        return mLuaScriptFramework;
+    }
+
+    const Script::LuaBehaviorFramework& Scene::GetLuaScriptFramework() const {
+        return mLuaScriptFramework;
     }
 
     void Scene::InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap) {
@@ -197,9 +223,12 @@ namespace Game {
 
             StaticMeshRenderer MeshRenderer{};
             MeshRenderer.model = GizmoModel.get();
-            MeshRenderer.materialGroupIndex = GizmoMaterialGroupIndex;
             MeshRenderer.active = false;
             mWorld.AddComponent(EntityId, MeshRenderer);
+
+            Material MaterialComponent{};
+            MaterialComponent.MaterialGroupIndex = GizmoMaterialGroupIndex;
+            mWorld.AddComponent(EntityId, MaterialComponent);
 
             BoundingBox GizmoBoundingBox{};
             mWorld.AddComponent(EntityId, GizmoBoundingBox);
@@ -265,6 +294,52 @@ namespace Game {
         mWorld.AddComponent(RootEntityId, RootPrefabInstance);
     }
 
+    void Scene::RegisterScriptTypes() {
+        mLuaScriptFramework.RegisterGlobalFunction("IsInputKeyDown", &Globals::IsInputKeyDown);
+        mLuaScriptFramework.RegisterGlobalFunction("IsInputKeyPressed", &Globals::IsInputKeyPressed);
+        mLuaScriptFramework.RegisterGlobalFunction("IsInputKeyReleased", &Globals::IsInputKeyReleased);
+        mLuaScriptFramework.RegisterGlobalFunction("GetInputMousePositionX", &Globals::GetInputMousePositionX);
+        mLuaScriptFramework.RegisterGlobalFunction("GetInputMousePositionY", &Globals::GetInputMousePositionY);
+        mLuaScriptFramework.RegisterGlobalFunction("GetInputMouseDeltaX", &Globals::GetInputMouseDeltaX);
+        mLuaScriptFramework.RegisterGlobalFunction("GetInputMouseDeltaY", &Globals::GetInputMouseDeltaY);
+        mLuaScriptFramework.RegisterGlobalFunction("IsInputMouseLeftButtonDown", &Globals::IsInputMouseLeftButtonDown);
+        mLuaScriptFramework.RegisterGlobalFunction("IsInputMouseRightButtonDown", &Globals::IsInputMouseRightButtonDown);
+        mLuaScriptFramework.RegisterGlobalFunction("IsInputMouseMiddleButtonDown", &Globals::IsInputMouseMiddleButtonDown);
+        mLuaScriptFramework.RegisterGlobalFunction("GetInputMouseWheelDelta", &Globals::GetInputMouseWheelDelta);
+
+        mLuaScriptFramework.RegisterTypeByDefinition<Arche::EntityID>();
+        mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector2>();
+        mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector3>();
+        mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Quaternion>();
+        mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Matrix>();
+        mLuaScriptFramework.RegisterTypeByDefinition<Game::ComponentTextArray>();
+        mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableBoolArray>();
+        mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableIntArray>();
+        mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableFloatArray>();
+
+
+
+
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Material>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Name>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Transform>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::EntityHierarchy>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::StaticMeshRenderer>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::SkinnedMeshRenderer>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::BoundingBox>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Bone>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::BoneSkinReference>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Camera>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Frustum>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::RuntimeVariableTable>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Animator>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::AnimatorGraphPlayer>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::PrefabInstance>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::PickingGizmo>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::LocalPlayerTag>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::BehaviorInstanceComponent>();
+    }
+
     void Scene::InitializeWorldSnapshot() {
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
         mWorldSnapshot.BindWorld(&mWorld);
@@ -311,19 +386,117 @@ namespace Game {
         mWorldSnapshot.BuildHierarchy();
     }
 
+    void Scene::UpdateCameraVirtualMouseState() {
+        Globals::Input& InputInstance{ Globals::Input::Get() };
+        const bool IsThirdPersonToggleRequested{ InputInstance.IsKeyPressed(DirectX::Keyboard::Keys::F8) };
+        const DirectX::Mouse::ButtonStateTracker& MouseTracker{ InputInstance.GetMouseTracker() };
+        const bool IsSelectionDragInput{ mFrameContext.PickedEntityId != Arche::NullEntityID && (MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED || MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::HELD) };
+
+        bool IsUiCapturingInput{ false };
+        if (Config::Query()->Get<bool>("Block_ImGui") == false) {
+            const ImGuiIO& ImGuiInputState{ ImGui::GetIO() };
+            const bool IsUiCapturingMouseInput{ ImGuiInputState.WantCaptureMouse };
+            const bool IsUiCapturingKeyboardInput{ ImGuiInputState.WantCaptureKeyboard };
+            IsUiCapturingInput = IsUiCapturingMouseInput || IsUiCapturingKeyboardInput;
+        }
+
+        for (auto [CameraComponent] : mWorld.Query<Camera>()) {
+            if (CameraComponent.isActive == false) {
+                continue;
+            }
+
+            if (IsThirdPersonToggleRequested) {
+                const bool IsThirdPersonMode{ (CameraComponent.cameraFlags & CameraFlagThirdPerson) != 0u };
+                if (IsThirdPersonMode) {
+                    CameraComponent.cameraFlags &= ~CameraFlagThirdPerson;
+                    CameraComponent.cameraFlags |= CameraFlagFreeLook;
+                    InputInstance.SetRightButtonVirtualMouseEnabled(true);
+                    InputInstance.SetVirtualMouse(false);
+                }
+                else {
+                    CameraComponent.cameraFlags |= CameraFlagThirdPerson;
+                    CameraComponent.cameraFlags &= ~CameraFlagFreeLook;
+                    InputInstance.SetRightButtonVirtualMouseEnabled(false);
+                    InputInstance.SetVirtualMouse(true);
+                }
+            }
+
+            if (IsSelectionDragInput || IsUiCapturingInput) {
+                return;
+            }
+
+            const bool IsThirdPersonMode{ (CameraComponent.cameraFlags & CameraFlagThirdPerson) != 0u };
+            if (IsThirdPersonMode) {
+                InputInstance.SetRightButtonVirtualMouseEnabled(false);
+                InputInstance.SetVirtualMouse(true);
+            }
+            else {
+                InputInstance.SetRightButtonVirtualMouseEnabled(true);
+            }
+
+            return;
+        }
+    }
+
+    void Scene::AttachDefaultCameraControlBehavior() {
+        if (mIsDefaultCameraControlBehaviorAttached) {
+            return;
+        }
+
+        for (const auto [CameraComponent, HierarchyComponent] : mWorld.Query<Camera, EntityHierarchy>()) {
+            if (CameraComponent.isActive == false) {
+                continue;
+            }
+
+            const Arche::EntityID TargetCameraEntity{ HierarchyComponent.self };
+            const BehaviorInstanceComponent* ExistingBehaviorComponent{ mWorld.GetComponent<BehaviorInstanceComponent>(TargetCameraEntity) };
+            if (ExistingBehaviorComponent != nullptr) {
+                mIsDefaultCameraControlBehaviorAttached = true;
+                return;
+            }
+
+            const Script::LuaBehaviorFramework::BehaviorOperationResult AttachResult{ mLuaScriptFramework.AttachBehaviorFromFile(TargetCameraEntity, "Script/Lua/CameraController.lua") };
+            if (AttachResult) {
+                mIsDefaultCameraControlBehaviorAttached = true;
+            }
+
+            return;
+        }
+    }
+
     void Scene::ExecutePhase(Phase TargetPhase, float Dt) {
-        if (TargetPhase == Phase::PreUpdate) {
-            mFrameContext.RenderData.modelContexts.clear();
-            mFrameContext.RenderData.drawRecords.clear();
-            mFrameContext.RenderData.bonePalette.clear();
-            mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
-            mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
-            mFrameContext.WorldMatrices.clear();
-            mFrameContext.SkinnedPoseCache.clear();
+        switch (TargetPhase) {
+            case Phase::PreUpdate:
+                UpdateCameraVirtualMouseState();
+                mFrameContext.RenderData.modelContexts.clear();
+                mFrameContext.RenderData.drawRecords.clear();
+                mFrameContext.RenderData.bonePalette.clear();
+                mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
+                mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
+                mFrameContext.WorldMatrices.clear();
+                mFrameContext.SkinnedPoseCache.clear();
+                break;
+
+            case Phase::Update:
+                AttachDefaultCameraControlBehavior();
+                mLuaScriptFramework.Update(Dt);
+                break;
+
+            default:
+                break;
         }
 
         const SystemSceduler::PhaseBatchArray* PhaseBatches{ mSystemSceduler.GetPhaseBatches(TargetPhase) };
         if (PhaseBatches == nullptr) {
+            switch (TargetPhase) {
+                case Phase::Update:
+                    mLuaScriptFramework.LateUpdate(Dt);
+                    break;
+
+                default:
+                    break;
+            }
+
             return;
         }
 
@@ -331,6 +504,15 @@ namespace Game {
             for (ISystem* System : Batch) {
                 System->Execute(mWorld, mFrameContext, Dt);
             }
+        }
+
+        switch (TargetPhase) {
+            case Phase::Update:
+                mLuaScriptFramework.LateUpdate(Dt);
+                break;
+
+            default:
+                break;
         }
     }
 }

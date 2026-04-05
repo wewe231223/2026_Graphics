@@ -12,10 +12,10 @@ namespace Game {
         OutFields.push_back(ComponentInspectionField{ "Text", std::format("{}", Text.data()) });
     }
 
-    Name CreateNameComponent(std::string_view SourceText) {
+    Name CreateNameComponent(::std::string_view SourceText) {
         Name NewName{};
-        const std::size_t CopyLength{ std::min(SourceText.size(), Name::MaxLength) };
-        std::copy_n(SourceText.data(), CopyLength, NewName.Text.data());
+        const ::std::size_t CopyLength{ ::std::min(SourceText.size(), ComponentTextMaxLength) };
+        ::std::copy_n(SourceText.data(), CopyLength, NewName.Text.data());
         NewName.Text[CopyLength] = '\0';
         return NewName;
     }

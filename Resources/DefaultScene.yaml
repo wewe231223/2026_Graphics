@@ -1,13 +1,11 @@
 ﻿SceneName: DefaultScene
 Systems:
-  - Type: CameraInputSystem
   - Type: PickingSystem
   - Type: AnimationGraphSystem
   - Type: AnimateSystem
   - Type: SkinningSystem
   - Type: StaticRenderSystem
   - Type: SkinnedMeshRenderSystem
-  - Type: CleanUpSystem
   - Type: CameraRenderSystem
 
 DefaultTransform: &DefaultTransform
@@ -84,24 +82,17 @@ Entities:
         isActive: true
         isOrthographic: false
         orthoSize: 5.0
-        cullingMask: 4294967295
         clearColor: [0.1, 0.1, 0.1, 1.0]
-        priority: 0
-        smoothingFactor: 0.1
-        currentFovBias: 0.0
-        currentShakeIntensity: 0.0
-        lockOnTargetIndex: 4294967295
-        lockOnTargetGeneration: 4294967295
-        cameraFlags: 2
-      CameraIntent:
-        moveDirection: [0.0, 0.0, 0.0]
-        lookDelta: [0.0, 0.0]
-        zoomDelta: 0.0
-        targetToLockOnIndex: 4294967295
-        targetToLockOnGeneration: 4294967295
-        requestUnlock: false
-        requestSkip: false
-        shakeImpulse: 0.0
+        thirdPersonFollowTargetEntityId: 9
+        thirdPersonDistance: 4.0
+        thirdPersonMinDistance: 1.5
+        thirdPersonMaxDistance: 8.0
+        thirdPersonHeightOffset: 1.6
+        thirdPersonOrbitYaw: 0.0
+        thirdPersonOrbitPitch: 0.25
+        thirdPersonPositionLerpSpeed: 12.0
+        thirdPersonZoomSpeed: 0.5
+        startMode: ThirdPerson
   - EntityId: 1
     ParentEntityId: -1
     Components:
@@ -207,6 +198,8 @@ Entities:
         text: Mannequinn_Idle_Run.animbin
         initclip: 0
         AnimationGraph: knight_idle_run.graph.yaml
+      Script:
+        path: Script/Lua/PlayerBehavior.lua
   - EntityId: 10
     ParentEntityId: -1
     Components:

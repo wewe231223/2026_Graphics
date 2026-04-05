@@ -22,7 +22,7 @@ namespace Game {
         return mTransitions;
     }
 
-    const std::vector<AnimationGraphAsset::AnimationGraphParameterDefinition>& AnimationGraphAsset::GetParameterDefinitions() const {
+    const std::vector<RuntimeParameterDefinition>& AnimationGraphAsset::GetParameterDefinitions() const {
         return mParameterDefinitions;
     }
 
@@ -53,7 +53,7 @@ namespace Game {
         mTransitions = std::move(Transitions);
     }
 
-    void AnimationGraphAsset::SetParameterDefinitions(std::vector<AnimationGraphParameterDefinition> ParameterDefinitions) {
+    void AnimationGraphAsset::SetParameterDefinitions(std::vector<RuntimeParameterDefinition> ParameterDefinitions) {
         mParameterDefinitions = std::move(ParameterDefinitions);
     }
 

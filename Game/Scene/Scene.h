@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -8,6 +8,7 @@
 #include "SystemSceduler.h"
 #include "SceneWorldSnapshot.h"
 #include "Game/Model/AssetRegistry.h"
+#include "Script/Core/LuaScriptFramework.h"
 
 namespace Game {
     class Scene final {
@@ -33,6 +34,8 @@ namespace Game {
 
         AssetRegistry& GetAssetRegistry();
         const AssetRegistry& GetAssetRegistry() const;
+        Script::LuaBehaviorFramework& GetLuaScriptFramework();
+        const Script::LuaBehaviorFramework& GetLuaScriptFramework() const;
 
         void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap);
         void SetName(const std::string& NewName);
@@ -54,6 +57,9 @@ namespace Game {
         void RebuildWorldSnapshot();
         void SpawnModelAtOrigin(const std::string& ModelSelector, const std::string& RootEntityName, std::uint32_t MaterialGroupIndex, bool IsDerivedEntity);
 
+        void RegisterScriptTypes(); 
+        void AttachDefaultCameraControlBehavior();
+        void UpdateCameraVirtualMouseState();
     private:
         std::string mName{};
         Arche::World mWorld{};
@@ -66,5 +72,8 @@ namespace Game {
         std::uint64_t mWorldSnapshotVersion{};
         std::uint64_t mHierarchyEntitySelectedSubscriptionId{};
         std::uint64_t mFileDropSubscriptionId{};
+        bool mIsDefaultCameraControlBehaviorAttached{};
+
+		Script::LuaBehaviorFramework mLuaScriptFramework{};
     };
 }

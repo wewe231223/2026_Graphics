@@ -47,6 +47,10 @@ namespace Game {
         Translate(SimpleMath::Vector3{ X, Y, Z });
     }
 
+    void Transform::TranslateForLua(const SimpleMath::Vector3& Translation) {
+        Translate(Translation);
+    }
+
     void Transform::Rotate(float YawDegrees, float PitchDegrees, float RollDegrees) {
         const float YawRadians{ DirectX::XMConvertToRadians(YawDegrees) };
         const float PitchRadians{ DirectX::XMConvertToRadians(PitchDegrees) };
@@ -60,6 +64,10 @@ namespace Game {
 
     void Transform::Rotate(const SimpleMath::Vector3& YawPitchRollDegrees) {
         Rotate(YawPitchRollDegrees.x, YawPitchRollDegrees.y, YawPitchRollDegrees.z);
+    }
+
+    void Transform::RotateForLua(const SimpleMath::Vector3& YawPitchRollDegrees) {
+        Rotate(YawPitchRollDegrees);
     }
 
     void Transform::RotateRadians(float PitchRadians, float YawRadians, float RollRadians) {
@@ -112,6 +120,10 @@ namespace Game {
 
     void Transform::Scaling(const SimpleMath::Vector3& Scale) {
         scale = Scale;
+    }
+
+    void Transform::ScalingForLua(const SimpleMath::Vector3& Scale) {
+        Scaling(Scale);
     }
 
     void Transform::Look(const SimpleMath::Vector3& Target) {

@@ -11,9 +11,9 @@
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/Animator.h"
+#include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PrefabInstance.h"
-#include "Game/Scene/Components/RootMotion.h"
 #include "Game/Scene/Components/SkinnedMeshRenderer.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
@@ -57,10 +57,10 @@ namespace Game {
         void AddName(Arche::EntityID EntityId, const Name& NameComponent, bool ReplaceExistingRootComponent, bool OnlyWhenEmpty);
         void AddStaticMeshRenderer(Arche::EntityID EntityId, const StaticMeshRenderer& StaticMeshRendererComponent);
         void AddSkinnedMeshRenderer(Arche::EntityID EntityId, const SkinnedMeshRenderer& SkinnedMeshRendererComponent);
+        void AddMaterial(Arche::EntityID EntityId, const Material& MaterialComponent);
         void AddBoundingBox(Arche::EntityID EntityId, const BoundingBox& BoundingBoxComponent);
         void AddBone(Arche::EntityID EntityId, const Bone& BoneComponent);
         void AddBoneSkinReference(Arche::EntityID EntityId, const BoneSkinReference& BoneSkinReferenceComponent);
-        void AddRootMotion(Arche::EntityID EntityId, const RootMotion& RootMotionComponent);
         void AddAnimator(Arche::EntityID EntityId, const Animator& AnimatorComponent);
 
         Arche::EntityID ResolveBoneRootEntityId(const Model& ModelData, const ModelNode& ModelNodeData, const std::vector<Arche::EntityID>& NodeEntities) const;

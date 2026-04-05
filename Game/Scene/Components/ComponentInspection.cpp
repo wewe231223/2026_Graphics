@@ -2,7 +2,6 @@
 #include <utility>
 #include "Bone.h"
 #include "BoundingBox.h"
-#include "Intents/CameraIntent.h"
 #include "Tags.h"
 #include "PrefabInstance.h"
 #include "Name.h"
@@ -14,7 +13,7 @@
 #include "StaticMeshRenderer.h"
 #include "Transform.h"
 #include "Animator.h"
-#include "RootMotion.h"
+#include "ScriptComponent.h"
 
 namespace {
     template <typename T>
@@ -45,13 +44,12 @@ namespace Game {
         AppendComponentInspectionSection<StaticMeshRenderer>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<SkinnedMeshRenderer>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<Animator>(ReadOnlyWorld, EntityId, OutSections);
-        AppendComponentInspectionSection<RootMotion>(ReadOnlyWorld, EntityId, OutSections);
+        AppendComponentInspectionSection<BehaviorInstanceComponent>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<BoundingBox>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<PrefabInstance>(ReadOnlyWorld, EntityId, OutSections);
 
         AppendComponentInspectionSection<Camera>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<Frustum>(ReadOnlyWorld, EntityId, OutSections);
-        AppendComponentInspectionSection<CameraIntent>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<LocalPlayerTag>(ReadOnlyWorld, EntityId, OutSections);
     }
 }

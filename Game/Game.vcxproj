@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Base\Common.h" />
+    <ClInclude Include="Base\RuntimeParameterDefinition.h" />
     <ClInclude Include="Base\Input.h" />
     <ClInclude Include="Base\RenderFrameData.h" />
     <ClInclude Include="Base\Shader.h" />
@@ -35,17 +36,19 @@
     <ClInclude Include="Scene\Components\Bone.h" />
     <ClInclude Include="Scene\Components\BoneSkinReference.h" />
     <ClInclude Include="Scene\Components\Camera.h" />
+    <ClInclude Include="Scene\Components\ComponentText.h" />
+    <ClInclude Include="Scene\Components\ComponentLuaTypeDefinitions.h" />
     <ClInclude Include="Scene\Components\EntityHierarchy.h" />
     <ClInclude Include="Scene\Components\Frustum.h" />
-    <ClInclude Include="Scene\Components\Intents\CameraIntent.h" />
     <ClInclude Include="Scene\Components\Material.h" />
     <ClInclude Include="Scene\Components\Animator.h" />
     <ClInclude Include="Scene\Components\AnimatorGraphPlayer.h" />
-    <ClInclude Include="Scene\Components\RootMotion.h" />
+    <ClInclude Include="Scene\Components\RuntimeVariableTable.h" />
     <ClInclude Include="Scene\Components\Name.h" />
     <ClInclude Include="Scene\Components\ComponentInspection.h" />
     <ClInclude Include="Scene\Components\PickingGizmo.h" />
     <ClInclude Include="Scene\Components\PrefabInstance.h" />
+    <ClInclude Include="Scene\Components\ScriptComponent.h" />
     <ClInclude Include="Scene\Components\StaticMeshRenderer.h" />
     <ClInclude Include="Scene\Components\SkinnedMeshRenderer.h" />
     <ClInclude Include="Scene\Components\Tags.h" />
@@ -58,10 +61,8 @@
     <ClInclude Include="Scene\SystemSceduler.h" />
     <ClInclude Include="Scene\Systems\AnimationGraphSystem.h" />
     <ClInclude Include="Scene\Systems\AnimateSystem.h" />
-    <ClInclude Include="Scene\Systems\CameraInputSystem.h" />
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
     <ClInclude Include="Scene\Systems\PickingSystem.h" />
-    <ClInclude Include="Scene\Systems\IntentClentUpSystem.h" />
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
     <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h" />
     <ClInclude Include="Scene\Systems\SkinningSystem.h" />
@@ -77,6 +78,7 @@
     <ClCompile Include="Model\Model.cpp" />
     <ClCompile Include="Model\PrimitiveModelFactory.cpp" />
     <ClCompile Include="Asset\AnimationGraphAsset.cpp" />
+    <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp" />
     <ClCompile Include="Scene\Components\PrefabInstance.cpp" />
     <ClCompile Include="Scene\Components\Bone.cpp" />
     <ClCompile Include="Scene\Components\BoneSkinReference.cpp" />
@@ -91,10 +93,10 @@
     <ClCompile Include="Scene\Components\Material.cpp" />
     <ClCompile Include="Scene\Components\Animator.cpp" />
     <ClCompile Include="Scene\Components\AnimatorGraphPlayer.cpp" />
-    <ClCompile Include="Scene\Components\RootMotion.cpp" />
+    <ClCompile Include="Scene\Components\RuntimeVariableTable.cpp" />
+    <ClCompile Include="Scene\Components\ScriptComponent.cpp" />
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp" />
     <ClCompile Include="Scene\Components\Tags.cpp" />
-    <ClCompile Include="Scene\Components\Intents\CameraIntent.cpp" />
     <ClCompile Include="Scene\Components\BoundingBox.cpp" />
     <ClCompile Include="Scene\Components\Camera.cpp" />
     <ClCompile Include="Scene\Components\Frustum.cpp" />
@@ -103,7 +105,6 @@
     <ClCompile Include="Scene\Components\ComponentInspection.cpp" />
     <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp" />
     <ClCompile Include="Scene\Systems\AnimateSystem.cpp" />
-    <ClCompile Include="Scene\Systems\CameraInputSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\PickingSystem.cpp" />
     <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />
@@ -127,6 +128,7 @@
   <ItemGroup>
     <None Include="..\Resources\DefaultScene.yaml" />
     <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml" />
+    <None Include="..\Script\Lua\CameraController.lua" />
     <None Include="..\Shader\PSO\DefaultGraphics.json" />
     <None Include="..\Shader\PSO\SkinnedGraphics.json" />
     <None Include="..\Shader\PSO\Schema.Pipeline.json" />
@@ -190,12 +192,12 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)\out\debug\</OutDir>
-    <IncludePath>$(SolutionDir)\External\Include;$(SolutionDir)\External\Include\rapidyml;$(SolutionDir);$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\External\Include;$(SolutionDir)\External\Include\rapidyml;$(SolutionDir);$(SolutionDir)\External\Include\lua;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)\External\lib\debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)\out\release\</OutDir>
-    <IncludePath>$(SolutionDir)\External\Include;$(SolutionDir)\External\Include\rapidyml;$(SolutionDir);$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\External\Include;$(SolutionDir)\External\Include\rapidyml;$(SolutionDir);$(SolutionDir)\External\Include\lua;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)\External\lib\release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -241,6 +243,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp23</LanguageStandard>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -259,6 +262,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp23</LanguageStandard>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="리소스 파일">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Core">
+      <UniqueIdentifier>{bc25788d-9ae5-492e-8aae-61fe1901a08c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lua">
+      <UniqueIdentifier>{b0cef3a7-5bd9-4c5e-bc87-702b8c955995}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Core\LuaScriptFramework.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Core\LuaScriptFramework.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Core\LuaScriptFramework.inl">
+      <Filter>Core</Filter>
+    </None>
+    <None Include="Lua\CameraController.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\BehaviorStandardTemplate.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Bootstrap.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Constants\CameraFlags.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Constants\KeyboardKeys.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Functions\Bit.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Functions\Input.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Functions\Math.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Functions\String.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Functions\Table.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Functions\Vector3.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\PlayerBehavior.lua">
+      <Filter>Lua</Filter>
+    </None>
+  </ItemGroup>
+</Project>

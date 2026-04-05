@@ -66,6 +66,7 @@ namespace asset {
             return Channel;
         }
 
+
         AnimationClip ToAnimationClip(const aiAnimation& AnimationData, const std::unordered_map<std::string, std::uint32_t>& NodeIdLookup) {
             AnimationClip Clip{};
             Clip.Name = std::string{ AnimationData.mName.C_Str() };
@@ -76,6 +77,7 @@ namespace asset {
             for (unsigned int ChannelIndex{ 0 }; ChannelIndex < AnimationData.mNumChannels; ++ChannelIndex) {
                 Clip.Channels.push_back(ToAnimationChannel(*AnimationData.mChannels[ChannelIndex], NodeIdLookup));
             }
+
 
             return Clip;
         }

@@ -6,12 +6,16 @@
 #include "Utility/ComponentRestraint.h"
 
 namespace Game {
-    Component(Animator)
-        asset::Animation* animation{ nullptr };
-        std::int32_t clipIndex{ -1 };
-        double counter{ 0.0 };
-        AnimationGraphAsset* GraphAsset{ nullptr };
-        bool IsGraphEnabled{ false };
-        std::int32_t FallbackClipIndex{ -1 };
-    EndComponent(Animator)
+    ComponentDecl(
+        Animator,
+        ComponentFields(
+            ComponentField(asset::Animation*, animation, nullptr)
+            ComponentField(::std::int32_t, clipIndex, -1)
+            ComponentField(double, counter, 0.0)
+            ComponentField(AnimationGraphAsset*, GraphAsset, nullptr)
+            ComponentField(bool, IsGraphEnabled, false)
+            ComponentField(::std::int32_t, FallbackClipIndex, -1)
+        ),
+        BOOST_PP_SEQ_NIL
+    );
 }
