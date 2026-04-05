@@ -124,6 +124,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
+    <FxCompile Include="..\Shader\Source\SkyDomeShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Resources\DefaultScene.yaml" />
@@ -131,6 +135,7 @@
     <None Include="..\Script\Lua\CameraController.lua" />
     <None Include="..\Shader\PSO\DefaultGraphics.json" />
     <None Include="..\Shader\PSO\SkinnedGraphics.json" />
+    <None Include="..\Shader\PSO\SkyDomeGraphics.json" />
     <None Include="..\Shader\PSO\Schema.Pipeline.json" />
     <None Include="..\Shader\RS\DefaultRootSignature.json" />
     <None Include="..\Shader\RS\Schema.RootSignature.json" />

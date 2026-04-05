@@ -307,7 +307,7 @@ namespace {
 
         for (std::uint32_t StackIndex{ 0 }; StackIndex <= StackCount; ++StackIndex) {
             const float V{ static_cast<float>(StackIndex) / static_cast<float>(StackCount) };
-            const float Phi{ 0.5f * Pi * V };
+            const float Phi{ Pi * V };
             const float SinPhi{ std::sin(Phi) };
             const float CosPhi{ std::cos(Phi) };
 

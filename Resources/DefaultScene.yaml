@@ -64,6 +64,12 @@ Prefabs:
     modelPath: primitive:square_pyramid;size=0.950000;color=0.240000,0.930000,0.310000,1.000000
     materialPath: primitive_vertex_color_materials.json
     active: true
+  - &Prefab2007
+    prefabId: 2007
+    modelPath: primitive:sky_dome;size=5.000000;color=0.350000,0.450000,0.800000,1.000000
+    materialPath: skydome_materials.json
+    active: true
+
 
 Entities:
   - EntityId: 0
@@ -214,3 +220,14 @@ Entities:
       Animation:
         text: knight.animbin
         initclip: 0
+  - EntityId: 11
+    ParentEntityId: -1
+    Components:
+      Name:
+        text: SkyDome
+      Transform:
+        <<: *DefaultTransform
+        position: [0.00, 0.00, 0.00]
+      PrefabInstance:
+        <<: *Prefab2007
+        prefabId: 2007

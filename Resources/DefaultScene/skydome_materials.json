@@ -1,0 +1,17 @@
+{
+  "MaterialGroups": [
+    {
+      "Name": "skydome",
+      "Items": [
+        {
+          "PipelineName": "SkyDomeGraphics",
+          "MaterialData": {
+            "Name": "SkyDome",
+            "PBR": false,
+            "Properties": {}
+          }
+        }
+      ]
+    }
+  ]
+}
