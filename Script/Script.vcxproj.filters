@@ -29,5 +29,11 @@
     <None Include="Lua\CameraController.lua">
       <Filter>Lua</Filter>
     </None>
+    <None Include="Lua\BehaviorStandardTemplate.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\PlayerBehavior.lua">
+      <Filter>Lua</Filter>
+    </None>
   </ItemGroup>
 </Project>

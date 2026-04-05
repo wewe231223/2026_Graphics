@@ -199,6 +199,8 @@ Entities:
         text: Mannequinn_Idle_Run.animbin
         initclip: 0
         AnimationGraph: knight_idle_run.graph.yaml
+      Script:
+        path: Script/Lua/PlayerBehavior.lua
   - EntityId: 10
     ParentEntityId: -1
     Components:

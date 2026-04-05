@@ -37,6 +37,8 @@ namespace Game {
         const AssetRegistry& GetAssetRegistry() const;
         RuntimeVariableInputTable& GetRuntimeVariableInputTable();
         const RuntimeVariableInputTable& GetRuntimeVariableInputTable() const;
+        Script::LuaBehaviorFramework& GetLuaScriptFramework();
+        const Script::LuaBehaviorFramework& GetLuaScriptFramework() const;
 
         void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap);
         void SetName(const std::string& NewName);

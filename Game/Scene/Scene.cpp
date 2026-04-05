@@ -160,6 +160,14 @@ namespace Game {
         return mRuntimeVariableInputTable;
     }
 
+    Script::LuaBehaviorFramework& Scene::GetLuaScriptFramework() {
+        return mLuaScriptFramework;
+    }
+
+    const Script::LuaBehaviorFramework& Scene::GetLuaScriptFramework() const {
+        return mLuaScriptFramework;
+    }
+
     void Scene::InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap) {
         mAssetRegistry.Initialize(Device, CopyQueue, Allocator);
         mAssetRegistry.SetSrvHeap(SrvHeap);

@@ -44,6 +44,9 @@ namespace {
     constexpr const char* AnimationTypeName{ "Animation" };
     constexpr const char* CameraTypeName{ "Camera" };
     constexpr const char* LocalPlayerTagTypeName{ "LocalPlayerTag" };
+    constexpr const char* ScriptTypeName{ "Script" };
+    constexpr const char* ScriptComponentTypeName{ "ScriptComponent" };
+    constexpr const char* BehaviorInstanceComponentTypeName{ "BehaviorInstanceComponent" };
     constexpr const char* NameTypeName{ "Name" };
     constexpr const char* PrefabInstanceTypeName{ "PrefabInstance" };
     constexpr const char* BoneSkinReferenceTypeName{ "BoneSkinReference" };
@@ -261,6 +264,10 @@ namespace {
 
         const std::string NormalizedText{ SourcePath.lexically_normal().generic_string() };
         if (StartsWith(NormalizedText, "Resources/")) {
+            return NormalizedText;
+        }
+
+        if (StartsWith(NormalizedText, "Script/")) {
             return NormalizedText;
         }
 
@@ -1109,6 +1116,45 @@ namespace Game {
             if (ComponentsNode.has_child(LocalPlayerTagTypeName)) {
                 LocalPlayerTag NewLocalPlayerTag{};
                 OutScene.GetWorld().AddComponent(Entity, NewLocalPlayerTag);
+            }
+
+            const bool HasScriptNode{ ComponentsNode.has_child(ScriptTypeName) || ComponentsNode.has_child(ScriptComponentTypeName) || ComponentsNode.has_child(BehaviorInstanceComponentTypeName) };
+            if (HasScriptNode) {
+                c4::yml::ConstNodeRef ScriptNode{ ComponentsNode };
+                if (ComponentsNode.has_child(ScriptTypeName)) {
+                    ScriptNode = ComponentsNode[ScriptTypeName];
+                }
+                else if (ComponentsNode.has_child(ScriptComponentTypeName)) {
+                    ScriptNode = ComponentsNode[ScriptComponentTypeName];
+                }
+                else {
+                    ScriptNode = ComponentsNode[BehaviorInstanceComponentTypeName];
+                }
+
+                std::string ScriptPath{};
+                if (ScriptNode.is_val() || ScriptNode.is_keyval()) {
+                    ScriptNode >> ScriptPath;
+                }
+                else {
+                    if (ScriptNode.has_child("path")) {
+                        ScriptNode["path"] >> ScriptPath;
+                    }
+                    else if (ScriptNode.has_child("scriptPath")) {
+                        ScriptNode["scriptPath"] >> ScriptPath;
+                    }
+                    else if (ScriptNode.has_child("text")) {
+                        ScriptNode["text"] >> ScriptPath;
+                    }
+                }
+
+                if (ScriptPath.empty() == false) {
+                    const std::string ResolvedScriptPath{ ResolveSceneResourcePath(SceneName, ScriptPath) };
+                    const Script::LuaBehaviorFramework::BehaviorOperationResult AttachResult{ OutScene.GetLuaScriptFramework().AttachBehaviorFromFile(Entity, ResolvedScriptPath) };
+                    if (!AttachResult) {
+                        LoadResult.IsSuccess = false;
+                        LoadResult.UndecidedItems.push_back(std::string{ "Script 부착 실패: " } + ResolvedScriptPath + std::string{ " / " } + AttachResult.mError.mMessage);
+                    }
+                }
             }
         }
 
