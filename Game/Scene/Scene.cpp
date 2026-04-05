@@ -294,12 +294,27 @@ namespace Game {
     }
 
     void Scene::RegisterScriptTypes() {
+
+
+        mLuaScriptFramework.RegisterTypeByDefinition<Arche::EntityID>();
+        mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector2>();
+        mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector3>();
+        mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Quaternion>();
+        mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Matrix>();
+        mLuaScriptFramework.RegisterTypeByDefinition<Game::NameTextArray>();
+        mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableBoolArray>();
+        mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableIntArray>();
+        mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableFloatArray>();
+
+
+
+
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Material>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::Name>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::Transform>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::EntityHierarchy>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::StaticMeshRenderer>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::SkinnedMeshRenderer>();
-        mLuaScriptFramework.RegisterComponentByDefinition<Game::Material>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BoundingBox>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::Bone>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BoneSkinReference>();
@@ -313,16 +328,6 @@ namespace Game {
         mLuaScriptFramework.RegisterComponentByDefinition<Game::LocalPlayerTag>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::CameraIntent>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BehaviorInstanceComponent>();
-
-        mLuaScriptFramework.RegisterTypeByDefinition<Arche::EntityID>();
-        mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector2>();
-        mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector3>();
-        mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Quaternion>();
-        mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Matrix>();
-        mLuaScriptFramework.RegisterTypeByDefinition<Game::NameTextArray>();
-        mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableBoolArray>();
-        mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableIntArray>();
-        mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableFloatArray>();
     }
 
     void Scene::InitializeWorldSnapshot() {
