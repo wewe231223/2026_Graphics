@@ -1,0 +1,8 @@
+dofile("Script/Lua/Global/Constants/KeyboardKeys.lua")
+dofile("Script/Lua/Global/Constants/CameraFlags.lua")
+dofile("Script/Lua/Global/Functions/Math.lua")
+dofile("Script/Lua/Global/Functions/Bit.lua")
+dofile("Script/Lua/Global/Functions/Vector3.lua")
+dofile("Script/Lua/Global/Functions/Input.lua")
+dofile("Script/Lua/Global/Functions/Table.lua")
+dofile("Script/Lua/Global/Functions/String.lua")

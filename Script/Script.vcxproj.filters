@@ -32,6 +32,33 @@
     <None Include="Lua\BehaviorStandardTemplate.lua">
       <Filter>Lua</Filter>
     </None>
+    <None Include="Lua\Global\Bootstrap.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Constants\CameraFlags.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Constants\KeyboardKeys.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Functions\Bit.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Functions\Input.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Functions\Math.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Functions\String.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Functions\Table.lua">
+      <Filter>Lua</Filter>
+    </None>
+    <None Include="Lua\Global\Functions\Vector3.lua">
+      <Filter>Lua</Filter>
+    </None>
     <None Include="Lua\PlayerBehavior.lua">
       <Filter>Lua</Filter>
     </None>

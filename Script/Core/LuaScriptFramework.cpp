@@ -1,3 +1,4 @@
+#include <array>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -129,6 +130,20 @@ namespace Script {
     void LuaBehaviorFramework::OpenDefaultLibraries() {
         std::lock_guard<std::mutex> RuntimeGuard{ mRuntimeMutex };
         mLuaState.open_libraries(sol::lib::base, sol::lib::math, sol::lib::string, sol::lib::table, sol::lib::package);
+
+        const std::array<std::string, 1> SharedScriptFilePaths{ "Script/Lua/Global/Bootstrap.lua" };
+
+        for (const std::string& SharedScriptFilePath : SharedScriptFilePaths) {
+            sol::protected_function_result SharedScriptLoadResult{ mLuaState.safe_script_file(SharedScriptFilePath, sol::script_pass_on_error) };
+
+            if (!SharedScriptLoadResult.valid()) {
+                const std::string ErrorMessage{ SharedScriptLoadResult.get<sol::error>().what() };
+                HandleFailure(BehaviorErrorCode::LuaLoadFailed, ErrorMessage, Arche::EntityID{}, SharedScriptFilePath);
+                return;
+            }
+        }
+
+        ClearError();
     }
 
     LuaBehaviorFramework::BehaviorOperationResult LuaBehaviorFramework::SetFixedUpdateInterval(float FixedDeltaSeconds) {
