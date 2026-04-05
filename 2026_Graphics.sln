@@ -101,6 +101,7 @@ Global
 		SolutionGuid = {39C2F6AF-547C-47D5-A6A1-DE9E229F9ACC}
 	EndGlobalSection
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		Utility\Utility.vcxitems*{4c589c48-f4b6-4220-b527-ddc79254d905}*SharedItemsImports = 4
 		Utility\Utility.vcxitems*{a0370b75-ac05-4833-a0ff-ee4f84b7bebf}*SharedItemsImports = 4
 		Utility\Utility.vcxitems*{b7597372-03ca-406e-a6bc-80b1ddd6875e}*SharedItemsImports = 9
 		Utility\Utility.vcxitems*{be25e620-7914-415b-b62d-865e31371758}*SharedItemsImports = 4

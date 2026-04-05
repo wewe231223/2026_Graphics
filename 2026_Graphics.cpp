@@ -151,9 +151,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     SceneInstance.InitializeWorldSnapshot();
 
-    for (auto [NameComponent] : SceneInstance.GetWorld().Query<Game::Name>()) {
-        StdOutput::PrintLine("Entity Name: {}", Game::GetNameText(NameComponent));
-    }
 
     copyQueue.DispatchCopies();
     copyQueue.Flush();
