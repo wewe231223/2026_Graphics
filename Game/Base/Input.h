@@ -1,6 +1,7 @@
 ﻿#pragma once
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <cstdint>
 #include <memory>
 #include "External/Include/DirectXTK12/Keyboard.h"
 #include "External/Include/DirectXTK12/Mouse.h"
@@ -61,6 +62,20 @@ namespace Globals {
         bool mVirtualMouse{ false };
         bool mRightButtonVirtualMouseEnabled{ true };
         bool mIsImGuiInputBlocked{ false };
-		POINT mVirtualMousePosition{};
+        POINT mVirtualMousePosition{};
     };
+
+    bool IsInputKeyDown(std::int32_t KeyCode);
+    bool IsInputKeyPressed(std::int32_t KeyCode);
+    bool IsInputKeyReleased(std::int32_t KeyCode);
+
+    std::int32_t GetInputMousePositionX();
+    std::int32_t GetInputMousePositionY();
+
+    float GetInputMouseDeltaX();
+    float GetInputMouseDeltaY();
+
+    bool IsInputMouseLeftButtonDown();
+    bool IsInputMouseRightButtonDown();
+    bool IsInputMouseMiddleButtonDown();
 }

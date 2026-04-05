@@ -24,6 +24,7 @@
 #include "Game/Scene/Components/Intents/CameraIntent.h"
 #include "Game/Scene/Components/ScriptComponent.h"
 #include "Game/Scene/Components/Tags.h"
+#include "Game/Base/Input.h"
 
 #include "Game/Scene/Events/SelectionEvent.h"
 #include "Core/Event/EventQueue.h"
@@ -294,7 +295,17 @@ namespace Game {
     }
 
     void Scene::RegisterScriptTypes() {
-
+        sol::state& LuaState{ mLuaScriptFramework.GetState() };
+        LuaState.set_function("IsInputKeyDown", &Globals::IsInputKeyDown);
+        LuaState.set_function("IsInputKeyPressed", &Globals::IsInputKeyPressed);
+        LuaState.set_function("IsInputKeyReleased", &Globals::IsInputKeyReleased);
+        LuaState.set_function("GetInputMousePositionX", &Globals::GetInputMousePositionX);
+        LuaState.set_function("GetInputMousePositionY", &Globals::GetInputMousePositionY);
+        LuaState.set_function("GetInputMouseDeltaX", &Globals::GetInputMouseDeltaX);
+        LuaState.set_function("GetInputMouseDeltaY", &Globals::GetInputMouseDeltaY);
+        LuaState.set_function("IsInputMouseLeftButtonDown", &Globals::IsInputMouseLeftButtonDown);
+        LuaState.set_function("IsInputMouseRightButtonDown", &Globals::IsInputMouseRightButtonDown);
+        LuaState.set_function("IsInputMouseMiddleButtonDown", &Globals::IsInputMouseMiddleButtonDown);
 
         mLuaScriptFramework.RegisterTypeByDefinition<Arche::EntityID>();
         mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector2>();

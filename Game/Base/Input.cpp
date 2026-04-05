@@ -1,5 +1,20 @@
 ﻿#include "Input.h"
 
+namespace {
+    bool TryConvertKeyCode(std::int32_t KeyCode, DirectX::Keyboard::Keys& OutKey) {
+        if (KeyCode < static_cast<std::int32_t>(DirectX::Keyboard::Keys::None)) {
+            return false;
+        }
+
+        if (KeyCode > static_cast<std::int32_t>(DirectX::Keyboard::Keys::OemClear)) {
+            return false;
+        }
+
+        OutKey = static_cast<DirectX::Keyboard::Keys>(KeyCode);
+        return true;
+    }
+}
+
 namespace Globals {
     void Input::Initialize(HWND hWnd) {
         // DirectXTK Mouse 초기화 (Window Handle 필요)
@@ -131,5 +146,63 @@ namespace Globals {
 
 			SetCursorPos(virtualMouseScreenPosition.x, virtualMouseScreenPosition.y);
         }
+    }
+
+    bool IsInputKeyDown(std::int32_t KeyCode) {
+        DirectX::Keyboard::Keys TargetKey{ DirectX::Keyboard::Keys::None };
+        const bool IsValidKeyCode{ TryConvertKeyCode(KeyCode, TargetKey) };
+        if (IsValidKeyCode == false) {
+            return false;
+        }
+
+        return Input::Get().IsKeyDown(TargetKey);
+    }
+
+    bool IsInputKeyPressed(std::int32_t KeyCode) {
+        DirectX::Keyboard::Keys TargetKey{ DirectX::Keyboard::Keys::None };
+        const bool IsValidKeyCode{ TryConvertKeyCode(KeyCode, TargetKey) };
+        if (IsValidKeyCode == false) {
+            return false;
+        }
+
+        return Input::Get().IsKeyPressed(TargetKey);
+    }
+
+    bool IsInputKeyReleased(std::int32_t KeyCode) {
+        DirectX::Keyboard::Keys TargetKey{ DirectX::Keyboard::Keys::None };
+        const bool IsValidKeyCode{ TryConvertKeyCode(KeyCode, TargetKey) };
+        if (IsValidKeyCode == false) {
+            return false;
+        }
+
+        return Input::Get().IsKeyReleased(TargetKey);
+    }
+
+    std::int32_t GetInputMousePositionX() {
+        return Input::Get().GetMouseState().x;
+    }
+
+    std::int32_t GetInputMousePositionY() {
+        return Input::Get().GetMouseState().y;
+    }
+
+    float GetInputMouseDeltaX() {
+        return Input::Get().GetMouseDeltaX();
+    }
+
+    float GetInputMouseDeltaY() {
+        return Input::Get().GetMouseDeltaY();
+    }
+
+    bool IsInputMouseLeftButtonDown() {
+        return Input::Get().GetMouseState().leftButton;
+    }
+
+    bool IsInputMouseRightButtonDown() {
+        return Input::Get().GetMouseState().rightButton;
+    }
+
+    bool IsInputMouseMiddleButtonDown() {
+        return Input::Get().GetMouseState().middleButton;
     }
 }
