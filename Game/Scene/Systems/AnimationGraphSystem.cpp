@@ -9,7 +9,6 @@
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/AnimatorGraphPlayer.h"
 #include "Game/Scene/Components/RuntimeVariableTable.h"
-#include "Game/Scene/RuntimeVariableInputTable.h"
 
 #ifdef min
 #undef min
@@ -153,9 +152,6 @@ namespace Game {
             const std::vector<AnimationGraphAsset::AnimationGraphNodeAsset>& Nodes{ AnimatorComponent.GraphAsset->GetNodes() };
             const std::vector<AnimationGraphAsset::AnimationGraphTransitionAsset>& Transitions{ AnimatorComponent.GraphAsset->GetTransitions() };
             const std::vector<RuntimeParameterDefinition>& ParameterDefinitions{ AnimatorComponent.GraphAsset->GetParameterDefinitions() };
-            if (Ctx.RuntimeVariableInputTableResource != nullptr) {
-                Ctx.RuntimeVariableInputTableResource->ApplyInputBindings(VariableTable, ParameterDefinitions);
-            }
 
             if (Nodes.empty()) {
                 AnimatorComponent.clipIndex = AnimatorComponent.FallbackClipIndex;

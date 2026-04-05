@@ -74,7 +74,6 @@ namespace Game {
         mWorld{},
         mFrameContext{},
         mAssetRegistry{},
-        mRuntimeVariableInputTable{},
         mSystems{},
         mSystemSceduler{},
         mWorldSnapshot{},
@@ -85,7 +84,6 @@ namespace Game {
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
         mWorldSnapshot.BindWorld(&mWorld);
         mWorldSnapshot.BindAssetRegistry(&mAssetRegistry);
-        mFrameContext.RuntimeVariableInputTableResource = &mRuntimeVariableInputTable;
 
 		mLuaScriptFramework.Initialize(&mWorld);
         mLuaScriptFramework.SetFixedUpdateInterval(1.f); 
@@ -150,14 +148,6 @@ namespace Game {
 
     const AssetRegistry& Scene::GetAssetRegistry() const {
         return mAssetRegistry;
-    }
-
-    RuntimeVariableInputTable& Scene::GetRuntimeVariableInputTable() {
-        return mRuntimeVariableInputTable;
-    }
-
-    const RuntimeVariableInputTable& Scene::GetRuntimeVariableInputTable() const {
-        return mRuntimeVariableInputTable;
     }
 
     Script::LuaBehaviorFramework& Scene::GetLuaScriptFramework() {

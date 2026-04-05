@@ -34,7 +34,6 @@
 #include "Game/Scene/Systems/CameraRenderSystem.h"
 #include "Game/Scene/Systems/SkinningSystem.h"
 #include "Game/Scene/SceneEntityFactory.h"
-#include "Game/Scene/RuntimeVariableInputTable.h"
 #include "Utility/StdOutput.h"
 
 namespace {
@@ -51,7 +50,6 @@ namespace {
     constexpr const char* PrefabInstanceTypeName{ "PrefabInstance" };
     constexpr const char* BoneSkinReferenceTypeName{ "BoneSkinReference" };
     constexpr const char* RuntimeVariablesTypeName{ "RuntimeVariables" };
-    constexpr const char* RuntimeVariableInputTablePathTypeName{ "RuntimeVariableInputTable" };
     constexpr const char* DefaultMaterialPathText{ "Resources/DefaultResource/DefaultMaterial.json" };
     constexpr const char* CameraModeFreeLookText{ "FreeLook" };
     constexpr const char* CameraModeThirdPersonText{ "ThirdPerson" };
@@ -626,22 +624,6 @@ namespace Game {
         if (RootNode.has_child("SceneName")) {
             RootNode["SceneName"] >> SceneName;
             OutScene.SetName(SceneName);
-        }
-
-        OutScene.GetRuntimeVariableInputTable().Clear();
-        if (RootNode.has_child(RuntimeVariableInputTablePathTypeName)) {
-            std::string RuntimeVariableInputTablePath{};
-            RootNode[RuntimeVariableInputTablePathTypeName] >> RuntimeVariableInputTablePath;
-            const std::string ResolvedRuntimeVariableInputTablePath{ ResolveSceneResourcePath(SceneName, RuntimeVariableInputTablePath) };
-            std::vector<std::string> InputTableErrors{};
-            const bool IsInputTableLoaded{ OutScene.GetRuntimeVariableInputTable().LoadFromFile(ResolvedRuntimeVariableInputTablePath, InputTableErrors) };
-            if (IsInputTableLoaded == false) {
-                LoadResult.IsSuccess = false;
-            }
-
-            for (const std::string& ErrorText : InputTableErrors) {
-                LoadResult.UndecidedItems.push_back(ErrorText);
-            }
         }
 
         if (RootNode.has_child("Systems")) {
@@ -1254,8 +1236,6 @@ namespace Game {
                     }
                 }
 
-                OutScene.GetRuntimeVariableInputTable().ApplyInitialValues(VariableTable, Definitions);
-
                 for (const PendingAnimatorBinding::PendingRuntimeVariableInitialization& Initialization : Binding.RuntimeVariableInitializations) {
                     if (Initialization.Type == PendingAnimatorBinding::PendingRuntimeVariableInitialization::RuntimeVariableType::Bool) {
                         VariableTable.TrySetBoolParameter(Definitions, Initialization.ParameterName, Initialization.BoolValue);
@@ -1332,8 +1312,6 @@ namespace Game {
         }
 
         AppendLine(Stream, 0, std::string{ "SceneName: " } + ToYamlText(TargetSnapshot.GetSceneName()));
-        AppendLine(Stream, 0, std::string{ RuntimeVariableInputTablePathTypeName } + std::string{ ": " } + ToYamlText(std::string{ "RuntimeVariableInputTable.yaml" }));
-
         if (TargetSnapshot.GetSystemNames().empty()) {
             AppendLine(Stream, 0, "Systems: []");
         }

@@ -8,7 +8,6 @@
 #include "SystemSceduler.h"
 #include "SceneWorldSnapshot.h"
 #include "Game/Model/AssetRegistry.h"
-#include "RuntimeVariableInputTable.h"
 #include "Script/Core/LuaScriptFramework.h"
 
 namespace Game {
@@ -35,8 +34,6 @@ namespace Game {
 
         AssetRegistry& GetAssetRegistry();
         const AssetRegistry& GetAssetRegistry() const;
-        RuntimeVariableInputTable& GetRuntimeVariableInputTable();
-        const RuntimeVariableInputTable& GetRuntimeVariableInputTable() const;
         Script::LuaBehaviorFramework& GetLuaScriptFramework();
         const Script::LuaBehaviorFramework& GetLuaScriptFramework() const;
 
@@ -68,7 +65,6 @@ namespace Game {
         Arche::World mWorld{};
         FrameContext mFrameContext{};
         AssetRegistry mAssetRegistry{};
-        RuntimeVariableInputTable mRuntimeVariableInputTable{};
         std::vector<std::unique_ptr<ISystem>> mSystems{};
         SystemSceduler mSystemSceduler{};
 

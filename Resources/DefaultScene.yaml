@@ -1,5 +1,4 @@
 ﻿SceneName: DefaultScene
-RuntimeVariableInputTable: RuntimeVariableInputTable.yaml
 Systems:
   - Type: PickingSystem
   - Type: AnimationGraphSystem

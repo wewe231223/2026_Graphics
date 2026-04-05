@@ -53,7 +53,6 @@
     <ClInclude Include="Scene\Components\Tags.h" />
     <ClInclude Include="Scene\Components\Transform.h" />
     <ClInclude Include="Scene\Scene.h" />
-    <ClInclude Include="Scene\RuntimeVariableInputTable.h" />
     <ClInclude Include="Scene\SceneEntityFactory.h" />
     <ClInclude Include="Scene\SceneWorldSnapshot.h" />
     <ClInclude Include="Scene\SceneYamlSerializer.h" />
@@ -83,7 +82,6 @@
     <ClCompile Include="Scene\Components\Bone.cpp" />
     <ClCompile Include="Scene\Components\BoneSkinReference.cpp" />
     <ClCompile Include="Scene\Scene.cpp" />
-    <ClCompile Include="Scene\RuntimeVariableInputTable.cpp" />
     <ClCompile Include="Scene\SceneEntityFactory.cpp" />
     <ClCompile Include="Scene\SceneWorldSnapshot.cpp" />
     <ClCompile Include="Scene\SceneYamlSerializer.cpp" />
@@ -127,7 +125,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Resources\DefaultScene.yaml" />
-    <None Include="..\Resources\DefaultScene\RuntimeVariableInputTable.yaml" />
     <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml" />
     <None Include="..\Script\Lua\CameraController.lua" />
     <None Include="..\Shader\PSO\DefaultGraphics.json" />
