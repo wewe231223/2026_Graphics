@@ -8,7 +8,14 @@
           "MaterialData": {
             "Name": "SkyDome",
             "PBR": false,
-            "Properties": {}
+            "Properties": {
+                "Diffuse Texture": {
+                    "Kind": "String",
+                    "String": "Epic_BlueSunset_EquiRect_flat"
+                }
+
+
+            }
           }
         }
       ]

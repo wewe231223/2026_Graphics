@@ -16,6 +16,7 @@ namespace Game {
     enum class Phase : std::uint32_t {
         PreUpdate,
         Update,
+        PostUpdate,
         Skinning,
         Render,
         PostRender, 

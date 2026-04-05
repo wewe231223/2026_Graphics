@@ -10,7 +10,7 @@ namespace Game {
     }
 
     Phase SkySystem::GetPhase() const {
-        return Phase::Update;
+        return Phase::PostUpdate;
     }
 
     std::span<const ComponentAccess> SkySystem::ComponentAccesses() const {
