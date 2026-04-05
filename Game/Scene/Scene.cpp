@@ -84,6 +84,9 @@ namespace Game {
         mWorldSnapshot.BindAssetRegistry(&mAssetRegistry);
         mFrameContext.RuntimeVariableInputTableResource = &mRuntimeVariableInputTable;
 
+		mLuaScriptFramework.Initialize(&mWorld);
+        mLuaScriptFramework.SetFixedUpdateInterval(1.f); 
+        mLuaScriptFramework.OpenDefaultLibraries(); 
         RegisterScriptTypes();
 
         mHierarchyEntitySelectedSubscriptionId = Core::Event::Subscribe<Game::HierarchyEntitySelectedEventTag>([this](const Core::Event::Event<Game::HierarchyEntitySelectedEventTag>& HierarchyEntitySelectedEvent) {
