@@ -377,18 +377,36 @@ namespace Game {
     }
 
     void Scene::ExecutePhase(Phase TargetPhase, float Dt) {
-        if (TargetPhase == Phase::PreUpdate) {
-            mFrameContext.RenderData.modelContexts.clear();
-            mFrameContext.RenderData.drawRecords.clear();
-            mFrameContext.RenderData.bonePalette.clear();
-            mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
-            mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
-            mFrameContext.WorldMatrices.clear();
-            mFrameContext.SkinnedPoseCache.clear();
+        switch (TargetPhase) {
+            case Phase::PreUpdate:
+                mFrameContext.RenderData.modelContexts.clear();
+                mFrameContext.RenderData.drawRecords.clear();
+                mFrameContext.RenderData.bonePalette.clear();
+                mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
+                mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
+                mFrameContext.WorldMatrices.clear();
+                mFrameContext.SkinnedPoseCache.clear();
+                break;
+
+            case Phase::Update:
+                mLuaScriptFramework.Update(Dt);
+                break;
+
+            default:
+                break;
         }
 
         const SystemSceduler::PhaseBatchArray* PhaseBatches{ mSystemSceduler.GetPhaseBatches(TargetPhase) };
         if (PhaseBatches == nullptr) {
+            switch (TargetPhase) {
+                case Phase::Update:
+                    mLuaScriptFramework.LateUpdate(Dt);
+                    break;
+
+                default:
+                    break;
+            }
+
             return;
         }
 
@@ -396,6 +414,15 @@ namespace Game {
             for (ISystem* System : Batch) {
                 System->Execute(mWorld, mFrameContext, Dt);
             }
+        }
+
+        switch (TargetPhase) {
+            case Phase::Update:
+                mLuaScriptFramework.LateUpdate(Dt);
+                break;
+
+            default:
+                break;
         }
     }
 }
