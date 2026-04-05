@@ -14,6 +14,7 @@
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/Frustum.h"
+#include "Game/Scene/Components/SkySphere.h"
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/AnimatorGraphPlayer.h"
@@ -33,6 +34,7 @@
 #include "Game/Scene/Systems/PickingSystem.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
 #include "Game/Scene/Systems/SkinningSystem.h"
+#include "Game/Scene/Systems/SkySystem.h"
 #include "Game/Scene/SceneEntityFactory.h"
 #include "Utility/StdOutput.h"
 
@@ -201,6 +203,7 @@ namespace {
             { "SkinningSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinningSystem>(); } },
             { "PickingSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::PickingSystem>(); } },
             { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },
+            { "SkySystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkySystem>(); } },
         };
         const std::unordered_map<std::string_view, SystemFactory>::const_iterator FactoryIter{ SystemFactories.find(SystemName) };
         if (FactoryIter == SystemFactories.end()) {
@@ -689,6 +692,7 @@ namespace Game {
         std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredParents{};
         std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredBoneSkinReferenceEntities{};
         std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredThirdPersonFollowTargetEntities{};
+        std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredSkySphereEntities{};
         std::vector<PendingAnimatorBinding> PendingAnimatorBindings{};
         const c4::yml::ConstNodeRef EntitiesNode{ RootNode["Entities"] };
         for (const c4::yml::ConstNodeRef EntityNode : EntitiesNode.children()) {
@@ -1091,8 +1095,18 @@ namespace Game {
                     CameraNode["thirdPersonZoomSpeed"] >> NewCamera.thirdPersonZoomSpeed;
                 }
 
+                SkySphere NewSkySphere{};
+                const bool HasSkySphereNode{ CameraNode.has_child("skySphereEntityId") };
+                if (HasSkySphereNode) {
+                    CameraNode["skySphereEntityId"] >> NewSkySphere.SkySphereSerializedEntityId;
+                    DeferredSkySphereEntities.push_back(std::pair<Arche::EntityID, std::int64_t>{ Entity, NewSkySphere.SkySphereSerializedEntityId });
+                }
+
                 OutScene.GetWorld().AddComponent(Entity, NewCamera);
                 OutScene.GetWorld().AddComponent(Entity, NewFrustum);
+                if (HasSkySphereNode) {
+                    OutScene.GetWorld().AddComponent(Entity, NewSkySphere);
+                }
             }
 
             if (ComponentsNode.has_child(LocalPlayerTagTypeName)) {
@@ -1176,6 +1190,17 @@ namespace Game {
 
             OutScene.GetWorld().WriteComponent<Camera>(DeferredThirdPersonFollowTargetEntity.first, [ResolvedEntityId = FollowTargetIter->second](Camera& TargetComponent) {
                 TargetComponent.thirdPersonFollowTarget = ResolvedEntityId;
+            });
+        }
+
+        for (const std::pair<Arche::EntityID, std::int64_t>& DeferredSkySphereEntity : DeferredSkySphereEntities) {
+            const std::unordered_map<std::int64_t, Arche::EntityID>::const_iterator SkySphereIter{ EntityBySerializedId.find(DeferredSkySphereEntity.second) };
+            if (SkySphereIter == EntityBySerializedId.end()) {
+                continue;
+            }
+
+            OutScene.GetWorld().WriteComponent<SkySphere>(DeferredSkySphereEntity.first, [ResolvedEntityId = SkySphereIter->second](SkySphere& TargetComponent) {
+                TargetComponent.SkySphereEntityId = ResolvedEntityId;
             });
         }
 
@@ -1412,6 +1437,7 @@ namespace Game {
             const Material* MaterialComponent{ ReadOnlyWorld->GetComponent<Material>(EntityId) };
             const StaticMeshRenderer* StaticMeshRendererComponent{ ReadOnlyWorld->GetComponent<StaticMeshRenderer>(EntityId) };
             const Camera* CameraComponent{ ReadOnlyWorld->GetComponent<Camera>(EntityId) };
+            const SkySphere* SkySphereComponent{ ReadOnlyWorld->GetComponent<SkySphere>(EntityId) };
             const LocalPlayerTag* LocalPlayerTagComponent{ ReadOnlyWorld->GetComponent<LocalPlayerTag>(EntityId) };
             const Animator* AnimatorComponent{ nullptr };
             Arche::EntityID AnimatorEntityId{ Arche::NullEntityID };
@@ -1510,6 +1536,12 @@ namespace Game {
                 AppendLine(Stream, 4, std::string{ "thirdPersonOrbitPitch: " } + std::to_string(CameraComponent->thirdPersonOrbitPitch));
                 AppendLine(Stream, 4, std::string{ "thirdPersonPositionLerpSpeed: " } + std::to_string(CameraComponent->thirdPersonPositionLerpSpeed));
                 AppendLine(Stream, 4, std::string{ "thirdPersonZoomSpeed: " } + std::to_string(CameraComponent->thirdPersonZoomSpeed));
+                if (SkySphereComponent != nullptr) {
+                    const std::unordered_map<Arche::EntityID, std::uint32_t>::const_iterator SkySphereSerializedIter{ SerializedEntityIds.find(SkySphereComponent->SkySphereEntityId) };
+                    const std::int32_t SkySphereSerializedId{ SkySphereSerializedIter == SerializedEntityIds.end() ? -1 : static_cast<std::int32_t>(SkySphereSerializedIter->second) };
+                    AppendLine(Stream, 4, std::string{ "skySphereEntityId: " } + std::to_string(SkySphereSerializedId));
+                }
+
                 AppendLine(Stream, 4, std::string{ "startMode: " } + ResolveCameraModeText(CameraComponent->cameraFlags));
             }
 

@@ -49,6 +49,7 @@
     <ClInclude Include="Scene\Components\PickingGizmo.h" />
     <ClInclude Include="Scene\Components\PrefabInstance.h" />
     <ClInclude Include="Scene\Components\ScriptComponent.h" />
+    <ClInclude Include="Scene\Components\SkySphere.h" />
     <ClInclude Include="Scene\Components\StaticMeshRenderer.h" />
     <ClInclude Include="Scene\Components\SkinnedMeshRenderer.h" />
     <ClInclude Include="Scene\Components\Tags.h" />
@@ -66,6 +67,7 @@
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
     <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h" />
     <ClInclude Include="Scene\Systems\SkinningSystem.h" />
+    <ClInclude Include="Scene\Systems\SkySystem.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Input.cpp" />
@@ -95,6 +97,7 @@
     <ClCompile Include="Scene\Components\AnimatorGraphPlayer.cpp" />
     <ClCompile Include="Scene\Components\RuntimeVariableTable.cpp" />
     <ClCompile Include="Scene\Components\ScriptComponent.cpp" />
+    <ClCompile Include="Scene\Components\SkySphere.cpp" />
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp" />
     <ClCompile Include="Scene\Components\Tags.cpp" />
     <ClCompile Include="Scene\Components\BoundingBox.cpp" />
@@ -110,6 +113,7 @@
     <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\SkinnedMeshRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\SkinningSystem.cpp" />
+    <ClCompile Include="Scene\Systems\SkySystem.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shader\Source\BasicShader.hlsl">

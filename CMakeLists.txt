@@ -117,6 +117,7 @@ add_library(Game STATIC
     Game/Scene/Components/Bone.cpp
     Game/Scene/Components/BoneSkinReference.cpp
     Game/Scene/Components/Camera.cpp
+    Game/Scene/Components/SkySphere.cpp
     Game/Scene/Components/Frustum.cpp
     Game/Scene/Components/PrefabInstance.cpp
     Game/Scene/Components/ScriptComponent.cpp
@@ -124,6 +125,7 @@ add_library(Game STATIC
     Game/Scene/Components/AnimatorGraphPlayer.cpp
     Game/Scene/Components/ComponentInspection.cpp
     Game/Scene/Systems/CameraRenderSystem.cpp
+    Game/Scene/Systems/SkySystem.cpp
     Game/Scene/Systems/PickingSystem.cpp
     Game/Scene/Systems/AnimationGraphSystem.cpp
     Game/Scene/Systems/AnimateSystem.cpp

@@ -150,6 +150,9 @@
     <ClInclude Include="Scene\Systems\SkinningSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Systems\SkySystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\EntityHierarchy.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -172,6 +175,9 @@
       <Filter>Model</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Components\ScriptComponent.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\SkySphere.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
   </ItemGroup>
@@ -233,6 +239,9 @@
     <ClCompile Include="Scene\Components\ScriptComponent.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Components\SkySphere.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
@@ -288,6 +297,9 @@
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\SkinningSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\SkySystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp">

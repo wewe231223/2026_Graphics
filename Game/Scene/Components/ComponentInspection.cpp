@@ -14,6 +14,7 @@
 #include "Transform.h"
 #include "Animator.h"
 #include "ScriptComponent.h"
+#include "SkySphere.h"
 
 namespace {
     template <typename T>
@@ -50,6 +51,7 @@ namespace Game {
 
         AppendComponentInspectionSection<Camera>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<Frustum>(ReadOnlyWorld, EntityId, OutSections);
+        AppendComponentInspectionSection<SkySphere>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<LocalPlayerTag>(ReadOnlyWorld, EntityId, OutSections);
     }
 }

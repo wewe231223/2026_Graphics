@@ -34,6 +34,8 @@ SkyDomeVertexOutput VsMain(SkyDomeVertexInput Input, uint InstanceId : SV_Instan
     Output.Position = mul(WorldPosition, transpose(FrameGlobals.ViewProj));
     Output.Color = Input.Color;
     Output.Flags = DrawRecord.Flags;
+    
+    Output.Position.z = Output.Position.w;
     return Output;
 }
 

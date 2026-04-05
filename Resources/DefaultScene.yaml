@@ -7,6 +7,7 @@ Systems:
   - Type: StaticRenderSystem
   - Type: SkinnedMeshRenderSystem
   - Type: CameraRenderSystem
+  - Type: SkySystem
 
 DefaultTransform: &DefaultTransform
   rotationEuler: [0.0, 0.0, 0.0]
@@ -98,6 +99,7 @@ Entities:
         thirdPersonOrbitPitch: 0.25
         thirdPersonPositionLerpSpeed: 12.0
         thirdPersonZoomSpeed: 0.5
+        skySphereEntityId: 11
         startMode: ThirdPerson
   - EntityId: 1
     ParentEntityId: -1
