@@ -295,17 +295,16 @@ namespace Game {
     }
 
     void Scene::RegisterScriptTypes() {
-        sol::state& LuaState{ mLuaScriptFramework.GetState() };
-        LuaState.set_function("IsInputKeyDown", &Globals::IsInputKeyDown);
-        LuaState.set_function("IsInputKeyPressed", &Globals::IsInputKeyPressed);
-        LuaState.set_function("IsInputKeyReleased", &Globals::IsInputKeyReleased);
-        LuaState.set_function("GetInputMousePositionX", &Globals::GetInputMousePositionX);
-        LuaState.set_function("GetInputMousePositionY", &Globals::GetInputMousePositionY);
-        LuaState.set_function("GetInputMouseDeltaX", &Globals::GetInputMouseDeltaX);
-        LuaState.set_function("GetInputMouseDeltaY", &Globals::GetInputMouseDeltaY);
-        LuaState.set_function("IsInputMouseLeftButtonDown", &Globals::IsInputMouseLeftButtonDown);
-        LuaState.set_function("IsInputMouseRightButtonDown", &Globals::IsInputMouseRightButtonDown);
-        LuaState.set_function("IsInputMouseMiddleButtonDown", &Globals::IsInputMouseMiddleButtonDown);
+        mLuaScriptFramework.RegisterGlobalFunction("IsInputKeyDown", &Globals::IsInputKeyDown);
+        mLuaScriptFramework.RegisterGlobalFunction("IsInputKeyPressed", &Globals::IsInputKeyPressed);
+        mLuaScriptFramework.RegisterGlobalFunction("IsInputKeyReleased", &Globals::IsInputKeyReleased);
+        mLuaScriptFramework.RegisterGlobalFunction("GetInputMousePositionX", &Globals::GetInputMousePositionX);
+        mLuaScriptFramework.RegisterGlobalFunction("GetInputMousePositionY", &Globals::GetInputMousePositionY);
+        mLuaScriptFramework.RegisterGlobalFunction("GetInputMouseDeltaX", &Globals::GetInputMouseDeltaX);
+        mLuaScriptFramework.RegisterGlobalFunction("GetInputMouseDeltaY", &Globals::GetInputMouseDeltaY);
+        mLuaScriptFramework.RegisterGlobalFunction("IsInputMouseLeftButtonDown", &Globals::IsInputMouseLeftButtonDown);
+        mLuaScriptFramework.RegisterGlobalFunction("IsInputMouseRightButtonDown", &Globals::IsInputMouseRightButtonDown);
+        mLuaScriptFramework.RegisterGlobalFunction("IsInputMouseMiddleButtonDown", &Globals::IsInputMouseMiddleButtonDown);
 
         mLuaScriptFramework.RegisterTypeByDefinition<Arche::EntityID>();
         mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector2>();

@@ -141,6 +141,9 @@ namespace Script {
         template <typename T, typename... TArgs>
         void RegisterTypeUsertype(const std::string& TypeName, TArgs&&... UsertypeArguments);
 
+        template <typename TFunction>
+        void RegisterGlobalFunction(const std::string& FunctionName, TFunction&& Function);
+
         BehaviorOperationResult AttachBehavior(Arche::EntityID TargetEntity, const std::string& BehaviorSource);
         BehaviorOperationResult AttachBehaviorFromFile(Arche::EntityID TargetEntity, const std::string& BehaviorFilePath);
         BehaviorOperationResult HotReloadBehavior(const std::string& BehaviorFileName);

@@ -126,6 +126,11 @@ namespace Script {
         mLuaState.new_usertype<T>(TypeName, std::forward<TArgs>(UsertypeArguments)...);
     }
 
+    template <typename TFunction>
+    void LuaBehaviorFramework::RegisterGlobalFunction(const std::string& FunctionName, TFunction&& Function) {
+        mLuaState.set_function(FunctionName, std::forward<TFunction>(Function));
+    }
+
     template <typename... TArgs>
     LuaBehaviorFramework::BehaviorOperationResult LuaBehaviorFramework::RunEntryWithArguments(sol::protected_function& EntryFunction, Arche::EntityID TargetEntity, const std::string& BehaviorFilePath, TArgs&&... Arguments) {
         if (!EntryFunction.valid()) {
