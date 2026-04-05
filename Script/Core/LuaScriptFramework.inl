@@ -1,6 +1,23 @@
 #pragma once
 
 namespace Script {
+    template <typename TValueType, typename TSignatureList>
+    struct LuaTypeUsertypeConstructorRegistrar final {
+    };
+
+    template <typename TValueType, typename... TConstructorSignatures>
+    struct LuaTypeUsertypeConstructorRegistrar<TValueType, ::LuaTypeConstructorSignatureList<TConstructorSignatures...>> final {
+        static auto Register(sol::state& LuaState, const char* TypeName) {
+            return LuaState.new_usertype<TValueType>(TypeName, sol::constructors<TValueType(), TConstructorSignatures...>());
+        }
+    };
+
+    template <typename TValueType>
+    auto RegisterValueTypeUsertype(sol::state& LuaState, const char* TypeName) {
+        using ConstructorSignatureList = typename ::LuaTypeConstructorSignaturesTraits<TValueType>::SignatureList;
+        return LuaTypeUsertypeConstructorRegistrar<TValueType, ConstructorSignatureList>::Register(LuaState, TypeName);
+    }
+
     template <typename TUsertype, typename TBindings, std::size_t... TIndices>
     void ApplyComponentBindingsToUsertypeImpl(TUsertype& TargetUsertype, const TBindings& TargetBindings, std::index_sequence<TIndices...>) {
         (static_cast<void>(TargetUsertype[std::get<TIndices>(TargetBindings).first] = std::get<TIndices>(TargetBindings).second), ...);
@@ -14,7 +31,7 @@ namespace Script {
 
     template <typename TDefinition, std::size_t... TIndices>
     void RegisterTypeUsertypeByDefinitionImpl(sol::state& LuaState, const TDefinition& Definition, std::index_sequence<TIndices...>) {
-        auto Usertype{ LuaState.new_usertype<typename TDefinition::ValueType>(Definition.mTypeName, sol::constructors<typename TDefinition::ValueType()>()) };
+        auto Usertype{ RegisterValueTypeUsertype<typename TDefinition::ValueType>(LuaState, Definition.mTypeName) };
         ApplyComponentBindingsToUsertypeImpl(Usertype, Definition.mBindings, std::index_sequence<TIndices...>{});
     }
 

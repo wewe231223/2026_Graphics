@@ -26,6 +26,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Core\LuaScriptFramework.inl" />
+    <None Include="Lua\CameraController.lua" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>

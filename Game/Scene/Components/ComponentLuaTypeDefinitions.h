@@ -56,6 +56,10 @@ LuaTypeDefinitionDeclWithName(
     BOOST_PP_SEQ_NIL
 );
 
+LuaTypeConstructorSignaturesDecl(DirectX::SimpleMath::Vector2, DirectX::SimpleMath::Vector2(float, float));
+LuaTypeConstructorSignaturesDecl(DirectX::SimpleMath::Vector3, DirectX::SimpleMath::Vector3(float, float, float));
+LuaTypeConstructorSignaturesDecl(DirectX::SimpleMath::Quaternion, DirectX::SimpleMath::Quaternion(float, float, float, float));
+
 LuaTypeDefinitionDeclWithName(
     DirectX::SimpleMath::Matrix,
     "Matrix",

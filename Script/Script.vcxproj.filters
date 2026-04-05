@@ -8,6 +8,9 @@
     <Filter Include="Core">
       <UniqueIdentifier>{bc25788d-9ae5-492e-8aae-61fe1901a08c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Lua">
+      <UniqueIdentifier>{b0cef3a7-5bd9-4c5e-bc87-702b8c955995}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\LuaScriptFramework.cpp">
@@ -22,6 +25,9 @@
   <ItemGroup>
     <None Include="Core\LuaScriptFramework.inl">
       <Filter>Core</Filter>
+    </None>
+    <None Include="Lua\CameraController.lua">
+      <Filter>Lua</Filter>
     </None>
   </ItemGroup>
 </Project>

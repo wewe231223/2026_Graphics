@@ -4,11 +4,16 @@ local KeyS = 83
 local KeyD = 68
 local KeyQ = 81
 local KeyE = 69
+local KeyLeftShift = 160
 
+local CameraFlagFreeLook = 2
+local CameraFlagCinematic = 4
 local CameraFlagThirdPerson = 8
 
-local LookSensitivity = 0.0026
+local FreeLookLookSensitivity = 0.0026
 local FreeLookMoveSpeed = 6.0
+local FreeLookBoostScale = 2.0
+local ThirdPersonLookSensitivity = 0.0026
 local ThirdPersonZoomDistancePerTick = 0.75
 local MinPitchRadians = -1.55334306
 local MaxPitchRadians = 1.55334306
@@ -30,34 +35,72 @@ local function Clamp(Value, MinValue, MaxValue)
     return Value
 end
 
-local function BuildMoveDirection()
-    local Direction = Vector3.new()
+local function ProcessThirdPersonMode(CameraComponent, MouseWheelDelta)
+    local MouseDeltaX = GetInputMouseDeltaX() * ThirdPersonLookSensitivity
+    local MouseDeltaY = GetInputMouseDeltaY() * ThirdPersonLookSensitivity
+
+    CameraComponent.thirdPersonOrbitYaw = CameraComponent.thirdPersonOrbitYaw + MouseDeltaX
+    CameraComponent.thirdPersonOrbitPitch = Clamp(CameraComponent.thirdPersonOrbitPitch - MouseDeltaY, MinThirdPersonPitchRadians, MaxThirdPersonPitchRadians)
+
+    local ZoomDeltaDistance = MouseWheelDelta * ThirdPersonZoomDistancePerTick * CameraComponent.thirdPersonZoomSpeed
+    CameraComponent.thirdPersonDistance = Clamp(CameraComponent.thirdPersonDistance - ZoomDeltaDistance, CameraComponent.thirdPersonMinDistance, CameraComponent.thirdPersonMaxDistance)
+end
+
+local function ProcessFreeLookMode(TransformComponent, CameraComponent, DeltaSeconds, MouseWheelDelta)
+    local IsPickingInteraction = IsInputMouseLeftButtonDown()
+    if IsPickingInteraction == false then
+        local LookDeltaX = GetInputMouseDeltaX() * FreeLookLookSensitivity
+        local LookDeltaY = GetInputMouseDeltaY() * FreeLookLookSensitivity
+
+        TransformComponent:RotateRadians(-LookDeltaY, LookDeltaX, 0.0)
+        TransformComponent:ClampPitchRadians(MinPitchRadians, MaxPitchRadians)
+    end
+
+    local MoveSpeedScale = 1.0
+    if IsInputKeyDown(KeyLeftShift) then
+        MoveSpeedScale = FreeLookBoostScale
+    end
+
+    local MoveDirection = Vector3.new()
 
     if IsInputKeyDown(KeyD) then
-        Direction.x = Direction.x + 1.0
+        MoveDirection.x = MoveDirection.x - 1.0
     end
 
     if IsInputKeyDown(KeyA) then
-        Direction.x = Direction.x - 1.0
+        MoveDirection.x = MoveDirection.x + 1.0
     end
 
     if IsInputKeyDown(KeyE) then
-        Direction.y = Direction.y + 1.0
+        MoveDirection.y = MoveDirection.y + 1.0
     end
 
     if IsInputKeyDown(KeyQ) then
-        Direction.y = Direction.y - 1.0
+        MoveDirection.y = MoveDirection.y - 1.0
     end
 
     if IsInputKeyDown(KeyW) then
-        Direction.z = Direction.z + 1.0
+        MoveDirection.z = MoveDirection.z - 1.0
     end
 
     if IsInputKeyDown(KeyS) then
-        Direction.z = Direction.z - 1.0
+        MoveDirection.z = MoveDirection.z + 1.0
     end
 
-    return Direction
+    local MoveDirectionLength = math.sqrt((MoveDirection.x * MoveDirection.x) + (MoveDirection.y * MoveDirection.y) + (MoveDirection.z * MoveDirection.z))
+
+    if MoveDirectionLength > 0.0 then
+        MoveDirection.x = MoveDirection.x / MoveDirectionLength
+        MoveDirection.y = MoveDirection.y / MoveDirectionLength
+        MoveDirection.z = MoveDirection.z / MoveDirectionLength
+
+        local WorldMoveDirection = TransformComponent:TransformDirectionToWorld(MoveDirection)
+        local MoveAmount = FreeLookMoveSpeed * DeltaSeconds * MoveSpeedScale
+        local Translation = Vector3.new(WorldMoveDirection.x * MoveAmount, WorldMoveDirection.y * MoveAmount, WorldMoveDirection.z * MoveAmount)
+        TransformComponent:Translate(Translation)
+    end
+
+    CameraComponent.fov = Clamp(CameraComponent.fov - (MouseWheelDelta * ZoomSpeedDegreesPerTick), MinFovDegrees, MaxFovDegrees)
 end
 
 function Update(Context, DeltaSeconds)
@@ -68,35 +111,19 @@ function Update(Context, DeltaSeconds)
         return
     end
 
-    local MouseDeltaX = GetInputMouseDeltaX() * LookSensitivity
-    local MouseDeltaY = GetInputMouseDeltaY() * LookSensitivity
     local MouseWheelDelta = GetInputMouseWheelDelta() / 120.0
-
     local IsThirdPersonMode = (CameraComponent.cameraFlags & CameraFlagThirdPerson) ~= 0
-    if IsThirdPersonMode then
-        CameraComponent.thirdPersonOrbitYaw = CameraComponent.thirdPersonOrbitYaw + MouseDeltaX
-        CameraComponent.thirdPersonOrbitPitch = Clamp(CameraComponent.thirdPersonOrbitPitch - MouseDeltaY, MinThirdPersonPitchRadians, MaxThirdPersonPitchRadians)
+    local IsFreeLookMode = (CameraComponent.cameraFlags & CameraFlagFreeLook) ~= 0
+    local IsCinematicMode = (CameraComponent.cameraFlags & CameraFlagCinematic) ~= 0
 
-        local ZoomDeltaDistance = MouseWheelDelta * ThirdPersonZoomDistancePerTick * CameraComponent.thirdPersonZoomSpeed
-        CameraComponent.thirdPersonDistance = Clamp(CameraComponent.thirdPersonDistance - ZoomDeltaDistance, CameraComponent.thirdPersonMinDistance, CameraComponent.thirdPersonMaxDistance)
+    if IsThirdPersonMode then
+        ProcessThirdPersonMode(CameraComponent, MouseWheelDelta)
         return
     end
 
-    TransformComponent:RotateRadians(-MouseDeltaY, MouseDeltaX, 0.0)
-    TransformComponent:ClampPitchRadians(MinPitchRadians, MaxPitchRadians)
-
-    local MoveDirection = BuildMoveDirection()
-    local MoveDirectionLength = math.sqrt((MoveDirection.x * MoveDirection.x) + (MoveDirection.y * MoveDirection.y) + (MoveDirection.z * MoveDirection.z))
-
-    if MoveDirectionLength > 0.0 then
-        MoveDirection.x = MoveDirection.x / MoveDirectionLength
-        MoveDirection.y = MoveDirection.y / MoveDirectionLength
-        MoveDirection.z = MoveDirection.z / MoveDirectionLength
-
-        local WorldMoveDirection = TransformComponent:TransformDirectionToWorld(MoveDirection)
-        local MoveAmount = FreeLookMoveSpeed * DeltaSeconds
-        TransformComponent:Translate(WorldMoveDirection.x * MoveAmount, WorldMoveDirection.y * MoveAmount, WorldMoveDirection.z * MoveAmount)
+    if IsCinematicMode and IsFreeLookMode == false then
+        return
     end
 
-    CameraComponent.fov = Clamp(CameraComponent.fov - (MouseWheelDelta * ZoomSpeedDegreesPerTick), MinFovDegrees, MaxFovDegrees)
+    ProcessFreeLookMode(TransformComponent, CameraComponent, DeltaSeconds, MouseWheelDelta)
 end

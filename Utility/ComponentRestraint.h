@@ -153,6 +153,7 @@ concept HasLuaComponentDefinition = requires {
 
 template <typename TType, typename... TMemberPointers>
 struct LuaTypeDefinition final {
+
     using ValueType = TType;
     using BindingTuple = std::tuple<std::pair<const char*, TMemberPointers>...>;
 
@@ -189,6 +190,17 @@ template <typename TType>
 concept HasLuaTypeDefinition = requires {
     { LuaTypeDefinitionTraits<TType>::Create() };
 };
+
+template <typename... TSignatures>
+struct LuaTypeConstructorSignatureList final {
+};
+
+template <typename TType>
+struct LuaTypeConstructorSignaturesTraits final {
+    using SignatureList = LuaTypeConstructorSignatureList<>;
+};
+
+#define LuaTypeConstructorSignaturesDecl(TypeName, ...) template <> struct LuaTypeConstructorSignaturesTraits<TypeName> final { using SignatureList = LuaTypeConstructorSignatureList<__VA_ARGS__>; }
 
 #define COMPONENT_DECL_DECLARE_FIELD_HELPER(R, Data, Element) BOOST_PP_TUPLE_ELEM(3, 0, Element) BOOST_PP_TUPLE_ELEM(3, 1, Element){ BOOST_PP_TUPLE_ELEM(3, 2, Element) };
 #define COMPONENT_DECL_DECLARE_METHOD_HELPER(R, Data, Element) BOOST_PP_TUPLE_ELEM(3, 0, Element);
