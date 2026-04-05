@@ -295,6 +295,49 @@ namespace {
         return Data;
     }
 
+    MeshData CreateSkyDome(const PrimitiveParameters& Parameters) {
+        MeshData Data{};
+        const std::uint32_t SliceCount{ 48 };
+        const std::uint32_t StackCount{ 24 };
+        const float Radius{ 0.5f * Parameters.Size };
+        const asset::Vec4 SkyDomeColor{ 0.5f, 0.5f, 0.5f, 1.0f };
+
+        const std::size_t VertexCount{ static_cast<std::size_t>(StackCount + 1) * static_cast<std::size_t>(SliceCount + 1) };
+        Data.Vertices.Reserve(VertexCount);
+
+        for (std::uint32_t StackIndex{ 0 }; StackIndex <= StackCount; ++StackIndex) {
+            const float V{ static_cast<float>(StackIndex) / static_cast<float>(StackCount) };
+            const float Phi{ 0.5f * Pi * V };
+            const float SinPhi{ std::sin(Phi) };
+            const float CosPhi{ std::cos(Phi) };
+
+            for (std::uint32_t SliceIndex{ 0 }; SliceIndex <= SliceCount; ++SliceIndex) {
+                const float U{ static_cast<float>(SliceIndex) / static_cast<float>(SliceCount) };
+                const float Theta{ 2.0f * Pi * U };
+                const float SinTheta{ std::sin(Theta) };
+                const float CosTheta{ std::cos(Theta) };
+                const asset::Vec3 OutwardNormal{ SinPhi * CosTheta, CosPhi, SinPhi * SinTheta };
+                const asset::Vec3 InwardNormal{ -OutwardNormal.x, -OutwardNormal.y, -OutwardNormal.z };
+                const asset::Vec3 Position{ Radius * OutwardNormal.x, Radius * OutwardNormal.y, Radius * OutwardNormal.z };
+                const asset::Vec2 TexCoord{ U, V };
+                AddVertex(Data, Position, InwardNormal, TexCoord, SkyDomeColor);
+            }
+        }
+
+        for (std::uint32_t StackIndex{ 0 }; StackIndex < StackCount; ++StackIndex) {
+            for (std::uint32_t SliceIndex{ 0 }; SliceIndex < SliceCount; ++SliceIndex) {
+                const std::uint32_t I0{ StackIndex * (SliceCount + 1) + SliceIndex };
+                const std::uint32_t I1{ I0 + 1 };
+                const std::uint32_t I2{ I0 + (SliceCount + 1) };
+                const std::uint32_t I3{ I2 + 1 };
+                AddTriangle(Data, I0, I2, I1);
+                AddTriangle(Data, I1, I2, I3);
+            }
+        }
+
+        return Data;
+    }
+
     bool TryParseFloatList(const std::string& Values, std::vector<float>& OutValues) {
         std::stringstream Stream{ Values };
         std::string ValueToken{};
@@ -402,6 +445,11 @@ namespace {
 
         if (PrimitiveType == "primitive:square_pyramid" || PrimitiveType == "square_pyramid") {
             OutData = CreateSquarePyramid(Parameters);
+            return true;
+        }
+
+        if (PrimitiveType == "primitive:sky_dome" || PrimitiveType == "sky_dome" || PrimitiveType == "primitive:skydome" || PrimitiveType == "skydome") {
+            OutData = CreateSkyDome(Parameters);
             return true;
         }
 
