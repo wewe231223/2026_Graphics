@@ -41,14 +41,17 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
         #pragma comment(lib, "out/debug/Game.lib")  
         #pragma comment(lib, "out/debug/Asset.lib")
         #pragma comment(lib, "out/debug/Widget.lib")
+        #pragma comment(lib, "out/debug/Script.lib")
     #else 
         #pragma comment(lib, "out/release/Arche.lib")
         #pragma comment(lib, "out/release/Game.lib")
         #pragma comment(lib, "out/release/Asset.lib")
         #pragma comment(lib, "out/release/Widget.lib")
-
+        #pragma comment(lib, "out/release/Script.lib")
     #endif 
 #endif 
+
+#pragma comment(lib, "lua54.lib")
 
 
 // 전역 변수:

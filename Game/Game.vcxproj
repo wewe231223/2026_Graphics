@@ -48,7 +48,7 @@
     <ClInclude Include="Scene\Components\ComponentInspection.h" />
     <ClInclude Include="Scene\Components\PickingGizmo.h" />
     <ClInclude Include="Scene\Components\PrefabInstance.h" />
-    <ClInclude Include="Scene\Components\ScriptComponents.h" />
+    <ClInclude Include="Scene\Components\ScriptComponent.h" />
     <ClInclude Include="Scene\Components\StaticMeshRenderer.h" />
     <ClInclude Include="Scene\Components\SkinnedMeshRenderer.h" />
     <ClInclude Include="Scene\Components\Tags.h" />
@@ -197,12 +197,12 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)\out\debug\</OutDir>
-    <IncludePath>$(SolutionDir)\External\Include;$(SolutionDir)\External\Include\rapidyml;$(SolutionDir);$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\External\Include;$(SolutionDir)\External\Include\rapidyml;$(SolutionDir);$(SolutionDir)\External\Include\lua;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)\External\lib\debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)\out\release\</OutDir>
-    <IncludePath>$(SolutionDir)\External\Include;$(SolutionDir)\External\Include\rapidyml;$(SolutionDir);$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\External\Include;$(SolutionDir)\External\Include\rapidyml;$(SolutionDir);$(SolutionDir)\External\Include\lua;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)\External\lib\release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -248,6 +248,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp23</LanguageStandard>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -266,6 +267,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp23</LanguageStandard>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>

@@ -4,7 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include "Arche/World.h"
-#include "Game/Scene/Components/ScriptComponents.h"
+#include "Game/Scene/Components/ScriptComponent.h"
 #include "LuaScriptFramework.h"
 
 namespace Script {

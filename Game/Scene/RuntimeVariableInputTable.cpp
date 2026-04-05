@@ -1,4 +1,4 @@
-#include "RuntimeVariableInputTable.h"
+﻿#include "RuntimeVariableInputTable.h"
 
 #include <algorithm>
 #include <array>

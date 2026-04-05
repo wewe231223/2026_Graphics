@@ -4,6 +4,7 @@
 #include <cctype>
 #include <unordered_set>
 #include "Asset/Common.h"
+
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
@@ -14,6 +15,16 @@
 #include "Game/Scene/Components/PrefabInstance.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
+#include "Game/Scene/Components/ComponentLuaTypeDefinitions.h"
+#include "Game/Scene/Components/Camera.h"
+#include "Game/Scene/Components/Frustum.h"
+#include "Game/Scene/Components/RuntimeVariableTable.h"
+#include "Game/Scene/Components/Animator.h"
+#include "Game/Scene/Components/AnimatorGraphPlayer.h"
+#include "Game/Scene/Components/Intents/CameraIntent.h"
+#include "Game/Scene/Components/ScriptComponent.h"
+#include "Game/Scene/Components/Tags.h"
+
 #include "Game/Scene/Events/SelectionEvent.h"
 #include "Core/Event/EventQueue.h"
 #include "Core/Event/FileDropEvent.h"
@@ -36,7 +47,6 @@ namespace {
         return AssetRegistry.AddMaterialGroup(MaterialGroup);
     }
 
-
     std::uint64_t GenerateNextPrefabId(Game::Scene& TargetScene) {
         std::unordered_set<std::uint64_t> UsedPrefabIds{};
         for (const auto [PrefabComponent] : TargetScene.GetWorld().Query<Game::PrefabInstance>()) {
@@ -54,7 +64,6 @@ namespace {
 
         return NextPrefabId;
     }
-
 }
 
 namespace Game {
@@ -74,6 +83,8 @@ namespace Game {
         mWorldSnapshot.BindWorld(&mWorld);
         mWorldSnapshot.BindAssetRegistry(&mAssetRegistry);
         mFrameContext.RuntimeVariableInputTableResource = &mRuntimeVariableInputTable;
+
+        RegisterScriptTypes();
 
         mHierarchyEntitySelectedSubscriptionId = Core::Event::Subscribe<Game::HierarchyEntitySelectedEventTag>([this](const Core::Event::Event<Game::HierarchyEntitySelectedEventTag>& HierarchyEntitySelectedEvent) {
             const Game::HierarchyEntitySelectedPayload* Payload{ HierarchyEntitySelectedEvent.GetPayloadAs<Game::HierarchyEntitySelectedPayload>() };
@@ -277,6 +288,38 @@ namespace Game {
         PrefabInstance RootPrefabInstance{};
         RootPrefabInstance.PrefabId = GenerateNextPrefabId(*this);
         mWorld.AddComponent(RootEntityId, RootPrefabInstance);
+    }
+
+    void Scene::RegisterScriptTypes() {
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Name>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Transform>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::EntityHierarchy>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::StaticMeshRenderer>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::SkinnedMeshRenderer>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Material>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::BoundingBox>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Bone>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::BoneSkinReference>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Camera>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Frustum>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::RuntimeVariableTable>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Animator>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::AnimatorGraphPlayer>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::PrefabInstance>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::PickingGizmo>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::LocalPlayerTag>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::CameraIntent>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::BehaviorInstanceComponent>();
+
+        mLuaScriptFramework.RegisterTypeByDefinition<Arche::EntityID>();
+        mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector2>();
+        mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector3>();
+        mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Quaternion>();
+        mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Matrix>();
+        mLuaScriptFramework.RegisterTypeByDefinition<Game::NameTextArray>();
+        mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableBoolArray>();
+        mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableIntArray>();
+        mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableFloatArray>();
     }
 
     void Scene::InitializeWorldSnapshot() {
