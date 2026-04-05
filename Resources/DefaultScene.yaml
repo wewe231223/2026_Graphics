@@ -1,14 +1,12 @@
 ﻿SceneName: DefaultScene
 RuntimeVariableInputTable: RuntimeVariableInputTable.yaml
 Systems:
-  - Type: CameraInputSystem
   - Type: PickingSystem
   - Type: AnimationGraphSystem
   - Type: AnimateSystem
   - Type: SkinningSystem
   - Type: StaticRenderSystem
   - Type: SkinnedMeshRenderSystem
-  - Type: CleanUpSystem
   - Type: CameraRenderSystem
 
 DefaultTransform: &DefaultTransform
@@ -96,15 +94,6 @@ Entities:
         thirdPersonPositionLerpSpeed: 12.0
         thirdPersonZoomSpeed: 0.5
         startMode: ThirdPerson
-      CameraIntent:
-        moveDirection: [0.0, 0.0, 0.0]
-        lookDelta: [0.0, 0.0]
-        zoomDelta: 0.0
-        targetToLockOnIndex: 4294967295
-        targetToLockOnGeneration: 4294967295
-        requestUnlock: false
-        requestSkip: false
-        shakeImpulse: 0.0
   - EntityId: 1
     ParentEntityId: -1
     Components:

@@ -39,6 +39,7 @@ namespace Globals {
 
         float GetMouseDeltaX() const; 
 		float GetMouseDeltaY() const;
+        std::int32_t GetMouseWheelDelta() const;
 
         bool IsKeyDown(DirectX::Keyboard::Keys key) const;
         bool IsKeyPressed(DirectX::Keyboard::Keys key) const;
@@ -63,6 +64,8 @@ namespace Globals {
         bool mRightButtonVirtualMouseEnabled{ true };
         bool mIsImGuiInputBlocked{ false };
         POINT mVirtualMousePosition{};
+        std::int32_t mPreviousScrollWheelValue{};
+        std::int32_t mMouseWheelDelta{};
     };
 
     bool IsInputKeyDown(std::int32_t KeyCode);
@@ -78,4 +81,5 @@ namespace Globals {
     bool IsInputMouseLeftButtonDown();
     bool IsInputMouseRightButtonDown();
     bool IsInputMouseMiddleButtonDown();
+    std::int32_t GetInputMouseWheelDelta();
 }

@@ -25,12 +25,15 @@ namespace Globals {
     void Input::Update() {
         mKeyboardState = mKeyboard->GetState();
         mMouseState = mMouse->GetState();
+        mMouseWheelDelta = mMouseState.scrollWheelValue - mPreviousScrollWheelValue;
+        mPreviousScrollWheelValue = mMouseState.scrollWheelValue;
 
         if (mIsImGuiInputBlocked) {
             mKeyboardState = DirectX::Keyboard::State{};
             mMouseState = DirectX::Mouse::State{};
             mKeyboardTracker = DirectX::Keyboard::KeyboardStateTracker{};
             mMouseTracker = DirectX::Mouse::ButtonStateTracker{};
+            mMouseWheelDelta = 0;
             return;
         }
 
@@ -131,6 +134,10 @@ namespace Globals {
 		return mKeyboardTracker.IsKeyReleased(key);
     }
 
+    std::int32_t Input::GetMouseWheelDelta() const {
+        return mMouseWheelDelta;
+    }
+
     bool Input::IsImGuiInputBlocked() const {
         return mIsImGuiInputBlocked;
     }
@@ -204,5 +211,9 @@ namespace Globals {
 
     bool IsInputMouseMiddleButtonDown() {
         return Input::Get().GetMouseState().middleButton;
+    }
+
+    std::int32_t GetInputMouseWheelDelta() {
+        return Input::Get().GetMouseWheelDelta();
     }
 }

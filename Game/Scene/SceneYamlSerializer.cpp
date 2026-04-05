@@ -14,7 +14,6 @@
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/Frustum.h"
-#include "Game/Scene/Components/Intents/CameraIntent.h"
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/AnimatorGraphPlayer.h"
@@ -29,8 +28,6 @@
 #include "Game/Scene/Components/Transform.h"
 #include "Game/Scene/Systems/AnimationGraphSystem.h"
 #include "Game/Scene/Systems/AnimateSystem.h"
-#include "Game/Scene/Systems/CameraInputSystem.h"
-#include "Game/Scene/Systems/IntentClentUpSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshRenderSystem.h"
 #include "Game/Scene/Systems/StaticRenderSystem.h"
 #include "Game/Scene/Systems/PickingSystem.h"
@@ -46,7 +43,6 @@ namespace {
     constexpr const char* StaticMeshRendererTypeName{ "StaticMeshRenderer" };
     constexpr const char* AnimationTypeName{ "Animation" };
     constexpr const char* CameraTypeName{ "Camera" };
-    constexpr const char* CameraIntentTypeName{ "CameraIntent" };
     constexpr const char* LocalPlayerTagTypeName{ "LocalPlayerTag" };
     constexpr const char* NameTypeName{ "Name" };
     constexpr const char* PrefabInstanceTypeName{ "PrefabInstance" };
@@ -199,14 +195,11 @@ namespace {
         static const std::unordered_map<std::string_view, SystemFactory> SystemFactories{
             { "StaticRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::StaticRenderSystem>(); } },
             { "SkinnedMeshRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshRenderSystem>(); } },
-            { "CameraInputSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraInputSystem>(); } },
             { "AnimationGraphSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimationGraphSystem>(); } },
             { "AnimateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimateSystem>(); } },
             { "SkinningSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinningSystem>(); } },
             { "PickingSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::PickingSystem>(); } },
             { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },
-            { "CleanUpSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CleanUpSystem<Game::CameraIntent>>(); } },
-            { "CleanUpSystem<CameraIntent>", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CleanUpSystem<Game::CameraIntent>>(); } },
         };
         const std::unordered_map<std::string_view, SystemFactory>::const_iterator FactoryIter{ SystemFactories.find(SystemName) };
         if (FactoryIter == SystemFactories.end()) {
@@ -1113,44 +1106,6 @@ namespace Game {
                 OutScene.GetWorld().AddComponent(Entity, NewFrustum);
             }
 
-            if (ComponentsNode.has_child(CameraIntentTypeName)) {
-                CameraIntent NewCameraIntent{};
-                const c4::yml::ConstNodeRef CameraIntentNode{ ComponentsNode[CameraIntentTypeName] };
-                if (CameraIntentNode.has_child("moveDirection")) {
-                    ReadVector3(CameraIntentNode["moveDirection"], NewCameraIntent.moveDirection);
-                }
-
-                if (CameraIntentNode.has_child("lookDelta")) {
-                    ReadVector2(CameraIntentNode["lookDelta"], NewCameraIntent.lookDelta);
-                }
-
-                if (CameraIntentNode.has_child("zoomDelta")) {
-                    CameraIntentNode["zoomDelta"] >> NewCameraIntent.zoomDelta;
-                }
-
-                if (CameraIntentNode.has_child("targetToLockOnIndex")) {
-                    CameraIntentNode["targetToLockOnIndex"] >> NewCameraIntent.targetToLockOn.index;
-                }
-
-                if (CameraIntentNode.has_child("targetToLockOnGeneration")) {
-                    CameraIntentNode["targetToLockOnGeneration"] >> NewCameraIntent.targetToLockOn.generation;
-                }
-
-                if (CameraIntentNode.has_child("requestUnlock")) {
-                    CameraIntentNode["requestUnlock"] >> NewCameraIntent.requestUnlock;
-                }
-
-                if (CameraIntentNode.has_child("requestSkip")) {
-                    CameraIntentNode["requestSkip"] >> NewCameraIntent.requestSkip;
-                }
-
-                if (CameraIntentNode.has_child("shakeImpulse")) {
-                    CameraIntentNode["shakeImpulse"] >> NewCameraIntent.shakeImpulse;
-                }
-
-                OutScene.GetWorld().AddComponent(Entity, NewCameraIntent);
-            }
-
             if (ComponentsNode.has_child(LocalPlayerTagTypeName)) {
                 LocalPlayerTag NewLocalPlayerTag{};
                 OutScene.GetWorld().AddComponent(Entity, NewLocalPlayerTag);
@@ -1433,7 +1388,6 @@ namespace Game {
             const Material* MaterialComponent{ ReadOnlyWorld->GetComponent<Material>(EntityId) };
             const StaticMeshRenderer* StaticMeshRendererComponent{ ReadOnlyWorld->GetComponent<StaticMeshRenderer>(EntityId) };
             const Camera* CameraComponent{ ReadOnlyWorld->GetComponent<Camera>(EntityId) };
-            const CameraIntent* CameraIntentComponent{ ReadOnlyWorld->GetComponent<CameraIntent>(EntityId) };
             const LocalPlayerTag* LocalPlayerTagComponent{ ReadOnlyWorld->GetComponent<LocalPlayerTag>(EntityId) };
             const Animator* AnimatorComponent{ nullptr };
             Arche::EntityID AnimatorEntityId{ Arche::NullEntityID };
@@ -1533,18 +1487,6 @@ namespace Game {
                 AppendLine(Stream, 4, std::string{ "thirdPersonPositionLerpSpeed: " } + std::to_string(CameraComponent->thirdPersonPositionLerpSpeed));
                 AppendLine(Stream, 4, std::string{ "thirdPersonZoomSpeed: " } + std::to_string(CameraComponent->thirdPersonZoomSpeed));
                 AppendLine(Stream, 4, std::string{ "startMode: " } + ResolveCameraModeText(CameraComponent->cameraFlags));
-            }
-
-            if (CameraIntentComponent != nullptr) {
-                AppendLine(Stream, 3, std::string{ CameraIntentTypeName } + std::string{ ":" });
-                AppendVector3(Stream, 4, "moveDirection", CameraIntentComponent->moveDirection);
-                AppendVector2(Stream, 4, "lookDelta", CameraIntentComponent->lookDelta);
-                AppendLine(Stream, 4, std::string{ "zoomDelta: " } + std::to_string(CameraIntentComponent->zoomDelta));
-                AppendLine(Stream, 4, std::string{ "targetToLockOnIndex: " } + std::to_string(CameraIntentComponent->targetToLockOn.index));
-                AppendLine(Stream, 4, std::string{ "targetToLockOnGeneration: " } + std::to_string(CameraIntentComponent->targetToLockOn.generation));
-                AppendLine(Stream, 4, std::string{ "requestUnlock: " } + ToYamlBooleanText(CameraIntentComponent->requestUnlock));
-                AppendLine(Stream, 4, std::string{ "requestSkip: " } + ToYamlBooleanText(CameraIntentComponent->requestSkip));
-                AppendLine(Stream, 4, std::string{ "shakeImpulse: " } + std::to_string(CameraIntentComponent->shakeImpulse));
             }
 
             if (LocalPlayerTagComponent != nullptr) {

@@ -111,7 +111,6 @@ add_library(Game STATIC
     Game/Scene/Components/Material.cpp
     Game/Scene/Components/EntityHierarchy.cpp
     Game/Scene/Components/Tags.cpp
-    Game/Scene/Components/Intents/CameraIntent.cpp
     Game/Scene/Components/StaticMeshRenderer.cpp
     Game/Scene/Components/SkinnedMeshRenderer.cpp
     Game/Scene/Components/BoundingBox.cpp
@@ -121,7 +120,6 @@ add_library(Game STATIC
     Game/Scene/Components/Frustum.cpp
     Game/Scene/Components/PrefabInstance.cpp
     Game/Scene/Components/ComponentInspection.cpp
-    Game/Scene/Systems/CameraInputSystem.cpp
     Game/Scene/Systems/CameraRenderSystem.cpp
     Game/Scene/Systems/PickingSystem.cpp
     Game/Scene/Systems/AnimationGraphSystem.cpp

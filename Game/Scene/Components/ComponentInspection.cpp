@@ -2,7 +2,6 @@
 #include <utility>
 #include "Bone.h"
 #include "BoundingBox.h"
-#include "Intents/CameraIntent.h"
 #include "Tags.h"
 #include "PrefabInstance.h"
 #include "Name.h"
@@ -49,7 +48,6 @@ namespace Game {
 
         AppendComponentInspectionSection<Camera>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<Frustum>(ReadOnlyWorld, EntityId, OutSections);
-        AppendComponentInspectionSection<CameraIntent>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<LocalPlayerTag>(ReadOnlyWorld, EntityId, OutSections);
     }
 }

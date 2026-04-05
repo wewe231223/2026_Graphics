@@ -4,7 +4,6 @@
 
 namespace Game {
     struct Camera;
-    struct CameraIntent;
     struct Frustum;
     struct Transform;
 
@@ -27,7 +26,7 @@ namespace Game {
         void Execute(Arche::World& World, FrameContext& Ctx, float Dt) override;
 
     private:
-        void ApplyIntentToTransform(Arche::World& World, Transform& TransformComponent, Camera& CameraComponent, const CameraIntent& CameraIntentComponent, float Dt) const;
+        void ApplyThirdPersonCameraTransform(Arche::World& World, Transform& TransformComponent, Camera& CameraComponent, float Dt) const;
         void WriteRenderGlobalsFromCamera(const Transform& TransformComponent, Camera& CameraComponent, Frustum& FrustumComponent, RFD::RenderFrameData& RenderData, float Dt) const;
 
     private:

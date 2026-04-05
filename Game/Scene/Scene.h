@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -59,6 +59,8 @@ namespace Game {
         void SpawnModelAtOrigin(const std::string& ModelSelector, const std::string& RootEntityName, std::uint32_t MaterialGroupIndex, bool IsDerivedEntity);
 
         void RegisterScriptTypes(); 
+        void AttachDefaultCameraControlBehavior();
+        void UpdateCameraVirtualMouseState();
     private:
         std::string mName{};
         Arche::World mWorld{};
@@ -72,6 +74,7 @@ namespace Game {
         std::uint64_t mWorldSnapshotVersion{};
         std::uint64_t mHierarchyEntitySelectedSubscriptionId{};
         std::uint64_t mFileDropSubscriptionId{};
+        bool mIsDefaultCameraControlBehaviorAttached{};
 
 		Script::LuaBehaviorFramework mLuaScriptFramework{};
     };

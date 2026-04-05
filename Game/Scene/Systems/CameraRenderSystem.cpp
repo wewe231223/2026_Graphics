@@ -3,20 +3,11 @@
 #include <array>
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/Frustum.h"
-#include "Game/Scene/Components/Intents/CameraIntent.h"
 #include "Game/Scene/Components/Transform.h"
 
 namespace {
-    constexpr float LookSensitivity{ 0.15f };
-    constexpr float MoveSpeedUnitsPerSecond{ 6.0f };
-    constexpr float ZoomSpeedDegreesPerTick{ 2.0f };
-    constexpr float ThirdPersonZoomDistancePerTick{ 0.75f };
-    constexpr float MinPitchRadians{ -1.55334306f };
-    constexpr float MaxPitchRadians{ 1.55334306f };
-    constexpr float MinThirdPersonPitchRadians{ -1.2f };
-    constexpr float MaxThirdPersonPitchRadians{ 1.2f };
-    constexpr float MinFovDegrees{ 20.0f };
-    constexpr float MaxFovDegrees{ 120.0f };
+    constexpr float ThirdPersonPositionLerpMin{ 0.0f };
+    constexpr float ThirdPersonPositionLerpMax{ 1.0f };
 
     constexpr bool UseTemporaryFixedCamera{ false };
     constexpr DirectX::SimpleMath::Vector3 TemporaryFixedCameraPosition{ 0.0f, -3.0f, 3.0f };
@@ -34,7 +25,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> CameraRenderSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 4> Accesses{ { { typeid(Transform), Access::Write }, { typeid(Camera), Access::Write }, { typeid(Frustum), Access::Write }, { typeid(CameraIntent), Access::Read } } };
+        static std::array<ComponentAccess, 3> Accesses{ { { typeid(Transform), Access::Write }, { typeid(Camera), Access::Write }, { typeid(Frustum), Access::Write } } };
         return Accesses;
     }
 
@@ -44,61 +35,37 @@ namespace Game {
     }
 
     void CameraRenderSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
-        for (auto [TransformComponent, CameraComponent, FrustumComponent, CameraIntentComponent] : World.Query<Transform, Camera, Frustum, CameraIntent>()) {
-            if (!CameraComponent.isActive) {
+        for (auto [TransformComponent, CameraComponent, FrustumComponent] : World.Query<Transform, Camera, Frustum>()) {
+            if (CameraComponent.isActive == false) {
                 continue;
             }
 
-            ApplyIntentToTransform(World, TransformComponent, CameraComponent, CameraIntentComponent, Dt);
+            ApplyThirdPersonCameraTransform(World, TransformComponent, CameraComponent, Dt);
             WriteRenderGlobalsFromCamera(TransformComponent, CameraComponent, FrustumComponent, Ctx.RenderData, Dt);
             break;
         }
     }
 
-    void CameraRenderSystem::ApplyIntentToTransform(Arche::World& World, Transform& TransformComponent, Camera& CameraComponent, const CameraIntent& CameraIntentComponent, float Dt) const {
+    void CameraRenderSystem::ApplyThirdPersonCameraTransform(Arche::World& World, Transform& TransformComponent, Camera& CameraComponent, float Dt) const {
         const bool IsThirdPersonMode{ (CameraComponent.cameraFlags & CameraFlagThirdPerson) != 0u };
-        if (IsThirdPersonMode && CameraComponent.thirdPersonFollowTarget != Arche::NullEntityID) {
-            Transform* TargetTransformComponent{ World.GetComponent<Transform>(CameraComponent.thirdPersonFollowTarget) };
-            if (TargetTransformComponent != nullptr) {
-                const float YawDelta{ CameraIntentComponent.lookDelta.x * LookSensitivity };
-                const float PitchDelta{ CameraIntentComponent.lookDelta.y * LookSensitivity };
-                TargetTransformComponent->RotateRadians(0.0f, YawDelta, 0.0f);
-
-                CameraComponent.thirdPersonOrbitYaw += YawDelta;
-                CameraComponent.thirdPersonOrbitPitch = std::clamp(CameraComponent.thirdPersonOrbitPitch - PitchDelta, MinThirdPersonPitchRadians, MaxThirdPersonPitchRadians);
-
-                const float ZoomDeltaDistance{ CameraIntentComponent.zoomDelta * ThirdPersonZoomDistancePerTick * CameraComponent.thirdPersonZoomSpeed };
-                CameraComponent.thirdPersonDistance = std::clamp(CameraComponent.thirdPersonDistance - ZoomDeltaDistance, CameraComponent.thirdPersonMinDistance, CameraComponent.thirdPersonMaxDistance);
-
-                const SimpleMath::Vector3 TargetPivotPosition{ TargetTransformComponent->position + (DirectX::SimpleMath::Vector3::Up * CameraComponent.thirdPersonHeightOffset) };
-                const SimpleMath::Quaternion OrbitRotation{ SimpleMath::Quaternion::CreateFromYawPitchRoll(CameraComponent.thirdPersonOrbitYaw, CameraComponent.thirdPersonOrbitPitch, 0.0f) };
-                const SimpleMath::Vector3 LocalOffset{ DirectX::SimpleMath::Vector3{ 0.0f, 0.0f, CameraComponent.thirdPersonDistance } };
-                const SimpleMath::Vector3 OrbitOffset{ SimpleMath::Vector3::Transform(LocalOffset, OrbitRotation) };
-                const SimpleMath::Vector3 DesiredCameraPosition{ TargetPivotPosition + OrbitOffset };
-
-                const float PositionLerpAlpha{ std::clamp(CameraComponent.thirdPersonPositionLerpSpeed * Dt, 0.0f, 1.0f) };
-                TransformComponent.position = DirectX::SimpleMath::Vector3::Lerp(TransformComponent.position, DesiredCameraPosition, PositionLerpAlpha);
-                TransformComponent.Look(TargetPivotPosition);
-                return;
-            }
+        if (IsThirdPersonMode == false || CameraComponent.thirdPersonFollowTarget == Arche::NullEntityID) {
+            return;
         }
 
-        const float PitchDelta{ CameraIntentComponent.lookDelta.y * LookSensitivity };
-        const float YawDelta{ CameraIntentComponent.lookDelta.x * LookSensitivity };
-
-        TransformComponent.RotateRadians(-PitchDelta, YawDelta, 0.0f);
-
-        TransformComponent.ClampPitchRadians(MinPitchRadians, MaxPitchRadians);
-
-        DirectX::SimpleMath::Vector3 LocalMoveDirection{ CameraIntentComponent.moveDirection };
-        if (LocalMoveDirection.LengthSquared() > 0.0f) {
-            LocalMoveDirection.Normalize();
+        Transform* TargetTransformComponent{ World.GetComponent<Transform>(CameraComponent.thirdPersonFollowTarget) };
+        if (TargetTransformComponent == nullptr) {
+            return;
         }
 
-        const DirectX::SimpleMath::Vector3 WorldMoveDirection{ TransformComponent.TransformDirectionToWorld(LocalMoveDirection) };
-        TransformComponent.Translate(WorldMoveDirection * (MoveSpeedUnitsPerSecond * Dt * CameraIntentComponent.moveDirection.Length()));
+        const SimpleMath::Vector3 TargetPivotPosition{ TargetTransformComponent->position + (DirectX::SimpleMath::Vector3::Up * CameraComponent.thirdPersonHeightOffset) };
+        const SimpleMath::Quaternion OrbitRotation{ SimpleMath::Quaternion::CreateFromYawPitchRoll(CameraComponent.thirdPersonOrbitYaw, CameraComponent.thirdPersonOrbitPitch, 0.0f) };
+        const SimpleMath::Vector3 LocalOffset{ DirectX::SimpleMath::Vector3{ 0.0f, 0.0f, CameraComponent.thirdPersonDistance } };
+        const SimpleMath::Vector3 OrbitOffset{ SimpleMath::Vector3::Transform(LocalOffset, OrbitRotation) };
+        const SimpleMath::Vector3 DesiredCameraPosition{ TargetPivotPosition + OrbitOffset };
 
-        CameraComponent.fov = std::clamp(CameraComponent.fov - (CameraIntentComponent.zoomDelta * ZoomSpeedDegreesPerTick), MinFovDegrees, MaxFovDegrees);
+        const float PositionLerpAlpha{ std::clamp(CameraComponent.thirdPersonPositionLerpSpeed * Dt, ThirdPersonPositionLerpMin, ThirdPersonPositionLerpMax) };
+        TransformComponent.position = DirectX::SimpleMath::Vector3::Lerp(TransformComponent.position, DesiredCameraPosition, PositionLerpAlpha);
+        TransformComponent.Look(TargetPivotPosition);
     }
 
     void CameraRenderSystem::WriteRenderGlobalsFromCamera(const Transform& TransformComponent, Camera& CameraComponent, Frustum& FrustumComponent, RFD::RenderFrameData& RenderData, float Dt) const {

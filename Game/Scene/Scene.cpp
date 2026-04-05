@@ -3,6 +3,8 @@
 #include <array>
 #include <cctype>
 #include <unordered_set>
+#include "Imgui/imgui.h"
+#include "Core/Config.h"
 #include "Asset/Common.h"
 
 #include "Game/Scene/Components/BoundingBox.h"
@@ -21,7 +23,6 @@
 #include "Game/Scene/Components/RuntimeVariableTable.h"
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/AnimatorGraphPlayer.h"
-#include "Game/Scene/Components/Intents/CameraIntent.h"
 #include "Game/Scene/Components/ScriptComponent.h"
 #include "Game/Scene/Components/Tags.h"
 #include "Game/Base/Input.h"
@@ -79,7 +80,8 @@ namespace Game {
         mWorldSnapshot{},
         mWorldSnapshotVersion{},
         mHierarchyEntitySelectedSubscriptionId{},
-        mFileDropSubscriptionId{} {
+        mFileDropSubscriptionId{},
+        mIsDefaultCameraControlBehaviorAttached{} {
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
         mWorldSnapshot.BindWorld(&mWorld);
         mWorldSnapshot.BindAssetRegistry(&mAssetRegistry);
@@ -305,6 +307,7 @@ namespace Game {
         mLuaScriptFramework.RegisterGlobalFunction("IsInputMouseLeftButtonDown", &Globals::IsInputMouseLeftButtonDown);
         mLuaScriptFramework.RegisterGlobalFunction("IsInputMouseRightButtonDown", &Globals::IsInputMouseRightButtonDown);
         mLuaScriptFramework.RegisterGlobalFunction("IsInputMouseMiddleButtonDown", &Globals::IsInputMouseMiddleButtonDown);
+        mLuaScriptFramework.RegisterGlobalFunction("GetInputMouseWheelDelta", &Globals::GetInputMouseWheelDelta);
 
         mLuaScriptFramework.RegisterTypeByDefinition<Arche::EntityID>();
         mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector2>();
@@ -336,7 +339,6 @@ namespace Game {
         mLuaScriptFramework.RegisterComponentByDefinition<Game::PrefabInstance>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::PickingGizmo>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::LocalPlayerTag>();
-        mLuaScriptFramework.RegisterComponentByDefinition<Game::CameraIntent>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BehaviorInstanceComponent>();
     }
 
@@ -386,9 +388,88 @@ namespace Game {
         mWorldSnapshot.BuildHierarchy();
     }
 
+    void Scene::UpdateCameraVirtualMouseState() {
+        Globals::Input& InputInstance{ Globals::Input::Get() };
+        const bool IsThirdPersonToggleRequested{ InputInstance.IsKeyPressed(DirectX::Keyboard::Keys::F8) };
+        const DirectX::Mouse::ButtonStateTracker& MouseTracker{ InputInstance.GetMouseTracker() };
+        const bool IsSelectionDragInput{ mFrameContext.PickedEntityId != Arche::NullEntityID && (MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED || MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::HELD) };
+
+        bool IsUiCapturingInput{ false };
+        if (Config::Query()->Get<bool>("Block_ImGui") == false) {
+            const ImGuiIO& ImGuiInputState{ ImGui::GetIO() };
+            const bool IsUiCapturingMouseInput{ ImGuiInputState.WantCaptureMouse };
+            const bool IsUiCapturingKeyboardInput{ ImGuiInputState.WantCaptureKeyboard };
+            IsUiCapturingInput = IsUiCapturingMouseInput || IsUiCapturingKeyboardInput;
+        }
+
+        for (auto [CameraComponent] : mWorld.Query<Camera>()) {
+            if (CameraComponent.isActive == false) {
+                continue;
+            }
+
+            if (IsThirdPersonToggleRequested) {
+                const bool IsThirdPersonMode{ (CameraComponent.cameraFlags & CameraFlagThirdPerson) != 0u };
+                if (IsThirdPersonMode) {
+                    CameraComponent.cameraFlags &= ~CameraFlagThirdPerson;
+                    CameraComponent.cameraFlags |= CameraFlagFreeLook;
+                    InputInstance.SetRightButtonVirtualMouseEnabled(true);
+                    InputInstance.SetVirtualMouse(false);
+                }
+                else {
+                    CameraComponent.cameraFlags |= CameraFlagThirdPerson;
+                    CameraComponent.cameraFlags &= ~CameraFlagFreeLook;
+                    InputInstance.SetRightButtonVirtualMouseEnabled(false);
+                    InputInstance.SetVirtualMouse(true);
+                }
+            }
+
+            if (IsSelectionDragInput || IsUiCapturingInput) {
+                return;
+            }
+
+            const bool IsThirdPersonMode{ (CameraComponent.cameraFlags & CameraFlagThirdPerson) != 0u };
+            if (IsThirdPersonMode) {
+                InputInstance.SetRightButtonVirtualMouseEnabled(false);
+                InputInstance.SetVirtualMouse(true);
+            }
+            else {
+                InputInstance.SetRightButtonVirtualMouseEnabled(true);
+            }
+
+            return;
+        }
+    }
+
+    void Scene::AttachDefaultCameraControlBehavior() {
+        if (mIsDefaultCameraControlBehaviorAttached) {
+            return;
+        }
+
+        for (const auto [CameraComponent, HierarchyComponent] : mWorld.Query<Camera, EntityHierarchy>()) {
+            if (CameraComponent.isActive == false) {
+                continue;
+            }
+
+            const Arche::EntityID TargetCameraEntity{ HierarchyComponent.self };
+            const BehaviorInstanceComponent* ExistingBehaviorComponent{ mWorld.GetComponent<BehaviorInstanceComponent>(TargetCameraEntity) };
+            if (ExistingBehaviorComponent != nullptr) {
+                mIsDefaultCameraControlBehaviorAttached = true;
+                return;
+            }
+
+            const Script::LuaBehaviorFramework::BehaviorOperationResult AttachResult{ mLuaScriptFramework.AttachBehaviorFromFile(TargetCameraEntity, "Script/Lua/CameraController.lua") };
+            if (AttachResult) {
+                mIsDefaultCameraControlBehaviorAttached = true;
+            }
+
+            return;
+        }
+    }
+
     void Scene::ExecutePhase(Phase TargetPhase, float Dt) {
         switch (TargetPhase) {
             case Phase::PreUpdate:
+                UpdateCameraVirtualMouseState();
                 mFrameContext.RenderData.modelContexts.clear();
                 mFrameContext.RenderData.drawRecords.clear();
                 mFrameContext.RenderData.bonePalette.clear();
@@ -399,6 +480,7 @@ namespace Game {
                 break;
 
             case Phase::Update:
+                AttachDefaultCameraControlBehavior();
                 mLuaScriptFramework.Update(Dt);
                 break;
 
