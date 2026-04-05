@@ -9,7 +9,6 @@
 #include "SceneWorldSnapshot.h"
 #include "Game/Model/AssetRegistry.h"
 #include "RuntimeVariableInputTable.h"
-#include "Script/Core/LuaScriptFramework.h"
 
 namespace Game {
     class Scene final {
@@ -71,7 +70,5 @@ namespace Game {
         std::uint64_t mWorldSnapshotVersion{};
         std::uint64_t mHierarchyEntitySelectedSubscriptionId{};
         std::uint64_t mFileDropSubscriptionId{};
-
-		Script::LuaBehaviorFramework mLuaBehaviorFramework{};
     };
 }

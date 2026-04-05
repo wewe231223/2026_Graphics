@@ -6,39 +6,8 @@
 #include "Arche/World.h"
 #include "Game/Scene/Components/ScriptComponents.h"
 #include "LuaScriptFramework.h"
-#include "sol/sol.hpp"
 
 namespace Script {
-    struct LuaBehaviorFramework::RuntimeBehaviorInstance final {
-        struct BehaviorEntries final {
-            sol::protected_function mAwake{};
-            sol::protected_function mOnEnable{};
-            sol::protected_function mStart{};
-            sol::protected_function mUpdate{};
-            sol::protected_function mFixedUpdate{};
-            sol::protected_function mLateUpdate{};
-            sol::protected_function mOnDisable{};
-            sol::protected_function mOnDestroy{};
-        };
-
-        BehaviorContext mContext{};
-        sol::environment mEnvironment{};
-        BehaviorEntries mEntries{};
-        std::string mBehaviorFileName{};
-        std::uint32_t mFixedTick{};
-        bool mIsEnabled{ true };
-    };
-
-    struct LuaBehaviorFramework::Impl final {
-        using ComponentGetter = std::function<sol::object(sol::state_view, Arche::World&, Arche::EntityID)>;
-
-        std::unordered_map<std::string, ComponentGetter> mComponentGetters{};
-        std::unordered_map<std::string, std::string> mBehaviorFilePaths{};
-        std::unordered_map<std::uint32_t, RuntimeBehaviorInstance> mRuntimeInstances{};
-        std::uint32_t mLastIssuedBehaviorInstanceId{};
-        std::uint32_t mLastIssuedBehaviorAssetId{};
-    };
-
     LuaBehaviorFramework::BehaviorOperationResult LuaBehaviorFramework::BehaviorOperationResult::Success() {
         BehaviorOperationResult Result{};
         Result.mIsSuccess = true;
@@ -101,14 +70,14 @@ namespace Script {
         }
 
         std::lock_guard<std::recursive_mutex> WorldFlowLock{ mOwnerFramework->mWorldFlowMutex };
-        const auto& Getters{ mOwnerFramework->mImpl->mComponentGetters };
+        const std::unordered_map<std::string, ComponentGetter>& Getters{ mOwnerFramework->mComponentGetters };
         auto GetterIt{ Getters.find(ComponentName) };
 
         if (GetterIt == Getters.end()) {
             return false;
         }
 
-        sol::object Value{ GetterIt->second(mOwnerFramework->mLuaState->lua_state(), *mWorld, mOwnerEntity) };
+        sol::object Value{ GetterIt->second(mOwnerFramework->mLuaState.lua_state(), *mWorld, mOwnerEntity) };
         return Value.get_type() != sol::type::nil;
     }
 
@@ -118,20 +87,24 @@ namespace Script {
         }
 
         std::lock_guard<std::recursive_mutex> WorldFlowLock{ mOwnerFramework->mWorldFlowMutex };
-        auto& Getters{ mOwnerFramework->mImpl->mComponentGetters };
+        std::unordered_map<std::string, ComponentGetter>& Getters{ mOwnerFramework->mComponentGetters };
         auto GetterIt{ Getters.find(ComponentName) };
 
         if (GetterIt == Getters.end()) {
-            return sol::make_object(mOwnerFramework->mLuaState->lua_state(), sol::lua_nil);
+            return sol::make_object(mOwnerFramework->mLuaState.lua_state(), sol::lua_nil);
         }
 
-        return GetterIt->second(mOwnerFramework->mLuaState->lua_state(), *mWorld, mOwnerEntity);
+        return GetterIt->second(mOwnerFramework->mLuaState.lua_state(), *mWorld, mOwnerEntity);
     }
 
     LuaBehaviorFramework::LuaBehaviorFramework()
         : mWorld{},
-          mLuaState{ std::make_unique<sol::state>() },
-          mImpl{ std::make_unique<Impl>() },
+          mLuaState{},
+          mComponentGetters{},
+          mBehaviorFilePaths{},
+          mRuntimeInstances{},
+          mLastIssuedBehaviorInstanceId{},
+          mLastIssuedBehaviorAssetId{},
           mFixedDeltaSeconds{ 1.0f },
           mFixedUpdateThread{},
           mIsFixedUpdateThreadRunning{ false },
@@ -149,13 +122,13 @@ namespace Script {
         std::lock_guard<std::mutex> RuntimeGuard{ mRuntimeMutex };
         std::lock_guard<std::recursive_mutex> WorldFlowLock{ mWorldFlowMutex };
         mWorld = TargetWorld;
-        mLuaState->new_usertype<BehaviorContext>("BehaviorContext", "GetEntityId", &BehaviorContext::GetEntityId, "GetComponent", static_cast<sol::object(BehaviorContext::*)(const std::string&)>(&BehaviorContext::GetComponent), "HasComponent", &BehaviorContext::HasComponent);
+        mLuaState.new_usertype<BehaviorContext>("BehaviorContext", "GetEntityId", &BehaviorContext::GetEntityId, "GetComponent", static_cast<sol::object(BehaviorContext::*)(const std::string&)>(&BehaviorContext::GetComponent), "HasComponent", &BehaviorContext::HasComponent);
         StartFixedUpdateThread();
     }
 
     void LuaBehaviorFramework::OpenDefaultLibraries() {
         std::lock_guard<std::mutex> RuntimeGuard{ mRuntimeMutex };
-        mLuaState->open_libraries(sol::lib::base, sol::lib::math, sol::lib::string, sol::lib::table, sol::lib::package);
+        mLuaState.open_libraries(sol::lib::base, sol::lib::math, sol::lib::string, sol::lib::table, sol::lib::package);
     }
 
     LuaBehaviorFramework::BehaviorOperationResult LuaBehaviorFramework::SetFixedUpdateInterval(float FixedDeltaSeconds) {
@@ -181,7 +154,7 @@ namespace Script {
 
         Game::BehaviorInstanceComponent* ExistingComponent{ mWorld->GetComponent<Game::BehaviorInstanceComponent>(TargetEntity) };
 
-        if (ExistingComponent != nullptr && IsValidBehaviorInstanceId(ExistingComponent->mBehaviorInstanceId) && mImpl->mRuntimeInstances.find(ExistingComponent->mBehaviorInstanceId) != mImpl->mRuntimeInstances.end()) {
+        if (ExistingComponent != nullptr && IsValidBehaviorInstanceId(ExistingComponent->mBehaviorInstanceId) && mRuntimeInstances.find(ExistingComponent->mBehaviorInstanceId) != mRuntimeInstances.end()) {
             return HandleFailure(BehaviorErrorCode::BehaviorAlreadyAttached, "Behavior is already attached to this entity.", TargetEntity, std::string{});
         }
 
@@ -204,10 +177,10 @@ namespace Script {
 
         RuntimeBehaviorInstance NewRuntimeInstance{};
         NewRuntimeInstance.mContext.Bind(mWorld, TargetEntity, this);
-        NewRuntimeInstance.mEnvironment = sol::environment(*mLuaState, sol::create, mLuaState->globals());
+        NewRuntimeInstance.mEnvironment = sol::environment(mLuaState, sol::create, mLuaState.globals());
         BindContextToEnvironment(NewRuntimeInstance);
 
-        sol::protected_function_result LoadResult{ mLuaState->safe_script(BehaviorSource, NewRuntimeInstance.mEnvironment, sol::script_pass_on_error) };
+        sol::protected_function_result LoadResult{ mLuaState.safe_script(BehaviorSource, NewRuntimeInstance.mEnvironment, sol::script_pass_on_error) };
 
         if (!LoadResult.valid()) {
             ResetBehaviorComponent(TargetEntity, 0u);
@@ -236,7 +209,7 @@ namespace Script {
             return StartResult;
         }
 
-        mImpl->mRuntimeInstances.emplace(BehaviorInstanceId, std::move(NewRuntimeInstance));
+        mRuntimeInstances.emplace(BehaviorInstanceId, std::move(NewRuntimeInstance));
         ClearError();
         return BehaviorOperationResult::Success();
     }
@@ -265,16 +238,16 @@ namespace Script {
         std::filesystem::path FullPath{ BehaviorFilePath };
         std::string BehaviorFileName{ FullPath.filename().string() };
         RuntimeInstance->mBehaviorFileName = BehaviorFileName;
-        mImpl->mBehaviorFilePaths[BehaviorFileName] = BehaviorFilePath;
+        mBehaviorFilePaths[BehaviorFileName] = BehaviorFilePath;
         ClearError();
         return BehaviorOperationResult::Success();
     }
 
     LuaBehaviorFramework::BehaviorOperationResult LuaBehaviorFramework::HotReloadBehavior(const std::string& BehaviorFileName) {
         std::lock_guard<std::mutex> RuntimeGuard{ mRuntimeMutex };
-        auto PathIt{ mImpl->mBehaviorFilePaths.find(BehaviorFileName) };
+        auto PathIt{ mBehaviorFilePaths.find(BehaviorFileName) };
 
-        if (PathIt == mImpl->mBehaviorFilePaths.end()) {
+        if (PathIt == mBehaviorFilePaths.end()) {
             return HandleFailure(BehaviorErrorCode::InvalidBehaviorPath, "Behavior file name is not registered.", Arche::EntityID{}, BehaviorFileName);
         }
 
@@ -288,7 +261,7 @@ namespace Script {
         bool IsEveryReloadSucceeded{ true };
         std::size_t ReloadedCount{};
 
-        for (auto& RuntimePair : mImpl->mRuntimeInstances) {
+        for (auto& RuntimePair : mRuntimeInstances) {
             RuntimeBehaviorInstance& RuntimeInstance{ RuntimePair.second };
 
             if (RuntimeInstance.mBehaviorFileName != BehaviorFileName) {
@@ -302,10 +275,10 @@ namespace Script {
                 continue;
             }
 
-            RuntimeInstance.mEnvironment = sol::environment(*mLuaState, sol::create, mLuaState->globals());
+            RuntimeInstance.mEnvironment = sol::environment(mLuaState, sol::create, mLuaState.globals());
             BindContextToEnvironment(RuntimeInstance);
 
-            sol::protected_function_result LoadResult{ mLuaState->safe_script(BehaviorSource, RuntimeInstance.mEnvironment, sol::script_pass_on_error) };
+            sol::protected_function_result LoadResult{ mLuaState.safe_script(BehaviorSource, RuntimeInstance.mEnvironment, sol::script_pass_on_error) };
 
             if (!LoadResult.valid()) {
                 HandleFailure(BehaviorErrorCode::LuaLoadFailed, std::string{ LoadResult.get<sol::error>().what() }, RuntimeInstance.mContext.GetEntityId(), PathIt->second);
@@ -401,13 +374,13 @@ namespace Script {
             return HandleFailure(BehaviorErrorCode::RuntimeStateMismatch, "Behavior component was not found in ECS world.", TargetEntity, RuntimeInstance->mBehaviorFileName);
         }
 
-        auto RuntimeIt{ mImpl->mRuntimeInstances.find(InstanceComponent->mBehaviorInstanceId) };
+        auto RuntimeIt{ mRuntimeInstances.find(InstanceComponent->mBehaviorInstanceId) };
 
-        if (RuntimeIt == mImpl->mRuntimeInstances.end()) {
+        if (RuntimeIt == mRuntimeInstances.end()) {
             return HandleFailure(BehaviorErrorCode::RuntimeStateMismatch, "Behavior runtime map entry was not found.", TargetEntity, RuntimeInstance->mBehaviorFileName);
         }
 
-        mImpl->mRuntimeInstances.erase(RuntimeIt);
+        mRuntimeInstances.erase(RuntimeIt);
         ResetBehaviorComponent(TargetEntity, 0u);
         ClearError();
         return BehaviorOperationResult::Success();
@@ -421,7 +394,7 @@ namespace Script {
         std::lock_guard<std::mutex> RuntimeGuard{ mRuntimeMutex };
         std::lock_guard<std::recursive_mutex> WorldFlowLock{ mWorldFlowMutex };
 
-        for (auto& RuntimePair : mImpl->mRuntimeInstances) {
+        for (auto& RuntimePair : mRuntimeInstances) {
             RuntimeBehaviorInstance& RuntimeInstance{ RuntimePair.second };
 
             if (!RuntimeInstance.mIsEnabled) {
@@ -436,7 +409,7 @@ namespace Script {
         std::lock_guard<std::mutex> RuntimeGuard{ mRuntimeMutex };
         std::lock_guard<std::recursive_mutex> WorldFlowLock{ mWorldFlowMutex };
 
-        for (auto& RuntimePair : mImpl->mRuntimeInstances) {
+        for (auto& RuntimePair : mRuntimeInstances) {
             RuntimeBehaviorInstance& RuntimeInstance{ RuntimePair.second };
 
             if (!RuntimeInstance.mIsEnabled) {
@@ -452,7 +425,7 @@ namespace Script {
         std::lock_guard<std::mutex> RuntimeGuard{ mRuntimeMutex };
         std::lock_guard<std::recursive_mutex> WorldFlowLock{ mWorldFlowMutex };
 
-        for (auto& RuntimePair : mImpl->mRuntimeInstances) {
+        for (auto& RuntimePair : mRuntimeInstances) {
             RuntimeBehaviorInstance& RuntimeInstance{ RuntimePair.second };
 
             if (!RuntimeInstance.mIsEnabled) {
@@ -468,11 +441,11 @@ namespace Script {
     }
 
     sol::state& LuaBehaviorFramework::GetState() {
-        return *mLuaState;
+        return mLuaState;
     }
 
     const sol::state& LuaBehaviorFramework::GetState() const {
-        return *mLuaState;
+        return mLuaState;
     }
 
     LuaBehaviorFramework::RuntimeBehaviorInstance* LuaBehaviorFramework::FindRuntimeInstance(Arche::EntityID TargetEntity) {
@@ -490,9 +463,9 @@ namespace Script {
             return nullptr;
         }
 
-        auto RuntimeIt{ mImpl->mRuntimeInstances.find(InstanceComponent->mBehaviorInstanceId) };
+        auto RuntimeIt{ mRuntimeInstances.find(InstanceComponent->mBehaviorInstanceId) };
 
-        if (RuntimeIt == mImpl->mRuntimeInstances.end()) {
+        if (RuntimeIt == mRuntimeInstances.end()) {
             return nullptr;
         }
 
@@ -508,19 +481,19 @@ namespace Script {
     }
 
     std::uint32_t LuaBehaviorFramework::GenerateBehaviorInstanceId() {
-        std::uint32_t NextBehaviorInstanceId{ mImpl->mLastIssuedBehaviorInstanceId };
+        std::uint32_t NextBehaviorInstanceId{ mLastIssuedBehaviorInstanceId };
 
         do {
             NextBehaviorInstanceId = NextBehaviorInstanceId + 1u;
-        } while (!IsValidBehaviorInstanceId(NextBehaviorInstanceId) || mImpl->mRuntimeInstances.find(NextBehaviorInstanceId) != mImpl->mRuntimeInstances.end());
+        } while (!IsValidBehaviorInstanceId(NextBehaviorInstanceId) || mRuntimeInstances.find(NextBehaviorInstanceId) != mRuntimeInstances.end());
 
-        mImpl->mLastIssuedBehaviorInstanceId = NextBehaviorInstanceId;
+        mLastIssuedBehaviorInstanceId = NextBehaviorInstanceId;
         return NextBehaviorInstanceId;
     }
 
     std::uint32_t LuaBehaviorFramework::GenerateBehaviorAssetId() {
-        mImpl->mLastIssuedBehaviorAssetId = mImpl->mLastIssuedBehaviorAssetId + 1u;
-        return mImpl->mLastIssuedBehaviorAssetId;
+        mLastIssuedBehaviorAssetId = mLastIssuedBehaviorAssetId + 1u;
+        return mLastIssuedBehaviorAssetId;
     }
 
     LuaBehaviorFramework::BehaviorOperationResult LuaBehaviorFramework::ReadBehaviorSourceFromFilePath(const std::string& BehaviorFilePath, std::string& OutBehaviorSource) const {
@@ -629,20 +602,5 @@ namespace Script {
         TargetInstance.mEntries.mLateUpdate = CandidateLateUpdate.get_type() == sol::type::function ? CandidateLateUpdate.as<sol::protected_function>() : sol::protected_function{};
         TargetInstance.mEntries.mOnDisable = CandidateOnDisable.get_type() == sol::type::function ? CandidateOnDisable.as<sol::protected_function>() : sol::protected_function{};
         TargetInstance.mEntries.mOnDestroy = CandidateOnDestroy.get_type() == sol::type::function ? CandidateOnDestroy.as<sol::protected_function>() : sol::protected_function{};
-    }
-
-    template <typename... TArgs>
-    LuaBehaviorFramework::BehaviorOperationResult LuaBehaviorFramework::RunEntryWithArguments(sol::protected_function& EntryFunction, Arche::EntityID TargetEntity, const std::string& BehaviorFilePath, TArgs&&... Arguments) {
-        if (!EntryFunction.valid()) {
-            return BehaviorOperationResult::Success();
-        }
-
-        sol::protected_function_result EntryResult{ EntryFunction(std::forward<TArgs>(Arguments)...) };
-
-        if (!EntryResult.valid()) {
-            return HandleFailure(BehaviorErrorCode::LuaRuntimeFailed, std::string{ EntryResult.get<sol::error>().what() }, TargetEntity, BehaviorFilePath);
-        }
-
-        return BehaviorOperationResult::Success();
     }
 }

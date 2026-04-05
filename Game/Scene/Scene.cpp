@@ -98,9 +98,6 @@ namespace Game {
 
             OnFileDropped(Payload->FilePath);
         });
-
-
-        
     }
 
     Scene::~Scene() {

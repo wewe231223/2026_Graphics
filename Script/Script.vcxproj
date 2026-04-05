@@ -81,11 +81,9 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>$(SolutionDir)\External\Include\lua;$(SolutionDir)\External\Include;$(SolutionDir);$(IncludePath)</IncludePath>
-    <OutDir>$(SolutionDir)out\debug\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IncludePath>$(SolutionDir)\External\Include\lua;$(SolutionDir)\External\Include;$(SolutionDir);$(IncludePath)</IncludePath>
-    <OutDir>$(SolutionDir)out\release\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
