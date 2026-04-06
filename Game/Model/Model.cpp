@@ -1,7 +1,10 @@
 ﻿#include "Model.h"
 #include <algorithm>
 #include <cstring>
+#include <string>
 #include <utility>
+
+#include "Utility/ErrorHandler.h"
 
 namespace {
     struct AttributeUploadSource final {
@@ -53,6 +56,35 @@ namespace {
         Source.ByteSize = ByteSize;
         Source.StrideInBytes = StrideInBytes;
         Sources.push_back(Source);
+    }
+
+    std::size_t CalculateVertexUploadByteSize(const asset::VertexAttributes& Vertices) {
+        const std::size_t VertexCount{ Vertices.VertexCount() };
+        std::size_t TotalByteSize{};
+        TotalByteSize += Vertices.Positions.size() * sizeof(asset::Vec3);
+        TotalByteSize += Vertices.Normals.size() * sizeof(asset::Vec3);
+        TotalByteSize += Vertices.TexCoords[0].size() * sizeof(asset::Vec2);
+        TotalByteSize += Vertices.TexCoords[1].size() * sizeof(asset::Vec2);
+        TotalByteSize += Vertices.TexCoords[2].size() * sizeof(asset::Vec2);
+        TotalByteSize += Vertices.TexCoords[3].size() * sizeof(asset::Vec2);
+        TotalByteSize += Vertices.Colors.size() * sizeof(asset::Vec4);
+        TotalByteSize += Vertices.Tangents.size() * sizeof(asset::Vec3);
+        TotalByteSize += Vertices.Bitangents.size() * sizeof(asset::Vec3);
+
+        if (VertexCount > 0) {
+            TotalByteSize += VertexCount * sizeof(asset::UVec4);
+            TotalByteSize += VertexCount * sizeof(asset::Vec4);
+        }
+
+        return TotalByteSize;
+    }
+
+    std::size_t CalculateIndexUploadByteSize(const std::vector<std::uint32_t>& Indices) {
+        return Indices.size() * sizeof(std::uint32_t);
+    }
+
+    std::string BuildModelUploadFailureMessage(std::size_t VertexBufferSize, std::size_t IndexBufferSize) {
+        return "Failed to upload model mesh data. VertexBufferSize: " + std::to_string(VertexBufferSize) + " bytes, IndexBufferSize: " + std::to_string(IndexBufferSize) + " bytes.";
     }
 }
 
@@ -357,14 +389,24 @@ namespace Game {
             std::unique_ptr<Interface::IAllocationHandle> VertexAllocation{};
             std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{};
             Interface::CopyFuture VertexCopyFuture{};
-            UploadVertexData(SourceNode.Vertices(), Allocator, CopyQueue, VertexRawData, VertexRanges, VertexAllocation, VertexBufferViews, VertexCopyFuture);
+            const std::size_t VertexBufferSize{ CalculateVertexUploadByteSize(SourceNode.Vertices()) };
+            const std::size_t IndexBufferSize{ CalculateIndexUploadByteSize(SourceNode.Indices()) };
+            const bool VertexUploadResult{ UploadVertexData(SourceNode.Vertices(), Allocator, CopyQueue, VertexRawData, VertexRanges, VertexAllocation, VertexBufferViews, VertexCopyFuture) };
+            if (VertexUploadResult == false) {
+                ErrorHandler::report("Model", BuildModelUploadFailureMessage(VertexBufferSize, IndexBufferSize), ErrorHandler::Level::Critical);
+                return false;
+            }
             DestinationNode.SetVertexData(std::move(VertexRawData), std::move(VertexRanges), std::move(VertexAllocation), std::move(VertexBufferViews));
 
             std::vector<std::byte> IndexRawData{};
             std::unique_ptr<Interface::IAllocationHandle> IndexAllocation{};
             D3D12_INDEX_BUFFER_VIEW IndexBufferView{};
             Interface::CopyFuture IndexCopyFuture{};
-            UploadIndexData(SourceNode.Indices(), Allocator, CopyQueue, IndexRawData, IndexAllocation, IndexBufferView, IndexCopyFuture);
+            const bool IndexUploadResult{ UploadIndexData(SourceNode.Indices(), Allocator, CopyQueue, IndexRawData, IndexAllocation, IndexBufferView, IndexCopyFuture) };
+            if (IndexUploadResult == false) {
+                ErrorHandler::report("Model", BuildModelUploadFailureMessage(VertexBufferSize, IndexBufferSize), ErrorHandler::Level::Critical);
+                return false;
+            }
             DestinationNode.SetIndexData(std::move(IndexRawData), std::move(IndexAllocation), IndexBufferView);
 
             mNodeNameLookup.insert_or_assign(DestinationNode.GetName(), static_cast<std::uint32_t>(NodeIndex));
