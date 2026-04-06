@@ -32,15 +32,22 @@ SkyDomeVertexOutput VsMain(SkyDomeVertexInput Input, uint InstanceId : SV_Instan
     const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[0];
 
     SkyDomeVertexOutput Output;
-    float4x4 World = transpose(ModelContext.World);
-    const float4 WorldPosition = mul(float4(Input.Position, 1.0f), World);
-    Output.Position = mul(WorldPosition, transpose(FrameGlobals.ViewProj));
+
+    float4x4 View = transpose(FrameGlobals.View);
+    float4x4 Proj = transpose(FrameGlobals.Proj);
+
+    float3x3 ViewRotation = (float3x3) View;
+    float3 RotatedPosition = mul(Input.Position, ViewRotation);
+
+    Output.Position = mul(float4(RotatedPosition, 1.0f), Proj);
+    
+    Output.Position.z = Output.Position.w;
+
     Output.Color = Input.Color;
     Output.TexCoord0 = Input.TexCoord0;
     Output.Flags = DrawRecord.Flags;
     Output.MaterialIndex = DrawRecord.MaterialIndex;
     
-    Output.Position.z = Output.Position.w;
     return Output;
 }
 

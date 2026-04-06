@@ -67,7 +67,6 @@
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
     <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h" />
     <ClInclude Include="Scene\Systems\SkinningSystem.h" />
-    <ClInclude Include="Scene\Systems\SkySystem.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Input.cpp" />
@@ -113,7 +112,6 @@
     <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\SkinnedMeshRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\SkinningSystem.cpp" />
-    <ClCompile Include="Scene\Systems\SkySystem.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shader\Source\BasicShader.hlsl">

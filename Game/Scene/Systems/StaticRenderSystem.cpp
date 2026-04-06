@@ -143,10 +143,12 @@ namespace Game {
 
             TransformComponent.worldMatrix = NodeWorld;
 
-            const bool IsVisible{ IsVisibleByFrustum(World, EntityId, NodeWorld, CullingFrustumComponent) };
-            if (IsVisible == false) {
-                continue;
-            }
+
+            // 스카이박스 프러스텀 컬링 문제.
+            //const bool IsVisible{ IsVisibleByFrustum(World, EntityId, NodeWorld, CullingFrustumComponent) };
+            //if (IsVisible == false) {
+            //    continue;
+            //}
 
             const std::vector<ModelNode>& Nodes{ Renderer.model->GetNodes() };
             if (Renderer.nodeIndex >= Nodes.size()) {

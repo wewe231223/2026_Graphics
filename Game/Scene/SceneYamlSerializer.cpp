@@ -34,7 +34,6 @@
 #include "Game/Scene/Systems/PickingSystem.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
 #include "Game/Scene/Systems/SkinningSystem.h"
-#include "Game/Scene/Systems/SkySystem.h"
 #include "Game/Scene/SceneEntityFactory.h"
 #include "Utility/StdOutput.h"
 
@@ -203,7 +202,6 @@ namespace {
             { "SkinningSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinningSystem>(); } },
             { "PickingSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::PickingSystem>(); } },
             { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },
-            { "SkySystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkySystem>(); } },
         };
         const std::unordered_map<std::string_view, SystemFactory>::const_iterator FactoryIter{ SystemFactories.find(SystemName) };
         if (FactoryIter == SystemFactories.end()) {
