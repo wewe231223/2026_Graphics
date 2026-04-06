@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <random>
 #include <stdexcept>
 
 namespace Game {
@@ -47,9 +46,6 @@ namespace Game {
 
         const float OffsetX{ (static_cast<float>(Field.Width) - 1.0f) * Desc.CellSizeX * 0.5f };
         const float OffsetZ{ (static_cast<float>(Field.Height) - 1.0f) * Desc.CellSizeZ * 0.5f };
-        std::random_device RandomDevice{};
-        std::mt19937 RandomEngine{ RandomDevice() };
-        std::uniform_real_distribution<float> GreenDistribution{ 0.5f, 1.0f };
 
         for (std::uint32_t GridY{ 0 }; GridY < VertexCountY; ++GridY) {
             for (std::uint32_t GridX{ 0 }; GridX < VertexCountX; ++GridX) {
@@ -80,7 +76,7 @@ namespace Game {
 
                 Mesh.Vertices.TexCoords[0][VertexIndex] = asset::Vec2{ U, V };
                 Mesh.Vertices.Normals[VertexIndex] = asset::Vec3::Up;
-                Mesh.Vertices.Colors[VertexIndex] = asset::Vec4{ 0.0f, GreenDistribution(RandomEngine), 0.0f, 1.0f };
+                Mesh.Vertices.Colors[VertexIndex] = asset::Vec4{ 0.0f, 1.0f, 0.0f, 1.0f };
             }
         }
 
@@ -108,10 +104,41 @@ namespace Game {
             }
         }
 
-        for (std::uint32_t GridY{ 0 }; GridY < VertexCountY; ++GridY) {
-            for (std::uint32_t GridX{ 0 }; GridX < VertexCountX; ++GridX) {
-                const std::uint32_t VertexIndex{ CalculateIndex(Field.Width, GridX, GridY) };
-                Mesh.Vertices.Normals[VertexIndex] = CalculateNormal(Field, Desc, GridX, GridY);
+        for (std::size_t VertexIndex{ 0 }; VertexIndex < Mesh.Vertices.Normals.size(); ++VertexIndex) {
+            Mesh.Vertices.Normals[VertexIndex] = asset::Vec3::Zero;
+        }
+
+        for (std::size_t IndexOffset{ 0 }; IndexOffset < Mesh.Indices.size(); IndexOffset += 3ULL) {
+            const std::uint32_t Index0{ Mesh.Indices[IndexOffset] };
+            const std::uint32_t Index1{ Mesh.Indices[IndexOffset + 1ULL] };
+            const std::uint32_t Index2{ Mesh.Indices[IndexOffset + 2ULL] };
+
+            const asset::Vec3& Position0{ Mesh.Vertices.Positions[Index0] };
+            const asset::Vec3& Position1{ Mesh.Vertices.Positions[Index1] };
+            const asset::Vec3& Position2{ Mesh.Vertices.Positions[Index2] };
+
+            const asset::Vec3 Edge01{ Position1.x - Position0.x, Position1.y - Position0.y, Position1.z - Position0.z };
+            const asset::Vec3 Edge02{ Position2.x - Position0.x, Position2.y - Position0.y, Position2.z - Position0.z };
+
+            const asset::Vec3 FaceNormal{
+                (Edge01.y * Edge02.z) - (Edge01.z * Edge02.y),
+                (Edge01.z * Edge02.x) - (Edge01.x * Edge02.z),
+                (Edge01.x * Edge02.y) - (Edge01.y * Edge02.x)
+            };
+
+            Mesh.Vertices.Normals[Index0] += FaceNormal;
+            Mesh.Vertices.Normals[Index1] += FaceNormal;
+            Mesh.Vertices.Normals[Index2] += FaceNormal;
+        }
+
+        for (std::size_t VertexIndex{ 0 }; VertexIndex < Mesh.Vertices.Normals.size(); ++VertexIndex) {
+            const float LengthSquared{ Mesh.Vertices.Normals[VertexIndex].LengthSquared() };
+            if (LengthSquared > 0.0f) {
+                Mesh.Vertices.Normals[VertexIndex].Normalize();
+            }
+
+            else {
+                Mesh.Vertices.Normals[VertexIndex] = asset::Vec3::Up;
             }
         }
 
