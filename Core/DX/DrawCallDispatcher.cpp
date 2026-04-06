@@ -42,7 +42,9 @@ namespace Core {
 			}
 		}
 
-		DrawCallDispatcher::DrawCallDispatcher() {
+		DrawCallDispatcher::DrawCallDispatcher()
+			: mBoundingBoxLinePipeline{},
+			mIsBoundingBoxLinePipelineInitialized{} {
 		}
 
 		DrawCallDispatcher::~DrawCallDispatcher() {
@@ -100,6 +102,42 @@ namespace Core {
 				CommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
 				DrawRecordIndex = RunEndIndex;
 			}
+
+			DrawBoundingBoxes(CommandList, Data, FrameGlobalsSrvHandle, ModelContextSrvHandle, BonePaletteSrvHandle, DrawRecordSrvHandle, MaterialSrvHandle, MaterialTextureTableSrvHandle);
+		}
+
+		void DrawCallDispatcher::DrawBoundingBoxes(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+			if (CommandList == nullptr) {
+				return;
+			}
+
+			const bool IsDrawBoundingBoxesEnabled{ (Data.globals.flags & Game::RFD::FrameGlobalFlagDrawBoundingBoxes) != 0u };
+			if (IsDrawBoundingBoxesEnabled == false || Data.modelContexts.empty()) {
+				return;
+			}
+
+			if (mIsBoundingBoxLinePipelineInitialized == false) {
+				mIsBoundingBoxLinePipelineInitialized = mBoundingBoxLinePipeline.Initialize("BoundingBoxLineGraphics");
+			}
+
+			if (mIsBoundingBoxLinePipelineInitialized == false) {
+				return;
+			}
+
+			mBoundingBoxLinePipeline.Set(nullptr, CommandList);
+
+			DrawRootConstantsB1 RootConstants{};
+			RootConstants.FrameGlobalsSrvIndex = FrameGlobalsSrvHandle.GetIndex();
+			RootConstants.ModelContextSrvIndex = ModelContextSrvHandle.GetIndex();
+			RootConstants.BonePaletteSrvIndex = BonePaletteSrvHandle.GetIndex();
+			RootConstants.DrawRecordSrvIndex = DrawRecordSrvHandle.GetIndex();
+			RootConstants.DrawRecordBaseIndex = 0u;
+			RootConstants.MaterialSrvIndex = MaterialSrvHandle.GetIndex();
+			RootConstants.MaterialTextureTableSrvIndex = MaterialTextureTableSrvHandle.GetIndex();
+			CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
+
+			CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
+			CommandList->DrawInstanced(1u, static_cast<UINT>(Data.modelContexts.size()), 0u, 0u);
 		}
 	}
 }

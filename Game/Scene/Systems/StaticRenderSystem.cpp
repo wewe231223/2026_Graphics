@@ -1,4 +1,4 @@
-#include "StaticRenderSystem.h"
+﻿#include "StaticRenderSystem.h"
 
 #include <array>
 #include <cstddef>
@@ -165,6 +165,14 @@ namespace Game {
             RFD::ModelContext ModelContext{};
             ModelContext.world = NodeWorld;
             ModelContext.prevWorld = ModelContext.world;
+
+            const BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityId) };
+            if (BoundingBoxComponent != nullptr) {
+                const DirectX::BoundingOrientedBox& Obb{ BoundingBoxComponent->GetObb() };
+                ModelContext.bbCenter = SimpleMath::Vector4{ Obb.Center.x, Obb.Center.y, Obb.Center.z, 1.0f };
+                ModelContext.bbExtents = SimpleMath::Vector4{ Obb.Extents.x, Obb.Extents.y, Obb.Extents.z, 0.0f };
+            }
+
             ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());
             RenderData.modelContexts.push_back(ModelContext);
             const std::uint32_t MaterialFlags{ MaterialComponent == nullptr ? 0u : MaterialComponent->Flags };

@@ -77,6 +77,7 @@ namespace Game {
         std::uint64_t mHierarchyEntitySelectedSubscriptionId{};
         std::uint64_t mFileDropSubscriptionId{};
         bool mIsDefaultCameraControlBehaviorAttached{};
+        bool mIsBoundingBoxDrawEnabled{};
 
 		Script::LuaBehaviorFramework mLuaScriptFramework{};
         std::vector<std::unique_ptr<TerrainHeightResolver>> mTerrainHeightResolvers{};

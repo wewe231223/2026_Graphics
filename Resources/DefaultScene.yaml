@@ -210,6 +210,7 @@ Entities:
       PrefabInstance:
         <<: *Prefab2006
         prefabId: 2006
+
   - EntityId: 9
     ParentEntityId: -1
     Components:
@@ -220,7 +221,7 @@ Entities:
       Transform:
         <<: *DefaultTransform 
       TerrainCollider:
-        TerrainCollide: true
+        TerrainCollide: false
       PrefabInstance:
         <<: *Prefab1003
         prefabId: 1003
@@ -230,6 +231,7 @@ Entities:
         AnimationGraph: knight_idle_run.graph.yaml
       Script:
         path: Script/Lua/PlayerBehavior.lua
+
   - EntityId: 10
     ParentEntityId: -1
     Components:

@@ -84,7 +84,8 @@ namespace Game {
         mWorldSnapshotVersion{},
         mHierarchyEntitySelectedSubscriptionId{},
         mFileDropSubscriptionId{},
-        mIsDefaultCameraControlBehaviorAttached{} {
+        mIsDefaultCameraControlBehaviorAttached{},
+        mIsBoundingBoxDrawEnabled{} {
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
         mWorldSnapshot.BindWorld(&mWorld);
         mWorldSnapshot.BindAssetRegistry(&mAssetRegistry);
@@ -409,8 +410,13 @@ namespace Game {
     void Scene::UpdateCameraVirtualMouseState() {
         Globals::Input& InputInstance{ Globals::Input::Get() };
         const bool IsThirdPersonToggleRequested{ InputInstance.IsKeyPressed(DirectX::Keyboard::Keys::F8) };
+        const bool IsBoundingBoxToggleRequested{ InputInstance.IsKeyPressed(DirectX::Keyboard::Keys::F9) };
         const DirectX::Mouse::ButtonStateTracker& MouseTracker{ InputInstance.GetMouseTracker() };
         const bool IsSelectionDragInput{ mFrameContext.PickedEntityId != Arche::NullEntityID && (MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED || MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::HELD) };
+
+        if (IsBoundingBoxToggleRequested) {
+            mIsBoundingBoxDrawEnabled = (mIsBoundingBoxDrawEnabled == false);
+        }
 
         bool IsUiCapturingInput{ false };
         if (Config::Query()->Get<bool>("Block_ImGui") == false) {
@@ -492,6 +498,7 @@ namespace Game {
                 mFrameContext.RenderData.drawRecords.clear();
                 mFrameContext.RenderData.bonePalette.clear();
                 mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
+                mFrameContext.RenderData.globals.flags = mIsBoundingBoxDrawEnabled ? RFD::FrameGlobalFlagDrawBoundingBoxes : 0u;
                 mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
                 mFrameContext.WorldMatrices.clear();
                 mFrameContext.SkinnedPoseCache.clear();

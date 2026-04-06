@@ -1,4 +1,4 @@
-#include "SkinnedMeshRenderSystem.h"
+﻿#include "SkinnedMeshRenderSystem.h"
 
 #include <array>
 #include <cstdint>
@@ -10,6 +10,7 @@
 #include "Game/Model/AssetRegistry.h"
 #include "Game/Model/Model.h"
 #include "Game/Scene/Components/Bone.h"
+#include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
@@ -308,6 +309,14 @@ namespace Game {
             RFD::ModelContext ModelContext{};
             ModelContext.world = MeshWorldMatrix;
             ModelContext.prevWorld = ModelContext.world;
+
+            const BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityId) };
+            if (BoundingBoxComponent != nullptr) {
+                const DirectX::BoundingOrientedBox& Obb{ BoundingBoxComponent->GetObb() };
+                ModelContext.bbCenter = SimpleMath::Vector4{ Obb.Center.x, Obb.Center.y, Obb.Center.z, 1.0f };
+                ModelContext.bbExtents = SimpleMath::Vector4{ Obb.Extents.x, Obb.Extents.y, Obb.Extents.z, 0.0f };
+            }
+
             ModelContext.flags = SkinnedModelContextFlagBitMask;
             ModelContext.boneIndexStart = BoneIndexStart;
             ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());

@@ -8,6 +8,8 @@ namespace SimpleMath = DirectX::SimpleMath;
 
 namespace Game {
     namespace RFD {
+        constexpr std::uint32_t FrameGlobalFlagDrawBoundingBoxes{ 0x1u };
+
         struct alignas(16) MaterialFieldGpu final {
             std::uint32_t Type{ 0 };
             std::uint32_t Padding0{ 0 };
