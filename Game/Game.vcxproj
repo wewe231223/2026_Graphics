@@ -30,8 +30,11 @@
     <ClInclude Include="Model\AssetRegistry.h" />
     <ClInclude Include="Asset\AnimationGraphAsset.h" />
     <ClInclude Include="Model\AssetRegistryBackEnd.h" />
+    <ClInclude Include="Model\HeightMapLoader.h" />
     <ClInclude Include="Model\Model.h" />
     <ClInclude Include="Model\PrimitiveModelFactory.h" />
+    <ClInclude Include="Model\TerrainMeshBuilder.h" />
+    <ClInclude Include="Model\TerrainMeshTypes.h" />
     <ClInclude Include="Scene\Components\BoundingBox.h" />
     <ClInclude Include="Scene\Components\Bone.h" />
     <ClInclude Include="Scene\Components\BoneSkinReference.h" />
@@ -77,8 +80,10 @@
     <ClCompile Include="Base\Time.cpp" />
     <ClCompile Include="Model\AssetRegistry.cpp" />
     <ClCompile Include="Model\AssetRegistryBackEnd.cpp" />
+    <ClCompile Include="Model\HeightMapLoader.cpp" />
     <ClCompile Include="Model\Model.cpp" />
     <ClCompile Include="Model\PrimitiveModelFactory.cpp" />
+    <ClCompile Include="Model\TerrainMeshBuilder.cpp" />
     <ClCompile Include="Asset\AnimationGraphAsset.cpp" />
     <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp" />
     <ClCompile Include="Scene\Components\Culling.cpp" />

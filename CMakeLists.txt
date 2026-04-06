@@ -97,10 +97,12 @@ add_library(Game STATIC
     Game/Base/Shader.cpp
     Game/Base/RootSignature.cpp
     Game/Base/Pipeline.cpp
+    Game/Model/HeightMapLoader.cpp
     Game/Model/AssetRegistry.cpp
     Game/Model/AssetRegistryBackEnd.cpp
     Game/Model/Model.cpp
     Game/Model/PrimitiveModelFactory.cpp
+    Game/Model/TerrainMeshBuilder.cpp
     Game/Scene/Scene.cpp
     Game/Scene/SceneEntityFactory.cpp
     Game/Scene/SceneYamlSerializer.cpp

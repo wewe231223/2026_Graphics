@@ -60,6 +60,15 @@
     <ClInclude Include="Model\AssetRegistryBackEnd.h">
       <Filter>Model</Filter>
     </ClInclude>
+    <ClInclude Include="Model\HeightMapLoader.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\TerrainMeshBuilder.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\TerrainMeshTypes.h">
+      <Filter>Model</Filter>
+    </ClInclude>
     <ClInclude Include="Base\RenderFrameData.h">
       <Filter>Base</Filter>
     </ClInclude>
@@ -203,6 +212,9 @@
     <ClCompile Include="Model\AssetRegistryBackEnd.cpp">
       <Filter>Model</Filter>
     </ClCompile>
+    <ClCompile Include="Model\HeightMapLoader.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\Scene.cpp">
       <Filter>Scene</Filter>
     </ClCompile>
@@ -315,6 +327,9 @@
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Model\PrimitiveModelFactory.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\TerrainMeshBuilder.cpp">
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\PrefabInstance.cpp">
