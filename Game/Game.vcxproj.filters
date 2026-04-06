@@ -192,6 +192,18 @@
     <ClInclude Include="Scene\Components\SkySphere.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\TerrainCollider.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\TerrainCollidee.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\TerrainHeightResolver.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\TerrainCollideSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Shader.cpp">
@@ -256,6 +268,18 @@
     </ClCompile>
     <ClCompile Include="Scene\Components\SkySphere.cpp">
       <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\TerrainCollider.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\TerrainCollidee.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\TerrainHeightResolver.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\TerrainCollideSystem.cpp">
+      <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp">
       <Filter>Scene\Components</Filter>

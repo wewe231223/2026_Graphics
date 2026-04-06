@@ -136,7 +136,7 @@ namespace Game {
         }
 
         const std::size_t ExpectedSize{ static_cast<std::size_t>(Field.Width) * static_cast<std::size_t>(Field.Height) };
-        if (Field.Height01.size() != ExpectedSize) {
+        if (Field.HeightValues.size() != ExpectedSize) {
             throw std::runtime_error{ "Height01 buffer size mismatch." };
         }
     }
@@ -147,7 +147,7 @@ namespace Game {
 
     float TerrainMeshBuilder::CalculateWorldHeight(const HeightFieldData& Field, const TerrainBuildDesc& Desc, std::uint32_t X, std::uint32_t Y) const {
         const std::uint32_t Index{ CalculateIndex(Field.Width, X, Y) };
-        const float Height01{ std::clamp(Field.Height01[Index], 0.0f, 1.0f) };
+        const float Height01{ std::clamp(Field.HeightValues[Index], 0.0f, 1.0f) };
         return Height01 * Desc.MaxHeight;
     }
 

@@ -71,17 +71,17 @@ namespace {
         }
 
         const std::size_t PixelCount{ CalculatePixelCount(Field.Width, Field.Height) };
-        Field.Height01.resize(PixelCount);
+        Field.HeightValues.resize(PixelCount);
 
         const std::size_t Stride{ static_cast<std::size_t>(ChannelCount) };
         for (std::size_t PixelIndex{ 0 }; PixelIndex < PixelCount; ++PixelIndex) {
             const stbi_uc* PixelPointer{ ImageData + (PixelIndex * Stride) };
-            Field.Height01[PixelIndex] = ComputeLuminance01From8Bit(PixelPointer, ChannelCount);
+            Field.HeightValues[PixelIndex] = ComputeLuminance01From8Bit(PixelPointer, ChannelCount);
         }
 
         stbi_image_free(ImageData);
 
-        if (Field.Height01.size() != PixelCount) {
+        if (Field.HeightValues.size() != PixelCount) {
             throw std::runtime_error{ "Height field buffer size mismatch." };
         }
 
@@ -113,17 +113,17 @@ namespace {
         }
 
         const std::size_t PixelCount{ CalculatePixelCount(Field.Width, Field.Height) };
-        Field.Height01.resize(PixelCount);
+        Field.HeightValues.resize(PixelCount);
 
         const std::size_t Stride{ static_cast<std::size_t>(ChannelCount) };
         for (std::size_t PixelIndex{ 0 }; PixelIndex < PixelCount; ++PixelIndex) {
             const stbi_us* PixelPointer{ ImageData + (PixelIndex * Stride) };
-            Field.Height01[PixelIndex] = ComputeLuminance01From16Bit(PixelPointer, ChannelCount);
+            Field.HeightValues[PixelIndex] = ComputeLuminance01From16Bit(PixelPointer, ChannelCount);
         }
 
         stbi_image_free(ImageData);
 
-        if (Field.Height01.size() != PixelCount) {
+        if (Field.HeightValues.size() != PixelCount) {
             throw std::runtime_error{ "Height field buffer size mismatch." };
         }
 
@@ -156,7 +156,7 @@ namespace Game {
         return *this;
     }
 
-    HeightFieldData HeightMapLoader::LoadHeightField01(const std::string& Path) const {
+    HeightFieldData HeightMapLoader::LoadHeightField(const std::string& Path) const {
         if (Path.empty() == true) {
             throw std::runtime_error{ "Height map path is empty." };
         }

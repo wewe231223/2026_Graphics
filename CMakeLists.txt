@@ -106,6 +106,7 @@ add_library(Game STATIC
     Game/Scene/Scene.cpp
     Game/Scene/SceneEntityFactory.cpp
     Game/Scene/SceneYamlSerializer.cpp
+    Game/Scene/TerrainHeightResolver.cpp
     Game/Scene/System.cpp
     Game/Scene/SystemSceduler.cpp
     Game/Scene/Components/Transform.cpp
@@ -127,6 +128,8 @@ add_library(Game STATIC
     Game/Scene/Components/RuntimeVariableTable.cpp
     Game/Scene/Components/AnimatorGraphPlayer.cpp
     Game/Scene/Components/ComponentInspection.cpp
+    Game/Scene/Components/TerrainCollidee.cpp
+    Game/Scene/Components/TerrainCollider.cpp
     Game/Scene/Systems/CameraRenderSystem.cpp
     Game/Scene/Systems/SkySystem.cpp
     Game/Scene/Systems/PickingSystem.cpp
@@ -135,6 +138,7 @@ add_library(Game STATIC
     Game/Scene/Systems/StaticRenderSystem.cpp
     Game/Scene/Systems/SkinnedMeshRenderSystem.cpp
     Game/Scene/Systems/SkinningSystem.cpp
+    Game/Scene/Systems/TerrainCollideSystem.cpp
 )
 
 target_include_directories(Game PUBLIC

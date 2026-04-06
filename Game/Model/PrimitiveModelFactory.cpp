@@ -506,7 +506,7 @@ namespace {
         try {
             Game::HeightMapLoader Loader{};
             Game::TerrainMeshBuilder Builder{};
-            const Game::HeightFieldData HeightField{ Loader.LoadHeightField01(TerrainData.Desc.HeightMapPath) };
+            const Game::HeightFieldData HeightField{ Loader.LoadHeightField(TerrainData.Desc.HeightMapPath) };
             Game::TerrainMeshData TerrainMesh{ Builder.Build(HeightField, TerrainData.Desc) };
             OutData.Vertices = std::move(TerrainMesh.Vertices);
             OutData.Indices = std::move(TerrainMesh.Indices);

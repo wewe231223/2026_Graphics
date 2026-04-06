@@ -27,6 +27,8 @@
 #include "Game/Scene/Components/AnimatorGraphPlayer.h"
 #include "Game/Scene/Components/ScriptComponent.h"
 #include "Game/Scene/Components/Tags.h"
+#include "Game/Scene/Components/TerrainCollider.h"
+#include "Game/Scene/Components/TerrainCollidee.h"
 #include "Game/Base/Input.h"
 
 #include "Game/Scene/Events/SelectionEvent.h"
@@ -342,6 +344,20 @@ namespace Game {
         mLuaScriptFramework.RegisterComponentByDefinition<Game::PickingGizmo>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::LocalPlayerTag>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BehaviorInstanceComponent>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::TerrainCollider>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::TerrainCollidee>();
+    }
+
+    TerrainHeightResolver* Scene::CreateTerrainHeightResolver(const HeightFieldData& HeightFieldDataValue, const TerrainBuildDesc& TerrainBuildDescValue) {
+        std::unique_ptr<TerrainHeightResolver> NewTerrainHeightResolver{ std::make_unique<TerrainHeightResolver>() };
+        NewTerrainHeightResolver->Initialize(HeightFieldDataValue, TerrainBuildDescValue);
+        TerrainHeightResolver* TerrainHeightResolverPointer{ NewTerrainHeightResolver.get() };
+        mTerrainHeightResolvers.push_back(std::move(NewTerrainHeightResolver));
+        return TerrainHeightResolverPointer;
+    }
+
+    void Scene::ClearTerrainHeightResolvers() {
+        mTerrainHeightResolvers.clear();
     }
 
     void Scene::InitializeWorldSnapshot() {

@@ -19,7 +19,7 @@ namespace Game {
     struct HeightFieldData final {
         std::uint32_t Width{ 0 };
         std::uint32_t Height{ 0 };
-        std::vector<float> Height01{};
+        std::vector<float> HeightValues{};
     };
 
     struct TerrainMeshData final {

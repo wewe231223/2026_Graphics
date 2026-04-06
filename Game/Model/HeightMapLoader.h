@@ -15,6 +15,6 @@ namespace Game {
         HeightMapLoader& operator=(HeightMapLoader&& Other) noexcept;
 
     public:
-        HeightFieldData LoadHeightField01(const std::string& Path) const;
+        HeightFieldData LoadHeightField(const std::string& Path) const;
     };
 }

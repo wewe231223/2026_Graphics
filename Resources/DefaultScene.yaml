@@ -7,6 +7,7 @@ Systems:
   - Type: StaticRenderSystem
   - Type: SkinnedMeshRenderSystem
   - Type: CameraRenderSystem
+  - Type: TerrainCollideSystem
 
 DefaultTransform: &DefaultTransform
   rotationEuler: [0.0, 0.0, 0.0]
@@ -218,6 +219,8 @@ Entities:
         text: untitled
       Transform:
         <<: *DefaultTransform 
+      TerrainCollider:
+        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1003
         prefabId: 1003
