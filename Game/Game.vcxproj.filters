@@ -162,6 +162,9 @@
     <ClInclude Include="Scene\Components\ComponentLuaTypeDefinitions.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\Culling.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\ComponentText.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -303,6 +306,9 @@
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\Culling.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Asset\AnimationGraphAsset.cpp">

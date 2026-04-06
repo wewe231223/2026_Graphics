@@ -11,6 +11,7 @@
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/Animator.h"
+#include "Game/Scene/Components/Culling.h"
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PrefabInstance.h"
@@ -33,6 +34,7 @@ namespace Game {
         std::optional<Arche::EntityID> RootEntityId{};
         std::string RootEntityName{};
         std::uint32_t MaterialGroupIndex{};
+        bool FrustumCullingEnabled{ true };
         bool IsActive{ true };
         bool IsDerivedEntity{ false };
     };
@@ -57,6 +59,7 @@ namespace Game {
         void AddName(Arche::EntityID EntityId, const Name& NameComponent, bool ReplaceExistingRootComponent, bool OnlyWhenEmpty);
         void AddStaticMeshRenderer(Arche::EntityID EntityId, const StaticMeshRenderer& StaticMeshRendererComponent);
         void AddSkinnedMeshRenderer(Arche::EntityID EntityId, const SkinnedMeshRenderer& SkinnedMeshRendererComponent);
+        void AddCulling(Arche::EntityID EntityId, const Culling& CullingComponent);
         void AddMaterial(Arche::EntityID EntityId, const Material& MaterialComponent);
         void AddBoundingBox(Arche::EntityID EntityId, const BoundingBox& BoundingBoxComponent);
         void AddBone(Arche::EntityID EntityId, const Bone& BoneComponent);

@@ -13,6 +13,7 @@
 #include <ryml_std.hpp>
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Camera.h"
+#include "Game/Scene/Components/Culling.h"
 #include "Game/Scene/Components/Frustum.h"
 #include "Game/Scene/Components/SkySphere.h"
 #include "Game/Scene/Components/Material.h"
@@ -41,6 +42,7 @@ namespace {
     constexpr const char* TransformTypeName{ "Transform" };
     constexpr const char* MaterialTypeName{ "Material" };
     constexpr const char* StaticMeshRendererTypeName{ "StaticMeshRenderer" };
+    constexpr const char* CullingTypeName{ "Culling" };
     constexpr const char* AnimationTypeName{ "Animation" };
     constexpr const char* CameraTypeName{ "Camera" };
     constexpr const char* LocalPlayerTagTypeName{ "LocalPlayerTag" };
@@ -844,6 +846,18 @@ namespace Game {
             }
 
             bool HasInstantiatedPrefabModel{ false };
+            bool FrustumCullingEnabled{ true };
+            if (ComponentsNode.has_child(CullingTypeName)) {
+                const c4::yml::ConstNodeRef CullingNode{ ComponentsNode[CullingTypeName] };
+                Culling NewCulling{};
+                if (CullingNode.has_child("frustumCulling")) {
+                    CullingNode["frustumCulling"] >> NewCulling.frustumCulling;
+                }
+
+                FrustumCullingEnabled = NewCulling.frustumCulling;
+                OutScene.GetWorld().AddComponent(Entity, NewCulling);
+            }
+
             if (HasPrefabInstance == true && PrefabModelSelector.empty() == false) {
                 const std::shared_ptr<Model> ModelData{ OutScene.GetAssetRegistry().GetModel(PrefabModelSelector) };
                 if (ModelData == nullptr) {
@@ -855,6 +869,7 @@ namespace Game {
                     SpawnRequest.ModelData = ModelData;
                     SpawnRequest.RootEntityId = Entity;
                     SpawnRequest.MaterialGroupIndex = MaterialGroupIndexForModel;
+                    SpawnRequest.FrustumCullingEnabled = FrustumCullingEnabled;
                     SpawnRequest.IsActive = PrefabIsActive;
                     HasInstantiatedPrefabModel = EntityFactory.SpawnModelHierarchy(SpawnRequest);
                     if (HasInstantiatedPrefabModel == false) {
@@ -918,6 +933,7 @@ namespace Game {
                             SpawnRequest.ModelData = ModelData;
                             SpawnRequest.RootEntityId = Entity;
                             SpawnRequest.MaterialGroupIndex = MaterialGroupIndexForModel;
+                            SpawnRequest.FrustumCullingEnabled = FrustumCullingEnabled;
                             SpawnRequest.IsActive = IsActive;
                             const bool IsSpawned{ EntityFactory.SpawnModelHierarchy(SpawnRequest) };
                             if (IsSpawned == false) {
@@ -1434,6 +1450,7 @@ namespace Game {
             const BoneSkinReference* BoneSkinReferenceComponent{ ReadOnlyWorld->GetComponent<BoneSkinReference>(EntityId) };
             const Material* MaterialComponent{ ReadOnlyWorld->GetComponent<Material>(EntityId) };
             const StaticMeshRenderer* StaticMeshRendererComponent{ ReadOnlyWorld->GetComponent<StaticMeshRenderer>(EntityId) };
+            const Culling* CullingComponent{ ReadOnlyWorld->GetComponent<Culling>(EntityId) };
             const Camera* CameraComponent{ ReadOnlyWorld->GetComponent<Camera>(EntityId) };
             const SkySphere* SkySphereComponent{ ReadOnlyWorld->GetComponent<SkySphere>(EntityId) };
             const LocalPlayerTag* LocalPlayerTagComponent{ ReadOnlyWorld->GetComponent<LocalPlayerTag>(EntityId) };
@@ -1479,6 +1496,10 @@ namespace Game {
                 const std::string MaterialPathForYaml{ IsDefaultMaterialPath(MaterialPath) ? std::string{} : MakeSceneRelativeResourcePath(TargetSnapshot.GetSceneName(), MaterialPath) };
                 AppendLine(Stream, 4, std::string{ "materialPath: " } + ToYamlText(MaterialPathForYaml));
             }
+
+            AppendLine(Stream, 3, std::string{ CullingTypeName } + std::string{ ":" });
+            const bool IsFrustumCullingEnabled{ CullingComponent == nullptr ? true : CullingComponent->frustumCulling };
+            AppendLine(Stream, 4, std::string{ "frustumCulling: " } + ToYamlBooleanText(IsFrustumCullingEnabled));
 
             if (AnimatorComponent != nullptr) {
                 AppendLine(Stream, 3, std::string{ AnimationTypeName } + std::string{ ":" });

@@ -2,6 +2,7 @@
 #include <utility>
 #include "Bone.h"
 #include "BoundingBox.h"
+#include "Culling.h"
 #include "Tags.h"
 #include "PrefabInstance.h"
 #include "Name.h"
@@ -44,6 +45,7 @@ namespace Game {
         AppendComponentInspectionSection<Material>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<StaticMeshRenderer>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<SkinnedMeshRenderer>(ReadOnlyWorld, EntityId, OutSections);
+        AppendComponentInspectionSection<Culling>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<Animator>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<BehaviorInstanceComponent>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<BoundingBox>(ReadOnlyWorld, EntityId, OutSections);

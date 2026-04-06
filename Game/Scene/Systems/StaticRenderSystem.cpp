@@ -7,6 +7,7 @@
 #include "Game/Model/AssetRegistry.h"
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Camera.h"
+#include "Game/Scene/Components/Culling.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Frustum.h"
 #include "Game/Scene/Components/Material.h"
@@ -100,7 +101,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> StaticRenderSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 6> Accesses{ { { typeid(Transform), Access::Write }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(Material), Access::Read }, { typeid(BoundingBox), Access::Read }, { typeid(Frustum), Access::Read } } };
+        static std::array<ComponentAccess, 7> Accesses{ { { typeid(Transform), Access::Write }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(Material), Access::Read }, { typeid(BoundingBox), Access::Read }, { typeid(Frustum), Access::Read }, { typeid(Culling), Access::Read } } };
         return Accesses;
     }
 
@@ -145,10 +146,10 @@ namespace Game {
 
 
             // 스카이박스 프러스텀 컬링 문제.
-            //const bool IsVisible{ IsVisibleByFrustum(World, EntityId, NodeWorld, CullingFrustumComponent) };
-            //if (IsVisible == false) {
-            //    continue;
-            //}
+            const bool IsVisible{ IsVisibleByFrustum(World, EntityId, NodeWorld, CullingFrustumComponent) };
+            if (IsVisible == false) {
+                continue;
+            }
 
             const std::vector<ModelNode>& Nodes{ Renderer.model->GetNodes() };
             if (Renderer.nodeIndex >= Nodes.size()) {
@@ -214,6 +215,11 @@ namespace Game {
     }
 
     bool StaticRenderSystem::IsVisibleByFrustum(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& NodeWorld, const Frustum* CullingFrustumComponent) const {
+        const Culling* CullingComponent{ World.GetComponent<Culling>(EntityId) };
+        if (CullingComponent != nullptr && CullingComponent->frustumCulling == false) {
+            return true;
+        }
+
         if (CullingFrustumComponent == nullptr) {
             return true;
         }

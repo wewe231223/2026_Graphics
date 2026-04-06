@@ -4,6 +4,7 @@
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/Animator.h"
+#include "Game/Scene/Components/Culling.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Name.h"
@@ -127,6 +128,10 @@ namespace Game {
                     NodeRenderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
                     NodeRenderer.active = SpawnRequest.IsActive;
                     AddStaticMeshRenderer(NodeEntities[NodeIndex], NodeRenderer);
+
+                    Culling NodeCulling{};
+                    NodeCulling.frustumCulling = SpawnRequest.FrustumCullingEnabled;
+                    AddCulling(NodeEntities[NodeIndex], NodeCulling);
                 }
 
                 Material NodeMaterial{};
@@ -242,6 +247,16 @@ namespace Game {
         }
 
         *ExistingRenderer = SkinnedMeshRendererComponent;
+    }
+
+    void SceneEntityFactory::AddCulling(Arche::EntityID EntityId, const Culling& CullingComponent) {
+        Culling* ExistingCulling{ mScene->GetWorld().GetComponent<Culling>(EntityId) };
+        if (ExistingCulling == nullptr) {
+            mScene->GetWorld().AddComponent(EntityId, CullingComponent);
+            return;
+        }
+
+        *ExistingCulling = CullingComponent;
     }
 
     void SceneEntityFactory::AddMaterial(Arche::EntityID EntityId, const Material& MaterialComponent) {

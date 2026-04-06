@@ -10,6 +10,7 @@
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
+#include "Game/Scene/Components/Culling.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Name.h"
@@ -327,6 +328,7 @@ namespace Game {
         mLuaScriptFramework.RegisterComponentByDefinition<Game::EntityHierarchy>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::StaticMeshRenderer>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::SkinnedMeshRenderer>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Culling>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BoundingBox>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::Bone>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BoneSkinReference>();

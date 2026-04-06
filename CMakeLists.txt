@@ -113,6 +113,7 @@ add_library(Game STATIC
     Game/Scene/Components/Tags.cpp
     Game/Scene/Components/StaticMeshRenderer.cpp
     Game/Scene/Components/SkinnedMeshRenderer.cpp
+    Game/Scene/Components/Culling.cpp
     Game/Scene/Components/BoundingBox.cpp
     Game/Scene/Components/Bone.cpp
     Game/Scene/Components/BoneSkinReference.cpp

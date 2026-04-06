@@ -66,7 +66,7 @@ Prefabs:
     active: true
   - &Prefab2007
     prefabId: 2007
-    modelPath: primitive:sky_dome;size=5.000000;color=0.350000,0.450000,0.800000,1.000000
+    modelPath: primitive:sky_dome;size=1.000000;color=0.350000,0.450000,0.800000,1.000000
     materialPath: skydome_materials.json
     active: true
 
@@ -75,6 +75,8 @@ Entities:
   - EntityId: 0
     ParentEntityId: -1
     Components:
+      Culling:
+        frustumCulling: true
       Name:
         text: MainCamera
       Transform:
@@ -103,6 +105,8 @@ Entities:
   - EntityId: 1
     ParentEntityId: -1
     Components:
+      Culling:
+        frustumCulling: true
       Name:
         text: TestSetRoot
       Transform:
@@ -117,6 +121,8 @@ Entities:
   - EntityId: 2
     ParentEntityId: -1
     Components:
+      Culling:
+        frustumCulling: true
       Name:
         text: TestSet2Root
       Transform:
@@ -128,6 +134,8 @@ Entities:
   - EntityId: 3
     ParentEntityId: -1
     Components:
+      Culling:
+        frustumCulling: true
       Name:
         text: PrimitiveBox
       Transform:
@@ -139,6 +147,8 @@ Entities:
   - EntityId: 4
     ParentEntityId: -1
     Components:
+      Culling:
+        frustumCulling: true
       Name:
         text: PrimitiveSphere
       Transform:
@@ -150,6 +160,8 @@ Entities:
   - EntityId: 5
     ParentEntityId: -1
     Components:
+      Culling:
+        frustumCulling: true
       Name:
         text: PrimitiveCylinder
       Transform:
@@ -161,6 +173,8 @@ Entities:
   - EntityId: 6
     ParentEntityId: -1
     Components:
+      Culling:
+        frustumCulling: true
       Name:
         text: PrimitiveCone
       Transform:
@@ -172,6 +186,8 @@ Entities:
   - EntityId: 7
     ParentEntityId: -1
     Components:
+      Culling:
+        frustumCulling: true
       Name:
         text: PrimitiveTriangularPyramid
       Transform:
@@ -183,6 +199,8 @@ Entities:
   - EntityId: 8
     ParentEntityId: -1
     Components:
+      Culling:
+        frustumCulling: true
       Name:
         text: PrimitiveSquarePyramid
       Transform:
@@ -194,6 +212,8 @@ Entities:
   - EntityId: 9
     ParentEntityId: -1
     Components:
+      Culling:
+        frustumCulling: true
       Name: 
         text: untitled
       Transform:
@@ -210,6 +230,8 @@ Entities:
   - EntityId: 10
     ParentEntityId: -1
     Components:
+      Culling:
+        frustumCulling: true
       Name:
         text: knight
       Transform:
@@ -224,6 +246,8 @@ Entities:
   - EntityId: 11
     ParentEntityId: -1
     Components:
+      Culling:
+        frustumCulling: false
       Name:
         text: SkyDome
       Transform:
