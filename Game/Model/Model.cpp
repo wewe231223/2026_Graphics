@@ -352,20 +352,23 @@ namespace Game {
             DestinationNode.SetBasicData(SourceNode.GetId(), SourceNode.GetName(), SourceNode.GetNodeToParent(), std::move(Children), std::move(SubMeshes), std::move(BoneInfos), SourceNode.IsSkinnedMesh());
             DestinationNode.SetSkinBoneRootNodeName(SourceNode.GetSkinBoneRootNodeName());
 
-            std::vector<std::byte> VertexRawData{};
-            std::vector<ModelNode::VertexAttributeRange> VertexRanges{};
-            std::unique_ptr<Interface::IAllocationHandle> VertexAllocation{};
-            std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{};
-            Interface::CopyFuture VertexCopyFuture{};
-            UploadVertexData(SourceNode.Vertices(), Allocator, CopyQueue, VertexRawData, VertexRanges, VertexAllocation, VertexBufferViews, VertexCopyFuture);
-            DestinationNode.SetVertexData(std::move(VertexRawData), std::move(VertexRanges), std::move(VertexAllocation), std::move(VertexBufferViews));
+            const asset::VertexAttributes& SourceVertices{ SourceNode.Vertices() };
+            if (SourceVertices.VertexCount() > 0) {
+                std::vector<std::byte> VertexRawData{};
+                std::vector<ModelNode::VertexAttributeRange> VertexRanges{};
+                std::unique_ptr<Interface::IAllocationHandle> VertexAllocation{};
+                std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{};
+                Interface::CopyFuture VertexCopyFuture{};
+                UploadVertexData(SourceVertices, Allocator, CopyQueue, VertexRawData, VertexRanges, VertexAllocation, VertexBufferViews, VertexCopyFuture);
+                DestinationNode.SetVertexData(std::move(VertexRawData), std::move(VertexRanges), std::move(VertexAllocation), std::move(VertexBufferViews));
 
-            std::vector<std::byte> IndexRawData{};
-            std::unique_ptr<Interface::IAllocationHandle> IndexAllocation{};
-            D3D12_INDEX_BUFFER_VIEW IndexBufferView{};
-            Interface::CopyFuture IndexCopyFuture{};
-            UploadIndexData(SourceNode.Indices(), Allocator, CopyQueue, IndexRawData, IndexAllocation, IndexBufferView, IndexCopyFuture);
-            DestinationNode.SetIndexData(std::move(IndexRawData), std::move(IndexAllocation), IndexBufferView);
+                std::vector<std::byte> IndexRawData{};
+                std::unique_ptr<Interface::IAllocationHandle> IndexAllocation{};
+                D3D12_INDEX_BUFFER_VIEW IndexBufferView{};
+                Interface::CopyFuture IndexCopyFuture{};
+                UploadIndexData(SourceNode.Indices(), Allocator, CopyQueue, IndexRawData, IndexAllocation, IndexBufferView, IndexCopyFuture);
+                DestinationNode.SetIndexData(std::move(IndexRawData), std::move(IndexAllocation), IndexBufferView);
+            }
 
             mNodeNameLookup.insert_or_assign(DestinationNode.GetName(), static_cast<std::uint32_t>(NodeIndex));
             mNodeIdLookup.insert_or_assign(DestinationNode.GetId(), static_cast<std::uint32_t>(NodeIndex));
