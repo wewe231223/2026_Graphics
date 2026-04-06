@@ -256,3 +256,23 @@ Entities:
       PrefabInstance:
         <<: *Prefab2007
         prefabId: 2007
+  - EntityId: 12
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: Terrain
+      Transform:
+        <<: *DefaultTransform
+        position: [0.00, 0.00, 0.00]
+      Material:
+        materialPath: terrain_materials.json
+      Terrain:
+        HeightMapPath: Heightmap_07_Wetlands.png
+        MaxHeight: 5.0
+        CellSizeX: 1.25
+        CellSizeZ: 1.25
+        FlipV: false
+        CenterOrigin: true
+        active: true

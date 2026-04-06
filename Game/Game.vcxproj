@@ -137,12 +137,18 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
+    <FxCompile Include="..\Shader\Source\TerrainShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Resources\DefaultScene.yaml" />
+    <None Include="..\Resources\DefaultScene\terrain_materials.json" />
     <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml" />
     <None Include="..\Script\Lua\CameraController.lua" />
     <None Include="..\Shader\PSO\DefaultGraphics.json" />
+    <None Include="..\Shader\PSO\TerrainGraphics.json" />
     <None Include="..\Shader\PSO\SkinnedGraphics.json" />
     <None Include="..\Shader\PSO\SkyDomeGraphics.json" />
     <None Include="..\Shader\PSO\Schema.Pipeline.json" />

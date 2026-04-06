@@ -355,10 +355,16 @@
     <None Include="..\Shader\PSO\SkinnedGraphics.json">
       <Filter>PSO</Filter>
     </None>
+    <None Include="..\Shader\PSO\TerrainGraphics.json">
+      <Filter>PSO</Filter>
+    </None>
     <None Include="..\Shader\PSO\SkyDomeGraphics.json">
       <Filter>PSO</Filter>
     </None>
     <None Include="..\Resources\DefaultScene.yaml">
+      <Filter>Scene\Scene YAML</Filter>
+    </None>
+    <None Include="..\Resources\DefaultScene\terrain_materials.json">
       <Filter>Scene\Scene YAML</Filter>
     </None>
     <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml">
@@ -382,6 +388,9 @@
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="..\Shader\Source\SkyDomeShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\TerrainShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
   </ItemGroup>

@@ -3,9 +3,13 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstdint>
+#include <exception>
 #include <sstream>
 #include <string>
 #include <vector>
+#include "HeightMapLoader.h"
+#include "TerrainMeshBuilder.h"
+#include "TerrainMeshTypes.h"
 
 namespace {
     constexpr float Pi{ 3.14159265358979323846f };
@@ -18,6 +22,10 @@ namespace {
     struct PrimitiveParameters final {
         float Size{ 1.0f };
         asset::Vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+    };
+
+    struct TerrainSelectorData final {
+        Game::TerrainBuildDesc Desc{};
     };
 
     asset::Vec3 ScalePosition(const asset::Vec3& Position, float Size) {
@@ -34,6 +42,20 @@ namespace {
 
         OutValue = Value;
         return true;
+    }
+
+    bool TryParseBool(const std::string& Text, bool& OutValue) {
+        if (Text == "true" || Text == "1") {
+            OutValue = true;
+            return true;
+        }
+
+        if (Text == "false" || Text == "0") {
+            OutValue = false;
+            return true;
+        }
+
+        return false;
     }
 
     void AddVertex(MeshData& Data, const asset::Vec3& Position, const asset::Vec3& Normal, const asset::Vec2& TexCoord, const asset::Vec4& Color) {
@@ -410,7 +432,96 @@ namespace {
         return true;
     }
 
+    bool TryParseTerrainSelector(const std::string& Selector, TerrainSelectorData& OutData) {
+        constexpr const char* Prefix{ "terrain:" };
+        if (Selector.rfind(Prefix, 0) != 0) {
+            return false;
+        }
+
+        const std::string ParameterText{ Selector.substr(8) };
+        if (ParameterText.empty()) {
+            return false;
+        }
+
+        std::size_t CurrentStart{ 0 };
+        while (CurrentStart < ParameterText.size()) {
+            const std::size_t TokenEnd{ ParameterText.find(';', CurrentStart) };
+            const std::size_t TokenLength{ TokenEnd == std::string::npos ? ParameterText.size() - CurrentStart : TokenEnd - CurrentStart };
+            const std::string Token{ ParameterText.substr(CurrentStart, TokenLength) };
+            const std::size_t EqualsIndex{ Token.find('=') };
+            if (EqualsIndex == std::string::npos || EqualsIndex == 0 || EqualsIndex + 1 >= Token.size()) {
+                return false;
+            }
+
+            const std::string Key{ Token.substr(0, EqualsIndex) };
+            const std::string Value{ Token.substr(EqualsIndex + 1) };
+            if (Key == "HeightMapPath") {
+                OutData.Desc.HeightMapPath = Value;
+            }
+            else if (Key == "MaxHeight") {
+                if (TryParseFloat(Value, OutData.Desc.MaxHeight) == false) {
+                    return false;
+                }
+            }
+            else if (Key == "CellSizeX") {
+                if (TryParseFloat(Value, OutData.Desc.CellSizeX) == false) {
+                    return false;
+                }
+            }
+            else if (Key == "CellSizeZ") {
+                if (TryParseFloat(Value, OutData.Desc.CellSizeZ) == false) {
+                    return false;
+                }
+            }
+            else if (Key == "FlipV") {
+                if (TryParseBool(Value, OutData.Desc.FlipV) == false) {
+                    return false;
+                }
+            }
+            else if (Key == "CenterOrigin") {
+                if (TryParseBool(Value, OutData.Desc.CenterOrigin) == false) {
+                    return false;
+                }
+            }
+            else {
+                return false;
+            }
+
+            if (TokenEnd == std::string::npos) {
+                break;
+            }
+
+            CurrentStart = TokenEnd + 1;
+        }
+
+        return OutData.Desc.HeightMapPath.empty() == false;
+    }
+
+    bool TryCreateTerrainMeshData(const std::string& Selector, MeshData& OutData) {
+        TerrainSelectorData TerrainData{};
+        if (TryParseTerrainSelector(Selector, TerrainData) == false) {
+            return false;
+        }
+
+        try {
+            Game::HeightMapLoader Loader{};
+            Game::TerrainMeshBuilder Builder{};
+            const Game::HeightFieldData HeightField{ Loader.LoadHeightField01(TerrainData.Desc.HeightMapPath) };
+            Game::TerrainMeshData TerrainMesh{ Builder.Build(HeightField, TerrainData.Desc) };
+            OutData.Vertices = std::move(TerrainMesh.Vertices);
+            OutData.Indices = std::move(TerrainMesh.Indices);
+            return true;
+        }
+        catch (const std::exception&) {
+            return false;
+        }
+    }
+
     bool TryCreateMeshDataBySelector(const std::string& Selector, MeshData& OutData) {
+        if (Selector.rfind("terrain:", 0) == 0) {
+            return TryCreateTerrainMeshData(Selector, OutData);
+        }
+
         PrimitiveParameters Parameters{};
         std::string PrimitiveType{};
         const bool IsValidSelector{ TryParseSelector(Selector, PrimitiveType, Parameters) };
