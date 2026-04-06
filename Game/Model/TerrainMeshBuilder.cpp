@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <random>
 #include <stdexcept>
 
 namespace Game {
@@ -46,6 +47,9 @@ namespace Game {
 
         const float OffsetX{ (static_cast<float>(Field.Width) - 1.0f) * Desc.CellSizeX * 0.5f };
         const float OffsetZ{ (static_cast<float>(Field.Height) - 1.0f) * Desc.CellSizeZ * 0.5f };
+        std::random_device RandomDevice{};
+        std::mt19937 RandomEngine{ RandomDevice() };
+        std::uniform_real_distribution<float> GreenDistribution{ 0.5f, 1.0f };
 
         for (std::uint32_t GridY{ 0 }; GridY < VertexCountY; ++GridY) {
             for (std::uint32_t GridX{ 0 }; GridX < VertexCountX; ++GridX) {
@@ -76,6 +80,7 @@ namespace Game {
 
                 Mesh.Vertices.TexCoords[0][VertexIndex] = asset::Vec2{ U, V };
                 Mesh.Vertices.Normals[VertexIndex] = asset::Vec3::Up;
+                Mesh.Vertices.Colors[VertexIndex] = asset::Vec4{ 0.0f, GreenDistribution(RandomEngine), 0.0f, 1.0f };
             }
         }
 
