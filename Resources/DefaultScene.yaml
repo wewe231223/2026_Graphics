@@ -269,10 +269,10 @@ Entities:
       Material:
         materialPath: terrain_materials.json
       Terrain:
-        HeightMapPath: Heightmap_07_Wetlands.png
-        MaxHeight: 5.0
-        CellSizeX: 1.25
-        CellSizeZ: 1.25
+        HeightMapPath: Heightmap_01_Mountains.png
+        MaxHeight: 256.0
+        CellSizeX: 1
+        CellSizeZ: 1
         FlipV: false
         CenterOrigin: true
         active: true

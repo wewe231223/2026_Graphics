@@ -91,7 +91,7 @@ namespace Core {
             void CollectCompletedUploads();
 
         private:
-            static constexpr std::uint64_t UploadAllocatorHeapSize{ 256ull * 1024ull * 1024ull };
+            static constexpr std::uint64_t UploadAllocatorHeapSize{ 1ull * 1024ull * 1024ull * 1024ull };
 
             Microsoft::WRL::ComPtr<ID3D12CommandQueue> mCopyCommandQueue{};
             static constexpr std::uint32_t CopyAllocatorFlightCount{ 3 };
