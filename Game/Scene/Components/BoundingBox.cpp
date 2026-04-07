@@ -75,9 +75,14 @@ namespace Game {
             return;
         }
 
-        DirectX::BoundingOrientedBox ExtractedObb{};
-        const bool IsBuilt{ TryBuildObbFromModelNodePositions(ModelNodes[NodeIndex], ExtractedObb) };
+        const ModelNode& TargetNode{ ModelNodes[NodeIndex] };
+        if (TargetNode.HasBoundingBox() == true) {
+            mObb = TargetNode.GetBoundingBox();
+            return;
+        }
 
+        DirectX::BoundingOrientedBox ExtractedObb{};
+        const bool IsBuilt{ TryBuildObbFromModelNodePositions(TargetNode, ExtractedObb) };
         if (IsBuilt == false) {
             return;
         }

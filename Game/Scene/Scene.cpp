@@ -495,6 +495,7 @@ namespace Game {
             case Phase::PreUpdate:
                 UpdateCameraVirtualMouseState();
                 mFrameContext.RenderData.modelContexts.clear();
+                mFrameContext.RenderData.boundingBoxContexts.clear();
                 mFrameContext.RenderData.drawRecords.clear();
                 mFrameContext.RenderData.bonePalette.clear();
                 mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();

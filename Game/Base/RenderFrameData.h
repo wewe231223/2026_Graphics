@@ -55,9 +55,6 @@ namespace Game {
             SimpleMath::Matrix world {};
             SimpleMath::Matrix prevWorld {};
 
-            SimpleMath::Vector4 bbCenter {};
-            SimpleMath::Vector4 bbExtents {};
-
             uint32_t flags{ 0 }; // skinned, castsShadow, etc
             uint32_t boneIndexStart{ 0 };
             uint32_t objectID{ 0 };
@@ -83,6 +80,13 @@ namespace Game {
         핵심: Model/SubMesh 는 MaterialGroup 내부 인덱스만 보관하고,
         DrawRecord 생성 시점에 전역 Material 인덱스로 매핑한다.
         */
+
+        struct alignas(16) BoundingBoxContext final {
+            SimpleMath::Matrix world{};
+            SimpleMath::Vector4 center{};
+            SimpleMath::Vector4 extents{};
+        };
+
         struct DrawRecord {
             const Interface::IPipeline* pso{ nullptr };
             const Interface::IModelNode* mesh{ nullptr };
@@ -104,6 +108,7 @@ namespace Game {
             FrameGlobals globals{};
 
             std::vector<ModelContext> modelContexts{};   // SRV
+            std::vector<BoundingBoxContext> boundingBoxContexts{};
             std::vector<DrawRecord> drawRecords{};       // CPU
             std::vector<MaterialGpu> materials{};
             std::vector<MaterialTextureTableItemGpu> materialTextureTable{};

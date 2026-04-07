@@ -169,8 +169,11 @@ namespace Game {
             const BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityId) };
             if (BoundingBoxComponent != nullptr) {
                 const DirectX::BoundingOrientedBox& Obb{ BoundingBoxComponent->GetObb() };
-                ModelContext.bbCenter = SimpleMath::Vector4{ Obb.Center.x, Obb.Center.y, Obb.Center.z, 1.0f };
-                ModelContext.bbExtents = SimpleMath::Vector4{ Obb.Extents.x, Obb.Extents.y, Obb.Extents.z, 0.0f };
+                RFD::BoundingBoxContext BoundingBoxContext{};
+                BoundingBoxContext.world = NodeWorld;
+                BoundingBoxContext.center = SimpleMath::Vector4{ Obb.Center.x, Obb.Center.y, Obb.Center.z, 1.0f };
+                BoundingBoxContext.extents = SimpleMath::Vector4{ Obb.Extents.x, Obb.Extents.y, Obb.Extents.z, 0.0f };
+                RenderData.boundingBoxContexts.push_back(BoundingBoxContext);
             }
 
             ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());

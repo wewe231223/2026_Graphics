@@ -91,6 +91,19 @@ namespace asset {
         return mSkinBoneRootNodeName;
     }
 
+    void ModelNode::SetBoundingBox(const DirectX::BoundingOrientedBox& BoundingBoxValue) {
+        mBoundingBox = BoundingBoxValue;
+        mHasBoundingBox = true;
+    }
+
+    bool ModelNode::HasBoundingBox() const {
+        return mHasBoundingBox;
+    }
+
+    const DirectX::BoundingOrientedBox& ModelNode::GetBoundingBox() const {
+        return mBoundingBox;
+    }
+
     std::vector<const ModelNode*> ModelNode::GetChildChain() const {
         std::vector<const ModelNode*> Chain{};
         const ModelNode* Current{ this };

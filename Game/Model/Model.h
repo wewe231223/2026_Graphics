@@ -34,6 +34,8 @@ namespace Game {
         bool HasBoneInfo() const;
         bool IsSkinnedMesh() const;
         const std::string& GetSkinBoneRootNodeName() const;
+        bool HasBoundingBox() const;
+        const DirectX::BoundingOrientedBox& GetBoundingBox() const;
 
         bool HasVertexData() const;
         const std::vector<D3D12_VERTEX_BUFFER_VIEW>& GetVertexBufferViews() const;
@@ -55,7 +57,7 @@ namespace Game {
 
     private:
         friend class Model;
-        void SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue, std::vector<ModelBoneInfo> BoneInfosValue, bool IsSkinnedMeshValue);
+        void SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue, std::vector<ModelBoneInfo> BoneInfosValue, bool IsSkinnedMeshValue, bool HasBoundingBoxValue, const DirectX::BoundingOrientedBox& BoundingBoxValue);
         void SetSkinBoneRootNodeName(std::string SkinBoneRootNodeName);
         void SetVertexData(std::vector<std::byte> VertexRawDataValue, std::vector<VertexAttributeRange> VertexAttributeRangesValue, std::unique_ptr<Interface::IAllocationHandle> VertexAllocationValue, std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViewsValue);
         void SetIndexData(std::vector<std::byte> IndexRawDataValue, std::unique_ptr<Interface::IAllocationHandle> IndexAllocationValue, const D3D12_INDEX_BUFFER_VIEW& IndexBufferViewValue);
@@ -69,6 +71,8 @@ namespace Game {
         std::vector<ModelBoneInfo> mBoneInfos{};
         bool mIsSkinnedMesh{ false };
         std::string mSkinBoneRootNodeName{};
+        bool mHasBoundingBox{ false };
+        DirectX::BoundingOrientedBox mBoundingBox{};
         std::vector<std::byte> mVertexRawData{};
         std::vector<VertexAttributeRange> mVertexAttributeRanges{};
         std::unique_ptr<Interface::IAllocationHandle> mVertexAllocation{};

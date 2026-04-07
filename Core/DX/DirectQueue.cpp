@@ -89,7 +89,7 @@ namespace Core {
 
 		
 			// Execute Render Tasks
-			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
+			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBoundingBoxContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
 			if (!Config::Query()->Get<bool>("Block_ImGui")) {
 				Widget::PerformanceProvider::Get().EndProfile();
 			}

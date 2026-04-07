@@ -24,13 +24,13 @@ BoundingBoxVsOutput VsMain(uint InstanceId : SV_InstanceID)
 void GsMain(point BoundingBoxVsOutput Input[1], inout LineStream<BoundingBoxGsOutput> Stream)
 {
     StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
-    StructuredBuffer<ModelContextGpu> ModelContextBuffer = ResourceDescriptorHeap[RootConstants.ModelContextSrvIndex];
+    StructuredBuffer<BoundingBoxContextGpu> BoundingBoxContextBuffer = ResourceDescriptorHeap[RootConstants.ModelContextSrvIndex];
 
     const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[0];
-    const ModelContextGpu ModelContext = ModelContextBuffer[Input[0].InstanceId];
+    const BoundingBoxContextGpu BoundingBoxContext = BoundingBoxContextBuffer[Input[0].InstanceId];
 
-    const float3 Center = ModelContext.BbCenter.xyz;
-    const float3 Extents = max(ModelContext.BbExtents.xyz, float3(0.0001f, 0.0001f, 0.0001f));
+    const float3 Center = BoundingBoxContext.Center.xyz;
+    const float3 Extents = max(BoundingBoxContext.Extents.xyz, float3(0.0001f, 0.0001f, 0.0001f));
 
     const float3 LocalCorners[8] =
     {
@@ -51,7 +51,7 @@ void GsMain(point BoundingBoxVsOutput Input[1], inout LineStream<BoundingBoxGsOu
         uint2(0, 4), uint2(1, 5), uint2(2, 6), uint2(3, 7)
     };
 
-    float4x4 World = transpose(ModelContext.World);
+    float4x4 World = transpose(BoundingBoxContext.World);
     float4x4 ViewProj = transpose(FrameGlobals.ViewProj);
 
     for (uint EdgeIndex = 0; EdgeIndex < 12; ++EdgeIndex)

@@ -50,7 +50,7 @@ namespace Core {
 		DrawCallDispatcher::~DrawCallDispatcher() {
 		}
 
-		void DrawCallDispatcher::DrawForward(ID3D12GraphicsCommandList* CommandList, Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+		void DrawCallDispatcher::DrawForward(ID3D12GraphicsCommandList* CommandList, Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			const Interface::IPipeline* ActivePipeline{ nullptr };
 			size_t DrawRecordIndex{ 0 };
 
@@ -103,16 +103,16 @@ namespace Core {
 				DrawRecordIndex = RunEndIndex;
 			}
 
-			DrawBoundingBoxes(CommandList, Data, FrameGlobalsSrvHandle, ModelContextSrvHandle, BonePaletteSrvHandle, DrawRecordSrvHandle, MaterialSrvHandle, MaterialTextureTableSrvHandle);
+			DrawBoundingBoxes(CommandList, Data, FrameGlobalsSrvHandle, BoundingBoxContextSrvHandle, BonePaletteSrvHandle, DrawRecordSrvHandle, MaterialSrvHandle, MaterialTextureTableSrvHandle);
 		}
 
-		void DrawCallDispatcher::DrawBoundingBoxes(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+		void DrawCallDispatcher::DrawBoundingBoxes(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			if (CommandList == nullptr) {
 				return;
 			}
 
 			const bool IsDrawBoundingBoxesEnabled{ (Data.globals.flags & Game::RFD::FrameGlobalFlagDrawBoundingBoxes) != 0u };
-			if (IsDrawBoundingBoxesEnabled == false || Data.modelContexts.empty()) {
+			if (IsDrawBoundingBoxesEnabled == false || Data.boundingBoxContexts.empty()) {
 				return;
 			}
 
@@ -128,7 +128,7 @@ namespace Core {
 
 			DrawRootConstantsB1 RootConstants{};
 			RootConstants.FrameGlobalsSrvIndex = FrameGlobalsSrvHandle.GetIndex();
-			RootConstants.ModelContextSrvIndex = ModelContextSrvHandle.GetIndex();
+			RootConstants.ModelContextSrvIndex = BoundingBoxContextSrvHandle.GetIndex();
 			RootConstants.BonePaletteSrvIndex = BonePaletteSrvHandle.GetIndex();
 			RootConstants.DrawRecordSrvIndex = DrawRecordSrvHandle.GetIndex();
 			RootConstants.DrawRecordBaseIndex = 0u;
@@ -137,7 +137,7 @@ namespace Core {
 			CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
 
 			CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
-			CommandList->DrawInstanced(1u, static_cast<UINT>(Data.modelContexts.size()), 0u, 0u);
+			CommandList->DrawInstanced(1u, static_cast<UINT>(Data.boundingBoxContexts.size()), 0u, 0u);
 		}
 	}
 }

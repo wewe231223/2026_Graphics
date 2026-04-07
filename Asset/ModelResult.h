@@ -67,6 +67,9 @@ namespace asset {
         bool IsSkinnedMesh() const;
         void SetSkinBoneRootNodeName(std::string SkinBoneRootNodeName);
         const std::string& GetSkinBoneRootNodeName() const;
+        void SetBoundingBox(const DirectX::BoundingOrientedBox& BoundingBoxValue);
+        bool HasBoundingBox() const;
+        const DirectX::BoundingOrientedBox& GetBoundingBox() const;
 
         std::vector<const ModelNode*> GetChildChain() const;
         void SetSubMeshes(std::vector<SubMesh> SubMeshes);
@@ -84,6 +87,8 @@ namespace asset {
         std::vector<ModelBoneInfo> mBoneInfos{};
         bool mIsSkinnedMesh{ false };
         std::string mSkinBoneRootNodeName{};
+        DirectX::BoundingOrientedBox mBoundingBox{};
+        bool mHasBoundingBox{ false };
     };
 
     class ModelResult final {

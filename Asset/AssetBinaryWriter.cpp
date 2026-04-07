@@ -1,12 +1,38 @@
 ﻿#include "AssetBinaryWriter.h"
 
 #include <cstring>
+#include <vector>
 
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 9 };
+    constexpr std::uint32_t FormatVersion{ 10 };
     constexpr char FormatMagic[4]{ 'F', 'B', 'X', 'B' };
+
+    class BBVisitor final {
+    public:
+        bool BuildBoundingBox(const ModelNode& Node, DirectX::BoundingOrientedBox& OutBoundingBox) const {
+            if (Node.IsSkinnedMesh() == true) {
+                return false;
+            }
+
+            const std::vector<Vec3>& Positions{ Node.Vertices().Positions };
+            if (Positions.empty()) {
+                return false;
+            }
+
+            std::vector<DirectX::XMFLOAT3> PositionPoints{};
+            PositionPoints.reserve(Positions.size());
+            for (const Vec3& Position : Positions) {
+                PositionPoints.push_back(DirectX::XMFLOAT3{ Position.x, Position.y, Position.z });
+            }
+
+            DirectX::BoundingBox AxisAlignedBoundingBox{};
+            DirectX::BoundingBox::CreateFromPoints(AxisAlignedBoundingBox, PositionPoints.size(), PositionPoints.data(), sizeof(DirectX::XMFLOAT3));
+            DirectX::BoundingOrientedBox::CreateFromBoundingBox(OutBoundingBox, AxisAlignedBoundingBox);
+            return true;
+        }
+    };
 }
 
 AssetBinaryWriter::AssetBinaryWriter() = default;
@@ -75,6 +101,7 @@ void AssetBinaryWriter::WriteNode(const ModelNode& Node, const std::unordered_ma
     static_cast<void>(NodeIndices);
     WriteBoneInfos(Node.BoneInfos());
     WriteSkinnedMeshFlag(Node);
+    WriteBoundingBox(Node);
     WriteVertexAttributes(Node.Vertices());
     WriteUint32Array(Node.Indices());
     WriteSubMeshes(Node.GetSubMeshes());
@@ -106,6 +133,16 @@ void AssetBinaryWriter::WriteBoneInfos(const std::vector<ModelBoneInfo>& BoneInf
 
 void AssetBinaryWriter::WriteSkinnedMeshFlag(const ModelNode& Node) {
     WriteBool(Node.IsSkinnedMesh());
+}
+
+void AssetBinaryWriter::WriteBoundingBox(const ModelNode& Node) {
+    BBVisitor Visitor{};
+    DirectX::BoundingOrientedBox BoundingBox{};
+    const bool IsBuilt{ Visitor.BuildBoundingBox(Node, BoundingBox) };
+    WriteBool(IsBuilt);
+    if (IsBuilt == true) {
+        WriteBoundingOrientedBox(BoundingBox);
+    }
 }
 
 void AssetBinaryWriter::WriteVertexAttributes(const VertexAttributes& Attributes) {
@@ -196,6 +233,10 @@ void AssetBinaryWriter::WriteFloat(float Value) {
 void AssetBinaryWriter::WriteBool(bool Value) {
     const std::uint8_t Stored{ static_cast<std::uint8_t>(Value ? 1 : 0) };
     WriteUint8(Stored);
+}
+
+void AssetBinaryWriter::WriteBoundingOrientedBox(const DirectX::BoundingOrientedBox& Value) {
+    WriteBytes(&Value, sizeof(Value));
 }
 
 void AssetBinaryWriter::WriteVec2(const Vec2& Value) {

@@ -66,6 +66,8 @@ namespace Game {
         mBoneInfos{},
         mIsSkinnedMesh{ false },
         mSkinBoneRootNodeName{},
+        mHasBoundingBox{ false },
+        mBoundingBox{},
         mVertexRawData{},
         mVertexAttributeRanges{},
         mVertexAllocation{},
@@ -88,6 +90,8 @@ namespace Game {
         mBoneInfos{ std::move(Other.mBoneInfos) },
         mIsSkinnedMesh{ Other.mIsSkinnedMesh },
         mSkinBoneRootNodeName{ std::move(Other.mSkinBoneRootNodeName) },
+        mHasBoundingBox{ Other.mHasBoundingBox },
+        mBoundingBox{ Other.mBoundingBox },
         mVertexRawData{ std::move(Other.mVertexRawData) },
         mVertexAttributeRanges{ std::move(Other.mVertexAttributeRanges) },
         mVertexAllocation{ std::move(Other.mVertexAllocation) },
@@ -99,6 +103,8 @@ namespace Game {
         Other.mId = 0;
         Other.mHasVertexData = false;
         Other.mIsSkinnedMesh = false;
+        Other.mHasBoundingBox = false;
+        Other.mBoundingBox = DirectX::BoundingOrientedBox{};
         Other.mIndexBufferView = D3D12_INDEX_BUFFER_VIEW{};
     }
 
@@ -115,6 +121,8 @@ namespace Game {
         mBoneInfos = std::move(Other.mBoneInfos);
         mIsSkinnedMesh = Other.mIsSkinnedMesh;
         mSkinBoneRootNodeName = std::move(Other.mSkinBoneRootNodeName);
+        mHasBoundingBox = Other.mHasBoundingBox;
+        mBoundingBox = Other.mBoundingBox;
         mVertexRawData = std::move(Other.mVertexRawData);
         mVertexAttributeRanges = std::move(Other.mVertexAttributeRanges);
         mVertexAllocation = std::move(Other.mVertexAllocation);
@@ -127,6 +135,8 @@ namespace Game {
         Other.mId = 0;
         Other.mHasVertexData = false;
         Other.mIsSkinnedMesh = false;
+        Other.mHasBoundingBox = false;
+        Other.mBoundingBox = DirectX::BoundingOrientedBox{};
         Other.mIndexBufferView = D3D12_INDEX_BUFFER_VIEW{};
         return *this;
     }
@@ -172,6 +182,14 @@ namespace Game {
         return mSkinBoneRootNodeName;
     }
 
+    bool ModelNode::HasBoundingBox() const {
+        return mHasBoundingBox;
+    }
+
+    const DirectX::BoundingOrientedBox& ModelNode::GetBoundingBox() const {
+        return mBoundingBox;
+    }
+
     bool ModelNode::HasVertexData() const {
         return mHasVertexData;
     }
@@ -211,7 +229,7 @@ namespace Game {
         return std::span<const std::byte>{ mVertexRawData.data() + Range.Offset, Range.Size };
     }
 
-    void ModelNode::SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue, std::vector<ModelBoneInfo> BoneInfosValue, bool IsSkinnedMeshValue) {
+    void ModelNode::SetBasicData(std::uint32_t IdValue, std::string NameValue, const SimpleMath::Matrix& NodeToParentValue, std::vector<std::uint32_t> ChildrenValue, std::vector<ModelSubMesh> SubMeshesValue, std::vector<ModelBoneInfo> BoneInfosValue, bool IsSkinnedMeshValue, bool HasBoundingBoxValue, const DirectX::BoundingOrientedBox& BoundingBoxValue) {
         mId = IdValue;
         mName = std::move(NameValue);
         mNodeToParent = NodeToParentValue;
@@ -219,6 +237,8 @@ namespace Game {
         mSubMeshes = std::move(SubMeshesValue);
         mBoneInfos = std::move(BoneInfosValue);
         mIsSkinnedMesh = IsSkinnedMeshValue;
+        mHasBoundingBox = HasBoundingBoxValue;
+        mBoundingBox = BoundingBoxValue;
     }
 
     void ModelNode::SetSkinBoneRootNodeName(std::string SkinBoneRootNodeName) {
@@ -349,7 +369,7 @@ namespace Game {
                 BoneInfos.push_back(BoneInfo);
             }
 
-            DestinationNode.SetBasicData(SourceNode.GetId(), SourceNode.GetName(), SourceNode.GetNodeToParent(), std::move(Children), std::move(SubMeshes), std::move(BoneInfos), SourceNode.IsSkinnedMesh());
+            DestinationNode.SetBasicData(SourceNode.GetId(), SourceNode.GetName(), SourceNode.GetNodeToParent(), std::move(Children), std::move(SubMeshes), std::move(BoneInfos), SourceNode.IsSkinnedMesh(), SourceNode.HasBoundingBox(), SourceNode.GetBoundingBox());
             DestinationNode.SetSkinBoneRootNodeName(SourceNode.GetSkinBoneRootNodeName());
 
             const asset::VertexAttributes& SourceVertices{ SourceNode.Vertices() };

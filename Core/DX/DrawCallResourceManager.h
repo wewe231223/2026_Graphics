@@ -28,13 +28,14 @@ namespace Core {
 
 			DescriptorHandle GetFrameGlobalsSrvHandle() const;
 			DescriptorHandle GetModelContextSrvHandle() const;
+			DescriptorHandle GetBoundingBoxContextSrvHandle() const;
 			DescriptorHandle GetBonePaletteSrvHandle() const;
 			DescriptorHandle GetDrawRecordSrvHandle() const;
 
 		private:
 			static bool CompareDrawRecordByPso(const Game::RFD::DrawRecord& Left, const Game::RFD::DrawRecord& Right);
 			void BuildDrawRecordGpu(const Game::RFD::RenderFrameData& Data);
-			void UpdateShaderResourceViews(std::uint32_t FrameGlobalsCount, std::uint32_t ModelContextCount, std::uint32_t BonePaletteCount, std::uint32_t DrawRecordCount);
+			void UpdateShaderResourceViews(std::uint32_t FrameGlobalsCount, std::uint32_t ModelContextCount, std::uint32_t BoundingBoxContextCount, std::uint32_t BonePaletteCount, std::uint32_t DrawRecordCount);
 			bool IsShaderResourceViewUpdateRequired(ID3D12Resource* CachedResource, ID3D12Resource* CurrentResource, std::uint32_t CachedElementCount, std::uint32_t CurrentElementCount) const;
 
 		private:
@@ -43,21 +44,25 @@ namespace Core {
 
 			DescriptorHandle mFrameGlobalsSrvHandle{};
 			DescriptorHandle mModelContextSrvHandle{};
+			DescriptorHandle mBoundingBoxContextSrvHandle{};
 			DescriptorHandle mBonePaletteSrvHandle{};
 			DescriptorHandle mDrawRecordSrvHandle{};
 
 			ID3D12Resource* mFrameGlobalsSrvResource{};
 			ID3D12Resource* mModelContextSrvResource{};
+			ID3D12Resource* mBoundingBoxContextSrvResource{};
 			ID3D12Resource* mBonePaletteSrvResource{};
 			ID3D12Resource* mDrawRecordSrvResource{};
 
 			std::uint32_t mFrameGlobalsSrvElementCount{};
 			std::uint32_t mModelContextSrvElementCount{};
+			std::uint32_t mBoundingBoxContextSrvElementCount{};
 			std::uint32_t mBonePaletteSrvElementCount{};
 			std::uint32_t mDrawRecordSrvElementCount{};
 
 			GraphicsVector mFrameGlobalsVector{};
 			GraphicsVector mModelContextVector{};
+			GraphicsVector mBoundingBoxContextVector{};
 			GraphicsVector mBonePaletteVector{};
 			GraphicsVector mDrawRecordVector{};
 
