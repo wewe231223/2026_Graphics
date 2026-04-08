@@ -3,6 +3,7 @@ Systems:
   - Type: PickingSystem
   - Type: AnimationGraphSystem
   - Type: AnimateSystem
+  - Type: TransformWorldSystem
   - Type: SkinningSystem
   - Type: StaticRenderSystem
   - Type: SkinnedMeshRenderSystem

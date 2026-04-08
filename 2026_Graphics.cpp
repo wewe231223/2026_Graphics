@@ -180,7 +180,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             }
             SceneInstance.ExecutePhase(Game::Phase::PreUpdate, Globals::Time::Get().GetDeltaTime<float>());
             SceneInstance.ExecutePhase(Game::Phase::Update, Globals::Time::Get().GetDeltaTime<float>());
-			SceneInstance.ExecutePhase(Game::Phase::PostUpdate, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::PostUpdate, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::Transform, Globals::Time::Get().GetDeltaTime<float>());
             SceneInstance.ExecutePhase(Game::Phase::Skinning, Globals::Time::Get().GetDeltaTime<float>());
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().EndProfile();

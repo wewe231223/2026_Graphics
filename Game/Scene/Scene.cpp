@@ -503,6 +503,7 @@ namespace Game {
                 mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
                 mFrameContext.WorldMatrices.clear();
                 mFrameContext.SkinnedPoseCache.clear();
+                mFrameContext.SkinnedHierarchyCache.clear();
                 break;
 
             case Phase::Update:

@@ -15,11 +15,6 @@
 #include "Game/Scene/Components/Transform.h"
 
 namespace {
-    SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
-        const SimpleMath::Matrix TrsMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
-        return TransformComponent.nodeToParent * TrsMatrix;
-    }
-
     constexpr std::uint32_t PickedDrawFlagBitMask{ 0x1u };
 
     bool IsEntityWithinPickedHierarchy(Arche::World& World, Arche::EntityID EntityId, Arche::EntityID PickedEntityId) {
@@ -44,51 +39,6 @@ namespace {
         return false;
     }
 
-    bool TryResolveWorldMatrix(Arche::World& World, Arche::EntityID EntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, SimpleMath::Matrix& OutWorldMatrix) {
-        const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>::const_iterator CachedWorldMatrixIter{ InOutWorldMatrices.find(EntityId) };
-        if (CachedWorldMatrixIter != InOutWorldMatrices.end()) {
-            OutWorldMatrix = CachedWorldMatrixIter->second;
-            return true;
-        }
-
-        std::vector<Arche::EntityID> EntityPath{};
-        Arche::EntityID CurrentEntityId{ EntityId };
-        SimpleMath::Matrix ParentWorldMatrix{ SimpleMath::Matrix::Identity };
-
-        while (CurrentEntityId != Arche::NullEntityID) {
-            const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>::const_iterator CurrentCachedWorldMatrixIter{ InOutWorldMatrices.find(CurrentEntityId) };
-            if (CurrentCachedWorldMatrixIter != InOutWorldMatrices.end()) {
-                ParentWorldMatrix = CurrentCachedWorldMatrixIter->second;
-                break;
-            }
-
-            const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(CurrentEntityId) };
-            const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
-            if (TransformComponent == nullptr || HierarchyComponent == nullptr) {
-                return false;
-            }
-
-            EntityPath.push_back(CurrentEntityId);
-            CurrentEntityId = HierarchyComponent->parent;
-        }
-
-        for (std::vector<Arche::EntityID>::const_reverse_iterator EntityPathIter{ EntityPath.crbegin() }; EntityPathIter != EntityPath.crend(); ++EntityPathIter) {
-            const Arche::EntityID CurrentPathEntityId{ *EntityPathIter };
-            const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(CurrentPathEntityId) };
-            if (TransformComponent == nullptr) {
-                return false;
-            }
-
-            const SimpleMath::Matrix LocalWorldMatrix{ BuildLocalWorldMatrix(*TransformComponent) };
-            const SimpleMath::Matrix CurrentWorldMatrix{ LocalWorldMatrix * ParentWorldMatrix };
-            InOutWorldMatrices[CurrentPathEntityId] = CurrentWorldMatrix;
-            ParentWorldMatrix = CurrentWorldMatrix;
-        }
-
-        OutWorldMatrix = ParentWorldMatrix;
-        return true;
-    }
-
 }
 
 namespace Game {
@@ -106,14 +56,12 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> StaticRenderSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 4> Accesses{ { { typeid(RFD::RenderFrameData), Access::Write }, { typeid(std::vector<RegisteredMaterialGroup>), Access::Read }, { typeid(Arche::EntityID), Access::Read }, { typeid(std::unordered_map<Arche::EntityID, SimpleMath::Matrix>), Access::Write } } };
+        static std::array<ResourceAccess, 4> Accesses{ { { typeid(RFD::RenderFrameData), Access::Write }, { typeid(std::vector<RegisteredMaterialGroup>), Access::Read }, { typeid(Arche::EntityID), Access::Read }, { typeid(std::unordered_map<Arche::EntityID, SimpleMath::Matrix>), Access::Read } } };
         return Accesses;
     }
 
     void StaticRenderSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
         (void)Dt;
-
-        Ctx.WorldMatrices.clear();
 
         RFD::RenderFrameData& RenderData{ Ctx.RenderData };
         const std::vector<RegisteredMaterialGroup>& MaterialGroups{ *Ctx.MaterialGroups };
@@ -136,12 +84,12 @@ namespace Game {
                 continue;
             }
 
-            SimpleMath::Matrix NodeWorld{};
-            const bool IsWorldMatrixResolved{ TryResolveWorldMatrix(World, EntityId, Ctx.WorldMatrices, NodeWorld) };
-            if (IsWorldMatrixResolved == false) {
+            const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>::const_iterator WorldMatrixIter{ Ctx.WorldMatrices.find(EntityId) };
+            if (WorldMatrixIter == Ctx.WorldMatrices.end()) {
                 continue;
             }
 
+            const SimpleMath::Matrix NodeWorld{ WorldMatrixIter->second };
             TransformComponent.worldMatrix = NodeWorld;
 
             BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityId) };

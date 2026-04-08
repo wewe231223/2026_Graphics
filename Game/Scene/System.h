@@ -17,6 +17,7 @@ namespace Game {
         PreUpdate,
         Update,
         PostUpdate,
+        Transform,
         Skinning,
         Render,
         PostRender, 
@@ -44,6 +45,15 @@ namespace Game {
         bool IsValid{};
     };
 
+    struct SkinnedHierarchyCacheEntry final {
+        Arche::EntityID SourceEntityId{ Arche::NullEntityID };
+        Arche::EntityID SourceParentEntityId{ Arche::NullEntityID };
+        Arche::EntityID AnimatorEntityId{ Arche::NullEntityID };
+        Arche::EntityID BoneRootEntityId{ Arche::NullEntityID };
+        Arche::EntityID PickedEntityId{ Arche::NullEntityID };
+        bool IsWithinPickedHierarchy{ false };
+    };
+
     struct FrameContext final {
         RFD::RenderFrameData RenderData{};
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
@@ -51,6 +61,7 @@ namespace Game {
         Arche::EntityID PickedEntityId{ Arche::NullEntityID };
         std::unordered_map<Arche::EntityID, SimpleMath::Matrix> WorldMatrices{};
         std::unordered_map<Arche::EntityID, SkinnedPoseCacheEntry> SkinnedPoseCache{};
+        std::unordered_map<Arche::EntityID, SkinnedHierarchyCacheEntry> SkinnedHierarchyCache{};
     };
 
     class ISystem abstract {

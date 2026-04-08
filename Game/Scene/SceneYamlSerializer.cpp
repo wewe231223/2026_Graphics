@@ -38,6 +38,7 @@
 #include "Game/Scene/Systems/PickingSystem.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
 #include "Game/Scene/Systems/SkinningSystem.h"
+#include "Game/Scene/Systems/TransformWorldSystem.h"
 #include "Game/Scene/SceneEntityFactory.h"
 #include "Game/Model/TerrainMeshTypes.h"
 #include "Game/Model/HeightMapLoader.h"
@@ -209,6 +210,7 @@ namespace {
             { "AnimationGraphSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimationGraphSystem>(); } },
             { "AnimateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimateSystem>(); } },
             { "SkinningSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinningSystem>(); } },
+            { "TransformWorldSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TransformWorldSystem>(); } },
             { "PickingSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::PickingSystem>(); } },
             { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },
             { "TerrainCollideSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TerrainCollideSystem>(); } },
