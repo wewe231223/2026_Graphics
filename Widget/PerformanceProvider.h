@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 #include <string>
 #include <vector>
 #include "Utility/DirectXInclude.h"
@@ -77,8 +78,8 @@ namespace Widget {
         void BeginFrame();
         void EndFrame();
 
-        void BeginProfile(const std::string& Name);
-        void EndProfile();
+        void BeginPhaseProfile(const std::string& Name);
+        void EndPhaseProfile();
 
         [[nodiscard]] std::vector<float> GetFrameTimeMilliseconds() const;
         [[nodiscard]] double GetAverageFps() const;
@@ -97,15 +98,10 @@ namespace Widget {
         double QueryNowMicroseconds() const;
 
     private:
-        struct ActiveProfile {
-            std::string Name{};
-            double StartMicroseconds{};
-        };
-
-    private:
         LARGE_INTEGER mFrequency{};
         LARGE_INTEGER mFrameBeginCounter{};
         bool mHasFrameBegin{};
+        double mFrameBeginMicroseconds{};
 
         RingBuffer<float, 500> mFrameTimeMicroseconds{};
 
@@ -114,7 +110,10 @@ namespace Widget {
         uint64_t mVramBudgetBytes{};
         uint64_t mVramUsageBytes{};
 
-        std::vector<ActiveProfile> mActiveProfiles{};
+        std::vector<std::pair<std::string, double>> mPhaseDurations{};
+        std::string mActivePhaseName{};
+        double mActivePhaseStartMicroseconds{};
+        bool mHasActivePhase{};
         std::vector<ProfileEntry> mCurrentFrameProfiles{};
 
         double mLastPercentileUpdateMicroseconds{};
