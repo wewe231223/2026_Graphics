@@ -27,6 +27,8 @@
 #include "Game/Scene/Components/AnimatorGraphPlayer.h"
 #include "Game/Scene/Components/ScriptComponent.h"
 #include "Game/Scene/Components/Tags.h"
+#include "Game/Scene/Components/TerrainCollider.h"
+#include "Game/Scene/Components/TerrainCollidee.h"
 #include "Game/Base/Input.h"
 
 #include "Game/Scene/Events/SelectionEvent.h"
@@ -82,7 +84,8 @@ namespace Game {
         mWorldSnapshotVersion{},
         mHierarchyEntitySelectedSubscriptionId{},
         mFileDropSubscriptionId{},
-        mIsDefaultCameraControlBehaviorAttached{} {
+        mIsDefaultCameraControlBehaviorAttached{},
+        mIsBoundingBoxDrawEnabled{} {
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
         mWorldSnapshot.BindWorld(&mWorld);
         mWorldSnapshot.BindAssetRegistry(&mAssetRegistry);
@@ -342,6 +345,20 @@ namespace Game {
         mLuaScriptFramework.RegisterComponentByDefinition<Game::PickingGizmo>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::LocalPlayerTag>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BehaviorInstanceComponent>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::TerrainCollider>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::TerrainCollidee>();
+    }
+
+    TerrainHeightResolver* Scene::CreateTerrainHeightResolver(const HeightFieldData& HeightFieldDataValue, const TerrainBuildDesc& TerrainBuildDescValue) {
+        std::unique_ptr<TerrainHeightResolver> NewTerrainHeightResolver{ std::make_unique<TerrainHeightResolver>() };
+        NewTerrainHeightResolver->Initialize(HeightFieldDataValue, TerrainBuildDescValue);
+        TerrainHeightResolver* TerrainHeightResolverPointer{ NewTerrainHeightResolver.get() };
+        mTerrainHeightResolvers.push_back(std::move(NewTerrainHeightResolver));
+        return TerrainHeightResolverPointer;
+    }
+
+    void Scene::ClearTerrainHeightResolvers() {
+        mTerrainHeightResolvers.clear();
     }
 
     void Scene::InitializeWorldSnapshot() {
@@ -393,8 +410,13 @@ namespace Game {
     void Scene::UpdateCameraVirtualMouseState() {
         Globals::Input& InputInstance{ Globals::Input::Get() };
         const bool IsThirdPersonToggleRequested{ InputInstance.IsKeyPressed(DirectX::Keyboard::Keys::F8) };
+        const bool IsBoundingBoxToggleRequested{ InputInstance.IsKeyPressed(DirectX::Keyboard::Keys::F9) };
         const DirectX::Mouse::ButtonStateTracker& MouseTracker{ InputInstance.GetMouseTracker() };
         const bool IsSelectionDragInput{ mFrameContext.PickedEntityId != Arche::NullEntityID && (MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED || MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::HELD) };
+
+        if (IsBoundingBoxToggleRequested) {
+            mIsBoundingBoxDrawEnabled = (mIsBoundingBoxDrawEnabled == false);
+        }
 
         bool IsUiCapturingInput{ false };
         if (Config::Query()->Get<bool>("Block_ImGui") == false) {
@@ -473,9 +495,11 @@ namespace Game {
             case Phase::PreUpdate:
                 UpdateCameraVirtualMouseState();
                 mFrameContext.RenderData.modelContexts.clear();
+                mFrameContext.RenderData.boundingBoxContexts.clear();
                 mFrameContext.RenderData.drawRecords.clear();
                 mFrameContext.RenderData.bonePalette.clear();
                 mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
+                mFrameContext.RenderData.globals.flags = mIsBoundingBoxDrawEnabled ? RFD::FrameGlobalFlagDrawBoundingBoxes : 0u;
                 mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
                 mFrameContext.WorldMatrices.clear();
                 mFrameContext.SkinnedPoseCache.clear();

@@ -7,6 +7,7 @@ Systems:
   - Type: StaticRenderSystem
   - Type: SkinnedMeshRenderSystem
   - Type: CameraRenderSystem
+  - Type: TerrainCollideSystem
 
 DefaultTransform: &DefaultTransform
   rotationEuler: [0.0, 0.0, 0.0]
@@ -209,6 +210,7 @@ Entities:
       PrefabInstance:
         <<: *Prefab2006
         prefabId: 2006
+
   - EntityId: 9
     ParentEntityId: -1
     Components:
@@ -218,6 +220,8 @@ Entities:
         text: untitled
       Transform:
         <<: *DefaultTransform 
+      TerrainCollider:
+        TerrainCollide: false
       PrefabInstance:
         <<: *Prefab1003
         prefabId: 1003
@@ -227,6 +231,7 @@ Entities:
         AnimationGraph: knight_idle_run.graph.yaml
       Script:
         path: Script/Lua/PlayerBehavior.lua
+
   - EntityId: 10
     ParentEntityId: -1
     Components:
@@ -256,3 +261,87 @@ Entities:
       PrefabInstance:
         <<: *Prefab2007
         prefabId: 2007
+  - EntityId: 12
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: Terrain
+      Transform:
+        <<: *DefaultTransform
+        position: [0.00, 0.00, 0.00]
+      Material:
+        materialPath: terrain_materials.json
+      Terrain:
+        HeightMapPath: Heightmap_01_Mountains.png
+        MaxHeight: 256.0
+        CellSizeX: 1
+        CellSizeZ: 1
+        FlipV: false
+        CenterOrigin: true
+        active: true
+  - EntityId: 13
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: knight
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 0.00, -35.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+  - EntityId: 14
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: knight
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 0.00, -40.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+  - EntityId: 15
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: knight
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 0.00, -45.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+  - EntityId: 16
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: knight
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 0.00, -50.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0

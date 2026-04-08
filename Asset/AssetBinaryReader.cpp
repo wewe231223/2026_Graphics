@@ -6,7 +6,7 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 9 };
+    constexpr std::uint32_t FormatVersion{ 10 };
     constexpr std::array<char, 4> FormatMagic{ 'F', 'B', 'X', 'B' };
 }
 
@@ -32,7 +32,7 @@ bool AssetBinaryReader::ReadHeader() {
         return false;
     }
     const std::uint32_t Version{ ReadUint32() };
-    if (Version != 1 && Version != 2 && Version != 3 && Version != 4 && Version != 5 && Version != 6 && Version != 7 && Version != 8 && Version != FormatVersion) {
+    if (Version != 1 && Version != 2 && Version != 3 && Version != 4 && Version != 5 && Version != 6 && Version != 7 && Version != 8 && Version != 9 && Version != FormatVersion) {
         return false;
     }
     mFormatVersion = Version;
@@ -85,6 +85,10 @@ void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, 
             else if (mFormatVersion >= 8) {
                 ReadSkinBoneRootNodeName(Node);
             }
+
+            if (mFormatVersion >= 10) {
+                ReadBoundingBox(Node);
+            }
         }
         else {
             Nodes.push_back(&Node);
@@ -136,6 +140,15 @@ void AssetBinaryReader::ReadSkinnedMeshFlag(ModelNode& Node) {
 
 void AssetBinaryReader::ReadSkinBoneRootNodeName(ModelNode& Node) {
     Node.SetSkinBoneRootNodeName(ReadString());
+}
+
+void AssetBinaryReader::ReadBoundingBox(ModelNode& Node) {
+    const bool HasBoundingBox{ ReadBool() };
+    if (HasBoundingBox == false) {
+        return;
+    }
+
+    Node.SetBoundingBox(ReadBoundingOrientedBox());
 }
 
 void AssetBinaryReader::ReadVertexAttributes(VertexAttributes& Attributes) {
@@ -268,6 +281,12 @@ float AssetBinaryReader::ReadFloat() {
 bool AssetBinaryReader::ReadBool() {
     const std::uint8_t Value{ ReadUint8() };
     return Value != 0;
+}
+
+DirectX::BoundingOrientedBox AssetBinaryReader::ReadBoundingOrientedBox() {
+    DirectX::BoundingOrientedBox Value{};
+    ReadBytes(&Value, sizeof(Value));
+    return Value;
 }
 
 Mat4 AssetBinaryReader::ReadMat4() {

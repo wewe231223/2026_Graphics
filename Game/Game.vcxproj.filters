@@ -60,6 +60,15 @@
     <ClInclude Include="Model\AssetRegistryBackEnd.h">
       <Filter>Model</Filter>
     </ClInclude>
+    <ClInclude Include="Model\HeightMapLoader.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\TerrainMeshBuilder.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\TerrainMeshTypes.h">
+      <Filter>Model</Filter>
+    </ClInclude>
     <ClInclude Include="Base\RenderFrameData.h">
       <Filter>Base</Filter>
     </ClInclude>
@@ -150,9 +159,6 @@
     <ClInclude Include="Scene\Systems\SkinningSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\Systems\SkySystem.h">
-      <Filter>Scene\Systems</Filter>
-    </ClInclude>
     <ClInclude Include="Scene\Components\EntityHierarchy.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -183,6 +189,18 @@
     <ClInclude Include="Scene\Components\SkySphere.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\TerrainCollider.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\TerrainCollidee.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\TerrainHeightResolver.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\TerrainCollideSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Shader.cpp">
@@ -201,6 +219,9 @@
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Model\AssetRegistryBackEnd.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\HeightMapLoader.cpp">
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Scene.cpp">
@@ -244,6 +265,18 @@
     </ClCompile>
     <ClCompile Include="Scene\Components\SkySphere.cpp">
       <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\TerrainCollider.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\TerrainCollidee.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\TerrainHeightResolver.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\TerrainCollideSystem.cpp">
+      <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp">
       <Filter>Scene\Components</Filter>
@@ -302,9 +335,6 @@
     <ClCompile Include="Scene\Systems\SkinningSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\Systems\SkySystem.cpp">
-      <Filter>Scene\Systems</Filter>
-    </ClCompile>
     <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
@@ -315,6 +345,9 @@
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Model\PrimitiveModelFactory.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\TerrainMeshBuilder.cpp">
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\PrefabInstance.cpp">
@@ -340,10 +373,16 @@
     <None Include="..\Shader\PSO\SkinnedGraphics.json">
       <Filter>PSO</Filter>
     </None>
+    <None Include="..\Shader\PSO\TerrainGraphics.json">
+      <Filter>PSO</Filter>
+    </None>
     <None Include="..\Shader\PSO\SkyDomeGraphics.json">
       <Filter>PSO</Filter>
     </None>
     <None Include="..\Resources\DefaultScene.yaml">
+      <Filter>Scene\Scene YAML</Filter>
+    </None>
+    <None Include="..\Resources\DefaultScene\terrain_materials.json">
       <Filter>Scene\Scene YAML</Filter>
     </None>
     <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml">
@@ -367,6 +406,12 @@
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="..\Shader\Source\SkyDomeShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\TerrainShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\BoundingBoxLineShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
   </ItemGroup>

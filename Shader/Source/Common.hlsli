@@ -32,14 +32,19 @@ struct ModelContextGpu
 {
     float4x4 World;
     float4x4 PrevWorld;
-    float4 BbCenter;
-    float4 BbExtents;
     uint Flags;
     uint BoneIndexStart;
     uint ObjectId;
     uint Pad0;
     float4 Custom0;
     float4 Custom1;
+};
+
+struct BoundingBoxContextGpu
+{
+    float4 Center;
+    float4 Extents;
+    float4 Orientation;
 };
 
 struct DrawRecordGpu

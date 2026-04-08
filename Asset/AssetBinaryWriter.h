@@ -81,11 +81,12 @@ namespace asset {
     private:
         void WriteHeader();
         void WriteModelResult(const ModelResult& Result);
-        void WriteNodes(const std::vector<const ModelNode*>& Nodes, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices);
-        void WriteNode(const ModelNode& Node, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices);
+        void WriteNodes(const std::vector<const ModelNode*>& Nodes, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices, const std::unordered_map<const ModelNode*, DirectX::BoundingOrientedBox>& NodeBoundingBoxes);
+        void WriteNode(const ModelNode& Node, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices, const std::unordered_map<const ModelNode*, DirectX::BoundingOrientedBox>& NodeBoundingBoxes);
         std::string ResolveUnifiedSkinBoneRootNodeName(const std::vector<const ModelNode*>& Nodes) const;
         void WriteBoneInfos(const std::vector<ModelBoneInfo>& BoneInfos);
         void WriteSkinnedMeshFlag(const ModelNode& Node);
+        void WriteBoundingBox(const ModelNode& Node, const std::unordered_map<const ModelNode*, DirectX::BoundingOrientedBox>& NodeBoundingBoxes);
         void WriteVertexAttributes(const VertexAttributes& Attributes);
         void WriteSubMeshes(const std::vector<ModelNode::SubMesh>& SubMeshes);
         void WriteVec2Array(std::span<const Vec2> Values);
@@ -104,6 +105,7 @@ namespace asset {
         void WriteInt64(std::int64_t Value);
         void WriteFloat(float Value);
         void WriteBool(bool Value);
+        void WriteBoundingOrientedBox(const DirectX::BoundingOrientedBox& Value);
         void WriteVec2(const Vec2& Value);
         void WriteVec3(const Vec3& Value);
         void WriteVec4(const Vec4& Value);

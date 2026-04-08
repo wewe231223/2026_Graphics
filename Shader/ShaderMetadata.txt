@@ -9,3 +9,10 @@ Source=SkinnedMeshShader.hlsl|Entry=PsMain|Profile=ps_6_6|Arguments=-O3
 
 Source=SkyDomeShader.hlsl|Entry=VsMain|Profile=vs_6_6|Arguments=-O3
 Source=SkyDomeShader.hlsl|Entry=PsMain|Profile=ps_6_6|Arguments=-O3
+
+Source=TerrainShader.hlsl|Entry=VsMain|Profile=vs_6_6|Arguments=-O3
+Source=TerrainShader.hlsl|Entry=PsMain|Profile=ps_6_6|Arguments=-O3
+
+Source=BoundingBoxLineShader.hlsl|Entry=VsMain|Profile=vs_6_6|Arguments=-O3
+Source=BoundingBoxLineShader.hlsl|Entry=GsMain|Profile=gs_6_6|Arguments=-O3
+Source=BoundingBoxLineShader.hlsl|Entry=PsMain|Profile=ps_6_6|Arguments=-O3

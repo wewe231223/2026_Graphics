@@ -12,6 +12,7 @@
 #include "Game/Scene/Components/SkinnedMeshRenderer.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
+#include "Game/Scene/Components/TerrainCollidee.h"
 
 namespace Game {
     ModelHierarchySpawnRequest::ModelHierarchySpawnRequest() = default;
@@ -113,6 +114,12 @@ namespace Game {
             NodeTransform.nodeToParent = ModelNodes[NodeIndex].GetNodeToParent();
             AddTransform(NodeEntities[NodeIndex], NodeTransform, NodeIndex == RootNodeIndex);
 
+            if (NodeIndex == RootNodeIndex && SpawnRequest.TerrainHeightResolverPointer != nullptr) {
+                TerrainCollidee TerrainCollideeComponent{};
+                TerrainCollideeComponent.mTerrainHeightResolver = SpawnRequest.TerrainHeightResolverPointer;
+                AddTerrainCollidee(NodeEntities[NodeIndex], TerrainCollideeComponent, true);
+            }
+
             const bool HasRenderableGeometry{ ModelNodes[NodeIndex].GetSubMeshes().empty() == false };
             if (HasRenderableGeometry == true) {
                 if (ModelNodes[NodeIndex].IsSkinnedMesh() == true) {
@@ -153,6 +160,10 @@ namespace Game {
                 NodeBone.runtimeBoneInfoOffset = RuntimeBoneInfoOffset;
                 NodeBone.runtimeBoneInfoCount = RuntimeBoneInfoCount;
                 AddBone(NodeEntities[NodeIndex], NodeBone);
+
+                BoundingBox NodeBoundingBox{};
+                NodeBoundingBox.UpdateFromModel(SpawnRequest.ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
+                AddBoundingBox(NodeEntities[NodeIndex], NodeBoundingBox);
             }
 
             if (ModelNodes[NodeIndex].IsSkinnedMesh() == true) {
@@ -188,6 +199,10 @@ namespace Game {
             BoneSkinReference RootBoneSkinReference{};
             RootBoneSkinReference.boneRootEntityId = RootBoneReferenceEntityId;
             AddBoneSkinReference(NodeEntities[RootNodeIndex], RootBoneSkinReference);
+
+            BoundingBox RootBoundingBox{};
+            RootBoundingBox.ResetToUnitCube();
+            AddBoundingBox(NodeEntities[RootNodeIndex], RootBoundingBox);
 
         }
 
@@ -309,6 +324,18 @@ namespace Game {
         *ExistingAnimator = AnimatorComponent;
     }
 
+
+    void SceneEntityFactory::AddTerrainCollidee(Arche::EntityID EntityId, const TerrainCollidee& TerrainCollideeComponent, bool ReplaceExistingRootComponent) {
+        TerrainCollidee* ExistingTerrainCollidee{ mScene->GetWorld().GetComponent<TerrainCollidee>(EntityId) };
+        if (ExistingTerrainCollidee == nullptr) {
+            mScene->GetWorld().AddComponent(EntityId, TerrainCollideeComponent);
+            return;
+        }
+
+        if (ReplaceExistingRootComponent == true) {
+            *ExistingTerrainCollidee = TerrainCollideeComponent;
+        }
+    }
     Arche::EntityID SceneEntityFactory::ResolveBoneRootEntityId(const Model& ModelData, const ModelNode& ModelNodeData, const std::vector<Arche::EntityID>& NodeEntities) const {
         const std::string& SkinBoneRootNodeName{ ModelNodeData.GetSkinBoneRootNodeName() };
         if (SkinBoneRootNodeName.empty() == true) {

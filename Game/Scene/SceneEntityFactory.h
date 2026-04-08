@@ -18,6 +18,7 @@
 #include "Game/Scene/Components/SkinnedMeshRenderer.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
+#include "Game/Scene/Components/TerrainCollidee.h"
 
 namespace Game {
     struct ModelHierarchySpawnRequest final {
@@ -37,6 +38,7 @@ namespace Game {
         bool FrustumCullingEnabled{ true };
         bool IsActive{ true };
         bool IsDerivedEntity{ false };
+        TerrainHeightResolver* TerrainHeightResolverPointer{};
     };
 
     class SceneEntityFactory final {
@@ -65,6 +67,7 @@ namespace Game {
         void AddBone(Arche::EntityID EntityId, const Bone& BoneComponent);
         void AddBoneSkinReference(Arche::EntityID EntityId, const BoneSkinReference& BoneSkinReferenceComponent);
         void AddAnimator(Arche::EntityID EntityId, const Animator& AnimatorComponent);
+        void AddTerrainCollidee(Arche::EntityID EntityId, const TerrainCollidee& TerrainCollideeComponent, bool ReplaceExistingRootComponent);
 
         Arche::EntityID ResolveBoneRootEntityId(const Model& ModelData, const ModelNode& ModelNodeData, const std::vector<Arche::EntityID>& NodeEntities) const;
         std::string ResolveNodeName(const ModelNode& SourceNode, std::size_t NodeIndex, std::size_t RootNodeIndex, const std::string& RootEntityName) const;

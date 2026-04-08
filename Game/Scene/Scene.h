@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "Game/Scene/TerrainHeightResolver.h"
 #include "Arche/World.h"
 #include "System.h"
 #include "SystemSceduler.h"
@@ -47,6 +48,9 @@ namespace Game {
         void PrepareRender();
 
         void InitializeWorldSnapshot();
+        TerrainHeightResolver* CreateTerrainHeightResolver(const HeightFieldData& HeightFieldDataValue, const TerrainBuildDesc& TerrainBuildDescValue);
+        void ClearTerrainHeightResolvers();
+
         void InitializePickingGizmoEntities();
         void OnFileDropped(const std::filesystem::path& FilePath);
         void UpdateWorldSnapshotIfNeeded();
@@ -73,7 +77,9 @@ namespace Game {
         std::uint64_t mHierarchyEntitySelectedSubscriptionId{};
         std::uint64_t mFileDropSubscriptionId{};
         bool mIsDefaultCameraControlBehaviorAttached{};
+        bool mIsBoundingBoxDrawEnabled{};
 
 		Script::LuaBehaviorFramework mLuaScriptFramework{};
+        std::vector<std::unique_ptr<TerrainHeightResolver>> mTerrainHeightResolvers{};
     };
 }

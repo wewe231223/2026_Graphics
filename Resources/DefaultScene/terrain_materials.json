@@ -1,0 +1,17 @@
+{
+  "MaterialGroups": [
+    {
+      "Name": "terrain_material",
+      "Items": [
+        {
+          "PipelineName": "TerrainGraphics",
+          "MaterialData": {
+            "Name": "Terrain",
+            "PBR": false,
+            "Properties": {}
+          }
+        }
+      ]
+    }
+  ]
+}

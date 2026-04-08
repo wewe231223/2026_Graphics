@@ -1,4 +1,4 @@
-#include "StaticRenderSystem.h"
+﻿#include "StaticRenderSystem.h"
 
 #include <array>
 #include <cstddef>
@@ -101,7 +101,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> StaticRenderSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 7> Accesses{ { { typeid(Transform), Access::Write }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(Material), Access::Read }, { typeid(BoundingBox), Access::Read }, { typeid(Frustum), Access::Read }, { typeid(Culling), Access::Read } } };
+        static std::array<ComponentAccess, 7> Accesses{ { { typeid(Transform), Access::Write }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(Material), Access::Read }, { typeid(BoundingBox), Access::Write }, { typeid(Frustum), Access::Read }, { typeid(Culling), Access::Read } } };
         return Accesses;
     }
 
@@ -144,9 +144,13 @@ namespace Game {
 
             TransformComponent.worldMatrix = NodeWorld;
 
+            BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityId) };
+            if (BoundingBoxComponent != nullptr) {
+                BoundingBoxComponent->UpdateWorldObb(NodeWorld);
+            }
 
             // 스카이박스 프러스텀 컬링 문제.
-            const bool IsVisible{ IsVisibleByFrustum(World, EntityId, NodeWorld, CullingFrustumComponent) };
+            const bool IsVisible{ IsVisibleByFrustum(World, EntityId, CullingFrustumComponent) };
             if (IsVisible == false) {
                 continue;
             }
@@ -165,6 +169,16 @@ namespace Game {
             RFD::ModelContext ModelContext{};
             ModelContext.world = NodeWorld;
             ModelContext.prevWorld = ModelContext.world;
+
+            if (BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
+                const DirectX::BoundingOrientedBox& WorldObb{ BoundingBoxComponent->GetWorldObb() };
+                RFD::BoundingBoxContext BoundingBoxContext{};
+                BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
+                BoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
+                BoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
+                RenderData.boundingBoxContexts.push_back(BoundingBoxContext);
+            }
+
             ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());
             RenderData.modelContexts.push_back(ModelContext);
             const std::uint32_t MaterialFlags{ MaterialComponent == nullptr ? 0u : MaterialComponent->Flags };
@@ -214,7 +228,7 @@ namespace Game {
         }
     }
 
-    bool StaticRenderSystem::IsVisibleByFrustum(Arche::World& World, Arche::EntityID EntityId, const SimpleMath::Matrix& NodeWorld, const Frustum* CullingFrustumComponent) const {
+    bool StaticRenderSystem::IsVisibleByFrustum(Arche::World& World, Arche::EntityID EntityId, const Frustum* CullingFrustumComponent) const {
         const Culling* CullingComponent{ World.GetComponent<Culling>(EntityId) };
         if (CullingComponent != nullptr && CullingComponent->frustumCulling == false) {
             return true;
@@ -225,12 +239,10 @@ namespace Game {
         }
 
         const BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityId) };
-        if (BoundingBoxComponent == nullptr) {
+        if (BoundingBoxComponent == nullptr || BoundingBoxComponent->HasWorldObb() == false) {
             return true;
         }
 
-        DirectX::BoundingOrientedBox WorldBoundingBox{};
-        BoundingBoxComponent->GetObb().Transform(WorldBoundingBox, NodeWorld);
-        return CullingFrustumComponent->Intersects(WorldBoundingBox);
+        return CullingFrustumComponent->Intersects(BoundingBoxComponent->GetWorldObb());
     }
 }

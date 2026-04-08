@@ -2,6 +2,7 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <exception>
 #include <fstream>
 #include <format>
 #include <memory>
@@ -28,6 +29,8 @@
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Tags.h"
 #include "Game/Scene/Components/Transform.h"
+#include "Game/Scene/Components/TerrainCollider.h"
+#include "Game/Scene/Systems/TerrainCollideSystem.h"
 #include "Game/Scene/Systems/AnimationGraphSystem.h"
 #include "Game/Scene/Systems/AnimateSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshRenderSystem.h"
@@ -36,12 +39,16 @@
 #include "Game/Scene/Systems/CameraRenderSystem.h"
 #include "Game/Scene/Systems/SkinningSystem.h"
 #include "Game/Scene/SceneEntityFactory.h"
+#include "Game/Model/TerrainMeshTypes.h"
+#include "Game/Model/HeightMapLoader.h"
 #include "Utility/StdOutput.h"
 
 namespace {
     constexpr const char* TransformTypeName{ "Transform" };
     constexpr const char* MaterialTypeName{ "Material" };
     constexpr const char* StaticMeshRendererTypeName{ "StaticMeshRenderer" };
+    constexpr const char* TerrainTypeName{ "Terrain" };
+    constexpr const char* TerrainColliderTypeName{ "TerrainCollider" };
     constexpr const char* CullingTypeName{ "Culling" };
     constexpr const char* AnimationTypeName{ "Animation" };
     constexpr const char* CameraTypeName{ "Camera" };
@@ -204,6 +211,7 @@ namespace {
             { "SkinningSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinningSystem>(); } },
             { "PickingSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::PickingSystem>(); } },
             { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },
+            { "TerrainCollideSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TerrainCollideSystem>(); } },
         };
         const std::unordered_map<std::string_view, SystemFactory>::const_iterator FactoryIter{ SystemFactories.find(SystemName) };
         if (FactoryIter == SystemFactories.end()) {
@@ -258,6 +266,10 @@ namespace {
             return FileName;
         }
 
+        if (StartsWith(FileName, "terrain:")) {
+            return FileName;
+        }
+
         const std::filesystem::path SourcePath{ FileName };
         if (SourcePath.is_absolute()) {
             return SourcePath.lexically_normal().generic_string();
@@ -282,6 +294,10 @@ namespace {
         }
 
         if (StartsWith(SourcePath, "primitive:")) {
+            return SourcePath;
+        }
+
+        if (StartsWith(SourcePath, "terrain:")) {
             return SourcePath;
         }
 
@@ -491,6 +507,163 @@ namespace {
         return Value ? std::string{ "true" } : std::string{ "false" };
     }
 
+    std::string BuildTerrainModelSelector(const Game::TerrainBuildDesc& Desc) {
+        std::string Selector{ "terrain:" };
+        Selector += std::string{ "HeightMapPath=" } + Desc.HeightMapPath;
+        Selector += std::string{ ";MaxHeight=" } + std::to_string(Desc.MaxHeight);
+        Selector += std::string{ ";CellSizeX=" } + std::to_string(Desc.CellSizeX);
+        Selector += std::string{ ";CellSizeZ=" } + std::to_string(Desc.CellSizeZ);
+        Selector += std::string{ ";FlipV=" } + (Desc.FlipV == true ? std::string{ "true" } : std::string{ "false" });
+        Selector += std::string{ ";CenterOrigin=" } + (Desc.CenterOrigin == true ? std::string{ "true" } : std::string{ "false" });
+        return Selector;
+    }
+
+    bool TryParseYamlBoolText(const std::string& ValueText, bool& OutValue) {
+        if (ValueText == "true" || ValueText == "True" || ValueText == "1") {
+            OutValue = true;
+            return true;
+        }
+
+        if (ValueText == "false" || ValueText == "False" || ValueText == "0") {
+            OutValue = false;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool TryReadTerrainBuildDesc(c4::yml::ConstNodeRef TerrainNode, const std::string& SceneName, Game::TerrainBuildDesc& OutDesc) {
+        if (TerrainNode.readable() == false || TerrainNode.is_map() == false) {
+            return false;
+        }
+
+        std::string HeightMapPath{};
+        if (TerrainNode.has_child("HeightMapPath") == false) {
+            return false;
+        }
+
+        TerrainNode["HeightMapPath"] >> HeightMapPath;
+        if (HeightMapPath.empty()) {
+            return false;
+        }
+
+        OutDesc.HeightMapPath = ResolveSceneResourcePath(SceneName, HeightMapPath);
+        if (TerrainNode.has_child("MaxHeight")) {
+            TerrainNode["MaxHeight"] >> OutDesc.MaxHeight;
+        }
+
+        if (TerrainNode.has_child("CellSizeX")) {
+            TerrainNode["CellSizeX"] >> OutDesc.CellSizeX;
+        }
+
+        if (TerrainNode.has_child("CellSizeZ")) {
+            TerrainNode["CellSizeZ"] >> OutDesc.CellSizeZ;
+        }
+
+        if (TerrainNode.has_child("FlipV")) {
+            std::string ValueText{};
+            TerrainNode["FlipV"] >> ValueText;
+            bool Value{};
+            if (TryParseYamlBoolText(ValueText, Value) == false) {
+                return false;
+            }
+
+            OutDesc.FlipV = Value;
+        }
+
+        if (TerrainNode.has_child("CenterOrigin")) {
+            std::string ValueText{};
+            TerrainNode["CenterOrigin"] >> ValueText;
+            bool Value{};
+            if (TryParseYamlBoolText(ValueText, Value) == false) {
+                return false;
+            }
+
+            OutDesc.CenterOrigin = Value;
+        }
+
+        return true;
+    }
+
+    bool TryParseTerrainModelSelector(const std::string& Selector, Game::TerrainBuildDesc& OutDesc) {
+        if (StartsWith(Selector, "terrain:") == false) {
+            return false;
+        }
+
+        const std::string ParameterText{ Selector.substr(8) };
+        if (ParameterText.empty()) {
+            return false;
+        }
+
+        try {
+            std::size_t CurrentStart{ 0 };
+            while (CurrentStart < ParameterText.size()) {
+                const std::size_t TokenEnd{ ParameterText.find(';', CurrentStart) };
+                const std::size_t TokenLength{ TokenEnd == std::string::npos ? ParameterText.size() - CurrentStart : TokenEnd - CurrentStart };
+                const std::string Token{ ParameterText.substr(CurrentStart, TokenLength) };
+                const std::size_t EqualsIndex{ Token.find('=') };
+                if (EqualsIndex == std::string::npos || EqualsIndex == 0 || EqualsIndex + 1 >= Token.size()) {
+                    return false;
+                }
+
+                const std::string Key{ Token.substr(0, EqualsIndex) };
+                const std::string Value{ Token.substr(EqualsIndex + 1) };
+                if (Key == "HeightMapPath") {
+                    OutDesc.HeightMapPath = Value;
+                }
+                else if (Key == "MaxHeight") {
+                    OutDesc.MaxHeight = std::stof(Value);
+                }
+                else if (Key == "CellSizeX") {
+                    OutDesc.CellSizeX = std::stof(Value);
+                }
+                else if (Key == "CellSizeZ") {
+                    OutDesc.CellSizeZ = std::stof(Value);
+                }
+                else if (Key == "FlipV") {
+                    bool BoolValue{};
+                    if (TryParseYamlBoolText(Value, BoolValue) == false) {
+                        return false;
+                    }
+
+                    OutDesc.FlipV = BoolValue;
+                }
+                else if (Key == "CenterOrigin") {
+                    bool BoolValue{};
+                    if (TryParseYamlBoolText(Value, BoolValue) == false) {
+                        return false;
+                    }
+
+                    OutDesc.CenterOrigin = BoolValue;
+                }
+                else {
+                    return false;
+                }
+
+                if (TokenEnd == std::string::npos) {
+                    break;
+                }
+
+                CurrentStart = TokenEnd + 1;
+            }
+        }
+        catch (const std::exception&) {
+            return false;
+        }
+
+        return OutDesc.HeightMapPath.empty() == false;
+    }
+
+    void AppendTerrainBuildDesc(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& SceneName, const Game::TerrainBuildDesc& Desc) {
+        AppendLine(Stream, IndentLevel, std::string{ TerrainTypeName } + std::string{ ":" });
+        AppendLine(Stream, IndentLevel + 1, std::string{ "HeightMapPath: " } + ToYamlText(MakeSceneRelativeResourcePath(SceneName, Desc.HeightMapPath)));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "MaxHeight: " } + std::to_string(Desc.MaxHeight));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "CellSizeX: " } + std::to_string(Desc.CellSizeX));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "CellSizeZ: " } + std::to_string(Desc.CellSizeZ));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "FlipV: " } + ToYamlBooleanText(Desc.FlipV));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "CenterOrigin: " } + ToYamlBooleanText(Desc.CenterOrigin));
+    }
+
     void AppendVector3(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& Key, const SimpleMath::Vector3& Value) {
         AppendLine(Stream, IndentLevel, Key + std::string{ ": [" } + std::to_string(Value.x) + std::string{ ", " } + std::to_string(Value.y) + std::string{ ", " } + std::to_string(Value.z) + std::string{ "]" });
     }
@@ -687,6 +860,7 @@ namespace Game {
             return LoadResult;
         }
 
+        OutScene.ClearTerrainHeightResolvers();
         SceneEntityFactory EntityFactory{ OutScene };
         std::unordered_map<std::int64_t, Arche::EntityID> EntityBySerializedId{};
         std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredParents{};
@@ -745,6 +919,16 @@ namespace Game {
                 }
 
                 OutScene.GetWorld().AddComponent(Entity, NewTransform);
+            }
+
+            if (ComponentsNode.has_child(TerrainColliderTypeName)) {
+                TerrainCollider NewTerrainCollider{};
+                const c4::yml::ConstNodeRef TerrainColliderNode{ ComponentsNode[TerrainColliderTypeName] };
+                if (TerrainColliderNode.has_child("TerrainCollide")) {
+                    TerrainColliderNode["TerrainCollide"] >> NewTerrainCollider.mTerrainCollide;
+                }
+
+                OutScene.GetWorld().AddComponent(Entity, NewTerrainCollider);
             }
 
             std::uint32_t MaterialGroupIndexForModel{ 0 };
@@ -879,7 +1063,48 @@ namespace Game {
                 }
             }
 
-            if (ComponentsNode.has_child(StaticMeshRendererTypeName) && HasInstantiatedPrefabModel == false) {
+            if (ComponentsNode.has_child(TerrainTypeName) && HasInstantiatedPrefabModel == false) {
+                const c4::yml::ConstNodeRef TerrainNode{ ComponentsNode[TerrainTypeName] };
+                TerrainBuildDesc Desc{};
+                const bool IsTerrainDescRead{ TryReadTerrainBuildDesc(TerrainNode, SceneName, Desc) };
+                if (IsTerrainDescRead == false) {
+                    LoadResult.IsSuccess = false;
+                    LoadResult.UndecidedItems.push_back("Terrain Component 데이터 해석 실패");
+                }
+                else {
+                    const std::string TerrainSelector{ BuildTerrainModelSelector(Desc) };
+                    const std::shared_ptr<Model> ModelData{ OutScene.GetAssetRegistry().GetModel(TerrainSelector) };
+                    if (ModelData == nullptr) {
+                        LoadResult.IsSuccess = false;
+                        LoadResult.UndecidedItems.push_back(std::string{ "Terrain 생성 실패: " } + Desc.HeightMapPath);
+                    }
+                    else {
+                        bool IsActive{ true };
+                        if (TerrainNode.has_child("active")) {
+                            TerrainNode["active"] >> IsActive;
+                        }
+
+                        HeightMapLoader HeightMapLoaderInstance{};
+                        const HeightFieldData HeightFieldDataValue{ HeightMapLoaderInstance.LoadHeightField(Desc.HeightMapPath) };
+                        TerrainHeightResolver* TerrainHeightResolverPointer{ OutScene.CreateTerrainHeightResolver(HeightFieldDataValue, Desc) };
+
+                        ModelHierarchySpawnRequest SpawnRequest{};
+                        SpawnRequest.ModelData = ModelData;
+                        SpawnRequest.RootEntityId = Entity;
+                        SpawnRequest.MaterialGroupIndex = MaterialGroupIndexForModel;
+                        SpawnRequest.FrustumCullingEnabled = FrustumCullingEnabled;
+                        SpawnRequest.IsActive = IsActive;
+                        SpawnRequest.TerrainHeightResolverPointer = TerrainHeightResolverPointer;
+                        const bool IsSpawned{ EntityFactory.SpawnModelHierarchy(SpawnRequest) };
+                        if (IsSpawned == false) {
+                            LoadResult.IsSuccess = false;
+                            LoadResult.UndecidedItems.push_back(std::string{ "Terrain RootNode 를 찾을 수 없습니다: " } + Desc.HeightMapPath);
+                        }
+                    }
+                }
+            }
+
+            if (ComponentsNode.has_child(StaticMeshRendererTypeName) && ComponentsNode.has_child(TerrainTypeName) == false && HasInstantiatedPrefabModel == false) {
                 const c4::yml::ConstNodeRef StaticMeshRendererNode{ ComponentsNode[StaticMeshRendererTypeName] };
                 if (StaticMeshRendererNode.has_child("modelPath") || StaticMeshRendererNode.has_child("modelPrimitive")) {
                     std::string ModelSelector{};
@@ -1522,16 +1747,25 @@ namespace Game {
             }
 
             if (StaticMeshRendererComponent != nullptr && PrefabInstanceComponent == nullptr) {
-                AppendLine(Stream, 3, std::string{ StaticMeshRendererTypeName } + std::string{ ":" });
                 const std::string ModelSelector{ AssetRegistryInstance->FindModelSelectorByPointer(StaticMeshRendererComponent->model) };
                 if (ModelSelector.empty()) {
                     SaveResult.IsSuccess = false;
                     SaveResult.UndecidedItems.push_back("StaticMeshRenderer model 포인터에 대응되는 selector 를 찾지 못했습니다.");
                 }
-
-                const std::string ModelSelectorForYaml{ MakeSceneRelativeResourcePath(TargetSnapshot.GetSceneName(), ModelSelector) };
-                AppendLine(Stream, 4, std::string{ "modelPath: " } + ToYamlText(ModelSelectorForYaml));
-                AppendLine(Stream, 4, std::string{ "active: " } + ToYamlBooleanText(StaticMeshRendererComponent->active));
+                else {
+                    TerrainBuildDesc TerrainDesc{};
+                    const bool IsTerrainModel{ TryParseTerrainModelSelector(ModelSelector, TerrainDesc) };
+                    if (IsTerrainModel == true) {
+                        AppendTerrainBuildDesc(Stream, 3, TargetSnapshot.GetSceneName(), TerrainDesc);
+                        AppendLine(Stream, 4, std::string{ "active: " } + ToYamlBooleanText(StaticMeshRendererComponent->active));
+                    }
+                    else {
+                        AppendLine(Stream, 3, std::string{ StaticMeshRendererTypeName } + std::string{ ":" });
+                        const std::string ModelSelectorForYaml{ MakeSceneRelativeResourcePath(TargetSnapshot.GetSceneName(), ModelSelector) };
+                        AppendLine(Stream, 4, std::string{ "modelPath: " } + ToYamlText(ModelSelectorForYaml));
+                        AppendLine(Stream, 4, std::string{ "active: " } + ToYamlBooleanText(StaticMeshRendererComponent->active));
+                    }
+                }
             }
 
             if (CameraComponent != nullptr) {

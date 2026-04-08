@@ -30,8 +30,11 @@
     <ClInclude Include="Model\AssetRegistry.h" />
     <ClInclude Include="Asset\AnimationGraphAsset.h" />
     <ClInclude Include="Model\AssetRegistryBackEnd.h" />
+    <ClInclude Include="Model\HeightMapLoader.h" />
     <ClInclude Include="Model\Model.h" />
     <ClInclude Include="Model\PrimitiveModelFactory.h" />
+    <ClInclude Include="Model\TerrainMeshBuilder.h" />
+    <ClInclude Include="Model\TerrainMeshTypes.h" />
     <ClInclude Include="Scene\Components\BoundingBox.h" />
     <ClInclude Include="Scene\Components\Bone.h" />
     <ClInclude Include="Scene\Components\BoneSkinReference.h" />
@@ -55,6 +58,10 @@
     <ClInclude Include="Scene\Components\SkinnedMeshRenderer.h" />
     <ClInclude Include="Scene\Components\Tags.h" />
     <ClInclude Include="Scene\Components\Transform.h" />
+    <ClInclude Include="Scene\Systems\TerrainCollideSystem.h" />
+    <ClInclude Include="Scene\TerrainHeightResolver.h" />
+    <ClInclude Include="Scene\Components\TerrainCollidee.h" />
+    <ClInclude Include="Scene\Components\TerrainCollider.h" />
     <ClInclude Include="Scene\Scene.h" />
     <ClInclude Include="Scene\SceneEntityFactory.h" />
     <ClInclude Include="Scene\SceneWorldSnapshot.h" />
@@ -77,8 +84,10 @@
     <ClCompile Include="Base\Time.cpp" />
     <ClCompile Include="Model\AssetRegistry.cpp" />
     <ClCompile Include="Model\AssetRegistryBackEnd.cpp" />
+    <ClCompile Include="Model\HeightMapLoader.cpp" />
     <ClCompile Include="Model\Model.cpp" />
     <ClCompile Include="Model\PrimitiveModelFactory.cpp" />
+    <ClCompile Include="Model\TerrainMeshBuilder.cpp" />
     <ClCompile Include="Asset\AnimationGraphAsset.cpp" />
     <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp" />
     <ClCompile Include="Scene\Components\Culling.cpp" />
@@ -107,6 +116,10 @@
     <ClCompile Include="Scene\Components\StaticMeshRenderer.cpp" />
     <ClCompile Include="Scene\Components\SkinnedMeshRenderer.cpp" />
     <ClCompile Include="Scene\Components\ComponentInspection.cpp" />
+    <ClCompile Include="Scene\Systems\TerrainCollideSystem.cpp" />
+    <ClCompile Include="Scene\TerrainHeightResolver.cpp" />
+    <ClCompile Include="Scene\Components\TerrainCollidee.cpp" />
+    <ClCompile Include="Scene\Components\TerrainCollider.cpp" />
     <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp" />
     <ClCompile Include="Scene\Systems\AnimateSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
@@ -117,6 +130,10 @@
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shader\Source\BasicShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\BoundingBoxLineShader.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
@@ -132,12 +149,18 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
+    <FxCompile Include="..\Shader\Source\TerrainShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Resources\DefaultScene.yaml" />
+    <None Include="..\Resources\DefaultScene\terrain_materials.json" />
     <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml" />
     <None Include="..\Script\Lua\CameraController.lua" />
     <None Include="..\Shader\PSO\DefaultGraphics.json" />
+    <None Include="..\Shader\PSO\TerrainGraphics.json" />
     <None Include="..\Shader\PSO\SkinnedGraphics.json" />
     <None Include="..\Shader\PSO\SkyDomeGraphics.json" />
     <None Include="..\Shader\PSO\Schema.Pipeline.json" />
