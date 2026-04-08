@@ -143,7 +143,7 @@ namespace {
         return true;
     }
 
-    void GatherBoneMatricesRecursive(Arche::World& World, Arche::EntityID EntityId, Game::Model* ModelData, std::uint32_t SkinArrayIndex, const SimpleMath::Matrix& MeshWorldInverseMatrix, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, std::vector<SimpleMath::Matrix>& InOutBoneMatrices) {
+    void GatherBonePoseAndBoundingRecursive(Arche::World& World, Arche::EntityID EntityId, Game::Model* ModelData, std::uint32_t SkinArrayIndex, const SimpleMath::Matrix& MeshWorldInverseMatrix, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, std::vector<SimpleMath::Matrix>* InOutBoneMatrices, std::optional<DirectX::BoundingBox>* InOutMergedAabb, Game::RFD::RenderFrameData* InOutRenderData) {
         if (EntityId == Arche::NullEntityID || ModelData == nullptr) {
             return;
         }
@@ -164,76 +164,13 @@ namespace {
                         continue;
                     }
 
-                    if (RuntimeBoneInfoItem.JointArrayIndex >= InOutBoneMatrices.size()) {
-                        continue;
+                    if (InOutBoneMatrices != nullptr && RuntimeBoneInfoItem.JointArrayIndex < InOutBoneMatrices->size()) {
+                        (*InOutBoneMatrices)[RuntimeBoneInfoItem.JointArrayIndex] = RuntimeBoneInfoItem.InverseBindMatrix * BoneWorldMatrix * MeshWorldInverseMatrix;
                     }
-
-                    InOutBoneMatrices[RuntimeBoneInfoItem.JointArrayIndex] = RuntimeBoneInfoItem.InverseBindMatrix * BoneWorldMatrix * MeshWorldInverseMatrix;
                 }
-            }
-        }
 
-        Arche::EntityID ChildEntityId{ HierarchyComponent->firstChild };
-        while (ChildEntityId != Arche::NullEntityID) {
-            const Game::EntityHierarchy* ChildHierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(ChildEntityId) };
-            if (ChildHierarchyComponent == nullptr) {
-                break;
-            }
-
-            GatherBoneMatricesRecursive(World, ChildEntityId, ModelData, SkinArrayIndex, MeshWorldInverseMatrix, InOutWorldMatrices, InOutBoneMatrices);
-            ChildEntityId = ChildHierarchyComponent->nextSibling;
-        }
-    }
-
-    bool TryBuildBoneMatricesFallback(Arche::World& World, Arche::EntityID BoneRootEntityId, Game::SkinnedMeshRenderer& SkinnedMeshRendererComponent, const SimpleMath::Matrix& MeshWorldMatrix, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, std::uint32_t& OutSkinArrayIndex, std::vector<SimpleMath::Matrix>& OutBoneMatrices) {
-        const std::vector<Game::ModelNode>& Nodes{ SkinnedMeshRendererComponent.model->GetNodes() };
-        if (SkinnedMeshRendererComponent.nodeIndex >= Nodes.size()) {
-            return false;
-        }
-
-        const Game::ModelNode& Node{ Nodes[SkinnedMeshRendererComponent.nodeIndex] };
-        const std::uint32_t SkinArrayIndex{ Node.GetId() };
-        std::uint32_t BoneMatrixCount{ 0 };
-        const bool IsBoneMatrixCountResolved{ SkinnedMeshRendererComponent.model->TryGetRuntimeBoneMatrixCount(SkinArrayIndex, BoneMatrixCount) };
-        if (IsBoneMatrixCountResolved == false || BoneMatrixCount == 0) {
-            return false;
-        }
-
-        SimpleMath::Matrix MeshWorldInverseMatrix{ MeshWorldMatrix };
-        MeshWorldInverseMatrix = MeshWorldInverseMatrix.Invert();
-
-        std::vector<SimpleMath::Matrix> BoneMatrices{};
-        BoneMatrices.resize(static_cast<std::size_t>(BoneMatrixCount), SimpleMath::Matrix::Identity);
-        GatherBoneMatricesRecursive(World, BoneRootEntityId, SkinnedMeshRendererComponent.model, SkinArrayIndex, MeshWorldInverseMatrix, InOutWorldMatrices, BoneMatrices);
-        OutSkinArrayIndex = SkinArrayIndex;
-        OutBoneMatrices = std::move(BoneMatrices);
-        return true;
-    }
-
-    bool TryBuildBoundingContextFromObb(const DirectX::BoundingOrientedBox& WorldObb, Game::RFD::BoundingBoxContext& OutBoundingBoxContext) {
-        OutBoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
-        OutBoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
-        OutBoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
-        return true;
-    }
-
-    void UpdateBoneBoundingBoxesRecursive(Arche::World& World, Arche::EntityID EntityId, Game::Model* ModelData, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, std::optional<DirectX::BoundingBox>& InOutMergedAabb, Game::RFD::RenderFrameData& InOutRenderData) {
-        if (EntityId == Arche::NullEntityID || ModelData == nullptr) {
-            return;
-        }
-
-        const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(EntityId) };
-        if (HierarchyComponent == nullptr) {
-            return;
-        }
-
-        const Game::Bone* BoneComponent{ World.GetComponent<Game::Bone>(EntityId) };
-        if (BoneComponent != nullptr && BoneComponent->model == ModelData) {
-            Game::BoundingBox* BoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(EntityId) };
-            if (BoundingBoxComponent != nullptr) {
-                SimpleMath::Matrix BoneWorldMatrix{};
-                const bool IsBoneWorldMatrixResolved{ TryResolveWorldMatrix(World, EntityId, InOutWorldMatrices, BoneWorldMatrix) };
-                if (IsBoneWorldMatrixResolved == true) {
+                Game::BoundingBox* BoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(EntityId) };
+                if (BoundingBoxComponent != nullptr) {
                     BoundingBoxComponent->UpdateWorldObb(BoneWorldMatrix);
                     if (BoundingBoxComponent->HasWorldObb() == true) {
                         const DirectX::BoundingOrientedBox& BoneWorldObb{ BoundingBoxComponent->GetWorldObb() };
@@ -241,16 +178,25 @@ namespace {
                         std::array<SimpleMath::Vector3, 8> BoneCorners{};
                         BoneWorldObb.GetCorners(reinterpret_cast<DirectX::XMFLOAT3*>(BoneCorners.data()));
                         DirectX::BoundingBox::CreateFromPoints(BoneWorldAabb, BoneCorners.size(), reinterpret_cast<const DirectX::XMFLOAT3*>(BoneCorners.data()), sizeof(SimpleMath::Vector3));
-                        if (InOutMergedAabb.has_value() == true) {
-                            DirectX::BoundingBox::CreateMerged(*InOutMergedAabb, *InOutMergedAabb, BoneWorldAabb);
-                        }
-                        else {
-                            InOutMergedAabb = BoneWorldAabb;
+                        if (InOutMergedAabb != nullptr) {
+                            if (InOutMergedAabb->has_value() == true) {
+                                DirectX::BoundingBox::CreateMerged(**InOutMergedAabb, **InOutMergedAabb, BoneWorldAabb);
+                            }
+                            else {
+                                *InOutMergedAabb = BoneWorldAabb;
+                            }
                         }
 
-                        Game::RFD::BoundingBoxContext BoneBoundingBoxContext{};
-                        TryBuildBoundingContextFromObb(BoneWorldObb, BoneBoundingBoxContext);
-                        InOutRenderData.boundingBoxContexts.push_back(BoneBoundingBoxContext);
+                        if (InOutRenderData != nullptr) {
+                            Game::RFD::BoundingBoxContext BoneBoundingBoxContext{};
+       
+                            BoneBoundingBoxContext.center = SimpleMath::Vector4{ BoneWorldObb.Center.x, BoneWorldObb.Center.y, BoneWorldObb.Center.z, 1.0f };
+                            BoneBoundingBoxContext.extents = SimpleMath::Vector4{ BoneWorldObb.Extents.x, BoneWorldObb.Extents.y, BoneWorldObb.Extents.z, 0.0f };
+                            BoneBoundingBoxContext.orientation = SimpleMath::Vector4{ BoneWorldObb.Orientation.x, BoneWorldObb.Orientation.y, BoneWorldObb.Orientation.z, BoneWorldObb.Orientation.w };
+
+
+                            InOutRenderData->boundingBoxContexts.push_back(BoneBoundingBoxContext);
+                        }
                     }
                 }
             }
@@ -263,10 +209,11 @@ namespace {
                 break;
             }
 
-            UpdateBoneBoundingBoxesRecursive(World, ChildEntityId, ModelData, InOutWorldMatrices, InOutMergedAabb, InOutRenderData);
+            GatherBonePoseAndBoundingRecursive(World, ChildEntityId, ModelData, SkinArrayIndex, MeshWorldInverseMatrix, InOutWorldMatrices, InOutBoneMatrices, InOutMergedAabb, InOutRenderData);
             ChildEntityId = ChildHierarchyComponent->nextSibling;
         }
     }
+
 }
 
 namespace Game {
@@ -330,8 +277,40 @@ namespace Game {
                 BoundingBoxComponent->UpdateWorldObb(MeshWorldMatrix);
             }
 
+            const std::vector<ModelNode>& Nodes{ SkinnedMeshRendererComponent.model->GetNodes() };
+            if (SkinnedMeshRendererComponent.nodeIndex >= Nodes.size()) {
+                continue;
+            }
+
+            const ModelNode& Node{ Nodes[SkinnedMeshRendererComponent.nodeIndex] };
+            const std::uint32_t SkinArrayIndex{ Node.GetId() };
+
+            std::vector<SimpleMath::Matrix> BoneMatrices{};
+            std::span<const SimpleMath::Matrix> ResolvedBoneMatrices{};
+            bool IsCacheHit{ false };
+            const std::unordered_map<Arche::EntityID, SkinnedPoseCacheEntry>::const_iterator CacheIter{ Ctx.SkinnedPoseCache.find(EntityId) };
+            if (CacheIter != Ctx.SkinnedPoseCache.end()) {
+                const SkinnedPoseCacheEntry& CacheEntry{ CacheIter->second };
+                if (CacheEntry.IsValid == true && CacheEntry.SkinArrayIndex == SkinArrayIndex && CacheEntry.BoneMatrices.empty() == false) {
+                    ResolvedBoneMatrices = CacheEntry.BoneMatrices;
+                    IsCacheHit = true;
+                }
+            }
+
+            std::uint32_t BoneMatrixCount{ 0 };
+            const bool IsBoneMatrixCountResolved{ SkinnedMeshRendererComponent.model->TryGetRuntimeBoneMatrixCount(SkinArrayIndex, BoneMatrixCount) };
+            if (IsBoneMatrixCountResolved == false || BoneMatrixCount == 0) {
+                continue;
+            }
+
+            if (IsCacheHit == false) {
+                BoneMatrices.resize(static_cast<std::size_t>(BoneMatrixCount), SimpleMath::Matrix::Identity);
+            }
+
             std::optional<DirectX::BoundingBox> MergedBoneAabb{};
-            UpdateBoneBoundingBoxesRecursive(World, BoneRootEntityId, SkinnedMeshRendererComponent.model, Ctx.WorldMatrices, MergedBoneAabb, RenderData);
+            SimpleMath::Matrix MeshWorldInverseMatrix{ MeshWorldMatrix };
+            MeshWorldInverseMatrix = MeshWorldInverseMatrix.Invert();
+            GatherBonePoseAndBoundingRecursive(World, BoneRootEntityId, SkinnedMeshRendererComponent.model, SkinArrayIndex, MeshWorldInverseMatrix, Ctx.WorldMatrices, IsCacheHit == false ? &BoneMatrices : nullptr, &MergedBoneAabb, &RenderData);
             if (BoundingBoxComponent != nullptr && MergedBoneAabb.has_value() == true) {
                 DirectX::BoundingOrientedBox MergedBoneObb{};
                 DirectX::BoundingOrientedBox::CreateFromBoundingBox(MergedBoneObb, *MergedBoneAabb);
@@ -339,33 +318,7 @@ namespace Game {
                 BoundingBoxComponent->SetWorldObb(MergedBoneObb);
             }
 
-            const std::vector<ModelNode>& Nodes{ SkinnedMeshRendererComponent.model->GetNodes() };
-            if (SkinnedMeshRendererComponent.nodeIndex >= Nodes.size()) {
-                continue;
-            }
-
-            const ModelNode& Node{ Nodes[SkinnedMeshRendererComponent.nodeIndex] };
-
-            std::uint32_t SkinArrayIndex{ 0 };
-            std::vector<SimpleMath::Matrix> BoneMatrices{};
-            std::span<const SimpleMath::Matrix> ResolvedBoneMatrices{};
-            bool IsCacheHit{ false };
-            const std::unordered_map<Arche::EntityID, SkinnedPoseCacheEntry>::const_iterator CacheIter{ Ctx.SkinnedPoseCache.find(EntityId) };
-            if (CacheIter != Ctx.SkinnedPoseCache.end()) {
-                const SkinnedPoseCacheEntry& CacheEntry{ CacheIter->second };
-                if (CacheEntry.IsValid == true && CacheEntry.SkinArrayIndex == Node.GetId() && CacheEntry.BoneMatrices.empty() == false) {
-                    SkinArrayIndex = CacheEntry.SkinArrayIndex;
-                    ResolvedBoneMatrices = CacheEntry.BoneMatrices;
-                    IsCacheHit = true;
-                }
-            }
-
             if (IsCacheHit == false) {
-                const bool IsFallbackBuilt{ TryBuildBoneMatricesFallback(World, BoneRootEntityId, SkinnedMeshRendererComponent, MeshWorldMatrix, Ctx.WorldMatrices, SkinArrayIndex, BoneMatrices) };
-                if (IsFallbackBuilt == false) {
-                    continue;
-                }
-
                 ResolvedBoneMatrices = BoneMatrices;
             }
 
@@ -388,7 +341,11 @@ namespace Game {
             if (BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
                 const DirectX::BoundingOrientedBox& WorldObb{ BoundingBoxComponent->GetWorldObb() };
                 RFD::BoundingBoxContext BoundingBoxContext{};
-                TryBuildBoundingContextFromObb(WorldObb, BoundingBoxContext);
+
+                BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
+                BoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
+                BoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
+
                 RenderData.boundingBoxContexts.push_back(BoundingBoxContext);
             }
 
