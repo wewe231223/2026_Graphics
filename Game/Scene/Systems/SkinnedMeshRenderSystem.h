@@ -1,17 +1,20 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include "Game/Scene/System.h"
 
 namespace Game {
+    class SkinnedMeshRenderSystemWorkerState;
+
     class SkinnedMeshRenderSystem final : public ISystem {
     public:
-        SkinnedMeshRenderSystem() = default;
-        ~SkinnedMeshRenderSystem() override = default;
-        SkinnedMeshRenderSystem(const SkinnedMeshRenderSystem& Other) = default;
-        SkinnedMeshRenderSystem& operator=(const SkinnedMeshRenderSystem& Other) = default;
-        SkinnedMeshRenderSystem(SkinnedMeshRenderSystem&& Other) noexcept = default;
-        SkinnedMeshRenderSystem& operator=(SkinnedMeshRenderSystem&& Other) noexcept = default;
+        SkinnedMeshRenderSystem();
+        ~SkinnedMeshRenderSystem() override;
+        SkinnedMeshRenderSystem(const SkinnedMeshRenderSystem& Other) = delete;
+        SkinnedMeshRenderSystem& operator=(const SkinnedMeshRenderSystem& Other) = delete;
+        SkinnedMeshRenderSystem(SkinnedMeshRenderSystem&& Other) noexcept = delete;
+        SkinnedMeshRenderSystem& operator=(SkinnedMeshRenderSystem&& Other) noexcept = delete;
 
     public:
         const std::string& Name() const override;
@@ -21,6 +24,7 @@ namespace Game {
         void Execute(Arche::World& World, FrameContext& Ctx, float Dt) override;
 
     private:
+        std::unique_ptr<SkinnedMeshRenderSystemWorkerState> mWorkerState{};
         const std::string mName{ "SkinnedMeshRenderSystem" };
     };
 }

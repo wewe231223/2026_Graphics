@@ -1,9 +1,13 @@
 #include "SkinnedMeshRenderSystem.h"
 
 #include <array>
+#include <atomic>
+#include <condition_variable>
 #include <cstdint>
+#include <mutex>
 #include <optional>
 #include <span>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -517,9 +521,166 @@ namespace {
             }
         }
     }
+
 }
 
 namespace Game {
+    class SkinnedMeshRenderSystemWorkerState final {
+    public:
+        SkinnedMeshRenderSystemWorkerState();
+        ~SkinnedMeshRenderSystemWorkerState();
+        SkinnedMeshRenderSystemWorkerState(const SkinnedMeshRenderSystemWorkerState& Other) = delete;
+        SkinnedMeshRenderSystemWorkerState& operator=(const SkinnedMeshRenderSystemWorkerState& Other) = delete;
+        SkinnedMeshRenderSystemWorkerState(SkinnedMeshRenderSystemWorkerState&& Other) noexcept = delete;
+        SkinnedMeshRenderSystemWorkerState& operator=(SkinnedMeshRenderSystemWorkerState&& Other) noexcept = delete;
+
+    public:
+        std::vector<JobOutput> ExecuteJobs(Arche::World& World, const FrameContext& Ctx, const std::vector<JobInput>& JobInputs);
+
+    private:
+        void WorkerLoop();
+
+    private:
+        std::vector<std::thread> mWorkerThreads{};
+        std::mutex mMutex{};
+        std::condition_variable mJobConditionVariable{};
+        std::condition_variable mDoneConditionVariable{};
+        std::atomic<std::size_t> mNextJobIndex{ 0 };
+        std::atomic<std::size_t> mCompletedJobCount{ 0 };
+        Arche::World* mWorld{ nullptr };
+        const FrameContext* mFrameContext{ nullptr };
+        const std::vector<JobInput>* mJobInputs{ nullptr };
+        std::vector<JobOutput>* mJobOutputs{ nullptr };
+        std::size_t mBatchJobCount{ 0 };
+        std::uint64_t mBatchId{ 0 };
+        bool mShouldStop{ false };
+    };
+
+    SkinnedMeshRenderSystemWorkerState::SkinnedMeshRenderSystemWorkerState() {
+        std::uint32_t HardwareThreadCount{ std::thread::hardware_concurrency() };
+        if (HardwareThreadCount == 0) {
+            HardwareThreadCount = 2;
+        }
+
+        std::uint32_t WorkerThreadCount{ HardwareThreadCount / 2 };
+        if (WorkerThreadCount == 0) {
+            WorkerThreadCount = 1;
+        }
+
+        mWorkerThreads.reserve(WorkerThreadCount);
+        for (std::uint32_t WorkerIndex{ 0 }; WorkerIndex < WorkerThreadCount; ++WorkerIndex) {
+            mWorkerThreads.emplace_back(&SkinnedMeshRenderSystemWorkerState::WorkerLoop, this);
+        }
+    }
+
+    SkinnedMeshRenderSystemWorkerState::~SkinnedMeshRenderSystemWorkerState() {
+        {
+            std::lock_guard<std::mutex> LockGuard{ mMutex };
+            mShouldStop = true;
+            ++mBatchId;
+        }
+
+        mJobConditionVariable.notify_all();
+
+        for (std::thread& WorkerThread : mWorkerThreads) {
+            if (WorkerThread.joinable() == true) {
+                WorkerThread.join();
+            }
+        }
+    }
+
+    std::vector<JobOutput> SkinnedMeshRenderSystemWorkerState::ExecuteJobs(Arche::World& World, const FrameContext& Ctx, const std::vector<JobInput>& JobInputs) {
+        std::vector<JobOutput> JobOutputs{};
+        JobOutputs.resize(JobInputs.size());
+        if (JobInputs.empty() == true) {
+            return JobOutputs;
+        }
+
+        {
+            std::lock_guard<std::mutex> LockGuard{ mMutex };
+            mWorld = &World;
+            mFrameContext = &Ctx;
+            mJobInputs = &JobInputs;
+            mJobOutputs = &JobOutputs;
+            mBatchJobCount = JobInputs.size();
+            mNextJobIndex.store(0);
+            mCompletedJobCount.store(0);
+            ++mBatchId;
+        }
+
+        mJobConditionVariable.notify_all();
+
+        std::unique_lock<std::mutex> UniqueLock{ mMutex };
+        mDoneConditionVariable.wait(
+            UniqueLock,
+            [this]() {
+                return mCompletedJobCount.load() >= mBatchJobCount;
+            });
+
+        mWorld = nullptr;
+        mFrameContext = nullptr;
+        mJobInputs = nullptr;
+        mJobOutputs = nullptr;
+        mBatchJobCount = 0;
+
+        return JobOutputs;
+    }
+
+    void SkinnedMeshRenderSystemWorkerState::WorkerLoop() {
+        std::uint64_t LastObservedBatchId{ 0 };
+        while (true) {
+            Arche::World* World{ nullptr };
+            const FrameContext* Ctx{ nullptr };
+            const std::vector<JobInput>* JobInputs{ nullptr };
+            std::vector<JobOutput>* JobOutputs{ nullptr };
+            std::size_t JobCount{ 0 };
+
+            {
+                std::unique_lock<std::mutex> UniqueLock{ mMutex };
+                mJobConditionVariable.wait(
+                    UniqueLock,
+                    [this, LastObservedBatchId]() {
+                        return mShouldStop == true || mBatchId != LastObservedBatchId;
+                    });
+
+                if (mShouldStop == true) {
+                    return;
+                }
+
+                LastObservedBatchId = mBatchId;
+                World = mWorld;
+                Ctx = mFrameContext;
+                JobInputs = mJobInputs;
+                JobOutputs = mJobOutputs;
+                JobCount = mBatchJobCount;
+            }
+
+            if (World == nullptr || Ctx == nullptr || JobInputs == nullptr || JobOutputs == nullptr) {
+                continue;
+            }
+
+            while (true) {
+                const std::size_t JobIndex{ mNextJobIndex.fetch_add(1) };
+                if (JobIndex >= JobCount) {
+                    break;
+                }
+
+                (*JobOutputs)[JobIndex] = ExecuteJob(*World, *Ctx, (*JobInputs)[JobIndex]);
+                const std::size_t CompletedJobCount{ mCompletedJobCount.fetch_add(1) + 1 };
+                if (CompletedJobCount == JobCount) {
+                    std::lock_guard<std::mutex> LockGuard{ mMutex };
+                    mDoneConditionVariable.notify_one();
+                }
+            }
+        }
+    }
+
+    SkinnedMeshRenderSystem::SkinnedMeshRenderSystem()
+        : mWorkerState{ std::make_unique<SkinnedMeshRenderSystemWorkerState>() } {
+    }
+
+    SkinnedMeshRenderSystem::~SkinnedMeshRenderSystem() = default;
+
     const std::string& SkinnedMeshRenderSystem::Name() const {
         return mName;
     }
@@ -550,11 +711,7 @@ namespace Game {
             BuildJobInput(World, Ctx, MaterialGroups, SkinnedMeshRendererComponent, EntityHierarchyComponent, JobInputs);
         }
 
-        std::vector<JobOutput> JobOutputs{};
-        JobOutputs.reserve(JobInputs.size());
-        for (const JobInput& Input : JobInputs) {
-            JobOutputs.push_back(ExecuteJob(World, Ctx, Input));
-        }
+        std::vector<JobOutput> JobOutputs{ mWorkerState->ExecuteJobs(World, Ctx, JobInputs) };
 
         MergeJobLocalWorldMatrices(JobOutputs, Ctx.WorldMatrices);
         ApplyWriteBacks(World, JobOutputs);
