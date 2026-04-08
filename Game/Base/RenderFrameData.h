@@ -82,9 +82,9 @@ namespace Game {
         */
 
         struct alignas(16) BoundingBoxContext final {
-            SimpleMath::Matrix world{};
             SimpleMath::Vector4 center{};
             SimpleMath::Vector4 extents{};
+            SimpleMath::Vector4 orientation{};
         };
 
         struct DrawRecord {

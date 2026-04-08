@@ -42,9 +42,9 @@ struct ModelContextGpu
 
 struct BoundingBoxContextGpu
 {
-    float4x4 World;
     float4 Center;
     float4 Extents;
+    float4 Orientation;
 };
 
 struct DrawRecordGpu

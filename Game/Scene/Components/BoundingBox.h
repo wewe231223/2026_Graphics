@@ -9,11 +9,17 @@ namespace Game {
         BoundingBox,
         ComponentFields(
             ComponentField(DirectX::BoundingOrientedBox, mObb, DirectX::BoundingOrientedBox{})
+            ComponentField(DirectX::BoundingOrientedBox, mWorldObb, DirectX::BoundingOrientedBox{})
+            ComponentField(bool, mIsWorldObbValid, false)
         ),
         ComponentMethods(
             ComponentMethod(void ResetToUnitCube(), ResetToUnitCube)
             ComponentMethod(void UpdateFromModel(const Model* ModelValue, ::std::uint32_t NodeIndex), UpdateFromModel)
+            ComponentMethod(void UpdateWorldObb(const SimpleMath::Matrix& WorldMatrix), UpdateWorldObb)
+            ComponentMethod(void InvalidateWorldObb(), InvalidateWorldObb)
+            ComponentMethod(bool HasWorldObb() const, HasWorldObb)
             ComponentMethod(const DirectX::BoundingOrientedBox& GetObb() const, GetObb)
+            ComponentMethod(const DirectX::BoundingOrientedBox& GetWorldObb() const, GetWorldObb)
         )
     );
 }

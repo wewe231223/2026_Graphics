@@ -20,6 +20,15 @@ BoundingBoxVsOutput VsMain(uint InstanceId : SV_InstanceID)
     return Output;
 }
 
+float3 RotateByQuaternion(float3 VectorValue, float4 QuaternionValue)
+{
+    const float3 QuaternionAxis = QuaternionValue.xyz;
+    const float QuaternionW = QuaternionValue.w;
+    const float3 AxisCrossVector = cross(QuaternionAxis, VectorValue);
+    const float3 RotatedVector = VectorValue + (2.0f * (QuaternionW * AxisCrossVector + cross(QuaternionAxis, AxisCrossVector)));
+    return RotatedVector;
+}
+
 [maxvertexcount(24)]
 void GsMain(point BoundingBoxVsOutput Input[1], inout LineStream<BoundingBoxGsOutput> Stream)
 {
@@ -31,6 +40,7 @@ void GsMain(point BoundingBoxVsOutput Input[1], inout LineStream<BoundingBoxGsOu
 
     const float3 Center = BoundingBoxContext.Center.xyz;
     const float3 Extents = max(BoundingBoxContext.Extents.xyz, float3(0.0001f, 0.0001f, 0.0001f));
+    const float4 Orientation = BoundingBoxContext.Orientation;
 
     const float3 LocalCorners[8] =
     {
@@ -51,7 +61,6 @@ void GsMain(point BoundingBoxVsOutput Input[1], inout LineStream<BoundingBoxGsOu
         uint2(0, 4), uint2(1, 5), uint2(2, 6), uint2(3, 7)
     };
 
-    float4x4 World = transpose(BoundingBoxContext.World);
     float4x4 ViewProj = transpose(FrameGlobals.ViewProj);
 
     for (uint EdgeIndex = 0; EdgeIndex < 12; ++EdgeIndex)
@@ -59,11 +68,11 @@ void GsMain(point BoundingBoxVsOutput Input[1], inout LineStream<BoundingBoxGsOu
         const uint StartCornerIndex = EdgePairs[EdgeIndex].x;
         const uint EndCornerIndex = EdgePairs[EdgeIndex].y;
 
-        const float3 LocalStart = Center + (LocalCorners[StartCornerIndex] * Extents);
-        const float3 LocalEnd = Center + (LocalCorners[EndCornerIndex] * Extents);
+        const float3 LocalStart = RotateByQuaternion(LocalCorners[StartCornerIndex] * Extents, Orientation) + Center;
+        const float3 LocalEnd = RotateByQuaternion(LocalCorners[EndCornerIndex] * Extents, Orientation) + Center;
 
-        const float4 WorldStart = mul(float4(LocalStart, 1.0f), World);
-        const float4 WorldEnd = mul(float4(LocalEnd, 1.0f), World);
+        const float4 WorldStart = float4(LocalStart, 1.0f);
+        const float4 WorldEnd = float4(LocalEnd, 1.0f);
 
         BoundingBoxGsOutput StartVertex;
         StartVertex.Position = mul(WorldStart, ViewProj);

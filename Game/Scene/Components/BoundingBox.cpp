@@ -60,6 +60,8 @@ namespace Game {
         mObb.Center = DirectX::XMFLOAT3{ 0.0f, 0.0f, 0.0f };
         mObb.Extents = DirectX::XMFLOAT3{ 0.0f, 0.0f, 0.0f };
         mObb.Orientation = DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 1.0f };
+        mWorldObb = mObb;
+        mIsWorldObbValid = false;
     }
 
     void BoundingBox::UpdateFromModel(const Model* ModelValue, std::uint32_t NodeIndex) {
@@ -78,6 +80,8 @@ namespace Game {
         const ModelNode& TargetNode{ ModelNodes[NodeIndex] };
         if (TargetNode.HasBoundingBox() == true) {
             mObb = TargetNode.GetBoundingBox();
+            mWorldObb = mObb;
+            mIsWorldObbValid = false;
             return;
         }
 
@@ -88,9 +92,29 @@ namespace Game {
         }
 
         mObb = ExtractedObb;
+        mWorldObb = mObb;
+        mIsWorldObbValid = false;
+    }
+
+    void BoundingBox::UpdateWorldObb(const SimpleMath::Matrix& WorldMatrix) {
+        mObb.Transform(mWorldObb, WorldMatrix);
+        mIsWorldObbValid = true;
+    }
+
+    void BoundingBox::InvalidateWorldObb() {
+        mWorldObb = mObb;
+        mIsWorldObbValid = false;
+    }
+
+    bool BoundingBox::HasWorldObb() const {
+        return mIsWorldObbValid;
     }
 
     const DirectX::BoundingOrientedBox& BoundingBox::GetObb() const {
         return mObb;
+    }
+
+    const DirectX::BoundingOrientedBox& BoundingBox::GetWorldObb() const {
+        return mWorldObb;
     }
 }

@@ -220,7 +220,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> SkinnedMeshRenderSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 5> Accesses{ { { typeid(Animator), Access::Read }, { typeid(BoneSkinReference), Access::Read }, { typeid(SkinnedMeshRenderer), Access::Read }, { typeid(Transform), Access::Read }, { typeid(EntityHierarchy), Access::Read } } };
+        static std::array<ComponentAccess, 6> Accesses{ { { typeid(Animator), Access::Read }, { typeid(BoneSkinReference), Access::Read }, { typeid(SkinnedMeshRenderer), Access::Read }, { typeid(Transform), Access::Write }, { typeid(EntityHierarchy), Access::Read }, { typeid(BoundingBox), Access::Write } } };
         return Accesses;
     }
 
@@ -262,6 +262,13 @@ namespace Game {
             const bool IsMeshWorldMatrixResolved{ TryResolveWorldMatrix(World, EntityId, Ctx.WorldMatrices, MeshWorldMatrix) };
             if (IsMeshWorldMatrixResolved == false) {
                 continue;
+            }
+
+            TransformComponent.worldMatrix = MeshWorldMatrix;
+
+            BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityId) };
+            if (BoundingBoxComponent != nullptr) {
+                BoundingBoxComponent->UpdateWorldObb(MeshWorldMatrix);
             }
 
             const std::vector<ModelNode>& Nodes{ SkinnedMeshRendererComponent.model->GetNodes() };
@@ -310,13 +317,12 @@ namespace Game {
             ModelContext.world = MeshWorldMatrix;
             ModelContext.prevWorld = ModelContext.world;
 
-            const BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityId) };
-            if (BoundingBoxComponent != nullptr) {
-                const DirectX::BoundingOrientedBox& Obb{ BoundingBoxComponent->GetObb() };
+            if (BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
+                const DirectX::BoundingOrientedBox& WorldObb{ BoundingBoxComponent->GetWorldObb() };
                 RFD::BoundingBoxContext BoundingBoxContext{};
-                BoundingBoxContext.world = MeshWorldMatrix;
-                BoundingBoxContext.center = SimpleMath::Vector4{ Obb.Center.x, Obb.Center.y, Obb.Center.z, 1.0f };
-                BoundingBoxContext.extents = SimpleMath::Vector4{ Obb.Extents.x, Obb.Extents.y, Obb.Extents.z, 0.0f };
+                BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
+                BoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
+                BoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
                 RenderData.boundingBoxContexts.push_back(BoundingBoxContext);
             }
 

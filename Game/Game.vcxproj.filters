@@ -159,9 +159,6 @@
     <ClInclude Include="Scene\Systems\SkinningSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\Systems\SkySystem.h">
-      <Filter>Scene\Systems</Filter>
-    </ClInclude>
     <ClInclude Include="Scene\Components\EntityHierarchy.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -338,9 +335,6 @@
     <ClCompile Include="Scene\Systems\SkinningSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\Systems\SkySystem.cpp">
-      <Filter>Scene\Systems</Filter>
-    </ClCompile>
     <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
@@ -415,6 +409,9 @@
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="..\Shader\Source\TerrainShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\BoundingBoxLineShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
   </ItemGroup>
