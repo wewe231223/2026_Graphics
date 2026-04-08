@@ -1,6 +1,9 @@
-﻿#include "AssetBinaryWriter.h"
+#include "AssetBinaryWriter.h"
 
+#include <algorithm>
+#include <array>
 #include <cstring>
+#include <unordered_map>
 #include <vector>
 
 using namespace asset;
@@ -9,30 +12,106 @@ namespace {
     constexpr std::uint32_t FormatVersion{ 10 };
     constexpr char FormatMagic[4]{ 'F', 'B', 'X', 'B' };
 
-    class BBVisitor final {
-    public:
-        bool BuildBoundingBox(const ModelNode& Node, DirectX::BoundingOrientedBox& OutBoundingBox) const {
-            if (Node.IsSkinnedMesh() == true) {
-                return false;
-            }
-
-            const std::vector<Vec3>& Positions{ Node.Vertices().Positions };
-            if (Positions.empty()) {
-                return false;
-            }
-
-            std::vector<DirectX::XMFLOAT3> PositionPoints{};
-            PositionPoints.reserve(Positions.size());
-            for (const Vec3& Position : Positions) {
-                PositionPoints.push_back(DirectX::XMFLOAT3{ Position.x, Position.y, Position.z });
-            }
-
-            DirectX::BoundingBox AxisAlignedBoundingBox{};
-            DirectX::BoundingBox::CreateFromPoints(AxisAlignedBoundingBox, PositionPoints.size(), PositionPoints.data(), sizeof(DirectX::XMFLOAT3));
-            DirectX::BoundingOrientedBox::CreateFromBoundingBox(OutBoundingBox, AxisAlignedBoundingBox);
-            return true;
+    bool TryBuildObbFromPoints(const std::vector<DirectX::XMFLOAT3>& PositionPoints, DirectX::BoundingOrientedBox& OutBoundingBox) {
+        if (PositionPoints.empty()) {
+            return false;
         }
-    };
+
+        DirectX::BoundingBox AxisAlignedBoundingBox{};
+        DirectX::BoundingBox::CreateFromPoints(AxisAlignedBoundingBox, PositionPoints.size(), PositionPoints.data(), sizeof(DirectX::XMFLOAT3));
+        DirectX::BoundingOrientedBox::CreateFromBoundingBox(OutBoundingBox, AxisAlignedBoundingBox);
+        return true;
+    }
+
+    bool TryBuildStaticNodeBoundingBox(const ModelNode& Node, DirectX::BoundingOrientedBox& OutBoundingBox) {
+        const std::vector<Vec3>& Positions{ Node.Vertices().Positions };
+        std::vector<DirectX::XMFLOAT3> PositionPoints{};
+        PositionPoints.reserve(Positions.size());
+
+        for (const Vec3& Position : Positions) {
+            PositionPoints.push_back(DirectX::XMFLOAT3{ Position.x, Position.y, Position.z });
+        }
+
+        return TryBuildObbFromPoints(PositionPoints, OutBoundingBox);
+    }
+
+    std::unordered_map<const ModelNode*, DirectX::BoundingOrientedBox> BuildNodeBoundingBoxes(const std::vector<const ModelNode*>& Nodes) {
+        std::unordered_map<const ModelNode*, DirectX::BoundingOrientedBox> NodeBoundingBoxes{};
+        NodeBoundingBoxes.reserve(Nodes.size());
+        std::unordered_map<std::string, const ModelNode*> NodeByName{};
+        NodeByName.reserve(Nodes.size());
+
+        for (const ModelNode* Node : Nodes) {
+            NodeByName[Node->GetName()] = Node;
+        }
+
+        for (const ModelNode* Node : Nodes) {
+            if (Node->IsSkinnedMesh() == false) {
+                DirectX::BoundingOrientedBox BoundingBox{};
+                const bool IsBuilt{ TryBuildStaticNodeBoundingBox(*Node, BoundingBox) };
+                if (IsBuilt == true) {
+                    NodeBoundingBoxes[Node] = BoundingBox;
+                }
+                continue;
+            }
+
+            const std::vector<Vec3>& Positions{ Node->Vertices().Positions };
+            const std::vector<UVec4>& BoneIndices{ Node->Vertices().BoneIndices };
+            const std::vector<Vec4>& BoneWeights{ Node->Vertices().BoneWeights };
+            const std::vector<ModelBoneInfo>& BoneInfos{ Node->BoneInfos() };
+            if (Positions.empty() == true || BoneIndices.size() != Positions.size() || BoneWeights.size() != Positions.size() || BoneInfos.empty() == true) {
+                continue;
+            }
+
+            std::unordered_map<std::string, std::vector<DirectX::XMFLOAT3>> BonePositionMap{};
+            BonePositionMap.reserve(BoneInfos.size());
+
+            for (std::size_t VertexIndex{ 0 }; VertexIndex < Positions.size(); ++VertexIndex) {
+                const UVec4& VertexBoneIndices{ BoneIndices[VertexIndex] };
+                const Vec4& VertexBoneWeights{ BoneWeights[VertexIndex] };
+                const std::array<float, 4> WeightValues{ VertexBoneWeights.x, VertexBoneWeights.y, VertexBoneWeights.z, VertexBoneWeights.w };
+                std::size_t DominantWeightIndex{ 0 };
+                float DominantWeightValue{ WeightValues[0] };
+
+                for (std::size_t WeightIndex{ 1 }; WeightIndex < WeightValues.size(); ++WeightIndex) {
+                    if (WeightValues[WeightIndex] > DominantWeightValue) {
+                        DominantWeightValue = WeightValues[WeightIndex];
+                        DominantWeightIndex = WeightIndex;
+                    }
+                }
+
+                const std::uint32_t JointArrayIndex{ VertexBoneIndices[DominantWeightIndex] };
+                const auto BoneInfoIter{ std::find_if(BoneInfos.begin(), BoneInfos.end(), [JointArrayIndex](const ModelBoneInfo& BoneInfo) {
+                    return BoneInfo.JointArrayIndex == JointArrayIndex;
+                }) };
+                if (BoneInfoIter == BoneInfos.end()) {
+                    continue;
+                }
+
+                const Vec3& Position{ Positions[VertexIndex] };
+                const SimpleMath::Vector3 PositionVector{ Position.x, Position.y, Position.z };
+                const SimpleMath::Vector3 BoneLocalPosition{ SimpleMath::Vector3::Transform(PositionVector, BoneInfoIter->InverseBindMatrix) };
+                BonePositionMap[BoneInfoIter->BoneName].push_back(DirectX::XMFLOAT3{ BoneLocalPosition.x, BoneLocalPosition.y, BoneLocalPosition.z });
+            }
+
+            for (const auto& [BoneName, BonePositions] : BonePositionMap) {
+                const auto NodeIter{ NodeByName.find(BoneName) };
+                if (NodeIter == NodeByName.end()) {
+                    continue;
+                }
+
+                DirectX::BoundingOrientedBox BoneBoundingBox{};
+                const bool IsBuilt{ TryBuildObbFromPoints(BonePositions, BoneBoundingBox) };
+                if (IsBuilt == false) {
+                    continue;
+                }
+
+                NodeBoundingBoxes[NodeIter->second] = BoneBoundingBox;
+            }
+        }
+
+        return NodeBoundingBoxes;
+    }
 }
 
 AssetBinaryWriter::AssetBinaryWriter() = default;
@@ -76,18 +155,19 @@ void AssetBinaryWriter::WriteModelResult(const ModelResult& Result) {
     }
 
     const std::string UnifiedSkinBoneRootNodeName{ ResolveUnifiedSkinBoneRootNodeName(Nodes) };
+    const std::unordered_map<const ModelNode*, DirectX::BoundingOrientedBox> NodeBoundingBoxes{ BuildNodeBoundingBoxes(Nodes) };
     WriteUint64(static_cast<std::uint64_t>(Nodes.size()));
     WriteString(UnifiedSkinBoneRootNodeName);
-    WriteNodes(Nodes, NodeIndices);
+    WriteNodes(Nodes, NodeIndices, NodeBoundingBoxes);
 }
 
-void AssetBinaryWriter::WriteNodes(const std::vector<const ModelNode*>& Nodes, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices) {
+void AssetBinaryWriter::WriteNodes(const std::vector<const ModelNode*>& Nodes, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices, const std::unordered_map<const ModelNode*, DirectX::BoundingOrientedBox>& NodeBoundingBoxes) {
     for (const ModelNode* Node : Nodes) {
-        WriteNode(*Node, NodeIndices);
+        WriteNode(*Node, NodeIndices, NodeBoundingBoxes);
     }
 }
 
-void AssetBinaryWriter::WriteNode(const ModelNode& Node, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices) {
+void AssetBinaryWriter::WriteNode(const ModelNode& Node, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices, const std::unordered_map<const ModelNode*, DirectX::BoundingOrientedBox>& NodeBoundingBoxes) {
     WriteString(Node.GetName());
     const ModelNode* Parent{ Node.GetParent() };
     if (Parent == nullptr) {
@@ -101,7 +181,7 @@ void AssetBinaryWriter::WriteNode(const ModelNode& Node, const std::unordered_ma
     static_cast<void>(NodeIndices);
     WriteBoneInfos(Node.BoneInfos());
     WriteSkinnedMeshFlag(Node);
-    WriteBoundingBox(Node);
+    WriteBoundingBox(Node, NodeBoundingBoxes);
     WriteVertexAttributes(Node.Vertices());
     WriteUint32Array(Node.Indices());
     WriteSubMeshes(Node.GetSubMeshes());
@@ -135,13 +215,12 @@ void AssetBinaryWriter::WriteSkinnedMeshFlag(const ModelNode& Node) {
     WriteBool(Node.IsSkinnedMesh());
 }
 
-void AssetBinaryWriter::WriteBoundingBox(const ModelNode& Node) {
-    BBVisitor Visitor{};
-    DirectX::BoundingOrientedBox BoundingBox{};
-    const bool IsBuilt{ Visitor.BuildBoundingBox(Node, BoundingBox) };
+void AssetBinaryWriter::WriteBoundingBox(const ModelNode& Node, const std::unordered_map<const ModelNode*, DirectX::BoundingOrientedBox>& NodeBoundingBoxes) {
+    const auto BoundingBoxIter{ NodeBoundingBoxes.find(&Node) };
+    const bool IsBuilt{ BoundingBoxIter != NodeBoundingBoxes.end() };
     WriteBool(IsBuilt);
     if (IsBuilt == true) {
-        WriteBoundingOrientedBox(BoundingBox);
+        WriteBoundingOrientedBox(BoundingBoxIter->second);
     }
 }
 

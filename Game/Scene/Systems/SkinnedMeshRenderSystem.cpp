@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <unordered_map>
 #include <vector>
@@ -208,6 +209,64 @@ namespace {
         OutBoneMatrices = std::move(BoneMatrices);
         return true;
     }
+
+    bool TryBuildBoundingContextFromObb(const DirectX::BoundingOrientedBox& WorldObb, Game::RFD::BoundingBoxContext& OutBoundingBoxContext) {
+        OutBoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
+        OutBoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
+        OutBoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
+        return true;
+    }
+
+    void UpdateBoneBoundingBoxesRecursive(Arche::World& World, Arche::EntityID EntityId, Game::Model* ModelData, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, std::optional<DirectX::BoundingBox>& InOutMergedAabb, Game::RFD::RenderFrameData& InOutRenderData) {
+        if (EntityId == Arche::NullEntityID || ModelData == nullptr) {
+            return;
+        }
+
+        const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(EntityId) };
+        if (HierarchyComponent == nullptr) {
+            return;
+        }
+
+        const Game::Bone* BoneComponent{ World.GetComponent<Game::Bone>(EntityId) };
+        if (BoneComponent != nullptr && BoneComponent->model == ModelData) {
+            Game::BoundingBox* BoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(EntityId) };
+            if (BoundingBoxComponent != nullptr) {
+                SimpleMath::Matrix BoneWorldMatrix{};
+                const bool IsBoneWorldMatrixResolved{ TryResolveWorldMatrix(World, EntityId, InOutWorldMatrices, BoneWorldMatrix) };
+                if (IsBoneWorldMatrixResolved == true) {
+                    BoundingBoxComponent->UpdateWorldObb(BoneWorldMatrix);
+                    if (BoundingBoxComponent->HasWorldObb() == true) {
+                        const DirectX::BoundingOrientedBox& BoneWorldObb{ BoundingBoxComponent->GetWorldObb() };
+                        DirectX::BoundingBox BoneWorldAabb{};
+                        std::array<SimpleMath::Vector3, 8> BoneCorners{};
+                        BoneWorldObb.GetCorners(reinterpret_cast<DirectX::XMFLOAT3*>(BoneCorners.data()));
+                        DirectX::BoundingBox::CreateFromPoints(BoneWorldAabb, BoneCorners.size(), reinterpret_cast<const DirectX::XMFLOAT3*>(BoneCorners.data()), sizeof(SimpleMath::Vector3));
+                        if (InOutMergedAabb.has_value() == true) {
+                            DirectX::BoundingBox::CreateMerged(*InOutMergedAabb, *InOutMergedAabb, BoneWorldAabb);
+                        }
+                        else {
+                            InOutMergedAabb = BoneWorldAabb;
+                        }
+
+                        Game::RFD::BoundingBoxContext BoneBoundingBoxContext{};
+                        TryBuildBoundingContextFromObb(BoneWorldObb, BoneBoundingBoxContext);
+                        InOutRenderData.boundingBoxContexts.push_back(BoneBoundingBoxContext);
+                    }
+                }
+            }
+        }
+
+        Arche::EntityID ChildEntityId{ HierarchyComponent->firstChild };
+        while (ChildEntityId != Arche::NullEntityID) {
+            const Game::EntityHierarchy* ChildHierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(ChildEntityId) };
+            if (ChildHierarchyComponent == nullptr) {
+                break;
+            }
+
+            UpdateBoneBoundingBoxesRecursive(World, ChildEntityId, ModelData, InOutWorldMatrices, InOutMergedAabb, InOutRenderData);
+            ChildEntityId = ChildHierarchyComponent->nextSibling;
+        }
+    }
 }
 
 namespace Game {
@@ -271,6 +330,15 @@ namespace Game {
                 BoundingBoxComponent->UpdateWorldObb(MeshWorldMatrix);
             }
 
+            std::optional<DirectX::BoundingBox> MergedBoneAabb{};
+            UpdateBoneBoundingBoxesRecursive(World, BoneRootEntityId, SkinnedMeshRendererComponent.model, Ctx.WorldMatrices, MergedBoneAabb, RenderData);
+            if (BoundingBoxComponent != nullptr && MergedBoneAabb.has_value() == true) {
+                DirectX::BoundingOrientedBox MergedBoneObb{};
+                DirectX::BoundingOrientedBox::CreateFromBoundingBox(MergedBoneObb, *MergedBoneAabb);
+                BoundingBoxComponent->SetObb(MergedBoneObb);
+                BoundingBoxComponent->SetWorldObb(MergedBoneObb);
+            }
+
             const std::vector<ModelNode>& Nodes{ SkinnedMeshRendererComponent.model->GetNodes() };
             if (SkinnedMeshRendererComponent.nodeIndex >= Nodes.size()) {
                 continue;
@@ -320,9 +388,7 @@ namespace Game {
             if (BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
                 const DirectX::BoundingOrientedBox& WorldObb{ BoundingBoxComponent->GetWorldObb() };
                 RFD::BoundingBoxContext BoundingBoxContext{};
-                BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
-                BoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
-                BoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
+                TryBuildBoundingContextFromObb(WorldObb, BoundingBoxContext);
                 RenderData.boundingBoxContexts.push_back(BoundingBoxContext);
             }
 

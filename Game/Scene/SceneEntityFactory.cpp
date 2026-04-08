@@ -160,6 +160,10 @@ namespace Game {
                 NodeBone.runtimeBoneInfoOffset = RuntimeBoneInfoOffset;
                 NodeBone.runtimeBoneInfoCount = RuntimeBoneInfoCount;
                 AddBone(NodeEntities[NodeIndex], NodeBone);
+
+                BoundingBox NodeBoundingBox{};
+                NodeBoundingBox.UpdateFromModel(SpawnRequest.ModelData.get(), static_cast<std::uint32_t>(NodeIndex));
+                AddBoundingBox(NodeEntities[NodeIndex], NodeBoundingBox);
             }
 
             if (ModelNodes[NodeIndex].IsSkinnedMesh() == true) {
@@ -195,6 +199,10 @@ namespace Game {
             BoneSkinReference RootBoneSkinReference{};
             RootBoneSkinReference.boneRootEntityId = RootBoneReferenceEntityId;
             AddBoneSkinReference(NodeEntities[RootNodeIndex], RootBoneSkinReference);
+
+            BoundingBox RootBoundingBox{};
+            RootBoundingBox.ResetToUnitCube();
+            AddBoundingBox(NodeEntities[RootNodeIndex], RootBoundingBox);
 
         }
 

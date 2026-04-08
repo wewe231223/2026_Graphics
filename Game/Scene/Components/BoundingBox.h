@@ -16,6 +16,8 @@ namespace Game {
             ComponentMethod(void ResetToUnitCube(), ResetToUnitCube)
             ComponentMethod(void UpdateFromModel(const Model* ModelValue, ::std::uint32_t NodeIndex), UpdateFromModel)
             ComponentMethod(void UpdateWorldObb(const SimpleMath::Matrix& WorldMatrix), UpdateWorldObb)
+            ComponentMethod(void SetObb(const DirectX::BoundingOrientedBox& ObbValue), SetObb)
+            ComponentMethod(void SetWorldObb(const DirectX::BoundingOrientedBox& WorldObbValue), SetWorldObb)
             ComponentMethod(void InvalidateWorldObb(), InvalidateWorldObb)
             ComponentMethod(bool HasWorldObb() const, HasWorldObb)
             ComponentMethod(const DirectX::BoundingOrientedBox& GetObb() const, GetObb)

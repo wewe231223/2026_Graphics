@@ -101,6 +101,17 @@ namespace Game {
         mIsWorldObbValid = true;
     }
 
+    void BoundingBox::SetObb(const DirectX::BoundingOrientedBox& ObbValue) {
+        mObb = ObbValue;
+        mWorldObb = mObb;
+        mIsWorldObbValid = false;
+    }
+
+    void BoundingBox::SetWorldObb(const DirectX::BoundingOrientedBox& WorldObbValue) {
+        mWorldObb = WorldObbValue;
+        mIsWorldObbValid = true;
+    }
+
     void BoundingBox::InvalidateWorldObb() {
         mWorldObb = mObb;
         mIsWorldObbValid = false;
