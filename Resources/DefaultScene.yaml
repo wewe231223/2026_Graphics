@@ -281,3 +281,67 @@ Entities:
         FlipV: false
         CenterOrigin: true
         active: true
+  - EntityId: 13
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: knight
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 0.00, -35.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+  - EntityId: 14
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: knight
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 0.00, -40.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+  - EntityId: 15
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: knight
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 0.00, -45.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+  - EntityId: 16
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: knight
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 0.00, -50.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
