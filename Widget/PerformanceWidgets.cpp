@@ -137,7 +137,7 @@ namespace Widget {
         ImGui::SameLine();
         RenderLegendItem("TransformWorld", GetColorByName("TransformWorld"));
         ImGui::SameLine();
-		RenderLegendItem("BoundingBoxUpdate", GetColorByName("BoundingBoxUpdate"));
+		RenderLegendItem("RenderPrepare", GetColorByName("RenderPrepare"));
         ImGui::SameLine(); 
         RenderLegendItem("Render", GetColorByName("Render"));
         ImGui::SameLine();
@@ -173,7 +173,7 @@ namespace Widget {
             return IM_COL32(230, 126, 34, 255);
         }
 
-        if (Name.find("BoundingBoxUpdate") != std::string::npos) {
+        if (Name.find("RenderPrepare") != std::string::npos) {
             return IM_COL32(155, 89, 182, 255);
 		}
 

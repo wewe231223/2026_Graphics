@@ -109,6 +109,7 @@ add_library(Game STATIC
     Game/Scene/TerrainHeightResolver.cpp
     Game/Scene/System.cpp
     Game/Scene/SystemSceduler.cpp
+    Game/Scene/ParallelSystemBase.cpp
     Game/Scene/Components/Transform.cpp
     Game/Scene/Components/Name.cpp
     Game/Scene/Components/Material.cpp
@@ -135,9 +136,10 @@ add_library(Game STATIC
     Game/Scene/Systems/PickingSystem.cpp
     Game/Scene/Systems/AnimationGraphSystem.cpp
     Game/Scene/Systems/AnimateSystem.cpp
+    Game/Scene/Systems/StaticBoundingBoxUpdateSystem.cpp
+    Game/Scene/Systems/SkinnedMeshPrepareSystem.cpp
     Game/Scene/Systems/StaticRenderSystem.cpp
     Game/Scene/Systems/SkinnedMeshRenderSystem.cpp
-    Game/Scene/Systems/SkinningSystem.cpp
     Game/Scene/Systems/TerrainCollideSystem.cpp
 )
 

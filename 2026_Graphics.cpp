@@ -208,9 +208,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             }
 
             if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().BeginPhaseProfile("BoundingBoxUpdate");
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("RenderPrepare");
             }
-            SceneInstance.ExecutePhase(Game::Phase::BoundingBoxUpdate, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::RenderPrepare, Globals::Time::Get().GetDeltaTime<float>());
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().EndPhaseProfile();
             }

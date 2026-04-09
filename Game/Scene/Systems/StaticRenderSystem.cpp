@@ -50,7 +50,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> StaticRenderSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 7> Accesses{ { { typeid(Transform), Access::Read }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(Material), Access::Read }, { typeid(BoundingBox), Access::Write }, { typeid(Frustum), Access::Read }, { typeid(Culling), Access::Read } } };
+        static std::array<ComponentAccess, 7> Accesses{ { { typeid(Transform), Access::Read }, { typeid(StaticMeshRenderer), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(Material), Access::Read }, { typeid(BoundingBox), Access::Read }, { typeid(Frustum), Access::Read }, { typeid(Culling), Access::Read } } };
         return Accesses;
     }
 
@@ -87,9 +87,6 @@ namespace Game {
             const SimpleMath::Matrix NodeWorld{ TransformComponent.worldMatrix };
 
             BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityId) };
-            if (BoundingBoxComponent != nullptr) {
-                BoundingBoxComponent->UpdateWorldObb(NodeWorld);
-            }
 
             const bool IsVisible{ IsVisibleByFrustum(World, EntityId, CullingFrustumComponent) };
             if (IsVisible == false) {

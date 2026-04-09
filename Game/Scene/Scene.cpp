@@ -438,6 +438,7 @@ namespace Game {
                 mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
                 mFrameContext.RenderData.globals.flags = mIsBoundingBoxDrawEnabled ? RFD::FrameGlobalFlagDrawBoundingBoxes : 0u;
                 mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
+                mFrameContext.SkinnedMeshPreparedDataItems.clear();
                 break;
 
             case Phase::Update:

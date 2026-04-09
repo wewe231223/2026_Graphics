@@ -4,6 +4,7 @@
 #include <string>
 #include <typeindex>
 #include <vector>
+#include "Utility/DirectXInclude.h"
 #include "Arche/World.h"
 #include "Game/Base/RenderFrameData.h"
 #include "Utility/SimpleMathWrapper.h"
@@ -17,7 +18,7 @@ namespace Game {
         Update,
         PostUpdate,
         TransformWorld,
-        BoundingBoxUpdate,
+        RenderPrepare,
         Render,
         PostRender, 
         Count
@@ -38,11 +39,18 @@ namespace Game {
         Access AccessMode{ Access::Read };
     };
 
+    struct SkinnedMeshPreparedData final {
+        Arche::EntityID EntityId{ Arche::NullEntityID };
+        std::vector<SimpleMath::Matrix> BonePalette{};
+        std::vector<RFD::BoundingBoxContext> BoneBoundingBoxContexts{};
+    };
+
     struct FrameContext final {
         RFD::RenderFrameData RenderData{};
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
         AssetRegistry* AssetRegistryResource{ nullptr };
         Arche::EntityID PickedEntityId{ Arche::NullEntityID };
+        std::vector<SkinnedMeshPreparedData> SkinnedMeshPreparedDataItems{};
     };
 
     class ISystem abstract {

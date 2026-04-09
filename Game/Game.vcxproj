@@ -68,10 +68,13 @@
     <ClInclude Include="Scene\SceneYamlSerializer.h" />
     <ClInclude Include="Scene\System.h" />
     <ClInclude Include="Scene\SystemSceduler.h" />
+    <ClInclude Include="Scene\ParallelSystemBase.h" />
     <ClInclude Include="Scene\Systems\AnimationGraphSystem.h" />
     <ClInclude Include="Scene\Systems\AnimateSystem.h" />
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
     <ClInclude Include="Scene\Systems\TransformWorldBuildSystem.h" />
+    <ClInclude Include="Scene\Systems\StaticBoundingBoxUpdateSystem.h" />
+    <ClInclude Include="Scene\Systems\SkinnedMeshPrepareSystem.h" />
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
     <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h" />
   </ItemGroup>
@@ -99,6 +102,7 @@
     <ClCompile Include="Scene\SceneYamlSerializer.cpp" />
     <ClCompile Include="Scene\System.cpp" />
     <ClCompile Include="Scene\SystemSceduler.cpp" />
+    <ClCompile Include="Scene\ParallelSystemBase.cpp" />
     <ClCompile Include="Scene\Components\Transform.cpp" />
     <ClCompile Include="Scene\Components\Name.cpp" />
     <ClCompile Include="Scene\Components\Material.cpp" />
@@ -123,6 +127,8 @@
     <ClCompile Include="Scene\Systems\AnimateSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\TransformWorldBuildSystem.cpp" />
+    <ClCompile Include="Scene\Systems\StaticBoundingBoxUpdateSystem.cpp" />
+    <ClCompile Include="Scene\Systems\SkinnedMeshPrepareSystem.cpp" />
     <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\SkinnedMeshRenderSystem.cpp" />
   </ItemGroup>

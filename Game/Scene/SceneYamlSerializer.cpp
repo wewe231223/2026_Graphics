@@ -33,7 +33,9 @@
 #include "Game/Scene/Systems/TerrainCollideSystem.h"
 #include "Game/Scene/Systems/AnimationGraphSystem.h"
 #include "Game/Scene/Systems/AnimateSystem.h"
+#include "Game/Scene/Systems/SkinnedMeshPrepareSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshRenderSystem.h"
+#include "Game/Scene/Systems/StaticBoundingBoxUpdateSystem.h"
 #include "Game/Scene/Systems/StaticRenderSystem.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
 #include "Game/Scene/Systems/TransformWorldBuildSystem.h"
@@ -203,6 +205,8 @@ namespace {
     std::unique_ptr<Game::ISystem> CreateSystemByName(const std::string& SystemName) {
         using SystemFactory = std::unique_ptr<Game::ISystem>(*)();
         static const std::unordered_map<std::string_view, SystemFactory> SystemFactories{
+            { "StaticBoundingBoxUpdateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::StaticBoundingBoxUpdateSystem>(); } },
+            { "SkinnedMeshPrepareSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshPrepareSystem>(); } },
             { "StaticRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::StaticRenderSystem>(); } },
             { "SkinnedMeshRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshRenderSystem>(); } },
             { "AnimationGraphSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimationGraphSystem>(); } },
