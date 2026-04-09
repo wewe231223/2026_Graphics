@@ -301,7 +301,10 @@ namespace Game {
         UpdateWorldMatrices(World);
 
         std::vector<Arche::EntityID> TargetEntityIds{};
-        for (auto [SkinnedMeshRendererComponent, EntityHierarchyComponent] : World.Query<SkinnedMeshRenderer, EntityHierarchy>()) {
+        for (auto [TransformComponent, SkinnedMeshRendererComponent, EntityHierarchyComponent, AnimatorComponent] : World.Query<Transform, SkinnedMeshRenderer, EntityHierarchy, Animator>()) {
+            static_cast<void>(TransformComponent);
+            static_cast<void>(AnimatorComponent);
+
             if (SkinnedMeshRendererComponent.active == false || SkinnedMeshRendererComponent.model == nullptr) {
                 continue;
             }
