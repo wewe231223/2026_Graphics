@@ -176,28 +176,52 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             Globals::Input::Get().Update();
 
             if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().BeginProfile("Update");
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("PreUpdate");
             }
             SceneInstance.ExecutePhase(Game::Phase::PreUpdate, Globals::Time::Get().GetDeltaTime<float>());
-            SceneInstance.ExecutePhase(Game::Phase::Update, Globals::Time::Get().GetDeltaTime<float>());
-			SceneInstance.ExecutePhase(Game::Phase::PostUpdate, Globals::Time::Get().GetDeltaTime<float>());
-            SceneInstance.ExecutePhase(Game::Phase::Skinning, Globals::Time::Get().GetDeltaTime<float>());
             if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().EndProfile();
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
             }
 
             if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().BeginProfile("Physics");
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("Update");
+            }
+            SceneInstance.ExecutePhase(Game::Phase::Update, Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("PostUpdate");
+            }
+            SceneInstance.ExecutePhase(Game::Phase::PostUpdate, Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("Skinning");
+            }
+            SceneInstance.ExecutePhase(Game::Phase::Skinning, Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("Render");
             }
             SceneInstance.ExecutePhase(Game::Phase::Render, Globals::Time::Get().GetDeltaTime<float>());
             if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().EndProfile();
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
             }
 
             if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().BeginProfile("Render");
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("PostRender");
             }
             SceneInstance.ExecutePhase(Game::Phase::PostRender, Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
 
             Core::Event::Flush(); 
 

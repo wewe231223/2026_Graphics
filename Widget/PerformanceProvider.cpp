@@ -2,6 +2,11 @@
 
 #include <algorithm>
 #include <numeric>
+#include <utility>
+
+#ifdef max
+#undef max
+#endif
 
 namespace Widget {
     PerformanceProvider::PerformanceProvider() {
@@ -34,13 +39,19 @@ namespace Widget {
     void PerformanceProvider::BeginFrame() {
         QueryPerformanceCounter(&mFrameBeginCounter);
         mHasFrameBegin = true;
-        mCurrentFrameProfiles.clear();
-        mActiveProfiles.clear();
+        mFrameBeginMicroseconds = QueryNowMicroseconds();
+        mPhaseDurations.clear();
+        mActivePhaseName.clear();
+        mActivePhaseStartMicroseconds = 0.0;
+        mHasActivePhase = false;
     }
 
     void PerformanceProvider::EndFrame() {
         if (!mHasFrameBegin) {
             return;
+        }
+        if (mHasActivePhase) {
+            EndPhaseProfile();
         }
 
         LARGE_INTEGER EndCounter{};
@@ -52,30 +63,55 @@ namespace Widget {
         UpdateVramInfoIfNeeded();
         UpdatePercentileCache();
 
+        std::vector<ProfileEntry> NewFrameProfiles{};
+        NewFrameProfiles.reserve(mPhaseDurations.size());
+        double CurrentStartMicroseconds{ mFrameBeginMicroseconds };
+        for (const std::pair<std::string, double>& PhaseDuration : mPhaseDurations) {
+            ProfileEntry Entry{};
+            Entry.Name = PhaseDuration.first;
+            Entry.StartMicroseconds = CurrentStartMicroseconds;
+            Entry.EndMicroseconds = CurrentStartMicroseconds + PhaseDuration.second;
+            Entry.Depth = 0;
+            NewFrameProfiles.push_back(Entry);
+            CurrentStartMicroseconds = Entry.EndMicroseconds;
+        }
+        mCurrentFrameProfiles = std::move(NewFrameProfiles);
+
         mHasFrameBegin = false;
     }
 
-    void PerformanceProvider::BeginProfile(const std::string& Name) {
-        ActiveProfile Entry{};
-        Entry.Name = Name;
-        Entry.StartMicroseconds = QueryNowMicroseconds();
-        mActiveProfiles.push_back(Entry);
-    }
-
-    void PerformanceProvider::EndProfile() {
-        if (mActiveProfiles.empty()) {
+    void PerformanceProvider::BeginPhaseProfile(const std::string& Name) {
+        if (!mHasFrameBegin || mHasActivePhase) {
             return;
         }
 
-        const ActiveProfile Entry{ mActiveProfiles.back() };
-        mActiveProfiles.pop_back();
+        mActivePhaseName = Name;
+        mActivePhaseStartMicroseconds = QueryNowMicroseconds();
+        mHasActivePhase = true;
+    }
 
-        ProfileEntry Result{};
-        Result.Name = Entry.Name;
-        Result.StartMicroseconds = Entry.StartMicroseconds;
-        Result.EndMicroseconds = QueryNowMicroseconds();
-        Result.Depth = mActiveProfiles.size();
-        mCurrentFrameProfiles.push_back(Result);
+    void PerformanceProvider::EndPhaseProfile() {
+        if (!mHasFrameBegin || !mHasActivePhase) {
+            return;
+        }
+
+        const double EndMicroseconds{ QueryNowMicroseconds() };
+        const double DurationMicroseconds{ std::max(0.0, EndMicroseconds - mActivePhaseStartMicroseconds) };
+        bool IsFound{};
+        for (std::pair<std::string, double>& PhaseDuration : mPhaseDurations) {
+            if (PhaseDuration.first == mActivePhaseName) {
+                PhaseDuration.second += DurationMicroseconds;
+                IsFound = true;
+                break;
+            }
+        }
+        if (!IsFound) {
+            mPhaseDurations.push_back(std::make_pair(mActivePhaseName, DurationMicroseconds));
+        }
+
+        mActivePhaseName.clear();
+        mActivePhaseStartMicroseconds = 0.0;
+        mHasActivePhase = false;
     }
 
     std::vector<float> PerformanceProvider::GetFrameTimeMilliseconds() const {

@@ -129,13 +129,17 @@ namespace Widget {
             }
         }
 
+        RenderLegendItem("PreUpdate", GetColorByName("PreUpdate"));
+        ImGui::SameLine();
         RenderLegendItem("Update", GetColorByName("Update"));
+        ImGui::SameLine();
+        RenderLegendItem("PostUpdate", GetColorByName("PostUpdate"));
+        ImGui::SameLine();
+        RenderLegendItem("Skinning", GetColorByName("Skinning"));
         ImGui::SameLine();
         RenderLegendItem("Render", GetColorByName("Render"));
         ImGui::SameLine();
-        RenderLegendItem("Physics", GetColorByName("Physics"));
-        ImGui::SameLine();
-        RenderLegendItem("DX12 GPU Task", GetColorByName("DX12 GPU Task"));
+        RenderLegendItem("PostRender", GetColorByName("PostRender"));
 
         ImGui::End();
     }
@@ -151,23 +155,31 @@ namespace Widget {
     }
 
     uint32_t TimelineWidget::GetColorByName(const std::string& Name) const {
+        if (Name.find("PreUpdate") != std::string::npos) {
+            return IM_COL32(52, 152, 219, 255);
+        }
+
         if (Name.find("Update") != std::string::npos) {
-            return IM_COL32(102, 220, 130, 255);
+            return IM_COL32(46, 204, 113, 255);
         }
 
-        if (Name.find("Render") != std::string::npos) {
-            return IM_COL32(100, 160, 255, 255);
+        if (Name.find("PostUpdate") != std::string::npos) {
+            return IM_COL32(55, 89, 182, 255);
         }
 
-        if (Name.find("Physics") != std::string::npos) {
-            return IM_COL32(255, 220, 100, 255);
+        if (Name.find("Skinning") != std::string::npos) {
+            return IM_COL32(230, 126, 34, 255);
         }
 
-        if (Name.find("DX12") != std::string::npos || Name.find("GPU") != std::string::npos) {
-            return IM_COL32(170, 100, 255, 255);
+        if (Name.find("Render") != std::string::npos && Name.find("PostRender") == std::string::npos) {
+            return IM_COL32(52, 73, 94, 255);
         }
 
-        return IM_COL32(180, 180, 180, 255);
+        if (Name.find("PostRender") != std::string::npos) {
+            return IM_COL32(231, 76, 60, 255);
+        }
+
+        return IM_COL32(149, 165, 166, 255);
     }
 
     VramUsageWidget::VramUsageWidget() {
