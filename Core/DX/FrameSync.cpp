@@ -2,7 +2,7 @@
 #include <Windows.h>
 #include <stdexcept>
 #include "Utility/ErrorHandler.h"
-
+#include "Utility/StdOutput.h"
 using namespace Core::DX;
 
 FrameSync::FrameSync(ID3D12Device* device) {
@@ -60,6 +60,9 @@ void FrameSync::Sync(ID3D12CommandQueue* commandQueue) {
     const uint64_t waitValue = mFenceValues[mFrameIndex];
     if (mFence->GetCompletedValue() < waitValue) {
         mFence->SetEventOnCompletion(waitValue, mSyncEvent);
+        
+		StdOutput::Print("[FrameSync] Waiting for frame {} to complete. Fence Value: {}. Completed Value: {}.\n", mFrameIndex, waitValue, mFence->GetCompletedValue());
+
         WaitForSingleObjectEx(mSyncEvent, INFINITE, FALSE);
     }
 }
