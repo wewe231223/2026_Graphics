@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <optional>
 #include <span>
-#include <unordered_map>
 #include <vector>
 
 #include "Game/Base/Common.h"
@@ -70,12 +69,6 @@ namespace {
 
         return ResolvedBoneSkinReference{};
     }
-
-    SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
-        const SimpleMath::Matrix TrsMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
-        return TransformComponent.nodeToParent * TrsMatrix;
-    }
-
     bool IsEntityWithinPickedHierarchy(Arche::World& World, Arche::EntityID EntityId, Arche::EntityID PickedEntityId) {
         if (PickedEntityId == Arche::NullEntityID) {
             return false;
@@ -98,52 +91,17 @@ namespace {
         return false;
     }
 
-    bool TryResolveWorldMatrix(Arche::World& World, Arche::EntityID EntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, SimpleMath::Matrix& OutWorldMatrix) {
-        const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>::const_iterator CachedWorldMatrixIter{ InOutWorldMatrices.find(EntityId) };
-        if (CachedWorldMatrixIter != InOutWorldMatrices.end()) {
-            OutWorldMatrix = CachedWorldMatrixIter->second;
-            return true;
+    bool TryResolveWorldMatrix(Arche::World& World, Arche::EntityID EntityId, SimpleMath::Matrix& OutWorldMatrix) {
+        const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(EntityId) };
+        if (TransformComponent == nullptr) {
+            return false;
         }
 
-        std::vector<Arche::EntityID> EntityPath{};
-        Arche::EntityID CurrentEntityId{ EntityId };
-        SimpleMath::Matrix ParentWorldMatrix{ SimpleMath::Matrix::Identity };
-
-        while (CurrentEntityId != Arche::NullEntityID) {
-            const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>::const_iterator CurrentCachedWorldMatrixIter{ InOutWorldMatrices.find(CurrentEntityId) };
-            if (CurrentCachedWorldMatrixIter != InOutWorldMatrices.end()) {
-                ParentWorldMatrix = CurrentCachedWorldMatrixIter->second;
-                break;
-            }
-
-            const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(CurrentEntityId) };
-            const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
-            if (TransformComponent == nullptr || HierarchyComponent == nullptr) {
-                return false;
-            }
-
-            EntityPath.push_back(CurrentEntityId);
-            CurrentEntityId = HierarchyComponent->parent;
-        }
-
-        for (std::vector<Arche::EntityID>::const_reverse_iterator EntityPathIter{ EntityPath.crbegin() }; EntityPathIter != EntityPath.crend(); ++EntityPathIter) {
-            const Arche::EntityID CurrentPathEntityId{ *EntityPathIter };
-            const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(CurrentPathEntityId) };
-            if (TransformComponent == nullptr) {
-                return false;
-            }
-
-            const SimpleMath::Matrix LocalWorldMatrix{ BuildLocalWorldMatrix(*TransformComponent) };
-            const SimpleMath::Matrix CurrentWorldMatrix{ LocalWorldMatrix * ParentWorldMatrix };
-            InOutWorldMatrices[CurrentPathEntityId] = CurrentWorldMatrix;
-            ParentWorldMatrix = CurrentWorldMatrix;
-        }
-
-        OutWorldMatrix = ParentWorldMatrix;
+        OutWorldMatrix = TransformComponent->worldMatrix;
         return true;
     }
 
-    void GatherBonePoseAndBoundingRecursive(Arche::World& World, Arche::EntityID EntityId, Game::Model* ModelData, std::uint32_t SkinArrayIndex, const SimpleMath::Matrix& MeshWorldInverseMatrix, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, std::vector<SimpleMath::Matrix>* InOutBoneMatrices, std::optional<DirectX::BoundingBox>* InOutMergedAabb, Game::RFD::RenderFrameData* InOutRenderData) {
+    void GatherBonePoseAndBoundingRecursive(Arche::World& World, Arche::EntityID EntityId, Game::Model* ModelData, std::uint32_t SkinArrayIndex, const SimpleMath::Matrix& MeshWorldInverseMatrix, std::vector<SimpleMath::Matrix>* InOutBoneMatrices, std::optional<DirectX::BoundingBox>* InOutMergedAabb, Game::RFD::RenderFrameData* InOutRenderData) {
         if (EntityId == Arche::NullEntityID || ModelData == nullptr) {
             return;
         }
@@ -156,7 +114,7 @@ namespace {
         const Game::Bone* BoneComponent{ World.GetComponent<Game::Bone>(EntityId) };
         if (BoneComponent != nullptr && BoneComponent->model == ModelData) {
             SimpleMath::Matrix BoneWorldMatrix{};
-            const bool IsBoneWorldMatrixResolved{ TryResolveWorldMatrix(World, EntityId, InOutWorldMatrices, BoneWorldMatrix) };
+            const bool IsBoneWorldMatrixResolved{ TryResolveWorldMatrix(World, EntityId, BoneWorldMatrix) };
             if (IsBoneWorldMatrixResolved == true) {
                 const std::span<const Game::RuntimeBoneInfo> RuntimeBoneInfos{ ModelData->GetRuntimeBoneInfos(BoneComponent->runtimeBoneInfoOffset, BoneComponent->runtimeBoneInfoCount) };
                 for (const Game::RuntimeBoneInfo& RuntimeBoneInfoItem : RuntimeBoneInfos) {
@@ -209,7 +167,7 @@ namespace {
                 break;
             }
 
-            GatherBonePoseAndBoundingRecursive(World, ChildEntityId, ModelData, SkinArrayIndex, MeshWorldInverseMatrix, InOutWorldMatrices, InOutBoneMatrices, InOutMergedAabb, InOutRenderData);
+            GatherBonePoseAndBoundingRecursive(World, ChildEntityId, ModelData, SkinArrayIndex, MeshWorldInverseMatrix, InOutBoneMatrices, InOutMergedAabb, InOutRenderData);
             ChildEntityId = ChildHierarchyComponent->nextSibling;
         }
     }
@@ -226,12 +184,12 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> SkinnedMeshRenderSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 6> Accesses{ { { typeid(Animator), Access::Read }, { typeid(BoneSkinReference), Access::Read }, { typeid(SkinnedMeshRenderer), Access::Read }, { typeid(Transform), Access::Write }, { typeid(EntityHierarchy), Access::Read }, { typeid(BoundingBox), Access::Write } } };
+        static std::array<ComponentAccess, 6> Accesses{ { { typeid(Animator), Access::Read }, { typeid(BoneSkinReference), Access::Read }, { typeid(SkinnedMeshRenderer), Access::Read }, { typeid(Transform), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(BoundingBox), Access::Write } } };
         return Accesses;
     }
 
     std::span<const ResourceAccess> SkinnedMeshRenderSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 5> Accesses{ { { typeid(RFD::RenderFrameData), Access::Write }, { typeid(std::vector<RegisteredMaterialGroup>), Access::Read }, { typeid(Arche::EntityID), Access::Read }, { typeid(std::unordered_map<Arche::EntityID, SimpleMath::Matrix>), Access::Read }, { typeid(std::unordered_map<Arche::EntityID, SkinnedPoseCacheEntry>), Access::Read } } };
+        static std::array<ResourceAccess, 3> Accesses{ { { typeid(RFD::RenderFrameData), Access::Write }, { typeid(std::vector<RegisteredMaterialGroup>), Access::Read }, { typeid(Arche::EntityID), Access::Read } } };
         return Accesses;
     }
 
@@ -240,9 +198,7 @@ namespace Game {
 
         RFD::RenderFrameData& RenderData{ Ctx.RenderData };
         const std::vector<RegisteredMaterialGroup>& MaterialGroups{ *Ctx.MaterialGroups };
-        for (auto [SkinnedMeshRendererComponent, TransformComponent, EntityHierarchyComponent] : World.Query<SkinnedMeshRenderer, Transform, EntityHierarchy>()) {
-            (void)TransformComponent;
-            (void)EntityHierarchyComponent;
+        for (auto [SkinnedMeshRendererComponent, EntityHierarchyComponent] : World.Query<SkinnedMeshRenderer, EntityHierarchy>()) {
 
             if (SkinnedMeshRendererComponent.active == false || SkinnedMeshRendererComponent.model == nullptr) {
                 continue;
@@ -265,17 +221,12 @@ namespace Game {
             }
 
             SimpleMath::Matrix MeshWorldMatrix{};
-            const bool IsMeshWorldMatrixResolved{ TryResolveWorldMatrix(World, EntityId, Ctx.WorldMatrices, MeshWorldMatrix) };
+            const bool IsMeshWorldMatrixResolved{ TryResolveWorldMatrix(World, EntityId, MeshWorldMatrix) };
             if (IsMeshWorldMatrixResolved == false) {
                 continue;
             }
 
-            TransformComponent.worldMatrix = MeshWorldMatrix;
-
             BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityId) };
-            if (BoundingBoxComponent != nullptr) {
-                BoundingBoxComponent->UpdateWorldObb(MeshWorldMatrix);
-            }
 
             const std::vector<ModelNode>& Nodes{ SkinnedMeshRendererComponent.model->GetNodes() };
             if (SkinnedMeshRendererComponent.nodeIndex >= Nodes.size()) {
@@ -285,32 +236,20 @@ namespace Game {
             const ModelNode& Node{ Nodes[SkinnedMeshRendererComponent.nodeIndex] };
             const std::uint32_t SkinArrayIndex{ Node.GetId() };
 
-            std::vector<SimpleMath::Matrix> BoneMatrices{};
-            std::span<const SimpleMath::Matrix> ResolvedBoneMatrices{};
-            bool IsCacheHit{ false };
-            const std::unordered_map<Arche::EntityID, SkinnedPoseCacheEntry>::const_iterator CacheIter{ Ctx.SkinnedPoseCache.find(EntityId) };
-            if (CacheIter != Ctx.SkinnedPoseCache.end()) {
-                const SkinnedPoseCacheEntry& CacheEntry{ CacheIter->second };
-                if (CacheEntry.IsValid == true && CacheEntry.SkinArrayIndex == SkinArrayIndex && CacheEntry.BoneMatrices.empty() == false) {
-                    ResolvedBoneMatrices = CacheEntry.BoneMatrices;
-                    IsCacheHit = true;
-                }
-            }
-
             std::uint32_t BoneMatrixCount{ 0 };
             const bool IsBoneMatrixCountResolved{ SkinnedMeshRendererComponent.model->TryGetRuntimeBoneMatrixCount(SkinArrayIndex, BoneMatrixCount) };
             if (IsBoneMatrixCountResolved == false || BoneMatrixCount == 0) {
                 continue;
             }
 
-            if (IsCacheHit == false) {
-                BoneMatrices.resize(static_cast<std::size_t>(BoneMatrixCount), SimpleMath::Matrix::Identity);
-            }
+            std::vector<SimpleMath::Matrix> BoneMatrices{};
+            BoneMatrices.resize(static_cast<std::size_t>(BoneMatrixCount), SimpleMath::Matrix::Identity);
+            std::span<const SimpleMath::Matrix> ResolvedBoneMatrices{};
 
             std::optional<DirectX::BoundingBox> MergedBoneAabb{};
             SimpleMath::Matrix MeshWorldInverseMatrix{ MeshWorldMatrix };
             MeshWorldInverseMatrix = MeshWorldInverseMatrix.Invert();
-            GatherBonePoseAndBoundingRecursive(World, BoneRootEntityId, SkinnedMeshRendererComponent.model, SkinArrayIndex, MeshWorldInverseMatrix, Ctx.WorldMatrices, IsCacheHit == false ? &BoneMatrices : nullptr, &MergedBoneAabb, &RenderData);
+            GatherBonePoseAndBoundingRecursive(World, BoneRootEntityId, SkinnedMeshRendererComponent.model, SkinArrayIndex, MeshWorldInverseMatrix, &BoneMatrices, &MergedBoneAabb, &RenderData);
             if (BoundingBoxComponent != nullptr && MergedBoneAabb.has_value() == true) {
                 DirectX::BoundingOrientedBox MergedBoneObb{};
                 DirectX::BoundingOrientedBox::CreateFromBoundingBox(MergedBoneObb, *MergedBoneAabb);
@@ -318,9 +257,7 @@ namespace Game {
                 BoundingBoxComponent->SetWorldObb(MergedBoneObb);
             }
 
-            if (IsCacheHit == false) {
-                ResolvedBoneMatrices = BoneMatrices;
-            }
+            ResolvedBoneMatrices = BoneMatrices;
 
             const std::vector<ModelSubMesh>& SubMeshes{ Node.GetSubMeshes() };
             if (SubMeshes.empty()) {

@@ -4,7 +4,6 @@
 #include <string>
 #include <typeindex>
 #include <vector>
-#include <unordered_map>
 #include "Arche/World.h"
 #include "Game/Base/RenderFrameData.h"
 #include "Utility/SimpleMathWrapper.h"
@@ -17,7 +16,8 @@ namespace Game {
         PreUpdate,
         Update,
         PostUpdate,
-        Skinning,
+        TransformWorld,
+        BoundingBoxUpdate,
         Render,
         PostRender, 
         Count
@@ -38,19 +38,11 @@ namespace Game {
         Access AccessMode{ Access::Read };
     };
 
-    struct SkinnedPoseCacheEntry final {
-        std::uint32_t SkinArrayIndex{};
-        std::vector<SimpleMath::Matrix> BoneMatrices{};
-        bool IsValid{};
-    };
-
     struct FrameContext final {
         RFD::RenderFrameData RenderData{};
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
         AssetRegistry* AssetRegistryResource{ nullptr };
         Arche::EntityID PickedEntityId{ Arche::NullEntityID };
-        std::unordered_map<Arche::EntityID, SimpleMath::Matrix> WorldMatrices{};
-        std::unordered_map<Arche::EntityID, SkinnedPoseCacheEntry> SkinnedPoseCache{};
     };
 
     class ISystem abstract {

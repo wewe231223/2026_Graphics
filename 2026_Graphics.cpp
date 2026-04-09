@@ -200,9 +200,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             }
 
             if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().BeginPhaseProfile("Skinning");
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("TransformWorld");
             }
-            SceneInstance.ExecutePhase(Game::Phase::Skinning, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::TransformWorld, Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("BoundingBoxUpdate");
+            }
+            SceneInstance.ExecutePhase(Game::Phase::BoundingBoxUpdate, Globals::Time::Get().GetDeltaTime<float>());
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().EndPhaseProfile();
             }

@@ -14,7 +14,6 @@
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Name.h"
-#include "Game/Scene/Components/PickingGizmo.h"
 #include "Game/Scene/Components/PrefabInstance.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
@@ -38,21 +37,6 @@
 #include "SceneEntityFactory.h"
 
 namespace {
-    std::string BuildGizmoPrimitiveSelector(float Red, float Green, float Blue) {
-        return std::string{ "box;size=1.000000;color=" } + std::to_string(Red) + std::string{ "," } + std::to_string(Green) + std::string{ "," } + std::to_string(Blue) + std::string{ ",1.000000" };
-    }
-
-    std::uint32_t CreateGizmoMaterialGroup(Game::AssetRegistry& AssetRegistry) {
-        asset::MaterialGroup MaterialGroup{};
-        MaterialGroup.Name = "PickingGizmoMaterialGroup";
-
-        asset::MaterialGroupItem Item{};
-        Item.PipelineName = "PrimitiveVertexColorGraphics";
-        MaterialGroup.Items.push_back(Item);
-
-        return AssetRegistry.AddMaterialGroup(MaterialGroup);
-    }
-
     std::uint64_t GenerateNextPrefabId(Game::Scene& TargetScene) {
         std::unordered_set<std::uint64_t> UsedPrefabIds{};
         for (const auto [PrefabComponent] : TargetScene.GetWorld().Query<Game::PrefabInstance>()) {
@@ -171,7 +155,6 @@ namespace Game {
         mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
         mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
 
-        InitializePickingGizmoEntities();
     }
 
     void Scene::SetName(const std::string& NewName) {
@@ -199,51 +182,6 @@ namespace Game {
         mAssetRegistry.PrepareRenderTextures(mFrameContext.RenderData);
         mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
     }
-
-    void Scene::InitializePickingGizmoEntities() {
-        for (const auto [PickingGizmoComponent] : mWorld.Query<PickingGizmo>()) {
-            (void)PickingGizmoComponent;
-            return;
-        }
-
-        const std::uint32_t GizmoMaterialGroupIndex{ CreateGizmoMaterialGroup(mAssetRegistry) };
-        const std::array<std::array<float, 3>, 3> AxisColors{ { { 1.0f, 0.2f, 0.2f }, { 0.2f, 1.0f, 0.2f }, { 0.2f, 0.4f, 1.0f } } };
-
-        for (std::uint32_t AxisIndex{ 0 }; AxisIndex < 3; ++AxisIndex) {
-            const std::array<float, 3>& AxisColor{ AxisColors[AxisIndex] };
-            const std::string Selector{ BuildGizmoPrimitiveSelector(AxisColor[0], AxisColor[1], AxisColor[2]) };
-            const std::shared_ptr<Model> GizmoModel{ mAssetRegistry.GetModel(Selector) };
-            if (GizmoModel == nullptr) {
-                continue;
-            }
-
-            const Arche::EntityID EntityId{ mWorld.CreateEntity() };
-
-            EntityHierarchy Hierarchy{};
-            Hierarchy.self = EntityId;
-            mWorld.AddComponent(EntityId, Hierarchy);
-
-            Transform TransformComponent{};
-            mWorld.AddComponent(EntityId, TransformComponent);
-
-            StaticMeshRenderer MeshRenderer{};
-            MeshRenderer.model = GizmoModel.get();
-            MeshRenderer.active = false;
-            mWorld.AddComponent(EntityId, MeshRenderer);
-
-            Material MaterialComponent{};
-            MaterialComponent.MaterialGroupIndex = GizmoMaterialGroupIndex;
-            mWorld.AddComponent(EntityId, MaterialComponent);
-
-            BoundingBox GizmoBoundingBox{};
-            mWorld.AddComponent(EntityId, GizmoBoundingBox);
-
-            PickingGizmo PickingGizmoComponent{};
-            PickingGizmoComponent.axisIndex = AxisIndex;
-            mWorld.AddComponent(EntityId, PickingGizmoComponent);
-        }
-    }
-
 
     void Scene::OnFileDropped(const std::filesystem::path& FilePath) {
         const std::wstring ExtensionTextWide{ FilePath.extension().wstring() };
@@ -342,7 +280,6 @@ namespace Game {
         mLuaScriptFramework.RegisterComponentByDefinition<Game::Animator>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::AnimatorGraphPlayer>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::PrefabInstance>();
-        mLuaScriptFramework.RegisterComponentByDefinition<Game::PickingGizmo>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::LocalPlayerTag>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BehaviorInstanceComponent>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::TerrainCollider>();
@@ -501,8 +438,6 @@ namespace Game {
                 mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
                 mFrameContext.RenderData.globals.flags = mIsBoundingBoxDrawEnabled ? RFD::FrameGlobalFlagDrawBoundingBoxes : 0u;
                 mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
-                mFrameContext.WorldMatrices.clear();
-                mFrameContext.SkinnedPoseCache.clear();
                 break;
 
             case Phase::Update:

@@ -71,10 +71,10 @@
     <ClInclude Include="Scene\Systems\AnimationGraphSystem.h" />
     <ClInclude Include="Scene\Systems\AnimateSystem.h" />
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
-    <ClInclude Include="Scene\Systems\PickingSystem.h" />
+    <ClInclude Include="Scene\Systems\TransformWorldBuildSystem.h" />
+    <ClInclude Include="Scene\Systems\BoundingBoxUpdateSystem.h" />
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
     <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h" />
-    <ClInclude Include="Scene\Systems\SkinningSystem.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Input.cpp" />
@@ -123,10 +123,10 @@
     <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp" />
     <ClCompile Include="Scene\Systems\AnimateSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
-    <ClCompile Include="Scene\Systems\PickingSystem.cpp" />
+    <ClCompile Include="Scene\Systems\TransformWorldBuildSystem.cpp" />
+    <ClCompile Include="Scene\Systems\BoundingBoxUpdateSystem.cpp" />
     <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\SkinnedMeshRenderSystem.cpp" />
-    <ClCompile Include="Scene\Systems\SkinningSystem.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shader\Source\BasicShader.hlsl">

@@ -35,9 +35,9 @@
 #include "Game/Scene/Systems/AnimateSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshRenderSystem.h"
 #include "Game/Scene/Systems/StaticRenderSystem.h"
-#include "Game/Scene/Systems/PickingSystem.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
-#include "Game/Scene/Systems/SkinningSystem.h"
+#include "Game/Scene/Systems/TransformWorldBuildSystem.h"
+#include "Game/Scene/Systems/BoundingBoxUpdateSystem.h"
 #include "Game/Scene/SceneEntityFactory.h"
 #include "Game/Model/TerrainMeshTypes.h"
 #include "Game/Model/HeightMapLoader.h"
@@ -208,9 +208,9 @@ namespace {
             { "SkinnedMeshRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshRenderSystem>(); } },
             { "AnimationGraphSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimationGraphSystem>(); } },
             { "AnimateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimateSystem>(); } },
-            { "SkinningSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinningSystem>(); } },
-            { "PickingSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::PickingSystem>(); } },
             { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },
+            { "TransformWorldBuildSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TransformWorldBuildSystem>(); } },
+            { "BoundingBoxUpdateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::BoundingBoxUpdateSystem>(); } },
             { "TerrainCollideSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TerrainCollideSystem>(); } },
         };
         const std::unordered_map<std::string_view, SystemFactory>::const_iterator FactoryIter{ SystemFactories.find(SystemName) };
@@ -855,7 +855,6 @@ namespace Game {
         }
 
         if (RootNode.has_child("Entities") == false) {
-            OutScene.InitializePickingGizmoEntities();
             OutScene.BuildSystemExecutionPlan();
             return LoadResult;
         }
@@ -1530,7 +1529,6 @@ namespace Game {
             }
         }
 
-        OutScene.InitializePickingGizmoEntities();
         OutScene.BuildSystemExecutionPlan();
         return LoadResult;
     }

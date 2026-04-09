@@ -51,7 +51,6 @@ namespace Game {
         TerrainHeightResolver* CreateTerrainHeightResolver(const HeightFieldData& HeightFieldDataValue, const TerrainBuildDesc& TerrainBuildDescValue);
         void ClearTerrainHeightResolvers();
 
-        void InitializePickingGizmoEntities();
         void OnFileDropped(const std::filesystem::path& FilePath);
         void UpdateWorldSnapshotIfNeeded();
         const SceneWorldSnapshot& GetWorldSnapshot() const;

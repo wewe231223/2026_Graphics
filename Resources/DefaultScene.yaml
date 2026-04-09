@@ -1,9 +1,9 @@
 ﻿SceneName: DefaultScene
 Systems:
-  - Type: PickingSystem
   - Type: AnimationGraphSystem
   - Type: AnimateSystem
-  - Type: SkinningSystem
+  - Type: TransformWorldBuildSystem
+  - Type: BoundingBoxUpdateSystem
   - Type: StaticRenderSystem
   - Type: SkinnedMeshRenderSystem
   - Type: CameraRenderSystem
