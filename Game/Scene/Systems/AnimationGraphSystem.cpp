@@ -129,7 +129,7 @@ namespace Game {
     }
 
     Phase AnimationGraphSystem::GetPhase() const {
-        return Phase::Update;
+        return Phase::PreUpdate;
     }
 
     std::span<const ComponentAccess> AnimationGraphSystem::ComponentAccesses() const {
