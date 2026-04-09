@@ -156,9 +156,6 @@
     <ClInclude Include="Scene\Systems\TransformWorldBuildSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\Systems\BoundingBoxUpdateSystem.h">
-      <Filter>Scene\Systems</Filter>
-    </ClInclude>
     <ClInclude Include="Scene\Components\EntityHierarchy.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -330,9 +327,6 @@
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\TransformWorldBuildSystem.cpp">
-      <Filter>Scene\Systems</Filter>
-    </ClCompile>
-    <ClCompile Include="Scene\Systems\BoundingBoxUpdateSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp">

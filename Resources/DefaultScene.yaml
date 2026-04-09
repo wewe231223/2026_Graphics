@@ -3,7 +3,6 @@ Systems:
   - Type: AnimationGraphSystem
   - Type: AnimateSystem
   - Type: TransformWorldBuildSystem
-  - Type: BoundingBoxUpdateSystem
   - Type: StaticRenderSystem
   - Type: SkinnedMeshRenderSystem
   - Type: CameraRenderSystem
