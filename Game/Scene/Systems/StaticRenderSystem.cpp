@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 #include "Game/Model/AssetRegistry.h"
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Camera.h"
@@ -41,8 +42,8 @@ namespace {
                 break;
             }
 
-            const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(CurrentEntityId) };
-            const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
+            const Game::Transform* TransformComponent{ std::as_const(World).GetComponent<Game::Transform>(CurrentEntityId) };
+            const Game::EntityHierarchy* HierarchyComponent{ std::as_const(World).GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
             if (TransformComponent == nullptr || HierarchyComponent == nullptr) {
                 return false;
             }
@@ -53,7 +54,7 @@ namespace {
 
         for (std::vector<Arche::EntityID>::const_reverse_iterator EntityPathIter{ EntityPath.crbegin() }; EntityPathIter != EntityPath.crend(); ++EntityPathIter) {
             const Arche::EntityID CurrentPathEntityId{ *EntityPathIter };
-            const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(CurrentPathEntityId) };
+            const Game::Transform* TransformComponent{ std::as_const(World).GetComponent<Game::Transform>(CurrentPathEntityId) };
             if (TransformComponent == nullptr) {
                 return false;
             }
@@ -93,7 +94,7 @@ namespace {
                 return true;
             }
 
-            const Game::EntityHierarchy* Hierarchy{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
+            const Game::EntityHierarchy* Hierarchy{ std::as_const(World).GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
             if (Hierarchy == nullptr) {
                 break;
             }
@@ -144,7 +145,7 @@ namespace Game {
 
         for (auto [TransformComponent, Renderer, HierarchyComponent] : World.Query<Transform, StaticMeshRenderer, EntityHierarchy>()) {
             const Arche::EntityID EntityId{ HierarchyComponent.self };
-            const Material* MaterialComponent{ World.GetComponent<Material>(EntityId) };
+            const Material* MaterialComponent{ std::as_const(World).GetComponent<Material>(EntityId) };
 
             if (Renderer.model == nullptr || Renderer.active == false) {
                 continue;
@@ -236,7 +237,7 @@ namespace Game {
     }
 
     bool StaticRenderSystem::IsVisibleByFrustum(Arche::World& World, Arche::EntityID EntityId, const Frustum* CullingFrustumComponent) const {
-        const Culling* CullingComponent{ World.GetComponent<Culling>(EntityId) };
+        const Culling* CullingComponent{ std::as_const(World).GetComponent<Culling>(EntityId) };
         if (CullingComponent != nullptr && CullingComponent->frustumCulling == false) {
             return true;
         }
@@ -245,7 +246,7 @@ namespace Game {
             return true;
         }
 
-        const BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityId) };
+        const BoundingBox* BoundingBoxComponent{ std::as_const(World).GetComponent<BoundingBox>(EntityId) };
         if (BoundingBoxComponent == nullptr || BoundingBoxComponent->HasWorldObb() == false) {
             return true;
         }

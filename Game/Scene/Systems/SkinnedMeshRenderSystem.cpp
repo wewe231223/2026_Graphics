@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 #include "Game/Model/AssetRegistry.h"
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
@@ -26,7 +27,7 @@ namespace {
                 return true;
             }
 
-            const Game::EntityHierarchy* Hierarchy{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
+            const Game::EntityHierarchy* Hierarchy{ std::as_const(World).GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
             if (Hierarchy == nullptr) {
                 break;
             }
@@ -111,7 +112,7 @@ namespace Game {
                 RenderData.boundingBoxContexts.push_back(BoundingBoxContext);
             }
 
-            const Material* MaterialComponent{ World.GetComponent<Material>(EntityId) };
+            const Material* MaterialComponent{ std::as_const(World).GetComponent<Material>(EntityId) };
             const std::uint32_t MaterialFlags{ MaterialComponent == nullptr ? 0u : MaterialComponent->Flags };
             const bool IsPickedHierarchy{ IsEntityWithinPickedHierarchy(World, EntityId, Ctx.PickedEntityId) };
             const std::uint32_t PickFlags{ IsPickedHierarchy ? PickedDrawFlagBitMask : 0u };

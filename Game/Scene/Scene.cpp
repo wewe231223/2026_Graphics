@@ -1,4 +1,5 @@
 ﻿#include "Scene.h"
+#include <utility>
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -221,7 +222,7 @@ namespace Game {
 
         Arche::EntityID RootEntityId{ Arche::NullEntityID };
         for (Arche::EntityID SpawnedEntityId : SpawnedEntities) {
-            const EntityHierarchy* Hierarchy{ mWorld.GetComponent<EntityHierarchy>(SpawnedEntityId) };
+            const EntityHierarchy* Hierarchy{ std::as_const(mWorld).GetComponent<EntityHierarchy>(SpawnedEntityId) };
             if (Hierarchy != nullptr && Hierarchy->parent == Arche::NullEntityID) {
                 RootEntityId = SpawnedEntityId;
                 break;
@@ -412,7 +413,7 @@ namespace Game {
             }
 
             const Arche::EntityID TargetCameraEntity{ HierarchyComponent.self };
-            const BehaviorInstanceComponent* ExistingBehaviorComponent{ mWorld.GetComponent<BehaviorInstanceComponent>(TargetCameraEntity) };
+            const BehaviorInstanceComponent* ExistingBehaviorComponent{ std::as_const(mWorld).GetComponent<BehaviorInstanceComponent>(TargetCameraEntity) };
             if (ExistingBehaviorComponent != nullptr) {
                 mIsDefaultCameraControlBehaviorAttached = true;
                 return;

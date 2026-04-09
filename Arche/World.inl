@@ -36,7 +36,6 @@ namespace Arche {
 
     template <TrivialComponent T>
     const T* World::GetComponent(EntityID Id) const {
-        std::shared_lock<std::shared_mutex> Lock{ mWorldRwLock };
         return GetComponentUnsafe<T>(Id);
     }
 

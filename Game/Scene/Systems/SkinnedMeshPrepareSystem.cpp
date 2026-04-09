@@ -41,8 +41,8 @@ namespace {
                 break;
             }
 
-            const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(CurrentEntityId) };
-            const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
+            const Game::Transform* TransformComponent{ std::as_const(World).GetComponent<Game::Transform>(CurrentEntityId) };
+            const Game::EntityHierarchy* HierarchyComponent{ std::as_const(World).GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
             if (TransformComponent == nullptr || HierarchyComponent == nullptr) {
                 return false;
             }
@@ -53,7 +53,7 @@ namespace {
 
         for (std::vector<Arche::EntityID>::const_reverse_iterator EntityPathIter{ EntityPath.crbegin() }; EntityPathIter != EntityPath.crend(); ++EntityPathIter) {
             const Arche::EntityID CurrentPathEntityId{ *EntityPathIter };
-            const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(CurrentPathEntityId) };
+            const Game::Transform* TransformComponent{ std::as_const(World).GetComponent<Game::Transform>(CurrentPathEntityId) };
             if (TransformComponent == nullptr) {
                 return false;
             }
@@ -95,12 +95,12 @@ namespace {
     ResolvedAnimator ResolveAnimatorInHierarchy(Arche::World& World, Arche::EntityID StartEntityId) {
         Arche::EntityID CurrentEntityId{ StartEntityId };
         while (CurrentEntityId != Arche::NullEntityID) {
-            const Game::Animator* AnimatorComponent{ World.GetComponent<Game::Animator>(CurrentEntityId) };
+            const Game::Animator* AnimatorComponent{ std::as_const(World).GetComponent<Game::Animator>(CurrentEntityId) };
             if (AnimatorComponent != nullptr) {
                 return ResolvedAnimator{ CurrentEntityId, AnimatorComponent };
             }
 
-            const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
+            const Game::EntityHierarchy* HierarchyComponent{ std::as_const(World).GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
             if (HierarchyComponent == nullptr) {
                 break;
             }
@@ -114,12 +114,12 @@ namespace {
     ResolvedBoneSkinReference ResolveBoneSkinReferenceInHierarchy(Arche::World& World, Arche::EntityID StartEntityId) {
         Arche::EntityID CurrentEntityId{ StartEntityId };
         while (CurrentEntityId != Arche::NullEntityID) {
-            const Game::BoneSkinReference* BoneSkinReferenceComponent{ World.GetComponent<Game::BoneSkinReference>(CurrentEntityId) };
+            const Game::BoneSkinReference* BoneSkinReferenceComponent{ std::as_const(World).GetComponent<Game::BoneSkinReference>(CurrentEntityId) };
             if (BoneSkinReferenceComponent != nullptr) {
                 return ResolvedBoneSkinReference{ CurrentEntityId, BoneSkinReferenceComponent };
             }
 
-            const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
+            const Game::EntityHierarchy* HierarchyComponent{ std::as_const(World).GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
             if (HierarchyComponent == nullptr) {
                 break;
             }
@@ -131,7 +131,7 @@ namespace {
     }
 
     bool TryResolveTransformWorldMatrix(Arche::World& World, Arche::EntityID EntityId, SimpleMath::Matrix& OutWorldMatrix) {
-        const Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(EntityId) };
+        const Game::Transform* TransformComponent{ std::as_const(World).GetComponent<Game::Transform>(EntityId) };
         if (TransformComponent == nullptr) {
             return false;
         }
@@ -145,12 +145,12 @@ namespace {
             return;
         }
 
-        const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(EntityId) };
+        const Game::EntityHierarchy* HierarchyComponent{ std::as_const(World).GetComponent<Game::EntityHierarchy>(EntityId) };
         if (HierarchyComponent == nullptr) {
             return;
         }
 
-        const Game::Bone* BoneComponent{ World.GetComponent<Game::Bone>(EntityId) };
+        const Game::Bone* BoneComponent{ std::as_const(World).GetComponent<Game::Bone>(EntityId) };
         if (BoneComponent != nullptr && BoneComponent->model == ModelData) {
             SimpleMath::Matrix BoneWorldMatrix{};
             const bool IsBoneWorldMatrixResolved{ TryResolveTransformWorldMatrix(World, EntityId, BoneWorldMatrix) };
@@ -166,7 +166,7 @@ namespace {
                     }
                 }
 
-                const Game::BoundingBox* BoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(EntityId) };
+                const Game::BoundingBox* BoundingBoxComponent{ std::as_const(World).GetComponent<Game::BoundingBox>(EntityId) };
                 if (BoundingBoxComponent != nullptr) {
                     DirectX::BoundingOrientedBox BoneWorldObb{};
                     BoundingBoxComponent->GetObb().Transform(BoneWorldObb, BoneWorldMatrix);
@@ -196,7 +196,7 @@ namespace {
 
         Arche::EntityID ChildEntityId{ HierarchyComponent->firstChild };
         while (ChildEntityId != Arche::NullEntityID) {
-            const Game::EntityHierarchy* ChildHierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(ChildEntityId) };
+            const Game::EntityHierarchy* ChildHierarchyComponent{ std::as_const(World).GetComponent<Game::EntityHierarchy>(ChildEntityId) };
             if (ChildHierarchyComponent == nullptr) {
                 break;
             }
@@ -207,7 +207,7 @@ namespace {
     }
 
     bool TryBuildPreparedResult(Arche::World& World, Arche::EntityID EntityId, Game::SkinnedMeshPreparedData& OutPreparedData) {
-        const Game::SkinnedMeshRenderer* SkinnedMeshRendererComponent{ World.GetComponent<Game::SkinnedMeshRenderer>(EntityId) };
+        const Game::SkinnedMeshRenderer* SkinnedMeshRendererComponent{ std::as_const(World).GetComponent<Game::SkinnedMeshRenderer>(EntityId) };
         if (SkinnedMeshRendererComponent == nullptr || SkinnedMeshRendererComponent->active == false || SkinnedMeshRendererComponent->model == nullptr) {
             return false;
         }

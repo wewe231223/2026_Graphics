@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <utility>
 
 #include "Game/Model/Model.h"
 #include "Game/Scene/Components/Animator.h"
@@ -98,8 +99,8 @@ namespace {
                 return Cache[startId] = { currId, anim };
             }
 
-            if (auto* hierarchy = World.GetComponent<Game::EntityHierarchy>(currId)) {
-                currId = hierarchy->parent;
+            if (const auto* Hierarchy{ std::as_const(World).GetComponent<Game::EntityHierarchy>(currId) }) {
+                currId = Hierarchy->parent;
             }
             else {
                 break;
@@ -111,12 +112,12 @@ namespace {
     ResolvedBoneSkinReference ResolveBoneSkinReferenceInHierarchy(Arche::World& World, Arche::EntityID StartEntityId) {
         Arche::EntityID CurrentEntityId{ StartEntityId };
         while (CurrentEntityId != Arche::NullEntityID) {
-            const Game::BoneSkinReference* BoneSkinReferenceComponent{ World.GetComponent<Game::BoneSkinReference>(CurrentEntityId) };
+            const Game::BoneSkinReference* BoneSkinReferenceComponent{ std::as_const(World).GetComponent<Game::BoneSkinReference>(CurrentEntityId) };
             if (BoneSkinReferenceComponent != nullptr) {
                 return ResolvedBoneSkinReference{ CurrentEntityId, BoneSkinReferenceComponent };
             }
 
-            const Game::EntityHierarchy* HierarchyComponent{ World.GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
+            const Game::EntityHierarchy* HierarchyComponent{ std::as_const(World).GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
             if (HierarchyComponent == nullptr) {
                 break;
             }
@@ -199,11 +200,11 @@ namespace {
 
             if (EntityId == Arche::NullEntityID) continue;
 
-            if (auto* Hierarchy = World.GetComponent<Game::EntityHierarchy>(EntityId)) {
+            if (const auto* Hierarchy{ std::as_const(World).GetComponent<Game::EntityHierarchy>(EntityId) }) {
                 Arche::EntityID ChildId{ Hierarchy->firstChild };
                 while (ChildId != Arche::NullEntityID) {
                     Stack.push_back(ChildId);
-                    const Game::EntityHierarchy* ChildHierarchy{ World.GetComponent<Game::EntityHierarchy>(ChildId) };
+                    const Game::EntityHierarchy* ChildHierarchy{ std::as_const(World).GetComponent<Game::EntityHierarchy>(ChildId) };
                     ChildId = ChildHierarchy == nullptr ? Arche::NullEntityID : ChildHierarchy->nextSibling;
                 }
             }
