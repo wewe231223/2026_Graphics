@@ -156,12 +156,6 @@
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\Systems\TransformWorldBuildSystem.h">
-      <Filter>Scene\Systems</Filter>
-    </ClInclude>
-    <ClInclude Include="Scene\Systems\StaticBoundingBoxUpdateSystem.h">
-      <Filter>Scene\Systems</Filter>
-    </ClInclude>
     <ClInclude Include="Scene\Systems\SkinnedMeshPrepareSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
@@ -336,12 +330,6 @@
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp">
-      <Filter>Scene\Systems</Filter>
-    </ClCompile>
-    <ClCompile Include="Scene\Systems\TransformWorldBuildSystem.cpp">
-      <Filter>Scene\Systems</Filter>
-    </ClCompile>
-    <ClCompile Include="Scene\Systems\StaticBoundingBoxUpdateSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\SkinnedMeshPrepareSystem.cpp">

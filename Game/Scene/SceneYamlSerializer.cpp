@@ -35,10 +35,8 @@
 #include "Game/Scene/Systems/AnimateSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshPrepareSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshRenderSystem.h"
-#include "Game/Scene/Systems/StaticBoundingBoxUpdateSystem.h"
 #include "Game/Scene/Systems/StaticRenderSystem.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
-#include "Game/Scene/Systems/TransformWorldBuildSystem.h"
 #include "Game/Scene/SceneEntityFactory.h"
 #include "Game/Model/TerrainMeshTypes.h"
 #include "Game/Model/HeightMapLoader.h"
@@ -205,14 +203,12 @@ namespace {
     std::unique_ptr<Game::ISystem> CreateSystemByName(const std::string& SystemName) {
         using SystemFactory = std::unique_ptr<Game::ISystem>(*)();
         static const std::unordered_map<std::string_view, SystemFactory> SystemFactories{
-            { "StaticBoundingBoxUpdateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::StaticBoundingBoxUpdateSystem>(); } },
             { "SkinnedMeshPrepareSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshPrepareSystem>(); } },
             { "StaticRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::StaticRenderSystem>(); } },
             { "SkinnedMeshRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshRenderSystem>(); } },
             { "AnimationGraphSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimationGraphSystem>(); } },
             { "AnimateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimateSystem>(); } },
             { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },
-            { "TransformWorldBuildSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TransformWorldBuildSystem>(); } },
             { "TerrainCollideSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TerrainCollideSystem>(); } },
         };
         const std::unordered_map<std::string_view, SystemFactory>::const_iterator FactoryIter{ SystemFactories.find(SystemName) };

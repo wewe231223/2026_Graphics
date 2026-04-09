@@ -2,8 +2,6 @@
 Systems:
   - Type: AnimationGraphSystem
   - Type: AnimateSystem
-  - Type: TransformWorldBuildSystem
-  - Type: StaticBoundingBoxUpdateSystem
   - Type: SkinnedMeshPrepareSystem
   - Type: StaticRenderSystem
   - Type: SkinnedMeshRenderSystem
