@@ -1,4 +1,5 @@
 ﻿SceneName: DefaultScene
+
 Systems:
   - Type: AnimationGraphSystem
   - Type: AnimateSystem
@@ -7,13 +8,13 @@ Systems:
   - Type: SkinnedMeshRenderSystem
   - Type: CameraRenderSystem
   - Type: TerrainCollideSystem
-
+  
 DefaultTransform: &DefaultTransform
-  rotationEuler: [0.0, 0.0, 0.0]
-  rotation: [0.0, 0.0, 0.0, 1.0]
-  scale: [1.0, 1.0, 1.0]
+rotationEuler: [0.0, 0.0, 0.0]
+rotation: [0.0, 0.0, 0.0, 1.0]
+scale: [1.0, 1.0, 1.0]
 
-Prefabs:
+Prefabs: 
   - &Prefab1001
     prefabId: 1001
     modelPath: testset3.bin
@@ -70,7 +71,6 @@ Prefabs:
     materialPath: skydome_materials.json
     active: true
 
-
 Entities:
   - EntityId: 0
     ParentEntityId: -1
@@ -112,6 +112,8 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-5.00, 0.00, -50.00]
+      TerrainCollider:
+        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1001
         prefabId: 1001
@@ -128,6 +130,8 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [5.00, 0.00, -20.00]
+      TerrainCollider:
+        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1002
         prefabId: 1002
@@ -141,6 +145,8 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-10.00, 0.00, -12.00]
+      TerrainCollider:
+        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2001
         prefabId: 2001
@@ -154,6 +160,8 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-6.00, 0.00, -12.00]
+      TerrainCollider:
+        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2002
         prefabId: 2002
@@ -167,6 +175,8 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-2.00, 0.00, -12.00]
+      TerrainCollider:
+        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2003
         prefabId: 2003
@@ -180,6 +190,8 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [2.00, 0.00, -12.00]
+      TerrainCollider:
+        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2004
         prefabId: 2004
@@ -193,6 +205,8 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [6.00, 0.00, -12.00]
+      TerrainCollider:
+        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2005
         prefabId: 2005
@@ -206,10 +220,11 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [10.00, 0.00, -12.00]
+      TerrainCollider:
+        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2006
         prefabId: 2006
-
   - EntityId: 9
     ParentEntityId: -1
     Components:
@@ -230,7 +245,6 @@ Entities:
         AnimationGraph: knight_idle_run.graph.yaml
       Script:
         path: Script/Lua/PlayerBehavior.lua
-
   - EntityId: 10
     ParentEntityId: -1
     Components:
@@ -241,6 +255,8 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-5.00, 0.00, -30.00]
+      TerrainCollider:
+        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1004
         prefabId: 1004
@@ -257,6 +273,8 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [0.00, 0.00, 0.00]
+      TerrainCollider:
+        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2007
         prefabId: 2007
@@ -290,6 +308,8 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-5.00, 0.00, -35.00]
+      TerrainCollider:
+        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1004
         prefabId: 1004
@@ -306,6 +326,8 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-5.00, 0.00, -40.00]
+      TerrainCollider:
+        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1004
         prefabId: 1004
@@ -322,6 +344,8 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-5.00, 0.00, -45.00]
+      TerrainCollider:
+        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1004
         prefabId: 1004
@@ -338,6 +362,8 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-5.00, 0.00, -50.00]
+      TerrainCollider:
+        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1004
         prefabId: 1004
