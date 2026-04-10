@@ -111,6 +111,26 @@ namespace {
         return ResolvedAnimator{};
     }
 
+    ResolvedAnimator ResolveTopMostAnimatorInHierarchy(Arche::World& World, Arche::EntityID StartEntityId) {
+        ResolvedAnimator ResolvedTopMostAnimator{};
+        Arche::EntityID CurrentEntityId{ StartEntityId };
+        while (CurrentEntityId != Arche::NullEntityID) {
+            const Game::Animator* AnimatorComponent{ std::as_const(World).GetComponent<Game::Animator>(CurrentEntityId) };
+            if (AnimatorComponent != nullptr) {
+                ResolvedTopMostAnimator = ResolvedAnimator{ CurrentEntityId, AnimatorComponent };
+            }
+
+            const Game::EntityHierarchy* HierarchyComponent{ std::as_const(World).GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
+            if (HierarchyComponent == nullptr) {
+                break;
+            }
+
+            CurrentEntityId = HierarchyComponent->parent;
+        }
+
+        return ResolvedTopMostAnimator;
+    }
+
     ResolvedBoneSkinReference ResolveBoneSkinReferenceInHierarchy(Arche::World& World, Arche::EntityID StartEntityId) {
         Arche::EntityID CurrentEntityId{ StartEntityId };
         while (CurrentEntityId != Arche::NullEntityID) {
@@ -138,6 +158,12 @@ namespace {
 
         OutWorldMatrix = TransformComponent->worldMatrix;
         return true;
+    }
+
+    void BuildAabbFromObb(const DirectX::BoundingOrientedBox& Obb, DirectX::BoundingBox& OutAabb) {
+        std::array<SimpleMath::Vector3, 8> BoundingCorners{};
+        Obb.GetCorners(reinterpret_cast<DirectX::XMFLOAT3*>(BoundingCorners.data()));
+        DirectX::BoundingBox::CreateFromPoints(OutAabb, BoundingCorners.size(), reinterpret_cast<const DirectX::XMFLOAT3*>(BoundingCorners.data()), sizeof(SimpleMath::Vector3));
     }
 
     void GatherBonePoseAndBoundingRecursive(Arche::World& World, Arche::EntityID EntityId, Game::Model* ModelData, std::uint32_t SkinArrayIndex, const SimpleMath::Matrix& MeshWorldInverseMatrix, std::vector<SimpleMath::Matrix>& InOutBoneMatrices, std::optional<DirectX::BoundingBox>& InOutMergedAabb, std::vector<Game::RFD::BoundingBoxContext>& InOutBoundingBoxContexts) {
@@ -267,6 +293,44 @@ namespace {
 
         return true;
     }
+
+    void UpdateAnimatorWorldBoundingBoxes(Arche::World& World, const std::vector<Arche::EntityID>& TargetEntityIds) {
+        std::unordered_map<Arche::EntityID, DirectX::BoundingBox> MergedAnimatorAabbs{};
+        MergedAnimatorAabbs.reserve(TargetEntityIds.size());
+
+        for (const Arche::EntityID EntityId : TargetEntityIds) {
+            const ResolvedAnimator ResolvedTopMostAnimator{ ResolveTopMostAnimatorInHierarchy(World, EntityId) };
+            if (ResolvedTopMostAnimator.Component == nullptr) {
+                continue;
+            }
+
+            const Game::BoundingBox* ModelBoundingBoxComponent{ std::as_const(World).GetComponent<Game::BoundingBox>(EntityId) };
+            if (ModelBoundingBoxComponent == nullptr || ModelBoundingBoxComponent->HasWorldObb() == false) {
+                continue;
+            }
+
+            DirectX::BoundingBox ModelWorldAabb{};
+            BuildAabbFromObb(ModelBoundingBoxComponent->GetWorldObb(), ModelWorldAabb);
+            const std::unordered_map<Arche::EntityID, DirectX::BoundingBox>::iterator MergedAnimatorAabbIter{ MergedAnimatorAabbs.find(ResolvedTopMostAnimator.EntityId) };
+            if (MergedAnimatorAabbIter == MergedAnimatorAabbs.end()) {
+                MergedAnimatorAabbs.insert(std::make_pair(ResolvedTopMostAnimator.EntityId, ModelWorldAabb));
+            }
+            else {
+                DirectX::BoundingBox::CreateMerged(MergedAnimatorAabbIter->second, MergedAnimatorAabbIter->second, ModelWorldAabb);
+            }
+        }
+
+        for (const std::pair<const Arche::EntityID, DirectX::BoundingBox>& AnimatorAabbItem : MergedAnimatorAabbs) {
+            Game::BoundingBox* AnimatorBoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(AnimatorAabbItem.first) };
+            if (AnimatorBoundingBoxComponent == nullptr) {
+                continue;
+            }
+
+            DirectX::BoundingOrientedBox AnimatorMergedObb{};
+            DirectX::BoundingOrientedBox::CreateFromBoundingBox(AnimatorMergedObb, AnimatorAabbItem.second);
+            AnimatorBoundingBoxComponent->SetWorldObb(AnimatorMergedObb);
+        }
+    }
 }
 
 namespace Game {
@@ -336,5 +400,7 @@ namespace Game {
                 Ctx.SkinnedMeshPreparedDataItems.push_back(std::move(PreparedData));
             }
         }
+
+        UpdateAnimatorWorldBoundingBoxes(World, TargetEntityIds);
     }
 }
