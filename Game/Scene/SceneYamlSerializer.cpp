@@ -59,6 +59,7 @@ namespace {
     constexpr const char* PrefabInstanceTypeName{ "PrefabInstance" };
     constexpr const char* BoneSkinReferenceTypeName{ "BoneSkinReference" };
     constexpr const char* RuntimeVariablesTypeName{ "RuntimeVariables" };
+    constexpr const char* BoundingBoxTypeName{ "BB" };
     constexpr const char* DefaultMaterialPathText{ "Resources/DefaultResource/DefaultMaterial.json" };
     constexpr const char* CameraModeFreeLookText{ "FreeLook" };
     constexpr const char* CameraModeThirdPersonText{ "ThirdPerson" };
@@ -94,6 +95,12 @@ namespace {
         std::int32_t ClipIndex{ -1 };
         std::int32_t FallbackClipIndex{ -1 };
         std::vector<PendingRuntimeVariableInitialization> RuntimeVariableInitializations{};
+    };
+
+    struct PendingBoundingBoxBinding final {
+        Arche::EntityID EntityId{ Arche::NullEntityID };
+        SimpleMath::Vector3 Center{ SimpleMath::Vector3::Zero };
+        SimpleMath::Vector3 Extents{ SimpleMath::Vector3::One };
     };
 
     bool ReadVector3(c4::yml::ConstNodeRef TargetNode, SimpleMath::Vector3& OutValue) {
@@ -865,6 +872,7 @@ namespace Game {
         std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredThirdPersonFollowTargetEntities{};
         std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredSkySphereEntities{};
         std::vector<PendingAnimatorBinding> PendingAnimatorBindings{};
+        std::vector<PendingBoundingBoxBinding> PendingBoundingBoxBindings{};
         const c4::yml::ConstNodeRef EntitiesNode{ RootNode["Entities"] };
         for (const c4::yml::ConstNodeRef EntityNode : EntitiesNode.children()) {
             const Arche::EntityID Entity{ EntityFactory.CreateEntity(false) };
@@ -916,6 +924,21 @@ namespace Game {
                 }
 
                 OutScene.GetWorld().AddComponent(Entity, NewTransform);
+            }
+
+            if (ComponentsNode.has_child(BoundingBoxTypeName)) {
+                const c4::yml::ConstNodeRef BoundingBoxNode{ ComponentsNode[BoundingBoxTypeName] };
+                SimpleMath::Vector3 BoundingCenter{};
+                SimpleMath::Vector3 BoundingExtents{};
+                const bool IsCenterRead{ BoundingBoxNode.has_child("Center") && ReadVector3(BoundingBoxNode["Center"], BoundingCenter) };
+                const bool IsExtentsRead{ BoundingBoxNode.has_child("Extents") && ReadVector3(BoundingBoxNode["Extents"], BoundingExtents) };
+                if (IsCenterRead && IsExtentsRead) {
+                    PendingBoundingBoxBinding NewPendingBinding{};
+                    NewPendingBinding.EntityId = Entity;
+                    NewPendingBinding.Center = BoundingCenter;
+                    NewPendingBinding.Extents = BoundingExtents;
+                    PendingBoundingBoxBindings.push_back(NewPendingBinding);
+                }
             }
 
             if (ComponentsNode.has_child(TerrainColliderTypeName)) {
@@ -1407,6 +1430,44 @@ namespace Game {
             EntityFactory.AttachChildEntity(ParentIter->second, DeferredParent.first);
         }
 
+        for (const PendingBoundingBoxBinding& PendingBoundingBoxBindingItem : PendingBoundingBoxBindings) {
+            if (PendingBoundingBoxBindingItem.EntityId == Arche::NullEntityID) {
+                continue;
+            }
+
+            DirectX::BoundingOrientedBox LocalBoundingBox{};
+            LocalBoundingBox.Center = DirectX::XMFLOAT3{ PendingBoundingBoxBindingItem.Center.x, PendingBoundingBoxBindingItem.Center.y, PendingBoundingBoxBindingItem.Center.z };
+            LocalBoundingBox.Extents = DirectX::XMFLOAT3{ PendingBoundingBoxBindingItem.Extents.x, PendingBoundingBoxBindingItem.Extents.y, PendingBoundingBoxBindingItem.Extents.z };
+            LocalBoundingBox.Orientation = DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 1.0f };
+
+            BoundingBox* ExistingBoundingBox{ OutScene.GetWorld().GetComponent<BoundingBox>(PendingBoundingBoxBindingItem.EntityId) };
+            if (ExistingBoundingBox == nullptr) {
+                BoundingBox NewBoundingBox{};
+                NewBoundingBox.SetObb(LocalBoundingBox);
+                const Transform* TransformComponent{ std::as_const(OutScene.GetWorld()).GetComponent<Transform>(PendingBoundingBoxBindingItem.EntityId) };
+                if (TransformComponent != nullptr) {
+                    const SimpleMath::Matrix TransformOnlyWorldMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent->scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent->rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent->position) };
+                    DirectX::BoundingOrientedBox WorldBoundingBox{};
+                    LocalBoundingBox.Transform(WorldBoundingBox, TransformOnlyWorldMatrix);
+                    NewBoundingBox.SetWorldObb(WorldBoundingBox);
+                }
+                OutScene.GetWorld().AddComponent(PendingBoundingBoxBindingItem.EntityId, NewBoundingBox);
+            }
+            else {
+                ExistingBoundingBox->SetObb(LocalBoundingBox);
+                const Transform* TransformComponent{ std::as_const(OutScene.GetWorld()).GetComponent<Transform>(PendingBoundingBoxBindingItem.EntityId) };
+                if (TransformComponent != nullptr) {
+                    const SimpleMath::Matrix TransformOnlyWorldMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent->scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent->rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent->position) };
+                    DirectX::BoundingOrientedBox WorldBoundingBox{};
+                    LocalBoundingBox.Transform(WorldBoundingBox, TransformOnlyWorldMatrix);
+                    ExistingBoundingBox->SetWorldObb(WorldBoundingBox);
+                }
+                else {
+                    ExistingBoundingBox->InvalidateWorldObb();
+                }
+            }
+        }
+
         for (const std::pair<Arche::EntityID, std::int64_t>& DeferredBoneSkinReferenceEntity : DeferredBoneSkinReferenceEntities) {
             const std::unordered_map<std::int64_t, Arche::EntityID>::const_iterator BoneRootIter{ EntityBySerializedId.find(DeferredBoneSkinReferenceEntity.second) };
             if (BoneRootIter == EntityBySerializedId.end()) {
@@ -1733,6 +1794,14 @@ namespace Game {
                 if (AnimationGraphSelectorForYaml.empty() == false) {
                     AppendLine(Stream, 4, std::string{ "AnimationGraph: " } + ToYamlText(AnimationGraphSelectorForYaml));
                 }
+            }
+
+            const BoundingBox* BoundingBoxComponent{ ReadOnlyWorld->GetComponent<BoundingBox>(EntityId) };
+            if (BoundingBoxComponent != nullptr) {
+                const DirectX::BoundingOrientedBox& LocalBoundingBox{ BoundingBoxComponent->GetObb() };
+                AppendLine(Stream, 3, std::string{ BoundingBoxTypeName } + std::string{ ":" });
+                AppendVector3(Stream, 4, "Center", SimpleMath::Vector3{ LocalBoundingBox.Center.x, LocalBoundingBox.Center.y, LocalBoundingBox.Center.z });
+                AppendVector3(Stream, 4, "Extents", SimpleMath::Vector3{ LocalBoundingBox.Extents.x, LocalBoundingBox.Extents.y, LocalBoundingBox.Extents.z });
             }
 
             const PrefabInstance* PrefabInstanceComponent{ ReadOnlyWorld->GetComponent<PrefabInstance>(EntityId) };

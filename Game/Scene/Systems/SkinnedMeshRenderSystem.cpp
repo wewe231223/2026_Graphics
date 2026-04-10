@@ -3,9 +3,11 @@
 #include <array>
 #include <cstdint>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <utility>
 #include "Game/Model/AssetRegistry.h"
+#include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Material.h"
@@ -75,6 +77,27 @@ namespace Game {
             PreparedDataByEntity[PreparedData.EntityId] = &PreparedData;
         }
 
+        std::unordered_set<Arche::EntityID> AppendedBoundingBoxEntities{};
+        for (auto [AnimatorComponent, BoundingBoxComponent, HierarchyComponent] : World.Query<Animator, BoundingBox, EntityHierarchy>()) {
+            (void)AnimatorComponent;
+            if (BoundingBoxComponent.HasWorldObb() == false) {
+                continue;
+            }
+
+            const Arche::EntityID EntityId{ HierarchyComponent.self };
+            const bool IsInserted{ AppendedBoundingBoxEntities.insert(EntityId).second };
+            if (IsInserted == false) {
+                continue;
+            }
+
+            const DirectX::BoundingOrientedBox& WorldObb{ BoundingBoxComponent.GetWorldObb() };
+            RFD::BoundingBoxContext BoundingBoxContext{};
+            BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
+            BoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
+            BoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
+            RenderData.boundingBoxContexts.push_back(BoundingBoxContext);
+        }
+
         for (auto [TransformComponent, Renderer, HierarchyComponent] : World.Query<Transform, SkinnedMeshRenderer, EntityHierarchy>()) {
             if (Renderer.model == nullptr || Renderer.active == false) {
                 continue;
@@ -104,6 +127,11 @@ namespace Game {
 
             BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityId) };
             if (BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
+                const bool IsInserted{ AppendedBoundingBoxEntities.insert(EntityId).second };
+                if (IsInserted == false) {
+                    continue;
+                }
+
                 const DirectX::BoundingOrientedBox& WorldObb{ BoundingBoxComponent->GetWorldObb() };
                 RFD::BoundingBoxContext BoundingBoxContext{};
                 BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };

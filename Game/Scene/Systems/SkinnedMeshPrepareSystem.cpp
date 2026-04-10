@@ -2,7 +2,6 @@
 
 #include <array>
 #include <cstdint>
-#include <optional>
 #include <span>
 #include <unordered_map>
 #include <utility>
@@ -111,26 +110,6 @@ namespace {
         return ResolvedAnimator{};
     }
 
-    ResolvedAnimator ResolveTopMostAnimatorInHierarchy(Arche::World& World, Arche::EntityID StartEntityId) {
-        ResolvedAnimator ResolvedTopMostAnimator{};
-        Arche::EntityID CurrentEntityId{ StartEntityId };
-        while (CurrentEntityId != Arche::NullEntityID) {
-            const Game::Animator* AnimatorComponent{ std::as_const(World).GetComponent<Game::Animator>(CurrentEntityId) };
-            if (AnimatorComponent != nullptr) {
-                ResolvedTopMostAnimator = ResolvedAnimator{ CurrentEntityId, AnimatorComponent };
-            }
-
-            const Game::EntityHierarchy* HierarchyComponent{ std::as_const(World).GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
-            if (HierarchyComponent == nullptr) {
-                break;
-            }
-
-            CurrentEntityId = HierarchyComponent->parent;
-        }
-
-        return ResolvedTopMostAnimator;
-    }
-
     ResolvedBoneSkinReference ResolveBoneSkinReferenceInHierarchy(Arche::World& World, Arche::EntityID StartEntityId) {
         Arche::EntityID CurrentEntityId{ StartEntityId };
         while (CurrentEntityId != Arche::NullEntityID) {
@@ -160,13 +139,7 @@ namespace {
         return true;
     }
 
-    void BuildAabbFromObb(const DirectX::BoundingOrientedBox& Obb, DirectX::BoundingBox& OutAabb) {
-        std::array<SimpleMath::Vector3, 8> BoundingCorners{};
-        Obb.GetCorners(reinterpret_cast<DirectX::XMFLOAT3*>(BoundingCorners.data()));
-        DirectX::BoundingBox::CreateFromPoints(OutAabb, BoundingCorners.size(), reinterpret_cast<const DirectX::XMFLOAT3*>(BoundingCorners.data()), sizeof(SimpleMath::Vector3));
-    }
-
-    void GatherBonePoseAndBoundingRecursive(Arche::World& World, Arche::EntityID EntityId, Game::Model* ModelData, std::uint32_t SkinArrayIndex, const SimpleMath::Matrix& MeshWorldInverseMatrix, std::vector<SimpleMath::Matrix>& InOutBoneMatrices, std::optional<DirectX::BoundingBox>& InOutMergedAabb, std::vector<Game::RFD::BoundingBoxContext>& InOutBoundingBoxContexts) {
+    void GatherBonePoseAndBoundingRecursive(Arche::World& World, Arche::EntityID EntityId, Game::Model* ModelData, std::uint32_t SkinArrayIndex, const SimpleMath::Matrix& MeshWorldInverseMatrix, std::vector<SimpleMath::Matrix>& InOutBoneMatrices, std::vector<Game::RFD::BoundingBoxContext>& InOutBoundingBoxContexts) {
         if (EntityId == Arche::NullEntityID || ModelData == nullptr) {
             return;
         }
@@ -196,16 +169,6 @@ namespace {
                 if (BoundingBoxComponent != nullptr) {
                     DirectX::BoundingOrientedBox BoneWorldObb{};
                     BoundingBoxComponent->GetObb().Transform(BoneWorldObb, BoneWorldMatrix);
-                    DirectX::BoundingBox BoneWorldAabb{};
-                    std::array<SimpleMath::Vector3, 8> BoneCorners{};
-                    BoneWorldObb.GetCorners(reinterpret_cast<DirectX::XMFLOAT3*>(BoneCorners.data()));
-                    DirectX::BoundingBox::CreateFromPoints(BoneWorldAabb, BoneCorners.size(), reinterpret_cast<const DirectX::XMFLOAT3*>(BoneCorners.data()), sizeof(SimpleMath::Vector3));
-                    if (InOutMergedAabb.has_value() == true) {
-                        DirectX::BoundingBox::CreateMerged(*InOutMergedAabb, *InOutMergedAabb, BoneWorldAabb);
-                    }
-                    else {
-                        InOutMergedAabb = BoneWorldAabb;
-                    }
 
                     Game::RFD::BoundingBoxContext BoneBoundingBoxContext{};
                     BoneBoundingBoxContext.center = SimpleMath::Vector4{ BoneWorldObb.Center.x, BoneWorldObb.Center.y, BoneWorldObb.Center.z, 1.0f };
@@ -227,7 +190,7 @@ namespace {
                 break;
             }
 
-            GatherBonePoseAndBoundingRecursive(World, ChildEntityId, ModelData, SkinArrayIndex, MeshWorldInverseMatrix, InOutBoneMatrices, InOutMergedAabb, InOutBoundingBoxContexts);
+            GatherBonePoseAndBoundingRecursive(World, ChildEntityId, ModelData, SkinArrayIndex, MeshWorldInverseMatrix, InOutBoneMatrices, InOutBoundingBoxContexts);
             ChildEntityId = ChildHierarchyComponent->nextSibling;
         }
     }
@@ -276,59 +239,22 @@ namespace {
         OutPreparedData.EntityId = EntityId;
         OutPreparedData.BonePalette.resize(static_cast<std::size_t>(BoneMatrixCount), SimpleMath::Matrix::Identity);
 
-        std::optional<DirectX::BoundingBox> MergedBoneAabb{};
         SimpleMath::Matrix MeshWorldInverseMatrix{ MeshWorldMatrix };
         MeshWorldInverseMatrix = MeshWorldInverseMatrix.Invert();
-        GatherBonePoseAndBoundingRecursive(World, BoneRootEntityId, SkinnedMeshRendererComponent->model, SkinArrayIndex, MeshWorldInverseMatrix, OutPreparedData.BonePalette, MergedBoneAabb, OutPreparedData.BoneBoundingBoxContexts);
-
-        if (MergedBoneAabb.has_value() == true) {
-            DirectX::BoundingOrientedBox MergedBoneObb{};
-            DirectX::BoundingOrientedBox::CreateFromBoundingBox(MergedBoneObb, *MergedBoneAabb);
-            Game::BoundingBox* ModelBoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(EntityId) };
-            if (ModelBoundingBoxComponent != nullptr) {
-                ModelBoundingBoxComponent->SetObb(MergedBoneObb);
-                ModelBoundingBoxComponent->SetWorldObb(MergedBoneObb);
-            }
-        }
+        GatherBonePoseAndBoundingRecursive(World, BoneRootEntityId, SkinnedMeshRendererComponent->model, SkinArrayIndex, MeshWorldInverseMatrix, OutPreparedData.BonePalette, OutPreparedData.BoneBoundingBoxContexts);
 
         return true;
     }
 
-    void UpdateAnimatorWorldBoundingBoxes(Arche::World& World, const std::vector<Arche::EntityID>& TargetEntityIds) {
-        std::unordered_map<Arche::EntityID, DirectX::BoundingBox> MergedAnimatorAabbs{};
-        MergedAnimatorAabbs.reserve(TargetEntityIds.size());
+    void UpdateAnimatorBoundingBoxes(Arche::World& World) {
+        for (auto [AnimatorComponent, TransformComponent, BoundingBoxComponent] : World.Query<Game::Animator, Game::Transform, Game::BoundingBox>()) {
+            (void)AnimatorComponent;
 
-        for (const Arche::EntityID EntityId : TargetEntityIds) {
-            const ResolvedAnimator ResolvedTopMostAnimator{ ResolveTopMostAnimatorInHierarchy(World, EntityId) };
-            if (ResolvedTopMostAnimator.Component == nullptr) {
-                continue;
-            }
-
-            const Game::BoundingBox* ModelBoundingBoxComponent{ std::as_const(World).GetComponent<Game::BoundingBox>(EntityId) };
-            if (ModelBoundingBoxComponent == nullptr || ModelBoundingBoxComponent->HasWorldObb() == false) {
-                continue;
-            }
-
-            DirectX::BoundingBox ModelWorldAabb{};
-            BuildAabbFromObb(ModelBoundingBoxComponent->GetWorldObb(), ModelWorldAabb);
-            const std::unordered_map<Arche::EntityID, DirectX::BoundingBox>::iterator MergedAnimatorAabbIter{ MergedAnimatorAabbs.find(ResolvedTopMostAnimator.EntityId) };
-            if (MergedAnimatorAabbIter == MergedAnimatorAabbs.end()) {
-                MergedAnimatorAabbs.insert(std::make_pair(ResolvedTopMostAnimator.EntityId, ModelWorldAabb));
-            }
-            else {
-                DirectX::BoundingBox::CreateMerged(MergedAnimatorAabbIter->second, MergedAnimatorAabbIter->second, ModelWorldAabb);
-            }
-        }
-
-        for (const std::pair<const Arche::EntityID, DirectX::BoundingBox>& AnimatorAabbItem : MergedAnimatorAabbs) {
-            Game::BoundingBox* AnimatorBoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(AnimatorAabbItem.first) };
-            if (AnimatorBoundingBoxComponent == nullptr) {
-                continue;
-            }
-
-            DirectX::BoundingOrientedBox AnimatorMergedObb{};
-            DirectX::BoundingOrientedBox::CreateFromBoundingBox(AnimatorMergedObb, AnimatorAabbItem.second);
-            AnimatorBoundingBoxComponent->SetWorldObb(AnimatorMergedObb);
+            const DirectX::BoundingOrientedBox AnimatorLocalBoundingBox{ BoundingBoxComponent.GetObb() };
+            const SimpleMath::Matrix TransformOnlyWorldMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
+            DirectX::BoundingOrientedBox AnimatorWorldBoundingBox{};
+            AnimatorLocalBoundingBox.Transform(AnimatorWorldBoundingBox, TransformOnlyWorldMatrix);
+            BoundingBoxComponent.SetWorldObb(AnimatorWorldBoundingBox);
         }
     }
 }
@@ -373,6 +299,8 @@ namespace Game {
             TargetEntityIds.push_back(EntityHierarchyComponent.self);
         }
 
+        UpdateAnimatorBoundingBoxes(World);
+
         if (TargetEntityIds.empty() == true) {
             return;
         }
@@ -401,6 +329,5 @@ namespace Game {
             }
         }
 
-        UpdateAnimatorWorldBoundingBoxes(World, TargetEntityIds);
     }
 }
