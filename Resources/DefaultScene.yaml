@@ -220,7 +220,7 @@ Entities:
       Transform:
         <<: *DefaultTransform 
       TerrainCollider:
-        TerrainCollide: false
+        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1003
         prefabId: 1003

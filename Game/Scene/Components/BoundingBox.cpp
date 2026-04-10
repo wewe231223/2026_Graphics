@@ -52,8 +52,10 @@ namespace Game {
     }
 
     void BoundingBox::BuildComponentInspectionFields(std::vector<ComponentInspectionField>& OutFields) const {
-        OutFields.push_back(ComponentInspectionField{ "Center", std::format("{:.3f}, {:.3f}, {:.3f}", mObb.Center.x, mObb.Center.y, mObb.Center.z) });
-        OutFields.push_back(ComponentInspectionField{ "Extents", std::format("{:.3f}, {:.3f}, {:.3f}", mObb.Extents.x, mObb.Extents.y, mObb.Extents.z) });
+        OutFields.push_back(ComponentInspectionField{ "Origin:Center", std::format("{:.3f}, {:.3f}, {:.3f}", mObb.Center.x, mObb.Center.y, mObb.Center.z) });
+        OutFields.push_back(ComponentInspectionField{ "Origin:Extents", std::format("{:.3f}, {:.3f}, {:.3f}", mObb.Extents.x, mObb.Extents.y, mObb.Extents.z) });
+		OutFields.push_back(ComponentInspectionField{ "World:Center", std::format("{:.3f}, {:.3f}, {:.3f}", mWorldObb.Center.x, mWorldObb.Center.y, mWorldObb.Center.z)});
+		OutFields.push_back(ComponentInspectionField{ "World:Extents", std::format("{:.3f}, {:.3f}, {:.3f}", mWorldObb.Extents.x, mWorldObb.Extents.y, mWorldObb.Extents.z) });
     }
 
     void BoundingBox::ResetToUnitCube() {
