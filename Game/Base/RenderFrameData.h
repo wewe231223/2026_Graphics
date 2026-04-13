@@ -47,6 +47,26 @@ namespace Game {
             uint32_t _pad0 = 0;
         };
 
+        struct alignas(16) CameraParameter final {
+            SimpleMath::Matrix view{};
+            SimpleMath::Matrix proj{};
+            SimpleMath::Matrix viewProj{};
+            SimpleMath::Vector4 position{};
+            float nearPlane{ 0.0f };
+            float farPlane{ 0.0f };
+            float aspectRatio{ 0.0f };
+            float fovRadians{ 0.0f };
+        };
+
+        struct alignas(16) ShadowMappingParameter final {
+            CameraParameter shadowCamera{};
+            SimpleMath::Vector4 lightDirection{};
+            float shadowBias{ 0.0015f };
+            float shadowStrength{ 0.6f };
+            float shadowMapSize{ 2048.0f };
+            float padding0{ 0.0f };
+        };
+
         // ------------------------------------------------------------
         // 2) 오브젝트 공통 컨텍스트 (오브젝트당 1개)
         //    - 이 배열은 SRV(StructuredBuffer)로 올려서 셰이더가 인덱싱
@@ -106,6 +126,8 @@ namespace Game {
         // ------------------------------------------------------------
         struct RenderFrameData {
             FrameGlobals globals{};
+            CameraParameter mainCamera{};
+            ShadowMappingParameter shadowMapping{};
 
             std::vector<ModelContext> modelContexts{};   // SRV
             std::vector<BoundingBoxContext> boundingBoxContexts{};

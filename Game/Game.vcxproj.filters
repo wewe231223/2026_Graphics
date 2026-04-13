@@ -159,6 +159,9 @@
     <ClInclude Include="Scene\Systems\SkinnedMeshPrepareSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Systems\ShadowMappingParameterSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\EntityHierarchy.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -333,6 +336,9 @@
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\SkinnedMeshPrepareSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\ShadowMappingParameterSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp">

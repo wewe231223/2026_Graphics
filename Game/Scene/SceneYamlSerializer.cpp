@@ -37,6 +37,7 @@
 #include "Game/Scene/Systems/SkinnedMeshRenderSystem.h"
 #include "Game/Scene/Systems/StaticRenderSystem.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
+#include "Game/Scene/Systems/ShadowMappingParameterSystem.h"
 #include "Game/Scene/SceneEntityFactory.h"
 #include "Game/Model/TerrainMeshTypes.h"
 #include "Game/Model/HeightMapLoader.h"
@@ -216,6 +217,7 @@ namespace {
             { "AnimationGraphSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimationGraphSystem>(); } },
             { "AnimateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimateSystem>(); } },
             { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },
+            { "ShadowMappingParameterSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::ShadowMappingParameterSystem>(); } },
             { "TerrainCollideSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TerrainCollideSystem>(); } },
         };
         const std::unordered_map<std::string_view, SystemFactory>::const_iterator FactoryIter{ SystemFactories.find(SystemName) };
