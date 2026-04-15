@@ -4,6 +4,7 @@
 #include "Utility/StringUtils.h"
 #include "Utility/StdOutput.h"
 #include "Core/Config.h"
+#include <algorithm>
 #include <fstream>
 #include "Widget/PerformanceProvider.h"
 
@@ -68,19 +69,27 @@ namespace Core {
 			std::array<ID3D12DescriptorHeap*, 1> DescriptorHeaps{ mSrvHeap.GetHeap() };
 			mCommandList->SetDescriptorHeaps(static_cast<UINT>(DescriptorHeaps.size()), DescriptorHeaps.data());
 
-			auto& rt = mRenderTargets[currentIndex];
-			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
-
 			DrawCallResourceManager& DrawCallResources{ mDrawCallResourceManagers[currentIndex] };
 			mMaterialResourceManager.TransitionToShaderResource(mCommandList.Get(), static_cast<uint32_t>(currentIndex));
 			DrawCallResources.TransitionToShaderResource(mCommandList.Get());
+
+			EnsureShadowMapResources(Data.shadowMapping);
+			mShadowDepthMap->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE);
+
+			D3D12_CPU_DESCRIPTOR_HANDLE ShadowDsv{ mShadowDepthMap->GetDSV() };
+			mCommandList->ClearDepthStencilView(ShadowDsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+			mCommandList->OMSetRenderTargets(0, nullptr, FALSE, &ShadowDsv);
+			mCommandList->RSSetViewports(1, &mShadowViewport);
+			mCommandList->RSSetScissorRects(1, &mShadowScissorRect);
+			mDrawCallDispatcher.DrawDepthOnly(mCommandList.Get(), Data, DrawCallResources.GetShadowFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
+
+			auto& rt = mRenderTargets[currentIndex];
+			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 
 			auto rtv = rt->GetRTV();
 			auto dsv = mDepthStencilBuffer->GetDSV();
 
 			mCommandList->ClearRenderTargetView(rtv, DirectX::Colors::Blue, 0, nullptr);
-
-
 			mCommandList->ClearDepthStencilView(mDepthStencilBuffer->GetDSV(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 			mCommandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
@@ -91,6 +100,10 @@ namespace Core {
 			// Execute Render Tasks
 			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBoundingBoxContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
 			if (WidgetCore != nullptr) {
+#pragma region TemporaryShadowMapPreview
+				mShadowDepthMap->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+				WidgetCore->SetShadowMapTexture(mShadowDepthMap->GetResource(), mShadowMapSize);
+#pragma endregion
 				WidgetCore->Render(mCommandList);
 			}
 
@@ -222,6 +235,7 @@ namespace Core {
 		void DirectQueue::InitTargetResources() {
 			mRTVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, Constants::FrameCount<uint32_t>, false);
 			mSrvHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 512, true);
+			mShadowDSVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
 
 			for (auto&& [i, rt] : views::enumerate(mRenderTargets)) {
 				ComPtr<ID3D12Resource> backBuffer{ nullptr };
@@ -243,6 +257,23 @@ namespace Core {
 			mDepthStencilBuffer = Texture::CreateTarget(mDevice.Get(), Config::Query()->Get<uint32_t>("Window_Width"), Config::Query()->Get<uint32_t>("Window_Height"), DXGI_FORMAT_D24_UNORM_S8_UINT, TextureUsage::DepthStencil, &depthOptimizedClearValue);
 
 			mDepthStencilBuffer->CreateDSV(mDevice.Get(), &mDSVHeap);
+		}
+
+		void DirectQueue::EnsureShadowMapResources(const Game::RFD::ShadowMappingParameter& ShadowMappingParameter) {
+			const float ShadowMapSizeFloat{ std::max(1.0f, ShadowMappingParameter.shadowMapSize) };
+			const uint32_t RequiredShadowMapSize{ static_cast<uint32_t>(ShadowMapSizeFloat) };
+			if (mShadowDepthMap != nullptr && mShadowMapSize == RequiredShadowMapSize) {
+				return;
+			}
+
+			mShadowMapSize = RequiredShadowMapSize;
+			mShadowDSVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
+
+			CD3DX12_CLEAR_VALUE depthOptimizedClearValue{ DXGI_FORMAT_D24_UNORM_S8_UINT, 1.0f, 0 };
+			mShadowDepthMap = Texture::CreateTarget(mDevice.Get(), RequiredShadowMapSize, RequiredShadowMapSize, DXGI_FORMAT_R24G8_TYPELESS, TextureUsage::DepthStencil, &depthOptimizedClearValue);
+			mShadowDepthMap->CreateDSV(mDevice.Get(), &mShadowDSVHeap);
+			mShadowViewport = D3D12_VIEWPORT{ 0.0f, 0.0f, static_cast<float>(RequiredShadowMapSize), static_cast<float>(RequiredShadowMapSize), 0.0f, 1.0f };
+			mShadowScissorRect = D3D12_RECT{ 0, 0, static_cast<LONG>(RequiredShadowMapSize), static_cast<LONG>(RequiredShadowMapSize) };
 		}
 
 		ComPtr<IDXGIAdapter1> DirectQueue::GetBestAdapter() {

@@ -106,6 +106,60 @@ namespace Core {
 			DrawBoundingBoxes(CommandList, Data, FrameGlobalsSrvHandle, BoundingBoxContextSrvHandle, BonePaletteSrvHandle, DrawRecordSrvHandle, MaterialSrvHandle, MaterialTextureTableSrvHandle);
 		}
 
+		void DrawCallDispatcher::DrawDepthOnly(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+			const Interface::IPipeline* ActivePipeline{ nullptr };
+			size_t DrawRecordIndex{ 0 };
+
+			while (DrawRecordIndex < Data.drawRecords.size()) {
+				const Game::RFD::DrawRecord& StartRecord{ Data.drawRecords[DrawRecordIndex] };
+				if (StartRecord.pso == nullptr || StartRecord.mesh == nullptr) {
+					DrawRecordIndex += 1;
+					continue;
+				}
+
+				size_t RunEndIndex{ DrawRecordIndex + 1 };
+				while (RunEndIndex < Data.drawRecords.size()) {
+					const Game::RFD::DrawRecord& NextRecord{ Data.drawRecords[RunEndIndex] };
+					bool IsSameRun{ NextRecord.pass == StartRecord.pass && NextRecord.pso == StartRecord.pso && NextRecord.mesh == StartRecord.mesh && NextRecord.submesh == StartRecord.submesh };
+					if (IsSameRun == false) {
+						break;
+					}
+					RunEndIndex += 1;
+				}
+
+				ActivePipeline = StartRecord.pso->Set(ActivePipeline, CommandList);
+
+				DrawRootConstantsB1 RootConstants{};
+				RootConstants.FrameGlobalsSrvIndex = FrameGlobalsSrvHandle.GetIndex();
+				RootConstants.ModelContextSrvIndex = ModelContextSrvHandle.GetIndex();
+				RootConstants.BonePaletteSrvIndex = BonePaletteSrvHandle.GetIndex();
+				RootConstants.DrawRecordSrvIndex = DrawRecordSrvHandle.GetIndex();
+				RootConstants.DrawRecordBaseIndex = static_cast<uint32_t>(DrawRecordIndex);
+				RootConstants.MaterialSrvIndex = MaterialSrvHandle.GetIndex();
+				RootConstants.MaterialTextureTableSrvIndex = MaterialTextureTableSrvHandle.GetIndex();
+				CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
+
+				CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+				const std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{ BuildVertexBufferViews(*StartRecord.pso, *StartRecord.mesh) };
+				if (VertexBufferViews.empty() == false) {
+					CommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
+				}
+
+				const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ StartRecord.mesh->GetIndexBufferView() };
+				CommandList->IASetIndexBuffer(&IndexBufferView);
+
+				const Game::ModelSubMesh& SubMesh{ StartRecord.mesh->GetSubMesh(StartRecord.submesh) };
+				UINT IndexCountPerInstance{ static_cast<UINT>(SubMesh.IndexCount) };
+				UINT InstanceCount{ static_cast<UINT>(RunEndIndex - DrawRecordIndex) };
+				UINT StartIndexLocation{ static_cast<UINT>(SubMesh.IndexOffset) };
+				INT BaseVertexLocation{ 0 };
+				UINT StartInstanceLocation{ 0 };
+				CommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
+				DrawRecordIndex = RunEndIndex;
+			}
+		}
+
 		void DrawCallDispatcher::DrawBoundingBoxes(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			if (CommandList == nullptr) {
 				return;

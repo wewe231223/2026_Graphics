@@ -27,6 +27,7 @@ namespace Core {
 			void WaitForUpload(Interface::ICopyQueue* CopyQueue) const;
 
 			DescriptorHandle GetFrameGlobalsSrvHandle() const;
+			DescriptorHandle GetShadowFrameGlobalsSrvHandle() const;
 			DescriptorHandle GetModelContextSrvHandle() const;
 			DescriptorHandle GetBoundingBoxContextSrvHandle() const;
 			DescriptorHandle GetBonePaletteSrvHandle() const;
@@ -35,7 +36,7 @@ namespace Core {
 		private:
 			static bool CompareDrawRecordByPso(const Game::RFD::DrawRecord& Left, const Game::RFD::DrawRecord& Right);
 			void BuildDrawRecordGpu(const Game::RFD::RenderFrameData& Data);
-			void UpdateShaderResourceViews(std::uint32_t FrameGlobalsCount, std::uint32_t ModelContextCount, std::uint32_t BoundingBoxContextCount, std::uint32_t BonePaletteCount, std::uint32_t DrawRecordCount);
+			void UpdateShaderResourceViews(std::uint32_t FrameGlobalsCount, std::uint32_t ShadowFrameGlobalsCount, std::uint32_t ModelContextCount, std::uint32_t BoundingBoxContextCount, std::uint32_t BonePaletteCount, std::uint32_t DrawRecordCount);
 			bool IsShaderResourceViewUpdateRequired(ID3D12Resource* CachedResource, ID3D12Resource* CurrentResource, std::uint32_t CachedElementCount, std::uint32_t CurrentElementCount) const;
 
 		private:
@@ -43,24 +44,28 @@ namespace Core {
 			DescriptorHeap* mSrvHeap{};
 
 			DescriptorHandle mFrameGlobalsSrvHandle{};
+			DescriptorHandle mShadowFrameGlobalsSrvHandle{};
 			DescriptorHandle mModelContextSrvHandle{};
 			DescriptorHandle mBoundingBoxContextSrvHandle{};
 			DescriptorHandle mBonePaletteSrvHandle{};
 			DescriptorHandle mDrawRecordSrvHandle{};
 
 			ID3D12Resource* mFrameGlobalsSrvResource{};
+			ID3D12Resource* mShadowFrameGlobalsSrvResource{};
 			ID3D12Resource* mModelContextSrvResource{};
 			ID3D12Resource* mBoundingBoxContextSrvResource{};
 			ID3D12Resource* mBonePaletteSrvResource{};
 			ID3D12Resource* mDrawRecordSrvResource{};
 
 			std::uint32_t mFrameGlobalsSrvElementCount{};
+			std::uint32_t mShadowFrameGlobalsSrvElementCount{};
 			std::uint32_t mModelContextSrvElementCount{};
 			std::uint32_t mBoundingBoxContextSrvElementCount{};
 			std::uint32_t mBonePaletteSrvElementCount{};
 			std::uint32_t mDrawRecordSrvElementCount{};
 
 			GraphicsVector mFrameGlobalsVector{};
+			GraphicsVector mShadowFrameGlobalsVector{};
 			GraphicsVector mModelContextVector{};
 			GraphicsVector mBoundingBoxContextVector{};
 			GraphicsVector mBonePaletteVector{};

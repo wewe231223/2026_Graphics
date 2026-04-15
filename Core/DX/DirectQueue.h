@@ -46,6 +46,7 @@ namespace Core {
 			void InitWorkers();
 			void InitCommandList();
 			void InitTargetResources();
+			void EnsureShadowMapResources(const Game::RFD::ShadowMappingParameter& ShadowMappingParameter);
 
 			ComPtr<IDXGIAdapter1> GetBestAdapter();
 
@@ -78,6 +79,9 @@ namespace Core {
 
 			DescriptorHeap mDSVHeap{};
 			TexPtr mDepthStencilBuffer{};
+			DescriptorHeap mShadowDSVHeap{};
+			TexPtr mShadowDepthMap{};
+			uint32_t mShadowMapSize{};
 			DescriptorHeap mSrvHeap{};
 			std::array<DrawCallResourceManager, Constants::FrameCount<size_t>> mDrawCallResourceManagers{};
 			MaterialResourceManager mMaterialResourceManager{};
@@ -91,6 +95,8 @@ namespace Core {
 
 			D3D12_VIEWPORT mViewport{ 0, 0, Config::Query()->Get<float>("Window_Width"), Config::Query()->Get<float>("Window_Height"), 0.f, 1.f };
 			D3D12_RECT mScissorRect{ 0, 0, Config::Query()->Get<LONG>("Window_Width"), Config::Query()->Get<LONG>("Window_Height") };
+			D3D12_VIEWPORT mShadowViewport{};
+			D3D12_RECT mShadowScissorRect{};
 		};
 
 	}
