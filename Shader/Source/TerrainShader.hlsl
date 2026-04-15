@@ -1,6 +1,7 @@
 #include "Common.hlsli"
 
 ConstantBuffer<RootConstantsB1> RootConstants : register(b1);
+SamplerComparisonState ShadowComparisonSampler : register(s1);
 
 struct TerrainVertexInput {
     float3 Position : POSITION;
@@ -12,6 +13,7 @@ struct TerrainVertexInput {
 struct TerrainVertexOutput {
     float4 Position : SV_POSITION;
     float3 Normal : NORMAL;
+    float3 WorldPosition : WORLD_POSITION;
     float2 TexCoord0 : TEXCOORD0;
     float4 Color : COLOR0;
     uint MaterialIndex : MATERIAL_INDEX;
@@ -34,6 +36,7 @@ TerrainVertexOutput VsMain(TerrainVertexInput Input, uint InstanceId : SV_Instan
     const float4 WorldPosition = mul(float4(Input.Position, 1.0f), World);
     Output.Position = mul(WorldPosition, transpose(FrameGlobals.ViewProj));
     Output.Normal = normalize(mul(Input.Normal, (float3x3)World));
+    Output.WorldPosition = WorldPosition.xyz;
     Output.TexCoord0 = Input.TexCoord0;
     Output.Color = Input.Color;
     Output.MaterialIndex = DrawRecord.MaterialIndex;
@@ -53,6 +56,13 @@ float4 PsMain(TerrainVertexOutput Input) : SV_TARGET {
 
     const float4 BaseColor = ApplyBaseColor(TerrainColor);
     const float4 ScalarAppliedColor = ApplyMaterialScalarColor(BaseColor, MaterialData);
-    const float4 LitColor = ApplyMaterialLighting(ScalarAppliedColor, Input.Normal);
+    float4 LitColor = ApplyMaterialLighting(ScalarAppliedColor, Input.Normal);
+    if (RootConstants.ShadowMappingParameterSrvIndex != 0xffffffffu && RootConstants.ShadowMapTextureSrvIndex != 0xffffffffu) {
+        StructuredBuffer<ShadowMappingParameterGpu> ShadowMappingParameterBuffer = ResourceDescriptorHeap[RootConstants.ShadowMappingParameterSrvIndex];
+        Texture2D<float> ShadowMapTexture = ResourceDescriptorHeap[RootConstants.ShadowMapTextureSrvIndex];
+        const ShadowMappingParameterGpu ShadowMappingParameter = ShadowMappingParameterBuffer[0];
+        LitColor = ApplyMaterialLightingWithShadow(ScalarAppliedColor, Input.Normal, Input.WorldPosition, ShadowMappingParameter, ShadowMapTexture, ShadowComparisonSampler);
+    }
+
     return ResolveFlags(LitColor, Input.Flags);
 }

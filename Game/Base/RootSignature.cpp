@@ -289,6 +289,42 @@ namespace {
 			return D3D12_FILTER_ANISOTROPIC;
 		}
 
+		if (value == "ComparisonMinMagMipPoint") {
+			return D3D12_FILTER_COMPARISON_MIN_MAG_MIP_POINT;
+		}
+
+		if (value == "ComparisonMinMagPointMipLinear") {
+			return D3D12_FILTER_COMPARISON_MIN_MAG_POINT_MIP_LINEAR;
+		}
+
+		if (value == "ComparisonMinPointMagLinearMipPoint") {
+			return D3D12_FILTER_COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT;
+		}
+
+		if (value == "ComparisonMinPointMagMipLinear") {
+			return D3D12_FILTER_COMPARISON_MIN_POINT_MAG_MIP_LINEAR;
+		}
+
+		if (value == "ComparisonMinLinearMagMipPoint") {
+			return D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_MIP_POINT;
+		}
+
+		if (value == "ComparisonMinLinearMagPointMipLinear") {
+			return D3D12_FILTER_COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR;
+		}
+
+		if (value == "ComparisonMinMagLinearMipPoint") {
+			return D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
+		}
+
+		if (value == "ComparisonMinMagMipLinear") {
+			return D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
+		}
+
+		if (value == "ComparisonAnisotropic") {
+			return D3D12_FILTER_COMPARISON_ANISOTROPIC;
+		}
+
 		return D3D12_FILTER_MIN_MAG_MIP_LINEAR;
 	}
 

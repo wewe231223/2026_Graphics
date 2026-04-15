@@ -83,6 +83,8 @@ namespace Core {
 			mCommandList->RSSetScissorRects(1, &mShadowScissorRect);
 			mDrawCallDispatcher.DrawDepthOnly(mCommandList.Get(), Data, DrawCallResources.GetShadowFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
 
+			mShadowDepthMap->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
 			auto& rt = mRenderTargets[currentIndex];
 			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 
@@ -98,10 +100,9 @@ namespace Core {
 
 		
 			// Execute Render Tasks
-			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBoundingBoxContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
+			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetShadowMappingParameterSrvHandle(), mShadowMapSrvHandle, DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBoundingBoxContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
 			if (WidgetCore != nullptr) {
 #pragma region TemporaryShadowMapPreview
-				mShadowDepthMap->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 				WidgetCore->SetShadowMapTexture(mShadowDepthMap->GetResource(), mShadowMapSize);
 #pragma endregion
 				WidgetCore->Render(mCommandList);
@@ -235,6 +236,7 @@ namespace Core {
 		void DirectQueue::InitTargetResources() {
 			mRTVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, Constants::FrameCount<uint32_t>, false);
 			mSrvHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 512, true);
+			mShadowMapSrvHandle = mSrvHeap.Allocate();
 			mShadowDSVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
 
 			for (auto&& [i, rt] : views::enumerate(mRenderTargets)) {
@@ -272,6 +274,12 @@ namespace Core {
 			CD3DX12_CLEAR_VALUE depthOptimizedClearValue{ DXGI_FORMAT_D24_UNORM_S8_UINT, 1.0f, 0 };
 			mShadowDepthMap = Texture::CreateTarget(mDevice.Get(), RequiredShadowMapSize, RequiredShadowMapSize, DXGI_FORMAT_R24G8_TYPELESS, TextureUsage::DepthStencil, &depthOptimizedClearValue);
 			mShadowDepthMap->CreateDSV(mDevice.Get(), &mShadowDSVHeap);
+			D3D12_SHADER_RESOURCE_VIEW_DESC ShadowMapSrvDescription{};
+			ShadowMapSrvDescription.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+			ShadowMapSrvDescription.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+			ShadowMapSrvDescription.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			ShadowMapSrvDescription.Texture2D.MipLevels = 1;
+			mDevice->CreateShaderResourceView(mShadowDepthMap->GetResource(), &ShadowMapSrvDescription, mShadowMapSrvHandle.GetCPU());
 			mShadowViewport = D3D12_VIEWPORT{ 0.0f, 0.0f, static_cast<float>(RequiredShadowMapSize), static_cast<float>(RequiredShadowMapSize), 0.0f, 1.0f };
 			mShadowScissorRect = D3D12_RECT{ 0, 0, static_cast<LONG>(RequiredShadowMapSize), static_cast<LONG>(RequiredShadowMapSize) };
 		}

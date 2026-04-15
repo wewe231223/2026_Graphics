@@ -2,6 +2,7 @@
 
 ConstantBuffer<RootConstantsB1> RootConstants : register(b1);
 SamplerState LinearWrapSampler : register(s0);
+SamplerComparisonState ShadowComparisonSampler : register(s1);
 
 struct SkinnedVertexInput
 {
@@ -45,6 +46,7 @@ VertexOutput VsMain(SkinnedVertexInput Input, uint InstanceId : SV_InstanceID)
     const float4 WorldPosition = mul(SkinnedPosition, World);
     Output.Position = mul(WorldPosition, transpose(FrameGlobals.ViewProj));
     Output.Normal = normalize(mul(normalize(SkinnedNormal), (float3x3)World));
+    Output.WorldPosition = WorldPosition.xyz;
     Output.TexCoord0 = Input.TexCoord0;
     Output.MaterialIndex = DrawRecord.MaterialIndex;
     Output.Flags = DrawRecord.Flags;
@@ -74,7 +76,13 @@ float4 PsMain(VertexOutput Input) : SV_TARGET
     }
 
     const float4 ScalarAppliedColor = ApplyMaterialScalarColor(SampledColor, MaterialData);
-    const float4 LitColor = ApplyMaterialLighting(ScalarAppliedColor, Input.Normal);
+    float4 LitColor = ApplyMaterialLighting(ScalarAppliedColor, Input.Normal);
+    if (RootConstants.ShadowMappingParameterSrvIndex != 0xffffffffu && RootConstants.ShadowMapTextureSrvIndex != 0xffffffffu) {
+        StructuredBuffer<ShadowMappingParameterGpu> ShadowMappingParameterBuffer = ResourceDescriptorHeap[RootConstants.ShadowMappingParameterSrvIndex];
+        Texture2D<float> ShadowMapTexture = ResourceDescriptorHeap[RootConstants.ShadowMapTextureSrvIndex];
+        const ShadowMappingParameterGpu ShadowMappingParameter = ShadowMappingParameterBuffer[0];
+        LitColor = ApplyMaterialLightingWithShadow(ScalarAppliedColor, Input.Normal, Input.WorldPosition, ShadowMappingParameter, ShadowMapTexture, ShadowComparisonSampler);
+    }
     
     return ResolveFlags(LitColor, Input.Flags);
 }

@@ -18,6 +18,7 @@ namespace Core {
 			mSrvHeap = SrvHeap;
 			mFrameGlobalsSrvHandle = mSrvHeap->Allocate();
 			mShadowFrameGlobalsSrvHandle = mSrvHeap->Allocate();
+			mShadowMappingParameterSrvHandle = mSrvHeap->Allocate();
 			mModelContextSrvHandle = mSrvHeap->Allocate();
 			mBoundingBoxContextSrvHandle = mSrvHeap->Allocate();
 			mBonePaletteSrvHandle = mSrvHeap->Allocate();
@@ -37,6 +38,7 @@ namespace Core {
 
 			std::size_t FrameGlobalsSizeInBytes{ sizeof(Game::RFD::FrameGlobals) };
 			std::size_t ShadowFrameGlobalsSizeInBytes{ sizeof(Game::RFD::FrameGlobals) };
+			std::size_t ShadowMappingParameterSizeInBytes{ sizeof(Game::RFD::ShadowMappingParameter) };
 			std::size_t ModelContextsSizeInBytes{ sizeof(Game::RFD::ModelContext) * Data.modelContexts.size() };
 			std::size_t BoundingBoxContextsSizeInBytes{ sizeof(Game::RFD::BoundingBoxContext) * Data.boundingBoxContexts.size() };
 			std::size_t BonePaletteSizeInBytes{ sizeof(SimpleMath::Matrix) * Data.bonePalette.size() };
@@ -45,6 +47,7 @@ namespace Core {
 			std::byte DummyByte{ 0 };
 			void* FrameGlobalsSourceData{ FrameGlobalsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&Data.globals) };
 			void* ShadowFrameGlobalsSourceData{ ShadowFrameGlobalsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&ShadowFrameGlobals) };
+			void* ShadowMappingParameterSourceData{ ShadowMappingParameterSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&Data.shadowMapping) };
 			void* ModelContextSourceData{ ModelContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.modelContexts.data()) };
 			void* BoundingBoxContextSourceData{ BoundingBoxContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.boundingBoxContexts.data()) };
 			void* BonePaletteSourceData{ BonePaletteSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.bonePalette.data()) };
@@ -55,6 +58,9 @@ namespace Core {
 
 			bool ShadowFrameGlobalsCopyResult{ mShadowFrameGlobalsVector.Copy(GraphicsAllocator, ShadowFrameGlobalsSourceData, ShadowFrameGlobalsSizeInBytes) };
 			ErrorHandler::report(ShadowFrameGlobalsCopyResult == false, "DrawCallResourceManager", "Failed to copy shadow frame globals data.", ErrorHandler::Level::Critical);
+
+			bool ShadowMappingParameterCopyResult{ mShadowMappingParameterVector.Copy(GraphicsAllocator, ShadowMappingParameterSourceData, ShadowMappingParameterSizeInBytes) };
+			ErrorHandler::report(ShadowMappingParameterCopyResult == false, "DrawCallResourceManager", "Failed to copy shadow mapping parameter data.", ErrorHandler::Level::Critical);
 
 			bool ModelContextCopyResult{ mModelContextVector.Copy(GraphicsAllocator, ModelContextSourceData, ModelContextsSizeInBytes) };
 			ErrorHandler::report(ModelContextCopyResult == false, "DrawCallResourceManager", "Failed to copy model context data.", ErrorHandler::Level::Critical);
@@ -69,17 +75,17 @@ namespace Core {
 			ErrorHandler::report(DrawRecordCopyResult == false, "DrawCallResourceManager", "Failed to copy draw record data.", ErrorHandler::Level::Critical);
 
 			if (Data.drawRecords.empty() == true && Data.boundingBoxContexts.empty() == true) {
-				std::array<Interface::CopyQueueCopyRequest, 2> CopyRequests{ mFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mShadowFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
+				std::array<Interface::CopyQueueCopyRequest, 3> CopyRequests{ mFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mShadowFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mShadowMappingParameterVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
 				mCopyFuture = CopyQueue->EnqueueCopyFuture(CopyRequests);
 				ErrorHandler::report(mCopyFuture.IsValid() == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
 			}
 			else {
-				std::array<Interface::CopyQueueCopyRequest, 6> CopyRequests{ mFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mShadowFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mModelContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mBoundingBoxContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mBonePaletteVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mDrawRecordVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
+				std::array<Interface::CopyQueueCopyRequest, 7> CopyRequests{ mFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mShadowFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mShadowMappingParameterVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mModelContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mBoundingBoxContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mBonePaletteVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mDrawRecordVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
 				mCopyFuture = CopyQueue->EnqueueCopyFuture(CopyRequests);
 				ErrorHandler::report(mCopyFuture.IsValid() == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
 			}
 
-			DrawCallResourceManager::UpdateShaderResourceViews(1, 1, static_cast<std::uint32_t>(Data.modelContexts.size()), static_cast<std::uint32_t>(Data.boundingBoxContexts.size()), static_cast<std::uint32_t>(Data.bonePalette.size()), static_cast<std::uint32_t>(mDrawRecordsGpu.size()));
+			DrawCallResourceManager::UpdateShaderResourceViews(1, 1, 1, static_cast<std::uint32_t>(Data.modelContexts.size()), static_cast<std::uint32_t>(Data.boundingBoxContexts.size()), static_cast<std::uint32_t>(Data.bonePalette.size()), static_cast<std::uint32_t>(mDrawRecordsGpu.size()));
 		}
 
 		void DrawCallResourceManager::TransitionToShaderResource(ID3D12GraphicsCommandList* CommandList) {
@@ -91,6 +97,11 @@ namespace Core {
 			if (mShadowFrameGlobalsVector.IsValid() == true) {
 				D3D12_RESOURCE_BARRIER ShadowFrameGlobalsBarrier{ mShadowFrameGlobalsVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
 				CommandList->ResourceBarrier(1, &ShadowFrameGlobalsBarrier);
+			}
+
+			if (mShadowMappingParameterVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER ShadowMappingParameterBarrier{ mShadowMappingParameterVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
+				CommandList->ResourceBarrier(1, &ShadowMappingParameterBarrier);
 			}
 
 			if (mModelContextVector.IsValid() == true) {
@@ -123,6 +134,11 @@ namespace Core {
 			if (mShadowFrameGlobalsVector.IsValid() == true) {
 				D3D12_RESOURCE_BARRIER ShadowFrameGlobalsBarrier{ mShadowFrameGlobalsVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST) };
 				CommandList->ResourceBarrier(1, &ShadowFrameGlobalsBarrier);
+			}
+
+			if (mShadowMappingParameterVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER ShadowMappingParameterBarrier{ mShadowMappingParameterVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST) };
+				CommandList->ResourceBarrier(1, &ShadowMappingParameterBarrier);
 			}
 
 			if (mModelContextVector.IsValid() == true) {
@@ -162,6 +178,10 @@ namespace Core {
 
 		DescriptorHandle DrawCallResourceManager::GetShadowFrameGlobalsSrvHandle() const {
 			return mShadowFrameGlobalsSrvHandle;
+		}
+
+		DescriptorHandle DrawCallResourceManager::GetShadowMappingParameterSrvHandle() const {
+			return mShadowMappingParameterSrvHandle;
 		}
 
 		DescriptorHandle DrawCallResourceManager::GetModelContextSrvHandle() const {
@@ -212,9 +232,10 @@ namespace Core {
 			}
 		}
 
-		void DrawCallResourceManager::UpdateShaderResourceViews(std::uint32_t FrameGlobalsCount, std::uint32_t ShadowFrameGlobalsCount, std::uint32_t ModelContextCount, std::uint32_t BoundingBoxContextCount, std::uint32_t BonePaletteCount, std::uint32_t DrawRecordCount) {
+		void DrawCallResourceManager::UpdateShaderResourceViews(std::uint32_t FrameGlobalsCount, std::uint32_t ShadowFrameGlobalsCount, std::uint32_t ShadowMappingParameterCount, std::uint32_t ModelContextCount, std::uint32_t BoundingBoxContextCount, std::uint32_t BonePaletteCount, std::uint32_t DrawRecordCount) {
 			ID3D12Resource* FrameGlobalsResource{ mFrameGlobalsVector.IsValid() == true ? mFrameGlobalsVector.GetResource() : nullptr };
 			ID3D12Resource* ShadowFrameGlobalsResource{ mShadowFrameGlobalsVector.IsValid() == true ? mShadowFrameGlobalsVector.GetResource() : nullptr };
+			ID3D12Resource* ShadowMappingParameterResource{ mShadowMappingParameterVector.IsValid() == true ? mShadowMappingParameterVector.GetResource() : nullptr };
 			ID3D12Resource* ModelContextResource{ mModelContextVector.IsValid() == true ? mModelContextVector.GetResource() : nullptr };
 			ID3D12Resource* BoundingBoxContextResource{ mBoundingBoxContextVector.IsValid() == true ? mBoundingBoxContextVector.GetResource() : nullptr };
 			ID3D12Resource* BonePaletteResource{ mBonePaletteVector.IsValid() == true ? mBonePaletteVector.GetResource() : nullptr };
@@ -244,6 +265,19 @@ namespace Core {
 			else {
 				mShadowFrameGlobalsSrvResource = nullptr;
 				mShadowFrameGlobalsSrvElementCount = 0;
+			}
+
+			if (mShadowMappingParameterVector.IsValid() == true) {
+				bool IsUpdateRequired{ DrawCallResourceManager::IsShaderResourceViewUpdateRequired(mShadowMappingParameterSrvResource, ShadowMappingParameterResource, mShadowMappingParameterSrvElementCount, ShadowMappingParameterCount) };
+				if (IsUpdateRequired == true) {
+					mShadowMappingParameterVector.CreateShaderResourceView(mDevice, mShadowMappingParameterSrvHandle.GetCPU(), DXGI_FORMAT_UNKNOWN, 0, ShadowMappingParameterCount, sizeof(Game::RFD::ShadowMappingParameter), D3D12_BUFFER_SRV_FLAG_NONE);
+					mShadowMappingParameterSrvResource = ShadowMappingParameterResource;
+					mShadowMappingParameterSrvElementCount = ShadowMappingParameterCount;
+				}
+			}
+			else {
+				mShadowMappingParameterSrvResource = nullptr;
+				mShadowMappingParameterSrvElementCount = 0;
 			}
 
 			if (mModelContextVector.IsValid() == true) {

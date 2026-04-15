@@ -61,10 +61,14 @@ namespace Game {
         struct alignas(16) ShadowMappingParameter final {
             CameraParameter shadowCamera{};
             SimpleMath::Vector4 lightDirection{};
-            float shadowBias{ 0.0015f };
+            float shadowBias{ 0.0010f };
             float shadowStrength{ 0.6f };
             float shadowMapSize{ 2048.0f };
+            float rasterDepthBias{ 1.0f };
+            float rasterSlopeScaledDepthBias{ 1.25f };
             float padding0{ 0.0f };
+            float padding1{ 0.0f };
+            float padding2{ 0.0f };
         };
 
         // ------------------------------------------------------------

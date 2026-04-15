@@ -82,6 +82,7 @@ namespace Core {
 			DescriptorHeap mShadowDSVHeap{};
 			TexPtr mShadowDepthMap{};
 			uint32_t mShadowMapSize{};
+			DescriptorHandle mShadowMapSrvHandle{};
 			DescriptorHeap mSrvHeap{};
 			std::array<DrawCallResourceManager, Constants::FrameCount<size_t>> mDrawCallResourceManagers{};
 			MaterialResourceManager mMaterialResourceManager{};

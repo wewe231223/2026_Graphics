@@ -4,6 +4,8 @@
 namespace Core {
 	namespace DX {
 		namespace {
+			constexpr uint32_t InvalidDescriptorIndex{ 0xffffffffu };
+
 			struct DrawRootConstantsB1 {
 				uint32_t FrameGlobalsSrvIndex{ 0 };
 				uint32_t ModelContextSrvIndex{ 0 };
@@ -12,7 +14,10 @@ namespace Core {
 				uint32_t DrawRecordBaseIndex{ 0 };
 				uint32_t MaterialSrvIndex{ 0 };
 				uint32_t MaterialTextureTableSrvIndex{ 0 };
-				float TintColor[4]{ 1.0f, 1.0f, 1.0f, 1.0f };
+				uint32_t ShadowMappingParameterSrvIndex{ 0 };
+				uint32_t ShadowMapTextureSrvIndex{ 0 };
+				uint32_t Reserved0{ 0 };
+				uint32_t Reserved1{ 0 };
 			};
 
 			std::vector<D3D12_VERTEX_BUFFER_VIEW> BuildVertexBufferViews(const Interface::IPipeline& Pipeline, const Interface::IModelNode& Mesh) {
@@ -50,7 +55,7 @@ namespace Core {
 		DrawCallDispatcher::~DrawCallDispatcher() {
 		}
 
-		void DrawCallDispatcher::DrawForward(ID3D12GraphicsCommandList* CommandList, Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+		void DrawCallDispatcher::DrawForward(ID3D12GraphicsCommandList* CommandList, Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ShadowMappingParameterSrvHandle, DescriptorHandle ShadowMapTextureSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			const Interface::IPipeline* ActivePipeline{ nullptr };
 			size_t DrawRecordIndex{ 0 };
 
@@ -81,6 +86,10 @@ namespace Core {
 				RootConstants.DrawRecordBaseIndex = static_cast<uint32_t>(DrawRecordIndex);
 				RootConstants.MaterialSrvIndex = MaterialSrvHandle.GetIndex();
 				RootConstants.MaterialTextureTableSrvIndex = MaterialTextureTableSrvHandle.GetIndex();
+				RootConstants.ShadowMappingParameterSrvIndex = ShadowMappingParameterSrvHandle.GetIndex();
+				RootConstants.ShadowMapTextureSrvIndex = ShadowMapTextureSrvHandle.GetIndex();
+				RootConstants.Reserved0 = 0u;
+				RootConstants.Reserved1 = 0u;
 				CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
 
 				CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -137,6 +146,10 @@ namespace Core {
 				RootConstants.DrawRecordBaseIndex = static_cast<uint32_t>(DrawRecordIndex);
 				RootConstants.MaterialSrvIndex = MaterialSrvHandle.GetIndex();
 				RootConstants.MaterialTextureTableSrvIndex = MaterialTextureTableSrvHandle.GetIndex();
+				RootConstants.ShadowMappingParameterSrvIndex = InvalidDescriptorIndex;
+				RootConstants.ShadowMapTextureSrvIndex = InvalidDescriptorIndex;
+				RootConstants.Reserved0 = 0u;
+				RootConstants.Reserved1 = 0u;
 				CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
 
 				CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -188,6 +201,10 @@ namespace Core {
 			RootConstants.DrawRecordBaseIndex = 0u;
 			RootConstants.MaterialSrvIndex = MaterialSrvHandle.GetIndex();
 			RootConstants.MaterialTextureTableSrvIndex = MaterialTextureTableSrvHandle.GetIndex();
+			RootConstants.ShadowMappingParameterSrvIndex = InvalidDescriptorIndex;
+			RootConstants.ShadowMapTextureSrvIndex = InvalidDescriptorIndex;
+			RootConstants.Reserved0 = 0u;
+			RootConstants.Reserved1 = 0u;
 			CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
 
 			CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
