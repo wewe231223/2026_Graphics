@@ -1,6 +1,7 @@
 #pragma once
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <array>
 #include <cstdint>
 #include <vector>
 #include <memory>
@@ -14,6 +15,8 @@ namespace Game {
 namespace Widget {
     class WidgetCore {
     public:
+        static constexpr std::uint32_t ShadowMapPreviewCapacity{ 4 };
+
         WidgetCore() = default;
         ~WidgetCore();
 
@@ -27,7 +30,7 @@ namespace Widget {
         void Initialize(HWND hWnd, ID3D12Device* Device, IDXGIAdapter1* Adapter);
         void Render(ComPtr<ID3D12GraphicsCommandList>& commandList);
 #pragma region TemporaryShadowMapPreview
-        void SetShadowMapTexture(ID3D12Resource* Resource, std::uint32_t ShadowMapSize);
+        void SetShadowMapTextures(const std::array<ID3D12Resource*, ShadowMapPreviewCapacity>& Resources, std::uint32_t ShadowMapCount, std::uint32_t ShadowMapSize);
 #pragma endregion
         void SetSceneWorldSnapshot(const Game::SceneWorldSnapshot* Snapshot);
 
@@ -45,11 +48,12 @@ namespace Widget {
         const Game::SceneWorldSnapshot* mSceneWorldSnapshot{};
 #pragma region TemporaryShadowMapPreview
         ID3D12Device* mDevice{ nullptr };
-        ID3D12Resource* mShadowMapResource{ nullptr };
         std::uint32_t mDescriptorIncrementSize{};
+        std::uint32_t mShadowMapCount{};
         std::uint32_t mShadowMapSize{};
-        D3D12_CPU_DESCRIPTOR_HANDLE mShadowMapSrvCpuHandle{ 0 };
-        D3D12_GPU_DESCRIPTOR_HANDLE mShadowMapSrvGpuHandle{ 0 };
+        std::array<ID3D12Resource*, ShadowMapPreviewCapacity> mShadowMapResources{};
+        std::array<D3D12_CPU_DESCRIPTOR_HANDLE, ShadowMapPreviewCapacity> mShadowMapSrvCpuHandles{};
+        std::array<D3D12_GPU_DESCRIPTOR_HANDLE, ShadowMapPreviewCapacity> mShadowMapSrvGpuHandles{};
 #pragma endregion
         bool mIsInitialized{ false };
     };

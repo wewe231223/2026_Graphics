@@ -9,6 +9,7 @@ namespace SimpleMath = DirectX::SimpleMath;
 namespace Game {
     namespace RFD {
         constexpr std::uint32_t FrameGlobalFlagDrawBoundingBoxes{ 0x1u };
+        constexpr std::uint32_t ShadowCascadeMaxCount{ 4u };
 
         struct alignas(16) MaterialFieldGpu final {
             std::uint32_t Type{ 0 };
@@ -59,17 +60,24 @@ namespace Game {
         };
 
         struct alignas(16) ShadowMappingParameter final {
-            CameraParameter shadowCamera{};
+            CameraParameter shadowCameras[ShadowCascadeMaxCount]{};
             SimpleMath::Vector4 lightDirection{};
+            SimpleMath::Vector4 cascadeSplitDistances{};
             float shadowBias{ 0.0010f };
             float shadowStrength{ 0.6f };
             float shadowMapSize{ 2048.0f };
             float rasterDepthBias{ 1.0f };
             float rasterSlopeScaledDepthBias{ 1.25f };
+            std::uint32_t cascadeCount{ ShadowCascadeMaxCount };
             float padding0{ 0.0f };
             float padding1{ 0.0f };
             float padding2{ 0.0f };
+            float padding3{ 0.0f };
+            float padding4{ 0.0f };
+            float padding5{ 0.0f };
         };
+
+        static_assert(sizeof(ShadowMappingParameter) == 976);
 
         // ------------------------------------------------------------
         // 2) 오브젝트 공통 컨텍스트 (오브젝트당 1개)

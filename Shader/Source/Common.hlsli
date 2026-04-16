@@ -1,5 +1,7 @@
 #include "defines.hlsli"
 
+static const uint SHADOW_CASCADE_MAX_COUNT = 4u;
+
 struct VertexInput
 {
     float3 Position : POSITION;
@@ -43,16 +45,21 @@ struct CameraParameterGpu
 
 struct ShadowMappingParameterGpu
 {
-    CameraParameterGpu ShadowCamera;
+    CameraParameterGpu ShadowCameras[SHADOW_CASCADE_MAX_COUNT];
     float4 LightDirection;
+    float4 CascadeSplitDistances;
     float ShadowBias;
     float ShadowStrength;
     float ShadowMapSize;
     float RasterDepthBias;
     float RasterSlopeScaledDepthBias;
+    uint CascadeCount;
     float Padding0;
     float Padding1;
     float Padding2;
+    float Padding3;
+    float Padding4;
+    float Padding5;
 };
 
 struct ModelContextGpu
@@ -116,8 +123,8 @@ struct RootConstantsB1
     uint MaterialSrvIndex;
     uint MaterialTextureTableSrvIndex;
     uint ShadowMappingParameterSrvIndex;
-    uint ShadowMapTextureSrvIndex;
-    uint Reserved0;
+    uint ShadowMapTextureBaseSrvIndex;
+    uint FrameGlobalsElementIndex;
     uint Reserved1;
 };
 
@@ -161,9 +168,55 @@ float3 ApplyDirectionalLight(float3 BaseRgb, float3 WorldNormal)
     return saturate(LitColor);
 }
 
-float ComputeShadowVisibility(Texture2D<float> ShadowMapTexture, SamplerComparisonState ShadowComparisonSampler, ShadowMappingParameterGpu ShadowMappingParameter, float3 WorldPosition)
+float ResolveCascadeSplitDistance(ShadowMappingParameterGpu ShadowMappingParameter, uint CascadeIndex)
 {
-    float4x4 ShadowViewProj = transpose(ShadowMappingParameter.ShadowCamera.ViewProj);
+    if (CascadeIndex == 0u)
+    {
+        return ShadowMappingParameter.CascadeSplitDistances.x;
+    }
+
+    if (CascadeIndex == 1u)
+    {
+        return ShadowMappingParameter.CascadeSplitDistances.y;
+    }
+
+    if (CascadeIndex == 2u)
+    {
+        return ShadowMappingParameter.CascadeSplitDistances.z;
+    }
+
+    return ShadowMappingParameter.CascadeSplitDistances.w;
+}
+
+uint ResolveCascadeIndex(ShadowMappingParameterGpu ShadowMappingParameter, FrameGlobalsGpu FrameGlobals, float3 WorldPosition)
+{
+    const uint EffectiveCascadeCount = clamp(ShadowMappingParameter.CascadeCount, 1u, SHADOW_CASCADE_MAX_COUNT);
+    const float4 ViewPosition = mul(float4(WorldPosition, 1.0f), transpose(FrameGlobals.View));
+    const float ViewDepth = max(ViewPosition.z, 0.0f);
+    uint CascadeIndex = EffectiveCascadeCount - 1u;
+
+    [unroll]
+    for (uint CandidateCascadeIndex = 0u; CandidateCascadeIndex < SHADOW_CASCADE_MAX_COUNT; CandidateCascadeIndex += 1u)
+    {
+        if (CandidateCascadeIndex >= EffectiveCascadeCount)
+        {
+            break;
+        }
+
+        const float CascadeSplitDistance = ResolveCascadeSplitDistance(ShadowMappingParameter, CandidateCascadeIndex);
+        if (ViewDepth <= CascadeSplitDistance)
+        {
+            CascadeIndex = CandidateCascadeIndex;
+            break;
+        }
+    }
+
+    return CascadeIndex;
+}
+
+float ComputeShadowVisibility(Texture2D<float> ShadowMapTexture, SamplerComparisonState ShadowComparisonSampler, CameraParameterGpu ShadowCamera, float ShadowBias, float ShadowMapSize, float3 WorldPosition)
+{
+    float4x4 ShadowViewProj = transpose(ShadowCamera.ViewProj);
     float4 ShadowClipPosition = mul(float4(WorldPosition, 1.0f), ShadowViewProj);
     float3 ShadowNdcPosition = ShadowClipPosition.xyz / max(ShadowClipPosition.w, 1.0e-5f);
     float2 ShadowUv = ShadowNdcPosition.xy * float2(0.5f, -0.5f) + float2(0.5f, 0.5f);
@@ -173,8 +226,8 @@ float ComputeShadowVisibility(Texture2D<float> ShadowMapTexture, SamplerComparis
         return 1.0f;
     }
 
-    const float ReceiverDepth = ShadowNdcPosition.z - ShadowMappingParameter.ShadowBias;
-    const float TexelSize = ShadowMappingParameter.ShadowMapSize > 0.0f ? (1.0f / ShadowMappingParameter.ShadowMapSize) : 0.0f;
+    const float ReceiverDepth = ShadowNdcPosition.z - ShadowBias;
+    const float TexelSize = ShadowMapSize > 0.0f ? (1.0f / ShadowMapSize) : 0.0f;
 
     float Visibility = 0.0f;
     [unroll]
@@ -210,9 +263,12 @@ float4 ApplyMaterialLighting(float4 BaseColor, float3 WorldNormal)
     return ResultColor;
 }
 
-float4 ApplyMaterialLightingWithShadow(float4 BaseColor, float3 WorldNormal, float3 WorldPosition, ShadowMappingParameterGpu ShadowMappingParameter, Texture2D<float> ShadowMapTexture, SamplerComparisonState ShadowComparisonSampler)
+float4 ApplyMaterialLightingWithShadow(float4 BaseColor, float3 WorldNormal, float3 WorldPosition, ShadowMappingParameterGpu ShadowMappingParameter, FrameGlobalsGpu FrameGlobals, uint ShadowMapTextureBaseSrvIndex, SamplerComparisonState ShadowComparisonSampler)
 {
-    const float ShadowVisibility = ComputeShadowVisibility(ShadowMapTexture, ShadowComparisonSampler, ShadowMappingParameter, WorldPosition);
+    const uint CascadeIndex = ResolveCascadeIndex(ShadowMappingParameter, FrameGlobals, WorldPosition);
+    Texture2D<float> ShadowMapTexture = ResourceDescriptorHeap[NonUniformResourceIndex(ShadowMapTextureBaseSrvIndex + CascadeIndex)];
+    const CameraParameterGpu ShadowCamera = ShadowMappingParameter.ShadowCameras[CascadeIndex];
+    const float ShadowVisibility = ComputeShadowVisibility(ShadowMapTexture, ShadowComparisonSampler, ShadowCamera, ShadowMappingParameter.ShadowBias, ShadowMappingParameter.ShadowMapSize, WorldPosition);
     float4 ResultColor = BaseColor;
     ResultColor.rgb = ApplyDirectionalLightWithShadow(ResultColor.rgb, WorldNormal, ShadowMappingParameter.LightDirection.xyz, ShadowVisibility, ShadowMappingParameter.ShadowStrength);
     return ResultColor;

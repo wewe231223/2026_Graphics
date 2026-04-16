@@ -13,7 +13,7 @@ VertexOutput VsMain(VertexInput Input, uint InstanceId : SV_InstanceID)
     const uint DrawIndex = RootConstants.DrawRecordBaseIndex + InstanceId;
     const DrawRecordGpu DrawRecord = DrawRecordBuffer[DrawIndex];
     const ModelContextGpu ModelContext = ModelContextBuffer[DrawRecord.ObjectIndex];
-    const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[0];
+    const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[RootConstants.FrameGlobalsElementIndex];
 
     VertexOutput Output;
 
@@ -50,11 +50,12 @@ float4 PsMain(VertexOutput Input) : SV_TARGET
     const float4 SampledColor = ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
     const float4 ScalarAppliedColor = ApplyMaterialScalarColor(SampledColor, MaterialData);
     float4 LitColor = ApplyMaterialLighting(ScalarAppliedColor, Input.Normal);
-    if (RootConstants.ShadowMappingParameterSrvIndex != 0xffffffffu && RootConstants.ShadowMapTextureSrvIndex != 0xffffffffu) {
+    if (RootConstants.ShadowMappingParameterSrvIndex != 0xffffffffu && RootConstants.ShadowMapTextureBaseSrvIndex != 0xffffffffu) {
+        StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
         StructuredBuffer<ShadowMappingParameterGpu> ShadowMappingParameterBuffer = ResourceDescriptorHeap[RootConstants.ShadowMappingParameterSrvIndex];
-        Texture2D<float> ShadowMapTexture = ResourceDescriptorHeap[RootConstants.ShadowMapTextureSrvIndex];
+        const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[0];
         const ShadowMappingParameterGpu ShadowMappingParameter = ShadowMappingParameterBuffer[0];
-        LitColor = ApplyMaterialLightingWithShadow(ScalarAppliedColor, Input.Normal, Input.WorldPosition, ShadowMappingParameter, ShadowMapTexture, ShadowComparisonSampler);
+        LitColor = ApplyMaterialLightingWithShadow(ScalarAppliedColor, Input.Normal, Input.WorldPosition, ShadowMappingParameter, FrameGlobals, RootConstants.ShadowMapTextureBaseSrvIndex, ShadowComparisonSampler);
     }
 
     return ResolveFlags(LitColor, Input.Flags);

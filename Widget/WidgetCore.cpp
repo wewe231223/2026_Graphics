@@ -33,17 +33,21 @@ namespace Widget {
 		D3D12_DESCRIPTOR_HEAP_DESC desc{};
 		desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 #pragma region TemporaryShadowMapPreview
-		desc.NumDescriptors = 2;
+		desc.NumDescriptors = 1 + ShadowMapPreviewCapacity;
 #pragma endregion
 		desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 		ErrorHandler::report(FAILED(Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&mSRVHeap))), "WidgetCore", "Failed To Make Widget DescriptorHeap", ErrorHandler::Level::Critical);
 #pragma region TemporaryShadowMapPreview
 		mDevice = Device;
 		mDescriptorIncrementSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		mShadowMapSrvCpuHandle = mSRVHeap->GetCPUDescriptorHandleForHeapStart();
-		mShadowMapSrvGpuHandle = mSRVHeap->GetGPUDescriptorHandleForHeapStart();
-		mShadowMapSrvCpuHandle.ptr += static_cast<SIZE_T>(mDescriptorIncrementSize);
-		mShadowMapSrvGpuHandle.ptr += static_cast<UINT64>(mDescriptorIncrementSize);
+		const D3D12_CPU_DESCRIPTOR_HANDLE HeapCpuStartHandle{ mSRVHeap->GetCPUDescriptorHandleForHeapStart() };
+		const D3D12_GPU_DESCRIPTOR_HANDLE HeapGpuStartHandle{ mSRVHeap->GetGPUDescriptorHandleForHeapStart() };
+		for (std::uint32_t ShadowMapIndex{ 0 }; ShadowMapIndex < ShadowMapPreviewCapacity; ShadowMapIndex += 1) {
+			mShadowMapSrvCpuHandles[ShadowMapIndex] = HeapCpuStartHandle;
+			mShadowMapSrvGpuHandles[ShadowMapIndex] = HeapGpuStartHandle;
+			mShadowMapSrvCpuHandles[ShadowMapIndex].ptr += static_cast<SIZE_T>(mDescriptorIncrementSize) * static_cast<SIZE_T>(ShadowMapIndex + 1);
+			mShadowMapSrvGpuHandles[ShadowMapIndex].ptr += static_cast<UINT64>(mDescriptorIncrementSize) * static_cast<UINT64>(ShadowMapIndex + 1);
+		}
 #pragma endregion
 
 		IMGUI_CHECKVERSION();
@@ -119,11 +123,24 @@ namespace Widget {
 		}
 
 #pragma region TemporaryShadowMapPreview
-		if (mShadowMapResource != nullptr && mShadowMapSrvGpuHandle.ptr != 0) {
+		if (mShadowMapCount > 0) {
 			ImGui::Begin("Shadow Map");
 			const float ShadowMapDisplaySize{ static_cast<float>(std::min<std::uint32_t>(mShadowMapSize, 512u)) };
 			ImGui::Text("Resolution: %u", mShadowMapSize);
-			ImGui::Image((ImTextureID)mShadowMapSrvGpuHandle.ptr, ImVec2{ ShadowMapDisplaySize, ShadowMapDisplaySize });
+			if (ImGui::BeginTable("ShadowMapTable", 2, ImGuiTableFlags_SizingFixedFit)) {
+				for (std::uint32_t ShadowMapIndex{ 0 }; ShadowMapIndex < mShadowMapCount; ShadowMapIndex += 1) {
+					if (mShadowMapResources[ShadowMapIndex] == nullptr || mShadowMapSrvGpuHandles[ShadowMapIndex].ptr == 0) {
+						continue;
+					}
+
+					ImGui::TableNextColumn();
+					ImGui::Text("Cascade %u", ShadowMapIndex);
+					ImGui::Image((ImTextureID)mShadowMapSrvGpuHandles[ShadowMapIndex].ptr, ImVec2{ ShadowMapDisplaySize, ShadowMapDisplaySize });
+				}
+
+				ImGui::EndTable();
+			}
+
 			ImGui::End();
 		}
 #pragma endregion
@@ -143,27 +160,31 @@ namespace Widget {
 	}
 
 #pragma region TemporaryShadowMapPreview
-	void WidgetCore::SetShadowMapTexture(ID3D12Resource* Resource, std::uint32_t ShadowMapSize) {
-		if (mDevice == nullptr || mShadowMapSrvCpuHandle.ptr == 0) {
+	void WidgetCore::SetShadowMapTextures(const std::array<ID3D12Resource*, ShadowMapPreviewCapacity>& Resources, std::uint32_t ShadowMapCount, std::uint32_t ShadowMapSize) {
+		if (mDevice == nullptr) {
 			return;
 		}
 
+		mShadowMapCount = std::min<std::uint32_t>(ShadowMapCount, ShadowMapPreviewCapacity);
 		mShadowMapSize = ShadowMapSize;
-		if (mShadowMapResource == Resource) {
-			return;
-		}
+		for (std::uint32_t ShadowMapIndex{ 0 }; ShadowMapIndex < ShadowMapPreviewCapacity; ShadowMapIndex += 1) {
+			ID3D12Resource* ShadowMapResource{ ShadowMapIndex < mShadowMapCount ? Resources[ShadowMapIndex] : nullptr };
+			if (mShadowMapResources[ShadowMapIndex] == ShadowMapResource) {
+				continue;
+			}
 
-		mShadowMapResource = Resource;
-		if (mShadowMapResource == nullptr) {
-			return;
-		}
+			mShadowMapResources[ShadowMapIndex] = ShadowMapResource;
+			if (ShadowMapResource == nullptr || mShadowMapSrvCpuHandles[ShadowMapIndex].ptr == 0) {
+				continue;
+			}
 
-		D3D12_SHADER_RESOURCE_VIEW_DESC ShadowMapSrvDescription{};
-		ShadowMapSrvDescription.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
-		ShadowMapSrvDescription.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-		ShadowMapSrvDescription.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		ShadowMapSrvDescription.Texture2D.MipLevels = 1;
-		mDevice->CreateShaderResourceView(mShadowMapResource, &ShadowMapSrvDescription, mShadowMapSrvCpuHandle);
+			D3D12_SHADER_RESOURCE_VIEW_DESC ShadowMapSrvDescription{};
+			ShadowMapSrvDescription.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+			ShadowMapSrvDescription.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+			ShadowMapSrvDescription.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			ShadowMapSrvDescription.Texture2D.MipLevels = 1;
+			mDevice->CreateShaderResourceView(ShadowMapResource, &ShadowMapSrvDescription, mShadowMapSrvCpuHandles[ShadowMapIndex]);
+		}
 	}
 #pragma endregion
 

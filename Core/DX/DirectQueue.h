@@ -80,9 +80,11 @@ namespace Core {
 			DescriptorHeap mDSVHeap{};
 			TexPtr mDepthStencilBuffer{};
 			DescriptorHeap mShadowDSVHeap{};
-			TexPtr mShadowDepthMap{};
+			std::array<TexPtr, Game::RFD::ShadowCascadeMaxCount> mShadowDepthMaps{};
 			uint32_t mShadowMapSize{};
-			DescriptorHandle mShadowMapSrvHandle{};
+			uint32_t mShadowCascadeCount{};
+			DescriptorHandle mShadowMapBaseSrvHandle{};
+			std::array<DescriptorHandle, Game::RFD::ShadowCascadeMaxCount> mShadowMapSrvHandles{};
 			DescriptorHeap mSrvHeap{};
 			std::array<DrawCallResourceManager, Constants::FrameCount<size_t>> mDrawCallResourceManagers{};
 			MaterialResourceManager mMaterialResourceManager{};

@@ -30,14 +30,19 @@ namespace Core {
 		void DrawCallResourceManager::PrepareFrameResources(Game::RFD::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue* CopyQueue) {
 			std::stable_sort(Data.drawRecords.begin(), Data.drawRecords.end(), DrawCallResourceManager::CompareDrawRecordByPso);
 			DrawCallResourceManager::BuildDrawRecordGpu(Data);
-			Game::RFD::FrameGlobals ShadowFrameGlobals{ Data.globals };
-			ShadowFrameGlobals.view = Data.shadowMapping.shadowCamera.view;
-			ShadowFrameGlobals.proj = Data.shadowMapping.shadowCamera.proj;
-			ShadowFrameGlobals.viewProj = Data.shadowMapping.shadowCamera.viewProj;
-			ShadowFrameGlobals.prevViewProj = ShadowFrameGlobals.viewProj;
+			const std::uint32_t ShadowCascadeCount{ std::max<std::uint32_t>(1u, std::min<std::uint32_t>(Data.shadowMapping.cascadeCount, Game::RFD::ShadowCascadeMaxCount)) };
+			std::array<Game::RFD::FrameGlobals, Game::RFD::ShadowCascadeMaxCount> ShadowFrameGlobalsArray{};
+			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
+				Game::RFD::FrameGlobals ShadowFrameGlobals{ Data.globals };
+				ShadowFrameGlobals.view = Data.shadowMapping.shadowCameras[CascadeIndex].view;
+				ShadowFrameGlobals.proj = Data.shadowMapping.shadowCameras[CascadeIndex].proj;
+				ShadowFrameGlobals.viewProj = Data.shadowMapping.shadowCameras[CascadeIndex].viewProj;
+				ShadowFrameGlobals.prevViewProj = ShadowFrameGlobals.viewProj;
+				ShadowFrameGlobalsArray[CascadeIndex] = ShadowFrameGlobals;
+			}
 
 			std::size_t FrameGlobalsSizeInBytes{ sizeof(Game::RFD::FrameGlobals) };
-			std::size_t ShadowFrameGlobalsSizeInBytes{ sizeof(Game::RFD::FrameGlobals) };
+			std::size_t ShadowFrameGlobalsSizeInBytes{ sizeof(Game::RFD::FrameGlobals) * static_cast<std::size_t>(ShadowCascadeCount) };
 			std::size_t ShadowMappingParameterSizeInBytes{ sizeof(Game::RFD::ShadowMappingParameter) };
 			std::size_t ModelContextsSizeInBytes{ sizeof(Game::RFD::ModelContext) * Data.modelContexts.size() };
 			std::size_t BoundingBoxContextsSizeInBytes{ sizeof(Game::RFD::BoundingBoxContext) * Data.boundingBoxContexts.size() };
@@ -46,7 +51,7 @@ namespace Core {
 
 			std::byte DummyByte{ 0 };
 			void* FrameGlobalsSourceData{ FrameGlobalsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&Data.globals) };
-			void* ShadowFrameGlobalsSourceData{ ShadowFrameGlobalsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&ShadowFrameGlobals) };
+			void* ShadowFrameGlobalsSourceData{ ShadowFrameGlobalsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(ShadowFrameGlobalsArray.data()) };
 			void* ShadowMappingParameterSourceData{ ShadowMappingParameterSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&Data.shadowMapping) };
 			void* ModelContextSourceData{ ModelContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.modelContexts.data()) };
 			void* BoundingBoxContextSourceData{ BoundingBoxContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.boundingBoxContexts.data()) };
@@ -85,7 +90,7 @@ namespace Core {
 				ErrorHandler::report(mCopyFuture.IsValid() == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
 			}
 
-			DrawCallResourceManager::UpdateShaderResourceViews(1, 1, 1, static_cast<std::uint32_t>(Data.modelContexts.size()), static_cast<std::uint32_t>(Data.boundingBoxContexts.size()), static_cast<std::uint32_t>(Data.bonePalette.size()), static_cast<std::uint32_t>(mDrawRecordsGpu.size()));
+			DrawCallResourceManager::UpdateShaderResourceViews(1, ShadowCascadeCount, 1, static_cast<std::uint32_t>(Data.modelContexts.size()), static_cast<std::uint32_t>(Data.boundingBoxContexts.size()), static_cast<std::uint32_t>(Data.bonePalette.size()), static_cast<std::uint32_t>(mDrawRecordsGpu.size()));
 		}
 
 		void DrawCallResourceManager::TransitionToShaderResource(ID3D12GraphicsCommandList* CommandList) {

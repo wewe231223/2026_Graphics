@@ -25,9 +25,7 @@ namespace {
     constexpr float ShadowFarPlaneOffset{ 0.35f };
     constexpr float ShadowProjectionSizeOffset{ 0.35f };
     constexpr float ShadowCameraBackOffset{ 4.0f };
-    constexpr int ShadowCascadeCount{ 4 };
-    constexpr int ShadowClosestCascadeIndex{ 0 };
-    constexpr float ShadowClosestCascadeProjectionCoverageScale{ 1.0f };
+    constexpr float ShadowCascadeProjectionCoverageScale{ 1.0f };
     constexpr float ShadowCascadeSplitLambda{ 0.96f };
     constexpr float ParallelDirectionThreshold{ 0.98f };
     constexpr bool ShadowViewProjectionStabilizationEnabled{ false };
@@ -199,6 +197,21 @@ namespace {
             StabilizeShadowViewProjection(OutShadowViewProjection, ShadowMapSize);
         }
     }
+
+    void SetCascadeSplitDistance(DirectX::SimpleMath::Vector4& InOutCascadeSplitDistances, int CascadeIndex, float CascadeSplitDistance) {
+        if (CascadeIndex == 0) {
+            InOutCascadeSplitDistances.x = CascadeSplitDistance;
+        }
+        else if (CascadeIndex == 1) {
+            InOutCascadeSplitDistances.y = CascadeSplitDistance;
+        }
+        else if (CascadeIndex == 2) {
+            InOutCascadeSplitDistances.z = CascadeSplitDistance;
+        }
+        else if (CascadeIndex == 3) {
+            InOutCascadeSplitDistances.w = CascadeSplitDistance;
+        }
+    }
 }
 
 namespace Game {
@@ -238,25 +251,33 @@ namespace Game {
         RFD::ShadowMappingParameter Parameter{};
         DirectX::SimpleMath::Vector3 NormalizedLightDirection{ ShadowLightDirection };
         NormalizedLightDirection.Normalize();
-        const ShadowCascadeRange ClosestCascadeRange{ ComputeCascadeRange(CameraComponent, ShadowClosestCascadeIndex, ShadowCascadeCount, ShadowCascadeSplitLambda) };
-        const std::array<DirectX::SimpleMath::Vector3, 8> FrustumCorners{ BuildCameraFrustumCorners(CameraComponent, TransformComponent, ClosestCascadeRange) };
-        DirectX::SimpleMath::Matrix ShadowView{};
-        DirectX::SimpleMath::Matrix ShadowProjection{};
-        DirectX::SimpleMath::Matrix ShadowViewProjection{};
-        DirectX::SimpleMath::Vector3 ShadowCameraPosition{};
-        float ShadowNearPlane{ 0.0f };
-        float ShadowFarPlane{ 0.0f };
-        float ShadowAspectRatio{ 1.0f };
-        BuildShadowCameraFromFrustumCorners(FrustumCorners, NormalizedLightDirection, Parameter.shadowMapSize, ShadowClosestCascadeProjectionCoverageScale, ShadowView, ShadowProjection, ShadowViewProjection, ShadowCameraPosition, ShadowNearPlane, ShadowFarPlane, ShadowAspectRatio);
+        const int CascadeCount{ static_cast<int>(std::max<std::uint32_t>(1u, RFD::ShadowCascadeMaxCount)) };
+        Parameter.cascadeCount = static_cast<std::uint32_t>(CascadeCount);
 
-        Parameter.shadowCamera.view = ShadowView;
-        Parameter.shadowCamera.proj = ShadowProjection;
-        Parameter.shadowCamera.viewProj = ShadowViewProjection;
-        Parameter.shadowCamera.position = DirectX::SimpleMath::Vector4{ ShadowCameraPosition.x, ShadowCameraPosition.y, ShadowCameraPosition.z, 1.0f };
-        Parameter.shadowCamera.nearPlane = ShadowNearPlane;
-        Parameter.shadowCamera.farPlane = ShadowFarPlane;
-        Parameter.shadowCamera.aspectRatio = ShadowAspectRatio;
-        Parameter.shadowCamera.fovRadians = 0.0f;
+        for (int CascadeIndex{ 0 }; CascadeIndex < CascadeCount; CascadeIndex += 1) {
+            const ShadowCascadeRange CascadeRange{ ComputeCascadeRange(CameraComponent, CascadeIndex, CascadeCount, ShadowCascadeSplitLambda) };
+            const std::array<DirectX::SimpleMath::Vector3, 8> FrustumCorners{ BuildCameraFrustumCorners(CameraComponent, TransformComponent, CascadeRange) };
+            DirectX::SimpleMath::Matrix ShadowView{};
+            DirectX::SimpleMath::Matrix ShadowProjection{};
+            DirectX::SimpleMath::Matrix ShadowViewProjection{};
+            DirectX::SimpleMath::Vector3 ShadowCameraPosition{};
+            float ShadowNearPlane{ 0.0f };
+            float ShadowFarPlane{ 0.0f };
+            float ShadowAspectRatio{ 1.0f };
+            BuildShadowCameraFromFrustumCorners(FrustumCorners, NormalizedLightDirection, Parameter.shadowMapSize, ShadowCascadeProjectionCoverageScale, ShadowView, ShadowProjection, ShadowViewProjection, ShadowCameraPosition, ShadowNearPlane, ShadowFarPlane, ShadowAspectRatio);
+
+            Parameter.shadowCameras[CascadeIndex].view = ShadowView;
+            Parameter.shadowCameras[CascadeIndex].proj = ShadowProjection;
+            Parameter.shadowCameras[CascadeIndex].viewProj = ShadowViewProjection;
+            Parameter.shadowCameras[CascadeIndex].position = DirectX::SimpleMath::Vector4{ ShadowCameraPosition.x, ShadowCameraPosition.y, ShadowCameraPosition.z, 1.0f };
+            Parameter.shadowCameras[CascadeIndex].nearPlane = ShadowNearPlane;
+            Parameter.shadowCameras[CascadeIndex].farPlane = ShadowFarPlane;
+            Parameter.shadowCameras[CascadeIndex].aspectRatio = ShadowAspectRatio;
+            Parameter.shadowCameras[CascadeIndex].fovRadians = 0.0f;
+
+            SetCascadeSplitDistance(Parameter.cascadeSplitDistances, CascadeIndex, CascadeRange.farPlane);
+        }
+
         Parameter.lightDirection = DirectX::SimpleMath::Vector4{ NormalizedLightDirection.x, NormalizedLightDirection.y, NormalizedLightDirection.z, 0.0f };
 
         return Parameter;
