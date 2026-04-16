@@ -1,6 +1,7 @@
 #include "defines.hlsli"
 
 static const uint SHADOW_CASCADE_MAX_COUNT = 4u;
+static const bool ENABLE_CASCADE_MAP_SHADOW_COLOR = true;
 
 struct VertexInput
 {
@@ -244,13 +245,43 @@ float ComputeShadowVisibility(Texture2D<float> ShadowMapTexture, SamplerComparis
     return saturate(Visibility / 9.0f);
 }
 
-float3 ApplyDirectionalLightWithShadow(float3 BaseRgb, float3 WorldNormal, float3 LightDirection, float ShadowVisibility, float ShadowStrength)
+float3 ResolveCascadeShadowColor(uint CascadeIndex)
+{
+    if (CascadeIndex == 0u)
+    {
+        return float3(1.0f, 0.52f, 0.52f);
+    }
+
+    if (CascadeIndex == 1u)
+    {
+        return float3(0.52f, 1.0f, 0.52f);
+    }
+
+    if (CascadeIndex == 2u)
+    {
+        return float3(0.52f, 0.68f, 1.0f);
+    }
+
+    return float3(1.0f, 0.92f, 0.52f);
+}
+
+float3 ApplyDirectionalLightWithShadow(float3 BaseRgb, float3 WorldNormal, float3 LightDirection, float ShadowVisibility, float ShadowStrength, uint CascadeIndex)
 {
     const float3 NormalizedNormal = normalize(WorldNormal);
     const float3 NormalizedLightDirection = normalize(LightDirection);
     const float3 LightColor = float3(1.0f, 0.97f, 0.92f);
     const float AmbientIntensity = 0.6f;
     const float DiffuseIntensity = saturate(dot(NormalizedNormal, -NormalizedLightDirection));
+    if (ENABLE_CASCADE_MAP_SHADOW_COLOR)
+    {
+        const float3 FullyLitColor = BaseRgb * (AmbientIntensity + (DiffuseIntensity * LightColor));
+        const float ShadowColorBlendFactor = saturate((1.0f - ShadowVisibility) * saturate(ShadowStrength));
+        const float3 CascadeShadowColor = ResolveCascadeShadowColor(CascadeIndex);
+        const float ShadowMask = (ShadowColorBlendFactor > 0.0f) ? 1.0f : 0.0f;
+        const float3 LitColor = lerp(FullyLitColor, CascadeShadowColor, ShadowMask);
+        return saturate(LitColor);
+    }
+
     const float DiffuseShadowFactor = lerp(1.0f - saturate(ShadowStrength), 1.0f, ShadowVisibility);
     const float3 LitColor = BaseRgb * (AmbientIntensity + (DiffuseIntensity * DiffuseShadowFactor * LightColor));
     return saturate(LitColor);
@@ -270,7 +301,7 @@ float4 ApplyMaterialLightingWithShadow(float4 BaseColor, float3 WorldNormal, flo
     const CameraParameterGpu ShadowCamera = ShadowMappingParameter.ShadowCameras[CascadeIndex];
     const float ShadowVisibility = ComputeShadowVisibility(ShadowMapTexture, ShadowComparisonSampler, ShadowCamera, ShadowMappingParameter.ShadowBias, ShadowMappingParameter.ShadowMapSize, WorldPosition);
     float4 ResultColor = BaseColor;
-    ResultColor.rgb = ApplyDirectionalLightWithShadow(ResultColor.rgb, WorldNormal, ShadowMappingParameter.LightDirection.xyz, ShadowVisibility, ShadowMappingParameter.ShadowStrength);
+    ResultColor.rgb = ApplyDirectionalLightWithShadow(ResultColor.rgb, WorldNormal, ShadowMappingParameter.LightDirection.xyz, ShadowVisibility, ShadowMappingParameter.ShadowStrength, CascadeIndex);
     return ResultColor;
 }
 
