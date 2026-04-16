@@ -374,3 +374,403 @@ Entities:
       Animation:
         text: knight.animbin
         initclip: 0
+  - EntityId: 17
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeBox01
+      Transform:
+        <<: *DefaultTransform
+        position: [-120.00, 0.00, -120.00]
+        scale: [0.40, 0.40, 0.40]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2001
+        prefabId: 2001
+  - EntityId: 18
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeSphere01
+      Transform:
+        <<: *DefaultTransform
+        position: [-80.00, 0.00, -100.00]
+        scale: [0.65, 0.65, 0.65]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2002
+        prefabId: 2002
+  - EntityId: 19
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeCylinder01
+      Transform:
+        <<: *DefaultTransform
+        position: [-40.00, 0.00, -130.00]
+        scale: [1.30, 2.40, 1.30]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2003
+        prefabId: 2003
+  - EntityId: 20
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeCone01
+      Transform:
+        <<: *DefaultTransform
+        position: [0.00, 0.00, -110.00]
+        scale: [1.80, 1.80, 1.80]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2004
+        prefabId: 2004
+  - EntityId: 21
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeTriPyramid01
+      Transform:
+        <<: *DefaultTransform
+        position: [40.00, 0.00, -140.00]
+        scale: [0.95, 1.90, 0.95]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2005
+        prefabId: 2005
+  - EntityId: 22
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeSquarePyramid01
+      Transform:
+        <<: *DefaultTransform
+        position: [80.00, 0.00, -120.00]
+        scale: [2.10, 2.10, 2.10]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2006
+        prefabId: 2006
+  - EntityId: 23
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeBox02
+      Transform:
+        <<: *DefaultTransform
+        position: [120.00, 0.00, -100.00]
+        scale: [3.60, 0.80, 3.60]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2001
+        prefabId: 2001
+  - EntityId: 24
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeSphere02
+      Transform:
+        <<: *DefaultTransform
+        position: [-120.00, 0.00, -40.00]
+        scale: [0.35, 0.35, 0.35]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2002
+        prefabId: 2002
+  - EntityId: 25
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeCylinder02
+      Transform:
+        <<: *DefaultTransform
+        position: [-80.00, 0.00, -20.00]
+        scale: [0.80, 3.20, 0.80]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2003
+        prefabId: 2003
+  - EntityId: 26
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeCone02
+      Transform:
+        <<: *DefaultTransform
+        position: [-40.00, 0.00, -60.00]
+        scale: [1.10, 0.70, 1.10]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2004
+        prefabId: 2004
+  - EntityId: 27
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeTriPyramid02
+      Transform:
+        <<: *DefaultTransform
+        position: [0.00, 0.00, -40.00]
+        scale: [1.55, 1.55, 1.55]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2005
+        prefabId: 2005
+  - EntityId: 28
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeSquarePyramid02
+      Transform:
+        <<: *DefaultTransform
+        position: [40.00, 0.00, -20.00]
+        scale: [2.80, 1.20, 2.80]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2006
+        prefabId: 2006
+  - EntityId: 29
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeBox03
+      Transform:
+        <<: *DefaultTransform
+        position: [80.00, 0.00, -60.00]
+        scale: [0.90, 2.90, 0.90]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2001
+        prefabId: 2001
+  - EntityId: 30
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeSphere03
+      Transform:
+        <<: *DefaultTransform
+        position: [120.00, 0.00, -40.00]
+        scale: [2.60, 2.60, 2.60]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2002
+        prefabId: 2002
+  - EntityId: 31
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeCylinder03
+      Transform:
+        <<: *DefaultTransform
+        position: [-120.00, 0.00, 40.00]
+        scale: [1.10, 1.10, 1.10]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2003
+        prefabId: 2003
+  - EntityId: 32
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeCone03
+      Transform:
+        <<: *DefaultTransform
+        position: [-80.00, 0.00, 60.00]
+        scale: [3.20, 3.20, 3.20]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2004
+        prefabId: 2004
+  - EntityId: 33
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeTriPyramid03
+      Transform:
+        <<: *DefaultTransform
+        position: [-40.00, 0.00, 20.00]
+        scale: [0.55, 0.55, 0.55]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2005
+        prefabId: 2005
+  - EntityId: 34
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeSquarePyramid03
+      Transform:
+        <<: *DefaultTransform
+        position: [0.00, 0.00, 40.00]
+        scale: [1.35, 2.70, 1.35]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2006
+        prefabId: 2006
+  - EntityId: 35
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeBox04
+      Transform:
+        <<: *DefaultTransform
+        position: [40.00, 0.00, 60.00]
+        scale: [2.40, 2.40, 0.60]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2001
+        prefabId: 2001
+  - EntityId: 36
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeSphere04
+      Transform:
+        <<: *DefaultTransform
+        position: [80.00, 0.00, 20.00]
+        scale: [1.00, 1.00, 1.00]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2002
+        prefabId: 2002
+  - EntityId: 37
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeCylinder04
+      Transform:
+        <<: *DefaultTransform
+        position: [120.00, 0.00, 40.00]
+        scale: [0.70, 1.60, 0.70]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2003
+        prefabId: 2003
+  - EntityId: 38
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeCone04
+      Transform:
+        <<: *DefaultTransform
+        position: [-120.00, 0.00, 120.00]
+        scale: [1.90, 0.90, 1.90]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2004
+        prefabId: 2004
+  - EntityId: 39
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeTriPyramid04
+      Transform:
+        <<: *DefaultTransform
+        position: [-40.00, 0.00, 110.00]
+        scale: [2.20, 2.20, 2.20]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2005
+        prefabId: 2005
+  - EntityId: 40
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeSquarePyramid04
+      Transform:
+        <<: *DefaultTransform
+        position: [40.00, 0.00, 130.00]
+        scale: [0.60, 3.40, 0.60]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2006
+        prefabId: 2006
+  - EntityId: 41
+    ParentEntityId: -1
+    Components:
+      Culling:
+        frustumCulling: true
+      Name:
+        text: CSMProbeBox05
+      Transform:
+        <<: *DefaultTransform
+        position: [120.00, 0.00, 120.00]
+        scale: [4.20, 4.20, 4.20]
+      TerrainCollider:
+        TerrainCollide: true
+      PrefabInstance:
+        <<: *Prefab2001
+        prefabId: 2001
