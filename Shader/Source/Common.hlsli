@@ -133,11 +133,13 @@ float4 ApplyMaterialScalarColor(float4 BaseColor, MaterialGpu MaterialData)
     const float Opacity = MaterialData.Fields[MATERIAL_TYPE_OPACITY].FloatValue.x;
 
     float4 ScalarColor = MaterialBaseColor;
-    if (dot(ScalarColor, ScalarColor) <= 0.0f) {
+    if (dot(ScalarColor, ScalarColor) <= 0.0f)
+    {
         ScalarColor = MaterialDiffuseColor;
     }
 
-    if (dot(ScalarColor, ScalarColor) <= 0.0f) {
+    if (dot(ScalarColor, ScalarColor) <= 0.0f)
+    {
         ScalarColor = float4(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
@@ -166,24 +168,22 @@ float ComputeShadowVisibility(Texture2D<float> ShadowMapTexture, SamplerComparis
     float3 ShadowNdcPosition = ShadowClipPosition.xyz / max(ShadowClipPosition.w, 1.0e-5f);
     float2 ShadowUv = ShadowNdcPosition.xy * float2(0.5f, -0.5f) + float2(0.5f, 0.5f);
 
-    if (ShadowUv.x < 0.0f || ShadowUv.x > 1.0f || ShadowUv.y < 0.0f || ShadowUv.y > 1.0f) {
+    if (any(ShadowUv < 0.0f) || any(ShadowUv > 1.0f) || ShadowNdcPosition.z < 0.0f || ShadowNdcPosition.z > 1.0f)
+    {
         return 1.0f;
     }
 
-    if (ShadowNdcPosition.z <= 0.0f || ShadowNdcPosition.z >= 1.0f) {
-        return 1.0f;
-    }
-
-    const float ReceiverDepth = saturate(ShadowNdcPosition.z - ShadowMappingParameter.ShadowBias);
+    const float ReceiverDepth = ShadowNdcPosition.z - ShadowMappingParameter.ShadowBias;
     const float TexelSize = ShadowMappingParameter.ShadowMapSize > 0.0f ? (1.0f / ShadowMappingParameter.ShadowMapSize) : 0.0f;
-    const float PcfKernelScale = 0.55f;
 
     float Visibility = 0.0f;
     [unroll]
-    for (int SampleY = -1; SampleY <= 1; ++SampleY) {
+    for (int SampleY = -1; SampleY <= 1; ++SampleY)
+    {
         [unroll]
-        for (int SampleX = -1; SampleX <= 1; ++SampleX) {
-            float2 SampleOffset = float2((float)SampleX, (float)SampleY) * (TexelSize * PcfKernelScale);
+        for (int SampleX = -1; SampleX <= 1; ++SampleX)
+        {
+            float2 SampleOffset = float2((float) SampleX, (float) SampleY) * TexelSize;
             Visibility += ShadowMapTexture.SampleCmpLevelZero(ShadowComparisonSampler, ShadowUv + SampleOffset, ReceiverDepth);
         }
     }
@@ -221,11 +221,10 @@ float4 ApplyMaterialLightingWithShadow(float4 BaseColor, float3 WorldNormal, flo
 float4 ResolveFlags(float4 Color, uint Flags)
 {
     const uint PickedFlagMask = 0x1u;
-
-    if ((Flags & PickedFlagMask) != 0u) {
+    if ((Flags & PickedFlagMask) != 0u)
+    {
         const float3 PickTint = float3(0.7f, 0.03f, 0.03f);
         Color.rgb = saturate(Color.rgb + PickTint);
     }
-
     return Color;
 }

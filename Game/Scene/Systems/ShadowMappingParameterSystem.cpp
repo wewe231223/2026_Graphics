@@ -20,15 +20,17 @@ namespace {
     constexpr float ShadowMinimumNearPlane{ 0.1f };
     constexpr float ShadowMinimumExtent{ 1.0f };
     constexpr float ShadowMinimumViewDistance{ 2.0f };
-    constexpr float ShadowMinimumFarOffset{ 1.0f };
-    constexpr float ShadowNearPlaneOffset{ 1.0f };
-    constexpr float ShadowFarPlaneOffset{ 4.0f };
+    constexpr float ShadowMinimumFarOffset{ 0.25f };
+    constexpr float ShadowNearPlaneOffset{ 0.25f };
+    constexpr float ShadowFarPlaneOffset{ 0.35f };
     constexpr float ShadowProjectionSizeOffset{ 0.35f };
-    constexpr float ShadowCameraBackOffset{ 12.0f };
-    constexpr int ShadowCascadeCount{ 6 };
-    constexpr int ShadowFirstCascadeIndex{ 0 };
+    constexpr float ShadowCameraBackOffset{ 4.0f };
+    constexpr int ShadowCascadeCount{ 4 };
+    constexpr int ShadowClosestCascadeIndex{ 0 };
+    constexpr float ShadowClosestCascadeProjectionCoverageScale{ 1.0f };
     constexpr float ShadowCascadeSplitLambda{ 0.96f };
     constexpr float ParallelDirectionThreshold{ 0.98f };
+    constexpr bool ShadowViewProjectionStabilizationEnabled{ false };
 
     float DotProduct(const DirectX::SimpleMath::Vector3& Left, const DirectX::SimpleMath::Vector3& Right) {
         return (Left.x * Right.x) + (Left.y * Right.y) + (Left.z * Right.z);
@@ -128,7 +130,7 @@ namespace {
         InOutShadowViewProjection = DirectX::SimpleMath::Matrix::CreateScale(EffectiveShadowMapSize, EffectiveShadowMapSize, 1.0f) * InOutShadowViewProjection;
     }
 
-    void BuildShadowCameraFromFrustumCorners(const std::array<DirectX::SimpleMath::Vector3, 8>& FrustumCorners, const DirectX::SimpleMath::Vector3& LightDirection, float ShadowMapSize, DirectX::SimpleMath::Matrix& OutShadowView, DirectX::SimpleMath::Matrix& OutShadowProjection, DirectX::SimpleMath::Matrix& OutShadowViewProjection, DirectX::SimpleMath::Vector3& OutShadowCameraPosition, float& OutShadowNearPlane, float& OutShadowFarPlane, float& OutShadowAspectRatio) {
+    void BuildShadowCameraFromFrustumCorners(const std::array<DirectX::SimpleMath::Vector3, 8>& FrustumCorners, const DirectX::SimpleMath::Vector3& LightDirection, float ShadowMapSize, float ProjectionCoverageScale, DirectX::SimpleMath::Matrix& OutShadowView, DirectX::SimpleMath::Matrix& OutShadowProjection, DirectX::SimpleMath::Matrix& OutShadowViewProjection, DirectX::SimpleMath::Vector3& OutShadowCameraPosition, float& OutShadowNearPlane, float& OutShadowFarPlane, float& OutShadowAspectRatio) {
         DirectX::SimpleMath::Vector3 FrustumCenter{};
         for (const DirectX::SimpleMath::Vector3& FrustumCorner : FrustumCorners) {
             FrustumCenter += FrustumCorner;
@@ -170,8 +172,10 @@ namespace {
             MaximumDepth = std::max(MaximumDepth, DepthFromLight);
         }
 
-        const float ShadowProjectionWidth{ std::max(MaximumX - MinimumX, ShadowMinimumExtent) + ShadowProjectionSizeOffset };
-        const float ShadowProjectionHeight{ std::max(MaximumY - MinimumY, ShadowMinimumExtent) + ShadowProjectionSizeOffset };
+        const float EffectiveProjectionCoverageScale{ std::max(ProjectionCoverageScale, 1.0f) };
+        const float MinimumProjectionSpan{ std::max((FrustumRadius * 2.0f) * EffectiveProjectionCoverageScale, ShadowMinimumExtent) };
+        const float ShadowProjectionWidth{ std::max(MaximumX - MinimumX, MinimumProjectionSpan) + ShadowProjectionSizeOffset };
+        const float ShadowProjectionHeight{ std::max(MaximumY - MinimumY, MinimumProjectionSpan) + ShadowProjectionSizeOffset };
         const float ShadowProjectionHalfWidth{ ShadowProjectionWidth * 0.5f };
         const float ShadowProjectionHalfHeight{ ShadowProjectionHeight * 0.5f };
         float ProjectionCenterX{ (MinimumX + MaximumX) * 0.5f };
@@ -191,7 +195,9 @@ namespace {
         OutShadowAspectRatio = ShadowProjectionWidth / std::max(ShadowProjectionHeight, ShadowMinimumExtent);
         OutShadowProjection = DirectX::SimpleMath::Matrix::CreateOrthographicOffCenter(ProjectionLeft, ProjectionRight, ProjectionBottom, ProjectionTop, OutShadowNearPlane, OutShadowFarPlane);
         OutShadowViewProjection = OutShadowView * OutShadowProjection;
-        StabilizeShadowViewProjection(OutShadowViewProjection, ShadowMapSize);
+        if (ShadowViewProjectionStabilizationEnabled == true) {
+            StabilizeShadowViewProjection(OutShadowViewProjection, ShadowMapSize);
+        }
     }
 }
 
@@ -232,8 +238,8 @@ namespace Game {
         RFD::ShadowMappingParameter Parameter{};
         DirectX::SimpleMath::Vector3 NormalizedLightDirection{ ShadowLightDirection };
         NormalizedLightDirection.Normalize();
-        const ShadowCascadeRange FirstCascadeRange{ ComputeCascadeRange(CameraComponent, ShadowFirstCascadeIndex, ShadowCascadeCount, ShadowCascadeSplitLambda) };
-        const std::array<DirectX::SimpleMath::Vector3, 8> FrustumCorners{ BuildCameraFrustumCorners(CameraComponent, TransformComponent, FirstCascadeRange) };
+        const ShadowCascadeRange ClosestCascadeRange{ ComputeCascadeRange(CameraComponent, ShadowClosestCascadeIndex, ShadowCascadeCount, ShadowCascadeSplitLambda) };
+        const std::array<DirectX::SimpleMath::Vector3, 8> FrustumCorners{ BuildCameraFrustumCorners(CameraComponent, TransformComponent, ClosestCascadeRange) };
         DirectX::SimpleMath::Matrix ShadowView{};
         DirectX::SimpleMath::Matrix ShadowProjection{};
         DirectX::SimpleMath::Matrix ShadowViewProjection{};
@@ -241,7 +247,7 @@ namespace Game {
         float ShadowNearPlane{ 0.0f };
         float ShadowFarPlane{ 0.0f };
         float ShadowAspectRatio{ 1.0f };
-        BuildShadowCameraFromFrustumCorners(FrustumCorners, NormalizedLightDirection, Parameter.shadowMapSize, ShadowView, ShadowProjection, ShadowViewProjection, ShadowCameraPosition, ShadowNearPlane, ShadowFarPlane, ShadowAspectRatio);
+        BuildShadowCameraFromFrustumCorners(FrustumCorners, NormalizedLightDirection, Parameter.shadowMapSize, ShadowClosestCascadeProjectionCoverageScale, ShadowView, ShadowProjection, ShadowViewProjection, ShadowCameraPosition, ShadowNearPlane, ShadowFarPlane, ShadowAspectRatio);
 
         Parameter.shadowCamera.view = ShadowView;
         Parameter.shadowCamera.proj = ShadowProjection;
