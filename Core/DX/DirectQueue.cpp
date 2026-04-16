@@ -11,6 +11,16 @@
 
 namespace Core {
     namespace DX {
+		namespace {
+			constexpr uint32_t ClosestShadowCascadeResolutionScale{ 2u };
+
+			uint32_t ComputeShadowMapSizeForCascade(uint32_t BaseShadowMapSize, uint32_t CascadeIndex) {
+				uint64_t Scale{ CascadeIndex == 0u ? ClosestShadowCascadeResolutionScale : 1u };
+				uint64_t ResolvedShadowMapSize{ static_cast<uint64_t>(BaseShadowMapSize) * Scale };
+				ResolvedShadowMapSize = std::min<uint64_t>(ResolvedShadowMapSize, static_cast<uint64_t>(D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION));
+				return static_cast<uint32_t>(ResolvedShadowMapSize);
+			}
+		}
 
 		DirectQueue::DirectQueue(HWND hWnd) {
 			mHwnd = hWnd;
@@ -86,8 +96,8 @@ namespace Core {
 				D3D12_CPU_DESCRIPTOR_HANDLE ShadowDsv{ ShadowDepthMap->GetDSV() };
 				mCommandList->ClearDepthStencilView(ShadowDsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 				mCommandList->OMSetRenderTargets(0, nullptr, FALSE, &ShadowDsv);
-				mCommandList->RSSetViewports(1, &mShadowViewport);
-				mCommandList->RSSetScissorRects(1, &mShadowScissorRect);
+				mCommandList->RSSetViewports(1, &mShadowViewports[CascadeIndex]);
+				mCommandList->RSSetScissorRects(1, &mShadowScissorRects[CascadeIndex]);
 				mDrawCallDispatcher.DrawDepthOnly(mCommandList.Get(), Data, CascadeIndex, DrawCallResources.GetShadowFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
 
 				ShadowDepthMap->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
@@ -121,7 +131,7 @@ namespace Core {
 					ShadowMapResources[ShadowMapIndex] = mShadowDepthMaps[ShadowMapIndex]->GetResource();
 				}
 
-				WidgetCore->SetShadowMapTextures(ShadowMapResources, ShadowMapPreviewCount, mShadowMapSize);
+				WidgetCore->SetShadowMapTextures(ShadowMapResources, ShadowMapPreviewCount, mShadowMapSizes[0]);
 #pragma endregion
 				WidgetCore->Render(mCommandList);
 			}
@@ -287,6 +297,11 @@ namespace Core {
 			const float ShadowMapSizeFloat{ std::max(1.0f, ShadowMappingParameter.shadowMapSize) };
 			const uint32_t RequiredShadowMapSize{ static_cast<uint32_t>(ShadowMapSizeFloat) };
 			const uint32_t RequiredShadowCascadeCount{ std::max<uint32_t>(1u, std::min<uint32_t>(ShadowMappingParameter.cascadeCount, Game::RFD::ShadowCascadeMaxCount)) };
+			std::array<uint32_t, Game::RFD::ShadowCascadeMaxCount> RequiredShadowMapSizes{};
+			for (uint32_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < RequiredShadowCascadeCount; ShadowCascadeIndex += 1) {
+				RequiredShadowMapSizes[ShadowCascadeIndex] = ComputeShadowMapSizeForCascade(RequiredShadowMapSize, ShadowCascadeIndex);
+			}
+
 			bool IsAllShadowDepthMapsValid{ true };
 			for (uint32_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < RequiredShadowCascadeCount; ShadowCascadeIndex += 1) {
 				if (mShadowDepthMaps[ShadowCascadeIndex] == nullptr) {
@@ -295,12 +310,21 @@ namespace Core {
 				}
 			}
 
-			if (IsAllShadowDepthMapsValid == true && mShadowMapSize == RequiredShadowMapSize && mShadowCascadeCount == RequiredShadowCascadeCount) {
+			bool IsSameShadowMapSizes{ true };
+			for (uint32_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < RequiredShadowCascadeCount; ShadowCascadeIndex += 1) {
+				if (mShadowMapSizes[ShadowCascadeIndex] != RequiredShadowMapSizes[ShadowCascadeIndex]) {
+					IsSameShadowMapSizes = false;
+					break;
+				}
+			}
+
+			if (IsAllShadowDepthMapsValid == true && IsSameShadowMapSizes == true && mShadowMapSize == RequiredShadowMapSize && mShadowCascadeCount == RequiredShadowCascadeCount) {
 				return;
 			}
 
 			mShadowMapSize = RequiredShadowMapSize;
 			mShadowCascadeCount = RequiredShadowCascadeCount;
+			mShadowMapSizes = {};
 			mShadowDSVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, RequiredShadowCascadeCount, false);
 
 			for (std::size_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < Game::RFD::ShadowCascadeMaxCount; ShadowCascadeIndex += 1) {
@@ -309,7 +333,9 @@ namespace Core {
 
 			CD3DX12_CLEAR_VALUE depthOptimizedClearValue{ DXGI_FORMAT_D24_UNORM_S8_UINT, 1.0f, 0 };
 			for (uint32_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < RequiredShadowCascadeCount; ShadowCascadeIndex += 1) {
-				mShadowDepthMaps[ShadowCascadeIndex] = Texture::CreateTarget(mDevice.Get(), RequiredShadowMapSize, RequiredShadowMapSize, DXGI_FORMAT_R24G8_TYPELESS, TextureUsage::DepthStencil, &depthOptimizedClearValue);
+				const uint32_t CurrentShadowMapSize{ RequiredShadowMapSizes[ShadowCascadeIndex] };
+				mShadowMapSizes[ShadowCascadeIndex] = CurrentShadowMapSize;
+				mShadowDepthMaps[ShadowCascadeIndex] = Texture::CreateTarget(mDevice.Get(), CurrentShadowMapSize, CurrentShadowMapSize, DXGI_FORMAT_R24G8_TYPELESS, TextureUsage::DepthStencil, &depthOptimizedClearValue);
 				mShadowDepthMaps[ShadowCascadeIndex]->CreateDSV(mDevice.Get(), &mShadowDSVHeap);
 				D3D12_SHADER_RESOURCE_VIEW_DESC ShadowMapSrvDescription{};
 				ShadowMapSrvDescription.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
@@ -317,10 +343,9 @@ namespace Core {
 				ShadowMapSrvDescription.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 				ShadowMapSrvDescription.Texture2D.MipLevels = 1;
 				mDevice->CreateShaderResourceView(mShadowDepthMaps[ShadowCascadeIndex]->GetResource(), &ShadowMapSrvDescription, mShadowMapSrvHandles[ShadowCascadeIndex].GetCPU());
+				mShadowViewports[ShadowCascadeIndex] = D3D12_VIEWPORT{ 0.0f, 0.0f, static_cast<float>(CurrentShadowMapSize), static_cast<float>(CurrentShadowMapSize), 0.0f, 1.0f };
+				mShadowScissorRects[ShadowCascadeIndex] = D3D12_RECT{ 0, 0, static_cast<LONG>(CurrentShadowMapSize), static_cast<LONG>(CurrentShadowMapSize) };
 			}
-
-			mShadowViewport = D3D12_VIEWPORT{ 0.0f, 0.0f, static_cast<float>(RequiredShadowMapSize), static_cast<float>(RequiredShadowMapSize), 0.0f, 1.0f };
-			mShadowScissorRect = D3D12_RECT{ 0, 0, static_cast<LONG>(RequiredShadowMapSize), static_cast<LONG>(RequiredShadowMapSize) };
 		}
 
 		ComPtr<IDXGIAdapter1> DirectQueue::GetBestAdapter() {

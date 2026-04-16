@@ -1,4 +1,4 @@
-local MoveSpeed = 4.0
+local MoveSpeed = 10.0
 local YawLookSensitivity = 0.0026
 local IsMovingParameterIndex = 0
 

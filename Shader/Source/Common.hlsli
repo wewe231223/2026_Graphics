@@ -1,7 +1,7 @@
 #include "defines.hlsli"
 
 static const uint SHADOW_CASCADE_MAX_COUNT = 4u;
-static const bool ENABLE_CASCADE_MAP_SHADOW_COLOR = true;
+static const bool ENABLE_CASCADE_MAP_SHADOW_COLOR = false;
 
 struct VertexInput
 {
@@ -189,6 +189,16 @@ float ResolveCascadeSplitDistance(ShadowMappingParameterGpu ShadowMappingParamet
     return ShadowMappingParameter.CascadeSplitDistances.w;
 }
 
+float ResolveCascadeShadowMapSize(ShadowMappingParameterGpu ShadowMappingParameter, uint CascadeIndex)
+{
+    float CascadeShadowMapSize = max(ShadowMappingParameter.ShadowMapSize, 1.0f);
+    if (CascadeIndex == 0u)
+    {
+        CascadeShadowMapSize *= 2.0f;
+    }
+    return CascadeShadowMapSize;
+}
+
 uint ResolveCascadeIndex(ShadowMappingParameterGpu ShadowMappingParameter, FrameGlobalsGpu FrameGlobals, float3 WorldPosition)
 {
     const uint EffectiveCascadeCount = clamp(ShadowMappingParameter.CascadeCount, 1u, SHADOW_CASCADE_MAX_COUNT);
@@ -299,7 +309,8 @@ float4 ApplyMaterialLightingWithShadow(float4 BaseColor, float3 WorldNormal, flo
     const uint CascadeIndex = ResolveCascadeIndex(ShadowMappingParameter, FrameGlobals, WorldPosition);
     Texture2D<float> ShadowMapTexture = ResourceDescriptorHeap[NonUniformResourceIndex(ShadowMapTextureBaseSrvIndex + CascadeIndex)];
     const CameraParameterGpu ShadowCamera = ShadowMappingParameter.ShadowCameras[CascadeIndex];
-    const float ShadowVisibility = ComputeShadowVisibility(ShadowMapTexture, ShadowComparisonSampler, ShadowCamera, ShadowMappingParameter.ShadowBias, ShadowMappingParameter.ShadowMapSize, WorldPosition);
+    const float CascadeShadowMapSize = ResolveCascadeShadowMapSize(ShadowMappingParameter, CascadeIndex);
+    const float ShadowVisibility = ComputeShadowVisibility(ShadowMapTexture, ShadowComparisonSampler, ShadowCamera, ShadowMappingParameter.ShadowBias, CascadeShadowMapSize, WorldPosition);
     float4 ResultColor = BaseColor;
     ResultColor.rgb = ApplyDirectionalLightWithShadow(ResultColor.rgb, WorldNormal, ShadowMappingParameter.LightDirection.xyz, ShadowVisibility, ShadowMappingParameter.ShadowStrength, CascadeIndex);
     return ResultColor;

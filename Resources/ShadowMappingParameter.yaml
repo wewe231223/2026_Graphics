@@ -1,0 +1,10 @@
+ShadowMapping:
+  ShadowMapSize: 2048
+  ShadowBias: 0.001
+  ShadowStrength: 0.6
+  RasterDepthBias: 1
+  RasterSlopeScaledDepthBias: 1.25
+  CascadeMaximumDistance: 200
+  CascadeSplitLambda: 0.9
+  CascadeNearRangeExpansionDistance: 9.4
+  CascadeExpandedBoundaryCount: 3

@@ -2,13 +2,19 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <limits>
+#include <sstream>
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/Transform.h"
 
 
 #undef min
 #undef max 
+
+#include <ryml.hpp>
+#include <ryml_std.hpp>
 
 namespace {
     struct ShadowCascadeRange {
@@ -26,7 +32,6 @@ namespace {
     constexpr float ShadowProjectionSizeOffset{ 0.35f };
     constexpr float ShadowCameraBackOffset{ 4.0f };
     constexpr float ShadowCascadeProjectionCoverageScale{ 1.0f };
-    constexpr float ShadowCascadeSplitLambda{ 0.96f };
     constexpr float ParallelDirectionThreshold{ 0.98f };
     constexpr bool ShadowViewProjectionStabilizationEnabled{ false };
 
@@ -61,12 +66,18 @@ namespace {
         return std::lerp(UniformSplitDistance, LogarithmicSplitDistance, EffectiveCascadeSplitLambda);
     }
 
-    ShadowCascadeRange ComputeCascadeRange(const Game::Camera& CameraComponent, int CascadeIndex, int CascadeCount, float CascadeSplitLambda) {
+    ShadowCascadeRange ComputeCascadeRange(const Game::Camera& CameraComponent, int CascadeIndex, int CascadeCount, float CascadeSplitLambda, float CascadeMaximumDistance, float CascadeNearRangeExpansionDistance, int CascadeExpandedBoundaryCount) {
         const float EffectiveNearPlane{ std::max(CameraComponent.nearPlane, ShadowMinimumNearPlane) };
-        const float EffectiveFarPlane{ std::max(CameraComponent.farPlane, EffectiveNearPlane + ShadowMinimumViewDistance) };
+        const float MinimumFarPlane{ EffectiveNearPlane + ShadowMinimumViewDistance };
+        const float MaximumFarPlane{ std::max(CascadeMaximumDistance, MinimumFarPlane) };
+        const float EffectiveFarPlane{ std::clamp(CameraComponent.farPlane, MinimumFarPlane, MaximumFarPlane) };
         const int EffectiveCascadeIndex{ std::clamp(CascadeIndex, 0, std::max(CascadeCount - 1, 0)) };
-        const float CascadeNearPlane{ ComputeCascadeSplitDistance(EffectiveNearPlane, EffectiveFarPlane, EffectiveCascadeIndex, CascadeCount, CascadeSplitLambda) };
-        const float CascadeFarPlane{ ComputeCascadeSplitDistance(EffectiveNearPlane, EffectiveFarPlane, EffectiveCascadeIndex + 1, CascadeCount, CascadeSplitLambda) };
+        const float CascadeNearPlaneBase{ ComputeCascadeSplitDistance(EffectiveNearPlane, EffectiveFarPlane, EffectiveCascadeIndex, CascadeCount, CascadeSplitLambda) };
+        const float CascadeFarPlaneBase{ ComputeCascadeSplitDistance(EffectiveNearPlane, EffectiveFarPlane, EffectiveCascadeIndex + 1, CascadeCount, CascadeSplitLambda) };
+        const int CascadeNearBoundaryExpansionStepCount{ std::clamp(EffectiveCascadeIndex, 0, CascadeExpandedBoundaryCount) };
+        const int CascadeFarBoundaryExpansionStepCount{ std::clamp(EffectiveCascadeIndex + 1, 0, CascadeExpandedBoundaryCount) };
+        const float CascadeNearPlane{ std::clamp(CascadeNearPlaneBase + (static_cast<float>(CascadeNearBoundaryExpansionStepCount) * CascadeNearRangeExpansionDistance), EffectiveNearPlane, EffectiveFarPlane) };
+        const float CascadeFarPlane{ std::clamp(CascadeFarPlaneBase + (static_cast<float>(CascadeFarBoundaryExpansionStepCount) * CascadeNearRangeExpansionDistance), CascadeNearPlane, EffectiveFarPlane) };
         ShadowCascadeRange CascadeRange{};
         CascadeRange.nearPlane = CascadeNearPlane;
         CascadeRange.farPlane = std::max(CascadeFarPlane, CascadeNearPlane + ShadowMinimumViewDistance);
@@ -215,6 +226,116 @@ namespace {
 }
 
 namespace Game {
+    ShadowMappingParameterSystem::ShadowMappingParameterSystem() {
+        LoadShadowMappingParameterFile();
+    }
+
+    void ShadowMappingParameterSystem::LoadShadowMappingParameterFile() {
+        std::ifstream InputStream{ mShadowMappingParameterFilePath, std::ios::in | std::ios::binary };
+        if (InputStream.is_open() == false) {
+            SanitizeShadowMappingParameters();
+            SaveShadowMappingParameterFile();
+            return;
+        }
+
+        std::stringstream Buffer{};
+        Buffer << InputStream.rdbuf();
+        const std::string YamlText{ Buffer.str() };
+        if (YamlText.empty() == true) {
+            SanitizeShadowMappingParameters();
+            SaveShadowMappingParameterFile();
+            return;
+        }
+
+        try {
+            c4::yml::Tree Tree{};
+            c4::yml::parse_in_arena(c4::to_csubstr(YamlText), &Tree);
+            const c4::yml::ConstNodeRef RootNode{ Tree.rootref() };
+            const c4::yml::ConstNodeRef ShadowMappingNode{ RootNode.has_child("ShadowMapping") ? RootNode["ShadowMapping"] : RootNode };
+
+            if (ShadowMappingNode.invalid() == false) {
+                if (ShadowMappingNode.has_child("ShadowMapSize")) {
+                    ShadowMappingNode["ShadowMapSize"] >> mShadowMapSize;
+                }
+
+                if (ShadowMappingNode.has_child("ShadowBias")) {
+                    ShadowMappingNode["ShadowBias"] >> mShadowBias;
+                }
+
+                if (ShadowMappingNode.has_child("ShadowStrength")) {
+                    ShadowMappingNode["ShadowStrength"] >> mShadowStrength;
+                }
+
+                if (ShadowMappingNode.has_child("RasterDepthBias")) {
+                    ShadowMappingNode["RasterDepthBias"] >> mRasterDepthBias;
+                }
+
+                if (ShadowMappingNode.has_child("RasterSlopeScaledDepthBias")) {
+                    ShadowMappingNode["RasterSlopeScaledDepthBias"] >> mRasterSlopeScaledDepthBias;
+                }
+
+                if (ShadowMappingNode.has_child("CascadeMaximumDistance")) {
+                    ShadowMappingNode["CascadeMaximumDistance"] >> mCascadeMaximumDistance;
+                }
+
+                if (ShadowMappingNode.has_child("CascadeSplitLambda")) {
+                    ShadowMappingNode["CascadeSplitLambda"] >> mCascadeSplitLambda;
+                }
+
+                if (ShadowMappingNode.has_child("CascadeNearRangeExpansionDistance")) {
+                    ShadowMappingNode["CascadeNearRangeExpansionDistance"] >> mCascadeNearRangeExpansionDistance;
+                }
+
+                if (ShadowMappingNode.has_child("CascadeExpandedBoundaryCount")) {
+                    std::int32_t CascadeExpandedBoundaryCountValue{ mCascadeExpandedBoundaryCount };
+                    ShadowMappingNode["CascadeExpandedBoundaryCount"] >> CascadeExpandedBoundaryCountValue;
+                    mCascadeExpandedBoundaryCount = CascadeExpandedBoundaryCountValue;
+                }
+            }
+        }
+        catch (...) {
+        }
+
+        SanitizeShadowMappingParameters();
+        SaveShadowMappingParameterFile();
+    }
+
+    void ShadowMappingParameterSystem::SaveShadowMappingParameterFile() const {
+        std::error_code ErrorCode{};
+        const std::filesystem::path ParentPath{ mShadowMappingParameterFilePath.parent_path() };
+        if (ParentPath.empty() == false) {
+            std::filesystem::create_directories(ParentPath, ErrorCode);
+        }
+
+        std::ofstream OutputStream{ mShadowMappingParameterFilePath, std::ios::out | std::ios::binary | std::ios::trunc };
+        if (OutputStream.is_open() == false) {
+            return;
+        }
+
+        OutputStream << "ShadowMapping:\n";
+        OutputStream << "  ShadowMapSize: " << mShadowMapSize << "\n";
+        OutputStream << "  ShadowBias: " << mShadowBias << "\n";
+        OutputStream << "  ShadowStrength: " << mShadowStrength << "\n";
+        OutputStream << "  RasterDepthBias: " << mRasterDepthBias << "\n";
+        OutputStream << "  RasterSlopeScaledDepthBias: " << mRasterSlopeScaledDepthBias << "\n";
+        OutputStream << "  CascadeMaximumDistance: " << mCascadeMaximumDistance << "\n";
+        OutputStream << "  CascadeSplitLambda: " << mCascadeSplitLambda << "\n";
+        OutputStream << "  CascadeNearRangeExpansionDistance: " << mCascadeNearRangeExpansionDistance << "\n";
+        OutputStream << "  CascadeExpandedBoundaryCount: " << mCascadeExpandedBoundaryCount << "\n";
+    }
+
+    void ShadowMappingParameterSystem::SanitizeShadowMappingParameters() {
+        mShadowMapSize = std::max(mShadowMapSize, 1.0f);
+        mShadowBias = std::max(mShadowBias, 0.0f);
+        mShadowStrength = std::clamp(mShadowStrength, 0.0f, 1.0f);
+        mRasterDepthBias = std::max(mRasterDepthBias, 0.0f);
+        mRasterSlopeScaledDepthBias = std::max(mRasterSlopeScaledDepthBias, 0.0f);
+        mCascadeMaximumDistance = std::max(mCascadeMaximumDistance, ShadowMinimumNearPlane + ShadowMinimumViewDistance);
+        mCascadeSplitLambda = std::clamp(mCascadeSplitLambda, 0.0f, 1.0f);
+        mCascadeNearRangeExpansionDistance = std::max(mCascadeNearRangeExpansionDistance, 0.0f);
+        mCascadeExpandedBoundaryCount = std::clamp(mCascadeExpandedBoundaryCount, 0, static_cast<std::int32_t>(RFD::ShadowCascadeMaxCount));
+    }
+
     const std::string& ShadowMappingParameterSystem::Name() const {
         return mName;
     }
@@ -252,10 +373,15 @@ namespace Game {
         DirectX::SimpleMath::Vector3 NormalizedLightDirection{ ShadowLightDirection };
         NormalizedLightDirection.Normalize();
         const int CascadeCount{ static_cast<int>(std::max<std::uint32_t>(1u, RFD::ShadowCascadeMaxCount)) };
+        Parameter.shadowMapSize = mShadowMapSize;
+        Parameter.shadowBias = mShadowBias;
+        Parameter.shadowStrength = mShadowStrength;
+        Parameter.rasterDepthBias = mRasterDepthBias;
+        Parameter.rasterSlopeScaledDepthBias = mRasterSlopeScaledDepthBias;
         Parameter.cascadeCount = static_cast<std::uint32_t>(CascadeCount);
 
         for (int CascadeIndex{ 0 }; CascadeIndex < CascadeCount; CascadeIndex += 1) {
-            const ShadowCascadeRange CascadeRange{ ComputeCascadeRange(CameraComponent, CascadeIndex, CascadeCount, ShadowCascadeSplitLambda) };
+            const ShadowCascadeRange CascadeRange{ ComputeCascadeRange(CameraComponent, CascadeIndex, CascadeCount, mCascadeSplitLambda, mCascadeMaximumDistance, mCascadeNearRangeExpansionDistance, mCascadeExpandedBoundaryCount) };
             const std::array<DirectX::SimpleMath::Vector3, 8> FrustumCorners{ BuildCameraFrustumCorners(CameraComponent, TransformComponent, CascadeRange) };
             DirectX::SimpleMath::Matrix ShadowView{};
             DirectX::SimpleMath::Matrix ShadowProjection{};
