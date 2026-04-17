@@ -81,7 +81,6 @@ namespace Core {
 			TexPtr mDepthStencilBuffer{};
 			DescriptorHeap mShadowDSVHeap{};
 			std::array<TexPtr, Game::RFD::ShadowCascadeMaxCount> mShadowDepthMaps{};
-			uint32_t mShadowMapSize{};
 			uint32_t mShadowCascadeCount{};
 			std::array<uint32_t, Game::RFD::ShadowCascadeMaxCount> mShadowMapSizes{};
 			DescriptorHandle mShadowMapBaseSrvHandle{};

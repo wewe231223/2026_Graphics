@@ -11,17 +11,6 @@
 
 namespace Core {
     namespace DX {
-		namespace {
-			constexpr uint32_t ClosestShadowCascadeResolutionScale{ 2u };
-
-			uint32_t ComputeShadowMapSizeForCascade(uint32_t BaseShadowMapSize, uint32_t CascadeIndex) {
-				uint64_t Scale{ CascadeIndex == 0u ? ClosestShadowCascadeResolutionScale : 1u };
-				uint64_t ResolvedShadowMapSize{ static_cast<uint64_t>(BaseShadowMapSize) * Scale };
-				ResolvedShadowMapSize = std::min<uint64_t>(ResolvedShadowMapSize, static_cast<uint64_t>(D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION));
-				return static_cast<uint32_t>(ResolvedShadowMapSize);
-			}
-		}
-
 		DirectQueue::DirectQueue(HWND hWnd) {
 			mHwnd = hWnd;
 			DirectQueue::InitBasements();
@@ -294,12 +283,13 @@ namespace Core {
 		}
 
 		void DirectQueue::EnsureShadowMapResources(const Game::RFD::ShadowMappingParameter& ShadowMappingParameter) {
-			const float ShadowMapSizeFloat{ std::max(1.0f, ShadowMappingParameter.shadowMapSize) };
-			const uint32_t RequiredShadowMapSize{ static_cast<uint32_t>(ShadowMapSizeFloat) };
 			const uint32_t RequiredShadowCascadeCount{ std::max<uint32_t>(1u, std::min<uint32_t>(ShadowMappingParameter.cascadeCount, Game::RFD::ShadowCascadeMaxCount)) };
 			std::array<uint32_t, Game::RFD::ShadowCascadeMaxCount> RequiredShadowMapSizes{};
 			for (uint32_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < RequiredShadowCascadeCount; ShadowCascadeIndex += 1) {
-				RequiredShadowMapSizes[ShadowCascadeIndex] = ComputeShadowMapSizeForCascade(RequiredShadowMapSize, ShadowCascadeIndex);
+				const float ShadowMapSizeFloat{ std::max(1.0f, ShadowMappingParameter.shadowMapSizes[ShadowCascadeIndex]) };
+				const uint64_t ShadowMapSize{ static_cast<uint64_t>(ShadowMapSizeFloat) };
+				const uint64_t ClampedShadowMapSize{ std::min<uint64_t>(ShadowMapSize, static_cast<uint64_t>(D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION)) };
+				RequiredShadowMapSizes[ShadowCascadeIndex] = static_cast<uint32_t>(ClampedShadowMapSize);
 			}
 
 			bool IsAllShadowDepthMapsValid{ true };
@@ -318,11 +308,10 @@ namespace Core {
 				}
 			}
 
-			if (IsAllShadowDepthMapsValid == true && IsSameShadowMapSizes == true && mShadowMapSize == RequiredShadowMapSize && mShadowCascadeCount == RequiredShadowCascadeCount) {
+			if (IsAllShadowDepthMapsValid == true && IsSameShadowMapSizes == true && mShadowCascadeCount == RequiredShadowCascadeCount) {
 				return;
 			}
 
-			mShadowMapSize = RequiredShadowMapSize;
 			mShadowCascadeCount = RequiredShadowCascadeCount;
 			mShadowMapSizes = {};
 			mShadowDSVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, RequiredShadowCascadeCount, false);

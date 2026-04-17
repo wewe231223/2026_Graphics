@@ -254,24 +254,80 @@ namespace Game {
             const c4::yml::ConstNodeRef ShadowMappingNode{ RootNode.has_child("ShadowMapping") ? RootNode["ShadowMapping"] : RootNode };
 
             if (ShadowMappingNode.invalid() == false) {
-                if (ShadowMappingNode.has_child("ShadowMapSize")) {
-                    ShadowMappingNode["ShadowMapSize"] >> mShadowMapSize;
+                bool IsCascadeParameterLoaded{ false };
+                if (ShadowMappingNode.has_child("Cascades")) {
+                    const c4::yml::ConstNodeRef CascadeNodes{ ShadowMappingNode["Cascades"] };
+                    if (CascadeNodes.invalid() == false && CascadeNodes.is_seq() == true) {
+                        std::size_t CascadeIndex{ 0 };
+                        for (const c4::yml::ConstNodeRef CascadeNode : CascadeNodes.children()) {
+                            if (CascadeIndex >= RFD::ShadowCascadeMaxCount) {
+                                break;
+                            }
+
+                            if (CascadeNode.has_child("ShadowMapSize")) {
+                                CascadeNode["ShadowMapSize"] >> mShadowMapSizes[CascadeIndex];
+                            }
+
+                            if (CascadeNode.has_child("ShadowBias")) {
+                                CascadeNode["ShadowBias"] >> mShadowBiases[CascadeIndex];
+                            }
+
+                            if (CascadeNode.has_child("ShadowStrength")) {
+                                CascadeNode["ShadowStrength"] >> mShadowStrengths[CascadeIndex];
+                            }
+
+                            if (CascadeNode.has_child("RasterDepthBias")) {
+                                CascadeNode["RasterDepthBias"] >> mRasterDepthBiases[CascadeIndex];
+                            }
+
+                            if (CascadeNode.has_child("RasterSlopeScaledDepthBias")) {
+                                CascadeNode["RasterSlopeScaledDepthBias"] >> mRasterSlopeScaledDepthBiases[CascadeIndex];
+                            }
+
+                            CascadeIndex += 1;
+                        }
+
+                        IsCascadeParameterLoaded = CascadeIndex > 0;
+                    }
                 }
 
-                if (ShadowMappingNode.has_child("ShadowBias")) {
-                    ShadowMappingNode["ShadowBias"] >> mShadowBias;
-                }
+                if (IsCascadeParameterLoaded == false) {
+                    float LegacyShadowMapSize{ mShadowMapSizes[1] };
+                    if (ShadowMappingNode.has_child("ShadowMapSize")) {
+                        ShadowMappingNode["ShadowMapSize"] >> LegacyShadowMapSize;
+                    }
 
-                if (ShadowMappingNode.has_child("ShadowStrength")) {
-                    ShadowMappingNode["ShadowStrength"] >> mShadowStrength;
-                }
+                    float LegacyShadowBias{ mShadowBiases[0] };
+                    if (ShadowMappingNode.has_child("ShadowBias")) {
+                        ShadowMappingNode["ShadowBias"] >> LegacyShadowBias;
+                    }
 
-                if (ShadowMappingNode.has_child("RasterDepthBias")) {
-                    ShadowMappingNode["RasterDepthBias"] >> mRasterDepthBias;
-                }
+                    float LegacyShadowStrength{ mShadowStrengths[0] };
+                    if (ShadowMappingNode.has_child("ShadowStrength")) {
+                        ShadowMappingNode["ShadowStrength"] >> LegacyShadowStrength;
+                    }
 
-                if (ShadowMappingNode.has_child("RasterSlopeScaledDepthBias")) {
-                    ShadowMappingNode["RasterSlopeScaledDepthBias"] >> mRasterSlopeScaledDepthBias;
+                    float LegacyRasterDepthBias{ mRasterDepthBiases[0] };
+                    if (ShadowMappingNode.has_child("RasterDepthBias")) {
+                        ShadowMappingNode["RasterDepthBias"] >> LegacyRasterDepthBias;
+                    }
+
+                    float LegacyRasterSlopeScaledDepthBias{ mRasterSlopeScaledDepthBiases[0] };
+                    if (ShadowMappingNode.has_child("RasterSlopeScaledDepthBias")) {
+                        ShadowMappingNode["RasterSlopeScaledDepthBias"] >> LegacyRasterSlopeScaledDepthBias;
+                    }
+
+                    for (std::size_t CascadeIndex{ 0 }; CascadeIndex < RFD::ShadowCascadeMaxCount; CascadeIndex += 1) {
+                        mShadowMapSizes[CascadeIndex] = LegacyShadowMapSize;
+                        mShadowBiases[CascadeIndex] = LegacyShadowBias;
+                        mShadowStrengths[CascadeIndex] = LegacyShadowStrength;
+                        mRasterDepthBiases[CascadeIndex] = LegacyRasterDepthBias;
+                        mRasterSlopeScaledDepthBiases[CascadeIndex] = LegacyRasterSlopeScaledDepthBias;
+                    }
+
+                    if (RFD::ShadowCascadeMaxCount > 0u) {
+                        mShadowMapSizes[0] = LegacyShadowMapSize * 2.0f;
+                    }
                 }
 
                 if (ShadowMappingNode.has_child("CascadeMaximumDistance")) {
@@ -313,11 +369,15 @@ namespace Game {
         }
 
         OutputStream << "ShadowMapping:\n";
-        OutputStream << "  ShadowMapSize: " << mShadowMapSize << "\n";
-        OutputStream << "  ShadowBias: " << mShadowBias << "\n";
-        OutputStream << "  ShadowStrength: " << mShadowStrength << "\n";
-        OutputStream << "  RasterDepthBias: " << mRasterDepthBias << "\n";
-        OutputStream << "  RasterSlopeScaledDepthBias: " << mRasterSlopeScaledDepthBias << "\n";
+        OutputStream << "  Cascades:\n";
+        for (std::size_t CascadeIndex{ 0 }; CascadeIndex < RFD::ShadowCascadeMaxCount; CascadeIndex += 1) {
+            OutputStream << "    - ShadowMapSize: " << mShadowMapSizes[CascadeIndex] << "\n";
+            OutputStream << "      ShadowBias: " << mShadowBiases[CascadeIndex] << "\n";
+            OutputStream << "      ShadowStrength: " << mShadowStrengths[CascadeIndex] << "\n";
+            OutputStream << "      RasterDepthBias: " << mRasterDepthBiases[CascadeIndex] << "\n";
+            OutputStream << "      RasterSlopeScaledDepthBias: " << mRasterSlopeScaledDepthBiases[CascadeIndex] << "\n";
+        }
+
         OutputStream << "  CascadeMaximumDistance: " << mCascadeMaximumDistance << "\n";
         OutputStream << "  CascadeSplitLambda: " << mCascadeSplitLambda << "\n";
         OutputStream << "  CascadeNearRangeExpansionDistance: " << mCascadeNearRangeExpansionDistance << "\n";
@@ -325,11 +385,14 @@ namespace Game {
     }
 
     void ShadowMappingParameterSystem::SanitizeShadowMappingParameters() {
-        mShadowMapSize = std::max(mShadowMapSize, 1.0f);
-        mShadowBias = std::max(mShadowBias, 0.0f);
-        mShadowStrength = std::clamp(mShadowStrength, 0.0f, 1.0f);
-        mRasterDepthBias = std::max(mRasterDepthBias, 0.0f);
-        mRasterSlopeScaledDepthBias = std::max(mRasterSlopeScaledDepthBias, 0.0f);
+        for (std::size_t CascadeIndex{ 0 }; CascadeIndex < RFD::ShadowCascadeMaxCount; CascadeIndex += 1) {
+            mShadowMapSizes[CascadeIndex] = std::max(mShadowMapSizes[CascadeIndex], 1.0f);
+            mShadowBiases[CascadeIndex] = std::max(mShadowBiases[CascadeIndex], 0.0f);
+            mShadowStrengths[CascadeIndex] = std::clamp(mShadowStrengths[CascadeIndex], 0.0f, 1.0f);
+            mRasterDepthBiases[CascadeIndex] = std::max(mRasterDepthBiases[CascadeIndex], 0.0f);
+            mRasterSlopeScaledDepthBiases[CascadeIndex] = std::max(mRasterSlopeScaledDepthBiases[CascadeIndex], 0.0f);
+        }
+
         mCascadeMaximumDistance = std::max(mCascadeMaximumDistance, ShadowMinimumNearPlane + ShadowMinimumViewDistance);
         mCascadeSplitLambda = std::clamp(mCascadeSplitLambda, 0.0f, 1.0f);
         mCascadeNearRangeExpansionDistance = std::max(mCascadeNearRangeExpansionDistance, 0.0f);
@@ -373,14 +436,16 @@ namespace Game {
         DirectX::SimpleMath::Vector3 NormalizedLightDirection{ ShadowLightDirection };
         NormalizedLightDirection.Normalize();
         const int CascadeCount{ static_cast<int>(std::max<std::uint32_t>(1u, RFD::ShadowCascadeMaxCount)) };
-        Parameter.shadowMapSize = mShadowMapSize;
-        Parameter.shadowBias = mShadowBias;
-        Parameter.shadowStrength = mShadowStrength;
-        Parameter.rasterDepthBias = mRasterDepthBias;
-        Parameter.rasterSlopeScaledDepthBias = mRasterSlopeScaledDepthBias;
         Parameter.cascadeCount = static_cast<std::uint32_t>(CascadeCount);
 
         for (int CascadeIndex{ 0 }; CascadeIndex < CascadeCount; CascadeIndex += 1) {
+            const std::size_t ShadowCascadeIndex{ static_cast<std::size_t>(CascadeIndex) };
+            Parameter.shadowMapSizes[ShadowCascadeIndex] = mShadowMapSizes[ShadowCascadeIndex];
+            Parameter.shadowBiases[ShadowCascadeIndex] = mShadowBiases[ShadowCascadeIndex];
+            Parameter.shadowStrengths[ShadowCascadeIndex] = mShadowStrengths[ShadowCascadeIndex];
+            Parameter.rasterDepthBiases[ShadowCascadeIndex] = mRasterDepthBiases[ShadowCascadeIndex];
+            Parameter.rasterSlopeScaledDepthBiases[ShadowCascadeIndex] = mRasterSlopeScaledDepthBiases[ShadowCascadeIndex];
+
             const ShadowCascadeRange CascadeRange{ ComputeCascadeRange(CameraComponent, CascadeIndex, CascadeCount, mCascadeSplitLambda, mCascadeMaximumDistance, mCascadeNearRangeExpansionDistance, mCascadeExpandedBoundaryCount) };
             const std::array<DirectX::SimpleMath::Vector3, 8> FrustumCorners{ BuildCameraFrustumCorners(CameraComponent, TransformComponent, CascadeRange) };
             DirectX::SimpleMath::Matrix ShadowView{};
@@ -390,7 +455,7 @@ namespace Game {
             float ShadowNearPlane{ 0.0f };
             float ShadowFarPlane{ 0.0f };
             float ShadowAspectRatio{ 1.0f };
-            BuildShadowCameraFromFrustumCorners(FrustumCorners, NormalizedLightDirection, Parameter.shadowMapSize, ShadowCascadeProjectionCoverageScale, ShadowView, ShadowProjection, ShadowViewProjection, ShadowCameraPosition, ShadowNearPlane, ShadowFarPlane, ShadowAspectRatio);
+            BuildShadowCameraFromFrustumCorners(FrustumCorners, NormalizedLightDirection, Parameter.shadowMapSizes[ShadowCascadeIndex], ShadowCascadeProjectionCoverageScale, ShadowView, ShadowProjection, ShadowViewProjection, ShadowCameraPosition, ShadowNearPlane, ShadowFarPlane, ShadowAspectRatio);
 
             Parameter.shadowCameras[CascadeIndex].view = ShadowView;
             Parameter.shadowCameras[CascadeIndex].proj = ShadowProjection;

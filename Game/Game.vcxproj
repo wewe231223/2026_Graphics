@@ -158,9 +158,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Resources\DefaultScene.yaml" />
-    <None Include="..\Resources\DefaultScene\terrain_materials.json" />
     <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml" />
-    <None Include="..\Script\Lua\CameraController.lua" />
+    <None Include="..\Resources\ShadowMappingParameter.yaml" />
     <None Include="..\Shader\PSO\DefaultGraphics.json" />
     <None Include="..\Shader\PSO\TerrainGraphics.json" />
     <None Include="..\Shader\PSO\SkinnedGraphics.json" />

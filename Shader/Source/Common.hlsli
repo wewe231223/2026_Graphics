@@ -49,18 +49,15 @@ struct ShadowMappingParameterGpu
     CameraParameterGpu ShadowCameras[SHADOW_CASCADE_MAX_COUNT];
     float4 LightDirection;
     float4 CascadeSplitDistances;
-    float ShadowBias;
-    float ShadowStrength;
-    float ShadowMapSize;
-    float RasterDepthBias;
-    float RasterSlopeScaledDepthBias;
+    float ShadowBiases[SHADOW_CASCADE_MAX_COUNT];
+    float ShadowStrengths[SHADOW_CASCADE_MAX_COUNT];
+    float ShadowMapSizes[SHADOW_CASCADE_MAX_COUNT];
+    float RasterDepthBiases[SHADOW_CASCADE_MAX_COUNT];
+    float RasterSlopeScaledDepthBiases[SHADOW_CASCADE_MAX_COUNT];
     uint CascadeCount;
     float Padding0;
     float Padding1;
     float Padding2;
-    float Padding3;
-    float Padding4;
-    float Padding5;
 };
 
 struct ModelContextGpu
@@ -191,12 +188,17 @@ float ResolveCascadeSplitDistance(ShadowMappingParameterGpu ShadowMappingParamet
 
 float ResolveCascadeShadowMapSize(ShadowMappingParameterGpu ShadowMappingParameter, uint CascadeIndex)
 {
-    float CascadeShadowMapSize = max(ShadowMappingParameter.ShadowMapSize, 1.0f);
-    if (CascadeIndex == 0u)
-    {
-        CascadeShadowMapSize *= 2.0f;
-    }
-    return CascadeShadowMapSize;
+    return max(ShadowMappingParameter.ShadowMapSizes[CascadeIndex], 1.0f);
+}
+
+float ResolveCascadeShadowBias(ShadowMappingParameterGpu ShadowMappingParameter, uint CascadeIndex)
+{
+    return max(ShadowMappingParameter.ShadowBiases[CascadeIndex], 0.0f);
+}
+
+float ResolveCascadeShadowStrength(ShadowMappingParameterGpu ShadowMappingParameter, uint CascadeIndex)
+{
+    return saturate(ShadowMappingParameter.ShadowStrengths[CascadeIndex]);
 }
 
 uint ResolveCascadeIndex(ShadowMappingParameterGpu ShadowMappingParameter, FrameGlobalsGpu FrameGlobals, float3 WorldPosition)
@@ -310,9 +312,11 @@ float4 ApplyMaterialLightingWithShadow(float4 BaseColor, float3 WorldNormal, flo
     Texture2D<float> ShadowMapTexture = ResourceDescriptorHeap[NonUniformResourceIndex(ShadowMapTextureBaseSrvIndex + CascadeIndex)];
     const CameraParameterGpu ShadowCamera = ShadowMappingParameter.ShadowCameras[CascadeIndex];
     const float CascadeShadowMapSize = ResolveCascadeShadowMapSize(ShadowMappingParameter, CascadeIndex);
-    const float ShadowVisibility = ComputeShadowVisibility(ShadowMapTexture, ShadowComparisonSampler, ShadowCamera, ShadowMappingParameter.ShadowBias, CascadeShadowMapSize, WorldPosition);
+    const float CascadeShadowBias = ResolveCascadeShadowBias(ShadowMappingParameter, CascadeIndex);
+    const float CascadeShadowStrength = ResolveCascadeShadowStrength(ShadowMappingParameter, CascadeIndex);
+    const float ShadowVisibility = ComputeShadowVisibility(ShadowMapTexture, ShadowComparisonSampler, ShadowCamera, CascadeShadowBias, CascadeShadowMapSize, WorldPosition);
     float4 ResultColor = BaseColor;
-    ResultColor.rgb = ApplyDirectionalLightWithShadow(ResultColor.rgb, WorldNormal, ShadowMappingParameter.LightDirection.xyz, ShadowVisibility, ShadowMappingParameter.ShadowStrength, CascadeIndex);
+    ResultColor.rgb = ApplyDirectionalLightWithShadow(ResultColor.rgb, WorldNormal, ShadowMappingParameter.LightDirection.xyz, ShadowVisibility, CascadeShadowStrength, CascadeIndex);
     return ResultColor;
 }
 

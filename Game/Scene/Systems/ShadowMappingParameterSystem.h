@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <string>
@@ -35,11 +36,11 @@ namespace Game {
     private:
         const std::string mName{ "ShadowMappingParameterSystem" };
         const std::filesystem::path mShadowMappingParameterFilePath{ "Resources/ShadowMappingParameter.yaml" };
-        float mShadowMapSize{ 2048.0f };
-        float mShadowBias{ 0.0010f };
-        float mShadowStrength{ 0.6f };
-        float mRasterDepthBias{ 1.0f };
-        float mRasterSlopeScaledDepthBias{ 1.25f };
+        std::array<float, RFD::ShadowCascadeMaxCount> mShadowMapSizes{ 4096.0f, 2048.0f, 2048.0f, 2048.0f };
+        std::array<float, RFD::ShadowCascadeMaxCount> mShadowBiases{ 0.0010f, 0.0010f, 0.0010f, 0.0010f };
+        std::array<float, RFD::ShadowCascadeMaxCount> mShadowStrengths{ 0.6f, 0.6f, 0.6f, 0.6f };
+        std::array<float, RFD::ShadowCascadeMaxCount> mRasterDepthBiases{ 1.0f, 1.0f, 1.0f, 1.0f };
+        std::array<float, RFD::ShadowCascadeMaxCount> mRasterSlopeScaledDepthBiases{ 1.25f, 1.25f, 1.25f, 1.25f };
         float mCascadeMaximumDistance{ 200.0f };
         float mCascadeSplitLambda{ 0.90f };
         float mCascadeNearRangeExpansionDistance{ 9.4f };
