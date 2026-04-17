@@ -12,6 +12,7 @@
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/Camera.h"
+#include "Game/Scene/Components/FootIKRig.h"
 #include "Game/Scene/Components/RuntimeVariableTable.h"
 #include "Game/Scene/Components/ComponentInspection.h"
 #include "Game/Scene/Components/Name.h"
@@ -187,6 +188,10 @@ namespace Widget {
         Game::BuildComponentInspectionSections(*ReadOnlyWorld, Entity.mEntityId, Sections);
 
         for (std::size_t SectionIndex{ 0 }; SectionIndex < Sections.size(); ++SectionIndex) {
+            if (Sections[SectionIndex].ComponentName == "FootIKRig") {
+                continue;
+            }
+
             const std::string TableIdentifier{ std::format("ComponentTable##{}:{}:{}", Entity.mEntityId.index, Entity.mEntityId.generation, SectionIndex) };
             RenderComponentSectionTable(Sections[SectionIndex].ComponentName.c_str(), Sections[SectionIndex].Fields, TableIdentifier.c_str());
         }
@@ -195,6 +200,7 @@ namespace Widget {
         RenderBoneSkinReferenceEditor(Snapshot, Entity.mEntityId);
         RenderCameraEditor(Snapshot, Entity.mEntityId);
         RenderRuntimeVariableTablePanel(Snapshot, Entity.mEntityId);
+        RenderFootIKRigEditor(Snapshot, Entity.mEntityId);
     }
 
     void SceneHierarchyWidget::RenderComponentSectionTable(const char* ComponentName, const std::vector<Game::ComponentInspectionField>& Fields, const char* TableIdentifier) const {
@@ -476,6 +482,59 @@ namespace Widget {
                 ImGui::BulletText("%s: %.3f", Definition.ParameterName.c_str(), RuntimeVariableTableComponent->FloatValues[ParameterIndex]);
             }
             ImGui::TreePop();
+        }
+    }
+
+    void SceneHierarchyWidget::RenderFootIKRigEditor(const Game::SceneWorldSnapshot& Snapshot, Arche::EntityID EntityId) {
+        Arche::World* World{ Snapshot.GetWorld() };
+        const Arche::World::WorldReadOnlyView* ReadOnlyWorld{ Snapshot.GetReadOnlyWorld() };
+        if (World == nullptr || ReadOnlyWorld == nullptr) {
+            return;
+        }
+
+        const Game::FootIKRig* FootIKRigComponent{ ReadOnlyWorld->GetComponent<Game::FootIKRig>(EntityId) };
+        if (FootIKRigComponent == nullptr) {
+            return;
+        }
+
+        ImGui::SeparatorText("FootIKRig");
+
+        const bool IsEnabled{ FootIKRigComponent->mEnabled };
+        const std::string ToggleButtonLabel{ std::format("{}##FootIKToggleButton##{}:{}", IsEnabled ? "IK Off" : "IK On", EntityId.index, EntityId.generation) };
+        if (ImGui::Button(ToggleButtonLabel.c_str())) {
+            World->WriteComponent<Game::FootIKRig>(EntityId, [](Game::FootIKRig& TargetComponent) {
+                TargetComponent.mEnabled = (TargetComponent.mEnabled == false);
+            });
+        }
+
+        ImGui::SameLine();
+        ImGui::TextUnformatted(IsEnabled ? "Enabled" : "Disabled");
+
+        float FootSoleOffset{ FootIKRigComponent->mFootSoleOffset };
+        const std::string FootSoleOffsetSliderIdentifier{ std::format("Foot Sole Offset##{}:{}", EntityId.index, EntityId.generation) };
+        if (ImGui::SliderFloat(FootSoleOffsetSliderIdentifier.c_str(), &FootSoleOffset, -0.30f, 0.50f, "%.3f")) {
+            const float UpdatedFootSoleOffset{ FootSoleOffset };
+            World->WriteComponent<Game::FootIKRig>(EntityId, [UpdatedFootSoleOffset](Game::FootIKRig& TargetComponent) {
+                TargetComponent.mFootSoleOffset = UpdatedFootSoleOffset;
+            });
+        }
+
+        float BlendSpeed{ FootIKRigComponent->mBlendSpeed };
+        const std::string BlendSpeedSliderIdentifier{ std::format("Blend Speed##{}:{}", EntityId.index, EntityId.generation) };
+        if (ImGui::SliderFloat(BlendSpeedSliderIdentifier.c_str(), &BlendSpeed, 0.0f, 30.0f, "%.2f")) {
+            const float UpdatedBlendSpeed{ BlendSpeed };
+            World->WriteComponent<Game::FootIKRig>(EntityId, [UpdatedBlendSpeed](Game::FootIKRig& TargetComponent) {
+                TargetComponent.mBlendSpeed = UpdatedBlendSpeed;
+            });
+        }
+
+        float MaxLift{ FootIKRigComponent->mMaxLift };
+        const std::string MaxLiftSliderIdentifier{ std::format("Max Lift##{}:{}", EntityId.index, EntityId.generation) };
+        if (ImGui::SliderFloat(MaxLiftSliderIdentifier.c_str(), &MaxLift, 0.0f, 1.0f, "%.3f")) {
+            const float UpdatedMaxLift{ MaxLift };
+            World->WriteComponent<Game::FootIKRig>(EntityId, [UpdatedMaxLift](Game::FootIKRig& TargetComponent) {
+                TargetComponent.mMaxLift = UpdatedMaxLift;
+            });
         }
     }
 

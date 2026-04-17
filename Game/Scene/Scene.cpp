@@ -13,6 +13,8 @@
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/Culling.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/FootIKRig.h"
+#include "Game/Scene/Components/FootIKRuntime.h"
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PrefabInstance.h"
@@ -280,6 +282,8 @@ namespace Game {
         mLuaScriptFramework.RegisterComponentByDefinition<Game::RuntimeVariableTable>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::Animator>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::AnimatorGraphPlayer>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::FootIKRig>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::FootIKRuntime>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::PrefabInstance>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::LocalPlayerTag>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BehaviorInstanceComponent>();

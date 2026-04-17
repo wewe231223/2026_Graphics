@@ -129,6 +129,12 @@
     <ClInclude Include="Scene\Components\RuntimeVariableTable.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\FootIKRig.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\FootIKRuntime.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\Name.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -139,6 +145,9 @@
       <Filter>Scene\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\AnimateSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\FootIKSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Components\Tags.h">
@@ -266,6 +275,12 @@
     <ClCompile Include="Scene\Components\RuntimeVariableTable.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Components\FootIKRig.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\FootIKRuntime.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\Components\ScriptComponent.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
@@ -321,6 +336,9 @@
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\AnimateSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\FootIKSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Base\Input.cpp">

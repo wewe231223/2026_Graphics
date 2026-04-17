@@ -3,6 +3,8 @@
 #include "Bone.h"
 #include "BoundingBox.h"
 #include "Culling.h"
+#include "FootIKRig.h"
+#include "FootIKRuntime.h"
 #include "Tags.h"
 #include "PrefabInstance.h"
 #include "Name.h"
@@ -47,6 +49,8 @@ namespace Game {
         AppendComponentInspectionSection<SkinnedMeshRenderer>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<Culling>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<Animator>(ReadOnlyWorld, EntityId, OutSections);
+        AppendComponentInspectionSection<FootIKRig>(ReadOnlyWorld, EntityId, OutSections);
+        AppendComponentInspectionSection<FootIKRuntime>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<BehaviorInstanceComponent>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<BoundingBox>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<PrefabInstance>(ReadOnlyWorld, EntityId, OutSections);

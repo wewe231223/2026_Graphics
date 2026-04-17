@@ -19,6 +19,8 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 set(GraphicsRoot ${CMAKE_CURRENT_SOURCE_DIR})
 set(ExternalIncludeDir ${GraphicsRoot}/External/Include)
 set(ExternalDirectXIncludeDir ${ExternalIncludeDir}/DirectX)
+set(ExternalRapidYmlIncludeDir ${ExternalIncludeDir}/rapidyml)
+set(ExternalLuaIncludeDir ${ExternalIncludeDir}/lua)
 set(ExternalLibDirDebug ${GraphicsRoot}/External/lib/debug)
 set(ExternalLibDirRelease ${GraphicsRoot}/External/lib/release)
 
@@ -82,7 +84,7 @@ target_include_directories(Asset PUBLIC
     ${ExternalIncludeDir}
 )
 
-target_link_libraries(Asset PUBLIC Utility assimp)
+target_link_libraries(Asset PUBLIC Utility $<$<CONFIG:Debug>:assimp-vc143-mtd> $<$<NOT:$<CONFIG:Debug>>:assimp-vc143-mt>)
 
 target_compile_definitions(Asset PRIVATE
     _LIB
@@ -129,14 +131,14 @@ add_library(Game STATIC
     Game/Scene/Components/RuntimeVariableTable.cpp
     Game/Scene/Components/AnimatorGraphPlayer.cpp
     Game/Scene/Components/ComponentInspection.cpp
+    Game/Scene/Components/FootIKRig.cpp
+    Game/Scene/Components/FootIKRuntime.cpp
     Game/Scene/Components/TerrainCollidee.cpp
     Game/Scene/Components/TerrainCollider.cpp
     Game/Scene/Systems/CameraRenderSystem.cpp
-    Game/Scene/Systems/SkySystem.cpp
-    Game/Scene/Systems/PickingSystem.cpp
     Game/Scene/Systems/AnimationGraphSystem.cpp
     Game/Scene/Systems/AnimateSystem.cpp
-    Game/Scene/Systems/StaticBoundingBoxUpdateSystem.cpp
+    Game/Scene/Systems/FootIKSystem.cpp
     Game/Scene/Systems/SkinnedMeshPrepareSystem.cpp
     Game/Scene/Systems/StaticRenderSystem.cpp
     Game/Scene/Systems/SkinnedMeshRenderSystem.cpp
@@ -146,6 +148,8 @@ add_library(Game STATIC
 target_include_directories(Game PUBLIC
     ${GraphicsRoot}
     ${ExternalIncludeDir}
+    ${ExternalRapidYmlIncludeDir}
+    ${ExternalLuaIncludeDir}
 )
 
 target_link_libraries(Game PUBLIC Utility)
@@ -157,6 +161,10 @@ target_compile_definitions(Game PRIVATE
     $<$<CONFIG:Debug>:_DEBUG>
     $<$<NOT:$<CONFIG:Debug>>:NDEBUG>
 )
+
+if(MSVC)
+    target_compile_options(Game PRIVATE /bigobj)
+endif()
 
 add_executable(2026_Graphics WIN32
     2026_Graphics.cpp

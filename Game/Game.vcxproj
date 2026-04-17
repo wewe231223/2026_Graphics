@@ -48,6 +48,8 @@
     <ClInclude Include="Scene\Components\Animator.h" />
     <ClInclude Include="Scene\Components\AnimatorGraphPlayer.h" />
     <ClInclude Include="Scene\Components\RuntimeVariableTable.h" />
+    <ClInclude Include="Scene\Components\FootIKRig.h" />
+    <ClInclude Include="Scene\Components\FootIKRuntime.h" />
     <ClInclude Include="Scene\Components\Name.h" />
     <ClInclude Include="Scene\Components\ComponentInspection.h" />
     <ClInclude Include="Scene\Components\PickingGizmo.h" />
@@ -71,6 +73,7 @@
     <ClInclude Include="Scene\ParallelSystemBase.h" />
     <ClInclude Include="Scene\Systems\AnimationGraphSystem.h" />
     <ClInclude Include="Scene\Systems\AnimateSystem.h" />
+    <ClInclude Include="Scene\Systems\FootIKSystem.h" />
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
     <ClInclude Include="Scene\Systems\ShadowMappingParameterSystem.h" />
     <ClInclude Include="Scene\Systems\SkinnedMeshPrepareSystem.h" />
@@ -108,6 +111,8 @@
     <ClCompile Include="Scene\Components\Animator.cpp" />
     <ClCompile Include="Scene\Components\AnimatorGraphPlayer.cpp" />
     <ClCompile Include="Scene\Components\RuntimeVariableTable.cpp" />
+    <ClCompile Include="Scene\Components\FootIKRig.cpp" />
+    <ClCompile Include="Scene\Components\FootIKRuntime.cpp" />
     <ClCompile Include="Scene\Components\ScriptComponent.cpp" />
     <ClCompile Include="Scene\Components\SkySphere.cpp" />
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp" />
@@ -124,6 +129,7 @@
     <ClCompile Include="Scene\Components\TerrainCollider.cpp" />
     <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp" />
     <ClCompile Include="Scene\Systems\AnimateSystem.cpp" />
+    <ClCompile Include="Scene\Systems\FootIKSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\ShadowMappingParameterSystem.cpp" />
     <ClCompile Include="Scene\Systems\SkinnedMeshPrepareSystem.cpp" />

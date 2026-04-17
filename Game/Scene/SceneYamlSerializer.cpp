@@ -22,6 +22,7 @@
 #include "Game/Scene/Components/AnimatorGraphPlayer.h"
 #include "Game/Scene/Components/RuntimeVariableTable.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/FootIKRig.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/Name.h"
@@ -33,6 +34,7 @@
 #include "Game/Scene/Systems/TerrainCollideSystem.h"
 #include "Game/Scene/Systems/AnimationGraphSystem.h"
 #include "Game/Scene/Systems/AnimateSystem.h"
+#include "Game/Scene/Systems/FootIKSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshPrepareSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshRenderSystem.h"
 #include "Game/Scene/Systems/StaticRenderSystem.h"
@@ -59,6 +61,7 @@ namespace {
     constexpr const char* NameTypeName{ "Name" };
     constexpr const char* PrefabInstanceTypeName{ "PrefabInstance" };
     constexpr const char* BoneSkinReferenceTypeName{ "BoneSkinReference" };
+    constexpr const char* FootIKRigTypeName{ "FootIKRig" };
     constexpr const char* RuntimeVariablesTypeName{ "RuntimeVariables" };
     constexpr const char* BoundingBoxTypeName{ "BB" };
     constexpr const char* DefaultMaterialPathText{ "Resources/DefaultResource/DefaultMaterial.json" };
@@ -216,6 +219,7 @@ namespace {
             { "SkinnedMeshRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshRenderSystem>(); } },
             { "AnimationGraphSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimationGraphSystem>(); } },
             { "AnimateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimateSystem>(); } },
+            { "FootIKSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::FootIKSystem>(); } },
             { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },
             { "ShadowMappingParameterSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::ShadowMappingParameterSystem>(); } },
             { "TerrainCollideSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TerrainCollideSystem>(); } },
@@ -1014,6 +1018,40 @@ namespace Game {
                 }
             }
 
+            if (ComponentsNode.has_child(FootIKRigTypeName)) {
+                FootIKRig NewFootIKRig{};
+                const c4::yml::ConstNodeRef FootIKRigNode{ ComponentsNode[FootIKRigTypeName] };
+                if (FootIKRigNode.has_child("enabled")) {
+                    FootIKRigNode["enabled"] >> NewFootIKRig.mEnabled;
+                }
+
+                if (FootIKRigNode.has_child("leftFootBoneName")) {
+                    std::string LeftFootBoneNameText{};
+                    FootIKRigNode["leftFootBoneName"] >> LeftFootBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mLeftFootBoneName, LeftFootBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("rightFootBoneName")) {
+                    std::string RightFootBoneNameText{};
+                    FootIKRigNode["rightFootBoneName"] >> RightFootBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mRightFootBoneName, RightFootBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("footSoleOffset")) {
+                    FootIKRigNode["footSoleOffset"] >> NewFootIKRig.mFootSoleOffset;
+                }
+
+                if (FootIKRigNode.has_child("blendSpeed")) {
+                    FootIKRigNode["blendSpeed"] >> NewFootIKRig.mBlendSpeed;
+                }
+
+                if (FootIKRigNode.has_child("maxLift")) {
+                    FootIKRigNode["maxLift"] >> NewFootIKRig.mMaxLift;
+                }
+
+                OutScene.GetWorld().AddComponent(Entity, NewFootIKRig);
+            }
+
             if (ComponentsNode.has_child(MaterialTypeName)) {
                 Material NewMaterial{};
                 const c4::yml::ConstNodeRef MaterialNode{ ComponentsNode[MaterialTypeName] };
@@ -1732,6 +1770,7 @@ namespace Game {
             const Name* NameComponent{ ReadOnlyWorld->GetComponent<Game::Name>(EntityId) };
             const Transform* TransformComponent{ ReadOnlyWorld->GetComponent<Game::Transform>(EntityId) };
             const BoneSkinReference* BoneSkinReferenceComponent{ ReadOnlyWorld->GetComponent<BoneSkinReference>(EntityId) };
+            const FootIKRig* FootIKRigComponent{ ReadOnlyWorld->GetComponent<FootIKRig>(EntityId) };
             const Material* MaterialComponent{ ReadOnlyWorld->GetComponent<Material>(EntityId) };
             const StaticMeshRenderer* StaticMeshRendererComponent{ ReadOnlyWorld->GetComponent<StaticMeshRenderer>(EntityId) };
             const Culling* CullingComponent{ ReadOnlyWorld->GetComponent<Culling>(EntityId) };
@@ -1767,6 +1806,16 @@ namespace Game {
                 const std::unordered_map<Arche::EntityID, std::uint32_t>::const_iterator BoneRootSerializedIter{ SerializedEntityIds.find(BoneSkinReferenceComponent->boneRootEntityId) };
                 const std::int32_t BoneRootSerializedId{ BoneRootSerializedIter == SerializedEntityIds.end() ? -1 : static_cast<std::int32_t>(BoneRootSerializedIter->second) };
                 AppendLine(Stream, 4, std::string{ "boneRootEntityId: " } + std::to_string(BoneRootSerializedId));
+            }
+
+            if (FootIKRigComponent != nullptr) {
+                AppendLine(Stream, 3, std::string{ FootIKRigTypeName } + std::string{ ":" });
+                AppendLine(Stream, 4, std::string{ "enabled: " } + ToYamlBooleanText(FootIKRigComponent->mEnabled));
+                AppendLine(Stream, 4, std::string{ "leftFootBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mLeftFootBoneName)));
+                AppendLine(Stream, 4, std::string{ "rightFootBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mRightFootBoneName)));
+                AppendLine(Stream, 4, std::string{ "footSoleOffset: " } + std::to_string(FootIKRigComponent->mFootSoleOffset));
+                AppendLine(Stream, 4, std::string{ "blendSpeed: " } + std::to_string(FootIKRigComponent->mBlendSpeed));
+                AppendLine(Stream, 4, std::string{ "maxLift: " } + std::to_string(FootIKRigComponent->mMaxLift));
             }
 
             if (MaterialComponent != nullptr) {
