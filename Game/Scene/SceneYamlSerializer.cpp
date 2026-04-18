@@ -1049,6 +1049,10 @@ namespace Game {
                     FootIKRigNode["maxLift"] >> NewFootIKRig.mMaxLift;
                 }
 
+                if (FootIKRigNode.has_child("maxDrop")) {
+                    FootIKRigNode["maxDrop"] >> NewFootIKRig.mMaxDrop;
+                }
+
                 OutScene.GetWorld().AddComponent(Entity, NewFootIKRig);
             }
 
@@ -1816,6 +1820,7 @@ namespace Game {
                 AppendLine(Stream, 4, std::string{ "footSoleOffset: " } + std::to_string(FootIKRigComponent->mFootSoleOffset));
                 AppendLine(Stream, 4, std::string{ "blendSpeed: " } + std::to_string(FootIKRigComponent->mBlendSpeed));
                 AppendLine(Stream, 4, std::string{ "maxLift: " } + std::to_string(FootIKRigComponent->mMaxLift));
+                AppendLine(Stream, 4, std::string{ "maxDrop: " } + std::to_string(FootIKRigComponent->mMaxDrop));
             }
 
             if (MaterialComponent != nullptr) {

@@ -34,5 +34,6 @@ namespace Game {
         OutFields.push_back(ComponentInspectionField{ "FootSoleOffset", ::std::to_string(mFootSoleOffset) });
         OutFields.push_back(ComponentInspectionField{ "BlendSpeed", ::std::to_string(mBlendSpeed) });
         OutFields.push_back(ComponentInspectionField{ "MaxLift", ::std::to_string(mMaxLift) });
+        OutFields.push_back(ComponentInspectionField{ "MaxDrop", ::std::to_string(mMaxDrop) });
     }
 }

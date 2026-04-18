@@ -9,9 +9,9 @@ namespace Game {
         ComponentFields(
             ComponentField(Arche::EntityID, mLeftFootEntityId, Arche::NullEntityID)
             ComponentField(Arche::EntityID, mRightFootEntityId, Arche::NullEntityID)
-            ComponentField(float, mLeftCurrentLift, 0.0f)
-            ComponentField(float, mRightCurrentLift, 0.0f)
-            ComponentField(float, mCurrentLift, 0.0f)
+            ComponentField(float, mLeftCurrentOffset, 0.0f)
+            ComponentField(float, mRightCurrentOffset, 0.0f)
+            ComponentField(float, mCurrentOffset, 0.0f)
             ComponentField(bool, mResolved, false)
         ),
         BOOST_PP_SEQ_NIL

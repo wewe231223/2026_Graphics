@@ -12,6 +12,7 @@
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
+#include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/FootIKRig.h"
 #include "Game/Scene/Components/FootIKRuntime.h"
@@ -20,12 +21,28 @@
 #include "Game/Scene/Components/Transform.h"
 
 namespace {
+    constexpr float FootOffsetEpsilon{ 1.0e-4f };
+
     bool IsFiniteFloat(const float Value) {
         return ::std::isfinite(Value) != 0;
     }
 
     bool IsFiniteVector3(const SimpleMath::Vector3& Value) {
         return IsFiniteFloat(Value.x) && IsFiniteFloat(Value.y) && IsFiniteFloat(Value.z);
+    }
+
+    float ResolveWorldObbBottomY(const DirectX::BoundingOrientedBox& WorldObb) {
+        DirectX::XMFLOAT3 Corners[8]{};
+        WorldObb.GetCorners(Corners);
+
+        float MinimumY{ Corners[0].y };
+        for (::std::size_t CornerIndex{ 1 }; CornerIndex < ::std::size(Corners); ++CornerIndex) {
+            if (Corners[CornerIndex].y < MinimumY) {
+                MinimumY = Corners[CornerIndex].y;
+            }
+        }
+
+        return MinimumY;
     }
 
     SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
@@ -182,7 +199,25 @@ namespace {
         InOutFootIKRuntimeComponent.mResolved = true;
     }
 
-    bool TryResolveFootPenetration(Arche::World& World, const Arche::EntityID FootEntityId, const float FootSoleOffset, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutPenetration) {
+    bool TryResolveFootSoleY(Arche::World& World, const Arche::EntityID FootEntityId, const SimpleMath::Matrix& FootWorldMatrix, const SimpleMath::Vector3& FootWorldPosition, float& OutFootSoleY) {
+        const Game::BoundingBox* BoundingBoxComponent{ ::std::as_const(World).GetComponent<Game::BoundingBox>(FootEntityId) };
+        if (BoundingBoxComponent == nullptr) {
+            OutFootSoleY = FootWorldPosition.y;
+            return IsFiniteFloat(OutFootSoleY);
+        }
+
+        DirectX::BoundingOrientedBox FootWorldObb{};
+        BoundingBoxComponent->GetObb().Transform(FootWorldObb, FootWorldMatrix);
+        const float FootSoleY{ ResolveWorldObbBottomY(FootWorldObb) };
+        if (IsFiniteFloat(FootSoleY) == false) {
+            return false;
+        }
+
+        OutFootSoleY = FootSoleY;
+        return true;
+    }
+
+    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY) {
         if (FootEntityId == Arche::NullEntityID) {
             return false;
         }
@@ -202,17 +237,27 @@ namespace {
             return false;
         }
 
-        const float Penetration{ (GroundY + FootSoleOffset) - FootWorldPosition.y };
-        if (IsFiniteFloat(Penetration) == false) {
+        float FootSoleY{};
+        if (TryResolveFootSoleY(World, FootEntityId, FootWorldMatrix, FootWorldPosition, FootSoleY) == false) {
             return false;
         }
 
-        OutPenetration = ::std::max(Penetration, 0.0f);
+        const float TargetOffsetY{ GroundY - FootSoleY };
+        if (IsFiniteFloat(TargetOffsetY) == false) {
+            return false;
+        }
+
+        OutTargetOffsetY = TargetOffsetY;
         return true;
     }
 
-    bool TryApplyAbsoluteFootLiftToBoneTransform(Arche::World& World, const Arche::EntityID FootEntityId, const float AbsoluteLift, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
-        if (FootEntityId == Arche::NullEntityID || IsFiniteFloat(AbsoluteLift) == false || AbsoluteLift <= 0.0f) {
+    bool TryApplyFootOffsetToBoneTransform(Arche::World& World, const Arche::EntityID FootEntityId, const float OffsetY, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        if (FootEntityId == Arche::NullEntityID || IsFiniteFloat(OffsetY) == false) {
+            return false;
+        }
+
+        const float SafeOffsetY{ ::std::abs(OffsetY) <= FootOffsetEpsilon ? 0.0f : OffsetY };
+        if (SafeOffsetY == 0.0f) {
             return false;
         }
 
@@ -235,7 +280,7 @@ namespace {
         }
 
         SimpleMath::Matrix DesiredFootWorldMatrix{ FootWorldMatrix };
-        DesiredFootWorldMatrix._42 += AbsoluteLift;
+        DesiredFootWorldMatrix._42 += SafeOffsetY;
 
         SimpleMath::Matrix ParentWorldInverseMatrix{ ParentWorldMatrix };
         ParentWorldInverseMatrix = ParentWorldInverseMatrix.Invert();
@@ -268,17 +313,23 @@ namespace {
         return true;
     }
 
-    float ResolveSmoothedLift(const float CurrentLift, const float TargetLift, const float BlendSpeed, const float Dt) {
-        const float SafeCurrentLift{ IsFiniteFloat(CurrentLift) ? CurrentLift : 0.0f };
-        const float SafeTargetLift{ IsFiniteFloat(TargetLift) ? TargetLift : 0.0f };
+    float ResolveSmoothedOffset(const float CurrentOffset, const float TargetOffset, const float BlendSpeed, const float Dt) {
+        const float SafeCurrentOffset{ IsFiniteFloat(CurrentOffset) ? CurrentOffset : 0.0f };
+        const float SafeTargetOffset{ IsFiniteFloat(TargetOffset) ? TargetOffset : 0.0f };
         const float SafeBlendSpeed{ ::std::max(BlendSpeed, 0.0f) };
         const float SafeDt{ ::std::max(Dt, 0.0f) };
         if (SafeBlendSpeed <= 0.0f || SafeDt <= 0.0f) {
-            return SafeTargetLift;
+            return SafeTargetOffset;
         }
 
         const float BlendAlpha{ ::std::clamp(SafeBlendSpeed * SafeDt, 0.0f, 1.0f) };
-        return ::std::lerp(SafeCurrentLift, SafeTargetLift, BlendAlpha);
+        return ::std::lerp(SafeCurrentOffset, SafeTargetOffset, BlendAlpha);
+    }
+
+    float ResolveDominantOffset(const float LeftOffset, const float RightOffset) {
+        const float SafeLeftOffset{ IsFiniteFloat(LeftOffset) ? LeftOffset : 0.0f };
+        const float SafeRightOffset{ IsFiniteFloat(RightOffset) ? RightOffset : 0.0f };
+        return ::std::abs(SafeLeftOffset) >= ::std::abs(SafeRightOffset) ? SafeLeftOffset : SafeRightOffset;
     }
 }
 
@@ -325,11 +376,12 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> FootIKSystem::ComponentAccesses() const {
-        static ::std::array<ComponentAccess, 9> Accesses{ {
+        static ::std::array<ComponentAccess, 10> Accesses{ {
             { typeid(Animator), Access::Read },
             { typeid(FootIKRig), Access::Read },
             { typeid(BoneSkinReference), Access::Read },
             { typeid(Bone), Access::Read },
+            { typeid(BoundingBox), Access::Read },
             { typeid(Game::Name), Access::Read },
             { typeid(EntityHierarchy), Access::Read },
             { typeid(TerrainCollidee), Access::Read },
@@ -389,36 +441,37 @@ namespace Game {
                 ResolveFootBoneEntities(ReadOnlyWorld, FootIKRigComponent, BoneSkinReferenceComponent.boneRootEntityId, FootIKRuntimeComponent);
             }
 
-            float LeftTargetLift{};
-            float RightTargetLift{};
+            float LeftTargetOffset{};
+            float RightTargetOffset{};
             if (FootIKRigComponent.mEnabled == true && FootIKRuntimeComponent.mResolved == true) {
-                float LeftPenetration{};
-                const bool IsLeftPenetrationResolved{ TryResolveFootPenetration(World, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRigComponent.mFootSoleOffset, WorldMatrices, LeftPenetration) };
-                if (IsLeftPenetrationResolved == true) {
-                    LeftTargetLift = LeftPenetration;
+                float LeftResolvedTargetOffset{};
+                const bool IsLeftTargetOffsetResolved{ TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mLeftFootEntityId, WorldMatrices, LeftResolvedTargetOffset) };
+                if (IsLeftTargetOffsetResolved == true) {
+                    LeftTargetOffset = LeftResolvedTargetOffset;
                 }
 
-                float RightPenetration{};
-                const bool IsRightPenetrationResolved{ TryResolveFootPenetration(World, FootIKRuntimeComponent.mRightFootEntityId, FootIKRigComponent.mFootSoleOffset, WorldMatrices, RightPenetration) };
-                if (IsRightPenetrationResolved == true) {
-                    RightTargetLift = RightPenetration;
+                float RightResolvedTargetOffset{};
+                const bool IsRightTargetOffsetResolved{ TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mRightFootEntityId, WorldMatrices, RightResolvedTargetOffset) };
+                if (IsRightTargetOffsetResolved == true) {
+                    RightTargetOffset = RightResolvedTargetOffset;
                 }
             }
 
             const float MaxLift{ ::std::max(FootIKRigComponent.mMaxLift, 0.0f) };
-            LeftTargetLift = ::std::clamp(LeftTargetLift, 0.0f, MaxLift);
-            RightTargetLift = ::std::clamp(RightTargetLift, 0.0f, MaxLift);
+            const float MaxDrop{ ::std::max(FootIKRigComponent.mMaxDrop, 0.0f) };
+            LeftTargetOffset = ::std::clamp(LeftTargetOffset, -MaxDrop, MaxLift);
+            RightTargetOffset = ::std::clamp(RightTargetOffset, -MaxDrop, MaxLift);
 
-            const float PreviousLeftLift{ IsFiniteFloat(FootIKRuntimeComponent.mLeftCurrentLift) ? FootIKRuntimeComponent.mLeftCurrentLift : 0.0f };
-            const float PreviousRightLift{ IsFiniteFloat(FootIKRuntimeComponent.mRightCurrentLift) ? FootIKRuntimeComponent.mRightCurrentLift : 0.0f };
-            const float SmoothedLeftLift{ ResolveSmoothedLift(PreviousLeftLift, LeftTargetLift, FootIKRigComponent.mBlendSpeed, Dt) };
-            const float SmoothedRightLift{ ResolveSmoothedLift(PreviousRightLift, RightTargetLift, FootIKRigComponent.mBlendSpeed, Dt) };
-            FootIKRuntimeComponent.mLeftCurrentLift = IsFiniteFloat(SmoothedLeftLift) ? SmoothedLeftLift : 0.0f;
-            FootIKRuntimeComponent.mRightCurrentLift = IsFiniteFloat(SmoothedRightLift) ? SmoothedRightLift : 0.0f;
-            FootIKRuntimeComponent.mCurrentLift = ::std::max(FootIKRuntimeComponent.mLeftCurrentLift, FootIKRuntimeComponent.mRightCurrentLift);
+            const float PreviousLeftOffset{ IsFiniteFloat(FootIKRuntimeComponent.mLeftCurrentOffset) ? FootIKRuntimeComponent.mLeftCurrentOffset : 0.0f };
+            const float PreviousRightOffset{ IsFiniteFloat(FootIKRuntimeComponent.mRightCurrentOffset) ? FootIKRuntimeComponent.mRightCurrentOffset : 0.0f };
+            const float SmoothedLeftOffset{ ResolveSmoothedOffset(PreviousLeftOffset, LeftTargetOffset, FootIKRigComponent.mBlendSpeed, Dt) };
+            const float SmoothedRightOffset{ ResolveSmoothedOffset(PreviousRightOffset, RightTargetOffset, FootIKRigComponent.mBlendSpeed, Dt) };
+            FootIKRuntimeComponent.mLeftCurrentOffset = IsFiniteFloat(SmoothedLeftOffset) ? SmoothedLeftOffset : 0.0f;
+            FootIKRuntimeComponent.mRightCurrentOffset = IsFiniteFloat(SmoothedRightOffset) ? SmoothedRightOffset : 0.0f;
+            FootIKRuntimeComponent.mCurrentOffset = ResolveDominantOffset(FootIKRuntimeComponent.mLeftCurrentOffset, FootIKRuntimeComponent.mRightCurrentOffset);
 
-            TryApplyAbsoluteFootLiftToBoneTransform(World, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftCurrentLift, WorldMatrices);
-            TryApplyAbsoluteFootLiftToBoneTransform(World, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightCurrentLift, WorldMatrices);
+            TryApplyFootOffsetToBoneTransform(World, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftCurrentOffset, WorldMatrices);
+            TryApplyFootOffsetToBoneTransform(World, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightCurrentOffset, WorldMatrices);
         }
     }
 }

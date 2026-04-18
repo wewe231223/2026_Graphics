@@ -22,9 +22,9 @@ namespace Game {
     void FootIKRuntime::BuildComponentInspectionFields(::std::vector<ComponentInspectionField>& OutFields) const {
         OutFields.push_back(ComponentInspectionField{ "LeftFootEntityId", ToEntityIdText(mLeftFootEntityId) });
         OutFields.push_back(ComponentInspectionField{ "RightFootEntityId", ToEntityIdText(mRightFootEntityId) });
-        OutFields.push_back(ComponentInspectionField{ "LeftCurrentLift", ::std::to_string(mLeftCurrentLift) });
-        OutFields.push_back(ComponentInspectionField{ "RightCurrentLift", ::std::to_string(mRightCurrentLift) });
-        OutFields.push_back(ComponentInspectionField{ "CurrentLift", ::std::to_string(mCurrentLift) });
+        OutFields.push_back(ComponentInspectionField{ "LeftCurrentOffset", ::std::to_string(mLeftCurrentOffset) });
+        OutFields.push_back(ComponentInspectionField{ "RightCurrentOffset", ::std::to_string(mRightCurrentOffset) });
+        OutFields.push_back(ComponentInspectionField{ "CurrentOffset", ::std::to_string(mCurrentOffset) });
         OutFields.push_back(ComponentInspectionField{ "Resolved", mResolved ? "true" : "false" });
     }
 }
