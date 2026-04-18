@@ -249,6 +249,11 @@ Entities:
         enabled: true
         leftFootBoneName: foot_l
         rightFootBoneName: foot_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
         footSoleOffset: 0.12
         blendSpeed: 12.0
         maxLift: 0.35

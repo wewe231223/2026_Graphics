@@ -106,6 +106,7 @@
     <ClCompile Include="Scene\SystemSceduler.cpp" />
     <ClCompile Include="Scene\ParallelSystemBase.cpp" />
     <ClCompile Include="Scene\Components\Transform.cpp" />
+    <ClCompile Include="Scene\Components\ComponentText.cpp" />
     <ClCompile Include="Scene\Components\Name.cpp" />
     <ClCompile Include="Scene\Components\Material.cpp" />
     <ClCompile Include="Scene\Components\Animator.cpp" />

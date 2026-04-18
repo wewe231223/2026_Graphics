@@ -113,6 +113,7 @@ add_library(Game STATIC
     Game/Scene/SystemSceduler.cpp
     Game/Scene/ParallelSystemBase.cpp
     Game/Scene/Components/Transform.cpp
+    Game/Scene/Components/ComponentText.cpp
     Game/Scene/Components/Name.cpp
     Game/Scene/Components/Material.cpp
     Game/Scene/Components/EntityHierarchy.cpp

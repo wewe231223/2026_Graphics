@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <cstring>
 #include <span>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -22,6 +22,23 @@
 
 namespace {
     constexpr float FootOffsetEpsilon{ 1.0e-4f };
+    constexpr float LegLengthEpsilon{ 1.0e-5f };
+    constexpr float ChainPropagationMinLimit{ 0.015f };
+    constexpr float ChainPropagationMaxLimit{ 0.060f };
+    constexpr float ChainPropagationRatio{ 0.18f };
+    constexpr float ChainThighWeight{ 0.25f };
+    constexpr float ChainShinWeight{ 0.35f };
+    constexpr float ChainFootWeight{ 0.40f };
+    constexpr float PelvisWeight{ 0.50f };
+    constexpr float OverflowPelvisShare{ 1.0f / 3.0f };
+    constexpr float OverflowThighWeight{ 1.0f };
+    constexpr float OverflowShinWeight{ 1.0f };
+    constexpr float OverflowFootWeight{ 2.0f };
+
+    struct BoneOffsetTarget final {
+        Arche::EntityID mEntityId{ Arche::NullEntityID };
+        float mWeight{};
+    };
 
     bool IsFiniteFloat(const float Value) {
         return ::std::isfinite(Value) != 0;
@@ -29,6 +46,15 @@ namespace {
 
     bool IsFiniteVector3(const SimpleMath::Vector3& Value) {
         return IsFiniteFloat(Value.x) && IsFiniteFloat(Value.y) && IsFiniteFloat(Value.z);
+    }
+
+    float ResolveSafeLength(const SimpleMath::Vector3& StartPosition, const SimpleMath::Vector3& EndPosition) {
+        const float SegmentLength{ (EndPosition - StartPosition).Length() };
+        if (IsFiniteFloat(SegmentLength) == false || SegmentLength <= LegLengthEpsilon) {
+            return 0.0f;
+        }
+
+        return SegmentLength;
     }
 
     float ResolveWorldObbBottomY(const DirectX::BoundingOrientedBox& WorldObb) {
@@ -94,8 +120,8 @@ namespace {
         return true;
     }
 
-    Arche::EntityID FindBoneEntityByNameInHierarchy(const Arche::World::WorldReadOnlyView& ReadOnlyWorld, const Arche::EntityID RootEntityId, const char* TargetNameText) {
-        if (RootEntityId == Arche::NullEntityID || TargetNameText == nullptr || TargetNameText[0] == '\0') {
+    Arche::EntityID FindBoneEntityByNameInHierarchy(const Arche::World::WorldReadOnlyView& ReadOnlyWorld, const Arche::EntityID RootEntityId, const ::std::string_view TargetNameText) {
+        if (RootEntityId == Arche::NullEntityID || TargetNameText.empty() == true) {
             return Arche::NullEntityID;
         }
 
@@ -109,8 +135,8 @@ namespace {
             const Game::Bone* BoneComponent{ ReadOnlyWorld.GetComponent<Game::Bone>(CurrentEntityId) };
             const Game::Name* NameComponent{ ReadOnlyWorld.GetComponent<Game::Name>(CurrentEntityId) };
             if (BoneComponent != nullptr && NameComponent != nullptr) {
-                const char* CurrentNameText{ Game::GetNameText(*NameComponent) };
-                if (CurrentNameText != nullptr && ::std::strcmp(CurrentNameText, TargetNameText) == 0) {
+                const ::std::string_view CurrentNameText{ Game::GetNameTextView(*NameComponent) };
+                if (CurrentNameText == TargetNameText) {
                     return CurrentEntityId;
                 }
             }
@@ -160,8 +186,8 @@ namespace {
         return true;
     }
 
-    bool IsCachedFootEntityValid(const Arche::World::WorldReadOnlyView& ReadOnlyWorld, const Arche::EntityID EntityId, const char* ExpectedBoneNameText) {
-        if (ExpectedBoneNameText == nullptr || ExpectedBoneNameText[0] == '\0') {
+    bool IsCachedBoneEntityValid(const Arche::World::WorldReadOnlyView& ReadOnlyWorld, const Arche::EntityID EntityId, const ::std::string_view ExpectedBoneNameText) {
+        if (ExpectedBoneNameText.empty() == true) {
             return EntityId == Arche::NullEntityID;
         }
 
@@ -175,27 +201,38 @@ namespace {
             return false;
         }
 
-        const char* CurrentNameText{ Game::GetNameText(*NameComponent) };
-        if (CurrentNameText == nullptr) {
-            return false;
-        }
-
-        return ::std::strcmp(CurrentNameText, ExpectedBoneNameText) == 0;
+        const ::std::string_view CurrentNameText{ Game::GetNameTextView(*NameComponent) };
+        return CurrentNameText == ExpectedBoneNameText;
     }
 
     void ResolveFootBoneEntities(const Arche::World::WorldReadOnlyView& ReadOnlyWorld, const Game::FootIKRig& FootIKRigComponent, const Arche::EntityID BoneRootEntityId, Game::FootIKRuntime& InOutFootIKRuntimeComponent) {
         InOutFootIKRuntimeComponent.mLeftFootEntityId = Arche::NullEntityID;
         InOutFootIKRuntimeComponent.mRightFootEntityId = Arche::NullEntityID;
+        InOutFootIKRuntimeComponent.mLeftShinEntityId = Arche::NullEntityID;
+        InOutFootIKRuntimeComponent.mRightShinEntityId = Arche::NullEntityID;
+        InOutFootIKRuntimeComponent.mLeftThighEntityId = Arche::NullEntityID;
+        InOutFootIKRuntimeComponent.mRightThighEntityId = Arche::NullEntityID;
+        InOutFootIKRuntimeComponent.mPelvisEntityId = Arche::NullEntityID;
         InOutFootIKRuntimeComponent.mResolved = false;
         if (BoneRootEntityId == Arche::NullEntityID) {
             return;
         }
 
-        const char* LeftFootBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mLeftFootBoneName) };
-        const char* RightFootBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mRightFootBoneName) };
+        const ::std::string_view LeftFootBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mLeftFootBoneName) };
+        const ::std::string_view RightFootBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mRightFootBoneName) };
+        const ::std::string_view LeftShinBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mLeftShinBoneName) };
+        const ::std::string_view RightShinBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mRightShinBoneName) };
+        const ::std::string_view LeftThighBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mLeftThighBoneName) };
+        const ::std::string_view RightThighBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mRightThighBoneName) };
+        const ::std::string_view PelvisBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mPelvisBoneName) };
 
         InOutFootIKRuntimeComponent.mLeftFootEntityId = FindBoneEntityByNameInHierarchy(ReadOnlyWorld, BoneRootEntityId, LeftFootBoneNameText);
         InOutFootIKRuntimeComponent.mRightFootEntityId = FindBoneEntityByNameInHierarchy(ReadOnlyWorld, BoneRootEntityId, RightFootBoneNameText);
+        InOutFootIKRuntimeComponent.mLeftShinEntityId = FindBoneEntityByNameInHierarchy(ReadOnlyWorld, BoneRootEntityId, LeftShinBoneNameText);
+        InOutFootIKRuntimeComponent.mRightShinEntityId = FindBoneEntityByNameInHierarchy(ReadOnlyWorld, BoneRootEntityId, RightShinBoneNameText);
+        InOutFootIKRuntimeComponent.mLeftThighEntityId = FindBoneEntityByNameInHierarchy(ReadOnlyWorld, BoneRootEntityId, LeftThighBoneNameText);
+        InOutFootIKRuntimeComponent.mRightThighEntityId = FindBoneEntityByNameInHierarchy(ReadOnlyWorld, BoneRootEntityId, RightThighBoneNameText);
+        InOutFootIKRuntimeComponent.mPelvisEntityId = FindBoneEntityByNameInHierarchy(ReadOnlyWorld, BoneRootEntityId, PelvisBoneNameText);
         InOutFootIKRuntimeComponent.mResolved = true;
     }
 
@@ -251,8 +288,8 @@ namespace {
         return true;
     }
 
-    bool TryApplyFootOffsetToBoneTransform(Arche::World& World, const Arche::EntityID FootEntityId, const float OffsetY, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
-        if (FootEntityId == Arche::NullEntityID || IsFiniteFloat(OffsetY) == false) {
+    bool TryApplyOffsetToBoneTransform(Arche::World& World, const Arche::EntityID BoneEntityId, const float OffsetY, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        if (BoneEntityId == Arche::NullEntityID || IsFiniteFloat(OffsetY) == false) {
             return false;
         }
 
@@ -261,26 +298,26 @@ namespace {
             return false;
         }
 
-        Game::Transform* FootTransformComponent{ World.GetComponent<Game::Transform>(FootEntityId) };
-        const Game::EntityHierarchy* FootHierarchyComponent{ ::std::as_const(World).GetComponent<Game::EntityHierarchy>(FootEntityId) };
-        if (FootTransformComponent == nullptr || FootHierarchyComponent == nullptr) {
+        Game::Transform* BoneTransformComponent{ World.GetComponent<Game::Transform>(BoneEntityId) };
+        const Game::EntityHierarchy* BoneHierarchyComponent{ ::std::as_const(World).GetComponent<Game::EntityHierarchy>(BoneEntityId) };
+        if (BoneTransformComponent == nullptr || BoneHierarchyComponent == nullptr) {
             return false;
         }
 
-        SimpleMath::Matrix FootWorldMatrix{};
-        if (TryResolveWorldMatrix(World, FootEntityId, InOutWorldMatrices, FootWorldMatrix) == false) {
+        SimpleMath::Matrix BoneWorldMatrix{};
+        if (TryResolveWorldMatrix(World, BoneEntityId, InOutWorldMatrices, BoneWorldMatrix) == false) {
             return false;
         }
 
         SimpleMath::Matrix ParentWorldMatrix{ SimpleMath::Matrix::Identity };
-        if (FootHierarchyComponent->parent != Arche::NullEntityID) {
-            if (TryResolveWorldMatrix(World, FootHierarchyComponent->parent, InOutWorldMatrices, ParentWorldMatrix) == false) {
+        if (BoneHierarchyComponent->parent != Arche::NullEntityID) {
+            if (TryResolveWorldMatrix(World, BoneHierarchyComponent->parent, InOutWorldMatrices, ParentWorldMatrix) == false) {
                 return false;
             }
         }
 
-        SimpleMath::Matrix DesiredFootWorldMatrix{ FootWorldMatrix };
-        DesiredFootWorldMatrix._42 += SafeOffsetY;
+        SimpleMath::Matrix DesiredBoneWorldMatrix{ BoneWorldMatrix };
+        DesiredBoneWorldMatrix._42 += SafeOffsetY;
 
         SimpleMath::Matrix ParentWorldInverseMatrix{ ParentWorldMatrix };
         ParentWorldInverseMatrix = ParentWorldInverseMatrix.Invert();
@@ -288,14 +325,14 @@ namespace {
             return false;
         }
 
-        const SimpleMath::Matrix DesiredFootLocalWorldMatrix{ DesiredFootWorldMatrix * ParentWorldInverseMatrix };
-        SimpleMath::Matrix NodeToParentInverseMatrix{ FootTransformComponent->nodeToParent };
+        const SimpleMath::Matrix DesiredBoneLocalWorldMatrix{ DesiredBoneWorldMatrix * ParentWorldInverseMatrix };
+        SimpleMath::Matrix NodeToParentInverseMatrix{ BoneTransformComponent->nodeToParent };
         NodeToParentInverseMatrix = NodeToParentInverseMatrix.Invert();
         if (IsFiniteFloat(NodeToParentInverseMatrix._11) == false) {
             return false;
         }
 
-        SimpleMath::Matrix DesiredTrsMatrix{ NodeToParentInverseMatrix * DesiredFootLocalWorldMatrix };
+        SimpleMath::Matrix DesiredTrsMatrix{ NodeToParentInverseMatrix * DesiredBoneLocalWorldMatrix };
         SimpleMath::Vector3 DecomposedScale{};
         SimpleMath::Quaternion DecomposedRotation{};
         SimpleMath::Vector3 DecomposedPosition{};
@@ -308,9 +345,102 @@ namespace {
             return false;
         }
 
-        FootTransformComponent->position = DecomposedPosition;
-        InOutWorldMatrices[FootEntityId] = DesiredFootWorldMatrix;
+        BoneTransformComponent->position = DecomposedPosition;
+        InOutWorldMatrices[BoneEntityId] = DesiredBoneWorldMatrix;
         return true;
+    }
+
+    float ResolveLegChainPropagationLimit(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        if (ThighEntityId == Arche::NullEntityID || ShinEntityId == Arche::NullEntityID || FootEntityId == Arche::NullEntityID) {
+            return ChainPropagationMinLimit;
+        }
+
+        SimpleMath::Matrix ThighWorldMatrix{};
+        SimpleMath::Matrix ShinWorldMatrix{};
+        SimpleMath::Matrix FootWorldMatrix{};
+        if (TryResolveWorldMatrix(World, ThighEntityId, InOutWorldMatrices, ThighWorldMatrix) == false || TryResolveWorldMatrix(World, ShinEntityId, InOutWorldMatrices, ShinWorldMatrix) == false || TryResolveWorldMatrix(World, FootEntityId, InOutWorldMatrices, FootWorldMatrix) == false) {
+            return ChainPropagationMinLimit;
+        }
+
+        const SimpleMath::Vector3 ThighWorldPosition{ ThighWorldMatrix._41, ThighWorldMatrix._42, ThighWorldMatrix._43 };
+        const SimpleMath::Vector3 ShinWorldPosition{ ShinWorldMatrix._41, ShinWorldMatrix._42, ShinWorldMatrix._43 };
+        const SimpleMath::Vector3 FootWorldPosition{ FootWorldMatrix._41, FootWorldMatrix._42, FootWorldMatrix._43 };
+        if (IsFiniteVector3(ThighWorldPosition) == false || IsFiniteVector3(ShinWorldPosition) == false || IsFiniteVector3(FootWorldPosition) == false) {
+            return ChainPropagationMinLimit;
+        }
+
+        const float ThighLength{ ResolveSafeLength(ThighWorldPosition, ShinWorldPosition) };
+        const float ShinLength{ ResolveSafeLength(ShinWorldPosition, FootWorldPosition) };
+        if (ThighLength <= 0.0f || ShinLength <= 0.0f) {
+            return ChainPropagationMinLimit;
+        }
+
+        const float MinimumSegmentLength{ ThighLength < ShinLength ? ThighLength : ShinLength };
+        const float PropagationLimit{ MinimumSegmentLength * ChainPropagationRatio };
+        return ::std::clamp(PropagationLimit, ChainPropagationMinLimit, ChainPropagationMaxLimit);
+    }
+
+    void TryApplyDistributedOffsetToBones(Arche::World& World, const ::std::span<const BoneOffsetTarget> TargetBones, const float OffsetY, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        if (IsFiniteFloat(OffsetY) == false || ::std::abs(OffsetY) <= FootOffsetEpsilon) {
+            return;
+        }
+
+        float TotalWeight{};
+        for (const BoneOffsetTarget& TargetBone : TargetBones) {
+            if (TargetBone.mEntityId == Arche::NullEntityID || TargetBone.mWeight <= 0.0f) {
+                continue;
+            }
+
+            TotalWeight += TargetBone.mWeight;
+        }
+
+        if (TotalWeight <= 0.0f) {
+            return;
+        }
+
+        for (const BoneOffsetTarget& TargetBone : TargetBones) {
+            if (TargetBone.mEntityId == Arche::NullEntityID || TargetBone.mWeight <= 0.0f) {
+                continue;
+            }
+
+            const float WeightedOffset{ OffsetY * (TargetBone.mWeight / TotalWeight) };
+            const bool IsApplied{ TryApplyOffsetToBoneTransform(World, TargetBone.mEntityId, WeightedOffset, InOutWorldMatrices) };
+            if (IsApplied == true) {
+                InOutWorldMatrices.clear();
+            }
+        }
+    }
+
+    float ResolveSharedPelvisOffset(const float LeftOffset, const float RightOffset) {
+        const float SafeLeftOffset{ IsFiniteFloat(LeftOffset) ? LeftOffset : 0.0f };
+        const float SafeRightOffset{ IsFiniteFloat(RightOffset) ? RightOffset : 0.0f };
+        if (SafeLeftOffset >= 0.0f && SafeRightOffset >= 0.0f) {
+            const float MinimumPositiveOffset{ SafeLeftOffset < SafeRightOffset ? SafeLeftOffset : SafeRightOffset };
+            return MinimumPositiveOffset * PelvisWeight;
+        }
+
+        if (SafeLeftOffset <= 0.0f && SafeRightOffset <= 0.0f) {
+            const float MaximumNegativeOffset{ SafeLeftOffset > SafeRightOffset ? SafeLeftOffset : SafeRightOffset };
+            return MaximumNegativeOffset * PelvisWeight;
+        }
+
+        return 0.0f;
+    }
+
+    float ResolveSharedOverflowPelvisOffset(const float LeftOverflowOffset, const float RightOverflowOffset) {
+        const float SafeLeftOverflowOffset{ IsFiniteFloat(LeftOverflowOffset) ? LeftOverflowOffset : 0.0f };
+        const float SafeRightOverflowOffset{ IsFiniteFloat(RightOverflowOffset) ? RightOverflowOffset : 0.0f };
+        if (SafeLeftOverflowOffset >= 0.0f && SafeRightOverflowOffset >= 0.0f) {
+            const float MinimumPositiveOverflowOffset{ SafeLeftOverflowOffset < SafeRightOverflowOffset ? SafeLeftOverflowOffset : SafeRightOverflowOffset };
+            return MinimumPositiveOverflowOffset * OverflowPelvisShare;
+        }
+
+        if (SafeLeftOverflowOffset <= 0.0f && SafeRightOverflowOffset <= 0.0f) {
+            const float MaximumNegativeOverflowOffset{ SafeLeftOverflowOffset > SafeRightOverflowOffset ? SafeLeftOverflowOffset : SafeRightOverflowOffset };
+            return MaximumNegativeOverflowOffset * OverflowPelvisShare;
+        }
+
+        return 0.0f;
     }
 
     float ResolveSmoothedOffset(const float CurrentOffset, const float TargetOffset, const float BlendSpeed, const float Dt) {
@@ -429,11 +559,22 @@ namespace Game {
             (void)TransformComponent;
             (void)EntityHierarchyComponent;
 
-            const char* LeftFootBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftFootBoneName) };
-            const char* RightFootBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightFootBoneName) };
-            const bool IsLeftCachedEntityValid{ IsCachedFootEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mLeftFootEntityId, LeftFootBoneNameText) };
-            const bool IsRightCachedEntityValid{ IsCachedFootEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mRightFootEntityId, RightFootBoneNameText) };
-            if (IsLeftCachedEntityValid == false || IsRightCachedEntityValid == false) {
+            const ::std::string_view LeftFootBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftFootBoneName) };
+            const ::std::string_view RightFootBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightFootBoneName) };
+            const ::std::string_view LeftShinBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftShinBoneName) };
+            const ::std::string_view RightShinBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightShinBoneName) };
+            const ::std::string_view LeftThighBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftThighBoneName) };
+            const ::std::string_view RightThighBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightThighBoneName) };
+            const ::std::string_view PelvisBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mPelvisBoneName) };
+
+            const bool IsLeftFootCachedEntityValid{ IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mLeftFootEntityId, LeftFootBoneNameText) };
+            const bool IsRightFootCachedEntityValid{ IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mRightFootEntityId, RightFootBoneNameText) };
+            const bool IsLeftShinCachedEntityValid{ IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mLeftShinEntityId, LeftShinBoneNameText) };
+            const bool IsRightShinCachedEntityValid{ IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mRightShinEntityId, RightShinBoneNameText) };
+            const bool IsLeftThighCachedEntityValid{ IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mLeftThighEntityId, LeftThighBoneNameText) };
+            const bool IsRightThighCachedEntityValid{ IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mRightThighEntityId, RightThighBoneNameText) };
+            const bool IsPelvisCachedEntityValid{ IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mPelvisEntityId, PelvisBoneNameText) };
+            if (IsLeftFootCachedEntityValid == false || IsRightFootCachedEntityValid == false || IsLeftShinCachedEntityValid == false || IsRightShinCachedEntityValid == false || IsLeftThighCachedEntityValid == false || IsRightThighCachedEntityValid == false || IsPelvisCachedEntityValid == false) {
                 FootIKRuntimeComponent.mResolved = false;
             }
 
@@ -470,8 +611,41 @@ namespace Game {
             FootIKRuntimeComponent.mRightCurrentOffset = IsFiniteFloat(SmoothedRightOffset) ? SmoothedRightOffset : 0.0f;
             FootIKRuntimeComponent.mCurrentOffset = ResolveDominantOffset(FootIKRuntimeComponent.mLeftCurrentOffset, FootIKRuntimeComponent.mRightCurrentOffset);
 
-            TryApplyFootOffsetToBoneTransform(World, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftCurrentOffset, WorldMatrices);
-            TryApplyFootOffsetToBoneTransform(World, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightCurrentOffset, WorldMatrices);
+            const float PelvisOffset{ FootIKRuntimeComponent.mPelvisEntityId == Arche::NullEntityID ? 0.0f : ResolveSharedPelvisOffset(FootIKRuntimeComponent.mLeftCurrentOffset, FootIKRuntimeComponent.mRightCurrentOffset) };
+            if (FootIKRuntimeComponent.mPelvisEntityId != Arche::NullEntityID) {
+                const bool IsPelvisOffsetApplied{ TryApplyOffsetToBoneTransform(World, FootIKRuntimeComponent.mPelvisEntityId, PelvisOffset, WorldMatrices) };
+                if (IsPelvisOffsetApplied == true) {
+                    WorldMatrices.clear();
+                }
+            }
+
+            const float LeftLegOffset{ FootIKRuntimeComponent.mLeftCurrentOffset - PelvisOffset };
+            const float RightLegOffset{ FootIKRuntimeComponent.mRightCurrentOffset - PelvisOffset };
+            const float LeftChainLimit{ ResolveLegChainPropagationLimit(World, FootIKRuntimeComponent.mLeftThighEntityId, FootIKRuntimeComponent.mLeftShinEntityId, FootIKRuntimeComponent.mLeftFootEntityId, WorldMatrices) };
+            const float RightChainLimit{ ResolveLegChainPropagationLimit(World, FootIKRuntimeComponent.mRightThighEntityId, FootIKRuntimeComponent.mRightShinEntityId, FootIKRuntimeComponent.mRightFootEntityId, WorldMatrices) };
+            const float LeftChainOffset{ ::std::clamp(LeftLegOffset, -LeftChainLimit, LeftChainLimit) };
+            const float RightChainOffset{ ::std::clamp(RightLegOffset, -RightChainLimit, RightChainLimit) };
+            const float LeftOverflowOffset{ LeftLegOffset - LeftChainOffset };
+            const float RightOverflowOffset{ RightLegOffset - RightChainOffset };
+            const ::std::array<BoneOffsetTarget, 3> LeftLegChain{ { BoneOffsetTarget{ FootIKRuntimeComponent.mLeftThighEntityId, ChainThighWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mLeftShinEntityId, ChainShinWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mLeftFootEntityId, ChainFootWeight } } };
+            const ::std::array<BoneOffsetTarget, 3> RightLegChain{ { BoneOffsetTarget{ FootIKRuntimeComponent.mRightThighEntityId, ChainThighWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mRightShinEntityId, ChainShinWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mRightFootEntityId, ChainFootWeight } } };
+            TryApplyDistributedOffsetToBones(World, LeftLegChain, LeftChainOffset, WorldMatrices);
+            TryApplyDistributedOffsetToBones(World, RightLegChain, RightChainOffset, WorldMatrices);
+
+            const float SharedOverflowPelvisOffset{ FootIKRuntimeComponent.mPelvisEntityId == Arche::NullEntityID ? 0.0f : ResolveSharedOverflowPelvisOffset(LeftOverflowOffset, RightOverflowOffset) };
+            if (FootIKRuntimeComponent.mPelvisEntityId != Arche::NullEntityID) {
+                const bool IsOverflowPelvisApplied{ TryApplyOffsetToBoneTransform(World, FootIKRuntimeComponent.mPelvisEntityId, SharedOverflowPelvisOffset, WorldMatrices) };
+                if (IsOverflowPelvisApplied == true) {
+                    WorldMatrices.clear();
+                }
+            }
+
+            const float LeftOverflowAfterPelvis{ LeftOverflowOffset - SharedOverflowPelvisOffset };
+            const float RightOverflowAfterPelvis{ RightOverflowOffset - SharedOverflowPelvisOffset };
+            const ::std::array<BoneOffsetTarget, 3> LeftOverflowTargets{ { BoneOffsetTarget{ FootIKRuntimeComponent.mLeftThighEntityId, OverflowThighWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mLeftShinEntityId, OverflowShinWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mLeftFootEntityId, OverflowFootWeight } } };
+            const ::std::array<BoneOffsetTarget, 3> RightOverflowTargets{ { BoneOffsetTarget{ FootIKRuntimeComponent.mRightThighEntityId, OverflowThighWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mRightShinEntityId, OverflowShinWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mRightFootEntityId, OverflowFootWeight } } };
+            TryApplyDistributedOffsetToBones(World, LeftOverflowTargets, LeftOverflowAfterPelvis, WorldMatrices);
+            TryApplyDistributedOffsetToBones(World, RightOverflowTargets, RightOverflowAfterPelvis, WorldMatrices);
         }
     }
 }

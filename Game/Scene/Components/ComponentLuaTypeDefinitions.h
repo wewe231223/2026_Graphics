@@ -84,7 +84,7 @@ LuaTypeDefinitionDeclWithName(
     BOOST_PP_SEQ_NIL
 );
 
-LuaStdArrayTypeDefinitionDeclWithName(Game::ComponentTextArray::value_type, ::std::tuple_size_v<Game::ComponentTextArray>, "Text");
+LuaStdArrayTypeDefinitionDeclWithName(Game::ComponentTextArray::value_type, Game::ComponentTextArray::ElementCount, "Text");
 LuaStdArrayTypeDefinitionDeclWithName(Game::RuntimeVariableBoolArray::value_type, ::std::tuple_size_v<Game::RuntimeVariableBoolArray>, "BoolValues");
 LuaStdArrayTypeDefinitionDeclWithName(Game::RuntimeVariableIntArray::value_type, ::std::tuple_size_v<Game::RuntimeVariableIntArray>, "IntValues");
 LuaStdArrayTypeDefinitionDeclWithName(Game::RuntimeVariableFloatArray::value_type, ::std::tuple_size_v<Game::RuntimeVariableFloatArray>, "FloatValues");

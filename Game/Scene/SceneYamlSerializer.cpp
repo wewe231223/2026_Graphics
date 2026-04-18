@@ -514,6 +514,10 @@ namespace {
         return ToYamlText(Text.c_str());
     }
 
+    std::string ToYamlText(const std::string_view Text) {
+        return ToYamlText(std::string{ Text });
+    }
+
     std::string ToYamlBooleanText(bool Value) {
         return Value ? std::string{ "true" } : std::string{ "false" };
     }
@@ -1035,6 +1039,36 @@ namespace Game {
                     std::string RightFootBoneNameText{};
                     FootIKRigNode["rightFootBoneName"] >> RightFootBoneNameText;
                     SetFootIKRigBoneName(NewFootIKRig.mRightFootBoneName, RightFootBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("leftShinBoneName")) {
+                    std::string LeftShinBoneNameText{};
+                    FootIKRigNode["leftShinBoneName"] >> LeftShinBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mLeftShinBoneName, LeftShinBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("rightShinBoneName")) {
+                    std::string RightShinBoneNameText{};
+                    FootIKRigNode["rightShinBoneName"] >> RightShinBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mRightShinBoneName, RightShinBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("leftThighBoneName")) {
+                    std::string LeftThighBoneNameText{};
+                    FootIKRigNode["leftThighBoneName"] >> LeftThighBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mLeftThighBoneName, LeftThighBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("rightThighBoneName")) {
+                    std::string RightThighBoneNameText{};
+                    FootIKRigNode["rightThighBoneName"] >> RightThighBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mRightThighBoneName, RightThighBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("pelvisBoneName")) {
+                    std::string PelvisBoneNameText{};
+                    FootIKRigNode["pelvisBoneName"] >> PelvisBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mPelvisBoneName, PelvisBoneNameText);
                 }
 
                 if (FootIKRigNode.has_child("footSoleOffset")) {
@@ -1817,6 +1851,11 @@ namespace Game {
                 AppendLine(Stream, 4, std::string{ "enabled: " } + ToYamlBooleanText(FootIKRigComponent->mEnabled));
                 AppendLine(Stream, 4, std::string{ "leftFootBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mLeftFootBoneName)));
                 AppendLine(Stream, 4, std::string{ "rightFootBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mRightFootBoneName)));
+                AppendLine(Stream, 4, std::string{ "leftShinBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mLeftShinBoneName)));
+                AppendLine(Stream, 4, std::string{ "rightShinBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mRightShinBoneName)));
+                AppendLine(Stream, 4, std::string{ "leftThighBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mLeftThighBoneName)));
+                AppendLine(Stream, 4, std::string{ "rightThighBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mRightThighBoneName)));
+                AppendLine(Stream, 4, std::string{ "pelvisBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mPelvisBoneName)));
                 AppendLine(Stream, 4, std::string{ "footSoleOffset: " } + std::to_string(FootIKRigComponent->mFootSoleOffset));
                 AppendLine(Stream, 4, std::string{ "blendSpeed: " } + std::to_string(FootIKRigComponent->mBlendSpeed));
                 AppendLine(Stream, 4, std::string{ "maxLift: " } + std::to_string(FootIKRigComponent->mMaxLift));

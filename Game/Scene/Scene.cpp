@@ -258,7 +258,7 @@ namespace Game {
         mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector3>();
         mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Quaternion>();
         mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Matrix>();
-        mLuaScriptFramework.RegisterTypeByDefinition<Game::ComponentTextArray>();
+        mLuaScriptFramework.RegisterTypeUsertype<Game::ComponentTextArray>("Text", sol::constructors<Game::ComponentTextArray()>(), sol::meta_function::index, [](const Game::ComponentTextArray& TargetArray, std::size_t LuaIndex) -> Game::ComponentTextArray::value_type { if (LuaIndex >= TargetArray.size()) { return '\0'; } return TargetArray[LuaIndex]; }, sol::meta_function::new_index, [](Game::ComponentTextArray& TargetArray, std::size_t LuaIndex, const Game::ComponentTextArray::value_type Value) { if (LuaIndex >= TargetArray.size()) { return; } TargetArray[LuaIndex] = Value; }, "Get", [](const Game::ComponentTextArray& TargetArray, const std::size_t Index) -> Game::ComponentTextArray::value_type { if (Index >= TargetArray.size()) { return '\0'; } return TargetArray[Index]; }, "Set", [](Game::ComponentTextArray& TargetArray, const std::size_t Index, const Game::ComponentTextArray::value_type Value) { if (Index >= TargetArray.size()) { return; } TargetArray[Index] = Value; }, "Size", [](const Game::ComponentTextArray& TargetArray) -> std::size_t { return TargetArray.size(); });
         mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableBoolArray>();
         mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableIntArray>();
         mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableFloatArray>();

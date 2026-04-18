@@ -9,8 +9,13 @@ namespace Game {
         FootIKRig,
         ComponentFields(
             ComponentField(bool, mEnabled, false)
-            ComponentField(ComponentTextArray, mLeftFootBoneName, {})
-            ComponentField(ComponentTextArray, mRightFootBoneName, {})
+            ComponentField(ComponentTextArray, mLeftFootBoneName)
+            ComponentField(ComponentTextArray, mRightFootBoneName)
+            ComponentField(ComponentTextArray, mLeftShinBoneName)
+            ComponentField(ComponentTextArray, mRightShinBoneName)
+            ComponentField(ComponentTextArray, mLeftThighBoneName)
+            ComponentField(ComponentTextArray, mRightThighBoneName)
+            ComponentField(ComponentTextArray, mPelvisBoneName)
             ComponentField(float, mFootSoleOffset, 0.12f)
             ComponentField(float, mBlendSpeed, 12.0f)
             ComponentField(float, mMaxLift, 0.35f)
@@ -20,5 +25,5 @@ namespace Game {
     );
 
     void SetFootIKRigBoneName(ComponentTextArray& TargetText, ::std::string_view SourceText);
-    const char* GetFootIKRigBoneNameText(const ComponentTextArray& SourceText);
+    ::std::string_view GetFootIKRigBoneNameText(const ComponentTextArray& SourceText);
 }

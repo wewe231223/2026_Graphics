@@ -260,6 +260,9 @@
     <ClCompile Include="Scene\Components\Transform.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Components\ComponentText.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\Components\Name.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>

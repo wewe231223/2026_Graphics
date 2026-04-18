@@ -1,21 +1,15 @@
 #include "Game/Scene/Components/FootIKRig.h"
 
-#include <algorithm>
 #include <string>
 #include "Game/Scene/Components/ComponentInspection.h"
 
 namespace Game {
     void SetFootIKRigBoneName(ComponentTextArray& TargetText, const ::std::string_view SourceText) {
-        TargetText.fill('\0');
-
-        const ::std::size_t CopyLength{ ::std::min(SourceText.size(), ComponentTextMaxLength) };
-        for (::std::size_t Index{ 0 }; Index < CopyLength; ++Index) {
-            TargetText[Index] = SourceText[Index];
-        }
+        TargetText.Assign(SourceText);
     }
 
-    const char* GetFootIKRigBoneNameText(const ComponentTextArray& SourceText) {
-        return SourceText.data();
+    ::std::string_view GetFootIKRigBoneNameText(const ComponentTextArray& SourceText) {
+        return SourceText.AsStringView();
     }
 
     const char* FootIKRig::GetComponentInspectionName() {
@@ -23,14 +17,29 @@ namespace Game {
     }
 
     void FootIKRig::BuildComponentInspectionFields(::std::vector<ComponentInspectionField>& OutFields) const {
-        const char* LeftFootBoneNameText{ GetFootIKRigBoneNameText(mLeftFootBoneName) };
-        const char* RightFootBoneNameText{ GetFootIKRigBoneNameText(mRightFootBoneName) };
-        const bool HasLeftFootBoneName{ LeftFootBoneNameText != nullptr && LeftFootBoneNameText[0] != '\0' };
-        const bool HasRightFootBoneName{ RightFootBoneNameText != nullptr && RightFootBoneNameText[0] != '\0' };
+        const ::std::string_view LeftFootBoneNameText{ GetFootIKRigBoneNameText(mLeftFootBoneName) };
+        const ::std::string_view RightFootBoneNameText{ GetFootIKRigBoneNameText(mRightFootBoneName) };
+        const ::std::string_view LeftShinBoneNameText{ GetFootIKRigBoneNameText(mLeftShinBoneName) };
+        const ::std::string_view RightShinBoneNameText{ GetFootIKRigBoneNameText(mRightShinBoneName) };
+        const ::std::string_view LeftThighBoneNameText{ GetFootIKRigBoneNameText(mLeftThighBoneName) };
+        const ::std::string_view RightThighBoneNameText{ GetFootIKRigBoneNameText(mRightThighBoneName) };
+        const ::std::string_view PelvisBoneNameText{ GetFootIKRigBoneNameText(mPelvisBoneName) };
+        const bool HasLeftFootBoneName{ LeftFootBoneNameText.empty() == false };
+        const bool HasRightFootBoneName{ RightFootBoneNameText.empty() == false };
+        const bool HasLeftShinBoneName{ LeftShinBoneNameText.empty() == false };
+        const bool HasRightShinBoneName{ RightShinBoneNameText.empty() == false };
+        const bool HasLeftThighBoneName{ LeftThighBoneNameText.empty() == false };
+        const bool HasRightThighBoneName{ RightThighBoneNameText.empty() == false };
+        const bool HasPelvisBoneName{ PelvisBoneNameText.empty() == false };
 
         OutFields.push_back(ComponentInspectionField{ "Enabled", mEnabled ? "true" : "false" });
-        OutFields.push_back(ComponentInspectionField{ "LeftFootBoneName", HasLeftFootBoneName ? LeftFootBoneNameText : "<None>" });
-        OutFields.push_back(ComponentInspectionField{ "RightFootBoneName", HasRightFootBoneName ? RightFootBoneNameText : "<None>" });
+        OutFields.push_back(ComponentInspectionField{ "LeftFootBoneName", HasLeftFootBoneName ? ::std::string{ LeftFootBoneNameText } : "<None>" });
+        OutFields.push_back(ComponentInspectionField{ "RightFootBoneName", HasRightFootBoneName ? ::std::string{ RightFootBoneNameText } : "<None>" });
+        OutFields.push_back(ComponentInspectionField{ "LeftShinBoneName", HasLeftShinBoneName ? ::std::string{ LeftShinBoneNameText } : "<None>" });
+        OutFields.push_back(ComponentInspectionField{ "RightShinBoneName", HasRightShinBoneName ? ::std::string{ RightShinBoneNameText } : "<None>" });
+        OutFields.push_back(ComponentInspectionField{ "LeftThighBoneName", HasLeftThighBoneName ? ::std::string{ LeftThighBoneNameText } : "<None>" });
+        OutFields.push_back(ComponentInspectionField{ "RightThighBoneName", HasRightThighBoneName ? ::std::string{ RightThighBoneNameText } : "<None>" });
+        OutFields.push_back(ComponentInspectionField{ "PelvisBoneName", HasPelvisBoneName ? ::std::string{ PelvisBoneNameText } : "<None>" });
         OutFields.push_back(ComponentInspectionField{ "FootSoleOffset", ::std::to_string(mFootSoleOffset) });
         OutFields.push_back(ComponentInspectionField{ "BlendSpeed", ::std::to_string(mBlendSpeed) });
         OutFields.push_back(ComponentInspectionField{ "MaxLift", ::std::to_string(mMaxLift) });

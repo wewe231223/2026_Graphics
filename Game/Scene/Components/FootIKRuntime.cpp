@@ -22,6 +22,11 @@ namespace Game {
     void FootIKRuntime::BuildComponentInspectionFields(::std::vector<ComponentInspectionField>& OutFields) const {
         OutFields.push_back(ComponentInspectionField{ "LeftFootEntityId", ToEntityIdText(mLeftFootEntityId) });
         OutFields.push_back(ComponentInspectionField{ "RightFootEntityId", ToEntityIdText(mRightFootEntityId) });
+        OutFields.push_back(ComponentInspectionField{ "LeftShinEntityId", ToEntityIdText(mLeftShinEntityId) });
+        OutFields.push_back(ComponentInspectionField{ "RightShinEntityId", ToEntityIdText(mRightShinEntityId) });
+        OutFields.push_back(ComponentInspectionField{ "LeftThighEntityId", ToEntityIdText(mLeftThighEntityId) });
+        OutFields.push_back(ComponentInspectionField{ "RightThighEntityId", ToEntityIdText(mRightThighEntityId) });
+        OutFields.push_back(ComponentInspectionField{ "PelvisEntityId", ToEntityIdText(mPelvisEntityId) });
         OutFields.push_back(ComponentInspectionField{ "LeftCurrentOffset", ::std::to_string(mLeftCurrentOffset) });
         OutFields.push_back(ComponentInspectionField{ "RightCurrentOffset", ::std::to_string(mRightCurrentOffset) });
         OutFields.push_back(ComponentInspectionField{ "CurrentOffset", ::std::to_string(mCurrentOffset) });
