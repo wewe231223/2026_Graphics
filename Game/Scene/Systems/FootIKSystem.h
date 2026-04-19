@@ -1,9 +1,12 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include "Game/Scene/System.h"
 
 namespace Game {
+    class IFootIKSolver;
+
     class FootIKSystem final : public ISystem {
     public:
         FootIKSystem();
@@ -22,5 +25,6 @@ namespace Game {
 
     private:
         std::string mName{};
+        std::unique_ptr<IFootIKSolver> mFootIKSolver{};
     };
 }

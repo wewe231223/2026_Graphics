@@ -19,31 +19,19 @@
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/TerrainCollidee.h"
 #include "Game/Scene/Components/Transform.h"
+#include "Game/Scene/Systems/FabrikFootIKSolver.h"
+#include "Game/Scene/Systems/FootIKSolver.h"
 
 namespace {
     constexpr float FootOffsetEpsilon{ 1.0e-4f };
-    constexpr float LegLengthEpsilon{ 1.0e-5f };
     constexpr float SurfaceNormalLengthEpsilon{ 1.0e-6f };
     constexpr float FootPlantWeightEpsilon{ 1.0e-3f };
     constexpr float FootPlantReleaseOffset{ -0.08f };
     constexpr float FootPlantEngageOffset{ 0.01f };
     constexpr float MaxFootTiltRadians{ 0.6108652382f };
-    constexpr float ChainPropagationMinLimit{ 0.015f };
-    constexpr float ChainPropagationMaxLimit{ 0.060f };
-    constexpr float ChainPropagationRatio{ 0.18f };
-    constexpr float ChainThighWeight{ 0.25f };
-    constexpr float ChainShinWeight{ 0.35f };
-    constexpr float ChainFootWeight{ 0.40f };
     constexpr float PelvisWeight{ 0.50f };
-    constexpr float OverflowPelvisShare{ 1.0f / 3.0f };
-    constexpr float OverflowThighWeight{ 1.0f };
-    constexpr float OverflowShinWeight{ 1.0f };
-    constexpr float OverflowFootWeight{ 2.0f };
-
-    struct BoneOffsetTarget final {
-        Arche::EntityID mEntityId{ Arche::NullEntityID };
-        float mWeight{};
-    };
+    constexpr int FootIKFabrikMaxIterationCount{ 12 };
+    constexpr float FootIKFabrikConvergenceDistance{ 1.0e-3f };
 
     bool IsFiniteFloat(const float Value) {
         return ::std::isfinite(Value) != 0;
@@ -214,15 +202,6 @@ namespace {
         const float PostMultipliedScore{ SafePredictedForwardDirectionForPostMultipliedRotation.Dot(SafeExpectedForwardDirection) };
         OutWorldRotation = PreMultipliedScore >= PostMultipliedScore ? SafeWorldDeltaPreMultipliedRotation : SafeWorldDeltaPostMultipliedRotation;
         return true;
-    }
-
-    float ResolveSafeLength(const SimpleMath::Vector3& StartPosition, const SimpleMath::Vector3& EndPosition) {
-        const float SegmentLength{ (EndPosition - StartPosition).Length() };
-        if (IsFiniteFloat(SegmentLength) == false || SegmentLength <= LegLengthEpsilon) {
-            return 0.0f;
-        }
-
-        return SegmentLength;
     }
 
     float ResolveWorldObbBottomY(const DirectX::BoundingOrientedBox& WorldObb) {
@@ -474,80 +453,16 @@ namespace {
         return true;
     }
 
-    bool TryApplyOffsetToBoneTransform(Arche::World& World, const Arche::EntityID BoneEntityId, const float OffsetY, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
-        if (BoneEntityId == Arche::NullEntityID || IsFiniteFloat(OffsetY) == false) {
+    bool TryApplyWorldTransformToBoneTransform(Arche::World& World, const Arche::EntityID BoneEntityId, const SimpleMath::Vector3& DesiredWorldPosition, const SimpleMath::Quaternion& DesiredWorldRotation, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        if (BoneEntityId == Arche::NullEntityID || IsFiniteVector3(DesiredWorldPosition) == false || IsFiniteQuaternion(DesiredWorldRotation) == false) {
             return false;
         }
 
-        const float SafeOffsetY{ ::std::abs(OffsetY) <= FootOffsetEpsilon ? 0.0f : OffsetY };
-        if (SafeOffsetY == 0.0f) {
+        SimpleMath::Quaternion SafeDesiredWorldRotation{};
+        if (TryResolveNormalizedQuaternion(DesiredWorldRotation, SafeDesiredWorldRotation) == false) {
             return false;
         }
 
-        Game::Transform* BoneTransformComponent{ World.GetComponent<Game::Transform>(BoneEntityId) };
-        const Game::EntityHierarchy* BoneHierarchyComponent{ ::std::as_const(World).GetComponent<Game::EntityHierarchy>(BoneEntityId) };
-        if (BoneTransformComponent == nullptr || BoneHierarchyComponent == nullptr) {
-            return false;
-        }
-
-        SimpleMath::Matrix BoneWorldMatrix{};
-        if (TryResolveWorldMatrix(World, BoneEntityId, InOutWorldMatrices, BoneWorldMatrix) == false) {
-            return false;
-        }
-
-        SimpleMath::Matrix ParentWorldMatrix{ SimpleMath::Matrix::Identity };
-        if (BoneHierarchyComponent->parent != Arche::NullEntityID) {
-            if (TryResolveWorldMatrix(World, BoneHierarchyComponent->parent, InOutWorldMatrices, ParentWorldMatrix) == false) {
-                return false;
-            }
-        }
-
-        SimpleMath::Matrix DesiredBoneWorldMatrix{ BoneWorldMatrix };
-        DesiredBoneWorldMatrix._42 += SafeOffsetY;
-
-        SimpleMath::Matrix ParentWorldInverseMatrix{ ParentWorldMatrix };
-        ParentWorldInverseMatrix = ParentWorldInverseMatrix.Invert();
-        if (IsFiniteFloat(ParentWorldInverseMatrix._11) == false) {
-            return false;
-        }
-
-        const SimpleMath::Matrix DesiredBoneLocalWorldMatrix{ DesiredBoneWorldMatrix * ParentWorldInverseMatrix };
-        SimpleMath::Matrix NodeToParentInverseMatrix{ BoneTransformComponent->nodeToParent };
-        NodeToParentInverseMatrix = NodeToParentInverseMatrix.Invert();
-        if (IsFiniteFloat(NodeToParentInverseMatrix._11) == false) {
-            return false;
-        }
-
-        SimpleMath::Matrix DesiredTrsMatrix{ NodeToParentInverseMatrix * DesiredBoneLocalWorldMatrix };
-        SimpleMath::Vector3 DecomposedScale{};
-        SimpleMath::Quaternion DecomposedRotation{};
-        SimpleMath::Vector3 DecomposedPosition{};
-        const bool IsDecomposeSucceeded{ DesiredTrsMatrix.Decompose(DecomposedScale, DecomposedRotation, DecomposedPosition) };
-        if (IsDecomposeSucceeded == false) {
-            return false;
-        }
-
-        if (IsFiniteVector3(DecomposedPosition) == false) {
-            return false;
-        }
-
-        BoneTransformComponent->position = DecomposedPosition;
-        InOutWorldMatrices[BoneEntityId] = DesiredBoneWorldMatrix;
-        return true;
-    }
-
-    bool TryApplyWorldRotationToBoneTransform(Arche::World& World, const Arche::EntityID BoneEntityId, const SimpleMath::Quaternion& DesiredWorldRotation, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
-        if (BoneEntityId == Arche::NullEntityID || IsFiniteQuaternion(DesiredWorldRotation) == false) {
-            return false;
-        }
-
-        SimpleMath::Quaternion SafeDesiredWorldRotation{ DesiredWorldRotation };
-        const float DesiredWorldRotationLengthSquared{ (SafeDesiredWorldRotation.x * SafeDesiredWorldRotation.x) + (SafeDesiredWorldRotation.y * SafeDesiredWorldRotation.y) + (SafeDesiredWorldRotation.z * SafeDesiredWorldRotation.z) + (SafeDesiredWorldRotation.w * SafeDesiredWorldRotation.w) };
-        if (IsFiniteFloat(DesiredWorldRotationLengthSquared) == false || DesiredWorldRotationLengthSquared <= SurfaceNormalLengthEpsilon) {
-            return false;
-        }
-
-        SafeDesiredWorldRotation.Normalize();
         Game::Transform* BoneTransformComponent{ World.GetComponent<Game::Transform>(BoneEntityId) };
         const Game::EntityHierarchy* BoneHierarchyComponent{ ::std::as_const(World).GetComponent<Game::EntityHierarchy>(BoneEntityId) };
         if (BoneTransformComponent == nullptr || BoneHierarchyComponent == nullptr) {
@@ -563,7 +478,7 @@ namespace {
         SimpleMath::Quaternion CurrentWorldRotation{};
         SimpleMath::Vector3 CurrentWorldPosition{};
         const bool IsCurrentWorldDecomposeSucceeded{ BoneWorldMatrix.Decompose(CurrentWorldScale, CurrentWorldRotation, CurrentWorldPosition) };
-        if (IsCurrentWorldDecomposeSucceeded == false || IsFiniteVector3(CurrentWorldScale) == false || IsFiniteVector3(CurrentWorldPosition) == false) {
+        if (IsCurrentWorldDecomposeSucceeded == false || IsFiniteVector3(CurrentWorldScale) == false) {
             return false;
         }
 
@@ -574,7 +489,7 @@ namespace {
             }
         }
 
-        const SimpleMath::Matrix DesiredBoneWorldMatrix{ SimpleMath::Matrix::CreateScale(CurrentWorldScale) * SimpleMath::Matrix::CreateFromQuaternion(SafeDesiredWorldRotation) * SimpleMath::Matrix::CreateTranslation(CurrentWorldPosition) };
+        const SimpleMath::Matrix DesiredBoneWorldMatrix{ SimpleMath::Matrix::CreateScale(CurrentWorldScale) * SimpleMath::Matrix::CreateFromQuaternion(SafeDesiredWorldRotation) * SimpleMath::Matrix::CreateTranslation(DesiredWorldPosition) };
         SimpleMath::Matrix ParentWorldInverseMatrix{ ParentWorldMatrix };
         ParentWorldInverseMatrix = ParentWorldInverseMatrix.Invert();
         if (IsFiniteFloat(ParentWorldInverseMatrix._11) == false) {
@@ -603,6 +518,143 @@ namespace {
         BoneTransformComponent->UpdateEulerRadiansFromRotation();
         InOutWorldMatrices[BoneEntityId] = DesiredBoneWorldMatrix;
         return true;
+    }
+
+    bool TryApplyOffsetToBoneTransform(Arche::World& World, const Arche::EntityID BoneEntityId, const float OffsetY, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        if (BoneEntityId == Arche::NullEntityID || IsFiniteFloat(OffsetY) == false) {
+            return false;
+        }
+
+        const float SafeOffsetY{ ::std::abs(OffsetY) <= FootOffsetEpsilon ? 0.0f : OffsetY };
+        if (SafeOffsetY == 0.0f) {
+            return false;
+        }
+
+        SimpleMath::Matrix BoneWorldMatrix{};
+        if (TryResolveWorldMatrix(World, BoneEntityId, InOutWorldMatrices, BoneWorldMatrix) == false) {
+            return false;
+        }
+
+        SimpleMath::Vector3 CurrentWorldScale{};
+        SimpleMath::Quaternion CurrentWorldRotation{};
+        SimpleMath::Vector3 CurrentWorldPosition{};
+        const bool IsCurrentWorldDecomposeSucceeded{ BoneWorldMatrix.Decompose(CurrentWorldScale, CurrentWorldRotation, CurrentWorldPosition) };
+        if (IsCurrentWorldDecomposeSucceeded == false || IsFiniteVector3(CurrentWorldScale) == false || IsFiniteVector3(CurrentWorldPosition) == false || IsFiniteQuaternion(CurrentWorldRotation) == false) {
+            return false;
+        }
+
+        if (TryResolveNormalizedQuaternion(CurrentWorldRotation, CurrentWorldRotation) == false) {
+            return false;
+        }
+
+        SimpleMath::Vector3 DesiredWorldPosition{ CurrentWorldPosition };
+        DesiredWorldPosition.y += SafeOffsetY;
+        return TryApplyWorldTransformToBoneTransform(World, BoneEntityId, DesiredWorldPosition, CurrentWorldRotation, InOutWorldMatrices);
+    }
+
+    bool TryApplyWorldRotationToBoneTransform(Arche::World& World, const Arche::EntityID BoneEntityId, const SimpleMath::Quaternion& DesiredWorldRotation, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        if (BoneEntityId == Arche::NullEntityID || IsFiniteQuaternion(DesiredWorldRotation) == false) {
+            return false;
+        }
+
+        SimpleMath::Matrix BoneWorldMatrix{};
+        if (TryResolveWorldMatrix(World, BoneEntityId, InOutWorldMatrices, BoneWorldMatrix) == false) {
+            return false;
+        }
+
+        SimpleMath::Vector3 CurrentWorldScale{};
+        SimpleMath::Quaternion CurrentWorldRotation{};
+        SimpleMath::Vector3 CurrentWorldPosition{};
+        const bool IsCurrentWorldDecomposeSucceeded{ BoneWorldMatrix.Decompose(CurrentWorldScale, CurrentWorldRotation, CurrentWorldPosition) };
+        if (IsCurrentWorldDecomposeSucceeded == false || IsFiniteVector3(CurrentWorldScale) == false || IsFiniteVector3(CurrentWorldPosition) == false) {
+            return false;
+        }
+
+        return TryApplyWorldTransformToBoneTransform(World, BoneEntityId, CurrentWorldPosition, DesiredWorldRotation, InOutWorldMatrices);
+    }
+
+    bool TrySolveLegWithIK(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, const float TargetOffsetY, const Game::IFootIKSolver& FootIKSolver, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        if (ThighEntityId == Arche::NullEntityID || ShinEntityId == Arche::NullEntityID || FootEntityId == Arche::NullEntityID || IsFiniteFloat(TargetOffsetY) == false) {
+            return false;
+        }
+
+        if (::std::abs(TargetOffsetY) <= FootOffsetEpsilon) {
+            return false;
+        }
+
+        const ::std::array<Arche::EntityID, 3> ChainEntityIds{ { ThighEntityId, ShinEntityId, FootEntityId } };
+        ::std::array<SimpleMath::Matrix, 3> CurrentWorldMatrices{};
+        for (::std::size_t JointIndex{}; JointIndex < ChainEntityIds.size(); ++JointIndex) {
+            if (TryResolveWorldMatrix(World, ChainEntityIds[JointIndex], InOutWorldMatrices, CurrentWorldMatrices[JointIndex]) == false) {
+                return false;
+            }
+        }
+
+        ::std::array<SimpleMath::Vector3, 3> CurrentWorldPositions{};
+        ::std::array<SimpleMath::Quaternion, 3> CurrentWorldRotations{};
+        for (::std::size_t JointIndex{}; JointIndex < CurrentWorldMatrices.size(); ++JointIndex) {
+            SimpleMath::Vector3 CurrentScale{};
+            SimpleMath::Quaternion CurrentRotation{};
+            SimpleMath::Vector3 CurrentPosition{};
+            const bool IsCurrentDecomposeSucceeded{ CurrentWorldMatrices[JointIndex].Decompose(CurrentScale, CurrentRotation, CurrentPosition) };
+            if (IsCurrentDecomposeSucceeded == false || IsFiniteVector3(CurrentScale) == false || IsFiniteVector3(CurrentPosition) == false || IsFiniteQuaternion(CurrentRotation) == false) {
+                return false;
+            }
+
+            if (TryResolveNormalizedQuaternion(CurrentRotation, CurrentRotation) == false) {
+                return false;
+            }
+
+            CurrentWorldPositions[JointIndex] = CurrentPosition;
+            CurrentWorldRotations[JointIndex] = CurrentRotation;
+        }
+
+        SimpleMath::Vector3 TargetFootPosition{ CurrentWorldPositions.back() };
+        TargetFootPosition.y += TargetOffsetY;
+        if (IsFiniteVector3(TargetFootPosition) == false) {
+            return false;
+        }
+
+        Game::FootIKSolveParameters SolveParameters{};
+        SolveParameters.mJointPositions = ::std::span<const SimpleMath::Vector3>{ CurrentWorldPositions };
+        SolveParameters.mTargetPosition = TargetFootPosition;
+        SolveParameters.mMaxIterationCount = FootIKFabrikMaxIterationCount;
+        SolveParameters.mConvergenceDistance = FootIKFabrikConvergenceDistance;
+
+        Game::FootIKSolveResult SolveResult{};
+        if (FootIKSolver.Solve(SolveParameters, SolveResult) == false || SolveResult.mJointPositions.size() != CurrentWorldPositions.size()) {
+            return false;
+        }
+
+        bool IsAnyBoneUpdated{};
+        for (::std::size_t JointIndex{}; JointIndex < ChainEntityIds.size(); ++JointIndex) {
+            const SimpleMath::Vector3 DesiredWorldPosition{ SolveResult.mJointPositions[JointIndex] };
+            if (IsFiniteVector3(DesiredWorldPosition) == false) {
+                continue;
+            }
+
+            SimpleMath::Quaternion DesiredWorldRotation{ CurrentWorldRotations[JointIndex] };
+            if (JointIndex + 1 < ChainEntityIds.size()) {
+                const SimpleMath::Vector3 CurrentDirection{ CurrentWorldPositions[JointIndex + 1] - CurrentWorldPositions[JointIndex] };
+                const SimpleMath::Vector3 DesiredDirection{ SolveResult.mJointPositions[JointIndex + 1] - SolveResult.mJointPositions[JointIndex] };
+                SimpleMath::Quaternion DirectionDeltaRotation{};
+                if (TryResolveFromToRotation(CurrentDirection, DesiredDirection, DirectionDeltaRotation) == true) {
+                    const SimpleMath::Vector3 CurrentForwardDirection{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Forward, CurrentWorldRotations[JointIndex]) };
+                    SimpleMath::Quaternion RotatedWorldRotation{};
+                    if (TryResolveWorldRotationWithWorldDelta(CurrentWorldRotations[JointIndex], DirectionDeltaRotation, CurrentForwardDirection, RotatedWorldRotation) == true) {
+                        DesiredWorldRotation = RotatedWorldRotation;
+                    }
+                }
+            }
+
+            const bool IsBoneUpdated{ TryApplyWorldTransformToBoneTransform(World, ChainEntityIds[JointIndex], DesiredWorldPosition, DesiredWorldRotation, InOutWorldMatrices) };
+            if (IsBoneUpdated == true) {
+                IsAnyBoneUpdated = true;
+                InOutWorldMatrices.clear();
+            }
+        }
+
+        return IsAnyBoneUpdated;
     }
 
     bool TryAlignFootToSurface(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
@@ -683,67 +735,6 @@ namespace {
         return TryApplyWorldRotationToBoneTransform(World, FootEntityId, DesiredWorldRotation, InOutWorldMatrices);
     }
 
-    float ResolveLegChainPropagationLimit(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
-        if (ThighEntityId == Arche::NullEntityID || ShinEntityId == Arche::NullEntityID || FootEntityId == Arche::NullEntityID) {
-            return ChainPropagationMinLimit;
-        }
-
-        SimpleMath::Matrix ThighWorldMatrix{};
-        SimpleMath::Matrix ShinWorldMatrix{};
-        SimpleMath::Matrix FootWorldMatrix{};
-        if (TryResolveWorldMatrix(World, ThighEntityId, InOutWorldMatrices, ThighWorldMatrix) == false || TryResolveWorldMatrix(World, ShinEntityId, InOutWorldMatrices, ShinWorldMatrix) == false || TryResolveWorldMatrix(World, FootEntityId, InOutWorldMatrices, FootWorldMatrix) == false) {
-            return ChainPropagationMinLimit;
-        }
-
-        const SimpleMath::Vector3 ThighWorldPosition{ ThighWorldMatrix._41, ThighWorldMatrix._42, ThighWorldMatrix._43 };
-        const SimpleMath::Vector3 ShinWorldPosition{ ShinWorldMatrix._41, ShinWorldMatrix._42, ShinWorldMatrix._43 };
-        const SimpleMath::Vector3 FootWorldPosition{ FootWorldMatrix._41, FootWorldMatrix._42, FootWorldMatrix._43 };
-        if (IsFiniteVector3(ThighWorldPosition) == false || IsFiniteVector3(ShinWorldPosition) == false || IsFiniteVector3(FootWorldPosition) == false) {
-            return ChainPropagationMinLimit;
-        }
-
-        const float ThighLength{ ResolveSafeLength(ThighWorldPosition, ShinWorldPosition) };
-        const float ShinLength{ ResolveSafeLength(ShinWorldPosition, FootWorldPosition) };
-        if (ThighLength <= 0.0f || ShinLength <= 0.0f) {
-            return ChainPropagationMinLimit;
-        }
-
-        const float MinimumSegmentLength{ ThighLength < ShinLength ? ThighLength : ShinLength };
-        const float PropagationLimit{ MinimumSegmentLength * ChainPropagationRatio };
-        return ::std::clamp(PropagationLimit, ChainPropagationMinLimit, ChainPropagationMaxLimit);
-    }
-
-    void TryApplyDistributedOffsetToBones(Arche::World& World, const ::std::span<const BoneOffsetTarget> TargetBones, const float OffsetY, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
-        if (IsFiniteFloat(OffsetY) == false || ::std::abs(OffsetY) <= FootOffsetEpsilon) {
-            return;
-        }
-
-        float TotalWeight{};
-        for (const BoneOffsetTarget& TargetBone : TargetBones) {
-            if (TargetBone.mEntityId == Arche::NullEntityID || TargetBone.mWeight <= 0.0f) {
-                continue;
-            }
-
-            TotalWeight += TargetBone.mWeight;
-        }
-
-        if (TotalWeight <= 0.0f) {
-            return;
-        }
-
-        for (const BoneOffsetTarget& TargetBone : TargetBones) {
-            if (TargetBone.mEntityId == Arche::NullEntityID || TargetBone.mWeight <= 0.0f) {
-                continue;
-            }
-
-            const float WeightedOffset{ OffsetY * (TargetBone.mWeight / TotalWeight) };
-            const bool IsApplied{ TryApplyOffsetToBoneTransform(World, TargetBone.mEntityId, WeightedOffset, InOutWorldMatrices) };
-            if (IsApplied == true) {
-                InOutWorldMatrices.clear();
-            }
-        }
-    }
-
     float ResolveSharedPelvisOffset(const float LeftOffset, const float RightOffset) {
         const float SafeLeftOffset{ IsFiniteFloat(LeftOffset) ? LeftOffset : 0.0f };
         const float SafeRightOffset{ IsFiniteFloat(RightOffset) ? RightOffset : 0.0f };
@@ -755,22 +746,6 @@ namespace {
         if (SafeLeftOffset <= 0.0f && SafeRightOffset <= 0.0f) {
             const float MaximumNegativeOffset{ SafeLeftOffset > SafeRightOffset ? SafeLeftOffset : SafeRightOffset };
             return MaximumNegativeOffset * PelvisWeight;
-        }
-
-        return 0.0f;
-    }
-
-    float ResolveSharedOverflowPelvisOffset(const float LeftOverflowOffset, const float RightOverflowOffset) {
-        const float SafeLeftOverflowOffset{ IsFiniteFloat(LeftOverflowOffset) ? LeftOverflowOffset : 0.0f };
-        const float SafeRightOverflowOffset{ IsFiniteFloat(RightOverflowOffset) ? RightOverflowOffset : 0.0f };
-        if (SafeLeftOverflowOffset >= 0.0f && SafeRightOverflowOffset >= 0.0f) {
-            const float MinimumPositiveOverflowOffset{ SafeLeftOverflowOffset < SafeRightOverflowOffset ? SafeLeftOverflowOffset : SafeRightOverflowOffset };
-            return MinimumPositiveOverflowOffset * OverflowPelvisShare;
-        }
-
-        if (SafeLeftOverflowOffset <= 0.0f && SafeRightOverflowOffset <= 0.0f) {
-            const float MaximumNegativeOverflowOffset{ SafeLeftOverflowOffset > SafeRightOverflowOffset ? SafeLeftOverflowOffset : SafeRightOverflowOffset };
-            return MaximumNegativeOverflowOffset * OverflowPelvisShare;
         }
 
         return 0.0f;
@@ -812,14 +787,16 @@ namespace {
 
 namespace Game {
     FootIKSystem::FootIKSystem()
-        : mName{ "FootIKSystem" } {
+        : mName{ "FootIKSystem" },
+          mFootIKSolver{ CreateFabrikFootIKSolver() } {
     }
 
     FootIKSystem::~FootIKSystem() {
     }
 
     FootIKSystem::FootIKSystem(const FootIKSystem& Other)
-        : mName{ Other.mName } {
+        : mName{ Other.mName },
+          mFootIKSolver{ Other.mFootIKSolver == nullptr ? CreateFabrikFootIKSolver() : Other.mFootIKSolver->Clone() } {
     }
 
     FootIKSystem& FootIKSystem::operator=(const FootIKSystem& Other) {
@@ -828,11 +805,16 @@ namespace Game {
         }
 
         mName = Other.mName;
+        mFootIKSolver = Other.mFootIKSolver == nullptr ? CreateFabrikFootIKSolver() : Other.mFootIKSolver->Clone();
         return *this;
     }
 
     FootIKSystem::FootIKSystem(FootIKSystem&& Other) noexcept
-        : mName{ ::std::move(Other.mName) } {
+        : mName{ ::std::move(Other.mName) },
+          mFootIKSolver{ ::std::move(Other.mFootIKSolver) } {
+        if (mFootIKSolver == nullptr) {
+            mFootIKSolver = CreateFabrikFootIKSolver();
+        }
     }
 
     FootIKSystem& FootIKSystem::operator=(FootIKSystem&& Other) noexcept {
@@ -841,6 +823,11 @@ namespace Game {
         }
 
         mName = ::std::move(Other.mName);
+        mFootIKSolver = ::std::move(Other.mFootIKSolver);
+        if (mFootIKSolver == nullptr) {
+            mFootIKSolver = CreateFabrikFootIKSolver();
+        }
+
         return *this;
     }
 
@@ -995,31 +982,13 @@ namespace Game {
 
             const float LeftLegOffset{ FootIKRuntimeComponent.mLeftCurrentOffset - PelvisOffset };
             const float RightLegOffset{ FootIKRuntimeComponent.mRightCurrentOffset - PelvisOffset };
-            const float LeftChainLimit{ ResolveLegChainPropagationLimit(World, FootIKRuntimeComponent.mLeftThighEntityId, FootIKRuntimeComponent.mLeftShinEntityId, FootIKRuntimeComponent.mLeftFootEntityId, WorldMatrices) };
-            const float RightChainLimit{ ResolveLegChainPropagationLimit(World, FootIKRuntimeComponent.mRightThighEntityId, FootIKRuntimeComponent.mRightShinEntityId, FootIKRuntimeComponent.mRightFootEntityId, WorldMatrices) };
-            const float LeftChainOffset{ ::std::clamp(LeftLegOffset, -LeftChainLimit, LeftChainLimit) };
-            const float RightChainOffset{ ::std::clamp(RightLegOffset, -RightChainLimit, RightChainLimit) };
-            const float LeftOverflowOffset{ LeftLegOffset - LeftChainOffset };
-            const float RightOverflowOffset{ RightLegOffset - RightChainOffset };
-            const ::std::array<BoneOffsetTarget, 3> LeftLegChain{ { BoneOffsetTarget{ FootIKRuntimeComponent.mLeftThighEntityId, ChainThighWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mLeftShinEntityId, ChainShinWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mLeftFootEntityId, ChainFootWeight } } };
-            const ::std::array<BoneOffsetTarget, 3> RightLegChain{ { BoneOffsetTarget{ FootIKRuntimeComponent.mRightThighEntityId, ChainThighWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mRightShinEntityId, ChainShinWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mRightFootEntityId, ChainFootWeight } } };
-            TryApplyDistributedOffsetToBones(World, LeftLegChain, LeftChainOffset, WorldMatrices);
-            TryApplyDistributedOffsetToBones(World, RightLegChain, RightChainOffset, WorldMatrices);
-
-            const float SharedOverflowPelvisOffset{ FootIKRuntimeComponent.mPelvisEntityId == Arche::NullEntityID ? 0.0f : ResolveSharedOverflowPelvisOffset(LeftOverflowOffset, RightOverflowOffset) };
-            if (FootIKRuntimeComponent.mPelvisEntityId != Arche::NullEntityID) {
-                const bool IsOverflowPelvisApplied{ TryApplyOffsetToBoneTransform(World, FootIKRuntimeComponent.mPelvisEntityId, SharedOverflowPelvisOffset, WorldMatrices) };
-                if (IsOverflowPelvisApplied == true) {
+            if (FootIKRuntimeComponent.mResolved == true && mFootIKSolver != nullptr) {
+                const bool IsLeftLegSolved{ TrySolveLegWithIK(World, FootIKRuntimeComponent.mLeftThighEntityId, FootIKRuntimeComponent.mLeftShinEntityId, FootIKRuntimeComponent.mLeftFootEntityId, LeftLegOffset, *mFootIKSolver, WorldMatrices) };
+                const bool IsRightLegSolved{ TrySolveLegWithIK(World, FootIKRuntimeComponent.mRightThighEntityId, FootIKRuntimeComponent.mRightShinEntityId, FootIKRuntimeComponent.mRightFootEntityId, RightLegOffset, *mFootIKSolver, WorldMatrices) };
+                if (IsLeftLegSolved == true || IsRightLegSolved == true) {
                     WorldMatrices.clear();
                 }
             }
-
-            const float LeftOverflowAfterPelvis{ LeftOverflowOffset - SharedOverflowPelvisOffset };
-            const float RightOverflowAfterPelvis{ RightOverflowOffset - SharedOverflowPelvisOffset };
-            const ::std::array<BoneOffsetTarget, 3> LeftOverflowTargets{ { BoneOffsetTarget{ FootIKRuntimeComponent.mLeftThighEntityId, OverflowThighWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mLeftShinEntityId, OverflowShinWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mLeftFootEntityId, OverflowFootWeight } } };
-            const ::std::array<BoneOffsetTarget, 3> RightOverflowTargets{ { BoneOffsetTarget{ FootIKRuntimeComponent.mRightThighEntityId, OverflowThighWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mRightShinEntityId, OverflowShinWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mRightFootEntityId, OverflowFootWeight } } };
-            TryApplyDistributedOffsetToBones(World, LeftOverflowTargets, LeftOverflowAfterPelvis, WorldMatrices);
-            TryApplyDistributedOffsetToBones(World, RightOverflowTargets, RightOverflowAfterPelvis, WorldMatrices);
 
             if (FootIKRigComponent.mEnabled == true && FootIKRuntimeComponent.mResolved == true) {
                 if (IsLeftGroundNormalResolved == true) {
