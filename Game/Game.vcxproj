@@ -73,8 +73,9 @@
     <ClInclude Include="Scene\ParallelSystemBase.h" />
     <ClInclude Include="Scene\Systems\AnimationGraphSystem.h" />
     <ClInclude Include="Scene\Systems\AnimateSystem.h" />
-    <ClInclude Include="Scene\Systems\FootIKSolver.h" />
-    <ClInclude Include="Scene\Systems\FabrikFootIKSolver.h" />
+    <ClInclude Include="Scene\IK\FootIKSolver.h" />
+    <ClInclude Include="Scene\IK\FabrikFootIKSolver.h" />
+    <ClInclude Include="Scene\IK\FootIKAlgorithms.h" />
     <ClInclude Include="Scene\Systems\FootIKSystem.h" />
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
     <ClInclude Include="Scene\Systems\ShadowMappingParameterSystem.h" />
@@ -132,8 +133,9 @@
     <ClCompile Include="Scene\Components\TerrainCollider.cpp" />
     <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp" />
     <ClCompile Include="Scene\Systems\AnimateSystem.cpp" />
-    <ClCompile Include="Scene\Systems\FootIKSolver.cpp" />
-    <ClCompile Include="Scene\Systems\FabrikFootIKSolver.cpp" />
+    <ClCompile Include="Scene\IK\FootIKSolver.cpp" />
+    <ClCompile Include="Scene\IK\FabrikFootIKSolver.cpp" />
+    <ClCompile Include="Scene\IK\FootIKAlgorithms.cpp" />
     <ClCompile Include="Scene\Systems\FootIKSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\ShadowMappingParameterSystem.cpp" />

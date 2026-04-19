@@ -1,7 +1,7 @@
 #pragma once
 
 #include <memory>
-#include "Game/Scene/Systems/FootIKSolver.h"
+#include "Game/Scene/IK/FootIKSolver.h"
 
 namespace Game {
     class FabrikFootIKSolver final : public IFootIKSolver {

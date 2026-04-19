@@ -139,8 +139,9 @@ add_library(Game STATIC
     Game/Scene/Systems/CameraRenderSystem.cpp
     Game/Scene/Systems/AnimationGraphSystem.cpp
     Game/Scene/Systems/AnimateSystem.cpp
-    Game/Scene/Systems/FootIKSolver.cpp
-    Game/Scene/Systems/FabrikFootIKSolver.cpp
+    Game/Scene/IK/FootIKSolver.cpp
+    Game/Scene/IK/FabrikFootIKSolver.cpp
+    Game/Scene/IK/FootIKAlgorithms.cpp
     Game/Scene/Systems/FootIKSystem.cpp
     Game/Scene/Systems/SkinnedMeshPrepareSystem.cpp
     Game/Scene/Systems/StaticRenderSystem.cpp

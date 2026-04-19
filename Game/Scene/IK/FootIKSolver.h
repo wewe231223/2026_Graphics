@@ -1,13 +1,24 @@
 #pragma once
 
+#include <cstddef>
 #include <memory>
 #include <span>
 #include <vector>
 #include "DirectXTK12/SimpleMath.h"
 
 namespace Game {
+    struct FootIKJointConstraint final {
+        ::std::size_t mJointIndex{};
+        DirectX::SimpleMath::Vector3 mPreferredBendDirection{};
+        float mMinimumAngleRadians{};
+        float mMaximumAngleRadians{ 3.1415926536f };
+        bool mUsePreferredBendDirection{};
+        bool mUseAngleLimit{};
+    };
+
     struct FootIKSolveParameters final {
         std::span<const DirectX::SimpleMath::Vector3> mJointPositions{};
+        std::span<const FootIKJointConstraint> mJointConstraints{};
         DirectX::SimpleMath::Vector3 mTargetPosition{};
         int mMaxIterationCount{ 8 };
         float mConvergenceDistance{ 1.0e-3f };
