@@ -11,6 +11,8 @@ namespace Game {
             ComponentField(bool, mEnabled, false)
             ComponentField(ComponentTextArray, mLeftFootBoneName)
             ComponentField(ComponentTextArray, mRightFootBoneName)
+            ComponentField(ComponentTextArray, mLeftToeBoneName)
+            ComponentField(ComponentTextArray, mRightToeBoneName)
             ComponentField(ComponentTextArray, mLeftShinBoneName)
             ComponentField(ComponentTextArray, mRightShinBoneName)
             ComponentField(ComponentTextArray, mLeftThighBoneName)

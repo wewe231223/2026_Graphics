@@ -104,6 +104,11 @@ namespace Game {
     }
 
     bool TerrainHeightResolver::TryResolvePositionY(SimpleMath::Vector3& InOutPosition) const {
+        SimpleMath::Vector3 Normal{ SimpleMath::Vector3::Up };
+        return TryResolvePositionYAndNormal(InOutPosition, Normal);
+    }
+
+    bool TerrainHeightResolver::TryResolvePositionYAndNormal(SimpleMath::Vector3& InOutPosition, SimpleMath::Vector3& OutNormal) const {
         if (mInitialized == false || mWidth < 2 || mHeight < 2 || mCellSizeX <= 0.0f || mCellSizeZ <= 0.0f) {
             return false;
         }
@@ -139,7 +144,25 @@ namespace Game {
         const float HeightBottom{ Height01 + ((Height11 - Height01) * LocalX) };
         const float InterpolatedHeight{ HeightTop + ((HeightBottom - HeightTop) * LocalZ) };
 
+        const float HeightDeltaX0{ Height10 - Height00 };
+        const float HeightDeltaX1{ Height11 - Height01 };
+        const float HeightDeltaZ0{ Height01 - Height00 };
+        const float HeightDeltaZ1{ Height11 - Height10 };
+        const float HeightDerivativeX{ ((1.0f - LocalZ) * HeightDeltaX0) + (LocalZ * HeightDeltaX1) };
+        const float HeightDerivativeZ{ ((1.0f - LocalX) * HeightDeltaZ0) + (LocalX * HeightDeltaZ1) };
+        const float SlopeX{ HeightDerivativeX / mCellSizeX };
+        const float SlopeZ{ HeightDerivativeZ / mCellSizeZ };
+        SimpleMath::Vector3 SurfaceNormal{ -SlopeX, 1.0f, -SlopeZ };
+        const float SurfaceNormalLengthSquared{ SurfaceNormal.LengthSquared() };
+        if (SurfaceNormalLengthSquared <= 0.0f) {
+            SurfaceNormal = SimpleMath::Vector3::Up;
+        }
+        else {
+            SurfaceNormal.Normalize();
+        }
+
         InOutPosition.y = InterpolatedHeight;
+        OutNormal = SurfaceNormal;
         return true;
     }
 

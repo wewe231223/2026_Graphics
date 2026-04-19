@@ -249,6 +249,8 @@ Entities:
         enabled: true
         leftFootBoneName: foot_l
         rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
         leftShinBoneName: calf_l
         rightShinBoneName: calf_r
         leftThighBoneName: thigh_l

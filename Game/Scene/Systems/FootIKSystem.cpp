@@ -23,6 +23,11 @@
 namespace {
     constexpr float FootOffsetEpsilon{ 1.0e-4f };
     constexpr float LegLengthEpsilon{ 1.0e-5f };
+    constexpr float SurfaceNormalLengthEpsilon{ 1.0e-6f };
+    constexpr float FootPlantWeightEpsilon{ 1.0e-3f };
+    constexpr float FootPlantReleaseOffset{ -0.08f };
+    constexpr float FootPlantEngageOffset{ 0.01f };
+    constexpr float MaxFootTiltRadians{ 0.6108652382f };
     constexpr float ChainPropagationMinLimit{ 0.015f };
     constexpr float ChainPropagationMaxLimit{ 0.060f };
     constexpr float ChainPropagationRatio{ 0.18f };
@@ -46,6 +51,169 @@ namespace {
 
     bool IsFiniteVector3(const SimpleMath::Vector3& Value) {
         return IsFiniteFloat(Value.x) && IsFiniteFloat(Value.y) && IsFiniteFloat(Value.z);
+    }
+
+    bool IsFiniteQuaternion(const SimpleMath::Quaternion& Value) {
+        return IsFiniteFloat(Value.x) && IsFiniteFloat(Value.y) && IsFiniteFloat(Value.z) && IsFiniteFloat(Value.w);
+    }
+
+    SimpleMath::Vector3 ResolveCrossProduct(const SimpleMath::Vector3& Left, const SimpleMath::Vector3& Right) {
+        return SimpleMath::Vector3{ (Left.y * Right.z) - (Left.z * Right.y), (Left.z * Right.x) - (Left.x * Right.z), (Left.x * Right.y) - (Left.y * Right.x) };
+    }
+
+    bool TryResolveNormalizedVector(const SimpleMath::Vector3& SourceVector, SimpleMath::Vector3& OutNormalizedVector) {
+        if (IsFiniteVector3(SourceVector) == false) {
+            return false;
+        }
+
+        const float SourceVectorLengthSquared{ SourceVector.LengthSquared() };
+        if (IsFiniteFloat(SourceVectorLengthSquared) == false || SourceVectorLengthSquared <= SurfaceNormalLengthEpsilon) {
+            return false;
+        }
+
+        OutNormalizedVector = SourceVector;
+        OutNormalizedVector.Normalize();
+        return IsFiniteVector3(OutNormalizedVector);
+    }
+
+    bool TryResolveNormalizedQuaternion(const SimpleMath::Quaternion& SourceQuaternion, SimpleMath::Quaternion& OutNormalizedQuaternion) {
+        if (IsFiniteQuaternion(SourceQuaternion) == false) {
+            return false;
+        }
+
+        const float SourceQuaternionLengthSquared{ (SourceQuaternion.x * SourceQuaternion.x) + (SourceQuaternion.y * SourceQuaternion.y) + (SourceQuaternion.z * SourceQuaternion.z) + (SourceQuaternion.w * SourceQuaternion.w) };
+        if (IsFiniteFloat(SourceQuaternionLengthSquared) == false || SourceQuaternionLengthSquared <= SurfaceNormalLengthEpsilon) {
+            return false;
+        }
+
+        OutNormalizedQuaternion = SourceQuaternion;
+        OutNormalizedQuaternion.Normalize();
+        return IsFiniteQuaternion(OutNormalizedQuaternion);
+    }
+
+    bool TryResolveFromToRotation(const SimpleMath::Vector3& SourceDirection, const SimpleMath::Vector3& TargetDirection, SimpleMath::Quaternion& OutRotation) {
+        SimpleMath::Vector3 SafeSourceDirection{};
+        SimpleMath::Vector3 SafeTargetDirection{};
+        if (TryResolveNormalizedVector(SourceDirection, SafeSourceDirection) == false || TryResolveNormalizedVector(TargetDirection, SafeTargetDirection) == false) {
+            return false;
+        }
+
+        const float DirectionDot{ ::std::clamp(SafeSourceDirection.Dot(SafeTargetDirection), -1.0f, 1.0f) };
+        if (DirectionDot >= (1.0f - 1.0e-5f)) {
+            OutRotation = SimpleMath::Quaternion::Identity;
+            return true;
+        }
+
+        if (DirectionDot <= (-1.0f + 1.0e-5f)) {
+            SimpleMath::Vector3 RotationAxis{ ResolveCrossProduct(SafeSourceDirection, SimpleMath::Vector3::Right) };
+            if (TryResolveNormalizedVector(RotationAxis, RotationAxis) == false) {
+                RotationAxis = ResolveCrossProduct(SafeSourceDirection, SimpleMath::Vector3::Up);
+            }
+
+            if (TryResolveNormalizedVector(RotationAxis, RotationAxis) == false) {
+                RotationAxis = ResolveCrossProduct(SafeSourceDirection, SimpleMath::Vector3::Forward);
+            }
+
+            if (TryResolveNormalizedVector(RotationAxis, RotationAxis) == false) {
+                return false;
+            }
+
+            const SimpleMath::Quaternion RotationForOppositeDirection{ SimpleMath::Quaternion::CreateFromAxisAngle(RotationAxis, DirectX::XM_PI) };
+            return TryResolveNormalizedQuaternion(RotationForOppositeDirection, OutRotation);
+        }
+
+        const SimpleMath::Vector3 RotationAxis{ ResolveCrossProduct(SafeSourceDirection, SafeTargetDirection) };
+        SimpleMath::Vector3 SafeRotationAxis{};
+        if (TryResolveNormalizedVector(RotationAxis, SafeRotationAxis) == false) {
+            OutRotation = SimpleMath::Quaternion::Identity;
+            return true;
+        }
+
+        const float RotationAngleRadians{ ::std::acos(DirectionDot) };
+        const SimpleMath::Quaternion AxisAngleRotation{ SimpleMath::Quaternion::CreateFromAxisAngle(SafeRotationAxis, RotationAngleRadians) };
+        return TryResolveNormalizedQuaternion(AxisAngleRotation, OutRotation);
+    }
+
+    bool TryResolveClampedFromToRotation(const SimpleMath::Vector3& SourceDirection, const SimpleMath::Vector3& TargetDirection, const float MaxRotationRadians, SimpleMath::Quaternion& OutRotation) {
+        SimpleMath::Vector3 SafeSourceDirection{};
+        SimpleMath::Vector3 SafeTargetDirection{};
+        if (TryResolveNormalizedVector(SourceDirection, SafeSourceDirection) == false || TryResolveNormalizedVector(TargetDirection, SafeTargetDirection) == false || IsFiniteFloat(MaxRotationRadians) == false) {
+            return false;
+        }
+
+        const float SafeMaxRotationRadians{ ::std::max(MaxRotationRadians, 0.0f) };
+        const float DirectionDot{ ::std::clamp(SafeSourceDirection.Dot(SafeTargetDirection), -1.0f, 1.0f) };
+        const float RequiredRotationRadians{ ::std::acos(DirectionDot) };
+        if (SafeMaxRotationRadians <= 0.0f || RequiredRotationRadians <= SafeMaxRotationRadians) {
+            return TryResolveFromToRotation(SafeSourceDirection, SafeTargetDirection, OutRotation);
+        }
+
+        SimpleMath::Vector3 RotationAxis{ ResolveCrossProduct(SafeSourceDirection, SafeTargetDirection) };
+        if (TryResolveNormalizedVector(RotationAxis, RotationAxis) == false) {
+            RotationAxis = ResolveCrossProduct(SafeSourceDirection, SimpleMath::Vector3::Right);
+        }
+
+        if (TryResolveNormalizedVector(RotationAxis, RotationAxis) == false) {
+            RotationAxis = ResolveCrossProduct(SafeSourceDirection, SimpleMath::Vector3::Up);
+        }
+
+        if (TryResolveNormalizedVector(RotationAxis, RotationAxis) == false) {
+            RotationAxis = ResolveCrossProduct(SafeSourceDirection, SimpleMath::Vector3::Forward);
+        }
+
+        if (TryResolveNormalizedVector(RotationAxis, RotationAxis) == false) {
+            return false;
+        }
+
+        const SimpleMath::Quaternion AxisAngleRotation{ SimpleMath::Quaternion::CreateFromAxisAngle(RotationAxis, SafeMaxRotationRadians) };
+        return TryResolveNormalizedQuaternion(AxisAngleRotation, OutRotation);
+    }
+
+    bool TryResolveWorldRotationWithWorldDelta(const SimpleMath::Quaternion& CurrentWorldRotation, const SimpleMath::Quaternion& WorldDeltaRotation, const SimpleMath::Vector3& CurrentForwardDirection, SimpleMath::Quaternion& OutWorldRotation) {
+        SimpleMath::Quaternion SafeCurrentWorldRotation{};
+        SimpleMath::Quaternion SafeWorldDeltaRotation{};
+        SimpleMath::Vector3 SafeCurrentForwardDirection{};
+        if (TryResolveNormalizedQuaternion(CurrentWorldRotation, SafeCurrentWorldRotation) == false || TryResolveNormalizedQuaternion(WorldDeltaRotation, SafeWorldDeltaRotation) == false || TryResolveNormalizedVector(CurrentForwardDirection, SafeCurrentForwardDirection) == false) {
+            return false;
+        }
+
+        SimpleMath::Quaternion InverseCurrentWorldRotation{ -SafeCurrentWorldRotation.x, -SafeCurrentWorldRotation.y, -SafeCurrentWorldRotation.z, SafeCurrentWorldRotation.w };
+        if (TryResolveNormalizedQuaternion(InverseCurrentWorldRotation, InverseCurrentWorldRotation) == false) {
+            return false;
+        }
+
+        const SimpleMath::Vector3 LocalForwardDirection{ SimpleMath::Vector3::Transform(SafeCurrentForwardDirection, InverseCurrentWorldRotation) };
+        SimpleMath::Vector3 SafeLocalForwardDirection{};
+        if (TryResolveNormalizedVector(LocalForwardDirection, SafeLocalForwardDirection) == false) {
+            return false;
+        }
+
+        const SimpleMath::Quaternion WorldDeltaPreMultipliedRotation{ SafeWorldDeltaRotation * SafeCurrentWorldRotation };
+        const SimpleMath::Quaternion WorldDeltaPostMultipliedRotation{ SafeCurrentWorldRotation * SafeWorldDeltaRotation };
+        SimpleMath::Quaternion SafeWorldDeltaPreMultipliedRotation{};
+        SimpleMath::Quaternion SafeWorldDeltaPostMultipliedRotation{};
+        if (TryResolveNormalizedQuaternion(WorldDeltaPreMultipliedRotation, SafeWorldDeltaPreMultipliedRotation) == false || TryResolveNormalizedQuaternion(WorldDeltaPostMultipliedRotation, SafeWorldDeltaPostMultipliedRotation) == false) {
+            return false;
+        }
+
+        const SimpleMath::Vector3 ExpectedForwardDirection{ SimpleMath::Vector3::Transform(SafeCurrentForwardDirection, SafeWorldDeltaRotation) };
+        SimpleMath::Vector3 SafeExpectedForwardDirection{};
+        if (TryResolveNormalizedVector(ExpectedForwardDirection, SafeExpectedForwardDirection) == false) {
+            return false;
+        }
+
+        const SimpleMath::Vector3 PredictedForwardDirectionForPreMultipliedRotation{ SimpleMath::Vector3::Transform(SafeLocalForwardDirection, SafeWorldDeltaPreMultipliedRotation) };
+        const SimpleMath::Vector3 PredictedForwardDirectionForPostMultipliedRotation{ SimpleMath::Vector3::Transform(SafeLocalForwardDirection, SafeWorldDeltaPostMultipliedRotation) };
+        SimpleMath::Vector3 SafePredictedForwardDirectionForPreMultipliedRotation{};
+        SimpleMath::Vector3 SafePredictedForwardDirectionForPostMultipliedRotation{};
+        if (TryResolveNormalizedVector(PredictedForwardDirectionForPreMultipliedRotation, SafePredictedForwardDirectionForPreMultipliedRotation) == false || TryResolveNormalizedVector(PredictedForwardDirectionForPostMultipliedRotation, SafePredictedForwardDirectionForPostMultipliedRotation) == false) {
+            return false;
+        }
+
+        const float PreMultipliedScore{ SafePredictedForwardDirectionForPreMultipliedRotation.Dot(SafeExpectedForwardDirection) };
+        const float PostMultipliedScore{ SafePredictedForwardDirectionForPostMultipliedRotation.Dot(SafeExpectedForwardDirection) };
+        OutWorldRotation = PreMultipliedScore >= PostMultipliedScore ? SafeWorldDeltaPreMultipliedRotation : SafeWorldDeltaPostMultipliedRotation;
+        return true;
     }
 
     float ResolveSafeLength(const SimpleMath::Vector3& StartPosition, const SimpleMath::Vector3& EndPosition) {
@@ -158,9 +326,10 @@ namespace {
         return Arche::NullEntityID;
     }
 
-    bool TryResolveTerrainGroundY(Arche::World& World, const SimpleMath::Vector3& Position, float& OutGroundY) {
+    bool TryResolveTerrainGround(Arche::World& World, const SimpleMath::Vector3& Position, float& OutGroundY, SimpleMath::Vector3& OutGroundNormal) {
         bool IsResolved{};
         float HighestGroundY{};
+        SimpleMath::Vector3 HighestGroundNormal{ SimpleMath::Vector3::Up };
         for (const auto [TerrainCollideeComponent] : World.Query<Game::TerrainCollidee>()) {
             Game::TerrainHeightResolver* TerrainHeightResolverPointer{ TerrainCollideeComponent.mTerrainHeightResolver };
             if (TerrainHeightResolverPointer == nullptr) {
@@ -168,21 +337,30 @@ namespace {
             }
 
             SimpleMath::Vector3 CandidatePosition{ Position };
-            if (TerrainHeightResolverPointer->TryResolvePositionY(CandidatePosition) == false || IsFiniteVector3(CandidatePosition) == false) {
+            SimpleMath::Vector3 CandidateGroundNormal{ SimpleMath::Vector3::Up };
+            if (TerrainHeightResolverPointer->TryResolvePositionYAndNormal(CandidatePosition, CandidateGroundNormal) == false || IsFiniteVector3(CandidatePosition) == false || IsFiniteVector3(CandidateGroundNormal) == false) {
                 continue;
             }
 
+            const float CandidateGroundNormalLengthSquared{ CandidateGroundNormal.LengthSquared() };
+            if (IsFiniteFloat(CandidateGroundNormalLengthSquared) == false || CandidateGroundNormalLengthSquared <= SurfaceNormalLengthEpsilon) {
+                continue;
+            }
+
+            CandidateGroundNormal.Normalize();
             if (IsResolved == false || CandidatePosition.y > HighestGroundY) {
                 HighestGroundY = CandidatePosition.y;
+                HighestGroundNormal = CandidateGroundNormal;
                 IsResolved = true;
             }
         }
 
-        if (IsResolved == false || IsFiniteFloat(HighestGroundY) == false) {
+        if (IsResolved == false || IsFiniteFloat(HighestGroundY) == false || IsFiniteVector3(HighestGroundNormal) == false) {
             return false;
         }
 
         OutGroundY = HighestGroundY;
+        OutGroundNormal = HighestGroundNormal;
         return true;
     }
 
@@ -208,6 +386,8 @@ namespace {
     void ResolveFootBoneEntities(const Arche::World::WorldReadOnlyView& ReadOnlyWorld, const Game::FootIKRig& FootIKRigComponent, const Arche::EntityID BoneRootEntityId, Game::FootIKRuntime& InOutFootIKRuntimeComponent) {
         InOutFootIKRuntimeComponent.mLeftFootEntityId = Arche::NullEntityID;
         InOutFootIKRuntimeComponent.mRightFootEntityId = Arche::NullEntityID;
+        InOutFootIKRuntimeComponent.mLeftToeEntityId = Arche::NullEntityID;
+        InOutFootIKRuntimeComponent.mRightToeEntityId = Arche::NullEntityID;
         InOutFootIKRuntimeComponent.mLeftShinEntityId = Arche::NullEntityID;
         InOutFootIKRuntimeComponent.mRightShinEntityId = Arche::NullEntityID;
         InOutFootIKRuntimeComponent.mLeftThighEntityId = Arche::NullEntityID;
@@ -220,6 +400,8 @@ namespace {
 
         const ::std::string_view LeftFootBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mLeftFootBoneName) };
         const ::std::string_view RightFootBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mRightFootBoneName) };
+        const ::std::string_view LeftToeBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mLeftToeBoneName) };
+        const ::std::string_view RightToeBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mRightToeBoneName) };
         const ::std::string_view LeftShinBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mLeftShinBoneName) };
         const ::std::string_view RightShinBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mRightShinBoneName) };
         const ::std::string_view LeftThighBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mLeftThighBoneName) };
@@ -228,6 +410,8 @@ namespace {
 
         InOutFootIKRuntimeComponent.mLeftFootEntityId = FindBoneEntityByNameInHierarchy(ReadOnlyWorld, BoneRootEntityId, LeftFootBoneNameText);
         InOutFootIKRuntimeComponent.mRightFootEntityId = FindBoneEntityByNameInHierarchy(ReadOnlyWorld, BoneRootEntityId, RightFootBoneNameText);
+        InOutFootIKRuntimeComponent.mLeftToeEntityId = FindBoneEntityByNameInHierarchy(ReadOnlyWorld, BoneRootEntityId, LeftToeBoneNameText);
+        InOutFootIKRuntimeComponent.mRightToeEntityId = FindBoneEntityByNameInHierarchy(ReadOnlyWorld, BoneRootEntityId, RightToeBoneNameText);
         InOutFootIKRuntimeComponent.mLeftShinEntityId = FindBoneEntityByNameInHierarchy(ReadOnlyWorld, BoneRootEntityId, LeftShinBoneNameText);
         InOutFootIKRuntimeComponent.mRightShinEntityId = FindBoneEntityByNameInHierarchy(ReadOnlyWorld, BoneRootEntityId, RightShinBoneNameText);
         InOutFootIKRuntimeComponent.mLeftThighEntityId = FindBoneEntityByNameInHierarchy(ReadOnlyWorld, BoneRootEntityId, LeftThighBoneNameText);
@@ -254,7 +438,7 @@ namespace {
         return true;
     }
 
-    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY) {
+    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutGroundNormal) {
         if (FootEntityId == Arche::NullEntityID) {
             return false;
         }
@@ -270,7 +454,8 @@ namespace {
         }
 
         float GroundY{};
-        if (TryResolveTerrainGroundY(World, FootWorldPosition, GroundY) == false) {
+        SimpleMath::Vector3 GroundNormal{ SimpleMath::Vector3::Up };
+        if (TryResolveTerrainGround(World, FootWorldPosition, GroundY, GroundNormal) == false) {
             return false;
         }
 
@@ -285,6 +470,7 @@ namespace {
         }
 
         OutTargetOffsetY = TargetOffsetY;
+        OutGroundNormal = GroundNormal;
         return true;
     }
 
@@ -348,6 +534,153 @@ namespace {
         BoneTransformComponent->position = DecomposedPosition;
         InOutWorldMatrices[BoneEntityId] = DesiredBoneWorldMatrix;
         return true;
+    }
+
+    bool TryApplyWorldRotationToBoneTransform(Arche::World& World, const Arche::EntityID BoneEntityId, const SimpleMath::Quaternion& DesiredWorldRotation, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        if (BoneEntityId == Arche::NullEntityID || IsFiniteQuaternion(DesiredWorldRotation) == false) {
+            return false;
+        }
+
+        SimpleMath::Quaternion SafeDesiredWorldRotation{ DesiredWorldRotation };
+        const float DesiredWorldRotationLengthSquared{ (SafeDesiredWorldRotation.x * SafeDesiredWorldRotation.x) + (SafeDesiredWorldRotation.y * SafeDesiredWorldRotation.y) + (SafeDesiredWorldRotation.z * SafeDesiredWorldRotation.z) + (SafeDesiredWorldRotation.w * SafeDesiredWorldRotation.w) };
+        if (IsFiniteFloat(DesiredWorldRotationLengthSquared) == false || DesiredWorldRotationLengthSquared <= SurfaceNormalLengthEpsilon) {
+            return false;
+        }
+
+        SafeDesiredWorldRotation.Normalize();
+        Game::Transform* BoneTransformComponent{ World.GetComponent<Game::Transform>(BoneEntityId) };
+        const Game::EntityHierarchy* BoneHierarchyComponent{ ::std::as_const(World).GetComponent<Game::EntityHierarchy>(BoneEntityId) };
+        if (BoneTransformComponent == nullptr || BoneHierarchyComponent == nullptr) {
+            return false;
+        }
+
+        SimpleMath::Matrix BoneWorldMatrix{};
+        if (TryResolveWorldMatrix(World, BoneEntityId, InOutWorldMatrices, BoneWorldMatrix) == false) {
+            return false;
+        }
+
+        SimpleMath::Vector3 CurrentWorldScale{};
+        SimpleMath::Quaternion CurrentWorldRotation{};
+        SimpleMath::Vector3 CurrentWorldPosition{};
+        const bool IsCurrentWorldDecomposeSucceeded{ BoneWorldMatrix.Decompose(CurrentWorldScale, CurrentWorldRotation, CurrentWorldPosition) };
+        if (IsCurrentWorldDecomposeSucceeded == false || IsFiniteVector3(CurrentWorldScale) == false || IsFiniteVector3(CurrentWorldPosition) == false) {
+            return false;
+        }
+
+        SimpleMath::Matrix ParentWorldMatrix{ SimpleMath::Matrix::Identity };
+        if (BoneHierarchyComponent->parent != Arche::NullEntityID) {
+            if (TryResolveWorldMatrix(World, BoneHierarchyComponent->parent, InOutWorldMatrices, ParentWorldMatrix) == false) {
+                return false;
+            }
+        }
+
+        const SimpleMath::Matrix DesiredBoneWorldMatrix{ SimpleMath::Matrix::CreateScale(CurrentWorldScale) * SimpleMath::Matrix::CreateFromQuaternion(SafeDesiredWorldRotation) * SimpleMath::Matrix::CreateTranslation(CurrentWorldPosition) };
+        SimpleMath::Matrix ParentWorldInverseMatrix{ ParentWorldMatrix };
+        ParentWorldInverseMatrix = ParentWorldInverseMatrix.Invert();
+        if (IsFiniteFloat(ParentWorldInverseMatrix._11) == false) {
+            return false;
+        }
+
+        const SimpleMath::Matrix DesiredBoneLocalWorldMatrix{ DesiredBoneWorldMatrix * ParentWorldInverseMatrix };
+        SimpleMath::Matrix NodeToParentInverseMatrix{ BoneTransformComponent->nodeToParent };
+        NodeToParentInverseMatrix = NodeToParentInverseMatrix.Invert();
+        if (IsFiniteFloat(NodeToParentInverseMatrix._11) == false) {
+            return false;
+        }
+
+        SimpleMath::Matrix DesiredTrsMatrix{ NodeToParentInverseMatrix * DesiredBoneLocalWorldMatrix };
+        SimpleMath::Vector3 DecomposedScale{};
+        SimpleMath::Quaternion DecomposedRotation{};
+        SimpleMath::Vector3 DecomposedPosition{};
+        const bool IsDesiredTrsDecomposeSucceeded{ DesiredTrsMatrix.Decompose(DecomposedScale, DecomposedRotation, DecomposedPosition) };
+        if (IsDesiredTrsDecomposeSucceeded == false || IsFiniteVector3(DecomposedPosition) == false || IsFiniteQuaternion(DecomposedRotation) == false) {
+            return false;
+        }
+
+        DecomposedRotation.Normalize();
+        BoneTransformComponent->position = DecomposedPosition;
+        BoneTransformComponent->rotation = DecomposedRotation;
+        BoneTransformComponent->UpdateEulerRadiansFromRotation();
+        InOutWorldMatrices[BoneEntityId] = DesiredBoneWorldMatrix;
+        return true;
+    }
+
+    bool TryAlignFootToSurface(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        if (FootEntityId == Arche::NullEntityID || ToeEntityId == Arche::NullEntityID || IsFiniteVector3(SurfaceNormal) == false) {
+            return false;
+        }
+
+        const float SafeAlignmentWeight{ IsFiniteFloat(AlignmentWeight) ? ::std::clamp(AlignmentWeight, 0.0f, 1.0f) : 0.0f };
+        if (SafeAlignmentWeight <= FootPlantWeightEpsilon) {
+            return false;
+        }
+
+        SimpleMath::Vector3 SafeSurfaceNormal{};
+        if (TryResolveNormalizedVector(SurfaceNormal, SafeSurfaceNormal) == false) {
+            return false;
+        }
+
+        SimpleMath::Matrix FootWorldMatrix{};
+        SimpleMath::Matrix ToeWorldMatrix{};
+        if (TryResolveWorldMatrix(World, FootEntityId, InOutWorldMatrices, FootWorldMatrix) == false || TryResolveWorldMatrix(World, ToeEntityId, InOutWorldMatrices, ToeWorldMatrix) == false) {
+            return false;
+        }
+
+        const SimpleMath::Vector3 FootWorldPosition{ FootWorldMatrix._41, FootWorldMatrix._42, FootWorldMatrix._43 };
+        const SimpleMath::Vector3 ToeWorldPosition{ ToeWorldMatrix._41, ToeWorldMatrix._42, ToeWorldMatrix._43 };
+        if (IsFiniteVector3(FootWorldPosition) == false || IsFiniteVector3(ToeWorldPosition) == false) {
+            return false;
+        }
+
+        SimpleMath::Vector3 CurrentWorldScale{};
+        SimpleMath::Quaternion CurrentWorldRotation{};
+        SimpleMath::Vector3 CurrentWorldPosition{};
+        const bool IsCurrentFootDecomposeSucceeded{ FootWorldMatrix.Decompose(CurrentWorldScale, CurrentWorldRotation, CurrentWorldPosition) };
+        if (IsCurrentFootDecomposeSucceeded == false || TryResolveNormalizedQuaternion(CurrentWorldRotation, CurrentWorldRotation) == false) {
+            return false;
+        }
+
+        const SimpleMath::Vector3 FootToToeDirection{ ToeWorldPosition - FootWorldPosition };
+        SimpleMath::Vector3 SafeFootToToeDirection{};
+        if (TryResolveNormalizedVector(FootToToeDirection, SafeFootToToeDirection) == false) {
+            return false;
+        }
+
+        const SimpleMath::Vector3 CurrentUpDirection{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Up, CurrentWorldRotation) };
+        SimpleMath::Vector3 SafeCurrentUpDirection{};
+        if (TryResolveNormalizedVector(CurrentUpDirection, SafeCurrentUpDirection) == false) {
+            return false;
+        }
+
+        SimpleMath::Vector3 CurrentFootNormal{ SafeCurrentUpDirection - (SafeFootToToeDirection * SafeCurrentUpDirection.Dot(SafeFootToToeDirection)) };
+        if (TryResolveNormalizedVector(CurrentFootNormal, CurrentFootNormal) == false) {
+            CurrentFootNormal = SafeCurrentUpDirection;
+        }
+
+        if (TryResolveNormalizedVector(CurrentFootNormal, CurrentFootNormal) == false) {
+            return false;
+        }
+
+        if (CurrentFootNormal.Dot(SafeSurfaceNormal) < 0.0f) {
+            CurrentFootNormal *= -1.0f;
+        }
+
+        SimpleMath::Vector3 DesiredSurfaceNormal{ CurrentFootNormal + ((SafeSurfaceNormal - CurrentFootNormal) * SafeAlignmentWeight) };
+        if (TryResolveNormalizedVector(DesiredSurfaceNormal, DesiredSurfaceNormal) == false) {
+            DesiredSurfaceNormal = CurrentFootNormal;
+        }
+
+        SimpleMath::Quaternion SurfaceAlignDeltaRotation{};
+        if (TryResolveClampedFromToRotation(CurrentFootNormal, DesiredSurfaceNormal, MaxFootTiltRadians, SurfaceAlignDeltaRotation) == false) {
+            return false;
+        }
+
+        SimpleMath::Quaternion DesiredWorldRotation{};
+        if (TryResolveWorldRotationWithWorldDelta(CurrentWorldRotation, SurfaceAlignDeltaRotation, SafeFootToToeDirection, DesiredWorldRotation) == false) {
+            return false;
+        }
+
+        return TryApplyWorldRotationToBoneTransform(World, FootEntityId, DesiredWorldRotation, InOutWorldMatrices);
     }
 
     float ResolveLegChainPropagationLimit(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
@@ -456,6 +789,20 @@ namespace {
         return ::std::lerp(SafeCurrentOffset, SafeTargetOffset, BlendAlpha);
     }
 
+    float ResolveFootPlantWeight(const float TargetOffset) {
+        const float SafeTargetOffset{ IsFiniteFloat(TargetOffset) ? TargetOffset : 0.0f };
+        if (SafeTargetOffset <= FootPlantReleaseOffset) {
+            return 0.0f;
+        }
+
+        if (SafeTargetOffset >= FootPlantEngageOffset) {
+            return 1.0f;
+        }
+
+        const float PlantWeightAlpha{ (SafeTargetOffset - FootPlantReleaseOffset) / (FootPlantEngageOffset - FootPlantReleaseOffset) };
+        return ::std::clamp(PlantWeightAlpha, 0.0f, 1.0f);
+    }
+
     float ResolveDominantOffset(const float LeftOffset, const float RightOffset) {
         const float SafeLeftOffset{ IsFiniteFloat(LeftOffset) ? LeftOffset : 0.0f };
         const float SafeRightOffset{ IsFiniteFloat(RightOffset) ? RightOffset : 0.0f };
@@ -561,6 +908,8 @@ namespace Game {
 
             const ::std::string_view LeftFootBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftFootBoneName) };
             const ::std::string_view RightFootBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightFootBoneName) };
+            const ::std::string_view LeftToeBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftToeBoneName) };
+            const ::std::string_view RightToeBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightToeBoneName) };
             const ::std::string_view LeftShinBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftShinBoneName) };
             const ::std::string_view RightShinBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightShinBoneName) };
             const ::std::string_view LeftThighBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftThighBoneName) };
@@ -569,12 +918,14 @@ namespace Game {
 
             const bool IsLeftFootCachedEntityValid{ IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mLeftFootEntityId, LeftFootBoneNameText) };
             const bool IsRightFootCachedEntityValid{ IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mRightFootEntityId, RightFootBoneNameText) };
+            const bool IsLeftToeCachedEntityValid{ IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mLeftToeEntityId, LeftToeBoneNameText) };
+            const bool IsRightToeCachedEntityValid{ IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mRightToeEntityId, RightToeBoneNameText) };
             const bool IsLeftShinCachedEntityValid{ IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mLeftShinEntityId, LeftShinBoneNameText) };
             const bool IsRightShinCachedEntityValid{ IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mRightShinEntityId, RightShinBoneNameText) };
             const bool IsLeftThighCachedEntityValid{ IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mLeftThighEntityId, LeftThighBoneNameText) };
             const bool IsRightThighCachedEntityValid{ IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mRightThighEntityId, RightThighBoneNameText) };
             const bool IsPelvisCachedEntityValid{ IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mPelvisEntityId, PelvisBoneNameText) };
-            if (IsLeftFootCachedEntityValid == false || IsRightFootCachedEntityValid == false || IsLeftShinCachedEntityValid == false || IsRightShinCachedEntityValid == false || IsLeftThighCachedEntityValid == false || IsRightThighCachedEntityValid == false || IsPelvisCachedEntityValid == false) {
+            if (IsLeftFootCachedEntityValid == false || IsRightFootCachedEntityValid == false || IsLeftToeCachedEntityValid == false || IsRightToeCachedEntityValid == false || IsLeftShinCachedEntityValid == false || IsRightShinCachedEntityValid == false || IsLeftThighCachedEntityValid == false || IsRightThighCachedEntityValid == false || IsPelvisCachedEntityValid == false) {
                 FootIKRuntimeComponent.mResolved = false;
             }
 
@@ -582,26 +933,49 @@ namespace Game {
                 ResolveFootBoneEntities(ReadOnlyWorld, FootIKRigComponent, BoneSkinReferenceComponent.boneRootEntityId, FootIKRuntimeComponent);
             }
 
-            float LeftTargetOffset{};
-            float RightTargetOffset{};
+            float LeftRawTargetOffset{};
+            float RightRawTargetOffset{};
+            float LeftTargetPlantWeight{};
+            float RightTargetPlantWeight{};
+            bool IsLeftGroundNormalResolved{};
+            bool IsRightGroundNormalResolved{};
+            SimpleMath::Vector3 LeftGroundNormal{ SimpleMath::Vector3::Up };
+            SimpleMath::Vector3 RightGroundNormal{ SimpleMath::Vector3::Up };
             if (FootIKRigComponent.mEnabled == true && FootIKRuntimeComponent.mResolved == true) {
                 float LeftResolvedTargetOffset{};
-                const bool IsLeftTargetOffsetResolved{ TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mLeftFootEntityId, WorldMatrices, LeftResolvedTargetOffset) };
+                SimpleMath::Vector3 LeftResolvedGroundNormal{ SimpleMath::Vector3::Up };
+                const bool IsLeftTargetOffsetResolved{ TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mLeftFootEntityId, WorldMatrices, LeftResolvedTargetOffset, LeftResolvedGroundNormal) };
                 if (IsLeftTargetOffsetResolved == true) {
-                    LeftTargetOffset = LeftResolvedTargetOffset;
+                    LeftRawTargetOffset = LeftResolvedTargetOffset;
+                    LeftTargetPlantWeight = ResolveFootPlantWeight(LeftResolvedTargetOffset);
+                    LeftGroundNormal = LeftResolvedGroundNormal;
+                    IsLeftGroundNormalResolved = true;
                 }
 
                 float RightResolvedTargetOffset{};
-                const bool IsRightTargetOffsetResolved{ TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mRightFootEntityId, WorldMatrices, RightResolvedTargetOffset) };
+                SimpleMath::Vector3 RightResolvedGroundNormal{ SimpleMath::Vector3::Up };
+                const bool IsRightTargetOffsetResolved{ TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mRightFootEntityId, WorldMatrices, RightResolvedTargetOffset, RightResolvedGroundNormal) };
                 if (IsRightTargetOffsetResolved == true) {
-                    RightTargetOffset = RightResolvedTargetOffset;
+                    RightRawTargetOffset = RightResolvedTargetOffset;
+                    RightTargetPlantWeight = ResolveFootPlantWeight(RightResolvedTargetOffset);
+                    RightGroundNormal = RightResolvedGroundNormal;
+                    IsRightGroundNormalResolved = true;
                 }
             }
 
+            const float PreviousLeftPlantWeight{ IsFiniteFloat(FootIKRuntimeComponent.mLeftPlantWeight) ? ::std::clamp(FootIKRuntimeComponent.mLeftPlantWeight, 0.0f, 1.0f) : 0.0f };
+            const float PreviousRightPlantWeight{ IsFiniteFloat(FootIKRuntimeComponent.mRightPlantWeight) ? ::std::clamp(FootIKRuntimeComponent.mRightPlantWeight, 0.0f, 1.0f) : 0.0f };
+            const float SmoothedLeftPlantWeight{ ResolveSmoothedOffset(PreviousLeftPlantWeight, LeftTargetPlantWeight, FootIKRigComponent.mBlendSpeed, Dt) };
+            const float SmoothedRightPlantWeight{ ResolveSmoothedOffset(PreviousRightPlantWeight, RightTargetPlantWeight, FootIKRigComponent.mBlendSpeed, Dt) };
+            FootIKRuntimeComponent.mLeftPlantWeight = IsFiniteFloat(SmoothedLeftPlantWeight) ? ::std::clamp(SmoothedLeftPlantWeight, 0.0f, 1.0f) : 0.0f;
+            FootIKRuntimeComponent.mRightPlantWeight = IsFiniteFloat(SmoothedRightPlantWeight) ? ::std::clamp(SmoothedRightPlantWeight, 0.0f, 1.0f) : 0.0f;
+
             const float MaxLift{ ::std::max(FootIKRigComponent.mMaxLift, 0.0f) };
             const float MaxDrop{ ::std::max(FootIKRigComponent.mMaxDrop, 0.0f) };
-            LeftTargetOffset = ::std::clamp(LeftTargetOffset, -MaxDrop, MaxLift);
-            RightTargetOffset = ::std::clamp(RightTargetOffset, -MaxDrop, MaxLift);
+            float LeftTargetOffset{ ::std::clamp(LeftRawTargetOffset, -MaxDrop, MaxLift) };
+            float RightTargetOffset{ ::std::clamp(RightRawTargetOffset, -MaxDrop, MaxLift) };
+            LeftTargetOffset *= FootIKRuntimeComponent.mLeftPlantWeight;
+            RightTargetOffset *= FootIKRuntimeComponent.mRightPlantWeight;
 
             const float PreviousLeftOffset{ IsFiniteFloat(FootIKRuntimeComponent.mLeftCurrentOffset) ? FootIKRuntimeComponent.mLeftCurrentOffset : 0.0f };
             const float PreviousRightOffset{ IsFiniteFloat(FootIKRuntimeComponent.mRightCurrentOffset) ? FootIKRuntimeComponent.mRightCurrentOffset : 0.0f };
@@ -646,6 +1020,22 @@ namespace Game {
             const ::std::array<BoneOffsetTarget, 3> RightOverflowTargets{ { BoneOffsetTarget{ FootIKRuntimeComponent.mRightThighEntityId, OverflowThighWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mRightShinEntityId, OverflowShinWeight }, BoneOffsetTarget{ FootIKRuntimeComponent.mRightFootEntityId, OverflowFootWeight } } };
             TryApplyDistributedOffsetToBones(World, LeftOverflowTargets, LeftOverflowAfterPelvis, WorldMatrices);
             TryApplyDistributedOffsetToBones(World, RightOverflowTargets, RightOverflowAfterPelvis, WorldMatrices);
+
+            if (FootIKRigComponent.mEnabled == true && FootIKRuntimeComponent.mResolved == true) {
+                if (IsLeftGroundNormalResolved == true) {
+                    const bool IsLeftFootSurfaceAligned{ TryAlignFootToSurface(World, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, LeftGroundNormal, FootIKRuntimeComponent.mLeftPlantWeight, WorldMatrices) };
+                    if (IsLeftFootSurfaceAligned == true) {
+                        WorldMatrices.clear();
+                    }
+                }
+
+                if (IsRightGroundNormalResolved == true) {
+                    const bool IsRightFootSurfaceAligned{ TryAlignFootToSurface(World, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, RightGroundNormal, FootIKRuntimeComponent.mRightPlantWeight, WorldMatrices) };
+                    if (IsRightFootSurfaceAligned == true) {
+                        WorldMatrices.clear();
+                    }
+                }
+            }
         }
     }
 }

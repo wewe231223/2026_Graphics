@@ -18,6 +18,7 @@ namespace Game {
     public:
         void Initialize(const HeightFieldData& HeightFieldDataValue, const TerrainBuildDesc& TerrainBuildDescValue);
         bool TryResolvePositionY(SimpleMath::Vector3& InOutPosition) const;
+        bool TryResolvePositionYAndNormal(SimpleMath::Vector3& InOutPosition, SimpleMath::Vector3& OutNormal) const;
 
     private:
         std::uint32_t CalculateHeightFieldIndex(std::uint32_t GridX, std::uint32_t GridZ) const;

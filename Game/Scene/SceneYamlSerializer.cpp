@@ -1041,6 +1041,18 @@ namespace Game {
                     SetFootIKRigBoneName(NewFootIKRig.mRightFootBoneName, RightFootBoneNameText);
                 }
 
+                if (FootIKRigNode.has_child("leftToeBoneName")) {
+                    std::string LeftToeBoneNameText{};
+                    FootIKRigNode["leftToeBoneName"] >> LeftToeBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mLeftToeBoneName, LeftToeBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("rightToeBoneName")) {
+                    std::string RightToeBoneNameText{};
+                    FootIKRigNode["rightToeBoneName"] >> RightToeBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mRightToeBoneName, RightToeBoneNameText);
+                }
+
                 if (FootIKRigNode.has_child("leftShinBoneName")) {
                     std::string LeftShinBoneNameText{};
                     FootIKRigNode["leftShinBoneName"] >> LeftShinBoneNameText;
@@ -1851,6 +1863,8 @@ namespace Game {
                 AppendLine(Stream, 4, std::string{ "enabled: " } + ToYamlBooleanText(FootIKRigComponent->mEnabled));
                 AppendLine(Stream, 4, std::string{ "leftFootBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mLeftFootBoneName)));
                 AppendLine(Stream, 4, std::string{ "rightFootBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mRightFootBoneName)));
+                AppendLine(Stream, 4, std::string{ "leftToeBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mLeftToeBoneName)));
+                AppendLine(Stream, 4, std::string{ "rightToeBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mRightToeBoneName)));
                 AppendLine(Stream, 4, std::string{ "leftShinBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mLeftShinBoneName)));
                 AppendLine(Stream, 4, std::string{ "rightShinBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mRightShinBoneName)));
                 AppendLine(Stream, 4, std::string{ "leftThighBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mLeftThighBoneName)));

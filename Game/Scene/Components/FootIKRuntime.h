@@ -9,6 +9,8 @@ namespace Game {
         ComponentFields(
             ComponentField(Arche::EntityID, mLeftFootEntityId, Arche::NullEntityID)
             ComponentField(Arche::EntityID, mRightFootEntityId, Arche::NullEntityID)
+            ComponentField(Arche::EntityID, mLeftToeEntityId, Arche::NullEntityID)
+            ComponentField(Arche::EntityID, mRightToeEntityId, Arche::NullEntityID)
             ComponentField(Arche::EntityID, mLeftShinEntityId, Arche::NullEntityID)
             ComponentField(Arche::EntityID, mRightShinEntityId, Arche::NullEntityID)
             ComponentField(Arche::EntityID, mLeftThighEntityId, Arche::NullEntityID)
@@ -17,6 +19,8 @@ namespace Game {
             ComponentField(float, mLeftCurrentOffset, 0.0f)
             ComponentField(float, mRightCurrentOffset, 0.0f)
             ComponentField(float, mCurrentOffset, 0.0f)
+            ComponentField(float, mLeftPlantWeight, 0.0f)
+            ComponentField(float, mRightPlantWeight, 0.0f)
             ComponentField(bool, mResolved, false)
         ),
         BOOST_PP_SEQ_NIL
