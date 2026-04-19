@@ -208,6 +208,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             }
 
             if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("IK");
+            }
+            SceneInstance.ExecutePhase(Game::Phase::IK, Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().BeginPhaseProfile("RenderPrepare");
             }
             SceneInstance.ExecutePhase(Game::Phase::RenderPrepare, Globals::Time::Get().GetDeltaTime<float>());

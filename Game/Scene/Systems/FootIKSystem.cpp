@@ -836,7 +836,7 @@ namespace Game {
     }
 
     Phase FootIKSystem::GetPhase() const {
-        return Phase::RenderPrepare;
+        return Phase::IK;
     }
 
     std::span<const ComponentAccess> FootIKSystem::ComponentAccesses() const {
