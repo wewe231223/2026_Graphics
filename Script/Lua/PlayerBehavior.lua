@@ -1,30 +1,87 @@
 local MoveSpeed = 10.0
-local YawLookSensitivity = 0.0026
+local MaxRotationDegreesPerSecond = 720.0
 local IsMovingParameterIndex = 0
+local CurrentSpeedParameterIndex = 1
+local DirectionDeltaDegreesParameterIndex = 2
+local Pi = math.pi
+local TwoPi = Pi * 2.0
 
-local function BuildMoveDirection()
-    local MoveDirection = Vector3.new()
-    MoveDirection.x = GetAxisFromKeys(A, D)
-    MoveDirection.z = GetAxisFromKeys(S, W)
-    return NormalizeVector3(MoveDirection)
-end
+local function BuildMoveInput()
+    local MoveInput = Vector2.new(0.0, 0.0)
+    MoveInput.x = GetAxisFromKeys(A, D)
+    MoveInput.y = GetAxisFromKeys(W, S)
 
-local function ApplyYawRotation(TransformComponent)
-    local YawDelta = GetInputMouseDeltaX() * YawLookSensitivity
-    TransformComponent:RotateRadians(0.0, YawDelta, 0.0)
-end
-
-local function ApplyMovement(TransformComponent, MoveDirection, DeltaSeconds)
-    if IsZeroVector3(MoveDirection) then
-        return false
+    local InputLengthSquared = (MoveInput.x * MoveInput.x) + (MoveInput.y * MoveInput.y)
+    if InputLengthSquared > 1.0 then
+        local InverseLength = 1.0 / math.sqrt(InputLengthSquared)
+        MoveInput.x = MoveInput.x * InverseLength
+        MoveInput.y = MoveInput.y * InverseLength
     end
 
-    local MoveDistance = MoveSpeed * DeltaSeconds
-    local WorldMoveDirection = TransformComponent:TransformDirectionToWorld(MoveDirection)
-    local Translation = Vector3.new(WorldMoveDirection.x * MoveDistance, 0.0, WorldMoveDirection.z * MoveDistance)
-    TransformComponent:Translate(Translation)
+    return MoveInput
+end
 
-    return true
+local function NormalizeAngleRadians(Value)
+    local NormalizedValue = Value
+
+    while NormalizedValue > Pi do
+        NormalizedValue = NormalizedValue - TwoPi
+    end
+
+    while NormalizedValue < -Pi do
+        NormalizedValue = NormalizedValue + TwoPi
+    end
+
+    return NormalizedValue
+end
+
+local function BuildFinalTargetDirection(MoveInput)
+    local CameraForward = GetActiveCameraForwardDirection()
+    local CameraRight = GetActiveCameraRightDirection()
+
+    local FlatCameraForward = NormalizeVector3(Vector3.new(-CameraForward.x, 0.0, -CameraForward.z))
+    local FlatCameraRight = NormalizeVector3(Vector3.new(-CameraRight.x, 0.0, -CameraRight.z))
+
+    local FinalTargetDirection = AddVector3(ScaleVector3(FlatCameraForward, MoveInput.y), ScaleVector3(FlatCameraRight, MoveInput.x))
+    return NormalizeVector3(FinalTargetDirection)
+end
+
+local function ApplySmoothedYawRotation(TransformComponent, FinalTargetDirection, DeltaSeconds)
+    if Vector3LengthSquared(FinalTargetDirection) <= 0.0 then
+        return 0.0
+    end
+
+    local TargetYawRadians = math.atan(FinalTargetDirection.x, FinalTargetDirection.z)
+    local CurrentYawRadians = TransformComponent.rotationEuler.y
+    local MaxYawDeltaRadians = math.rad(MaxRotationDegreesPerSecond) * DeltaSeconds
+    local YawDeltaRadians = NormalizeAngleRadians(TargetYawRadians - CurrentYawRadians)
+    local ClampedYawDeltaRadians = Clamp(YawDeltaRadians, -MaxYawDeltaRadians, MaxYawDeltaRadians)
+    local NextYawRadians = CurrentYawRadians + ClampedYawDeltaRadians
+
+    local CurrentEulerRadians = TransformComponent.rotationEuler
+    TransformComponent.rotationEuler = Vector3.new(CurrentEulerRadians.x, NextYawRadians, CurrentEulerRadians.z)
+    TransformComponent:UpdateRotationFromEulerRadians()
+
+    return NormalizeAngleRadians(TargetYawRadians - NextYawRadians)
+end
+
+local function ApplyForwardMovement(TransformComponent, MoveInput, DeltaSeconds)
+    local InputMagnitude = math.sqrt((MoveInput.x * MoveInput.x) + (MoveInput.y * MoveInput.y))
+    if InputMagnitude <= 0.0 then
+        return 0.0
+    end
+
+    local MoveDistance = MoveSpeed * InputMagnitude * DeltaSeconds
+    local CurrentForwardDirection = TransformComponent:GetForwardDirection()
+    local FlatForwardDirection = NormalizeVector3(Vector3.new(CurrentForwardDirection.x, 0.0, CurrentForwardDirection.z))
+    if IsZeroVector3(FlatForwardDirection) then
+        return 0.0
+    end
+
+    local Translation = ScaleVector3(FlatForwardDirection, MoveDistance)
+    TransformComponent:Translate(Vector3.new(Translation.x, 0.0, Translation.z))
+
+    return MoveSpeed * InputMagnitude
 end
 
 local function SetMovingState(RuntimeVariableTableComponent, IsMoving)
@@ -33,6 +90,15 @@ local function SetMovingState(RuntimeVariableTableComponent, IsMoving)
     end
 
     RuntimeVariableTableComponent.BoolValues:Set(IsMovingParameterIndex, IsMoving)
+end
+
+local function SetMotionParameters(RuntimeVariableTableComponent, CurrentSpeed, DirectionDeltaDegrees)
+    if RuntimeVariableTableComponent == nil then
+        return
+    end
+
+    RuntimeVariableTableComponent.FloatValues:Set(CurrentSpeedParameterIndex, CurrentSpeed)
+    RuntimeVariableTableComponent.FloatValues:Set(DirectionDeltaDegreesParameterIndex, DirectionDeltaDegrees)
 end
 
 function Awake(Context)
@@ -50,13 +116,15 @@ function Update(Context, DeltaSeconds)
         return
     end
 
-    ApplyYawRotation(TransformComponent)
-
     local RuntimeVariableTableComponent = Context:GetComponent("RuntimeVariableTable")
-    local MoveDirection = BuildMoveDirection()
-    local IsMoving = ApplyMovement(TransformComponent, MoveDirection, DeltaSeconds)
+    local MoveInput = BuildMoveInput()
+    local FinalTargetDirection = BuildFinalTargetDirection(MoveInput)
+    local RemainingDirectionDeltaRadians = ApplySmoothedYawRotation(TransformComponent, FinalTargetDirection, DeltaSeconds)
+    local CurrentSpeed = ApplyForwardMovement(TransformComponent, MoveInput, DeltaSeconds)
+    local IsMoving = CurrentSpeed > 0.0
 
     SetMovingState(RuntimeVariableTableComponent, IsMoving)
+    SetMotionParameters(RuntimeVariableTableComponent, CurrentSpeed, math.deg(RemainingDirectionDeltaRadians))
 end
 
 function FixedUpdate(Context, FixedDeltaSeconds, FixedTick)

@@ -252,6 +252,28 @@ namespace Game {
         mLuaScriptFramework.RegisterGlobalFunction("IsInputMouseRightButtonDown", &Globals::IsInputMouseRightButtonDown);
         mLuaScriptFramework.RegisterGlobalFunction("IsInputMouseMiddleButtonDown", &Globals::IsInputMouseMiddleButtonDown);
         mLuaScriptFramework.RegisterGlobalFunction("GetInputMouseWheelDelta", &Globals::GetInputMouseWheelDelta);
+        mLuaScriptFramework.RegisterGlobalFunction("GetActiveCameraForwardDirection", [this]() -> DirectX::SimpleMath::Vector3 {
+            for (auto [TransformComponent, CameraComponent] : mWorld.Query<Transform, Camera>()) {
+                if (CameraComponent.isActive == false) {
+                    continue;
+                }
+
+                return TransformComponent.GetForwardDirection();
+            }
+
+            return DirectX::SimpleMath::Vector3::Forward;
+        });
+        mLuaScriptFramework.RegisterGlobalFunction("GetActiveCameraRightDirection", [this]() -> DirectX::SimpleMath::Vector3 {
+            for (auto [TransformComponent, CameraComponent] : mWorld.Query<Transform, Camera>()) {
+                if (CameraComponent.isActive == false) {
+                    continue;
+                }
+
+                return TransformComponent.TransformDirectionToWorld(DirectX::SimpleMath::Vector3::Right);
+            }
+
+            return DirectX::SimpleMath::Vector3::Right;
+        });
 
         mLuaScriptFramework.RegisterTypeByDefinition<Arche::EntityID>();
         mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector2>();
