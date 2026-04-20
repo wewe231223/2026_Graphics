@@ -420,10 +420,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         }
         break;
     case WM_KILLFOCUS:
+        Globals::Input::Get().SetWindowFocused(false);
+        break;
     case WM_SETFOCUS:
+        Globals::Input::Get().SetWindowFocused(true);
         break;
         // 아래는 모든 입력을 Keyboard 에게 넘기는 부분입니다. 
     case WM_ACTIVATEAPP:
+        Globals::Input::Get().SetWindowFocused(wParam == TRUE);
+        DirectX::Keyboard::ProcessMessage(message, wParam, lParam);
+        DirectX::Mouse::ProcessMessage(message, wParam, lParam);
+        break;
     case WM_KEYDOWN:
     case WM_KEYUP:
     case WM_SYSKEYUP:
