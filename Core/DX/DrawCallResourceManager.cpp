@@ -85,16 +85,28 @@ namespace Core {
 			bool DrawRecordCopyResult{ mDrawRecordVector.Copy(GraphicsAllocator, DrawRecordSourceData, DrawRecordsGpuSizeInBytes) };
 			ErrorHandler::report(DrawRecordCopyResult == false, "DrawCallResourceManager", "Failed to copy draw record data.", ErrorHandler::Level::Critical);
 
-			if (Data.drawRecords.empty() == true && Data.boundingBoxContexts.empty() == true && Data.debugGeometryContexts.empty() == true) {
-				std::array<Interface::CopyQueueCopyRequest, 3> CopyRequests{ mFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mShadowFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mShadowMappingParameterVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
-				mCopyFuture = CopyQueue->EnqueueCopyFuture(CopyRequests);
-				ErrorHandler::report(mCopyFuture.IsValid() == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
-			}
-			else {
-				std::array<Interface::CopyQueueCopyRequest, 8> CopyRequests{ mFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mShadowFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mShadowMappingParameterVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mModelContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mBoundingBoxContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mDebugGeometryContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mBonePaletteVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mDrawRecordVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
-				mCopyFuture = CopyQueue->EnqueueCopyFuture(CopyRequests);
-				ErrorHandler::report(mCopyFuture.IsValid() == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
-			}
+			std::vector<Interface::CopyQueueCopyRequest> CopyRequests{};
+			CopyRequests.reserve(8);
+
+			auto AddCopyRequestIfValid{ [&CopyRequests, &GraphicsAllocator](GraphicsVector& Vector) {
+				if (Vector.IsValid() == false) {
+					return;
+				}
+
+				CopyRequests.push_back(Vector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0));
+			} };
+
+			AddCopyRequestIfValid(mFrameGlobalsVector);
+			AddCopyRequestIfValid(mShadowFrameGlobalsVector);
+			AddCopyRequestIfValid(mShadowMappingParameterVector);
+			AddCopyRequestIfValid(mModelContextVector);
+			AddCopyRequestIfValid(mBoundingBoxContextVector);
+			AddCopyRequestIfValid(mDebugGeometryContextVector);
+			AddCopyRequestIfValid(mBonePaletteVector);
+			AddCopyRequestIfValid(mDrawRecordVector);
+
+			mCopyFuture = CopyQueue->EnqueueCopyFuture(CopyRequests);
+			ErrorHandler::report(mCopyFuture.IsValid() == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
 
 			DrawCallResourceManager::UpdateShaderResourceViews(1, ShadowCascadeCount, 1, static_cast<std::uint32_t>(Data.modelContexts.size()), static_cast<std::uint32_t>(Data.boundingBoxContexts.size()), static_cast<std::uint32_t>(Data.debugGeometryContexts.size()), static_cast<std::uint32_t>(Data.bonePalette.size()), static_cast<std::uint32_t>(mDrawRecordsGpu.size()));
 		}
