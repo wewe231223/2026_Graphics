@@ -156,51 +156,15 @@ namespace {
         return TryResolveNormalizedQuaternion(AxisAngleRotation, OutRotation);
     }
 
-    bool TryResolveWorldRotationWithWorldDelta(const SimpleMath::Quaternion& CurrentWorldRotation, const SimpleMath::Quaternion& WorldDeltaRotation, const SimpleMath::Vector3& CurrentForwardDirection, SimpleMath::Quaternion& OutWorldRotation) {
+    bool TryResolveWorldRotationWithWorldDelta(const SimpleMath::Quaternion& CurrentWorldRotation, const SimpleMath::Quaternion& WorldDeltaRotation, SimpleMath::Quaternion& OutWorldRotation) {
         SimpleMath::Quaternion SafeCurrentWorldRotation{};
         SimpleMath::Quaternion SafeWorldDeltaRotation{};
-        SimpleMath::Vector3 SafeCurrentForwardDirection{};
-        if (TryResolveNormalizedQuaternion(CurrentWorldRotation, SafeCurrentWorldRotation) == false || TryResolveNormalizedQuaternion(WorldDeltaRotation, SafeWorldDeltaRotation) == false || TryResolveNormalizedVector(CurrentForwardDirection, SafeCurrentForwardDirection) == false) {
+        if (TryResolveNormalizedQuaternion(CurrentWorldRotation, SafeCurrentWorldRotation) == false || TryResolveNormalizedQuaternion(WorldDeltaRotation, SafeWorldDeltaRotation) == false) {
             return false;
         }
 
-        SimpleMath::Quaternion InverseCurrentWorldRotation{ -SafeCurrentWorldRotation.x, -SafeCurrentWorldRotation.y, -SafeCurrentWorldRotation.z, SafeCurrentWorldRotation.w };
-        if (TryResolveNormalizedQuaternion(InverseCurrentWorldRotation, InverseCurrentWorldRotation) == false) {
-            return false;
-        }
-
-        const SimpleMath::Vector3 LocalForwardDirection{ SimpleMath::Vector3::Transform(SafeCurrentForwardDirection, InverseCurrentWorldRotation) };
-        SimpleMath::Vector3 SafeLocalForwardDirection{};
-        if (TryResolveNormalizedVector(LocalForwardDirection, SafeLocalForwardDirection) == false) {
-            return false;
-        }
-
-        const SimpleMath::Quaternion WorldDeltaPreMultipliedRotation{ SafeWorldDeltaRotation * SafeCurrentWorldRotation };
-        const SimpleMath::Quaternion WorldDeltaPostMultipliedRotation{ SafeCurrentWorldRotation * SafeWorldDeltaRotation };
-        SimpleMath::Quaternion SafeWorldDeltaPreMultipliedRotation{};
-        SimpleMath::Quaternion SafeWorldDeltaPostMultipliedRotation{};
-        if (TryResolveNormalizedQuaternion(WorldDeltaPreMultipliedRotation, SafeWorldDeltaPreMultipliedRotation) == false || TryResolveNormalizedQuaternion(WorldDeltaPostMultipliedRotation, SafeWorldDeltaPostMultipliedRotation) == false) {
-            return false;
-        }
-
-        const SimpleMath::Vector3 ExpectedForwardDirection{ SimpleMath::Vector3::Transform(SafeCurrentForwardDirection, SafeWorldDeltaRotation) };
-        SimpleMath::Vector3 SafeExpectedForwardDirection{};
-        if (TryResolveNormalizedVector(ExpectedForwardDirection, SafeExpectedForwardDirection) == false) {
-            return false;
-        }
-
-        const SimpleMath::Vector3 PredictedForwardDirectionForPreMultipliedRotation{ SimpleMath::Vector3::Transform(SafeLocalForwardDirection, SafeWorldDeltaPreMultipliedRotation) };
-        const SimpleMath::Vector3 PredictedForwardDirectionForPostMultipliedRotation{ SimpleMath::Vector3::Transform(SafeLocalForwardDirection, SafeWorldDeltaPostMultipliedRotation) };
-        SimpleMath::Vector3 SafePredictedForwardDirectionForPreMultipliedRotation{};
-        SimpleMath::Vector3 SafePredictedForwardDirectionForPostMultipliedRotation{};
-        if (TryResolveNormalizedVector(PredictedForwardDirectionForPreMultipliedRotation, SafePredictedForwardDirectionForPreMultipliedRotation) == false || TryResolveNormalizedVector(PredictedForwardDirectionForPostMultipliedRotation, SafePredictedForwardDirectionForPostMultipliedRotation) == false) {
-            return false;
-        }
-
-        const float PreMultipliedScore{ SafePredictedForwardDirectionForPreMultipliedRotation.Dot(SafeExpectedForwardDirection) };
-        const float PostMultipliedScore{ SafePredictedForwardDirectionForPostMultipliedRotation.Dot(SafeExpectedForwardDirection) };
-        OutWorldRotation = PreMultipliedScore >= PostMultipliedScore ? SafeWorldDeltaPreMultipliedRotation : SafeWorldDeltaPostMultipliedRotation;
-        return true;
+        const SimpleMath::Quaternion WorldDeltaAppliedRotation{ SafeCurrentWorldRotation * SafeWorldDeltaRotation };
+        return TryResolveNormalizedQuaternion(WorldDeltaAppliedRotation, OutWorldRotation);
     }
 
     float ResolveWorldObbBottomY(const DirectX::BoundingOrientedBox& WorldObb) {
@@ -684,9 +648,8 @@ namespace {
                 const SimpleMath::Vector3 DesiredDirection{ SolveResult.mJointPositions[JointIndex + 1] - SolveResult.mJointPositions[JointIndex] };
                 SimpleMath::Quaternion DirectionDeltaRotation{};
                 if (TryResolveFromToRotation(CurrentDirection, DesiredDirection, DirectionDeltaRotation) == true) {
-                    const SimpleMath::Vector3 CurrentForwardDirection{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Forward, CurrentWorldRotations[JointIndex]) };
                     SimpleMath::Quaternion RotatedWorldRotation{};
-                    if (TryResolveWorldRotationWithWorldDelta(CurrentWorldRotations[JointIndex], DirectionDeltaRotation, CurrentForwardDirection, RotatedWorldRotation) == true) {
+                    if (TryResolveWorldRotationWithWorldDelta(CurrentWorldRotations[JointIndex], DirectionDeltaRotation, RotatedWorldRotation) == true) {
                         DesiredWorldRotation = RotatedWorldRotation;
                     }
                 }
@@ -799,7 +762,7 @@ namespace {
         }
 
         SimpleMath::Quaternion DesiredWorldRotation{};
-        if (TryResolveWorldRotationWithWorldDelta(FootSurfaceAlignmentDataValue.CurrentWorldRotation, SurfaceAlignDeltaRotation, FootSurfaceAlignmentDataValue.SafeFootToToeDirection, DesiredWorldRotation) == false) {
+        if (TryResolveWorldRotationWithWorldDelta(FootSurfaceAlignmentDataValue.CurrentWorldRotation, SurfaceAlignDeltaRotation, DesiredWorldRotation) == false) {
             return false;
         }
 
