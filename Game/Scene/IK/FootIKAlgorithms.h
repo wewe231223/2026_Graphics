@@ -16,6 +16,7 @@ namespace Game::IK {
     void ResolveFootBoneEntities(const Arche::World::WorldReadOnlyView& ReadOnlyWorld, const FootIKRig& FootIKRigComponent, Arche::EntityID BoneRootEntityId, FootIKRuntime& InOutFootIKRuntimeComponent);
 
     bool TryResolveFootTargetOffset(Arche::World& World, Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, DirectX::SimpleMath::Vector3& OutGroundNormal, DirectX::SimpleMath::Vector3& OutGroundSamplePosition);
+    bool TryResolveFootSurfaceNormals(Arche::World& World, Arche::EntityID FootEntityId, Arche::EntityID ToeEntityId, const DirectX::SimpleMath::Vector3& SurfaceNormal, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, DirectX::SimpleMath::Vector3& OutFootWorldPosition, DirectX::SimpleMath::Vector3& OutCurrentFootNormal, DirectX::SimpleMath::Vector3& OutSurfaceNormal);
 
     bool TryApplyOffsetToBoneTransform(Arche::World& World, Arche::EntityID BoneEntityId, float OffsetY, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices);
     bool TrySolveLegWithIK(Arche::World& World, Arche::EntityID ThighEntityId, Arche::EntityID ShinEntityId, Arche::EntityID FootEntityId, float TargetOffsetY, const IFootIKSolver& FootIKSolver, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices);

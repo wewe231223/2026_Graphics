@@ -702,13 +702,16 @@ namespace {
         return IsAnyBoneUpdated;
     }
 
-    bool TryAlignFootToSurface(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
-        if (FootEntityId == Arche::NullEntityID || ToeEntityId == Arche::NullEntityID || IsFiniteVector3(SurfaceNormal) == false) {
-            return false;
-        }
+    struct FootSurfaceAlignmentData final {
+        SimpleMath::Vector3 FootWorldPosition{};
+        SimpleMath::Vector3 SafeSurfaceNormal{};
+        SimpleMath::Vector3 SafeFootToToeDirection{};
+        SimpleMath::Vector3 CurrentFootNormal{};
+        SimpleMath::Quaternion CurrentWorldRotation{};
+    };
 
-        const float SafeAlignmentWeight{ IsFiniteFloat(AlignmentWeight) ? ::std::clamp(AlignmentWeight, 0.0f, 1.0f) : 0.0f };
-        if (SafeAlignmentWeight <= FootPlantWeightEpsilon) {
+    bool TryResolveFootSurfaceAlignmentData(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& SurfaceNormal, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, FootSurfaceAlignmentData& OutFootSurfaceAlignmentData) {
+        if (FootEntityId == Arche::NullEntityID || ToeEntityId == Arche::NullEntityID || IsFiniteVector3(SurfaceNormal) == false) {
             return false;
         }
 
@@ -762,18 +765,41 @@ namespace {
             CurrentFootNormal *= -1.0f;
         }
 
-        SimpleMath::Vector3 DesiredSurfaceNormal{ CurrentFootNormal + ((SafeSurfaceNormal - CurrentFootNormal) * SafeAlignmentWeight) };
+        OutFootSurfaceAlignmentData.FootWorldPosition = FootWorldPosition;
+        OutFootSurfaceAlignmentData.SafeSurfaceNormal = SafeSurfaceNormal;
+        OutFootSurfaceAlignmentData.SafeFootToToeDirection = SafeFootToToeDirection;
+        OutFootSurfaceAlignmentData.CurrentFootNormal = CurrentFootNormal;
+        OutFootSurfaceAlignmentData.CurrentWorldRotation = CurrentWorldRotation;
+        return true;
+    }
+
+    bool TryAlignFootToSurface(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        if (FootEntityId == Arche::NullEntityID || ToeEntityId == Arche::NullEntityID || IsFiniteVector3(SurfaceNormal) == false) {
+            return false;
+        }
+
+        const float SafeAlignmentWeight{ IsFiniteFloat(AlignmentWeight) ? ::std::clamp(AlignmentWeight, 0.0f, 1.0f) : 0.0f };
+        if (SafeAlignmentWeight <= FootPlantWeightEpsilon) {
+            return false;
+        }
+
+        FootSurfaceAlignmentData FootSurfaceAlignmentDataValue{};
+        if (TryResolveFootSurfaceAlignmentData(World, FootEntityId, ToeEntityId, SurfaceNormal, InOutWorldMatrices, FootSurfaceAlignmentDataValue) == false) {
+            return false;
+        }
+
+        SimpleMath::Vector3 DesiredSurfaceNormal{ FootSurfaceAlignmentDataValue.CurrentFootNormal + ((FootSurfaceAlignmentDataValue.SafeSurfaceNormal - FootSurfaceAlignmentDataValue.CurrentFootNormal) * SafeAlignmentWeight) };
         if (TryResolveNormalizedVector(DesiredSurfaceNormal, DesiredSurfaceNormal) == false) {
-            DesiredSurfaceNormal = CurrentFootNormal;
+            DesiredSurfaceNormal = FootSurfaceAlignmentDataValue.CurrentFootNormal;
         }
 
         SimpleMath::Quaternion SurfaceAlignDeltaRotation{};
-        if (TryResolveClampedFromToRotation(CurrentFootNormal, DesiredSurfaceNormal, MaxFootTiltRadians, SurfaceAlignDeltaRotation) == false) {
+        if (TryResolveClampedFromToRotation(FootSurfaceAlignmentDataValue.CurrentFootNormal, DesiredSurfaceNormal, MaxFootTiltRadians, SurfaceAlignDeltaRotation) == false) {
             return false;
         }
 
         SimpleMath::Quaternion DesiredWorldRotation{};
-        if (TryResolveWorldRotationWithWorldDelta(CurrentWorldRotation, SurfaceAlignDeltaRotation, SafeFootToToeDirection, DesiredWorldRotation) == false) {
+        if (TryResolveWorldRotationWithWorldDelta(FootSurfaceAlignmentDataValue.CurrentWorldRotation, SurfaceAlignDeltaRotation, FootSurfaceAlignmentDataValue.SafeFootToToeDirection, DesiredWorldRotation) == false) {
             return false;
         }
 
@@ -841,6 +867,18 @@ namespace Game::IK {
 
     bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, DirectX::SimpleMath::Vector3& OutGroundNormal, DirectX::SimpleMath::Vector3& OutGroundSamplePosition) {
         return ::TryResolveFootTargetOffset(World, FootEntityId, InOutWorldMatrices, OutTargetOffsetY, OutGroundNormal, OutGroundSamplePosition);
+    }
+
+    bool TryResolveFootSurfaceNormals(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const DirectX::SimpleMath::Vector3& SurfaceNormal, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, DirectX::SimpleMath::Vector3& OutFootWorldPosition, DirectX::SimpleMath::Vector3& OutCurrentFootNormal, DirectX::SimpleMath::Vector3& OutSurfaceNormal) {
+        FootSurfaceAlignmentData FootSurfaceAlignmentDataValue{};
+        if (::TryResolveFootSurfaceAlignmentData(World, FootEntityId, ToeEntityId, SurfaceNormal, InOutWorldMatrices, FootSurfaceAlignmentDataValue) == false) {
+            return false;
+        }
+
+        OutFootWorldPosition = FootSurfaceAlignmentDataValue.FootWorldPosition;
+        OutCurrentFootNormal = FootSurfaceAlignmentDataValue.CurrentFootNormal;
+        OutSurfaceNormal = FootSurfaceAlignmentDataValue.SafeSurfaceNormal;
+        return true;
     }
 
     bool TryApplyOffsetToBoneTransform(Arche::World& World, const Arche::EntityID BoneEntityId, const float OffsetY, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices) {

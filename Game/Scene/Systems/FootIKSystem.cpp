@@ -28,12 +28,19 @@ namespace {
         return ::std::isfinite(Value) != 0;
     }
 
-    void AppendGroundSampleDebugLine(Game::FrameContext& Ctx, const SimpleMath::Vector3& GroundSamplePosition, const SimpleMath::Vector3& GroundNormal) {
-        constexpr float GroundSampleMarkerLength{ 0.5f };
-        constexpr float GroundSampleMarkerLineThickness{ 0.0035f };
-        const SimpleMath::Vector3 MarkerStart{ GroundSamplePosition };
-        const SimpleMath::Vector3 MarkerEnd{ GroundSamplePosition + (GroundNormal * GroundSampleMarkerLength) };
-        Ctx.RenderData.debugGeometryContexts.push_back(Game::RFD::DebugGeometryContext::CreateLine(MarkerStart, MarkerEnd, SimpleMath::Vector4{ 1.0f, 0.1f, 0.1f, 1.0f }, GroundSampleMarkerLineThickness));
+    void AppendFootSurfaceDebugLines(Arche::World& World, Game::FrameContext& Ctx, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& SurfaceNormal, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        constexpr float NormalLineLength{ 0.4f };
+        constexpr float NormalLineThickness{ 0.0035f };
+        SimpleMath::Vector3 FootWorldPosition{};
+        SimpleMath::Vector3 CurrentFootNormal{};
+        SimpleMath::Vector3 SafeSurfaceNormal{};
+        const bool IsSurfaceNormalsResolved{ Game::IK::TryResolveFootSurfaceNormals(World, FootEntityId, ToeEntityId, SurfaceNormal, InOutWorldMatrices, FootWorldPosition, CurrentFootNormal, SafeSurfaceNormal) };
+        if (IsSurfaceNormalsResolved == false) {
+            return;
+        }
+
+        Ctx.RenderData.debugGeometryContexts.push_back(Game::RFD::DebugGeometryContext::CreateDirection(FootWorldPosition, CurrentFootNormal, NormalLineLength, SimpleMath::Vector4{ 0.2f, 0.8f, 1.0f, 1.0f }, NormalLineThickness));
+        Ctx.RenderData.debugGeometryContexts.push_back(Game::RFD::DebugGeometryContext::CreateDirection(FootWorldPosition, SafeSurfaceNormal, NormalLineLength, SimpleMath::Vector4{ 1.0f, 0.4f, 0.1f, 1.0f }, NormalLineThickness));
     }
 }
 
@@ -190,9 +197,6 @@ namespace Game {
                     LeftTargetPlantWeight = IK::ResolveFootPlantWeight(LeftResolvedTargetOffset);
                     LeftGroundNormal = LeftResolvedGroundNormal;
                     IsLeftGroundNormalResolved = true;
-                    if (IsDebugGeometryDrawEnabled == true) {
-                        AppendGroundSampleDebugLine(Ctx, LeftResolvedGroundSamplePosition, LeftResolvedGroundNormal);
-                    }
                 }
 
                 float RightResolvedTargetOffset{};
@@ -204,9 +208,6 @@ namespace Game {
                     RightTargetPlantWeight = IK::ResolveFootPlantWeight(RightResolvedTargetOffset);
                     RightGroundNormal = RightResolvedGroundNormal;
                     IsRightGroundNormalResolved = true;
-                    if (IsDebugGeometryDrawEnabled == true) {
-                        AppendGroundSampleDebugLine(Ctx, RightResolvedGroundSamplePosition, RightResolvedGroundNormal);
-                    }
                 }
             }
 
@@ -252,6 +253,10 @@ namespace Game {
 
             if (FootIKRigComponent.mEnabled == true && FootIKRuntimeComponent.mResolved == true) {
                 if (IsLeftGroundNormalResolved == true) {
+                    if (IsDebugGeometryDrawEnabled == true) {
+                        AppendFootSurfaceDebugLines(World, Ctx, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, LeftGroundNormal, WorldMatrices);
+                    }
+
                     const bool IsLeftFootSurfaceAligned{ IK::TryAlignFootToSurface(World, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, LeftGroundNormal, FootIKRuntimeComponent.mLeftPlantWeight, WorldMatrices) };
                     if (IsLeftFootSurfaceAligned == true) {
                         WorldMatrices.clear();
@@ -259,6 +264,10 @@ namespace Game {
                 }
 
                 if (IsRightGroundNormalResolved == true) {
+                    if (IsDebugGeometryDrawEnabled == true) {
+                        AppendFootSurfaceDebugLines(World, Ctx, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, RightGroundNormal, WorldMatrices);
+                    }
+
                     const bool IsRightFootSurfaceAligned{ IK::TryAlignFootToSurface(World, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, RightGroundNormal, FootIKRuntimeComponent.mRightPlantWeight, WorldMatrices) };
                     if (IsRightFootSurfaceAligned == true) {
                         WorldMatrices.clear();
