@@ -9,7 +9,10 @@ namespace SimpleMath = DirectX::SimpleMath;
 namespace Game {
     namespace RFD {
         constexpr std::uint32_t FrameGlobalFlagDrawBoundingBoxes{ 0x1u };
+        constexpr std::uint32_t FrameGlobalFlagDrawDebugGeometry{ 0x2u };
         constexpr std::uint32_t ShadowCascadeMaxCount{ 4u };
+        constexpr std::uint32_t DebugGeometryTypeLine{ 0u };
+        constexpr std::uint32_t DebugGeometryTypeWireCube{ 1u };
 
         struct alignas(16) MaterialFieldGpu final {
             std::uint32_t Type{ 0 };
@@ -116,6 +119,25 @@ namespace Game {
             SimpleMath::Vector4 orientation{};
         };
 
+        struct alignas(16) DebugGeometryContext final {
+            SimpleMath::Vector4 parameter0{};
+            SimpleMath::Vector4 parameter1{};
+            SimpleMath::Vector4 parameter2{};
+            SimpleMath::Vector4 color{};
+            std::uint32_t type{ DebugGeometryTypeLine };
+            float lineThickness{ 0.0025f };
+            std::uint32_t padding0{ 0u };
+            std::uint32_t padding1{ 0u };
+
+            void SetLine(const SimpleMath::Vector3& StartPosition, const SimpleMath::Vector3& EndPosition, const SimpleMath::Vector4& ColorValue, float LineThicknessValue);
+            void SetDirection(const SimpleMath::Vector3& Origin, const SimpleMath::Vector3& Direction, float Length, const SimpleMath::Vector4& ColorValue, float LineThicknessValue);
+            void SetWireCube(const SimpleMath::Vector3& CenterValue, const SimpleMath::Vector3& ExtentsValue, const SimpleMath::Quaternion& OrientationValue, const SimpleMath::Vector4& ColorValue, float LineThicknessValue);
+
+            static DebugGeometryContext CreateLine(const SimpleMath::Vector3& StartPosition, const SimpleMath::Vector3& EndPosition, const SimpleMath::Vector4& ColorValue, float LineThicknessValue);
+            static DebugGeometryContext CreateDirection(const SimpleMath::Vector3& Origin, const SimpleMath::Vector3& Direction, float Length, const SimpleMath::Vector4& ColorValue, float LineThicknessValue);
+            static DebugGeometryContext CreateWireCube(const SimpleMath::Vector3& CenterValue, const SimpleMath::Vector3& ExtentsValue, const SimpleMath::Quaternion& OrientationValue, const SimpleMath::Vector4& ColorValue, float LineThicknessValue);
+        };
+
         struct DrawRecord {
             const Interface::IPipeline* pso{ nullptr };
             const Interface::IModelNode* mesh{ nullptr };
@@ -140,6 +162,7 @@ namespace Game {
 
             std::vector<ModelContext> modelContexts{};   // SRV
             std::vector<BoundingBoxContext> boundingBoxContexts{};
+            std::vector<DebugGeometryContext> debugGeometryContexts{};
             std::vector<DrawRecord> drawRecords{};       // CPU
             std::vector<MaterialGpu> materials{};
             std::vector<MaterialTextureTableItemGpu> materialTextureTable{};

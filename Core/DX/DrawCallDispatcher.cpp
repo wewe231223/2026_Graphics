@@ -49,13 +49,15 @@ namespace Core {
 
 		DrawCallDispatcher::DrawCallDispatcher()
 			: mBoundingBoxLinePipeline{},
-			mIsBoundingBoxLinePipelineInitialized{} {
+			mIsBoundingBoxLinePipelineInitialized{},
+			mDebugGeometryPipeline{},
+			mIsDebugGeometryPipelineInitialized{} {
 		}
 
 		DrawCallDispatcher::~DrawCallDispatcher() {
 		}
 
-		void DrawCallDispatcher::DrawForward(ID3D12GraphicsCommandList* CommandList, Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ShadowMappingParameterSrvHandle, DescriptorHandle ShadowMapTextureBaseSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+		void DrawCallDispatcher::DrawForward(ID3D12GraphicsCommandList* CommandList, Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ShadowMappingParameterSrvHandle, DescriptorHandle ShadowMapTextureBaseSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle DebugGeometryContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			const Interface::IPipeline* ActivePipeline{ nullptr };
 			size_t DrawRecordIndex{ 0 };
 
@@ -113,6 +115,7 @@ namespace Core {
 			}
 
 			DrawBoundingBoxes(CommandList, Data, FrameGlobalsSrvHandle, BoundingBoxContextSrvHandle, BonePaletteSrvHandle, DrawRecordSrvHandle, MaterialSrvHandle, MaterialTextureTableSrvHandle);
+			DrawDebugGeometries(CommandList, Data, FrameGlobalsSrvHandle, DebugGeometryContextSrvHandle);
 		}
 
 		void DrawCallDispatcher::DrawDepthOnly(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, std::uint32_t ShadowFrameGlobalsIndex, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
@@ -209,6 +212,44 @@ namespace Core {
 
 			CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
 			CommandList->DrawInstanced(1u, static_cast<UINT>(Data.boundingBoxContexts.size()), 0u, 0u);
+		}
+
+		void DrawCallDispatcher::DrawDebugGeometries(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle DebugGeometryContextSrvHandle) {
+			if (CommandList == nullptr) {
+				return;
+			}
+
+			const bool IsDrawDebugGeometriesEnabled{ (Data.globals.flags & Game::RFD::FrameGlobalFlagDrawDebugGeometry) != 0u };
+			if (IsDrawDebugGeometriesEnabled == false || Data.debugGeometryContexts.empty()) {
+				return;
+			}
+
+			if (mIsDebugGeometryPipelineInitialized == false) {
+				mIsDebugGeometryPipelineInitialized = mDebugGeometryPipeline.Initialize("DebugGeometryGraphics");
+			}
+
+			if (mIsDebugGeometryPipelineInitialized == false) {
+				return;
+			}
+
+			mDebugGeometryPipeline.Set(nullptr, CommandList);
+
+			DrawRootConstantsB1 RootConstants{};
+			RootConstants.FrameGlobalsSrvIndex = FrameGlobalsSrvHandle.GetIndex();
+			RootConstants.ModelContextSrvIndex = DebugGeometryContextSrvHandle.GetIndex();
+			RootConstants.BonePaletteSrvIndex = InvalidDescriptorIndex;
+			RootConstants.DrawRecordSrvIndex = InvalidDescriptorIndex;
+			RootConstants.DrawRecordBaseIndex = 0u;
+			RootConstants.MaterialSrvIndex = InvalidDescriptorIndex;
+			RootConstants.MaterialTextureTableSrvIndex = InvalidDescriptorIndex;
+			RootConstants.ShadowMappingParameterSrvIndex = InvalidDescriptorIndex;
+			RootConstants.ShadowMapTextureBaseSrvIndex = InvalidDescriptorIndex;
+			RootConstants.FrameGlobalsElementIndex = 0u;
+			RootConstants.Reserved1 = 0u;
+			CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
+
+			CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
+			CommandList->DrawInstanced(1u, static_cast<UINT>(Data.debugGeometryContexts.size()), 0u, 0u);
 		}
 	}
 }

@@ -96,6 +96,7 @@ target_compile_definitions(Asset PRIVATE
 
 add_library(Game STATIC
     Game/Asset/AnimationGraphAsset.cpp
+    Game/Base/RenderFrameData.cpp
     Game/Base/Shader.cpp
     Game/Base/RootSignature.cpp
     Game/Base/Pipeline.cpp

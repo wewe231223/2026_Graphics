@@ -368,6 +368,9 @@
     <ClCompile Include="Base\Input.cpp">
       <Filter>Base</Filter>
     </ClCompile>
+    <ClCompile Include="Base\RenderFrameData.cpp">
+      <Filter>Base</Filter>
+    </ClCompile>
     <ClCompile Include="Base\Time.cpp">
       <Filter>Base</Filter>
     </ClCompile>
@@ -427,6 +430,9 @@
     <None Include="..\Shader\PSO\SkyDomeGraphics.json">
       <Filter>PSO</Filter>
     </None>
+    <None Include="..\Shader\PSO\DebugGeometryGraphics.json">
+      <Filter>PSO</Filter>
+    </None>
     <None Include="..\Resources\DefaultScene.yaml">
       <Filter>Scene\Scene YAML</Filter>
     </None>
@@ -457,6 +463,9 @@
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="..\Shader\Source\BoundingBoxLineShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\DebugGeometryShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
   </ItemGroup>

@@ -72,6 +72,7 @@ namespace Game {
         mHierarchyEntitySelectedSubscriptionId{},
         mFileDropSubscriptionId{},
         mIsDefaultCameraControlBehaviorAttached{},
+        mIsDebugGeometryDrawEnabled{},
         mIsBoundingBoxDrawEnabled{} {
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
         mWorldSnapshot.BindWorld(&mWorld);
@@ -81,6 +82,7 @@ namespace Game {
         mLuaScriptFramework.SetFixedUpdateInterval(1.f); 
         mLuaScriptFramework.OpenDefaultLibraries(); 
         RegisterScriptTypes();
+        mIsDebugGeometryDrawEnabled = Config::Query()->Get<bool>("Draw_DebugGeometry");
 
         mHierarchyEntitySelectedSubscriptionId = Core::Event::Subscribe<Game::HierarchyEntitySelectedEventTag>([this](const Core::Event::Event<Game::HierarchyEntitySelectedEventTag>& HierarchyEntitySelectedEvent) {
             const Game::HierarchyEntitySelectedPayload* Payload{ HierarchyEntitySelectedEvent.GetPayloadAs<Game::HierarchyEntitySelectedPayload>() };
@@ -373,10 +375,15 @@ namespace Game {
 
     void Scene::UpdateCameraVirtualMouseState() {
         Globals::Input& InputInstance{ Globals::Input::Get() };
+        const bool IsDebugGeometryToggleRequested{ InputInstance.IsKeyPressed(DirectX::Keyboard::Keys::F3) };
         const bool IsThirdPersonToggleRequested{ InputInstance.IsKeyPressed(DirectX::Keyboard::Keys::F8) };
         const bool IsBoundingBoxToggleRequested{ InputInstance.IsKeyPressed(DirectX::Keyboard::Keys::F9) };
         const DirectX::Mouse::ButtonStateTracker& MouseTracker{ InputInstance.GetMouseTracker() };
         const bool IsSelectionDragInput{ mFrameContext.PickedEntityId != Arche::NullEntityID && (MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED || MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::HELD) };
+
+        if (IsDebugGeometryToggleRequested) {
+            mIsDebugGeometryDrawEnabled = (mIsDebugGeometryDrawEnabled == false);
+        }
 
         if (IsBoundingBoxToggleRequested) {
             mIsBoundingBoxDrawEnabled = (mIsBoundingBoxDrawEnabled == false);
@@ -454,16 +461,35 @@ namespace Game {
         }
     }
 
+    void Scene::AppendDebugWorldAxes() {
+        constexpr float AxisLength{ 100000.0f };
+        constexpr float AxisThickness{ 0.0035f };
+        const SimpleMath::Vector3 Origin{ 0.0f, 0.0f, 0.0f };
+        mFrameContext.RenderData.debugGeometryContexts.push_back(RFD::DebugGeometryContext::CreateDirection(Origin, SimpleMath::Vector3{ 1.0f, 0.0f, 0.0f }, AxisLength, SimpleMath::Vector4{ 1.0f, 0.1f, 0.1f, 1.0f }, AxisThickness));
+        mFrameContext.RenderData.debugGeometryContexts.push_back(RFD::DebugGeometryContext::CreateDirection(Origin, SimpleMath::Vector3{ 0.0f, 1.0f, 0.0f }, AxisLength, SimpleMath::Vector4{ 0.1f, 1.0f, 0.1f, 1.0f }, AxisThickness));
+        mFrameContext.RenderData.debugGeometryContexts.push_back(RFD::DebugGeometryContext::CreateDirection(Origin, SimpleMath::Vector3{ 0.0f, 0.0f, 1.0f }, AxisLength, SimpleMath::Vector4{ 0.1f, 0.4f, 1.0f, 1.0f }, AxisThickness));
+    }
+
     void Scene::ExecutePhase(Phase TargetPhase, float Dt) {
         switch (TargetPhase) {
             case Phase::PreUpdate:
                 UpdateCameraVirtualMouseState();
                 mFrameContext.RenderData.modelContexts.clear();
                 mFrameContext.RenderData.boundingBoxContexts.clear();
+                mFrameContext.RenderData.debugGeometryContexts.clear();
                 mFrameContext.RenderData.drawRecords.clear();
                 mFrameContext.RenderData.bonePalette.clear();
                 mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
-                mFrameContext.RenderData.globals.flags = mIsBoundingBoxDrawEnabled ? RFD::FrameGlobalFlagDrawBoundingBoxes : 0u;
+                mFrameContext.RenderData.globals.flags = 0u;
+                if (mIsBoundingBoxDrawEnabled) {
+                    mFrameContext.RenderData.globals.flags |= RFD::FrameGlobalFlagDrawBoundingBoxes;
+                }
+
+                if (mIsDebugGeometryDrawEnabled) {
+                    mFrameContext.RenderData.globals.flags |= RFD::FrameGlobalFlagDrawDebugGeometry;
+                    AppendDebugWorldAxes();
+                }
+
                 mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
                 mFrameContext.SkinnedMeshPreparedDataItems.clear();
                 break;

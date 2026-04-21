@@ -21,6 +21,7 @@ namespace Core {
 			mShadowMappingParameterSrvHandle = mSrvHeap->Allocate();
 			mModelContextSrvHandle = mSrvHeap->Allocate();
 			mBoundingBoxContextSrvHandle = mSrvHeap->Allocate();
+			mDebugGeometryContextSrvHandle = mSrvHeap->Allocate();
 			mBonePaletteSrvHandle = mSrvHeap->Allocate();
 			mDrawRecordSrvHandle = mSrvHeap->Allocate();
 			mCopyFuture = Interface::CopyFuture{};
@@ -46,6 +47,7 @@ namespace Core {
 			std::size_t ShadowMappingParameterSizeInBytes{ sizeof(Game::RFD::ShadowMappingParameter) };
 			std::size_t ModelContextsSizeInBytes{ sizeof(Game::RFD::ModelContext) * Data.modelContexts.size() };
 			std::size_t BoundingBoxContextsSizeInBytes{ sizeof(Game::RFD::BoundingBoxContext) * Data.boundingBoxContexts.size() };
+			std::size_t DebugGeometryContextsSizeInBytes{ sizeof(Game::RFD::DebugGeometryContext) * Data.debugGeometryContexts.size() };
 			std::size_t BonePaletteSizeInBytes{ sizeof(SimpleMath::Matrix) * Data.bonePalette.size() };
 			std::size_t DrawRecordsGpuSizeInBytes{ sizeof(DrawRecordGPU) * mDrawRecordsGpu.size() };
 
@@ -55,6 +57,7 @@ namespace Core {
 			void* ShadowMappingParameterSourceData{ ShadowMappingParameterSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&Data.shadowMapping) };
 			void* ModelContextSourceData{ ModelContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.modelContexts.data()) };
 			void* BoundingBoxContextSourceData{ BoundingBoxContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.boundingBoxContexts.data()) };
+			void* DebugGeometryContextSourceData{ DebugGeometryContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.debugGeometryContexts.data()) };
 			void* BonePaletteSourceData{ BonePaletteSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.bonePalette.data()) };
 			void* DrawRecordSourceData{ DrawRecordsGpuSizeInBytes == 0 ? &DummyByte : static_cast<void*>(mDrawRecordsGpu.data()) };
 
@@ -73,24 +76,27 @@ namespace Core {
 			bool BoundingBoxContextCopyResult{ mBoundingBoxContextVector.Copy(GraphicsAllocator, BoundingBoxContextSourceData, BoundingBoxContextsSizeInBytes) };
 			ErrorHandler::report(BoundingBoxContextCopyResult == false, "DrawCallResourceManager", "Failed to copy bounding box context data.", ErrorHandler::Level::Critical);
 
+			bool DebugGeometryContextCopyResult{ mDebugGeometryContextVector.Copy(GraphicsAllocator, DebugGeometryContextSourceData, DebugGeometryContextsSizeInBytes) };
+			ErrorHandler::report(DebugGeometryContextCopyResult == false, "DrawCallResourceManager", "Failed to copy debug geometry context data.", ErrorHandler::Level::Critical);
+
 			bool BonePaletteCopyResult{ mBonePaletteVector.Copy(GraphicsAllocator, BonePaletteSourceData, BonePaletteSizeInBytes) };
 			ErrorHandler::report(BonePaletteCopyResult == false, "DrawCallResourceManager", "Failed to copy bone palette data.", ErrorHandler::Level::Critical);
 
 			bool DrawRecordCopyResult{ mDrawRecordVector.Copy(GraphicsAllocator, DrawRecordSourceData, DrawRecordsGpuSizeInBytes) };
 			ErrorHandler::report(DrawRecordCopyResult == false, "DrawCallResourceManager", "Failed to copy draw record data.", ErrorHandler::Level::Critical);
 
-			if (Data.drawRecords.empty() == true && Data.boundingBoxContexts.empty() == true) {
+			if (Data.drawRecords.empty() == true && Data.boundingBoxContexts.empty() == true && Data.debugGeometryContexts.empty() == true) {
 				std::array<Interface::CopyQueueCopyRequest, 3> CopyRequests{ mFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mShadowFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mShadowMappingParameterVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
 				mCopyFuture = CopyQueue->EnqueueCopyFuture(CopyRequests);
 				ErrorHandler::report(mCopyFuture.IsValid() == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
 			}
 			else {
-				std::array<Interface::CopyQueueCopyRequest, 7> CopyRequests{ mFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mShadowFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mShadowMappingParameterVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mModelContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mBoundingBoxContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mBonePaletteVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mDrawRecordVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
+				std::array<Interface::CopyQueueCopyRequest, 8> CopyRequests{ mFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mShadowFrameGlobalsVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mShadowMappingParameterVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mModelContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mBoundingBoxContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mDebugGeometryContextVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mBonePaletteVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0), mDrawRecordVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0) };
 				mCopyFuture = CopyQueue->EnqueueCopyFuture(CopyRequests);
 				ErrorHandler::report(mCopyFuture.IsValid() == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
 			}
 
-			DrawCallResourceManager::UpdateShaderResourceViews(1, ShadowCascadeCount, 1, static_cast<std::uint32_t>(Data.modelContexts.size()), static_cast<std::uint32_t>(Data.boundingBoxContexts.size()), static_cast<std::uint32_t>(Data.bonePalette.size()), static_cast<std::uint32_t>(mDrawRecordsGpu.size()));
+			DrawCallResourceManager::UpdateShaderResourceViews(1, ShadowCascadeCount, 1, static_cast<std::uint32_t>(Data.modelContexts.size()), static_cast<std::uint32_t>(Data.boundingBoxContexts.size()), static_cast<std::uint32_t>(Data.debugGeometryContexts.size()), static_cast<std::uint32_t>(Data.bonePalette.size()), static_cast<std::uint32_t>(mDrawRecordsGpu.size()));
 		}
 
 		void DrawCallResourceManager::TransitionToShaderResource(ID3D12GraphicsCommandList* CommandList) {
@@ -117,6 +123,11 @@ namespace Core {
 			if (mBoundingBoxContextVector.IsValid() == true) {
 				D3D12_RESOURCE_BARRIER BoundingBoxContextBarrier{ mBoundingBoxContextVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
 				CommandList->ResourceBarrier(1, &BoundingBoxContextBarrier);
+			}
+
+			if (mDebugGeometryContextVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER DebugGeometryContextBarrier{ mDebugGeometryContextVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
+				CommandList->ResourceBarrier(1, &DebugGeometryContextBarrier);
 			}
 
 			if (mBonePaletteVector.IsValid() == true) {
@@ -154,6 +165,11 @@ namespace Core {
 			if (mBoundingBoxContextVector.IsValid() == true) {
 				D3D12_RESOURCE_BARRIER BoundingBoxContextBarrier{ mBoundingBoxContextVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST) };
 				CommandList->ResourceBarrier(1, &BoundingBoxContextBarrier);
+			}
+
+			if (mDebugGeometryContextVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER DebugGeometryContextBarrier{ mDebugGeometryContextVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST) };
+				CommandList->ResourceBarrier(1, &DebugGeometryContextBarrier);
 			}
 
 			if (mBonePaletteVector.IsValid() == true) {
@@ -197,6 +213,10 @@ namespace Core {
 			return mBoundingBoxContextSrvHandle;
 		}
 
+		DescriptorHandle DrawCallResourceManager::GetDebugGeometryContextSrvHandle() const {
+			return mDebugGeometryContextSrvHandle;
+		}
+
 		DescriptorHandle DrawCallResourceManager::GetBonePaletteSrvHandle() const {
 			return mBonePaletteSrvHandle;
 		}
@@ -237,12 +257,13 @@ namespace Core {
 			}
 		}
 
-		void DrawCallResourceManager::UpdateShaderResourceViews(std::uint32_t FrameGlobalsCount, std::uint32_t ShadowFrameGlobalsCount, std::uint32_t ShadowMappingParameterCount, std::uint32_t ModelContextCount, std::uint32_t BoundingBoxContextCount, std::uint32_t BonePaletteCount, std::uint32_t DrawRecordCount) {
+		void DrawCallResourceManager::UpdateShaderResourceViews(std::uint32_t FrameGlobalsCount, std::uint32_t ShadowFrameGlobalsCount, std::uint32_t ShadowMappingParameterCount, std::uint32_t ModelContextCount, std::uint32_t BoundingBoxContextCount, std::uint32_t DebugGeometryContextCount, std::uint32_t BonePaletteCount, std::uint32_t DrawRecordCount) {
 			ID3D12Resource* FrameGlobalsResource{ mFrameGlobalsVector.IsValid() == true ? mFrameGlobalsVector.GetResource() : nullptr };
 			ID3D12Resource* ShadowFrameGlobalsResource{ mShadowFrameGlobalsVector.IsValid() == true ? mShadowFrameGlobalsVector.GetResource() : nullptr };
 			ID3D12Resource* ShadowMappingParameterResource{ mShadowMappingParameterVector.IsValid() == true ? mShadowMappingParameterVector.GetResource() : nullptr };
 			ID3D12Resource* ModelContextResource{ mModelContextVector.IsValid() == true ? mModelContextVector.GetResource() : nullptr };
 			ID3D12Resource* BoundingBoxContextResource{ mBoundingBoxContextVector.IsValid() == true ? mBoundingBoxContextVector.GetResource() : nullptr };
+			ID3D12Resource* DebugGeometryContextResource{ mDebugGeometryContextVector.IsValid() == true ? mDebugGeometryContextVector.GetResource() : nullptr };
 			ID3D12Resource* BonePaletteResource{ mBonePaletteVector.IsValid() == true ? mBonePaletteVector.GetResource() : nullptr };
 			ID3D12Resource* DrawRecordResource{ mDrawRecordVector.IsValid() == true ? mDrawRecordVector.GetResource() : nullptr };
 
@@ -309,6 +330,19 @@ namespace Core {
 			else {
 				mBoundingBoxContextSrvResource = nullptr;
 				mBoundingBoxContextSrvElementCount = 0;
+			}
+
+			if (mDebugGeometryContextVector.IsValid() == true) {
+				bool IsUpdateRequired{ DrawCallResourceManager::IsShaderResourceViewUpdateRequired(mDebugGeometryContextSrvResource, DebugGeometryContextResource, mDebugGeometryContextSrvElementCount, DebugGeometryContextCount) };
+				if (IsUpdateRequired == true) {
+					mDebugGeometryContextVector.CreateShaderResourceView(mDevice, mDebugGeometryContextSrvHandle.GetCPU(), DXGI_FORMAT_UNKNOWN, 0, DebugGeometryContextCount, sizeof(Game::RFD::DebugGeometryContext), D3D12_BUFFER_SRV_FLAG_NONE);
+					mDebugGeometryContextSrvResource = DebugGeometryContextResource;
+					mDebugGeometryContextSrvElementCount = DebugGeometryContextCount;
+				}
+			}
+			else {
+				mDebugGeometryContextSrvResource = nullptr;
+				mDebugGeometryContextSrvElementCount = 0;
 			}
 
 			if (mBonePaletteVector.IsValid() == true) {

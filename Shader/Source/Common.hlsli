@@ -79,6 +79,18 @@ struct BoundingBoxContextGpu
     float4 Orientation;
 };
 
+struct DebugGeometryContextGpu
+{
+    float4 Parameter0;
+    float4 Parameter1;
+    float4 Parameter2;
+    float4 Color;
+    uint Type;
+    float LineThickness;
+    uint Padding0;
+    uint Padding1;
+};
+
 struct DrawRecordGpu
 {
     uint ObjectIndex;
