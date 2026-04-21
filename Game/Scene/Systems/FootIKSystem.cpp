@@ -190,8 +190,7 @@ namespace Game {
             if (FootIKRigComponent.mEnabled == true && FootIKRuntimeComponent.mResolved == true) {
                 float LeftResolvedTargetOffset{};
                 SimpleMath::Vector3 LeftResolvedGroundNormal{ SimpleMath::Vector3::Up };
-                SimpleMath::Vector3 LeftResolvedGroundSamplePosition{};
-                const bool IsLeftTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mLeftFootEntityId, WorldMatrices, LeftResolvedTargetOffset, LeftResolvedGroundNormal, LeftResolvedGroundSamplePosition) };
+                const bool IsLeftTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mLeftFootEntityId, WorldMatrices, LeftResolvedTargetOffset, LeftResolvedGroundNormal) };
                 if (IsLeftTargetOffsetResolved == true) {
                     LeftRawTargetOffset = LeftResolvedTargetOffset;
                     LeftTargetPlantWeight = IK::ResolveFootPlantWeight(LeftResolvedTargetOffset);
@@ -201,8 +200,7 @@ namespace Game {
 
                 float RightResolvedTargetOffset{};
                 SimpleMath::Vector3 RightResolvedGroundNormal{ SimpleMath::Vector3::Up };
-                SimpleMath::Vector3 RightResolvedGroundSamplePosition{};
-                const bool IsRightTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mRightFootEntityId, WorldMatrices, RightResolvedTargetOffset, RightResolvedGroundNormal, RightResolvedGroundSamplePosition) };
+                const bool IsRightTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mRightFootEntityId, WorldMatrices, RightResolvedTargetOffset, RightResolvedGroundNormal) };
                 if (IsRightTargetOffsetResolved == true) {
                     RightRawTargetOffset = RightResolvedTargetOffset;
                     RightTargetPlantWeight = IK::ResolveFootPlantWeight(RightResolvedTargetOffset);
@@ -231,7 +229,6 @@ namespace Game {
             const float SmoothedRightOffset{ IK::ResolveSmoothedOffset(PreviousRightOffset, RightTargetOffset, FootIKRigComponent.mBlendSpeed, Dt) };
             FootIKRuntimeComponent.mLeftCurrentOffset = IsFiniteFloat(SmoothedLeftOffset) ? SmoothedLeftOffset : 0.0f;
             FootIKRuntimeComponent.mRightCurrentOffset = IsFiniteFloat(SmoothedRightOffset) ? SmoothedRightOffset : 0.0f;
-            FootIKRuntimeComponent.mCurrentOffset = IK::ResolveDominantOffset(FootIKRuntimeComponent.mLeftCurrentOffset, FootIKRuntimeComponent.mRightCurrentOffset);
 
             const float PelvisOffset{ FootIKRuntimeComponent.mPelvisEntityId == Arche::NullEntityID ? 0.0f : IK::ResolveSharedPelvisOffset(FootIKRuntimeComponent.mLeftCurrentOffset, FootIKRuntimeComponent.mRightCurrentOffset) };
             if (FootIKRuntimeComponent.mPelvisEntityId != Arche::NullEntityID) {

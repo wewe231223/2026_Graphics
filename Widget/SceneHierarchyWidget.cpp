@@ -510,15 +510,6 @@ namespace Widget {
         ImGui::SameLine();
         ImGui::TextUnformatted(IsEnabled ? "Enabled" : "Disabled");
 
-        float FootSoleOffset{ FootIKRigComponent->mFootSoleOffset };
-        const std::string FootSoleOffsetSliderIdentifier{ std::format("Foot Sole Offset##{}:{}", EntityId.index, EntityId.generation) };
-        if (ImGui::SliderFloat(FootSoleOffsetSliderIdentifier.c_str(), &FootSoleOffset, -0.30f, 0.50f, "%.3f")) {
-            const float UpdatedFootSoleOffset{ FootSoleOffset };
-            World->WriteComponent<Game::FootIKRig>(EntityId, [UpdatedFootSoleOffset](Game::FootIKRig& TargetComponent) {
-                TargetComponent.mFootSoleOffset = UpdatedFootSoleOffset;
-            });
-        }
-
         float BlendSpeed{ FootIKRigComponent->mBlendSpeed };
         const std::string BlendSpeedSliderIdentifier{ std::format("Blend Speed##{}:{}", EntityId.index, EntityId.generation) };
         if (ImGui::SliderFloat(BlendSpeedSliderIdentifier.c_str(), &BlendSpeed, 0.0f, 30.0f, "%.2f")) {

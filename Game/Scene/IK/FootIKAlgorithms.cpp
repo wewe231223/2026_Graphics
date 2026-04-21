@@ -268,11 +268,10 @@ namespace {
         return Arche::NullEntityID;
     }
 
-    bool TryResolveTerrainGround(Arche::World& World, const SimpleMath::Vector3& Position, float& OutGroundY, SimpleMath::Vector3& OutGroundNormal, SimpleMath::Vector3& OutGroundPosition) {
+    bool TryResolveTerrainGround(Arche::World& World, const SimpleMath::Vector3& Position, float& OutGroundY, SimpleMath::Vector3& OutGroundNormal) {
         bool IsResolved{};
         float HighestGroundY{};
         SimpleMath::Vector3 HighestGroundNormal{ SimpleMath::Vector3::Up };
-        SimpleMath::Vector3 HighestGroundPosition{ Position };
         for (const auto [TerrainCollideeComponent] : World.Query<Game::TerrainCollidee>()) {
             Game::TerrainHeightResolver* TerrainHeightResolverPointer{ TerrainCollideeComponent.mTerrainHeightResolver };
             if (TerrainHeightResolverPointer == nullptr) {
@@ -294,18 +293,16 @@ namespace {
             if (IsResolved == false || CandidatePosition.y > HighestGroundY) {
                 HighestGroundY = CandidatePosition.y;
                 HighestGroundNormal = CandidateGroundNormal;
-                HighestGroundPosition = CandidatePosition;
                 IsResolved = true;
             }
         }
 
-        if (IsResolved == false || IsFiniteFloat(HighestGroundY) == false || IsFiniteVector3(HighestGroundNormal) == false || IsFiniteVector3(HighestGroundPosition) == false) {
+        if (IsResolved == false || IsFiniteFloat(HighestGroundY) == false || IsFiniteVector3(HighestGroundNormal) == false) {
             return false;
         }
 
         OutGroundY = HighestGroundY;
         OutGroundNormal = HighestGroundNormal;
-        OutGroundPosition = HighestGroundPosition;
         return true;
     }
 
@@ -383,7 +380,7 @@ namespace {
         return true;
     }
 
-    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutGroundNormal, SimpleMath::Vector3& OutGroundSamplePosition) {
+    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutGroundNormal) {
         if (FootEntityId == Arche::NullEntityID) {
             return false;
         }
@@ -400,8 +397,7 @@ namespace {
 
         float GroundY{};
         SimpleMath::Vector3 GroundNormal{ SimpleMath::Vector3::Up };
-        SimpleMath::Vector3 GroundSamplePosition{ FootWorldPosition };
-        if (TryResolveTerrainGround(World, FootWorldPosition, GroundY, GroundNormal, GroundSamplePosition) == false) {
+        if (TryResolveTerrainGround(World, FootWorldPosition, GroundY, GroundNormal) == false) {
             return false;
         }
 
@@ -417,7 +413,6 @@ namespace {
 
         OutTargetOffsetY = TargetOffsetY;
         OutGroundNormal = GroundNormal;
-        OutGroundSamplePosition = GroundSamplePosition;
         return true;
     }
 
@@ -812,11 +807,6 @@ namespace {
         return ::std::clamp(PlantWeightAlpha, 0.0f, 1.0f);
     }
 
-    float ResolveDominantOffset(const float LeftOffset, const float RightOffset) {
-        const float SafeLeftOffset{ IsFiniteFloat(LeftOffset) ? LeftOffset : 0.0f };
-        const float SafeRightOffset{ IsFiniteFloat(RightOffset) ? RightOffset : 0.0f };
-        return ::std::abs(SafeLeftOffset) >= ::std::abs(SafeRightOffset) ? SafeLeftOffset : SafeRightOffset;
-    }
 }
 
 namespace Game::IK {
@@ -828,8 +818,8 @@ namespace Game::IK {
         ::ResolveFootBoneEntities(ReadOnlyWorld, FootIKRigComponent, BoneRootEntityId, InOutFootIKRuntimeComponent);
     }
 
-    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, DirectX::SimpleMath::Vector3& OutGroundNormal, DirectX::SimpleMath::Vector3& OutGroundSamplePosition) {
-        return ::TryResolveFootTargetOffset(World, FootEntityId, InOutWorldMatrices, OutTargetOffsetY, OutGroundNormal, OutGroundSamplePosition);
+    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, DirectX::SimpleMath::Vector3& OutGroundNormal) {
+        return ::TryResolveFootTargetOffset(World, FootEntityId, InOutWorldMatrices, OutTargetOffsetY, OutGroundNormal);
     }
 
     bool TryResolveFootSurfaceNormals(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const DirectX::SimpleMath::Vector3& SurfaceNormal, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, DirectX::SimpleMath::Vector3& OutFootWorldPosition, DirectX::SimpleMath::Vector3& OutCurrentFootNormal, DirectX::SimpleMath::Vector3& OutSurfaceNormal) {
@@ -868,7 +858,4 @@ namespace Game::IK {
         return ::ResolveFootPlantWeight(TargetOffset);
     }
 
-    float ResolveDominantOffset(const float LeftOffset, const float RightOffset) {
-        return ::ResolveDominantOffset(LeftOffset, RightOffset);
-    }
 }

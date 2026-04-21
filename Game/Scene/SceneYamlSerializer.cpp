@@ -1083,10 +1083,6 @@ namespace Game {
                     SetFootIKRigBoneName(NewFootIKRig.mPelvisBoneName, PelvisBoneNameText);
                 }
 
-                if (FootIKRigNode.has_child("footSoleOffset")) {
-                    FootIKRigNode["footSoleOffset"] >> NewFootIKRig.mFootSoleOffset;
-                }
-
                 if (FootIKRigNode.has_child("blendSpeed")) {
                     FootIKRigNode["blendSpeed"] >> NewFootIKRig.mBlendSpeed;
                 }
@@ -1870,7 +1866,6 @@ namespace Game {
                 AppendLine(Stream, 4, std::string{ "leftThighBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mLeftThighBoneName)));
                 AppendLine(Stream, 4, std::string{ "rightThighBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mRightThighBoneName)));
                 AppendLine(Stream, 4, std::string{ "pelvisBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mPelvisBoneName)));
-                AppendLine(Stream, 4, std::string{ "footSoleOffset: " } + std::to_string(FootIKRigComponent->mFootSoleOffset));
                 AppendLine(Stream, 4, std::string{ "blendSpeed: " } + std::to_string(FootIKRigComponent->mBlendSpeed));
                 AppendLine(Stream, 4, std::string{ "maxLift: " } + std::to_string(FootIKRigComponent->mMaxLift));
                 AppendLine(Stream, 4, std::string{ "maxDrop: " } + std::to_string(FootIKRigComponent->mMaxDrop));

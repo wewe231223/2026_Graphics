@@ -18,7 +18,6 @@ namespace Game {
             ComponentField(ComponentTextArray, mLeftThighBoneName)
             ComponentField(ComponentTextArray, mRightThighBoneName)
             ComponentField(ComponentTextArray, mPelvisBoneName)
-            ComponentField(float, mFootSoleOffset, 0.12f)
             ComponentField(float, mBlendSpeed, 12.0f)
             ComponentField(float, mMaxLift, 0.35f)
             ComponentField(float, mMaxDrop, 0.20f)

@@ -46,7 +46,6 @@ namespace Game {
         OutFields.push_back(ComponentInspectionField{ "LeftThighBoneName", HasLeftThighBoneName ? ::std::string{ LeftThighBoneNameText } : "<None>" });
         OutFields.push_back(ComponentInspectionField{ "RightThighBoneName", HasRightThighBoneName ? ::std::string{ RightThighBoneNameText } : "<None>" });
         OutFields.push_back(ComponentInspectionField{ "PelvisBoneName", HasPelvisBoneName ? ::std::string{ PelvisBoneNameText } : "<None>" });
-        OutFields.push_back(ComponentInspectionField{ "FootSoleOffset", ::std::to_string(mFootSoleOffset) });
         OutFields.push_back(ComponentInspectionField{ "BlendSpeed", ::std::to_string(mBlendSpeed) });
         OutFields.push_back(ComponentInspectionField{ "MaxLift", ::std::to_string(mMaxLift) });
         OutFields.push_back(ComponentInspectionField{ "MaxDrop", ::std::to_string(mMaxDrop) });
