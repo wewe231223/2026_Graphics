@@ -27,6 +27,14 @@ namespace {
     bool IsFiniteFloat(const float Value) {
         return ::std::isfinite(Value) != 0;
     }
+
+    void AppendGroundSampleDebugLine(Game::FrameContext& Ctx, const SimpleMath::Vector3& GroundSamplePosition, const SimpleMath::Vector3& GroundNormal) {
+        constexpr float GroundSampleMarkerLength{ 0.5f };
+        constexpr float GroundSampleMarkerLineThickness{ 0.0035f };
+        const SimpleMath::Vector3 MarkerStart{ GroundSamplePosition };
+        const SimpleMath::Vector3 MarkerEnd{ GroundSamplePosition + (GroundNormal * GroundSampleMarkerLength) };
+        Ctx.RenderData.debugGeometryContexts.push_back(Game::RFD::DebugGeometryContext::CreateLine(MarkerStart, MarkerEnd, SimpleMath::Vector4{ 1.0f, 0.1f, 0.1f, 1.0f }, GroundSampleMarkerLineThickness));
+    }
 }
 
 namespace Game {
@@ -105,7 +113,7 @@ namespace Game {
     }
 
     void FootIKSystem::Execute(Arche::World& World, FrameContext& Ctx, const float Dt) {
-        (void)Ctx;
+        const bool IsDebugGeometryDrawEnabled{ (Ctx.RenderData.globals.flags & RFD::FrameGlobalFlagDrawDebugGeometry) != 0u };
 
         const Arche::World::WorldReadOnlyView& ReadOnlyWorld{ ::std::as_const(World).GetReadOnlyView() };
         ::std::vector<Arche::EntityID> RuntimeMissingEntityIds{};
@@ -175,22 +183,30 @@ namespace Game {
             if (FootIKRigComponent.mEnabled == true && FootIKRuntimeComponent.mResolved == true) {
                 float LeftResolvedTargetOffset{};
                 SimpleMath::Vector3 LeftResolvedGroundNormal{ SimpleMath::Vector3::Up };
-                const bool IsLeftTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mLeftFootEntityId, WorldMatrices, LeftResolvedTargetOffset, LeftResolvedGroundNormal) };
+                SimpleMath::Vector3 LeftResolvedGroundSamplePosition{};
+                const bool IsLeftTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mLeftFootEntityId, WorldMatrices, LeftResolvedTargetOffset, LeftResolvedGroundNormal, LeftResolvedGroundSamplePosition) };
                 if (IsLeftTargetOffsetResolved == true) {
                     LeftRawTargetOffset = LeftResolvedTargetOffset;
                     LeftTargetPlantWeight = IK::ResolveFootPlantWeight(LeftResolvedTargetOffset);
                     LeftGroundNormal = LeftResolvedGroundNormal;
                     IsLeftGroundNormalResolved = true;
+                    if (IsDebugGeometryDrawEnabled == true) {
+                        AppendGroundSampleDebugLine(Ctx, LeftResolvedGroundSamplePosition, LeftResolvedGroundNormal);
+                    }
                 }
 
                 float RightResolvedTargetOffset{};
                 SimpleMath::Vector3 RightResolvedGroundNormal{ SimpleMath::Vector3::Up };
-                const bool IsRightTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mRightFootEntityId, WorldMatrices, RightResolvedTargetOffset, RightResolvedGroundNormal) };
+                SimpleMath::Vector3 RightResolvedGroundSamplePosition{};
+                const bool IsRightTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mRightFootEntityId, WorldMatrices, RightResolvedTargetOffset, RightResolvedGroundNormal, RightResolvedGroundSamplePosition) };
                 if (IsRightTargetOffsetResolved == true) {
                     RightRawTargetOffset = RightResolvedTargetOffset;
                     RightTargetPlantWeight = IK::ResolveFootPlantWeight(RightResolvedTargetOffset);
                     RightGroundNormal = RightResolvedGroundNormal;
                     IsRightGroundNormalResolved = true;
+                    if (IsDebugGeometryDrawEnabled == true) {
+                        AppendGroundSampleDebugLine(Ctx, RightResolvedGroundSamplePosition, RightResolvedGroundNormal);
+                    }
                 }
             }
 
