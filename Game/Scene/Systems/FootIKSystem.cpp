@@ -190,7 +190,7 @@ namespace Game {
             if (FootIKRigComponent.mEnabled == true && FootIKRuntimeComponent.mResolved == true) {
                 float LeftResolvedTargetOffset{};
                 SimpleMath::Vector3 LeftResolvedGroundNormal{ SimpleMath::Vector3::Up };
-                const bool IsLeftTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, WorldMatrices, LeftResolvedTargetOffset, LeftResolvedGroundNormal) };
+                const bool IsLeftTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mLeftFootEntityId, WorldMatrices, LeftResolvedTargetOffset, LeftResolvedGroundNormal) };
                 if (IsLeftTargetOffsetResolved == true) {
                     LeftRawTargetOffset = LeftResolvedTargetOffset;
                     LeftTargetPlantWeight = IK::ResolveFootPlantWeight(LeftResolvedTargetOffset);
@@ -200,7 +200,7 @@ namespace Game {
 
                 float RightResolvedTargetOffset{};
                 SimpleMath::Vector3 RightResolvedGroundNormal{ SimpleMath::Vector3::Up };
-                const bool IsRightTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, WorldMatrices, RightResolvedTargetOffset, RightResolvedGroundNormal) };
+                const bool IsRightTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mRightFootEntityId, WorldMatrices, RightResolvedTargetOffset, RightResolvedGroundNormal) };
                 if (IsRightTargetOffsetResolved == true) {
                     RightRawTargetOffset = RightResolvedTargetOffset;
                     RightTargetPlantWeight = IK::ResolveFootPlantWeight(RightResolvedTargetOffset);

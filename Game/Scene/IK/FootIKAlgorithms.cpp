@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "Game/Scene/Components/Bone.h"
+#include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/TerrainCollidee.h"
@@ -164,6 +165,20 @@ namespace {
 
         const SimpleMath::Quaternion WorldDeltaAppliedRotation{ SafeCurrentWorldRotation * SafeWorldDeltaRotation };
         return TryResolveNormalizedQuaternion(WorldDeltaAppliedRotation, OutWorldRotation);
+    }
+
+    float ResolveWorldObbBottomY(const DirectX::BoundingOrientedBox& WorldObb) {
+        DirectX::XMFLOAT3 Corners[8]{};
+        WorldObb.GetCorners(Corners);
+
+        float MinimumY{ Corners[0].y };
+        for (::std::size_t CornerIndex{ 1 }; CornerIndex < ::std::size(Corners); ++CornerIndex) {
+            if (Corners[CornerIndex].y < MinimumY) {
+                MinimumY = Corners[CornerIndex].y;
+            }
+        }
+
+        return MinimumY;
     }
 
     SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
@@ -347,53 +362,57 @@ namespace {
         InOutFootIKRuntimeComponent.mResolved = true;
     }
 
-    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutGroundNormal) {
-        if (FootEntityId == Arche::NullEntityID || ToeEntityId == Arche::NullEntityID) {
+    bool TryResolveFootSoleY(Arche::World& World, const Arche::EntityID FootEntityId, const SimpleMath::Matrix& FootWorldMatrix, const SimpleMath::Vector3& FootWorldPosition, float& OutFootSoleY) {
+        const Game::BoundingBox* BoundingBoxComponent{ ::std::as_const(World).GetComponent<Game::BoundingBox>(FootEntityId) };
+        if (BoundingBoxComponent == nullptr) {
+            OutFootSoleY = FootWorldPosition.y;
+            return IsFiniteFloat(OutFootSoleY);
+        }
+
+        DirectX::BoundingOrientedBox FootWorldObb{};
+        BoundingBoxComponent->GetObb().Transform(FootWorldObb, FootWorldMatrix);
+        const float FootSoleY{ ResolveWorldObbBottomY(FootWorldObb) };
+        if (IsFiniteFloat(FootSoleY) == false) {
+            return false;
+        }
+
+        OutFootSoleY = FootSoleY;
+        return true;
+    }
+
+    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutGroundNormal) {
+        if (FootEntityId == Arche::NullEntityID) {
             return false;
         }
 
         SimpleMath::Matrix FootWorldMatrix{};
-        SimpleMath::Matrix ToeWorldMatrix{};
-        if (TryResolveWorldMatrix(World, FootEntityId, InOutWorldMatrices, FootWorldMatrix) == false || TryResolveWorldMatrix(World, ToeEntityId, InOutWorldMatrices, ToeWorldMatrix) == false) {
+        if (TryResolveWorldMatrix(World, FootEntityId, InOutWorldMatrices, FootWorldMatrix) == false) {
             return false;
         }
 
         const SimpleMath::Vector3 FootWorldPosition{ FootWorldMatrix._41, FootWorldMatrix._42, FootWorldMatrix._43 };
-        const SimpleMath::Vector3 ToeWorldPosition{ ToeWorldMatrix._41, ToeWorldMatrix._42, ToeWorldMatrix._43 };
-        if (IsFiniteVector3(FootWorldPosition) == false || IsFiniteVector3(ToeWorldPosition) == false) {
+        if (IsFiniteVector3(FootWorldPosition) == false) {
             return false;
         }
 
-        float FootGroundY{};
-        SimpleMath::Vector3 FootGroundNormal{ SimpleMath::Vector3::Up };
-        if (TryResolveTerrainGround(World, FootWorldPosition, FootGroundY, FootGroundNormal) == false) {
+        float GroundY{};
+        SimpleMath::Vector3 GroundNormal{ SimpleMath::Vector3::Up };
+        if (TryResolveTerrainGround(World, FootWorldPosition, GroundY, GroundNormal) == false) {
             return false;
         }
 
-        float ToeGroundY{};
-        SimpleMath::Vector3 ToeGroundNormal{ SimpleMath::Vector3::Up };
-        if (TryResolveTerrainGround(World, ToeWorldPosition, ToeGroundY, ToeGroundNormal) == false) {
+        float FootSoleY{};
+        if (TryResolveFootSoleY(World, FootEntityId, FootWorldMatrix, FootWorldPosition, FootSoleY) == false) {
             return false;
         }
 
-        const float FootTargetOffsetY{ FootGroundY - FootWorldPosition.y };
-        const float ToeTargetOffsetY{ ToeGroundY - ToeWorldPosition.y };
-        if (IsFiniteFloat(FootTargetOffsetY) == false || IsFiniteFloat(ToeTargetOffsetY) == false) {
-            return false;
-        }
-
-        const float TargetOffsetY{ (FootTargetOffsetY + ToeTargetOffsetY) * 0.5f };
+        const float TargetOffsetY{ GroundY - FootSoleY };
         if (IsFiniteFloat(TargetOffsetY) == false) {
             return false;
         }
 
-        SimpleMath::Vector3 CombinedGroundNormal{ FootGroundNormal + ToeGroundNormal };
-        if (TryResolveNormalizedVector(CombinedGroundNormal, CombinedGroundNormal) == false) {
-            return false;
-        }
-
         OutTargetOffsetY = TargetOffsetY;
-        OutGroundNormal = CombinedGroundNormal;
+        OutGroundNormal = GroundNormal;
         return true;
     }
 
@@ -799,8 +818,8 @@ namespace Game::IK {
         ::ResolveFootBoneEntities(ReadOnlyWorld, FootIKRigComponent, BoneRootEntityId, InOutFootIKRuntimeComponent);
     }
 
-    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, DirectX::SimpleMath::Vector3& OutGroundNormal) {
-        return ::TryResolveFootTargetOffset(World, FootEntityId, ToeEntityId, InOutWorldMatrices, OutTargetOffsetY, OutGroundNormal);
+    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, DirectX::SimpleMath::Vector3& OutGroundNormal) {
+        return ::TryResolveFootTargetOffset(World, FootEntityId, InOutWorldMatrices, OutTargetOffsetY, OutGroundNormal);
     }
 
     bool TryResolveFootSurfaceNormals(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const DirectX::SimpleMath::Vector3& SurfaceNormal, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, DirectX::SimpleMath::Vector3& OutFootWorldPosition, DirectX::SimpleMath::Vector3& OutCurrentFootNormal, DirectX::SimpleMath::Vector3& OutSurfaceNormal) {
