@@ -28,6 +28,8 @@ namespace {
     constexpr float FootPlantEngageOffset{ 0.01f };
     constexpr float MinimumFootTiltRadians{ -0.2617993878f };
     constexpr float MaximumFootTiltRadians{ 0.6108652382f };
+    constexpr float FootRaycastStartOffset{ 0.3f };
+    constexpr float FootRaycastLength{ 0.3f + 0.2f };
     constexpr float PelvisWeight{ 0.50f };
     constexpr int FootIKFabrikMaxIterationCount{ 12 };
     constexpr float FootIKFabrikConvergenceDistance{ 1.0e-3f };
@@ -79,6 +81,18 @@ namespace {
         OutNormalizedQuaternion = SourceQuaternion;
         OutNormalizedQuaternion.Normalize();
         return IsFiniteQuaternion(OutNormalizedQuaternion);
+    }
+
+    float ResolveFootRaycastTargetConfidence(const ::std::size_t HitCount) {
+        if (HitCount >= 3) {
+            return 1.0f;
+        }
+
+        if (HitCount == 2) {
+            return 0.5f;
+        }
+
+        return 0.0f;
     }
 
     bool TryResolveFromToRotation(const SimpleMath::Vector3& SourceDirection, const SimpleMath::Vector3& TargetDirection, SimpleMath::Quaternion& OutRotation) {
@@ -187,20 +201,6 @@ namespace {
         return TryResolveNormalizedQuaternion(WorldDeltaAppliedRotation, OutWorldRotation);
     }
 
-    float ResolveWorldObbBottomY(const DirectX::BoundingOrientedBox& WorldObb) {
-        DirectX::XMFLOAT3 Corners[8]{};
-        WorldObb.GetCorners(Corners);
-
-        float MinimumY{ Corners[0].y };
-        for (::std::size_t CornerIndex{ 1 }; CornerIndex < ::std::size(Corners); ++CornerIndex) {
-            if (Corners[CornerIndex].y < MinimumY) {
-                MinimumY = Corners[CornerIndex].y;
-            }
-        }
-
-        return MinimumY;
-    }
-
     SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
         const SimpleMath::Matrix TrsMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
         return TransformComponent.nodeToParent * TrsMatrix;
@@ -288,44 +288,6 @@ namespace {
         return Arche::NullEntityID;
     }
 
-    bool TryResolveTerrainGround(Arche::World& World, const SimpleMath::Vector3& Position, float& OutGroundY, SimpleMath::Vector3& OutGroundNormal) {
-        bool IsResolved{};
-        float HighestGroundY{};
-        SimpleMath::Vector3 HighestGroundNormal{ SimpleMath::Vector3::Up };
-        for (const auto [TerrainCollideeComponent] : World.Query<Game::TerrainCollidee>()) {
-            Game::TerrainHeightResolver* TerrainHeightResolverPointer{ TerrainCollideeComponent.mTerrainHeightResolver };
-            if (TerrainHeightResolverPointer == nullptr) {
-                continue;
-            }
-
-            SimpleMath::Vector3 CandidatePosition{ Position };
-            SimpleMath::Vector3 CandidateGroundNormal{ SimpleMath::Vector3::Up };
-            if (TerrainHeightResolverPointer->TryResolvePositionYAndNormal(CandidatePosition, CandidateGroundNormal) == false || IsFiniteVector3(CandidatePosition) == false || IsFiniteVector3(CandidateGroundNormal) == false) {
-                continue;
-            }
-
-            const float CandidateGroundNormalLengthSquared{ CandidateGroundNormal.LengthSquared() };
-            if (IsFiniteFloat(CandidateGroundNormalLengthSquared) == false || CandidateGroundNormalLengthSquared <= SurfaceNormalLengthEpsilon) {
-                continue;
-            }
-
-            CandidateGroundNormal.Normalize();
-            if (IsResolved == false || CandidatePosition.y > HighestGroundY) {
-                HighestGroundY = CandidatePosition.y;
-                HighestGroundNormal = CandidateGroundNormal;
-                IsResolved = true;
-            }
-        }
-
-        if (IsResolved == false || IsFiniteFloat(HighestGroundY) == false || IsFiniteVector3(HighestGroundNormal) == false) {
-            return false;
-        }
-
-        OutGroundY = HighestGroundY;
-        OutGroundNormal = HighestGroundNormal;
-        return true;
-    }
-
     bool IsCachedBoneEntityValid(const Arche::World::WorldReadOnlyView& ReadOnlyWorld, const Arche::EntityID EntityId, const ::std::string_view ExpectedBoneNameText) {
         if (ExpectedBoneNameText.empty() == true) {
             return EntityId == Arche::NullEntityID;
@@ -382,24 +344,6 @@ namespace {
         InOutFootIKRuntimeComponent.mResolved = true;
     }
 
-    bool TryResolveFootSoleY(Arche::World& World, const Arche::EntityID FootEntityId, const SimpleMath::Matrix& FootWorldMatrix, const SimpleMath::Vector3& FootWorldPosition, float& OutFootSoleY) {
-        const Game::BoundingBox* BoundingBoxComponent{ ::std::as_const(World).GetComponent<Game::BoundingBox>(FootEntityId) };
-        if (BoundingBoxComponent == nullptr) {
-            OutFootSoleY = FootWorldPosition.y;
-            return IsFiniteFloat(OutFootSoleY);
-        }
-
-        DirectX::BoundingOrientedBox FootWorldObb{};
-        BoundingBoxComponent->GetObb().Transform(FootWorldObb, FootWorldMatrix);
-        const float FootSoleY{ ResolveWorldObbBottomY(FootWorldObb) };
-        if (IsFiniteFloat(FootSoleY) == false) {
-            return false;
-        }
-
-        OutFootSoleY = FootSoleY;
-        return true;
-    }
-
     bool TryResolveWorldObb(Arche::World& World, const Arche::EntityID EntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, DirectX::BoundingOrientedBox& OutWorldObb) {
         if (EntityId == Arche::NullEntityID) {
             return false;
@@ -416,6 +360,52 @@ namespace {
         }
 
         BoundingBoxComponent->GetObb().Transform(OutWorldObb, WorldMatrix);
+        return true;
+    }
+
+    bool TryResolveNearestTerrainRaycastHit(Arche::World& World, const SimpleMath::Ray& Ray, const float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal, float& OutHitDistance) {
+        if (IsFiniteVector3(Ray.position) == false || IsFiniteVector3(Ray.direction) == false || IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
+            return false;
+        }
+
+        bool IsHit{};
+        float NearestHitDistance{ RayLength };
+        SimpleMath::Vector3 NearestHitPoint{};
+        SimpleMath::Vector3 NearestHitNormal{ SimpleMath::Vector3::Up };
+        for (const auto [TerrainCollideeComponent] : World.Query<Game::TerrainCollidee>()) {
+            Game::TerrainHeightResolver* TerrainHeightResolverPointer{ TerrainCollideeComponent.mTerrainHeightResolver };
+            if (TerrainHeightResolverPointer == nullptr) {
+                continue;
+            }
+
+            SimpleMath::Vector3 CandidateHitPoint{};
+            SimpleMath::Vector3 CandidateHitNormal{ SimpleMath::Vector3::Up };
+            float CandidateHitDistance{};
+            const bool IsCandidateHit{ TerrainHeightResolverPointer->TryRaycast(Ray, RayLength, CandidateHitPoint, CandidateHitNormal, CandidateHitDistance) };
+            if (IsCandidateHit == false || IsFiniteVector3(CandidateHitPoint) == false || IsFiniteVector3(CandidateHitNormal) == false || IsFiniteFloat(CandidateHitDistance) == false || CandidateHitDistance < 0.0f || CandidateHitDistance > RayLength) {
+                continue;
+            }
+
+            SimpleMath::Vector3 SafeCandidateHitNormal{};
+            if (TryResolveNormalizedVector(CandidateHitNormal, SafeCandidateHitNormal) == false) {
+                continue;
+            }
+
+            if (IsHit == false || CandidateHitDistance < NearestHitDistance) {
+                IsHit = true;
+                NearestHitDistance = CandidateHitDistance;
+                NearestHitPoint = CandidateHitPoint;
+                NearestHitNormal = SafeCandidateHitNormal;
+            }
+        }
+
+        if (IsHit == false) {
+            return false;
+        }
+
+        OutHitPoint = NearestHitPoint;
+        OutHitNormal = NearestHitNormal;
+        OutHitDistance = NearestHitDistance;
         return true;
     }
 
@@ -741,8 +731,8 @@ namespace {
         return true;
     }
 
-    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutGroundNormal) {
-        if (FootEntityId == Arche::NullEntityID) {
+    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutGroundNormal, SimpleMath::Vector3& OutTargetFootPosition, float& OutTargetConfidence) {
+        if (FootEntityId == Arche::NullEntityID || ToeEntityId == Arche::NullEntityID) {
             return false;
         }
 
@@ -756,24 +746,85 @@ namespace {
             return false;
         }
 
-        float GroundY{};
-        SimpleMath::Vector3 GroundNormal{ SimpleMath::Vector3::Up };
-        if (TryResolveTerrainGround(World, FootWorldPosition, GroundY, GroundNormal) == false) {
+        DirectX::BoundingOrientedBox FootWorldObb{};
+        if (TryResolveWorldObb(World, FootEntityId, InOutWorldMatrices, FootWorldObb) == false) {
             return false;
         }
 
-        float FootSoleY{};
-        if (TryResolveFootSoleY(World, FootEntityId, FootWorldMatrix, FootWorldPosition, FootSoleY) == false) {
+        const float FootSoleThickness{ ::std::abs(FootWorldObb.Extents.y) };
+        if (IsFiniteFloat(FootSoleThickness) == false) {
             return false;
         }
 
-        const float TargetOffsetY{ GroundY - FootSoleY };
+        ::std::array<SimpleMath::Vector3, 4> CornerPoints{};
+        ::std::array<SimpleMath::Vector3, 4> CornerDirections{};
+        if (TryResolveFootObbAndToeObbCorners(World, FootEntityId, ToeEntityId, InOutWorldMatrices, CornerPoints, CornerDirections) == false) {
+            return false;
+        }
+
+        bool IsAnyHit{};
+        ::std::size_t HitCount{};
+        SimpleMath::Vector3 HitPointAccumulation{};
+        SimpleMath::Vector3 HitNormalAccumulation{};
+        for (::std::size_t CornerIndex{}; CornerIndex < CornerPoints.size(); ++CornerIndex) {
+            const SimpleMath::Vector3& CornerPoint{ CornerPoints[CornerIndex] };
+            const SimpleMath::Vector3& CornerDirection{ CornerDirections[CornerIndex] };
+            const SimpleMath::Vector3 RayStartPoint{ CornerPoint - (CornerDirection * FootRaycastStartOffset) };
+            if (IsFiniteVector3(RayStartPoint) == false || IsFiniteVector3(CornerDirection) == false) {
+                continue;
+            }
+
+            const SimpleMath::Ray CornerRay{ RayStartPoint, CornerDirection };
+            SimpleMath::Vector3 HitPoint{};
+            SimpleMath::Vector3 HitNormal{ SimpleMath::Vector3::Up };
+            float HitDistance{};
+            const bool IsCornerHit{ TryResolveNearestTerrainRaycastHit(World, CornerRay, FootRaycastLength, HitPoint, HitNormal, HitDistance) };
+            if (IsCornerHit == false || IsFiniteVector3(HitPoint) == false || IsFiniteVector3(HitNormal) == false || IsFiniteFloat(HitDistance) == false) {
+                continue;
+            }
+
+            HitPointAccumulation += HitPoint;
+            HitNormalAccumulation += HitNormal;
+            ++HitCount;
+            IsAnyHit = true;
+        }
+
+        if (IsAnyHit == false || HitCount == 0) {
+            return false;
+        }
+
+        const float TargetConfidence{ ResolveFootRaycastTargetConfidence(HitCount) };
+        if (IsFiniteFloat(TargetConfidence) == false || TargetConfidence <= 0.0f) {
+            return false;
+        }
+
+        const float HitCountReciprocal{ 1.0f / static_cast<float>(HitCount) };
+        SimpleMath::Vector3 AverageHitPoint{ HitPointAccumulation * HitCountReciprocal };
+        SimpleMath::Vector3 AverageHitNormal{ HitNormalAccumulation * HitCountReciprocal };
+        if (IsFiniteVector3(AverageHitPoint) == false || TryResolveNormalizedVector(AverageHitNormal, AverageHitNormal) == false) {
+            return false;
+        }
+
+        const float FootToPlaneDistance{ (FootWorldPosition - AverageHitPoint).Dot(AverageHitNormal) };
+        if (IsFiniteFloat(FootToPlaneDistance) == false) {
+            return false;
+        }
+
+        const SimpleMath::Vector3 ProjectedFootOnGroundPlane{ FootWorldPosition - (AverageHitNormal * FootToPlaneDistance) };
+        const SimpleMath::Vector3 TargetFootPosition{ ProjectedFootOnGroundPlane + (AverageHitNormal * FootSoleThickness) };
+        if (IsFiniteVector3(TargetFootPosition) == false) {
+            return false;
+        }
+
+        const float TargetOffsetY{ TargetFootPosition.y - FootWorldPosition.y };
         if (IsFiniteFloat(TargetOffsetY) == false) {
             return false;
         }
 
         OutTargetOffsetY = TargetOffsetY;
-        OutGroundNormal = GroundNormal;
+        OutGroundNormal = AverageHitNormal;
+        OutTargetFootPosition = TargetFootPosition;
+        OutTargetConfidence = TargetConfidence;
         return true;
     }
 
@@ -897,6 +948,50 @@ namespace {
         return TryApplyWorldTransformToBoneTransform(World, BoneEntityId, CurrentWorldPosition, DesiredWorldRotation, InOutWorldMatrices);
     }
 
+    struct LegWorldState final {
+        ::std::array<SimpleMath::Vector3, 3> WorldPositions{};
+        ::std::array<SimpleMath::Quaternion, 3> WorldRotations{};
+        ::std::array<float, 2> SegmentLengths{};
+    };
+
+    bool TryResolveLegWorldState(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, LegWorldState& OutLegWorldState) {
+        if (ThighEntityId == Arche::NullEntityID || ShinEntityId == Arche::NullEntityID || FootEntityId == Arche::NullEntityID) {
+            return false;
+        }
+
+        const ::std::array<Arche::EntityID, 3> ChainEntityIds{ { ThighEntityId, ShinEntityId, FootEntityId } };
+        ::std::array<SimpleMath::Matrix, 3> CurrentWorldMatrices{};
+        for (::std::size_t JointIndex{}; JointIndex < ChainEntityIds.size(); ++JointIndex) {
+            if (TryResolveWorldMatrix(World, ChainEntityIds[JointIndex], InOutWorldMatrices, CurrentWorldMatrices[JointIndex]) == false) {
+                return false;
+            }
+        }
+
+        for (::std::size_t JointIndex{}; JointIndex < CurrentWorldMatrices.size(); ++JointIndex) {
+            SimpleMath::Vector3 CurrentScale{};
+            SimpleMath::Quaternion CurrentRotation{};
+            SimpleMath::Vector3 CurrentPosition{};
+            const bool IsCurrentDecomposeSucceeded{ CurrentWorldMatrices[JointIndex].Decompose(CurrentScale, CurrentRotation, CurrentPosition) };
+            if (IsCurrentDecomposeSucceeded == false || IsFiniteVector3(CurrentScale) == false || IsFiniteVector3(CurrentPosition) == false || IsFiniteQuaternion(CurrentRotation) == false || TryResolveNormalizedQuaternion(CurrentRotation, CurrentRotation) == false) {
+                return false;
+            }
+
+            OutLegWorldState.WorldPositions[JointIndex] = CurrentPosition;
+            OutLegWorldState.WorldRotations[JointIndex] = CurrentRotation;
+        }
+
+        for (::std::size_t SegmentIndex{}; SegmentIndex < OutLegWorldState.SegmentLengths.size(); ++SegmentIndex) {
+            const float SegmentLength{ (OutLegWorldState.WorldPositions[SegmentIndex + 1] - OutLegWorldState.WorldPositions[SegmentIndex]).Length() };
+            if (IsFiniteFloat(SegmentLength) == false || SegmentLength <= FootOffsetEpsilon) {
+                return false;
+            }
+
+            OutLegWorldState.SegmentLengths[SegmentIndex] = SegmentLength;
+        }
+
+        return true;
+    }
+
     bool TryResolveKneePreferredBendDirection(const ::std::array<SimpleMath::Vector3, 3>& CurrentWorldPositions, SimpleMath::Vector3& OutPreferredBendDirection) {
         const SimpleMath::Vector3 RootToEndVector{ CurrentWorldPositions[2] - CurrentWorldPositions[0] };
         SimpleMath::Vector3 RootToEndDirection{};
@@ -920,47 +1015,45 @@ namespace {
         return TryResolveNormalizedVector(FallbackPreferredBendDirection, OutPreferredBendDirection);
     }
 
-    bool TrySolveLegWithIK(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, const float TargetOffsetY, const Game::IFootIKSolver& FootIKSolver, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
-        if (ThighEntityId == Arche::NullEntityID || ShinEntityId == Arche::NullEntityID || FootEntityId == Arche::NullEntityID || IsFiniteFloat(TargetOffsetY) == false) {
+    bool TryResolveLegReachOverflowDistance(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, const SimpleMath::Vector3& TargetFootWorldPosition, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutReachOverflowDistance) {
+        if (IsFiniteVector3(TargetFootWorldPosition) == false) {
             return false;
         }
 
-        if (::std::abs(TargetOffsetY) <= FootOffsetEpsilon) {
+        LegWorldState CurrentLegWorldState{};
+        if (TryResolveLegWorldState(World, ThighEntityId, ShinEntityId, FootEntityId, InOutWorldMatrices, CurrentLegWorldState) == false) {
+            return false;
+        }
+
+        const float ChainReachDistance{ CurrentLegWorldState.SegmentLengths[0] + CurrentLegWorldState.SegmentLengths[1] };
+        const float RootToTargetDistance{ (TargetFootWorldPosition - CurrentLegWorldState.WorldPositions[0]).Length() };
+        if (IsFiniteFloat(ChainReachDistance) == false || IsFiniteFloat(RootToTargetDistance) == false) {
+            return false;
+        }
+
+        OutReachOverflowDistance = (::std::max)(0.0f, RootToTargetDistance - ChainReachDistance);
+        return IsFiniteFloat(OutReachOverflowDistance);
+    }
+
+    bool TrySolveLegWithIK(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, const SimpleMath::Vector3& TargetFootWorldPosition, const Game::IFootIKSolver& FootIKSolver, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        if (ThighEntityId == Arche::NullEntityID || ShinEntityId == Arche::NullEntityID || FootEntityId == Arche::NullEntityID || IsFiniteVector3(TargetFootWorldPosition) == false) {
+            return false;
+        }
+
+        LegWorldState CurrentLegWorldState{};
+        if (TryResolveLegWorldState(World, ThighEntityId, ShinEntityId, FootEntityId, InOutWorldMatrices, CurrentLegWorldState) == false) {
+            return false;
+        }
+
+        const float CurrentFootToTargetDistance{ (TargetFootWorldPosition - CurrentLegWorldState.WorldPositions.back()).Length() };
+        if (IsFiniteFloat(CurrentFootToTargetDistance) == false || CurrentFootToTargetDistance <= FootOffsetEpsilon) {
             return false;
         }
 
         const ::std::array<Arche::EntityID, 3> ChainEntityIds{ { ThighEntityId, ShinEntityId, FootEntityId } };
-        ::std::array<SimpleMath::Matrix, 3> CurrentWorldMatrices{};
-        for (::std::size_t JointIndex{}; JointIndex < ChainEntityIds.size(); ++JointIndex) {
-            if (TryResolveWorldMatrix(World, ChainEntityIds[JointIndex], InOutWorldMatrices, CurrentWorldMatrices[JointIndex]) == false) {
-                return false;
-            }
-        }
-
-        ::std::array<SimpleMath::Vector3, 3> CurrentWorldPositions{};
-        ::std::array<SimpleMath::Quaternion, 3> CurrentWorldRotations{};
-        for (::std::size_t JointIndex{}; JointIndex < CurrentWorldMatrices.size(); ++JointIndex) {
-            SimpleMath::Vector3 CurrentScale{};
-            SimpleMath::Quaternion CurrentRotation{};
-            SimpleMath::Vector3 CurrentPosition{};
-            const bool IsCurrentDecomposeSucceeded{ CurrentWorldMatrices[JointIndex].Decompose(CurrentScale, CurrentRotation, CurrentPosition) };
-            if (IsCurrentDecomposeSucceeded == false || IsFiniteVector3(CurrentScale) == false || IsFiniteVector3(CurrentPosition) == false || IsFiniteQuaternion(CurrentRotation) == false) {
-                return false;
-            }
-
-            if (TryResolveNormalizedQuaternion(CurrentRotation, CurrentRotation) == false) {
-                return false;
-            }
-
-            CurrentWorldPositions[JointIndex] = CurrentPosition;
-            CurrentWorldRotations[JointIndex] = CurrentRotation;
-        }
-
-        SimpleMath::Vector3 TargetFootPosition{ CurrentWorldPositions.back() };
-        TargetFootPosition.y += TargetOffsetY;
-        if (IsFiniteVector3(TargetFootPosition) == false) {
-            return false;
-        }
+        const ::std::array<SimpleMath::Vector3, 3>& CurrentWorldPositions{ CurrentLegWorldState.WorldPositions };
+        const ::std::array<SimpleMath::Quaternion, 3>& CurrentWorldRotations{ CurrentLegWorldState.WorldRotations };
+        const SimpleMath::Vector3 TargetFootPosition{ TargetFootWorldPosition };
 
         SimpleMath::Vector3 KneePreferredBendDirection{};
         bool IsKneePreferredBendDirectionResolved{ TryResolveKneePreferredBendDirection(CurrentWorldPositions, KneePreferredBendDirection) };
@@ -1188,8 +1281,8 @@ namespace Game::IK {
         return ::TryResolveFootObbAndToeObbCorners(World, FootEntityId, ToeEntityId, InOutWorldMatrices, OutCornerPoints, OutCornerDirections);
     }
 
-    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, DirectX::SimpleMath::Vector3& OutGroundNormal) {
-        return ::TryResolveFootTargetOffset(World, FootEntityId, InOutWorldMatrices, OutTargetOffsetY, OutGroundNormal);
+    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, DirectX::SimpleMath::Vector3& OutGroundNormal, DirectX::SimpleMath::Vector3& OutTargetFootPosition, float& OutTargetConfidence) {
+        return ::TryResolveFootTargetOffset(World, FootEntityId, ToeEntityId, InOutWorldMatrices, OutTargetOffsetY, OutGroundNormal, OutTargetFootPosition, OutTargetConfidence);
     }
 
     bool TryResolveFootSurfaceNormals(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const DirectX::SimpleMath::Vector3& SurfaceNormal, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, DirectX::SimpleMath::Vector3& OutFootWorldPosition, DirectX::SimpleMath::Vector3& OutCurrentFootNormal, DirectX::SimpleMath::Vector3& OutSurfaceNormal) {
@@ -1208,8 +1301,12 @@ namespace Game::IK {
         return ::TryApplyOffsetToBoneTransform(World, BoneEntityId, OffsetY, InOutWorldMatrices);
     }
 
-    bool TrySolveLegWithIK(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, const float TargetOffsetY, const IFootIKSolver& FootIKSolver, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices) {
-        return ::TrySolveLegWithIK(World, ThighEntityId, ShinEntityId, FootEntityId, TargetOffsetY, FootIKSolver, InOutWorldMatrices);
+    bool TryResolveLegReachOverflowDistance(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, const DirectX::SimpleMath::Vector3& TargetFootWorldPosition, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, float& OutReachOverflowDistance) {
+        return ::TryResolveLegReachOverflowDistance(World, ThighEntityId, ShinEntityId, FootEntityId, TargetFootWorldPosition, InOutWorldMatrices, OutReachOverflowDistance);
+    }
+
+    bool TrySolveLegWithIK(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, const DirectX::SimpleMath::Vector3& TargetFootWorldPosition, const IFootIKSolver& FootIKSolver, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices) {
+        return ::TrySolveLegWithIK(World, ThighEntityId, ShinEntityId, FootEntityId, TargetFootWorldPosition, FootIKSolver, InOutWorldMatrices);
     }
 
     bool TryAlignFootToSurface(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const DirectX::SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices) {
