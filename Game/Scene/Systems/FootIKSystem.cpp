@@ -28,19 +28,72 @@ namespace {
         return ::std::isfinite(Value) != 0;
     }
 
-    void AppendFootSurfaceDebugLines(Arche::World& World, Game::FrameContext& Ctx, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& SurfaceNormal, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
-        constexpr float NormalLineLength{ 0.4f };
-        constexpr float NormalLineThickness{ 0.0035f };
-        SimpleMath::Vector3 FootWorldPosition{};
-        SimpleMath::Vector3 CurrentFootNormal{};
-        SimpleMath::Vector3 SafeSurfaceNormal{};
-        const bool IsSurfaceNormalsResolved{ Game::IK::TryResolveFootSurfaceNormals(World, FootEntityId, ToeEntityId, SurfaceNormal, InOutWorldMatrices, FootWorldPosition, CurrentFootNormal, SafeSurfaceNormal) };
-        if (IsSurfaceNormalsResolved == false) {
+    bool IsFiniteVector3(const SimpleMath::Vector3& Value) {
+        return IsFiniteFloat(Value.x) && IsFiniteFloat(Value.y) && IsFiniteFloat(Value.z);
+    }
+
+    bool TryResolveRaycastHitOnTerrain(Arche::World& World, const SimpleMath::Ray& Ray, const float RayLength, SimpleMath::Vector3& OutHitPoint, float& OutHitDistance) {
+        if (IsFiniteVector3(Ray.position) == false || IsFiniteVector3(Ray.direction) == false || IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
+            return false;
+        }
+
+        bool IsHit{};
+        float NearestHitDistance{ RayLength };
+        for (const auto [TerrainCollideeComponent] : World.Query<Game::TerrainCollidee>()) {
+            Game::TerrainHeightResolver* TerrainHeightResolverPointer{ TerrainCollideeComponent.mTerrainHeightResolver };
+            if (TerrainHeightResolverPointer == nullptr) {
+                continue;
+            }
+
+            SimpleMath::Vector3 CandidateHitPoint{};
+            SimpleMath::Vector3 CandidateHitNormal{ SimpleMath::Vector3::Up };
+            float CandidateHitDistance{};
+            const bool IsCandidateHit{ TerrainHeightResolverPointer->TryRaycast(Ray, RayLength, CandidateHitPoint, CandidateHitNormal, CandidateHitDistance) };
+            if (IsCandidateHit == false || IsFiniteVector3(CandidateHitPoint) == false || IsFiniteFloat(CandidateHitDistance) == false || CandidateHitDistance < 0.0f || CandidateHitDistance > RayLength) {
+                continue;
+            }
+
+            if (IsHit == false || CandidateHitDistance < NearestHitDistance) {
+                IsHit = true;
+                NearestHitDistance = CandidateHitDistance;
+                OutHitPoint = CandidateHitPoint;
+            }
+        }
+
+        if (IsHit == false) {
+            return false;
+        }
+
+        OutHitDistance = NearestHitDistance;
+        return true;
+    }
+
+    void AppendFootCornerDebugLines(Arche::World& World, Game::FrameContext& Ctx, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        constexpr float RayLineLength{ 0.45f };
+        constexpr float CornerLineThickness{ 0.0035f };
+        constexpr SimpleMath::Vector4 CornerLineColor{ 0.35f, 1.0f, 0.45f, 1.0f };
+        constexpr SimpleMath::Vector4 HitLineColor{ 1.0f, 0.15f, 0.15f, 1.0f };
+
+        ::std::array<SimpleMath::Vector3, 4> CornerPoints{};
+        ::std::array<SimpleMath::Vector3, 4> CornerDirections{};
+        const bool IsCornerPointsResolved{ Game::IK::TryResolveFootObbAndToeObbCorners(World, FootEntityId, ToeEntityId, InOutWorldMatrices, CornerPoints, CornerDirections) };
+        if (IsCornerPointsResolved == false) {
             return;
         }
 
-        Ctx.RenderData.debugGeometryContexts.push_back(Game::RFD::DebugGeometryContext::CreateDirection(FootWorldPosition, CurrentFootNormal, NormalLineLength, SimpleMath::Vector4{ 0.2f, 0.8f, 1.0f, 1.0f }, NormalLineThickness));
-        Ctx.RenderData.debugGeometryContexts.push_back(Game::RFD::DebugGeometryContext::CreateDirection(FootWorldPosition, SafeSurfaceNormal, NormalLineLength, SimpleMath::Vector4{ 1.0f, 0.4f, 0.1f, 1.0f }, NormalLineThickness));
+        for (::std::size_t CornerIndex{}; CornerIndex < CornerPoints.size(); ++CornerIndex) {
+            const SimpleMath::Vector3& CornerPoint{ CornerPoints[CornerIndex] };
+            const SimpleMath::Vector3& RayDirection{ CornerDirections[CornerIndex] };
+            const SimpleMath::Ray Ray{ CornerPoint, RayDirection };
+            SimpleMath::Vector3 HitPoint{};
+            float HitDistance{};
+            const bool IsTerrainHit{ TryResolveRaycastHitOnTerrain(World, Ray, RayLineLength, HitPoint, HitDistance) };
+            (void)HitPoint;
+            (void)HitDistance;
+
+            const SimpleMath::Vector4& LineColor{ IsTerrainHit == true ? HitLineColor : CornerLineColor };
+            Ctx.RenderData.debugGeometryContexts.push_back(Game::RFD::DebugGeometryContext::CreateDirection(CornerPoint, RayDirection, RayLineLength, LineColor, CornerLineThickness));
+        }
     }
 }
 
@@ -250,10 +303,6 @@ namespace Game {
 
             if (FootIKRigComponent.mEnabled == true && FootIKRuntimeComponent.mResolved == true) {
                 if (IsLeftGroundNormalResolved == true) {
-                    if (IsDebugGeometryDrawEnabled == true) {
-                        AppendFootSurfaceDebugLines(World, Ctx, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, LeftGroundNormal, WorldMatrices);
-                    }
-
                     const bool IsLeftFootSurfaceAligned{ IK::TryAlignFootToSurface(World, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, LeftGroundNormal, FootIKRuntimeComponent.mLeftPlantWeight, WorldMatrices) };
                     if (IsLeftFootSurfaceAligned == true) {
                         WorldMatrices.clear();
@@ -261,14 +310,15 @@ namespace Game {
                 }
 
                 if (IsRightGroundNormalResolved == true) {
-                    if (IsDebugGeometryDrawEnabled == true) {
-                        AppendFootSurfaceDebugLines(World, Ctx, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, RightGroundNormal, WorldMatrices);
-                    }
-
                     const bool IsRightFootSurfaceAligned{ IK::TryAlignFootToSurface(World, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, RightGroundNormal, FootIKRuntimeComponent.mRightPlantWeight, WorldMatrices) };
                     if (IsRightFootSurfaceAligned == true) {
                         WorldMatrices.clear();
                     }
+                }
+
+                if (IsDebugGeometryDrawEnabled == true) {
+                    AppendFootCornerDebugLines(World, Ctx, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, WorldMatrices);
+                    AppendFootCornerDebugLines(World, Ctx, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, WorldMatrices);
                 }
             }
         }

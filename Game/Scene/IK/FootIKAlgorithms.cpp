@@ -3,8 +3,10 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <span>
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -377,6 +379,347 @@ namespace {
         }
 
         OutFootSoleY = FootSoleY;
+        return true;
+    }
+
+    bool TryResolveWorldObb(Arche::World& World, const Arche::EntityID EntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, DirectX::BoundingOrientedBox& OutWorldObb) {
+        if (EntityId == Arche::NullEntityID) {
+            return false;
+        }
+
+        const Game::BoundingBox* BoundingBoxComponent{ ::std::as_const(World).GetComponent<Game::BoundingBox>(EntityId) };
+        if (BoundingBoxComponent == nullptr) {
+            return false;
+        }
+
+        SimpleMath::Matrix WorldMatrix{};
+        if (TryResolveWorldMatrix(World, EntityId, InOutWorldMatrices, WorldMatrix) == false) {
+            return false;
+        }
+
+        BoundingBoxComponent->GetObb().Transform(OutWorldObb, WorldMatrix);
+        return true;
+    }
+
+    bool TryResolveObbCorners(const DirectX::BoundingOrientedBox& WorldObb, ::std::array<SimpleMath::Vector3, 8>& OutCorners) {
+        DirectX::XMFLOAT3 RawCorners[8]{};
+        WorldObb.GetCorners(RawCorners);
+        for (::std::size_t CornerIndex{}; CornerIndex < OutCorners.size(); ++CornerIndex) {
+            const SimpleMath::Vector3 CornerPoint{ RawCorners[CornerIndex].x, RawCorners[CornerIndex].y, RawCorners[CornerIndex].z };
+            if (IsFiniteVector3(CornerPoint) == false) {
+                return false;
+            }
+
+            OutCorners[CornerIndex] = CornerPoint;
+        }
+
+        return true;
+    }
+
+    template <typename Type, typename = void>
+    struct HasBoundingOrientedBoxCreateMerged final : ::std::false_type {
+    };
+
+    template <typename Type>
+    struct HasBoundingOrientedBoxCreateMerged<Type, ::std::void_t<decltype(Type::CreateMerged(::std::declval<Type&>(), ::std::declval<const Type&>(), ::std::declval<const Type&>()))>> final : ::std::true_type {
+    };
+
+    template <typename Type>
+    bool CreateMerged(Type& OutMergedWorldObb, const Type& LeftWorldObb, const Type& RightWorldObb) {
+        if constexpr (HasBoundingOrientedBoxCreateMerged<Type>::value == true) {
+            Type::CreateMerged(OutMergedWorldObb, LeftWorldObb, RightWorldObb);
+        } else {
+            ::std::array<DirectX::XMFLOAT3, 8> LeftCorners{};
+            ::std::array<DirectX::XMFLOAT3, 8> RightCorners{};
+            LeftWorldObb.GetCorners(LeftCorners.data());
+            RightWorldObb.GetCorners(RightCorners.data());
+
+            ::std::array<DirectX::XMFLOAT3, 16> MergedCorners{};
+            for (::std::size_t CornerIndex{}; CornerIndex < LeftCorners.size(); ++CornerIndex) {
+                MergedCorners[CornerIndex] = LeftCorners[CornerIndex];
+                MergedCorners[CornerIndex + LeftCorners.size()] = RightCorners[CornerIndex];
+            }
+
+            Type::CreateFromPoints(OutMergedWorldObb, MergedCorners.size(), MergedCorners.data(), sizeof(DirectX::XMFLOAT3));
+        }
+        const SimpleMath::Vector3 MergedCenter{ OutMergedWorldObb.Center.x, OutMergedWorldObb.Center.y, OutMergedWorldObb.Center.z };
+        const SimpleMath::Vector3 MergedExtents{ OutMergedWorldObb.Extents.x, OutMergedWorldObb.Extents.y, OutMergedWorldObb.Extents.z };
+        const SimpleMath::Quaternion MergedOrientation{ OutMergedWorldObb.Orientation.x, OutMergedWorldObb.Orientation.y, OutMergedWorldObb.Orientation.z, OutMergedWorldObb.Orientation.w };
+        return IsFiniteVector3(MergedCenter) == true && IsFiniteVector3(MergedExtents) == true && IsFiniteQuaternion(MergedOrientation) == true;
+    }
+
+    bool TryResolveObbVerticalCornerPairs(const DirectX::BoundingOrientedBox& WorldObb, ::std::array<SimpleMath::Vector3, 4>& OutBottomCorners, ::std::array<SimpleMath::Vector3, 4>& OutTopCorners) {
+        const SimpleMath::Vector3 ObbCenter{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z };
+        const SimpleMath::Vector3 ObbExtents{ ::std::abs(WorldObb.Extents.x), ::std::abs(WorldObb.Extents.y), ::std::abs(WorldObb.Extents.z) };
+        if (IsFiniteVector3(ObbCenter) == false || IsFiniteVector3(ObbExtents) == false) {
+            return false;
+        }
+
+        SimpleMath::Quaternion ObbOrientation{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
+        if (TryResolveNormalizedQuaternion(ObbOrientation, ObbOrientation) == false) {
+            ObbOrientation = SimpleMath::Quaternion::Identity;
+        }
+
+        SimpleMath::Vector3 RightAxis{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Right, ObbOrientation) };
+        SimpleMath::Vector3 UpAxis{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Up, ObbOrientation) };
+        SimpleMath::Vector3 ForwardAxis{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Forward, ObbOrientation) };
+        if (TryResolveNormalizedVector(RightAxis, RightAxis) == false || TryResolveNormalizedVector(UpAxis, UpAxis) == false || TryResolveNormalizedVector(ForwardAxis, ForwardAxis) == false) {
+            return false;
+        }
+
+        const float UpAxisWorldUpDot{ UpAxis.Dot(SimpleMath::Vector3::Up) };
+        if (IsFiniteFloat(UpAxisWorldUpDot) == false) {
+            return false;
+        }
+
+        if (UpAxisWorldUpDot < 0.0f) {
+            UpAxis *= -1.0f;
+        }
+
+        const SimpleMath::Vector3 RightOffset{ RightAxis * ObbExtents.x };
+        const SimpleMath::Vector3 UpOffset{ UpAxis * ObbExtents.y };
+        const SimpleMath::Vector3 ForwardOffset{ ForwardAxis * ObbExtents.z };
+        const SimpleMath::Vector3 BottomFaceCenter{ ObbCenter - UpOffset };
+        const SimpleMath::Vector3 TopFaceCenter{ ObbCenter + UpOffset };
+
+        OutBottomCorners[0] = BottomFaceCenter - RightOffset - ForwardOffset;
+        OutBottomCorners[1] = BottomFaceCenter + RightOffset - ForwardOffset;
+        OutBottomCorners[2] = BottomFaceCenter + RightOffset + ForwardOffset;
+        OutBottomCorners[3] = BottomFaceCenter - RightOffset + ForwardOffset;
+        OutTopCorners[0] = TopFaceCenter - RightOffset - ForwardOffset;
+        OutTopCorners[1] = TopFaceCenter + RightOffset - ForwardOffset;
+        OutTopCorners[2] = TopFaceCenter + RightOffset + ForwardOffset;
+        OutTopCorners[3] = TopFaceCenter - RightOffset + ForwardOffset;
+
+        for (::std::size_t CornerIndex{}; CornerIndex < OutBottomCorners.size(); ++CornerIndex) {
+            if (IsFiniteVector3(OutBottomCorners[CornerIndex]) == false || IsFiniteVector3(OutTopCorners[CornerIndex]) == false) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    bool TryResolveFootAxes(const DirectX::BoundingOrientedBox& FootWorldObb, const DirectX::BoundingOrientedBox& ToeWorldObb, SimpleMath::Vector3& OutForwardAxis, SimpleMath::Vector3& OutRightAxis, SimpleMath::Vector3& OutUpAxis) {
+        constexpr SimpleMath::Vector3 WorldUpAxis{ 0.0f, 1.0f, 0.0f };
+        constexpr float AxisProjectionEpsilon{ 1.0e-5f };
+
+        const SimpleMath::Vector3 FootCenter{ FootWorldObb.Center.x, FootWorldObb.Center.y, FootWorldObb.Center.z };
+        const SimpleMath::Vector3 ToeCenter{ ToeWorldObb.Center.x, ToeWorldObb.Center.y, ToeWorldObb.Center.z };
+
+        SimpleMath::Quaternion FootOrientation{ FootWorldObb.Orientation.x, FootWorldObb.Orientation.y, FootWorldObb.Orientation.z, FootWorldObb.Orientation.w };
+        const bool IsFootOrientationResolved{ TryResolveNormalizedQuaternion(FootOrientation, FootOrientation) };
+        SimpleMath::Quaternion ToeOrientation{ ToeWorldObb.Orientation.x, ToeWorldObb.Orientation.y, ToeWorldObb.Orientation.z, ToeWorldObb.Orientation.w };
+        const bool IsToeOrientationResolved{ TryResolveNormalizedQuaternion(ToeOrientation, ToeOrientation) };
+
+        SimpleMath::Vector3 UpAxis{};
+        bool IsUpAxisResolved{};
+        if (IsFootOrientationResolved == true) {
+            UpAxis = SimpleMath::Vector3::Transform(SimpleMath::Vector3::Up, FootOrientation);
+            IsUpAxisResolved = TryResolveNormalizedVector(UpAxis, UpAxis);
+        }
+
+        if (IsToeOrientationResolved == true) {
+            SimpleMath::Vector3 ToeUpAxis{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Up, ToeOrientation) };
+            if (TryResolveNormalizedVector(ToeUpAxis, ToeUpAxis) == true) {
+                if (IsUpAxisResolved == true) {
+                    if (UpAxis.Dot(ToeUpAxis) < 0.0f) {
+                        ToeUpAxis *= -1.0f;
+                    }
+
+                    SimpleMath::Vector3 BlendedUpAxis{ UpAxis + ToeUpAxis };
+                    if (TryResolveNormalizedVector(BlendedUpAxis, BlendedUpAxis) == true) {
+                        UpAxis = BlendedUpAxis;
+                    }
+                } else {
+                    UpAxis = ToeUpAxis;
+                    IsUpAxisResolved = true;
+                }
+            }
+        }
+
+        if (IsUpAxisResolved == false) {
+            UpAxis = WorldUpAxis;
+            IsUpAxisResolved = true;
+        }
+
+        if (IsUpAxisResolved == false) {
+            return false;
+        }
+
+        const float UpAxisWorldUpDot{ UpAxis.Dot(WorldUpAxis) };
+        if (IsFiniteFloat(UpAxisWorldUpDot) == false) {
+            return false;
+        }
+
+        if (UpAxisWorldUpDot < 0.0f) {
+            UpAxis *= -1.0f;
+        }
+
+        SimpleMath::Vector3 ForwardAxis{ ToeCenter - FootCenter };
+        const float ForwardAxisProjectionOnUp{ ForwardAxis.Dot(UpAxis) };
+        if (IsFiniteFloat(ForwardAxisProjectionOnUp) == false) {
+            return false;
+        }
+
+        ForwardAxis -= UpAxis * ForwardAxisProjectionOnUp;
+        if (TryResolveNormalizedVector(ForwardAxis, ForwardAxis) == false) {
+            if (IsFootOrientationResolved == true) {
+                ForwardAxis = SimpleMath::Vector3::Transform(SimpleMath::Vector3::Forward, FootOrientation);
+                const float FallbackForwardProjectionOnUp{ ForwardAxis.Dot(UpAxis) };
+                if (IsFiniteFloat(FallbackForwardProjectionOnUp) == false) {
+                    return false;
+                }
+
+                ForwardAxis -= UpAxis * FallbackForwardProjectionOnUp;
+            }
+        }
+
+        if (TryResolveNormalizedVector(ForwardAxis, ForwardAxis) == false) {
+            if (IsToeOrientationResolved == true) {
+                ForwardAxis = SimpleMath::Vector3::Transform(SimpleMath::Vector3::Forward, ToeOrientation);
+                const float FallbackForwardProjectionOnUp{ ForwardAxis.Dot(UpAxis) };
+                if (IsFiniteFloat(FallbackForwardProjectionOnUp) == false) {
+                    return false;
+                }
+
+                ForwardAxis -= UpAxis * FallbackForwardProjectionOnUp;
+            }
+        }
+
+        if (TryResolveNormalizedVector(ForwardAxis, ForwardAxis) == false) {
+            ForwardAxis = ResolveCrossProduct(UpAxis, SimpleMath::Vector3::Right);
+            if (TryResolveNormalizedVector(ForwardAxis, ForwardAxis) == false) {
+                ForwardAxis = ResolveCrossProduct(UpAxis, SimpleMath::Vector3::Forward);
+                if (TryResolveNormalizedVector(ForwardAxis, ForwardAxis) == false) {
+                    return false;
+                }
+            }
+        }
+
+        SimpleMath::Vector3 RightAxis{ ResolveCrossProduct(UpAxis, ForwardAxis) };
+        if (TryResolveNormalizedVector(RightAxis, RightAxis) == false) {
+            return false;
+        }
+
+        SimpleMath::Vector3 RecomputedForwardAxis{ ResolveCrossProduct(RightAxis, UpAxis) };
+        if (TryResolveNormalizedVector(RecomputedForwardAxis, RecomputedForwardAxis) == true) {
+            ForwardAxis = RecomputedForwardAxis;
+        }
+
+        const float ForwardUpOrthogonality{ ::std::abs(ForwardAxis.Dot(UpAxis)) };
+        const float RightUpOrthogonality{ ::std::abs(RightAxis.Dot(UpAxis)) };
+        if (IsFiniteFloat(ForwardUpOrthogonality) == false || IsFiniteFloat(RightUpOrthogonality) == false || ForwardUpOrthogonality > AxisProjectionEpsilon || RightUpOrthogonality > AxisProjectionEpsilon) {
+            return false;
+        }
+
+        OutForwardAxis = ForwardAxis;
+        OutRightAxis = RightAxis;
+        OutUpAxis = UpAxis;
+
+        return true;
+    }
+
+    bool TryResolveMergedObbVerticalCornerPairs(const ::std::array<SimpleMath::Vector3, 8>& FootCorners, const ::std::array<SimpleMath::Vector3, 8>& ToeCorners, const SimpleMath::Vector3& ForwardAxis, const SimpleMath::Vector3& RightAxis, const SimpleMath::Vector3& UpAxis, ::std::array<SimpleMath::Vector3, 4>& OutBottomCorners, ::std::array<SimpleMath::Vector3, 4>& OutTopCorners) {
+        float MinimumForwardProjection{ (::std::numeric_limits<float>::max)() };
+        float MaximumForwardProjection{ -(::std::numeric_limits<float>::max)() };
+        float MinimumRightProjection{ (::std::numeric_limits<float>::max)() };
+        float MaximumRightProjection{ -(::std::numeric_limits<float>::max)() };
+        float MinimumUpProjection{ (::std::numeric_limits<float>::max)() };
+        float MaximumUpProjection{ -(::std::numeric_limits<float>::max)() };
+
+        const auto UpdateProjectionExtents = [&ForwardAxis, &RightAxis, &UpAxis, &MinimumForwardProjection, &MaximumForwardProjection, &MinimumRightProjection, &MaximumRightProjection, &MinimumUpProjection, &MaximumUpProjection](const SimpleMath::Vector3& CornerPoint) -> bool {
+            const float ForwardProjection{ CornerPoint.Dot(ForwardAxis) };
+            const float RightProjection{ CornerPoint.Dot(RightAxis) };
+            const float UpProjection{ CornerPoint.Dot(UpAxis) };
+            if (IsFiniteFloat(ForwardProjection) == false || IsFiniteFloat(RightProjection) == false || IsFiniteFloat(UpProjection) == false) {
+                return false;
+            }
+
+            MinimumForwardProjection = (::std::min)(MinimumForwardProjection, ForwardProjection);
+            MaximumForwardProjection = (::std::max)(MaximumForwardProjection, ForwardProjection);
+            MinimumRightProjection = (::std::min)(MinimumRightProjection, RightProjection);
+            MaximumRightProjection = (::std::max)(MaximumRightProjection, RightProjection);
+            MinimumUpProjection = (::std::min)(MinimumUpProjection, UpProjection);
+            MaximumUpProjection = (::std::max)(MaximumUpProjection, UpProjection);
+            return true;
+        };
+
+        for (const SimpleMath::Vector3& FootCorner : FootCorners) {
+            if (UpdateProjectionExtents(FootCorner) == false) {
+                return false;
+            }
+        }
+
+        for (const SimpleMath::Vector3& ToeCorner : ToeCorners) {
+            if (UpdateProjectionExtents(ToeCorner) == false) {
+                return false;
+            }
+        }
+
+        if (MinimumForwardProjection > MaximumForwardProjection || MinimumRightProjection > MaximumRightProjection || MinimumUpProjection > MaximumUpProjection) {
+            return false;
+        }
+
+        const float CenterForwardProjection{ (MinimumForwardProjection + MaximumForwardProjection) * 0.5f };
+        const float CenterRightProjection{ (MinimumRightProjection + MaximumRightProjection) * 0.5f };
+        const float CenterUpProjection{ (MinimumUpProjection + MaximumUpProjection) * 0.5f };
+        const float ExtentForward{ (MaximumForwardProjection - MinimumForwardProjection) * 0.5f };
+        const float ExtentRight{ (MaximumRightProjection - MinimumRightProjection) * 0.5f };
+        const float ExtentUp{ (MaximumUpProjection - MinimumUpProjection) * 0.5f };
+        if (IsFiniteFloat(CenterForwardProjection) == false || IsFiniteFloat(CenterRightProjection) == false || IsFiniteFloat(CenterUpProjection) == false || IsFiniteFloat(ExtentForward) == false || IsFiniteFloat(ExtentRight) == false || IsFiniteFloat(ExtentUp) == false) {
+            return false;
+        }
+
+        const SimpleMath::Vector3 MergedCenter{ (ForwardAxis * CenterForwardProjection) + (RightAxis * CenterRightProjection) + (UpAxis * CenterUpProjection) };
+        const SimpleMath::Vector3 BottomFaceCenter{ MergedCenter - (UpAxis * ExtentUp) };
+        const SimpleMath::Vector3 TopFaceCenter{ MergedCenter + (UpAxis * ExtentUp) };
+        const SimpleMath::Vector3 RightExtentOffset{ RightAxis * ExtentRight };
+        const SimpleMath::Vector3 ForwardExtentOffset{ ForwardAxis * ExtentForward };
+
+        OutBottomCorners[0] = BottomFaceCenter - RightExtentOffset - ForwardExtentOffset;
+        OutBottomCorners[1] = BottomFaceCenter + RightExtentOffset - ForwardExtentOffset;
+        OutBottomCorners[2] = BottomFaceCenter - RightExtentOffset + ForwardExtentOffset;
+        OutBottomCorners[3] = BottomFaceCenter + RightExtentOffset + ForwardExtentOffset;
+        OutTopCorners[0] = TopFaceCenter - RightExtentOffset - ForwardExtentOffset;
+        OutTopCorners[1] = TopFaceCenter + RightExtentOffset - ForwardExtentOffset;
+        OutTopCorners[2] = TopFaceCenter - RightExtentOffset + ForwardExtentOffset;
+        OutTopCorners[3] = TopFaceCenter + RightExtentOffset + ForwardExtentOffset;
+        for (::std::size_t CornerIndex{}; CornerIndex < OutBottomCorners.size(); ++CornerIndex) {
+            if (IsFiniteVector3(OutBottomCorners[CornerIndex]) == false || IsFiniteVector3(OutTopCorners[CornerIndex]) == false) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    bool TryResolveFootObbAndToeObbCorners(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, ::std::array<SimpleMath::Vector3, 4>& OutCornerPoints, ::std::array<SimpleMath::Vector3, 4>& OutCornerDirections) {
+        DirectX::BoundingOrientedBox FootWorldObb{};
+        DirectX::BoundingOrientedBox ToeWorldObb{};
+        if (TryResolveWorldObb(World, FootEntityId, InOutWorldMatrices, FootWorldObb) == false || TryResolveWorldObb(World, ToeEntityId, InOutWorldMatrices, ToeWorldObb) == false) {
+            return false;
+        }
+
+        DirectX::BoundingOrientedBox MergedWorldObb{};
+        if (CreateMerged(MergedWorldObb, FootWorldObb, ToeWorldObb) == false) {
+            return false;
+        }
+
+        ::std::array<SimpleMath::Vector3, 4> TopCorners{};
+        if (TryResolveObbVerticalCornerPairs(MergedWorldObb, OutCornerPoints, TopCorners) == false) {
+            return false;
+        }
+
+        for (::std::size_t CornerIndex{}; CornerIndex < OutCornerPoints.size(); ++CornerIndex) {
+            SimpleMath::Vector3 CornerDirection{ OutCornerPoints[CornerIndex] - TopCorners[CornerIndex] };
+            if (TryResolveNormalizedVector(CornerDirection, CornerDirection) == false) {
+                return false;
+            }
+
+            OutCornerDirections[CornerIndex] = CornerDirection;
+        }
+
         return true;
     }
 
@@ -816,6 +1159,10 @@ namespace Game::IK {
 
     void ResolveFootBoneEntities(const Arche::World::WorldReadOnlyView& ReadOnlyWorld, const FootIKRig& FootIKRigComponent, const Arche::EntityID BoneRootEntityId, FootIKRuntime& InOutFootIKRuntimeComponent) {
         ::ResolveFootBoneEntities(ReadOnlyWorld, FootIKRigComponent, BoneRootEntityId, InOutFootIKRuntimeComponent);
+    }
+
+    bool TryResolveFootObbAndToeObbCorners(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, ::std::array<DirectX::SimpleMath::Vector3, 4>& OutCornerPoints, ::std::array<DirectX::SimpleMath::Vector3, 4>& OutCornerDirections) {
+        return ::TryResolveFootObbAndToeObbCorners(World, FootEntityId, ToeEntityId, InOutWorldMatrices, OutCornerPoints, OutCornerDirections);
     }
 
     bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, DirectX::SimpleMath::Vector3& OutGroundNormal) {

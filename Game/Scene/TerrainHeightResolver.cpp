@@ -11,6 +11,42 @@
 #undef min
 #endif 
 
+namespace {
+    constexpr float RaycastDistanceEpsilon{ 1.0e-4f };
+    constexpr float RaycastDeltaEpsilon{ 1.0e-4f };
+
+    bool IsFiniteFloat(const float Value) {
+        return std::isfinite(Value) != 0;
+    }
+
+    bool IsFiniteVector3(const SimpleMath::Vector3& Value) {
+        return IsFiniteFloat(Value.x) && IsFiniteFloat(Value.y) && IsFiniteFloat(Value.z);
+    }
+
+    bool TryResolveTerrainRaySample(const Game::TerrainHeightResolver& TerrainHeightResolverValue, const SimpleMath::Ray& Ray, const float RayDistance, float& OutTerrainDelta, SimpleMath::Vector3& OutSurfacePosition, SimpleMath::Vector3& OutSurfaceNormal) {
+        const SimpleMath::Vector3 RayPosition{ Ray.position + (Ray.direction * RayDistance) };
+        if (IsFiniteVector3(RayPosition) == false) {
+            return false;
+        }
+
+        SimpleMath::Vector3 SurfacePosition{ RayPosition };
+        SimpleMath::Vector3 SurfaceNormal{ SimpleMath::Vector3::Up };
+        if (TerrainHeightResolverValue.TryResolvePositionYAndNormal(SurfacePosition, SurfaceNormal) == false || IsFiniteVector3(SurfacePosition) == false || IsFiniteVector3(SurfaceNormal) == false) {
+            return false;
+        }
+
+        const float TerrainDelta{ RayPosition.y - SurfacePosition.y };
+        if (IsFiniteFloat(TerrainDelta) == false) {
+            return false;
+        }
+
+        OutTerrainDelta = TerrainDelta;
+        OutSurfacePosition = SurfacePosition;
+        OutSurfaceNormal = SurfaceNormal;
+        return true;
+    }
+}
+
 namespace Game {
     TerrainHeightResolver::TerrainHeightResolver()
         : mWidth{},
@@ -164,6 +200,97 @@ namespace Game {
         InOutPosition.y = InterpolatedHeight;
         OutNormal = SurfaceNormal;
         return true;
+    }
+
+    bool TerrainHeightResolver::TryRaycast(const SimpleMath::Ray& Ray, const float MaxDistance, SimpleMath::Vector3& OutHitPosition, SimpleMath::Vector3& OutHitNormal, float& OutHitDistance) const {
+        if (mInitialized == false || mWidth < 2 || mHeight < 2 || mCellSizeX <= 0.0f || mCellSizeZ <= 0.0f || IsFiniteVector3(Ray.position) == false || IsFiniteVector3(Ray.direction) == false || IsFiniteFloat(MaxDistance) == false) {
+            return false;
+        }
+
+        SimpleMath::Vector3 SafeRayDirection{ Ray.direction };
+        const float RayDirectionLengthSquared{ SafeRayDirection.LengthSquared() };
+        if (IsFiniteFloat(RayDirectionLengthSquared) == false || RayDirectionLengthSquared <= RaycastDistanceEpsilon) {
+            return false;
+        }
+
+        SafeRayDirection.Normalize();
+        if (IsFiniteVector3(SafeRayDirection) == false) {
+            return false;
+        }
+
+        const float SafeMaxDistance{ (std::max)(MaxDistance, 0.0f) };
+        if (SafeMaxDistance <= RaycastDistanceEpsilon) {
+            return false;
+        }
+
+        const SimpleMath::Ray SafeRay{ Ray.position, SafeRayDirection };
+        const float MinimumCellSize{ (std::min)(mCellSizeX, mCellSizeZ) };
+        const float SampleStepDistance{ (std::max)(MinimumCellSize * 0.5f, 0.05f) };
+        if (IsFiniteFloat(SampleStepDistance) == false || SampleStepDistance <= 0.0f) {
+            return false;
+        }
+
+        const std::uint32_t SampleStepCount{ (std::max)(static_cast<std::uint32_t>(1), static_cast<std::uint32_t>(std::ceil(SafeMaxDistance / SampleStepDistance))) };
+        bool IsPreviousSampleResolved{};
+        float PreviousSampleDistance{};
+        float PreviousSampleDelta{};
+        SimpleMath::Vector3 PreviousSurfacePosition{};
+        SimpleMath::Vector3 PreviousSurfaceNormal{ SimpleMath::Vector3::Up };
+
+        if (TryResolveTerrainRaySample(*this, SafeRay, 0.0f, PreviousSampleDelta, PreviousSurfacePosition, PreviousSurfaceNormal) == true) {
+            if (PreviousSampleDelta <= RaycastDeltaEpsilon) {
+                OutHitPosition = PreviousSurfacePosition;
+                OutHitNormal = PreviousSurfaceNormal;
+                OutHitDistance = 0.0f;
+                return true;
+            }
+
+            IsPreviousSampleResolved = true;
+        }
+
+        for (std::uint32_t SampleIndex{ 1 }; SampleIndex <= SampleStepCount; ++SampleIndex) {
+            const float CurrentSampleDistance{ (std::min)(SafeMaxDistance, static_cast<float>(SampleIndex) * SampleStepDistance) };
+            float CurrentSampleDelta{};
+            SimpleMath::Vector3 CurrentSurfacePosition{};
+            SimpleMath::Vector3 CurrentSurfaceNormal{ SimpleMath::Vector3::Up };
+            const bool IsCurrentSampleResolved{ TryResolveTerrainRaySample(*this, SafeRay, CurrentSampleDistance, CurrentSampleDelta, CurrentSurfacePosition, CurrentSurfaceNormal) };
+
+            if (IsPreviousSampleResolved == true && IsCurrentSampleResolved == true) {
+                const bool IsCrossedSurface{ (PreviousSampleDelta > 0.0f && CurrentSampleDelta <= 0.0f) || (PreviousSampleDelta < 0.0f && CurrentSampleDelta >= 0.0f) || std::abs(CurrentSampleDelta) <= RaycastDeltaEpsilon };
+                if (IsCrossedSurface == true) {
+                    float HitDistance{ CurrentSampleDistance };
+                    const float DeltaDifference{ CurrentSampleDelta - PreviousSampleDelta };
+                    if (std::abs(DeltaDifference) > RaycastDistanceEpsilon) {
+                        const float HitAlpha{ std::clamp(PreviousSampleDelta / (PreviousSampleDelta - CurrentSampleDelta), 0.0f, 1.0f) };
+                        HitDistance = PreviousSampleDistance + ((CurrentSampleDistance - PreviousSampleDistance) * HitAlpha);
+                    }
+
+                    float HitSampleDelta{};
+                    SimpleMath::Vector3 HitSurfacePosition{};
+                    SimpleMath::Vector3 HitSurfaceNormal{ SimpleMath::Vector3::Up };
+                    if (TryResolveTerrainRaySample(*this, SafeRay, HitDistance, HitSampleDelta, HitSurfacePosition, HitSurfaceNormal) == false) {
+                        HitDistance = CurrentSampleDistance;
+                        HitSurfacePosition = CurrentSurfacePosition;
+                        HitSurfaceNormal = CurrentSurfaceNormal;
+                    }
+
+                    OutHitPosition = HitSurfacePosition;
+                    OutHitNormal = HitSurfaceNormal;
+                    OutHitDistance = HitDistance;
+                    return true;
+                }
+            }
+
+            if (IsCurrentSampleResolved == true) {
+                IsPreviousSampleResolved = true;
+                PreviousSampleDistance = CurrentSampleDistance;
+                PreviousSampleDelta = CurrentSampleDelta;
+                PreviousSurfacePosition = CurrentSurfacePosition;
+                PreviousSurfaceNormal = CurrentSurfaceNormal;
+            }
+        }
+
+        return false;
     }
 
     std::uint32_t TerrainHeightResolver::CalculateHeightFieldIndex(std::uint32_t GridX, std::uint32_t GridZ) const {
