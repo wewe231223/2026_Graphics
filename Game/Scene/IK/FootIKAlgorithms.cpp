@@ -26,7 +26,8 @@ namespace {
     constexpr float FootPlantWeightEpsilon{ 1.0e-3f };
     constexpr float FootPlantReleaseOffset{ -0.08f };
     constexpr float FootPlantEngageOffset{ 0.01f };
-    constexpr float MaxFootTiltRadians{ 0.6108652382f };
+    constexpr float MinimumFootTiltRadians{ -0.2617993878f };
+    constexpr float MaximumFootTiltRadians{ 0.6108652382f };
     constexpr float PelvisWeight{ 0.50f };
     constexpr int FootIKFabrikMaxIterationCount{ 12 };
     constexpr float FootIKFabrikConvergenceDistance{ 1.0e-3f };
@@ -123,18 +124,25 @@ namespace {
         return TryResolveNormalizedQuaternion(AxisAngleRotation, OutRotation);
     }
 
-    bool TryResolveClampedFromToRotation(const SimpleMath::Vector3& SourceDirection, const SimpleMath::Vector3& TargetDirection, const float MaxRotationRadians, SimpleMath::Quaternion& OutRotation) {
+    bool TryResolveClampedFromToRotation(const SimpleMath::Vector3& SourceDirection, const SimpleMath::Vector3& TargetDirection, const float MinimumRotationRadians, const float MaximumRotationRadians, const SimpleMath::Vector3& PositiveRotationAxis, SimpleMath::Quaternion& OutRotation) {
         SimpleMath::Vector3 SafeSourceDirection{};
         SimpleMath::Vector3 SafeTargetDirection{};
-        if (TryResolveNormalizedVector(SourceDirection, SafeSourceDirection) == false || TryResolveNormalizedVector(TargetDirection, SafeTargetDirection) == false || IsFiniteFloat(MaxRotationRadians) == false) {
+        SimpleMath::Vector3 SafePositiveRotationAxis{};
+        if (TryResolveNormalizedVector(SourceDirection, SafeSourceDirection) == false || TryResolveNormalizedVector(TargetDirection, SafeTargetDirection) == false || TryResolveNormalizedVector(PositiveRotationAxis, SafePositiveRotationAxis) == false || IsFiniteFloat(MinimumRotationRadians) == false || IsFiniteFloat(MaximumRotationRadians) == false) {
             return false;
         }
 
-        const float SafeMaxRotationRadians{ (::std::max)(MaxRotationRadians, 0.0f) };
+        float SafeMinimumRotationRadians{ MinimumRotationRadians };
+        float SafeMaximumRotationRadians{ MaximumRotationRadians };
+        if (SafeMaximumRotationRadians < SafeMinimumRotationRadians) {
+            ::std::swap(SafeMinimumRotationRadians, SafeMaximumRotationRadians);
+        }
+
         const float DirectionDot{ ::std::clamp(SafeSourceDirection.Dot(SafeTargetDirection), -1.0f, 1.0f) };
         const float RequiredRotationRadians{ ::std::acos(DirectionDot) };
-        if (SafeMaxRotationRadians <= 0.0f || RequiredRotationRadians <= SafeMaxRotationRadians) {
-            return TryResolveFromToRotation(SafeSourceDirection, SafeTargetDirection, OutRotation);
+        if (RequiredRotationRadians <= SurfaceNormalLengthEpsilon) {
+            OutRotation = SimpleMath::Quaternion::Identity;
+            return true;
         }
 
         SimpleMath::Vector3 RotationAxis{ ResolveCrossProduct(SafeSourceDirection, SafeTargetDirection) };
@@ -154,7 +162,17 @@ namespace {
             return false;
         }
 
-        const SimpleMath::Quaternion AxisAngleRotation{ SimpleMath::Quaternion::CreateFromAxisAngle(RotationAxis, SafeMaxRotationRadians) };
+        const float AxisDirectionSign{ RotationAxis.Dot(SafePositiveRotationAxis) < 0.0f ? -1.0f : 1.0f };
+        const float SignedRequiredRotationRadians{ RequiredRotationRadians * AxisDirectionSign };
+        const float ClampedSignedRotationRadians{ ::std::clamp(SignedRequiredRotationRadians, SafeMinimumRotationRadians, SafeMaximumRotationRadians) };
+        if (::std::abs(ClampedSignedRotationRadians) <= SurfaceNormalLengthEpsilon) {
+            OutRotation = SimpleMath::Quaternion::Identity;
+            return true;
+        }
+
+        const float RotationDirectionSign{ ClampedSignedRotationRadians < 0.0f ? -1.0f : 1.0f };
+        const float RotationMagnitudeRadians{ ::std::abs(ClampedSignedRotationRadians) };
+        const SimpleMath::Quaternion AxisAngleRotation{ SimpleMath::Quaternion::CreateFromAxisAngle(RotationAxis * RotationDirectionSign, RotationMagnitudeRadians) };
         return TryResolveNormalizedQuaternion(AxisAngleRotation, OutRotation);
     }
 
@@ -1094,8 +1112,13 @@ namespace {
             DesiredSurfaceNormal = FootSurfaceAlignmentDataValue.CurrentFootNormal;
         }
 
+        SimpleMath::Vector3 FootRightDirection{ ResolveCrossProduct(FootSurfaceAlignmentDataValue.CurrentFootNormal, FootSurfaceAlignmentDataValue.SafeFootToToeDirection) };
+        if (TryResolveNormalizedVector(FootRightDirection, FootRightDirection) == false) {
+            return false;
+        }
+
         SimpleMath::Quaternion SurfaceAlignDeltaRotation{};
-        if (TryResolveClampedFromToRotation(FootSurfaceAlignmentDataValue.CurrentFootNormal, DesiredSurfaceNormal, MaxFootTiltRadians, SurfaceAlignDeltaRotation) == false) {
+        if (TryResolveClampedFromToRotation(FootSurfaceAlignmentDataValue.CurrentFootNormal, DesiredSurfaceNormal, MinimumFootTiltRadians, MaximumFootTiltRadians, FootRightDirection, SurfaceAlignDeltaRotation) == false) {
             return false;
         }
 
