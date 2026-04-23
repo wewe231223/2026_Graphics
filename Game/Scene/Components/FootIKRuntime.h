@@ -18,8 +18,6 @@ namespace Game {
             ComponentField(Arche::EntityID, mPelvisEntityId, Arche::NullEntityID)
             ComponentField(float, mLeftCurrentOffset, 0.0f)
             ComponentField(float, mRightCurrentOffset, 0.0f)
-            ComponentField(float, mLeftPlantWeight, 0.0f)
-            ComponentField(float, mRightPlantWeight, 0.0f)
             ComponentField(bool, mResolved, false)
         ),
         BOOST_PP_SEQ_NIL

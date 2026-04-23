@@ -31,8 +31,6 @@ namespace Game {
         OutFields.push_back(ComponentInspectionField{ "PelvisEntityId", ToEntityIdText(mPelvisEntityId) });
         OutFields.push_back(ComponentInspectionField{ "LeftCurrentOffset", ::std::to_string(mLeftCurrentOffset) });
         OutFields.push_back(ComponentInspectionField{ "RightCurrentOffset", ::std::to_string(mRightCurrentOffset) });
-        OutFields.push_back(ComponentInspectionField{ "LeftPlantWeight", ::std::to_string(mLeftPlantWeight) });
-        OutFields.push_back(ComponentInspectionField{ "RightPlantWeight", ::std::to_string(mRightPlantWeight) });
         OutFields.push_back(ComponentInspectionField{ "Resolved", mResolved ? "true" : "false" });
     }
 }

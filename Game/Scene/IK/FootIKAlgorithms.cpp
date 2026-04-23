@@ -23,8 +23,6 @@
 namespace {
     constexpr float FootOffsetEpsilon{ 1.0e-4f };
     constexpr float SurfaceNormalLengthEpsilon{ 1.0e-6f };
-    constexpr float FootPlantReleaseOffset{ -0.08f };
-    constexpr float FootPlantEngageOffset{ 0.01f };
     constexpr float FootRaycastStartOffset{ 0.3f };
     constexpr float FootRaycastLength{ 0.3f + 0.2f };
     constexpr float PelvisWeight{ 0.50f };
@@ -79,18 +77,6 @@ namespace {
         OutNormalizedQuaternion = SourceQuaternion;
         OutNormalizedQuaternion.Normalize();
         return IsFiniteQuaternion(OutNormalizedQuaternion);
-    }
-
-    float ResolveFootRaycastTargetConfidence(const ::std::size_t HitCount) {
-        if (HitCount >= 3) {
-            return 1.0f;
-        }
-
-        if (HitCount == 2) {
-            return 0.5f;
-        }
-
-        return 0.0f;
     }
 
     bool TryResolveFromToRotation(const SimpleMath::Vector3& SourceDirection, const SimpleMath::Vector3& TargetDirection, SimpleMath::Quaternion& OutRotation) {
@@ -701,7 +687,8 @@ namespace {
         return true;
     }
 
-    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutRayOppositeDirection, SimpleMath::Vector3& OutGroundNormal, SimpleMath::Vector3& OutTargetFootPosition, float& OutTargetConfidence) {
+    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutRayOppositeDirection, SimpleMath::Vector3& OutGroundNormal, SimpleMath::Vector3& OutTargetFootPosition, ::std::size_t& OutHitCount) {
+        OutHitCount = 0;
         if (FootEntityId == Arche::NullEntityID || ToeEntityId == Arche::NullEntityID) {
             return false;
         }
@@ -774,11 +761,6 @@ namespace {
             return false;
         }
 
-        const float TargetConfidence{ ResolveFootRaycastTargetConfidence(HitCount) };
-        if (IsFiniteFloat(TargetConfidence) == false || TargetConfidence <= 0.0f) {
-            return false;
-        }
-
         const float HitCountReciprocal{ 1.0f / static_cast<float>(HitCount) };
         SimpleMath::Vector3 AverageRayOppositeDirection{ RayOppositeDirectionAccumulation * HitCountReciprocal };
         SimpleMath::Vector3 AverageHitPoint{ HitPointAccumulation * HitCountReciprocal };
@@ -797,7 +779,12 @@ namespace {
         }
 
         const SimpleMath::Vector3 ProjectedFootOnGroundPlane{ FootWorldPosition - (AverageHitNormal * FootToPlaneDistance) };
-        const SimpleMath::Vector3 TargetFootPosition{ ProjectedFootOnGroundPlane + (AverageHitNormal * FootSoleThickness) };
+        const SimpleMath::Vector3 RawTargetFootPosition{ ProjectedFootOnGroundPlane + (AverageHitNormal * FootSoleThickness) };
+        if (IsFiniteVector3(RawTargetFootPosition) == false) {
+            return false;
+        }
+
+        SimpleMath::Vector3 TargetFootPosition{ FootWorldPosition.x, RawTargetFootPosition.y, FootWorldPosition.z };
         if (IsFiniteVector3(TargetFootPosition) == false) {
             return false;
         }
@@ -811,7 +798,7 @@ namespace {
         OutRayOppositeDirection = AverageRayOppositeDirection;
         OutGroundNormal = AverageHitNormal;
         OutTargetFootPosition = TargetFootPosition;
-        OutTargetConfidence = TargetConfidence;
+        OutHitCount = HitCount;
         return true;
     }
 
@@ -1286,14 +1273,24 @@ namespace {
             return false;
         }
 
+        const float SafeAlignmentWeight{ ::std::clamp(AlignmentWeight, 0.0f, 1.0f) };
+        if (SafeAlignmentWeight <= FootOffsetEpsilon) {
+            return false;
+        }
+
         SimpleMath::Vector3 SafeRayOppositeDirection{};
         SimpleMath::Vector3 SafeSurfaceNormal{};
         if (TryResolveNormalizedVector(RayOppositeDirection, SafeRayOppositeDirection) == false || TryResolveNormalizedVector(SurfaceNormal, SafeSurfaceNormal) == false) {
             return false;
         }
 
+        SimpleMath::Vector3 WeightedSurfaceNormal{ SafeRayOppositeDirection + ((SafeSurfaceNormal - SafeRayOppositeDirection) * SafeAlignmentWeight) };
+        if (TryResolveNormalizedVector(WeightedSurfaceNormal, WeightedSurfaceNormal) == false) {
+            return false;
+        }
+
         SimpleMath::Quaternion SurfaceAlignDeltaRotation{};
-        if (TryResolveFromToRotation(SafeRayOppositeDirection, SafeSurfaceNormal, SurfaceAlignDeltaRotation) == false) {
+        if (TryResolveFromToRotation(SafeRayOppositeDirection, WeightedSurfaceNormal, SurfaceAlignDeltaRotation) == false) {
             return false;
         }
 
@@ -1316,7 +1313,7 @@ namespace {
         }
 
         SimpleMath::Quaternion ToeContactCorrectionDeltaRotation{};
-        if (TryResolveToeContactCorrectionDeltaRotation(World, ToeEntityId, CurrentWorldPosition, SurfaceAlignDeltaRotation, SafeSurfaceNormal, AlignmentWeight, InOutWorldMatrices, ToeContactCorrectionDeltaRotation) == true) {
+        if (TryResolveToeContactCorrectionDeltaRotation(World, ToeEntityId, CurrentWorldPosition, SurfaceAlignDeltaRotation, SafeSurfaceNormal, SafeAlignmentWeight, InOutWorldMatrices, ToeContactCorrectionDeltaRotation) == true) {
             if (TryResolveWorldRotationWithWorldDelta(DesiredWorldRotation, ToeContactCorrectionDeltaRotation, DesiredWorldRotation) == false) {
                 return false;
             }
@@ -1354,20 +1351,6 @@ namespace {
         return ::std::lerp(SafeCurrentOffset, SafeTargetOffset, BlendAlpha);
     }
 
-    float ResolveFootPlantWeight(const float TargetOffset) {
-        const float SafeTargetOffset{ IsFiniteFloat(TargetOffset) ? TargetOffset : 0.0f };
-        if (SafeTargetOffset <= FootPlantReleaseOffset) {
-            return 0.0f;
-        }
-
-        if (SafeTargetOffset >= FootPlantEngageOffset) {
-            return 1.0f;
-        }
-
-        const float PlantWeightAlpha{ (SafeTargetOffset - FootPlantReleaseOffset) / (FootPlantEngageOffset - FootPlantReleaseOffset) };
-        return ::std::clamp(PlantWeightAlpha, 0.0f, 1.0f);
-    }
-
 }
 
 namespace Game::IK {
@@ -1383,8 +1366,8 @@ namespace Game::IK {
         return ::TryResolveFootObbAndToeObbCorners(World, FootEntityId, ToeEntityId, InOutWorldMatrices, OutCornerPoints, OutCornerDirections);
     }
 
-    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, DirectX::SimpleMath::Vector3& OutRayOppositeDirection, DirectX::SimpleMath::Vector3& OutGroundNormal, DirectX::SimpleMath::Vector3& OutTargetFootPosition, float& OutTargetConfidence) {
-        return ::TryResolveFootTargetOffset(World, FootEntityId, ToeEntityId, InOutWorldMatrices, OutTargetOffsetY, OutRayOppositeDirection, OutGroundNormal, OutTargetFootPosition, OutTargetConfidence);
+    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, DirectX::SimpleMath::Vector3& OutRayOppositeDirection, DirectX::SimpleMath::Vector3& OutGroundNormal, DirectX::SimpleMath::Vector3& OutTargetFootPosition, ::std::size_t& OutHitCount) {
+        return ::TryResolveFootTargetOffset(World, FootEntityId, ToeEntityId, InOutWorldMatrices, OutTargetOffsetY, OutRayOppositeDirection, OutGroundNormal, OutTargetFootPosition, OutHitCount);
     }
 
     bool TryResolveFootSurfaceNormals(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const DirectX::SimpleMath::Vector3& SurfaceNormal, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, DirectX::SimpleMath::Vector3& OutFootWorldPosition, DirectX::SimpleMath::Vector3& OutCurrentFootNormal, DirectX::SimpleMath::Vector3& OutSurfaceNormal) {
@@ -1421,10 +1404,6 @@ namespace Game::IK {
 
     float ResolveSmoothedOffset(const float CurrentOffset, const float TargetOffset, const float BlendSpeed, const float Dt) {
         return ::ResolveSmoothedOffset(CurrentOffset, TargetOffset, BlendSpeed, Dt);
-    }
-
-    float ResolveFootPlantWeight(const float TargetOffset) {
-        return ::ResolveFootPlantWeight(TargetOffset);
     }
 
 }
