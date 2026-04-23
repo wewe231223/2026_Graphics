@@ -23,11 +23,8 @@
 namespace {
     constexpr float FootOffsetEpsilon{ 1.0e-4f };
     constexpr float SurfaceNormalLengthEpsilon{ 1.0e-6f };
-    constexpr float FootPlantWeightEpsilon{ 1.0e-3f };
     constexpr float FootPlantReleaseOffset{ -0.08f };
     constexpr float FootPlantEngageOffset{ 0.01f };
-    constexpr float MinimumFootTiltRadians{ -0.2617993878f };
-    constexpr float MaximumFootTiltRadians{ 0.6108652382f };
     constexpr float FootRaycastStartOffset{ 0.3f };
     constexpr float FootRaycastLength{ 0.3f + 0.2f };
     constexpr float PelvisWeight{ 0.50f };
@@ -135,58 +132,6 @@ namespace {
 
         const float RotationAngleRadians{ ::std::acos(DirectionDot) };
         const SimpleMath::Quaternion AxisAngleRotation{ SimpleMath::Quaternion::CreateFromAxisAngle(SafeRotationAxis, RotationAngleRadians) };
-        return TryResolveNormalizedQuaternion(AxisAngleRotation, OutRotation);
-    }
-
-    bool TryResolveClampedFromToRotation(const SimpleMath::Vector3& SourceDirection, const SimpleMath::Vector3& TargetDirection, const float MinimumRotationRadians, const float MaximumRotationRadians, const SimpleMath::Vector3& PositiveRotationAxis, SimpleMath::Quaternion& OutRotation) {
-        SimpleMath::Vector3 SafeSourceDirection{};
-        SimpleMath::Vector3 SafeTargetDirection{};
-        SimpleMath::Vector3 SafePositiveRotationAxis{};
-        if (TryResolveNormalizedVector(SourceDirection, SafeSourceDirection) == false || TryResolveNormalizedVector(TargetDirection, SafeTargetDirection) == false || TryResolveNormalizedVector(PositiveRotationAxis, SafePositiveRotationAxis) == false || IsFiniteFloat(MinimumRotationRadians) == false || IsFiniteFloat(MaximumRotationRadians) == false) {
-            return false;
-        }
-
-        float SafeMinimumRotationRadians{ MinimumRotationRadians };
-        float SafeMaximumRotationRadians{ MaximumRotationRadians };
-        if (SafeMaximumRotationRadians < SafeMinimumRotationRadians) {
-            ::std::swap(SafeMinimumRotationRadians, SafeMaximumRotationRadians);
-        }
-
-        const float DirectionDot{ ::std::clamp(SafeSourceDirection.Dot(SafeTargetDirection), -1.0f, 1.0f) };
-        const float RequiredRotationRadians{ ::std::acos(DirectionDot) };
-        if (RequiredRotationRadians <= SurfaceNormalLengthEpsilon) {
-            OutRotation = SimpleMath::Quaternion::Identity;
-            return true;
-        }
-
-        SimpleMath::Vector3 RotationAxis{ ResolveCrossProduct(SafeSourceDirection, SafeTargetDirection) };
-        if (TryResolveNormalizedVector(RotationAxis, RotationAxis) == false) {
-            RotationAxis = ResolveCrossProduct(SafeSourceDirection, SimpleMath::Vector3::Right);
-        }
-
-        if (TryResolveNormalizedVector(RotationAxis, RotationAxis) == false) {
-            RotationAxis = ResolveCrossProduct(SafeSourceDirection, SimpleMath::Vector3::Up);
-        }
-
-        if (TryResolveNormalizedVector(RotationAxis, RotationAxis) == false) {
-            RotationAxis = ResolveCrossProduct(SafeSourceDirection, SimpleMath::Vector3::Forward);
-        }
-
-        if (TryResolveNormalizedVector(RotationAxis, RotationAxis) == false) {
-            return false;
-        }
-
-        const float AxisDirectionSign{ RotationAxis.Dot(SafePositiveRotationAxis) < 0.0f ? -1.0f : 1.0f };
-        const float SignedRequiredRotationRadians{ RequiredRotationRadians * AxisDirectionSign };
-        const float ClampedSignedRotationRadians{ ::std::clamp(SignedRequiredRotationRadians, SafeMinimumRotationRadians, SafeMaximumRotationRadians) };
-        if (::std::abs(ClampedSignedRotationRadians) <= SurfaceNormalLengthEpsilon) {
-            OutRotation = SimpleMath::Quaternion::Identity;
-            return true;
-        }
-
-        const float RotationDirectionSign{ ClampedSignedRotationRadians < 0.0f ? -1.0f : 1.0f };
-        const float RotationMagnitudeRadians{ ::std::abs(ClampedSignedRotationRadians) };
-        const SimpleMath::Quaternion AxisAngleRotation{ SimpleMath::Quaternion::CreateFromAxisAngle(RotationAxis * RotationDirectionSign, RotationMagnitudeRadians) };
         return TryResolveNormalizedQuaternion(AxisAngleRotation, OutRotation);
     }
 
@@ -731,7 +676,7 @@ namespace {
         return true;
     }
 
-    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutGroundNormal, SimpleMath::Vector3& OutTargetFootPosition, float& OutTargetConfidence) {
+    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutRayOppositeDirection, SimpleMath::Vector3& OutGroundNormal, SimpleMath::Vector3& OutTargetFootPosition, float& OutTargetConfidence) {
         if (FootEntityId == Arche::NullEntityID || ToeEntityId == Arche::NullEntityID) {
             return false;
         }
@@ -766,6 +711,7 @@ namespace {
         ::std::size_t HitCount{};
         SimpleMath::Vector3 HitPointAccumulation{};
         SimpleMath::Vector3 HitNormalAccumulation{};
+        SimpleMath::Vector3 RayOppositeDirectionAccumulation{};
         for (::std::size_t CornerIndex{}; CornerIndex < CornerPoints.size(); ++CornerIndex) {
             const SimpleMath::Vector3& CornerPoint{ CornerPoints[CornerIndex] };
             const SimpleMath::Vector3& CornerDirection{ CornerDirections[CornerIndex] };
@@ -783,8 +729,18 @@ namespace {
                 continue;
             }
 
+            SimpleMath::Vector3 RayOppositeDirection{ CornerDirection * -1.0f };
+            if (TryResolveNormalizedVector(RayOppositeDirection, RayOppositeDirection) == false) {
+                continue;
+            }
+
+            if (HitNormal.Dot(RayOppositeDirection) < 0.0f) {
+                HitNormal *= -1.0f;
+            }
+
             HitPointAccumulation += HitPoint;
             HitNormalAccumulation += HitNormal;
+            RayOppositeDirectionAccumulation += RayOppositeDirection;
             ++HitCount;
             IsAnyHit = true;
         }
@@ -799,10 +755,15 @@ namespace {
         }
 
         const float HitCountReciprocal{ 1.0f / static_cast<float>(HitCount) };
+        SimpleMath::Vector3 AverageRayOppositeDirection{ RayOppositeDirectionAccumulation * HitCountReciprocal };
         SimpleMath::Vector3 AverageHitPoint{ HitPointAccumulation * HitCountReciprocal };
         SimpleMath::Vector3 AverageHitNormal{ HitNormalAccumulation * HitCountReciprocal };
-        if (IsFiniteVector3(AverageHitPoint) == false || TryResolveNormalizedVector(AverageHitNormal, AverageHitNormal) == false) {
+        if (TryResolveNormalizedVector(AverageRayOppositeDirection, AverageRayOppositeDirection) == false || IsFiniteVector3(AverageHitPoint) == false || TryResolveNormalizedVector(AverageHitNormal, AverageHitNormal) == false) {
             return false;
+        }
+
+        if (AverageHitNormal.Dot(AverageRayOppositeDirection) < 0.0f) {
+            AverageHitNormal *= -1.0f;
         }
 
         const float FootToPlaneDistance{ (FootWorldPosition - AverageHitPoint).Dot(AverageHitNormal) };
@@ -822,6 +783,7 @@ namespace {
         }
 
         OutTargetOffsetY = TargetOffsetY;
+        OutRayOppositeDirection = AverageRayOppositeDirection;
         OutGroundNormal = AverageHitNormal;
         OutTargetFootPosition = TargetFootPosition;
         OutTargetConfidence = TargetConfidence;
@@ -1185,38 +1147,40 @@ namespace {
         return true;
     }
 
-    bool TryAlignFootToSurface(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
-        if (FootEntityId == Arche::NullEntityID || ToeEntityId == Arche::NullEntityID || IsFiniteVector3(SurfaceNormal) == false) {
+    bool TryAlignFootToSurface(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& RayOppositeDirection, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        if (FootEntityId == Arche::NullEntityID || IsFiniteVector3(RayOppositeDirection) == false || IsFiniteVector3(SurfaceNormal) == false) {
             return false;
         }
 
-        const float SafeAlignmentWeight{ IsFiniteFloat(AlignmentWeight) ? ::std::clamp(AlignmentWeight, 0.0f, 1.0f) : 0.0f };
-        if (SafeAlignmentWeight <= FootPlantWeightEpsilon) {
-            return false;
-        }
+        (void)ToeEntityId;
+        (void)AlignmentWeight;
 
-        FootSurfaceAlignmentData FootSurfaceAlignmentDataValue{};
-        if (TryResolveFootSurfaceAlignmentData(World, FootEntityId, ToeEntityId, SurfaceNormal, InOutWorldMatrices, FootSurfaceAlignmentDataValue) == false) {
-            return false;
-        }
-
-        SimpleMath::Vector3 DesiredSurfaceNormal{ FootSurfaceAlignmentDataValue.CurrentFootNormal + ((FootSurfaceAlignmentDataValue.SafeSurfaceNormal - FootSurfaceAlignmentDataValue.CurrentFootNormal) * SafeAlignmentWeight) };
-        if (TryResolveNormalizedVector(DesiredSurfaceNormal, DesiredSurfaceNormal) == false) {
-            DesiredSurfaceNormal = FootSurfaceAlignmentDataValue.CurrentFootNormal;
-        }
-
-        SimpleMath::Vector3 FootRightDirection{ ResolveCrossProduct(FootSurfaceAlignmentDataValue.CurrentFootNormal, FootSurfaceAlignmentDataValue.SafeFootToToeDirection) };
-        if (TryResolveNormalizedVector(FootRightDirection, FootRightDirection) == false) {
+        SimpleMath::Vector3 SafeRayOppositeDirection{};
+        SimpleMath::Vector3 SafeSurfaceNormal{};
+        if (TryResolveNormalizedVector(RayOppositeDirection, SafeRayOppositeDirection) == false || TryResolveNormalizedVector(SurfaceNormal, SafeSurfaceNormal) == false) {
             return false;
         }
 
         SimpleMath::Quaternion SurfaceAlignDeltaRotation{};
-        if (TryResolveClampedFromToRotation(FootSurfaceAlignmentDataValue.CurrentFootNormal, DesiredSurfaceNormal, MinimumFootTiltRadians, MaximumFootTiltRadians, FootRightDirection, SurfaceAlignDeltaRotation) == false) {
+        if (TryResolveFromToRotation(SafeRayOppositeDirection, SafeSurfaceNormal, SurfaceAlignDeltaRotation) == false) {
+            return false;
+        }
+
+        SimpleMath::Matrix FootWorldMatrix{};
+        if (TryResolveWorldMatrix(World, FootEntityId, InOutWorldMatrices, FootWorldMatrix) == false) {
+            return false;
+        }
+
+        SimpleMath::Vector3 CurrentWorldScale{};
+        SimpleMath::Quaternion CurrentWorldRotation{};
+        SimpleMath::Vector3 CurrentWorldPosition{};
+        const bool IsCurrentFootDecomposeSucceeded{ FootWorldMatrix.Decompose(CurrentWorldScale, CurrentWorldRotation, CurrentWorldPosition) };
+        if (IsCurrentFootDecomposeSucceeded == false || IsFiniteVector3(CurrentWorldScale) == false || IsFiniteVector3(CurrentWorldPosition) == false || TryResolveNormalizedQuaternion(CurrentWorldRotation, CurrentWorldRotation) == false) {
             return false;
         }
 
         SimpleMath::Quaternion DesiredWorldRotation{};
-        if (TryResolveWorldRotationWithWorldDelta(FootSurfaceAlignmentDataValue.CurrentWorldRotation, SurfaceAlignDeltaRotation, DesiredWorldRotation) == false) {
+        if (TryResolveWorldRotationWithWorldDelta(CurrentWorldRotation, SurfaceAlignDeltaRotation, DesiredWorldRotation) == false) {
             return false;
         }
 
@@ -1281,8 +1245,8 @@ namespace Game::IK {
         return ::TryResolveFootObbAndToeObbCorners(World, FootEntityId, ToeEntityId, InOutWorldMatrices, OutCornerPoints, OutCornerDirections);
     }
 
-    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, DirectX::SimpleMath::Vector3& OutGroundNormal, DirectX::SimpleMath::Vector3& OutTargetFootPosition, float& OutTargetConfidence) {
-        return ::TryResolveFootTargetOffset(World, FootEntityId, ToeEntityId, InOutWorldMatrices, OutTargetOffsetY, OutGroundNormal, OutTargetFootPosition, OutTargetConfidence);
+    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, DirectX::SimpleMath::Vector3& OutRayOppositeDirection, DirectX::SimpleMath::Vector3& OutGroundNormal, DirectX::SimpleMath::Vector3& OutTargetFootPosition, float& OutTargetConfidence) {
+        return ::TryResolveFootTargetOffset(World, FootEntityId, ToeEntityId, InOutWorldMatrices, OutTargetOffsetY, OutRayOppositeDirection, OutGroundNormal, OutTargetFootPosition, OutTargetConfidence);
     }
 
     bool TryResolveFootSurfaceNormals(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const DirectX::SimpleMath::Vector3& SurfaceNormal, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, DirectX::SimpleMath::Vector3& OutFootWorldPosition, DirectX::SimpleMath::Vector3& OutCurrentFootNormal, DirectX::SimpleMath::Vector3& OutSurfaceNormal) {
@@ -1309,8 +1273,8 @@ namespace Game::IK {
         return ::TrySolveLegWithIK(World, ThighEntityId, ShinEntityId, FootEntityId, TargetFootWorldPosition, FootIKSolver, InOutWorldMatrices);
     }
 
-    bool TryAlignFootToSurface(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const DirectX::SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices) {
-        return ::TryAlignFootToSurface(World, FootEntityId, ToeEntityId, SurfaceNormal, AlignmentWeight, InOutWorldMatrices);
+    bool TryAlignFootToSurface(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const DirectX::SimpleMath::Vector3& RayOppositeDirection, const DirectX::SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices) {
+        return ::TryAlignFootToSurface(World, FootEntityId, ToeEntityId, RayOppositeDirection, SurfaceNormal, AlignmentWeight, InOutWorldMatrices);
     }
 
     float ResolveSharedPelvisOffset(const float LeftOffset, const float RightOffset) {
