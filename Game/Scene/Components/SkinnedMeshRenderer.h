@@ -9,7 +9,7 @@ namespace Game {
         SkinnedMeshRenderer,
         ComponentFields(
             ComponentField(Model*, model, nullptr)
-            ComponentField(::std::uint32_t, nodeIndex, 0)
+            ComponentField(std::uint32_t, nodeIndex, 0)
             ComponentField(bool, active, true)
         ),
         BOOST_PP_SEQ_NIL

@@ -3,10 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <limits>
 #include <span>
 #include <string_view>
-#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -20,7 +18,7 @@
 #include "Game/Scene/IK/FootIKSolver.h"
 #include "Game/Scene/TerrainHeightResolver.h"
 
-namespace {
+namespace Game::IK {
     constexpr float FootOffsetEpsilon{ 1.0e-4f };
     constexpr float SurfaceNormalLengthEpsilon{ 1.0e-6f };
     constexpr float FootRaycastStartOffset{ 0.3f };
@@ -28,13 +26,13 @@ namespace {
     constexpr float PelvisWeight{ 0.50f };
     constexpr int FootIKFabrikMaxIterationCount{ 12 };
     constexpr float FootIKFabrikConvergenceDistance{ 1.0e-3f };
-    constexpr ::std::size_t KneeJointIndex{ 1 };
+    constexpr std::size_t KneeJointIndex{ 1 };
     constexpr float KneeMinimumAngleRadians{ 0.0872664626f };
     constexpr float KneeMaximumAngleRadians{ 3.0543261909f };
     constexpr float ToeContactCorrectionMaxRadians{ 0.5235987756f };
 
     bool IsFiniteFloat(const float Value) {
-        return ::std::isfinite(Value) != 0;
+        return std::isfinite(Value) != 0;
     }
 
     bool IsFiniteVector3(const SimpleMath::Vector3& Value) {
@@ -86,7 +84,7 @@ namespace {
             return false;
         }
 
-        const float DirectionDot{ ::std::clamp(SafeSourceDirection.Dot(SafeTargetDirection), -1.0f, 1.0f) };
+        const float DirectionDot{ std::clamp(SafeSourceDirection.Dot(SafeTargetDirection), -1.0f, 1.0f) };
         if (DirectionDot >= (1.0f - 1.0e-5f)) {
             OutRotation = SimpleMath::Quaternion::Identity;
             return true;
@@ -117,7 +115,7 @@ namespace {
             return true;
         }
 
-        const float RotationAngleRadians{ ::std::acos(DirectionDot) };
+        const float RotationAngleRadians{ std::acos(DirectionDot) };
         const SimpleMath::Quaternion AxisAngleRotation{ SimpleMath::Quaternion::CreateFromAxisAngle(SafeRotationAxis, RotationAngleRadians) };
         return TryResolveNormalizedQuaternion(AxisAngleRotation, OutRotation);
     }
@@ -162,25 +160,25 @@ namespace {
         return TransformComponent.nodeToParent * TrsMatrix;
     }
 
-    bool TryResolveWorldMatrix(Arche::World& World, const Arche::EntityID EntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, SimpleMath::Matrix& OutWorldMatrix) {
-        const ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>::const_iterator CachedWorldMatrixIter{ InOutWorldMatrices.find(EntityId) };
+    bool TryResolveWorldMatrix(Arche::World& World, const Arche::EntityID EntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, SimpleMath::Matrix& OutWorldMatrix) {
+        const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>::const_iterator CachedWorldMatrixIter{ InOutWorldMatrices.find(EntityId) };
         if (CachedWorldMatrixIter != InOutWorldMatrices.end()) {
             OutWorldMatrix = CachedWorldMatrixIter->second;
             return true;
         }
 
-        ::std::vector<Arche::EntityID> EntityPath{};
+        std::vector<Arche::EntityID> EntityPath{};
         Arche::EntityID CurrentEntityId{ EntityId };
         SimpleMath::Matrix ParentWorldMatrix{ SimpleMath::Matrix::Identity };
         while (CurrentEntityId != Arche::NullEntityID) {
-            const ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>::const_iterator CurrentCachedWorldMatrixIter{ InOutWorldMatrices.find(CurrentEntityId) };
+            const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>::const_iterator CurrentCachedWorldMatrixIter{ InOutWorldMatrices.find(CurrentEntityId) };
             if (CurrentCachedWorldMatrixIter != InOutWorldMatrices.end()) {
                 ParentWorldMatrix = CurrentCachedWorldMatrixIter->second;
                 break;
             }
 
-            const Game::Transform* TransformComponent{ ::std::as_const(World).GetComponent<Game::Transform>(CurrentEntityId) };
-            const Game::EntityHierarchy* HierarchyComponent{ ::std::as_const(World).GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
+            const Game::Transform* TransformComponent{ std::as_const(World).GetComponent<Game::Transform>(CurrentEntityId) };
+            const Game::EntityHierarchy* HierarchyComponent{ std::as_const(World).GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
             if (TransformComponent == nullptr || HierarchyComponent == nullptr) {
                 return false;
             }
@@ -189,9 +187,9 @@ namespace {
             CurrentEntityId = HierarchyComponent->parent;
         }
 
-        for (::std::vector<Arche::EntityID>::const_reverse_iterator EntityPathIter{ EntityPath.crbegin() }; EntityPathIter != EntityPath.crend(); ++EntityPathIter) {
+        for (std::vector<Arche::EntityID>::const_reverse_iterator EntityPathIter{ EntityPath.crbegin() }; EntityPathIter != EntityPath.crend(); ++EntityPathIter) {
             const Arche::EntityID CurrentPathEntityId{ *EntityPathIter };
-            const Game::Transform* TransformComponent{ ::std::as_const(World).GetComponent<Game::Transform>(CurrentPathEntityId) };
+            const Game::Transform* TransformComponent{ std::as_const(World).GetComponent<Game::Transform>(CurrentPathEntityId) };
             if (TransformComponent == nullptr) {
                 return false;
             }
@@ -206,12 +204,12 @@ namespace {
         return true;
     }
 
-    Arche::EntityID FindBoneEntityByNameInHierarchy(const Arche::World::WorldReadOnlyView& ReadOnlyWorld, const Arche::EntityID RootEntityId, const ::std::string_view TargetNameText) {
+    Arche::EntityID FindBoneEntityByNameInHierarchy(const Arche::World::WorldReadOnlyView& ReadOnlyWorld, const Arche::EntityID RootEntityId, const std::string_view TargetNameText) {
         if (RootEntityId == Arche::NullEntityID || TargetNameText.empty() == true) {
             return Arche::NullEntityID;
         }
 
-        ::std::vector<Arche::EntityID> Stack{};
+        std::vector<Arche::EntityID> Stack{};
         Stack.reserve(256);
         Stack.push_back(RootEntityId);
         while (Stack.empty() == false) {
@@ -221,7 +219,7 @@ namespace {
             const Game::Bone* BoneComponent{ ReadOnlyWorld.GetComponent<Game::Bone>(CurrentEntityId) };
             const Game::Name* NameComponent{ ReadOnlyWorld.GetComponent<Game::Name>(CurrentEntityId) };
             if (BoneComponent != nullptr && NameComponent != nullptr) {
-                const ::std::string_view CurrentNameText{ Game::GetNameTextView(*NameComponent) };
+                const std::string_view CurrentNameText{ Game::GetNameTextView(*NameComponent) };
                 if (CurrentNameText == TargetNameText) {
                     return CurrentEntityId;
                 }
@@ -244,7 +242,7 @@ namespace {
         return Arche::NullEntityID;
     }
 
-    bool IsCachedBoneEntityValid(const Arche::World::WorldReadOnlyView& ReadOnlyWorld, const Arche::EntityID EntityId, const ::std::string_view ExpectedBoneNameText) {
+    bool IsCachedBoneEntityValid(const Arche::World::WorldReadOnlyView& ReadOnlyWorld, const Arche::EntityID EntityId, const std::string_view ExpectedBoneNameText) {
         if (ExpectedBoneNameText.empty() == true) {
             return EntityId == Arche::NullEntityID;
         }
@@ -259,7 +257,7 @@ namespace {
             return false;
         }
 
-        const ::std::string_view CurrentNameText{ Game::GetNameTextView(*NameComponent) };
+        const std::string_view CurrentNameText{ Game::GetNameTextView(*NameComponent) };
         return CurrentNameText == ExpectedBoneNameText;
     }
 
@@ -278,15 +276,15 @@ namespace {
             return;
         }
 
-        const ::std::string_view LeftFootBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mLeftFootBoneName) };
-        const ::std::string_view RightFootBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mRightFootBoneName) };
-        const ::std::string_view LeftToeBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mLeftToeBoneName) };
-        const ::std::string_view RightToeBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mRightToeBoneName) };
-        const ::std::string_view LeftShinBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mLeftShinBoneName) };
-        const ::std::string_view RightShinBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mRightShinBoneName) };
-        const ::std::string_view LeftThighBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mLeftThighBoneName) };
-        const ::std::string_view RightThighBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mRightThighBoneName) };
-        const ::std::string_view PelvisBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mPelvisBoneName) };
+        const std::string_view LeftFootBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mLeftFootBoneName) };
+        const std::string_view RightFootBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mRightFootBoneName) };
+        const std::string_view LeftToeBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mLeftToeBoneName) };
+        const std::string_view RightToeBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mRightToeBoneName) };
+        const std::string_view LeftShinBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mLeftShinBoneName) };
+        const std::string_view RightShinBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mRightShinBoneName) };
+        const std::string_view LeftThighBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mLeftThighBoneName) };
+        const std::string_view RightThighBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mRightThighBoneName) };
+        const std::string_view PelvisBoneNameText{ Game::GetFootIKRigBoneNameText(FootIKRigComponent.mPelvisBoneName) };
 
         InOutFootIKRuntimeComponent.mLeftFootEntityId = FindBoneEntityByNameInHierarchy(ReadOnlyWorld, BoneRootEntityId, LeftFootBoneNameText);
         InOutFootIKRuntimeComponent.mRightFootEntityId = FindBoneEntityByNameInHierarchy(ReadOnlyWorld, BoneRootEntityId, RightFootBoneNameText);
@@ -300,12 +298,12 @@ namespace {
         InOutFootIKRuntimeComponent.mResolved = true;
     }
 
-    bool TryResolveWorldObb(Arche::World& World, const Arche::EntityID EntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, DirectX::BoundingOrientedBox& OutWorldObb) {
+    bool TryResolveWorldObb(Arche::World& World, const Arche::EntityID EntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, DirectX::BoundingOrientedBox& OutWorldObb) {
         if (EntityId == Arche::NullEntityID) {
             return false;
         }
 
-        const Game::BoundingBox* BoundingBoxComponent{ ::std::as_const(World).GetComponent<Game::BoundingBox>(EntityId) };
+        const Game::BoundingBox* BoundingBoxComponent{ std::as_const(World).GetComponent<Game::BoundingBox>(EntityId) };
         if (BoundingBoxComponent == nullptr) {
             return false;
         }
@@ -365,56 +363,28 @@ namespace {
         return true;
     }
 
-    bool TryResolveObbCorners(const DirectX::BoundingOrientedBox& WorldObb, ::std::array<SimpleMath::Vector3, 8>& OutCorners) {
-        DirectX::XMFLOAT3 RawCorners[8]{};
-        WorldObb.GetCorners(RawCorners);
-        for (::std::size_t CornerIndex{}; CornerIndex < OutCorners.size(); ++CornerIndex) {
-            const SimpleMath::Vector3 CornerPoint{ RawCorners[CornerIndex].x, RawCorners[CornerIndex].y, RawCorners[CornerIndex].z };
-            if (IsFiniteVector3(CornerPoint) == false) {
-                return false;
-            }
+    bool CreateMerged(DirectX::BoundingOrientedBox& OutMergedWorldObb, const DirectX::BoundingOrientedBox& LeftWorldObb, const DirectX::BoundingOrientedBox& RightWorldObb) {
+        std::array<DirectX::XMFLOAT3, 8> LeftCorners{};
+        std::array<DirectX::XMFLOAT3, 8> RightCorners{};
+        LeftWorldObb.GetCorners(LeftCorners.data());
+        RightWorldObb.GetCorners(RightCorners.data());
 
-            OutCorners[CornerIndex] = CornerPoint;
+        std::array<DirectX::XMFLOAT3, 16> MergedCorners{};
+        for (std::size_t CornerIndex{}; CornerIndex < LeftCorners.size(); ++CornerIndex) {
+            MergedCorners[CornerIndex] = LeftCorners[CornerIndex];
+            MergedCorners[CornerIndex + LeftCorners.size()] = RightCorners[CornerIndex];
         }
 
-        return true;
-    }
-
-    template <typename Type, typename = void>
-    struct HasBoundingOrientedBoxCreateMerged final : ::std::false_type {
-    };
-
-    template <typename Type>
-    struct HasBoundingOrientedBoxCreateMerged<Type, ::std::void_t<decltype(Type::CreateMerged(::std::declval<Type&>(), ::std::declval<const Type&>(), ::std::declval<const Type&>()))>> final : ::std::true_type {
-    };
-
-    template <typename Type>
-    bool CreateMerged(Type& OutMergedWorldObb, const Type& LeftWorldObb, const Type& RightWorldObb) {
-        if constexpr (HasBoundingOrientedBoxCreateMerged<Type>::value == true) {
-            Type::CreateMerged(OutMergedWorldObb, LeftWorldObb, RightWorldObb);
-        } else {
-            ::std::array<DirectX::XMFLOAT3, 8> LeftCorners{};
-            ::std::array<DirectX::XMFLOAT3, 8> RightCorners{};
-            LeftWorldObb.GetCorners(LeftCorners.data());
-            RightWorldObb.GetCorners(RightCorners.data());
-
-            ::std::array<DirectX::XMFLOAT3, 16> MergedCorners{};
-            for (::std::size_t CornerIndex{}; CornerIndex < LeftCorners.size(); ++CornerIndex) {
-                MergedCorners[CornerIndex] = LeftCorners[CornerIndex];
-                MergedCorners[CornerIndex + LeftCorners.size()] = RightCorners[CornerIndex];
-            }
-
-            Type::CreateFromPoints(OutMergedWorldObb, MergedCorners.size(), MergedCorners.data(), sizeof(DirectX::XMFLOAT3));
-        }
+        DirectX::BoundingOrientedBox::CreateFromPoints(OutMergedWorldObb, MergedCorners.size(), MergedCorners.data(), sizeof(DirectX::XMFLOAT3));
         const SimpleMath::Vector3 MergedCenter{ OutMergedWorldObb.Center.x, OutMergedWorldObb.Center.y, OutMergedWorldObb.Center.z };
         const SimpleMath::Vector3 MergedExtents{ OutMergedWorldObb.Extents.x, OutMergedWorldObb.Extents.y, OutMergedWorldObb.Extents.z };
         const SimpleMath::Quaternion MergedOrientation{ OutMergedWorldObb.Orientation.x, OutMergedWorldObb.Orientation.y, OutMergedWorldObb.Orientation.z, OutMergedWorldObb.Orientation.w };
         return IsFiniteVector3(MergedCenter) == true && IsFiniteVector3(MergedExtents) == true && IsFiniteQuaternion(MergedOrientation) == true;
     }
 
-    bool TryResolveObbVerticalCornerPairs(const DirectX::BoundingOrientedBox& WorldObb, ::std::array<SimpleMath::Vector3, 4>& OutBottomCorners, ::std::array<SimpleMath::Vector3, 4>& OutTopCorners) {
+    bool TryResolveObbVerticalCornerPairs(const DirectX::BoundingOrientedBox& WorldObb, std::array<SimpleMath::Vector3, 4>& OutBottomCorners, std::array<SimpleMath::Vector3, 4>& OutTopCorners) {
         const SimpleMath::Vector3 ObbCenter{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z };
-        const SimpleMath::Vector3 ObbExtents{ ::std::abs(WorldObb.Extents.x), ::std::abs(WorldObb.Extents.y), ::std::abs(WorldObb.Extents.z) };
+        const SimpleMath::Vector3 ObbExtents{ std::abs(WorldObb.Extents.x), std::abs(WorldObb.Extents.y), std::abs(WorldObb.Extents.z) };
         if (IsFiniteVector3(ObbCenter) == false || IsFiniteVector3(ObbExtents) == false) {
             return false;
         }
@@ -455,7 +425,7 @@ namespace {
         OutTopCorners[2] = TopFaceCenter + RightOffset + ForwardOffset;
         OutTopCorners[3] = TopFaceCenter - RightOffset + ForwardOffset;
 
-        for (::std::size_t CornerIndex{}; CornerIndex < OutBottomCorners.size(); ++CornerIndex) {
+        for (std::size_t CornerIndex{}; CornerIndex < OutBottomCorners.size(); ++CornerIndex) {
             if (IsFiniteVector3(OutBottomCorners[CornerIndex]) == false || IsFiniteVector3(OutTopCorners[CornerIndex]) == false) {
                 return false;
             }
@@ -464,201 +434,7 @@ namespace {
         return true;
     }
 
-    bool TryResolveFootAxes(const DirectX::BoundingOrientedBox& FootWorldObb, const DirectX::BoundingOrientedBox& ToeWorldObb, SimpleMath::Vector3& OutForwardAxis, SimpleMath::Vector3& OutRightAxis, SimpleMath::Vector3& OutUpAxis) {
-        constexpr SimpleMath::Vector3 WorldUpAxis{ 0.0f, 1.0f, 0.0f };
-        constexpr float AxisProjectionEpsilon{ 1.0e-5f };
-
-        const SimpleMath::Vector3 FootCenter{ FootWorldObb.Center.x, FootWorldObb.Center.y, FootWorldObb.Center.z };
-        const SimpleMath::Vector3 ToeCenter{ ToeWorldObb.Center.x, ToeWorldObb.Center.y, ToeWorldObb.Center.z };
-
-        SimpleMath::Quaternion FootOrientation{ FootWorldObb.Orientation.x, FootWorldObb.Orientation.y, FootWorldObb.Orientation.z, FootWorldObb.Orientation.w };
-        const bool IsFootOrientationResolved{ TryResolveNormalizedQuaternion(FootOrientation, FootOrientation) };
-        SimpleMath::Quaternion ToeOrientation{ ToeWorldObb.Orientation.x, ToeWorldObb.Orientation.y, ToeWorldObb.Orientation.z, ToeWorldObb.Orientation.w };
-        const bool IsToeOrientationResolved{ TryResolveNormalizedQuaternion(ToeOrientation, ToeOrientation) };
-
-        SimpleMath::Vector3 UpAxis{};
-        bool IsUpAxisResolved{};
-        if (IsFootOrientationResolved == true) {
-            UpAxis = SimpleMath::Vector3::Transform(SimpleMath::Vector3::Up, FootOrientation);
-            IsUpAxisResolved = TryResolveNormalizedVector(UpAxis, UpAxis);
-        }
-
-        if (IsToeOrientationResolved == true) {
-            SimpleMath::Vector3 ToeUpAxis{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Up, ToeOrientation) };
-            if (TryResolveNormalizedVector(ToeUpAxis, ToeUpAxis) == true) {
-                if (IsUpAxisResolved == true) {
-                    if (UpAxis.Dot(ToeUpAxis) < 0.0f) {
-                        ToeUpAxis *= -1.0f;
-                    }
-
-                    SimpleMath::Vector3 BlendedUpAxis{ UpAxis + ToeUpAxis };
-                    if (TryResolveNormalizedVector(BlendedUpAxis, BlendedUpAxis) == true) {
-                        UpAxis = BlendedUpAxis;
-                    }
-                } else {
-                    UpAxis = ToeUpAxis;
-                    IsUpAxisResolved = true;
-                }
-            }
-        }
-
-        if (IsUpAxisResolved == false) {
-            UpAxis = WorldUpAxis;
-            IsUpAxisResolved = true;
-        }
-
-        if (IsUpAxisResolved == false) {
-            return false;
-        }
-
-        const float UpAxisWorldUpDot{ UpAxis.Dot(WorldUpAxis) };
-        if (IsFiniteFloat(UpAxisWorldUpDot) == false) {
-            return false;
-        }
-
-        if (UpAxisWorldUpDot < 0.0f) {
-            UpAxis *= -1.0f;
-        }
-
-        SimpleMath::Vector3 ForwardAxis{ ToeCenter - FootCenter };
-        const float ForwardAxisProjectionOnUp{ ForwardAxis.Dot(UpAxis) };
-        if (IsFiniteFloat(ForwardAxisProjectionOnUp) == false) {
-            return false;
-        }
-
-        ForwardAxis -= UpAxis * ForwardAxisProjectionOnUp;
-        if (TryResolveNormalizedVector(ForwardAxis, ForwardAxis) == false) {
-            if (IsFootOrientationResolved == true) {
-                ForwardAxis = SimpleMath::Vector3::Transform(SimpleMath::Vector3::Forward, FootOrientation);
-                const float FallbackForwardProjectionOnUp{ ForwardAxis.Dot(UpAxis) };
-                if (IsFiniteFloat(FallbackForwardProjectionOnUp) == false) {
-                    return false;
-                }
-
-                ForwardAxis -= UpAxis * FallbackForwardProjectionOnUp;
-            }
-        }
-
-        if (TryResolveNormalizedVector(ForwardAxis, ForwardAxis) == false) {
-            if (IsToeOrientationResolved == true) {
-                ForwardAxis = SimpleMath::Vector3::Transform(SimpleMath::Vector3::Forward, ToeOrientation);
-                const float FallbackForwardProjectionOnUp{ ForwardAxis.Dot(UpAxis) };
-                if (IsFiniteFloat(FallbackForwardProjectionOnUp) == false) {
-                    return false;
-                }
-
-                ForwardAxis -= UpAxis * FallbackForwardProjectionOnUp;
-            }
-        }
-
-        if (TryResolveNormalizedVector(ForwardAxis, ForwardAxis) == false) {
-            ForwardAxis = ResolveCrossProduct(UpAxis, SimpleMath::Vector3::Right);
-            if (TryResolveNormalizedVector(ForwardAxis, ForwardAxis) == false) {
-                ForwardAxis = ResolveCrossProduct(UpAxis, SimpleMath::Vector3::Forward);
-                if (TryResolveNormalizedVector(ForwardAxis, ForwardAxis) == false) {
-                    return false;
-                }
-            }
-        }
-
-        SimpleMath::Vector3 RightAxis{ ResolveCrossProduct(UpAxis, ForwardAxis) };
-        if (TryResolveNormalizedVector(RightAxis, RightAxis) == false) {
-            return false;
-        }
-
-        SimpleMath::Vector3 RecomputedForwardAxis{ ResolveCrossProduct(RightAxis, UpAxis) };
-        if (TryResolveNormalizedVector(RecomputedForwardAxis, RecomputedForwardAxis) == true) {
-            ForwardAxis = RecomputedForwardAxis;
-        }
-
-        const float ForwardUpOrthogonality{ ::std::abs(ForwardAxis.Dot(UpAxis)) };
-        const float RightUpOrthogonality{ ::std::abs(RightAxis.Dot(UpAxis)) };
-        if (IsFiniteFloat(ForwardUpOrthogonality) == false || IsFiniteFloat(RightUpOrthogonality) == false || ForwardUpOrthogonality > AxisProjectionEpsilon || RightUpOrthogonality > AxisProjectionEpsilon) {
-            return false;
-        }
-
-        OutForwardAxis = ForwardAxis;
-        OutRightAxis = RightAxis;
-        OutUpAxis = UpAxis;
-
-        return true;
-    }
-
-    bool TryResolveMergedObbVerticalCornerPairs(const ::std::array<SimpleMath::Vector3, 8>& FootCorners, const ::std::array<SimpleMath::Vector3, 8>& ToeCorners, const SimpleMath::Vector3& ForwardAxis, const SimpleMath::Vector3& RightAxis, const SimpleMath::Vector3& UpAxis, ::std::array<SimpleMath::Vector3, 4>& OutBottomCorners, ::std::array<SimpleMath::Vector3, 4>& OutTopCorners) {
-        float MinimumForwardProjection{ (::std::numeric_limits<float>::max)() };
-        float MaximumForwardProjection{ -(::std::numeric_limits<float>::max)() };
-        float MinimumRightProjection{ (::std::numeric_limits<float>::max)() };
-        float MaximumRightProjection{ -(::std::numeric_limits<float>::max)() };
-        float MinimumUpProjection{ (::std::numeric_limits<float>::max)() };
-        float MaximumUpProjection{ -(::std::numeric_limits<float>::max)() };
-
-        const auto UpdateProjectionExtents = [&ForwardAxis, &RightAxis, &UpAxis, &MinimumForwardProjection, &MaximumForwardProjection, &MinimumRightProjection, &MaximumRightProjection, &MinimumUpProjection, &MaximumUpProjection](const SimpleMath::Vector3& CornerPoint) -> bool {
-            const float ForwardProjection{ CornerPoint.Dot(ForwardAxis) };
-            const float RightProjection{ CornerPoint.Dot(RightAxis) };
-            const float UpProjection{ CornerPoint.Dot(UpAxis) };
-            if (IsFiniteFloat(ForwardProjection) == false || IsFiniteFloat(RightProjection) == false || IsFiniteFloat(UpProjection) == false) {
-                return false;
-            }
-
-            MinimumForwardProjection = (::std::min)(MinimumForwardProjection, ForwardProjection);
-            MaximumForwardProjection = (::std::max)(MaximumForwardProjection, ForwardProjection);
-            MinimumRightProjection = (::std::min)(MinimumRightProjection, RightProjection);
-            MaximumRightProjection = (::std::max)(MaximumRightProjection, RightProjection);
-            MinimumUpProjection = (::std::min)(MinimumUpProjection, UpProjection);
-            MaximumUpProjection = (::std::max)(MaximumUpProjection, UpProjection);
-            return true;
-        };
-
-        for (const SimpleMath::Vector3& FootCorner : FootCorners) {
-            if (UpdateProjectionExtents(FootCorner) == false) {
-                return false;
-            }
-        }
-
-        for (const SimpleMath::Vector3& ToeCorner : ToeCorners) {
-            if (UpdateProjectionExtents(ToeCorner) == false) {
-                return false;
-            }
-        }
-
-        if (MinimumForwardProjection > MaximumForwardProjection || MinimumRightProjection > MaximumRightProjection || MinimumUpProjection > MaximumUpProjection) {
-            return false;
-        }
-
-        const float CenterForwardProjection{ (MinimumForwardProjection + MaximumForwardProjection) * 0.5f };
-        const float CenterRightProjection{ (MinimumRightProjection + MaximumRightProjection) * 0.5f };
-        const float CenterUpProjection{ (MinimumUpProjection + MaximumUpProjection) * 0.5f };
-        const float ExtentForward{ (MaximumForwardProjection - MinimumForwardProjection) * 0.5f };
-        const float ExtentRight{ (MaximumRightProjection - MinimumRightProjection) * 0.5f };
-        const float ExtentUp{ (MaximumUpProjection - MinimumUpProjection) * 0.5f };
-        if (IsFiniteFloat(CenterForwardProjection) == false || IsFiniteFloat(CenterRightProjection) == false || IsFiniteFloat(CenterUpProjection) == false || IsFiniteFloat(ExtentForward) == false || IsFiniteFloat(ExtentRight) == false || IsFiniteFloat(ExtentUp) == false) {
-            return false;
-        }
-
-        const SimpleMath::Vector3 MergedCenter{ (ForwardAxis * CenterForwardProjection) + (RightAxis * CenterRightProjection) + (UpAxis * CenterUpProjection) };
-        const SimpleMath::Vector3 BottomFaceCenter{ MergedCenter - (UpAxis * ExtentUp) };
-        const SimpleMath::Vector3 TopFaceCenter{ MergedCenter + (UpAxis * ExtentUp) };
-        const SimpleMath::Vector3 RightExtentOffset{ RightAxis * ExtentRight };
-        const SimpleMath::Vector3 ForwardExtentOffset{ ForwardAxis * ExtentForward };
-
-        OutBottomCorners[0] = BottomFaceCenter - RightExtentOffset - ForwardExtentOffset;
-        OutBottomCorners[1] = BottomFaceCenter + RightExtentOffset - ForwardExtentOffset;
-        OutBottomCorners[2] = BottomFaceCenter - RightExtentOffset + ForwardExtentOffset;
-        OutBottomCorners[3] = BottomFaceCenter + RightExtentOffset + ForwardExtentOffset;
-        OutTopCorners[0] = TopFaceCenter - RightExtentOffset - ForwardExtentOffset;
-        OutTopCorners[1] = TopFaceCenter + RightExtentOffset - ForwardExtentOffset;
-        OutTopCorners[2] = TopFaceCenter - RightExtentOffset + ForwardExtentOffset;
-        OutTopCorners[3] = TopFaceCenter + RightExtentOffset + ForwardExtentOffset;
-        for (::std::size_t CornerIndex{}; CornerIndex < OutBottomCorners.size(); ++CornerIndex) {
-            if (IsFiniteVector3(OutBottomCorners[CornerIndex]) == false || IsFiniteVector3(OutTopCorners[CornerIndex]) == false) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    bool TryResolveFootObbAndToeObbCorners(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, ::std::array<SimpleMath::Vector3, 4>& OutCornerPoints, ::std::array<SimpleMath::Vector3, 4>& OutCornerDirections) {
+    bool TryResolveFootObbAndToeObbCorners(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, std::array<SimpleMath::Vector3, 4>& OutCornerPoints, std::array<SimpleMath::Vector3, 4>& OutCornerDirections) {
         DirectX::BoundingOrientedBox FootWorldObb{};
         DirectX::BoundingOrientedBox ToeWorldObb{};
         if (TryResolveWorldObb(World, FootEntityId, InOutWorldMatrices, FootWorldObb) == false || TryResolveWorldObb(World, ToeEntityId, InOutWorldMatrices, ToeWorldObb) == false) {
@@ -670,12 +446,12 @@ namespace {
             return false;
         }
 
-        ::std::array<SimpleMath::Vector3, 4> TopCorners{};
+        std::array<SimpleMath::Vector3, 4> TopCorners{};
         if (TryResolveObbVerticalCornerPairs(MergedWorldObb, OutCornerPoints, TopCorners) == false) {
             return false;
         }
 
-        for (::std::size_t CornerIndex{}; CornerIndex < OutCornerPoints.size(); ++CornerIndex) {
+        for (std::size_t CornerIndex{}; CornerIndex < OutCornerPoints.size(); ++CornerIndex) {
             SimpleMath::Vector3 CornerDirection{ OutCornerPoints[CornerIndex] - TopCorners[CornerIndex] };
             if (TryResolveNormalizedVector(CornerDirection, CornerDirection) == false) {
                 return false;
@@ -687,7 +463,7 @@ namespace {
         return true;
     }
 
-    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutRayOppositeDirection, SimpleMath::Vector3& OutGroundNormal, SimpleMath::Vector3& OutTargetFootPosition, ::std::size_t& OutHitCount) {
+    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutRayOppositeDirection, SimpleMath::Vector3& OutGroundNormal, SimpleMath::Vector3& OutTargetFootPosition, std::size_t& OutHitCount) {
         OutHitCount = 0;
         if (FootEntityId == Arche::NullEntityID || ToeEntityId == Arche::NullEntityID) {
             return false;
@@ -708,23 +484,23 @@ namespace {
             return false;
         }
 
-        const float FootSoleThickness{ ::std::abs(FootWorldObb.Extents.y) };
+        const float FootSoleThickness{ std::abs(FootWorldObb.Extents.y) };
         if (IsFiniteFloat(FootSoleThickness) == false) {
             return false;
         }
 
-        ::std::array<SimpleMath::Vector3, 4> CornerPoints{};
-        ::std::array<SimpleMath::Vector3, 4> CornerDirections{};
+        std::array<SimpleMath::Vector3, 4> CornerPoints{};
+        std::array<SimpleMath::Vector3, 4> CornerDirections{};
         if (TryResolveFootObbAndToeObbCorners(World, FootEntityId, ToeEntityId, InOutWorldMatrices, CornerPoints, CornerDirections) == false) {
             return false;
         }
 
         bool IsAnyHit{};
-        ::std::size_t HitCount{};
+        std::size_t HitCount{};
         SimpleMath::Vector3 HitPointAccumulation{};
         SimpleMath::Vector3 HitNormalAccumulation{};
         SimpleMath::Vector3 RayOppositeDirectionAccumulation{};
-        for (::std::size_t CornerIndex{}; CornerIndex < CornerPoints.size(); ++CornerIndex) {
+        for (std::size_t CornerIndex{}; CornerIndex < CornerPoints.size(); ++CornerIndex) {
             const SimpleMath::Vector3& CornerPoint{ CornerPoints[CornerIndex] };
             const SimpleMath::Vector3& CornerDirection{ CornerDirections[CornerIndex] };
             const SimpleMath::Vector3 RayStartPoint{ CornerPoint - (CornerDirection * FootRaycastStartOffset) };
@@ -802,7 +578,7 @@ namespace {
         return true;
     }
 
-    bool TryApplyWorldTransformToBoneTransform(Arche::World& World, const Arche::EntityID BoneEntityId, const SimpleMath::Vector3& DesiredWorldPosition, const SimpleMath::Quaternion& DesiredWorldRotation, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+    bool TryApplyWorldTransformToBoneTransform(Arche::World& World, const Arche::EntityID BoneEntityId, const SimpleMath::Vector3& DesiredWorldPosition, const SimpleMath::Quaternion& DesiredWorldRotation, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
         if (BoneEntityId == Arche::NullEntityID || IsFiniteVector3(DesiredWorldPosition) == false || IsFiniteQuaternion(DesiredWorldRotation) == false) {
             return false;
         }
@@ -813,7 +589,7 @@ namespace {
         }
 
         Game::Transform* BoneTransformComponent{ World.GetComponent<Game::Transform>(BoneEntityId) };
-        const Game::EntityHierarchy* BoneHierarchyComponent{ ::std::as_const(World).GetComponent<Game::EntityHierarchy>(BoneEntityId) };
+        const Game::EntityHierarchy* BoneHierarchyComponent{ std::as_const(World).GetComponent<Game::EntityHierarchy>(BoneEntityId) };
         if (BoneTransformComponent == nullptr || BoneHierarchyComponent == nullptr) {
             return false;
         }
@@ -869,12 +645,12 @@ namespace {
         return true;
     }
 
-    bool TryApplyOffsetToBoneTransform(Arche::World& World, const Arche::EntityID BoneEntityId, const float OffsetY, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+    bool TryApplyOffsetToBoneTransform(Arche::World& World, const Arche::EntityID BoneEntityId, const float OffsetY, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
         if (BoneEntityId == Arche::NullEntityID || IsFiniteFloat(OffsetY) == false) {
             return false;
         }
 
-        const float SafeOffsetY{ ::std::abs(OffsetY) <= FootOffsetEpsilon ? 0.0f : OffsetY };
+        const float SafeOffsetY{ std::abs(OffsetY) <= FootOffsetEpsilon ? 0.0f : OffsetY };
         if (SafeOffsetY == 0.0f) {
             return false;
         }
@@ -901,7 +677,7 @@ namespace {
         return TryApplyWorldTransformToBoneTransform(World, BoneEntityId, DesiredWorldPosition, CurrentWorldRotation, InOutWorldMatrices);
     }
 
-    bool TryApplyWorldRotationToBoneTransform(Arche::World& World, const Arche::EntityID BoneEntityId, const SimpleMath::Quaternion& DesiredWorldRotation, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+    bool TryApplyWorldRotationToBoneTransform(Arche::World& World, const Arche::EntityID BoneEntityId, const SimpleMath::Quaternion& DesiredWorldRotation, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
         if (BoneEntityId == Arche::NullEntityID || IsFiniteQuaternion(DesiredWorldRotation) == false) {
             return false;
         }
@@ -923,25 +699,25 @@ namespace {
     }
 
     struct LegWorldState final {
-        ::std::array<SimpleMath::Vector3, 3> WorldPositions{};
-        ::std::array<SimpleMath::Quaternion, 3> WorldRotations{};
-        ::std::array<float, 2> SegmentLengths{};
+        std::array<SimpleMath::Vector3, 3> WorldPositions{};
+        std::array<SimpleMath::Quaternion, 3> WorldRotations{};
+        std::array<float, 2> SegmentLengths{};
     };
 
-    bool TryResolveLegWorldState(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, LegWorldState& OutLegWorldState) {
+    bool TryResolveLegWorldState(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, LegWorldState& OutLegWorldState) {
         if (ThighEntityId == Arche::NullEntityID || ShinEntityId == Arche::NullEntityID || FootEntityId == Arche::NullEntityID) {
             return false;
         }
 
-        const ::std::array<Arche::EntityID, 3> ChainEntityIds{ { ThighEntityId, ShinEntityId, FootEntityId } };
-        ::std::array<SimpleMath::Matrix, 3> CurrentWorldMatrices{};
-        for (::std::size_t JointIndex{}; JointIndex < ChainEntityIds.size(); ++JointIndex) {
+        const std::array<Arche::EntityID, 3> ChainEntityIds{ { ThighEntityId, ShinEntityId, FootEntityId } };
+        std::array<SimpleMath::Matrix, 3> CurrentWorldMatrices{};
+        for (std::size_t JointIndex{}; JointIndex < ChainEntityIds.size(); ++JointIndex) {
             if (TryResolveWorldMatrix(World, ChainEntityIds[JointIndex], InOutWorldMatrices, CurrentWorldMatrices[JointIndex]) == false) {
                 return false;
             }
         }
 
-        for (::std::size_t JointIndex{}; JointIndex < CurrentWorldMatrices.size(); ++JointIndex) {
+        for (std::size_t JointIndex{}; JointIndex < CurrentWorldMatrices.size(); ++JointIndex) {
             SimpleMath::Vector3 CurrentScale{};
             SimpleMath::Quaternion CurrentRotation{};
             SimpleMath::Vector3 CurrentPosition{};
@@ -954,7 +730,7 @@ namespace {
             OutLegWorldState.WorldRotations[JointIndex] = CurrentRotation;
         }
 
-        for (::std::size_t SegmentIndex{}; SegmentIndex < OutLegWorldState.SegmentLengths.size(); ++SegmentIndex) {
+        for (std::size_t SegmentIndex{}; SegmentIndex < OutLegWorldState.SegmentLengths.size(); ++SegmentIndex) {
             const float SegmentLength{ (OutLegWorldState.WorldPositions[SegmentIndex + 1] - OutLegWorldState.WorldPositions[SegmentIndex]).Length() };
             if (IsFiniteFloat(SegmentLength) == false || SegmentLength <= FootOffsetEpsilon) {
                 return false;
@@ -966,7 +742,7 @@ namespace {
         return true;
     }
 
-    bool TryResolveKneePreferredBendDirection(const ::std::array<SimpleMath::Vector3, 3>& CurrentWorldPositions, SimpleMath::Vector3& OutPreferredBendDirection) {
+    bool TryResolveKneePreferredBendDirection(const std::array<SimpleMath::Vector3, 3>& CurrentWorldPositions, SimpleMath::Vector3& OutPreferredBendDirection) {
         const SimpleMath::Vector3 RootToEndVector{ CurrentWorldPositions[2] - CurrentWorldPositions[0] };
         SimpleMath::Vector3 RootToEndDirection{};
         if (TryResolveNormalizedVector(RootToEndVector, RootToEndDirection) == false) {
@@ -989,7 +765,7 @@ namespace {
         return TryResolveNormalizedVector(FallbackPreferredBendDirection, OutPreferredBendDirection);
     }
 
-    bool TryResolveLegReachOverflowDistance(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, const SimpleMath::Vector3& TargetFootWorldPosition, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutReachOverflowDistance) {
+    bool TryResolveLegReachOverflowDistance(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, const SimpleMath::Vector3& TargetFootWorldPosition, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutReachOverflowDistance) {
         if (IsFiniteVector3(TargetFootWorldPosition) == false) {
             return false;
         }
@@ -1005,11 +781,11 @@ namespace {
             return false;
         }
 
-        OutReachOverflowDistance = (::std::max)(0.0f, RootToTargetDistance - ChainReachDistance);
+        OutReachOverflowDistance = (std::max)(0.0f, RootToTargetDistance - ChainReachDistance);
         return IsFiniteFloat(OutReachOverflowDistance);
     }
 
-    bool TrySolveLegWithIK(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, const SimpleMath::Vector3& TargetFootWorldPosition, const Game::IFootIKSolver& FootIKSolver, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+    bool TrySolveLegWithIK(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, const SimpleMath::Vector3& TargetFootWorldPosition, const Game::IFootIKSolver& FootIKSolver, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
         if (ThighEntityId == Arche::NullEntityID || ShinEntityId == Arche::NullEntityID || FootEntityId == Arche::NullEntityID || IsFiniteVector3(TargetFootWorldPosition) == false) {
             return false;
         }
@@ -1024,9 +800,9 @@ namespace {
             return false;
         }
 
-        const ::std::array<Arche::EntityID, 3> ChainEntityIds{ { ThighEntityId, ShinEntityId, FootEntityId } };
-        const ::std::array<SimpleMath::Vector3, 3>& CurrentWorldPositions{ CurrentLegWorldState.WorldPositions };
-        const ::std::array<SimpleMath::Quaternion, 3>& CurrentWorldRotations{ CurrentLegWorldState.WorldRotations };
+        const std::array<Arche::EntityID, 3> ChainEntityIds{ { ThighEntityId, ShinEntityId, FootEntityId } };
+        const std::array<SimpleMath::Vector3, 3>& CurrentWorldPositions{ CurrentLegWorldState.WorldPositions };
+        const std::array<SimpleMath::Quaternion, 3>& CurrentWorldRotations{ CurrentLegWorldState.WorldRotations };
         const SimpleMath::Vector3 TargetFootPosition{ TargetFootWorldPosition };
 
         SimpleMath::Vector3 KneePreferredBendDirection{};
@@ -1036,7 +812,7 @@ namespace {
             IsKneePreferredBendDirectionResolved = TryResolveNormalizedVector(FallbackKneePreferredBendDirection, KneePreferredBendDirection);
         }
 
-        ::std::array<Game::FootIKJointConstraint, 1> JointConstraints{};
+        std::array<Game::FootIKJointConstraint, 1> JointConstraints{};
         JointConstraints[0].mJointIndex = KneeJointIndex;
         JointConstraints[0].mMinimumAngleRadians = KneeMinimumAngleRadians;
         JointConstraints[0].mMaximumAngleRadians = KneeMaximumAngleRadians;
@@ -1047,8 +823,8 @@ namespace {
         }
 
         Game::FootIKSolveParameters SolveParameters{};
-        SolveParameters.mJointPositions = ::std::span<const SimpleMath::Vector3>{ CurrentWorldPositions };
-        SolveParameters.mJointConstraints = ::std::span<const Game::FootIKJointConstraint>{ JointConstraints };
+        SolveParameters.mJointPositions = std::span<const SimpleMath::Vector3>{ CurrentWorldPositions };
+        SolveParameters.mJointConstraints = std::span<const Game::FootIKJointConstraint>{ JointConstraints };
         SolveParameters.mTargetPosition = TargetFootPosition;
         SolveParameters.mMaxIterationCount = FootIKFabrikMaxIterationCount;
         SolveParameters.mConvergenceDistance = FootIKFabrikConvergenceDistance;
@@ -1059,7 +835,7 @@ namespace {
         }
 
         bool IsAnyBoneUpdated{};
-        for (::std::size_t JointIndex{}; JointIndex < ChainEntityIds.size(); ++JointIndex) {
+        for (std::size_t JointIndex{}; JointIndex < ChainEntityIds.size(); ++JointIndex) {
             const SimpleMath::Vector3 DesiredWorldPosition{ SolveResult.mJointPositions[JointIndex] };
             if (IsFiniteVector3(DesiredWorldPosition) == false) {
                 continue;
@@ -1088,84 +864,13 @@ namespace {
         return IsAnyBoneUpdated;
     }
 
-    struct FootSurfaceAlignmentData final {
-        SimpleMath::Vector3 FootWorldPosition{};
-        SimpleMath::Vector3 SafeSurfaceNormal{};
-        SimpleMath::Vector3 SafeFootToToeDirection{};
-        SimpleMath::Vector3 CurrentFootNormal{};
-        SimpleMath::Quaternion CurrentWorldRotation{};
-    };
-
-    bool TryResolveFootSurfaceAlignmentData(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& SurfaceNormal, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, FootSurfaceAlignmentData& OutFootSurfaceAlignmentData) {
-        if (FootEntityId == Arche::NullEntityID || ToeEntityId == Arche::NullEntityID || IsFiniteVector3(SurfaceNormal) == false) {
-            return false;
-        }
-
-        SimpleMath::Vector3 SafeSurfaceNormal{};
-        if (TryResolveNormalizedVector(SurfaceNormal, SafeSurfaceNormal) == false) {
-            return false;
-        }
-
-        SimpleMath::Matrix FootWorldMatrix{};
-        SimpleMath::Matrix ToeWorldMatrix{};
-        if (TryResolveWorldMatrix(World, FootEntityId, InOutWorldMatrices, FootWorldMatrix) == false || TryResolveWorldMatrix(World, ToeEntityId, InOutWorldMatrices, ToeWorldMatrix) == false) {
-            return false;
-        }
-
-        const SimpleMath::Vector3 FootWorldPosition{ FootWorldMatrix._41, FootWorldMatrix._42, FootWorldMatrix._43 };
-        const SimpleMath::Vector3 ToeWorldPosition{ ToeWorldMatrix._41, ToeWorldMatrix._42, ToeWorldMatrix._43 };
-        if (IsFiniteVector3(FootWorldPosition) == false || IsFiniteVector3(ToeWorldPosition) == false) {
-            return false;
-        }
-
-        SimpleMath::Vector3 CurrentWorldScale{};
-        SimpleMath::Quaternion CurrentWorldRotation{};
-        SimpleMath::Vector3 CurrentWorldPosition{};
-        const bool IsCurrentFootDecomposeSucceeded{ FootWorldMatrix.Decompose(CurrentWorldScale, CurrentWorldRotation, CurrentWorldPosition) };
-        if (IsCurrentFootDecomposeSucceeded == false || TryResolveNormalizedQuaternion(CurrentWorldRotation, CurrentWorldRotation) == false) {
-            return false;
-        }
-
-        const SimpleMath::Vector3 FootToToeDirection{ ToeWorldPosition - FootWorldPosition };
-        SimpleMath::Vector3 SafeFootToToeDirection{};
-        if (TryResolveNormalizedVector(FootToToeDirection, SafeFootToToeDirection) == false) {
-            return false;
-        }
-
-        const SimpleMath::Vector3 CurrentUpDirection{ SimpleMath::Vector3::Transform(SimpleMath::Vector3::Up, CurrentWorldRotation) };
-        SimpleMath::Vector3 SafeCurrentUpDirection{};
-        if (TryResolveNormalizedVector(CurrentUpDirection, SafeCurrentUpDirection) == false) {
-            return false;
-        }
-
-        SimpleMath::Vector3 CurrentFootNormal{ SafeCurrentUpDirection - (SafeFootToToeDirection * SafeCurrentUpDirection.Dot(SafeFootToToeDirection)) };
-        if (TryResolveNormalizedVector(CurrentFootNormal, CurrentFootNormal) == false) {
-            CurrentFootNormal = SafeCurrentUpDirection;
-        }
-
-        if (TryResolveNormalizedVector(CurrentFootNormal, CurrentFootNormal) == false) {
-            return false;
-        }
-
-        if (CurrentFootNormal.Dot(SafeSurfaceNormal) < 0.0f) {
-            CurrentFootNormal *= -1.0f;
-        }
-
-        OutFootSurfaceAlignmentData.FootWorldPosition = FootWorldPosition;
-        OutFootSurfaceAlignmentData.SafeSurfaceNormal = SafeSurfaceNormal;
-        OutFootSurfaceAlignmentData.SafeFootToToeDirection = SafeFootToToeDirection;
-        OutFootSurfaceAlignmentData.CurrentFootNormal = CurrentFootNormal;
-        OutFootSurfaceAlignmentData.CurrentWorldRotation = CurrentWorldRotation;
-        return true;
-    }
-
-    bool TryResolveToeContactCorrectionDeltaRotation(Arche::World& World, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& FootWorldPosition, const SimpleMath::Quaternion& SurfaceAlignDeltaRotation, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, SimpleMath::Quaternion& OutToeContactCorrectionDeltaRotation) {
+    bool TryResolveToeContactCorrectionDeltaRotation(Arche::World& World, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& FootWorldPosition, const SimpleMath::Quaternion& SurfaceAlignDeltaRotation, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, SimpleMath::Quaternion& OutToeContactCorrectionDeltaRotation) {
         OutToeContactCorrectionDeltaRotation = SimpleMath::Quaternion::Identity;
         if (ToeEntityId == Arche::NullEntityID || IsFiniteVector3(FootWorldPosition) == false || IsFiniteVector3(SurfaceNormal) == false || IsFiniteFloat(AlignmentWeight) == false) {
             return false;
         }
 
-        const float SafeAlignmentWeight{ ::std::clamp(AlignmentWeight, 0.0f, 1.0f) };
+        const float SafeAlignmentWeight{ std::clamp(AlignmentWeight, 0.0f, 1.0f) };
         if (SafeAlignmentWeight <= FootOffsetEpsilon) {
             return false;
         }
@@ -1206,18 +911,17 @@ namespace {
             return false;
         }
 
-        ::std::array<SimpleMath::Vector3, 4> ToeBottomCorners{};
-        ::std::array<SimpleMath::Vector3, 4> ToeTopCorners{};
+        std::array<SimpleMath::Vector3, 4> ToeBottomCorners{};
+        std::array<SimpleMath::Vector3, 4> ToeTopCorners{};
         if (TryResolveObbVerticalCornerPairs(ToeWorldObb, ToeBottomCorners, ToeTopCorners) == false) {
             return false;
         }
-        (void)ToeTopCorners;
 
         float ToeContactCorrectionNumerator{};
         float ToeContactCorrectionDenominator{};
-        ::std::size_t ToeHitCount{};
+        std::size_t ToeHitCount{};
         const SimpleMath::Vector3 ToeCornerRayDirection{ SafeSurfaceNormal * -1.0f };
-        for (::std::size_t CornerIndex{}; CornerIndex < ToeBottomCorners.size(); ++CornerIndex) {
+        for (std::size_t CornerIndex{}; CornerIndex < ToeBottomCorners.size(); ++CornerIndex) {
             const SimpleMath::Vector3& ToeBottomCorner{ ToeBottomCorners[CornerIndex] };
             SimpleMath::Vector3 RotatedToeBottomCorner{};
             if (TryResolveRotatedPointAroundPivot(ToeBottomCorner, FootWorldPosition, SurfaceAlignDeltaRotation, RotatedToeBottomCorner) == false) {
@@ -1259,8 +963,8 @@ namespace {
         }
 
         ToeContactCorrectionAngle *= SafeAlignmentWeight;
-        ToeContactCorrectionAngle = ::std::clamp(ToeContactCorrectionAngle, -ToeContactCorrectionMaxRadians, ToeContactCorrectionMaxRadians);
-        if (::std::abs(ToeContactCorrectionAngle) <= FootOffsetEpsilon) {
+        ToeContactCorrectionAngle = std::clamp(ToeContactCorrectionAngle, -ToeContactCorrectionMaxRadians, ToeContactCorrectionMaxRadians);
+        if (std::abs(ToeContactCorrectionAngle) <= FootOffsetEpsilon) {
             return false;
         }
 
@@ -1268,12 +972,12 @@ namespace {
         return TryResolveNormalizedQuaternion(ToeContactCorrectionDeltaRotation, OutToeContactCorrectionDeltaRotation);
     }
 
-    bool TryAlignFootToSurface(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& RayOppositeDirection, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+    bool TryAlignFootToSurface(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& RayOppositeDirection, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
         if (FootEntityId == Arche::NullEntityID || IsFiniteVector3(RayOppositeDirection) == false || IsFiniteVector3(SurfaceNormal) == false) {
             return false;
         }
 
-        const float SafeAlignmentWeight{ ::std::clamp(AlignmentWeight, 0.0f, 1.0f) };
+        const float SafeAlignmentWeight{ std::clamp(AlignmentWeight, 0.0f, 1.0f) };
         if (SafeAlignmentWeight <= FootOffsetEpsilon) {
             return false;
         }
@@ -1341,69 +1045,14 @@ namespace {
     float ResolveSmoothedOffset(const float CurrentOffset, const float TargetOffset, const float BlendSpeed, const float Dt) {
         const float SafeCurrentOffset{ IsFiniteFloat(CurrentOffset) ? CurrentOffset : 0.0f };
         const float SafeTargetOffset{ IsFiniteFloat(TargetOffset) ? TargetOffset : 0.0f };
-        const float SafeBlendSpeed{ (::std::max)(BlendSpeed, 0.0f) };
-        const float SafeDt{ (::std::max)(Dt, 0.0f) };
+        const float SafeBlendSpeed{ (std::max)(BlendSpeed, 0.0f) };
+        const float SafeDt{ (std::max)(Dt, 0.0f) };
         if (SafeBlendSpeed <= 0.0f || SafeDt <= 0.0f) {
             return SafeTargetOffset;
         }
 
-        const float BlendAlpha{ ::std::clamp(SafeBlendSpeed * SafeDt, 0.0f, 1.0f) };
-        return ::std::lerp(SafeCurrentOffset, SafeTargetOffset, BlendAlpha);
-    }
-
-}
-
-namespace Game::IK {
-    bool IsCachedBoneEntityValid(const Arche::World::WorldReadOnlyView& ReadOnlyWorld, const Arche::EntityID EntityId, const ::std::string_view ExpectedBoneNameText) {
-        return ::IsCachedBoneEntityValid(ReadOnlyWorld, EntityId, ExpectedBoneNameText);
-    }
-
-    void ResolveFootBoneEntities(const Arche::World::WorldReadOnlyView& ReadOnlyWorld, const FootIKRig& FootIKRigComponent, const Arche::EntityID BoneRootEntityId, FootIKRuntime& InOutFootIKRuntimeComponent) {
-        ::ResolveFootBoneEntities(ReadOnlyWorld, FootIKRigComponent, BoneRootEntityId, InOutFootIKRuntimeComponent);
-    }
-
-    bool TryResolveFootObbAndToeObbCorners(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, ::std::array<DirectX::SimpleMath::Vector3, 4>& OutCornerPoints, ::std::array<DirectX::SimpleMath::Vector3, 4>& OutCornerDirections) {
-        return ::TryResolveFootObbAndToeObbCorners(World, FootEntityId, ToeEntityId, InOutWorldMatrices, OutCornerPoints, OutCornerDirections);
-    }
-
-    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, DirectX::SimpleMath::Vector3& OutRayOppositeDirection, DirectX::SimpleMath::Vector3& OutGroundNormal, DirectX::SimpleMath::Vector3& OutTargetFootPosition, ::std::size_t& OutHitCount) {
-        return ::TryResolveFootTargetOffset(World, FootEntityId, ToeEntityId, InOutWorldMatrices, OutTargetOffsetY, OutRayOppositeDirection, OutGroundNormal, OutTargetFootPosition, OutHitCount);
-    }
-
-    bool TryResolveFootSurfaceNormals(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const DirectX::SimpleMath::Vector3& SurfaceNormal, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, DirectX::SimpleMath::Vector3& OutFootWorldPosition, DirectX::SimpleMath::Vector3& OutCurrentFootNormal, DirectX::SimpleMath::Vector3& OutSurfaceNormal) {
-        FootSurfaceAlignmentData FootSurfaceAlignmentDataValue{};
-        if (::TryResolveFootSurfaceAlignmentData(World, FootEntityId, ToeEntityId, SurfaceNormal, InOutWorldMatrices, FootSurfaceAlignmentDataValue) == false) {
-            return false;
-        }
-
-        OutFootWorldPosition = FootSurfaceAlignmentDataValue.FootWorldPosition;
-        OutCurrentFootNormal = FootSurfaceAlignmentDataValue.CurrentFootNormal;
-        OutSurfaceNormal = FootSurfaceAlignmentDataValue.SafeSurfaceNormal;
-        return true;
-    }
-
-    bool TryApplyOffsetToBoneTransform(Arche::World& World, const Arche::EntityID BoneEntityId, const float OffsetY, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices) {
-        return ::TryApplyOffsetToBoneTransform(World, BoneEntityId, OffsetY, InOutWorldMatrices);
-    }
-
-    bool TryResolveLegReachOverflowDistance(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, const DirectX::SimpleMath::Vector3& TargetFootWorldPosition, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices, float& OutReachOverflowDistance) {
-        return ::TryResolveLegReachOverflowDistance(World, ThighEntityId, ShinEntityId, FootEntityId, TargetFootWorldPosition, InOutWorldMatrices, OutReachOverflowDistance);
-    }
-
-    bool TrySolveLegWithIK(Arche::World& World, const Arche::EntityID ThighEntityId, const Arche::EntityID ShinEntityId, const Arche::EntityID FootEntityId, const DirectX::SimpleMath::Vector3& TargetFootWorldPosition, const IFootIKSolver& FootIKSolver, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices) {
-        return ::TrySolveLegWithIK(World, ThighEntityId, ShinEntityId, FootEntityId, TargetFootWorldPosition, FootIKSolver, InOutWorldMatrices);
-    }
-
-    bool TryAlignFootToSurface(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const DirectX::SimpleMath::Vector3& RayOppositeDirection, const DirectX::SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, ::std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices) {
-        return ::TryAlignFootToSurface(World, FootEntityId, ToeEntityId, RayOppositeDirection, SurfaceNormal, AlignmentWeight, InOutWorldMatrices);
-    }
-
-    float ResolveSharedPelvisOffset(const float LeftOffset, const float RightOffset) {
-        return ::ResolveSharedPelvisOffset(LeftOffset, RightOffset);
-    }
-
-    float ResolveSmoothedOffset(const float CurrentOffset, const float TargetOffset, const float BlendSpeed, const float Dt) {
-        return ::ResolveSmoothedOffset(CurrentOffset, TargetOffset, BlendSpeed, Dt);
+        const float BlendAlpha{ std::clamp(SafeBlendSpeed * SafeDt, 0.0f, 1.0f) };
+        return std::lerp(SafeCurrentOffset, SafeTargetOffset, BlendAlpha);
     }
 
 }

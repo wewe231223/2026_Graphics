@@ -11,15 +11,15 @@ namespace Game {
         return mText.data();
     }
 
-    ::std::size_t ComponentTextArray::size() const {
+    std::size_t ComponentTextArray::size() const {
         return ElementCount;
     }
 
-    ComponentTextArray::value_type& ComponentTextArray::operator[](::std::size_t Index) {
+    ComponentTextArray::value_type& ComponentTextArray::operator[](std::size_t Index) {
         return mText[Index];
     }
 
-    const ComponentTextArray::value_type& ComponentTextArray::operator[](::std::size_t Index) const {
+    const ComponentTextArray::value_type& ComponentTextArray::operator[](std::size_t Index) const {
         return mText[Index];
     }
 
@@ -27,18 +27,18 @@ namespace Game {
         mText.fill(Value);
     }
 
-    void ComponentTextArray::Assign(const ::std::string_view SourceText) {
+    void ComponentTextArray::Assign(const std::string_view SourceText) {
         mText.fill('\0');
-        const ::std::size_t CopyLength{ ::std::min(SourceText.size(), ComponentTextMaxLength) };
-        ::std::copy_n(SourceText.data(), CopyLength, mText.data());
+        const std::size_t CopyLength{ std::min(SourceText.size(), ComponentTextMaxLength) };
+        std::copy_n(SourceText.data(), CopyLength, mText.data());
     }
 
-    ::std::string_view ComponentTextArray::AsStringView() const {
-        ::std::size_t TextLength{};
+    std::string_view ComponentTextArray::AsStringView() const {
+        std::size_t TextLength{};
         while (TextLength < ComponentTextMaxLength && mText[TextLength] != '\0') {
             TextLength = TextLength + 1;
         }
 
-        return ::std::string_view{ mText.data(), TextLength };
+        return std::string_view{ mText.data(), TextLength };
     }
 }

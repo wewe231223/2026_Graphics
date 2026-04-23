@@ -8,7 +8,7 @@
 
 namespace Game {
     struct FootIKJointConstraint final {
-        ::std::size_t mJointIndex{};
+        std::size_t mJointIndex{};
         DirectX::SimpleMath::Vector3 mPreferredBendDirection{};
         float mMinimumAngleRadians{};
         float mMaximumAngleRadians{ 3.1415926536f };

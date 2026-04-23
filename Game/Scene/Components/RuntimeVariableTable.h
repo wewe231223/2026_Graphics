@@ -8,10 +8,10 @@
 #include "Utility/ComponentRestraint.h"
 
 namespace Game {
-    inline constexpr ::std::uint32_t RuntimeVariableTableMaxParameterCount{ 64 };
-    using RuntimeVariableBoolArray = ::std::array<bool, RuntimeVariableTableMaxParameterCount>;
-    using RuntimeVariableIntArray = ::std::array<::std::int32_t, RuntimeVariableTableMaxParameterCount>;
-    using RuntimeVariableFloatArray = ::std::array<float, RuntimeVariableTableMaxParameterCount>;
+    inline constexpr std::uint32_t RuntimeVariableTableMaxParameterCount{ 64 };
+    using RuntimeVariableBoolArray = std::array<bool, RuntimeVariableTableMaxParameterCount>;
+    using RuntimeVariableIntArray = std::array<std::int32_t, RuntimeVariableTableMaxParameterCount>;
+    using RuntimeVariableFloatArray = std::array<float, RuntimeVariableTableMaxParameterCount>;
 
     ComponentDecl(
         RuntimeVariableTable,
@@ -22,10 +22,10 @@ namespace Game {
             ComponentField(RuntimeVariableBoolArray, TriggerConsumed, {})
         ),
         ComponentMethods(
-            ComponentMethod(bool TrySetBoolParameter(const ::std::vector<RuntimeParameterDefinition>& ParameterDefinitions, ::std::string_view ParameterName, bool Value), TrySetBoolParameter)
-            ComponentMethod(bool TrySetIntParameter(const ::std::vector<RuntimeParameterDefinition>& ParameterDefinitions, ::std::string_view ParameterName, ::std::int32_t Value), TrySetIntParameter)
-            ComponentMethod(bool TrySetFloatParameter(const ::std::vector<RuntimeParameterDefinition>& ParameterDefinitions, ::std::string_view ParameterName, float Value), TrySetFloatParameter)
-            ComponentMethod(bool TrySetTriggerParameter(const ::std::vector<RuntimeParameterDefinition>& ParameterDefinitions, ::std::string_view ParameterName), TrySetTriggerParameter)
+            ComponentMethod(bool TrySetBoolParameter(const std::vector<RuntimeParameterDefinition>& ParameterDefinitions, std::string_view ParameterName, bool Value), TrySetBoolParameter)
+            ComponentMethod(bool TrySetIntParameter(const std::vector<RuntimeParameterDefinition>& ParameterDefinitions, std::string_view ParameterName, std::int32_t Value), TrySetIntParameter)
+            ComponentMethod(bool TrySetFloatParameter(const std::vector<RuntimeParameterDefinition>& ParameterDefinitions, std::string_view ParameterName, float Value), TrySetFloatParameter)
+            ComponentMethod(bool TrySetTriggerParameter(const std::vector<RuntimeParameterDefinition>& ParameterDefinitions, std::string_view ParameterName), TrySetTriggerParameter)
         )
     );
 }

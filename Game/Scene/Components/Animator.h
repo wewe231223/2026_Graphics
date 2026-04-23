@@ -10,11 +10,11 @@ namespace Game {
         Animator,
         ComponentFields(
             ComponentField(asset::Animation*, animation, nullptr)
-            ComponentField(::std::int32_t, clipIndex, -1)
+            ComponentField(std::int32_t, clipIndex, -1)
             ComponentField(double, counter, 0.0)
             ComponentField(AnimationGraphAsset*, GraphAsset, nullptr)
             ComponentField(bool, IsGraphEnabled, false)
-            ComponentField(::std::int32_t, FallbackClipIndex, -1)
+            ComponentField(std::int32_t, FallbackClipIndex, -1)
         ),
         BOOST_PP_SEQ_NIL
     );

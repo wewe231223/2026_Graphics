@@ -425,17 +425,17 @@ namespace Widget {
             return;
         }
 
-        const ::std::vector<Game::RuntimeParameterDefinition>& ParameterDefinitions{ AnimatorComponent->GraphAsset->GetParameterDefinitions() };
+        const std::vector<Game::RuntimeParameterDefinition>& ParameterDefinitions{ AnimatorComponent->GraphAsset->GetParameterDefinitions() };
         if (ParameterDefinitions.empty()) {
             return;
         }
 
         ImGui::SeparatorText("RuntimeVariableTable");
 
-        const ::std::size_t MaxCount{ ::std::min(ParameterDefinitions.size(), static_cast<::std::size_t>(Game::RuntimeVariableTableMaxParameterCount)) };
+        const std::size_t MaxCount{ std::min(ParameterDefinitions.size(), static_cast<std::size_t>(Game::RuntimeVariableTableMaxParameterCount)) };
 
         if (ImGui::TreeNode("Bool")) {
-            for (::std::size_t ParameterIndex{ 0 }; ParameterIndex < MaxCount; ++ParameterIndex) {
+            for (std::size_t ParameterIndex{ 0 }; ParameterIndex < MaxCount; ++ParameterIndex) {
                 const Game::RuntimeParameterDefinition& Definition{ ParameterDefinitions[ParameterIndex] };
                 if (Definition.ParameterTypeValue != Game::RuntimeParameterDefinition::ParameterType::Bool) {
                     continue;
@@ -448,7 +448,7 @@ namespace Widget {
         }
 
         if (ImGui::TreeNode("Trigger")) {
-            for (::std::size_t ParameterIndex{ 0 }; ParameterIndex < MaxCount; ++ParameterIndex) {
+            for (std::size_t ParameterIndex{ 0 }; ParameterIndex < MaxCount; ++ParameterIndex) {
                 const Game::RuntimeParameterDefinition& Definition{ ParameterDefinitions[ParameterIndex] };
                 if (Definition.ParameterTypeValue != Game::RuntimeParameterDefinition::ParameterType::Trigger) {
                     continue;
@@ -461,7 +461,7 @@ namespace Widget {
         }
 
         if (ImGui::TreeNode("Int")) {
-            for (::std::size_t ParameterIndex{ 0 }; ParameterIndex < MaxCount; ++ParameterIndex) {
+            for (std::size_t ParameterIndex{ 0 }; ParameterIndex < MaxCount; ++ParameterIndex) {
                 const Game::RuntimeParameterDefinition& Definition{ ParameterDefinitions[ParameterIndex] };
                 if (Definition.ParameterTypeValue != Game::RuntimeParameterDefinition::ParameterType::Int) {
                     continue;
@@ -473,7 +473,7 @@ namespace Widget {
         }
 
         if (ImGui::TreeNode("Float")) {
-            for (::std::size_t ParameterIndex{ 0 }; ParameterIndex < MaxCount; ++ParameterIndex) {
+            for (std::size_t ParameterIndex{ 0 }; ParameterIndex < MaxCount; ++ParameterIndex) {
                 const Game::RuntimeParameterDefinition& Definition{ ParameterDefinitions[ParameterIndex] };
                 if (Definition.ParameterTypeValue != Game::RuntimeParameterDefinition::ParameterType::Float) {
                     continue;

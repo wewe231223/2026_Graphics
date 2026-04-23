@@ -25,17 +25,17 @@
 #include "Game/Scene/IK/FootIKSolver.h"
 
 namespace {
-    constexpr ::std::size_t MinimumRayHitCountForFootSurfaceAlignment{ 3 };
+    constexpr std::size_t MinimumRayHitCountForFootSurfaceAlignment{ 3 };
 
     bool IsFiniteFloat(const float Value) {
-        return ::std::isfinite(Value) != 0;
+        return std::isfinite(Value) != 0;
     }
 
     bool IsFiniteVector3(const SimpleMath::Vector3& Value) {
         return IsFiniteFloat(Value.x) && IsFiniteFloat(Value.y) && IsFiniteFloat(Value.z);
     }
 
-    bool TryResolveRaycastHitOnTerrain(Arche::World& World, const SimpleMath::Ray& Ray, const float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal, float& OutHitDistance) {
+    bool TryResolveRaycastHitOnTerrain(Arche::World& World, const SimpleMath::Ray& Ray, const float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal) {
         if (IsFiniteVector3(Ray.position) == false || IsFiniteVector3(Ray.direction) == false || IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
             return false;
         }
@@ -72,11 +72,10 @@ namespace {
 
         OutHitPoint = NearestHitPoint;
         OutHitNormal = NearestHitNormal;
-        OutHitDistance = NearestHitDistance;
         return true;
     }
 
-    void AppendFootCornerDebugLines(Arche::World& World, Game::FrameContext& Ctx, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+    void AppendFootCornerDebugLines(Arche::World& World, Game::FrameContext& Ctx, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
         constexpr float RayStartOffset{ 0.3f };
         constexpr float RayLineLength{ 0.3f + 0.2f };
         constexpr float HitNormalLineLength{ 0.12f };
@@ -85,14 +84,14 @@ namespace {
         constexpr SimpleMath::Vector4 HitLineColor{ 1.0f, 0.15f, 0.15f, 1.0f };
         constexpr SimpleMath::Vector4 HitNormalLineColor{ 0.15f, 0.65f, 1.0f, 1.0f };
 
-        ::std::array<SimpleMath::Vector3, 4> CornerPoints{};
-        ::std::array<SimpleMath::Vector3, 4> CornerDirections{};
+        std::array<SimpleMath::Vector3, 4> CornerPoints{};
+        std::array<SimpleMath::Vector3, 4> CornerDirections{};
         const bool IsCornerPointsResolved{ Game::IK::TryResolveFootObbAndToeObbCorners(World, FootEntityId, ToeEntityId, InOutWorldMatrices, CornerPoints, CornerDirections) };
         if (IsCornerPointsResolved == false) {
             return;
         }
 
-        for (::std::size_t CornerIndex{}; CornerIndex < CornerPoints.size(); ++CornerIndex) {
+        for (std::size_t CornerIndex{}; CornerIndex < CornerPoints.size(); ++CornerIndex) {
             const SimpleMath::Vector3& CornerPoint{ CornerPoints[CornerIndex] };
             const SimpleMath::Vector3& RayDirection{ CornerDirections[CornerIndex] };
             const SimpleMath::Vector3 RayStartPoint{ CornerPoint - (RayDirection * RayStartOffset) };
@@ -103,9 +102,7 @@ namespace {
             const SimpleMath::Ray Ray{ RayStartPoint, RayDirection };
             SimpleMath::Vector3 HitPoint{};
             SimpleMath::Vector3 HitNormal{ SimpleMath::Vector3::Up };
-            float HitDistance{};
-            const bool IsTerrainHit{ TryResolveRaycastHitOnTerrain(World, Ray, RayLineLength, HitPoint, HitNormal, HitDistance) };
-            (void)HitDistance;
+            const bool IsTerrainHit{ TryResolveRaycastHitOnTerrain(World, Ray, RayLineLength, HitPoint, HitNormal) };
             if (IsTerrainHit == true && HitNormal.Dot(RayDirection) > 0.0f) {
                 HitNormal *= -1.0f;
             }
@@ -153,8 +150,8 @@ namespace Game {
     }
 
     FootIKSystem::FootIKSystem(FootIKSystem&& Other) noexcept
-        : mName{ ::std::move(Other.mName) },
-          mFootIKSolver{ ::std::move(Other.mFootIKSolver) } {
+        : mName{ std::move(Other.mName) },
+          mFootIKSolver{ std::move(Other.mFootIKSolver) } {
         if (mFootIKSolver == nullptr) {
             mFootIKSolver = CreateFabrikFootIKSolver();
         }
@@ -165,8 +162,8 @@ namespace Game {
             return *this;
         }
 
-        mName = ::std::move(Other.mName);
-        mFootIKSolver = ::std::move(Other.mFootIKSolver);
+        mName = std::move(Other.mName);
+        mFootIKSolver = std::move(Other.mFootIKSolver);
         if (mFootIKSolver == nullptr) {
             mFootIKSolver = CreateFabrikFootIKSolver();
         }
@@ -183,7 +180,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> FootIKSystem::ComponentAccesses() const {
-        static ::std::array<ComponentAccess, 10> Accesses{ {
+        static std::array<ComponentAccess, 10> Accesses{ {
             { typeid(Animator), Access::Read },
             { typeid(FootIKRig), Access::Read },
             { typeid(BoneSkinReference), Access::Read },
@@ -199,15 +196,15 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> FootIKSystem::ResourceAccesses() const {
-        static ::std::array<ResourceAccess, 0> Accesses{};
+        static std::array<ResourceAccess, 0> Accesses{};
         return Accesses;
     }
 
     void FootIKSystem::Execute(Arche::World& World, FrameContext& Ctx, const float Dt) {
         const bool IsDebugGeometryDrawEnabled{ (Ctx.RenderData.globals.flags & RFD::FrameGlobalFlagDrawDebugGeometry) != 0u };
 
-        const Arche::World::WorldReadOnlyView& ReadOnlyWorld{ ::std::as_const(World).GetReadOnlyView() };
-        ::std::vector<Arche::EntityID> RuntimeMissingEntityIds{};
+        const Arche::World::WorldReadOnlyView& ReadOnlyWorld{ std::as_const(World).GetReadOnlyView() };
+        std::vector<Arche::EntityID> RuntimeMissingEntityIds{};
         RuntimeMissingEntityIds.reserve(32);
         for (auto [AnimatorComponent, FootIKRigComponent, BoneSkinReferenceComponent, TransformComponent, EntityHierarchyComponent] : World.Query<Animator, FootIKRig, BoneSkinReference, Transform, EntityHierarchy>()) {
             (void)AnimatorComponent;
@@ -228,7 +225,7 @@ namespace Game {
             World.AddComponent(RuntimeMissingEntityId, NewFootIKRuntime);
         }
 
-        ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix> WorldMatrices{};
+        std::unordered_map<Arche::EntityID, SimpleMath::Matrix> WorldMatrices{};
         WorldMatrices.reserve(1024);
 
         for (auto [AnimatorComponent, FootIKRigComponent, BoneSkinReferenceComponent, TransformComponent, FootIKRuntimeComponent, EntityHierarchyComponent] : World.Query<Animator, FootIKRig, BoneSkinReference, Transform, FootIKRuntime, EntityHierarchy>()) {
@@ -236,15 +233,15 @@ namespace Game {
             (void)TransformComponent;
             (void)EntityHierarchyComponent;
 
-            const ::std::string_view LeftFootBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftFootBoneName) };
-            const ::std::string_view RightFootBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightFootBoneName) };
-            const ::std::string_view LeftToeBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftToeBoneName) };
-            const ::std::string_view RightToeBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightToeBoneName) };
-            const ::std::string_view LeftShinBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftShinBoneName) };
-            const ::std::string_view RightShinBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightShinBoneName) };
-            const ::std::string_view LeftThighBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftThighBoneName) };
-            const ::std::string_view RightThighBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightThighBoneName) };
-            const ::std::string_view PelvisBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mPelvisBoneName) };
+            const std::string_view LeftFootBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftFootBoneName) };
+            const std::string_view RightFootBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightFootBoneName) };
+            const std::string_view LeftToeBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftToeBoneName) };
+            const std::string_view RightToeBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightToeBoneName) };
+            const std::string_view LeftShinBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftShinBoneName) };
+            const std::string_view RightShinBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightShinBoneName) };
+            const std::string_view LeftThighBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftThighBoneName) };
+            const std::string_view RightThighBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightThighBoneName) };
+            const std::string_view PelvisBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mPelvisBoneName) };
 
             const bool IsLeftFootCachedEntityValid{ IK::IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mLeftFootEntityId, LeftFootBoneNameText) };
             const bool IsRightFootCachedEntityValid{ IK::IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mRightFootEntityId, RightFootBoneNameText) };
@@ -270,7 +267,7 @@ namespace Game {
                 SimpleMath::Vector3 LeftResolvedRayOppositeDirection{ SimpleMath::Vector3::Up };
                 SimpleMath::Vector3 LeftResolvedGroundNormal{ SimpleMath::Vector3::Up };
                 SimpleMath::Vector3 LeftResolvedTargetFootWorldPosition{};
-                ::std::size_t LeftResolvedHitCount{};
+                std::size_t LeftResolvedHitCount{};
                 const bool IsLeftTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, WorldMatrices, LeftResolvedTargetOffset, LeftResolvedRayOppositeDirection, LeftResolvedGroundNormal, LeftResolvedTargetFootWorldPosition, LeftResolvedHitCount) };
                 if (IsLeftTargetOffsetResolved == true && LeftResolvedHitCount >= MinimumRayHitCountForFootSurfaceAlignment) {
                     LeftSolveTarget.IsTargetResolved = true;
@@ -285,7 +282,7 @@ namespace Game {
                 SimpleMath::Vector3 RightResolvedRayOppositeDirection{ SimpleMath::Vector3::Up };
                 SimpleMath::Vector3 RightResolvedGroundNormal{ SimpleMath::Vector3::Up };
                 SimpleMath::Vector3 RightResolvedTargetFootWorldPosition{};
-                ::std::size_t RightResolvedHitCount{};
+                std::size_t RightResolvedHitCount{};
                 const bool IsRightTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, WorldMatrices, RightResolvedTargetOffset, RightResolvedRayOppositeDirection, RightResolvedGroundNormal, RightResolvedTargetFootWorldPosition, RightResolvedHitCount) };
                 if (IsRightTargetOffsetResolved == true && RightResolvedHitCount >= MinimumRayHitCountForFootSurfaceAlignment) {
                     RightSolveTarget.IsTargetResolved = true;
@@ -297,10 +294,10 @@ namespace Game {
                 }
             }
 
-            const float MaxLift{ (::std::max)(FootIKRigComponent.mMaxLift, 0.0f) };
-            const float MaxDrop{ (::std::max)(FootIKRigComponent.mMaxDrop, 0.0f) };
-            const float LeftTargetOffset{ LeftSolveTarget.IsTargetResolved == true ? ::std::clamp(LeftSolveTarget.RawTargetOffset, -MaxDrop, MaxLift) : 0.0f };
-            const float RightTargetOffset{ RightSolveTarget.IsTargetResolved == true ? ::std::clamp(RightSolveTarget.RawTargetOffset, -MaxDrop, MaxLift) : 0.0f };
+            const float MaxLift{ (std::max)(FootIKRigComponent.mMaxLift, 0.0f) };
+            const float MaxDrop{ (std::max)(FootIKRigComponent.mMaxDrop, 0.0f) };
+            const float LeftTargetOffset{ LeftSolveTarget.IsTargetResolved == true ? std::clamp(LeftSolveTarget.RawTargetOffset, -MaxDrop, MaxLift) : 0.0f };
+            const float RightTargetOffset{ RightSolveTarget.IsTargetResolved == true ? std::clamp(RightSolveTarget.RawTargetOffset, -MaxDrop, MaxLift) : 0.0f };
 
             const float PreviousLeftOffset{ IsFiniteFloat(FootIKRuntimeComponent.mLeftCurrentOffset) ? FootIKRuntimeComponent.mLeftCurrentOffset : 0.0f };
             const float PreviousRightOffset{ IsFiniteFloat(FootIKRuntimeComponent.mRightCurrentOffset) ? FootIKRuntimeComponent.mRightCurrentOffset : 0.0f };
@@ -347,7 +344,7 @@ namespace Game {
                     }
                 }
 
-                const float MaximumReachOverflowDistance{ (::std::max)(LeftReachOverflowDistance, RightReachOverflowDistance) };
+                const float MaximumReachOverflowDistance{ (std::max)(LeftReachOverflowDistance, RightReachOverflowDistance) };
                 if (IsFiniteFloat(MaximumReachOverflowDistance) == true && MaximumReachOverflowDistance > 0.0f) {
                     PelvisOffset -= MaximumReachOverflowDistance;
                 }

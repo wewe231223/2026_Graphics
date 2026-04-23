@@ -13,7 +13,7 @@ namespace Game {
         BOOST_PP_SEQ_NIL
     );
 
-    Name CreateNameComponent(::std::string_view SourceText);
-    ::std::string_view GetNameTextView(const Name& NameComponent);
+    Name CreateNameComponent(std::string_view SourceText);
+    std::string_view GetNameTextView(const Name& NameComponent);
     const char* GetNameText(const Name& NameComponent);
 }

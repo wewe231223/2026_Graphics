@@ -7,7 +7,7 @@
 #include "Arche/Common.h"
 
 namespace Game {
-    using CameraClearColorArray = ::std::array<float, 4>;
+    using CameraClearColorArray = std::array<float, 4>;
 
     enum CameraFlag : std::uint32_t {
         CameraFlagNone = 0,
@@ -29,7 +29,7 @@ namespace Game {
             ComponentField(float, orthoSize, 5.0f)
             ComponentField(CameraClearColorArray, clearColor, {})
             ComponentField(Arche::EntityID, thirdPersonFollowTarget, Arche::NullEntityID)
-            ComponentField(::std::int64_t, thirdPersonFollowTargetSerializedId, -1)
+            ComponentField(std::int64_t, thirdPersonFollowTargetSerializedId, -1)
             ComponentField(float, thirdPersonDistance, 4.0f)
             ComponentField(float, thirdPersonMinDistance, 1.5f)
             ComponentField(float, thirdPersonMaxDistance, 8.0f)
@@ -38,7 +38,7 @@ namespace Game {
             ComponentField(float, thirdPersonOrbitPitch, 0.25f)
             ComponentField(float, thirdPersonPositionLerpSpeed, 12.0f)
             ComponentField(float, thirdPersonZoomSpeed, 0.5f)
-            ComponentField(::std::uint32_t, cameraFlags, CameraFlagFreeLook)
+            ComponentField(std::uint32_t, cameraFlags, CameraFlagFreeLook)
             ComponentField(SimpleMath::Matrix, viewMatrix, SimpleMath::Matrix::Identity)
             ComponentField(SimpleMath::Matrix, projMatrix, SimpleMath::Matrix::Identity)
         ),

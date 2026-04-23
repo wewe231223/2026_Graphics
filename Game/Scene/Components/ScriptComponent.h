@@ -11,14 +11,14 @@ namespace Game {
         BehaviorInstanceComponent,
         ComponentFields(
             ComponentField(Arche::EntityID, mOwnerEntity)
-            ComponentField(::std::uint32_t, mBehaviorInstanceId)
-            ComponentField(::std::uint32_t, mBehaviorAssetId)
+            ComponentField(std::uint32_t, mBehaviorInstanceId)
+            ComponentField(std::uint32_t, mBehaviorAssetId)
             ComponentField(ComponentTextArray, mScriptFileName)
         ),
         BOOST_PP_SEQ_NIL
     );
 
-    void SetScriptFileName(BehaviorInstanceComponent& TargetComponent, ::std::string_view FileName);
-    ::std::string_view GetScriptFileNameView(const BehaviorInstanceComponent& TargetComponent);
+    void SetScriptFileName(BehaviorInstanceComponent& TargetComponent, std::string_view FileName);
+    std::string_view GetScriptFileNameView(const BehaviorInstanceComponent& TargetComponent);
     const char* GetScriptFileName(const BehaviorInstanceComponent& TargetComponent);
 }

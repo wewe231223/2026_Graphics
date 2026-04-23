@@ -9,7 +9,7 @@ namespace Game {
         SkySphere,
         ComponentFields(
             ComponentField(Arche::EntityID, SkySphereEntityId, Arche::NullEntityID)
-            ComponentField(::std::int64_t, SkySphereSerializedEntityId, -1)
+            ComponentField(std::int64_t, SkySphereSerializedEntityId, -1)
         ),
         BOOST_PP_SEQ_NIL
     );

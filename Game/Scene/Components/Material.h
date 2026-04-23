@@ -20,8 +20,8 @@ namespace Game {
     ComponentDecl(
         Material,
         ComponentFields(
-            ComponentField(::std::uint32_t, MaterialGroupIndex, 0)
-            ComponentField(::std::uint32_t, Flags, 0)
+            ComponentField(std::uint32_t, MaterialGroupIndex, 0)
+            ComponentField(std::uint32_t, Flags, 0)
         ),
         BOOST_PP_SEQ_NIL
     );

@@ -10,7 +10,7 @@ namespace {
     constexpr DirectX::SimpleMath::Vector3 DefaultDirection{ 0.0f, 1.0f, 0.0f };
 
     bool IsFiniteFloat(const float Value) {
-        return ::std::isfinite(Value) != 0;
+        return std::isfinite(Value) != 0;
     }
 
     bool IsFiniteVector3(const DirectX::SimpleMath::Vector3& Value) {
@@ -53,7 +53,7 @@ namespace {
             return 0.0f;
         }
 
-        return ::std::clamp(AngleRadians, 0.0f, PiRadians);
+        return std::clamp(AngleRadians, 0.0f, PiRadians);
     }
 
     float ResolveSegmentDistanceFromJointAngle(const float ParentSegmentLength, const float ChildSegmentLength, const float JointAngleRadians) {
@@ -61,16 +61,16 @@ namespace {
             return 0.0f;
         }
 
-        const float SafeParentSegmentLength{ (::std::max)(ParentSegmentLength, 0.0f) };
-        const float SafeChildSegmentLength{ (::std::max)(ChildSegmentLength, 0.0f) };
+        const float SafeParentSegmentLength{ (std::max)(ParentSegmentLength, 0.0f) };
+        const float SafeChildSegmentLength{ (std::max)(ChildSegmentLength, 0.0f) };
         const float SafeJointAngleRadians{ ResolveClampedAngleRadians(JointAngleRadians) };
-        const float DistanceSquared{ (SafeParentSegmentLength * SafeParentSegmentLength) + (SafeChildSegmentLength * SafeChildSegmentLength) - (2.0f * SafeParentSegmentLength * SafeChildSegmentLength * ::std::cos(SafeJointAngleRadians)) };
+        const float DistanceSquared{ (SafeParentSegmentLength * SafeParentSegmentLength) + (SafeChildSegmentLength * SafeChildSegmentLength) - (2.0f * SafeParentSegmentLength * SafeChildSegmentLength * std::cos(SafeJointAngleRadians)) };
         if (IsFiniteFloat(DistanceSquared) == false) {
             return 0.0f;
         }
 
-        const float SafeDistanceSquared{ (::std::max)(DistanceSquared, 0.0f) };
-        return ::std::sqrt(SafeDistanceSquared);
+        const float SafeDistanceSquared{ (std::max)(DistanceSquared, 0.0f) };
+        return std::sqrt(SafeDistanceSquared);
     }
 
     bool TryResolveDirectionOnPlane(const DirectX::SimpleMath::Vector3& SourceDirection, const DirectX::SimpleMath::Vector3& PlaneNormalDirection, DirectX::SimpleMath::Vector3& OutProjectedDirection) {
@@ -83,14 +83,14 @@ namespace {
         return TryResolveNormalizedDirection(ProjectedDirection, OutProjectedDirection);
     }
 
-    bool TryApplyJointConstraint(const Game::FootIKJointConstraint& JointConstraint, const ::std::vector<float>& SegmentLengths, ::std::vector<DirectX::SimpleMath::Vector3>& InOutJointPositions) {
+    bool TryApplyJointConstraint(const Game::FootIKJointConstraint& JointConstraint, const std::vector<float>& SegmentLengths, std::vector<DirectX::SimpleMath::Vector3>& InOutJointPositions) {
         if (JointConstraint.mJointIndex == 0 || JointConstraint.mJointIndex + 1 >= InOutJointPositions.size()) {
             return false;
         }
 
-        const ::std::size_t ParentJointIndex{ JointConstraint.mJointIndex - 1 };
-        const ::std::size_t JointIndex{ JointConstraint.mJointIndex };
-        const ::std::size_t ChildJointIndex{ JointConstraint.mJointIndex + 1 };
+        const std::size_t ParentJointIndex{ JointConstraint.mJointIndex - 1 };
+        const std::size_t JointIndex{ JointConstraint.mJointIndex };
+        const std::size_t ChildJointIndex{ JointConstraint.mJointIndex + 1 };
         if (ParentJointIndex >= SegmentLengths.size() || JointIndex >= SegmentLengths.size()) {
             return false;
         }
@@ -117,26 +117,26 @@ namespace {
             return false;
         }
 
-        const float ReachMinimumDistance{ ::std::abs(ParentSegmentLength - ChildSegmentLength) };
+        const float ReachMinimumDistance{ std::abs(ParentSegmentLength - ChildSegmentLength) };
         const float ReachMaximumDistance{ ParentSegmentLength + ChildSegmentLength };
-        float DesiredParentToChildDistance{ ::std::clamp(ParentToChildDistance, ReachMinimumDistance, ReachMaximumDistance) };
+        float DesiredParentToChildDistance{ std::clamp(ParentToChildDistance, ReachMinimumDistance, ReachMaximumDistance) };
         if (JointConstraint.mUseAngleLimit == true) {
             float SafeMinimumAngleRadians{ ResolveClampedAngleRadians(JointConstraint.mMinimumAngleRadians) };
             float SafeMaximumAngleRadians{ ResolveClampedAngleRadians(JointConstraint.mMaximumAngleRadians) };
             if (SafeMaximumAngleRadians < SafeMinimumAngleRadians) {
-                ::std::swap(SafeMinimumAngleRadians, SafeMaximumAngleRadians);
+                std::swap(SafeMinimumAngleRadians, SafeMaximumAngleRadians);
             }
 
             const float MinimumParentToChildDistance{ ResolveSegmentDistanceFromJointAngle(ParentSegmentLength, ChildSegmentLength, SafeMinimumAngleRadians) };
             const float MaximumParentToChildDistance{ ResolveSegmentDistanceFromJointAngle(ParentSegmentLength, ChildSegmentLength, SafeMaximumAngleRadians) };
-            DesiredParentToChildDistance = ::std::clamp(DesiredParentToChildDistance, MinimumParentToChildDistance, MaximumParentToChildDistance);
+            DesiredParentToChildDistance = std::clamp(DesiredParentToChildDistance, MinimumParentToChildDistance, MaximumParentToChildDistance);
         }
 
         if (IsFiniteFloat(DesiredParentToChildDistance) == false || DesiredParentToChildDistance <= DirectionLengthEpsilon) {
             return false;
         }
 
-        if (::std::abs(DesiredParentToChildDistance - ParentToChildDistance) > DirectionLengthEpsilon) {
+        if (std::abs(DesiredParentToChildDistance - ParentToChildDistance) > DirectionLengthEpsilon) {
             ChildPosition = ParentPosition + (ParentToChildDirection * DesiredParentToChildDistance);
             ParentToChildDistance = DesiredParentToChildDistance;
         }
@@ -150,13 +150,13 @@ namespace {
             return false;
         }
 
-        const float AlongDistance{ ::std::clamp(AlongDistanceRaw, 0.0f, ParentSegmentLength) };
+        const float AlongDistance{ std::clamp(AlongDistanceRaw, 0.0f, ParentSegmentLength) };
         const float HeightSquaredRaw{ (ParentSegmentLength * ParentSegmentLength) - (AlongDistance * AlongDistance) };
         if (IsFiniteFloat(HeightSquaredRaw) == false) {
             return false;
         }
 
-        const float Height{ ::std::sqrt((::std::max)(HeightSquaredRaw, 0.0f)) };
+        const float Height{ std::sqrt((std::max)(HeightSquaredRaw, 0.0f)) };
         if (IsFiniteFloat(Height) == false) {
             return false;
         }
@@ -197,7 +197,7 @@ namespace {
         return true;
     }
 
-    void ApplyJointConstraints(const ::std::span<const Game::FootIKJointConstraint> JointConstraints, const ::std::vector<float>& SegmentLengths, ::std::vector<DirectX::SimpleMath::Vector3>& InOutJointPositions) {
+    void ApplyJointConstraints(const std::span<const Game::FootIKJointConstraint> JointConstraints, const std::vector<float>& SegmentLengths, std::vector<DirectX::SimpleMath::Vector3>& InOutJointPositions) {
         for (const Game::FootIKJointConstraint& JointConstraint : JointConstraints) {
             TryApplyJointConstraint(JointConstraint, SegmentLengths, InOutJointPositions);
         }
@@ -226,14 +226,14 @@ namespace Game {
 
         const int SafeMaxIterationCount{ SolveParameters.mMaxIterationCount > 0 ? SolveParameters.mMaxIterationCount : 1 };
         const float SafeConvergenceDistance{ IsFiniteFloat(SolveParameters.mConvergenceDistance) && SolveParameters.mConvergenceDistance > 0.0f ? SolveParameters.mConvergenceDistance : 1.0e-3f };
-        ::std::vector<DirectX::SimpleMath::Vector3> SolvedJointPositions{ SolveParameters.mJointPositions.begin(), SolveParameters.mJointPositions.end() };
-        ::std::vector<float> SegmentLengths{};
-        ::std::vector<DirectX::SimpleMath::Vector3> FallbackDirections{};
+        std::vector<DirectX::SimpleMath::Vector3> SolvedJointPositions{ SolveParameters.mJointPositions.begin(), SolveParameters.mJointPositions.end() };
+        std::vector<float> SegmentLengths{};
+        std::vector<DirectX::SimpleMath::Vector3> FallbackDirections{};
         SegmentLengths.reserve(SolvedJointPositions.size() - 1);
         FallbackDirections.reserve(SolvedJointPositions.size() - 1);
 
         float TotalLength{};
-        for (::std::size_t JointIndex{ 0 }; JointIndex + 1 < SolvedJointPositions.size(); ++JointIndex) {
+        for (std::size_t JointIndex{ 0 }; JointIndex + 1 < SolvedJointPositions.size(); ++JointIndex) {
             const DirectX::SimpleMath::Vector3 SegmentVector{ SolvedJointPositions[JointIndex + 1] - SolvedJointPositions[JointIndex] };
             DirectX::SimpleMath::Vector3 SegmentDirection{};
             if (TryResolveNormalizedDirection(SegmentVector, SegmentDirection) == false) {
@@ -272,16 +272,16 @@ namespace Game {
             }
 
             SolvedJointPositions.front() = RootPosition;
-            for (::std::size_t JointIndex{ 0 }; JointIndex + 1 < SolvedJointPositions.size(); ++JointIndex) {
+            for (std::size_t JointIndex{ 0 }; JointIndex + 1 < SolvedJointPositions.size(); ++JointIndex) {
                 SolvedJointPositions[JointIndex + 1] = SolvedJointPositions[JointIndex] + (StretchDirection * SegmentLengths[JointIndex]);
             }
         }
         else {
-            const ::std::size_t LastJointIndex{ SolvedJointPositions.size() - 1 };
+            const std::size_t LastJointIndex{ SolvedJointPositions.size() - 1 };
             for (int IterationIndex{}; IterationIndex < SafeMaxIterationCount; ++IterationIndex) {
                 SolvedJointPositions[LastJointIndex] = SolveParameters.mTargetPosition;
-                for (::std::size_t ReverseIndex{ LastJointIndex }; ReverseIndex > 0; --ReverseIndex) {
-                    const ::std::size_t ParentJointIndex{ ReverseIndex - 1 };
+                for (std::size_t ReverseIndex{ LastJointIndex }; ReverseIndex > 0; --ReverseIndex) {
+                    const std::size_t ParentJointIndex{ ReverseIndex - 1 };
                     DirectX::SimpleMath::Vector3 ParentDirection{ SolvedJointPositions[ParentJointIndex] - SolvedJointPositions[ReverseIndex] };
                     if (TryResolveNormalizedDirection(ParentDirection, ParentDirection) == false) {
                         ParentDirection = FallbackDirections[ParentJointIndex];
@@ -291,7 +291,7 @@ namespace Game {
                 }
 
                 SolvedJointPositions.front() = RootPosition;
-                for (::std::size_t JointIndex{}; JointIndex + 1 < SolvedJointPositions.size(); ++JointIndex) {
+                for (std::size_t JointIndex{}; JointIndex + 1 < SolvedJointPositions.size(); ++JointIndex) {
                     DirectX::SimpleMath::Vector3 ChildDirection{ SolvedJointPositions[JointIndex + 1] - SolvedJointPositions[JointIndex] };
                     if (TryResolveNormalizedDirection(ChildDirection, ChildDirection) == false) {
                         ChildDirection = FallbackDirections[JointIndex];
@@ -319,15 +319,15 @@ namespace Game {
             OutSolveResult.mReachedTarget = IsFiniteFloat(EndToTargetDistance) == true && EndToTargetDistance <= SafeConvergenceDistance;
         }
 
-        OutSolveResult.mJointPositions = ::std::move(SolvedJointPositions);
+        OutSolveResult.mJointPositions = std::move(SolvedJointPositions);
         return true;
     }
 
     std::unique_ptr<IFootIKSolver> FabrikFootIKSolver::Clone() const {
-        return ::std::make_unique<FabrikFootIKSolver>(*this);
+        return std::make_unique<FabrikFootIKSolver>(*this);
     }
 
     std::unique_ptr<IFootIKSolver> CreateFabrikFootIKSolver() {
-        return ::std::make_unique<FabrikFootIKSolver>();
+        return std::make_unique<FabrikFootIKSolver>();
     }
 }

@@ -25,6 +25,6 @@ namespace Game {
         BOOST_PP_SEQ_NIL
     );
 
-    void SetFootIKRigBoneName(ComponentTextArray& TargetText, ::std::string_view SourceText);
-    ::std::string_view GetFootIKRigBoneNameText(const ComponentTextArray& SourceText);
+    void SetFootIKRigBoneName(ComponentTextArray& TargetText, std::string_view SourceText);
+    std::string_view GetFootIKRigBoneNameText(const ComponentTextArray& SourceText);
 }
