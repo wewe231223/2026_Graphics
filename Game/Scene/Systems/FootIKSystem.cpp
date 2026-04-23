@@ -76,9 +76,11 @@ namespace {
     void AppendFootCornerDebugLines(Arche::World& World, Game::FrameContext& Ctx, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
         constexpr float RayStartOffset{ 0.3f };
         constexpr float RayLineLength{ 0.3f + 0.2f };
+        constexpr float HitNormalLineLength{ 0.12f };
         constexpr float CornerLineThickness{ 0.0025f };
         constexpr SimpleMath::Vector4 CornerLineColor{ 0.35f, 1.0f, 0.45f, 1.0f };
         constexpr SimpleMath::Vector4 HitLineColor{ 1.0f, 0.15f, 0.15f, 1.0f };
+        constexpr SimpleMath::Vector4 HitNormalLineColor{ 0.15f, 0.65f, 1.0f, 1.0f };
 
         ::std::array<SimpleMath::Vector3, 4> CornerPoints{};
         ::std::array<SimpleMath::Vector3, 4> CornerDirections{};
@@ -100,12 +102,16 @@ namespace {
             SimpleMath::Vector3 HitNormal{ SimpleMath::Vector3::Up };
             float HitDistance{};
             const bool IsTerrainHit{ TryResolveRaycastHitOnTerrain(World, Ray, RayLineLength, HitPoint, HitNormal, HitDistance) };
-            (void)HitPoint;
-            (void)HitNormal;
             (void)HitDistance;
+            if (IsTerrainHit == true && HitNormal.Dot(RayDirection) > 0.0f) {
+                HitNormal *= -1.0f;
+            }
 
             const SimpleMath::Vector4& LineColor{ IsTerrainHit == true ? HitLineColor : CornerLineColor };
             Ctx.RenderData.debugGeometryContexts.push_back(Game::RFD::DebugGeometryContext::CreateDirection(RayStartPoint, RayDirection, RayLineLength, LineColor, CornerLineThickness));
+            if (IsTerrainHit == true) {
+                Ctx.RenderData.debugGeometryContexts.push_back(Game::RFD::DebugGeometryContext::CreateDirection(HitPoint, HitNormal, HitNormalLineLength, HitNormalLineColor, CornerLineThickness));
+            }
         }
     }
 
@@ -350,22 +356,6 @@ namespace Game {
 
                 const bool IsPelvisOffsetApplied{ IK::TryApplyOffsetToBoneTransform(World, FootIKRuntimeComponent.mPelvisEntityId, PelvisOffset, WorldMatrices) };
                 if (IsPelvisOffsetApplied == true) {
-                    WorldMatrices.clear();
-                }
-            }
-
-            if (FootIKRuntimeComponent.mResolved == true && mFootIKSolver != nullptr) {
-                bool IsLeftLegSolved{};
-                if (IsLeftTargetFootWorldPositionResolved == true) {
-                    IsLeftLegSolved = IK::TrySolveLegWithIK(World, FootIKRuntimeComponent.mLeftThighEntityId, FootIKRuntimeComponent.mLeftShinEntityId, FootIKRuntimeComponent.mLeftFootEntityId, LeftTargetFootWorldPosition, *mFootIKSolver, WorldMatrices);
-                }
-
-                bool IsRightLegSolved{};
-                if (IsRightTargetFootWorldPositionResolved == true) {
-                    IsRightLegSolved = IK::TrySolveLegWithIK(World, FootIKRuntimeComponent.mRightThighEntityId, FootIKRuntimeComponent.mRightShinEntityId, FootIKRuntimeComponent.mRightFootEntityId, RightTargetFootWorldPosition, *mFootIKSolver, WorldMatrices);
-                }
-
-                if (IsLeftLegSolved == true || IsRightLegSolved == true) {
                     WorldMatrices.clear();
                 }
             }
