@@ -33,6 +33,7 @@ namespace {
     constexpr ::std::size_t KneeJointIndex{ 1 };
     constexpr float KneeMinimumAngleRadians{ 0.0872664626f };
     constexpr float KneeMaximumAngleRadians{ 3.0543261909f };
+    constexpr float ToeContactCorrectionMaxRadians{ 0.5235987756f };
 
     bool IsFiniteFloat(const float Value) {
         return ::std::isfinite(Value) != 0;
@@ -144,6 +145,30 @@ namespace {
 
         const SimpleMath::Quaternion WorldDeltaAppliedRotation{ SafeCurrentWorldRotation * SafeWorldDeltaRotation };
         return TryResolveNormalizedQuaternion(WorldDeltaAppliedRotation, OutWorldRotation);
+    }
+
+    bool TryResolveRotatedPointAroundPivot(const SimpleMath::Vector3& SourcePoint, const SimpleMath::Vector3& PivotPoint, const SimpleMath::Quaternion& WorldDeltaRotation, SimpleMath::Vector3& OutRotatedPoint) {
+        if (IsFiniteVector3(SourcePoint) == false || IsFiniteVector3(PivotPoint) == false) {
+            return false;
+        }
+
+        SimpleMath::Quaternion SafeWorldDeltaRotation{};
+        if (TryResolveNormalizedQuaternion(WorldDeltaRotation, SafeWorldDeltaRotation) == false) {
+            return false;
+        }
+
+        const SimpleMath::Vector3 PivotToSource{ SourcePoint - PivotPoint };
+        if (IsFiniteVector3(PivotToSource) == false) {
+            return false;
+        }
+
+        const SimpleMath::Vector3 RotatedPivotToSource{ SimpleMath::Vector3::Transform(PivotToSource, SafeWorldDeltaRotation) };
+        if (IsFiniteVector3(RotatedPivotToSource) == false) {
+            return false;
+        }
+
+        OutRotatedPoint = PivotPoint + RotatedPivotToSource;
+        return IsFiniteVector3(OutRotatedPoint);
     }
 
     SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
@@ -1147,13 +1172,119 @@ namespace {
         return true;
     }
 
+    bool TryResolveToeContactCorrectionDeltaRotation(Arche::World& World, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& FootWorldPosition, const SimpleMath::Quaternion& SurfaceAlignDeltaRotation, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, SimpleMath::Quaternion& OutToeContactCorrectionDeltaRotation) {
+        OutToeContactCorrectionDeltaRotation = SimpleMath::Quaternion::Identity;
+        if (ToeEntityId == Arche::NullEntityID || IsFiniteVector3(FootWorldPosition) == false || IsFiniteVector3(SurfaceNormal) == false || IsFiniteFloat(AlignmentWeight) == false) {
+            return false;
+        }
+
+        const float SafeAlignmentWeight{ ::std::clamp(AlignmentWeight, 0.0f, 1.0f) };
+        if (SafeAlignmentWeight <= FootOffsetEpsilon) {
+            return false;
+        }
+
+        SimpleMath::Vector3 SafeSurfaceNormal{};
+        if (TryResolveNormalizedVector(SurfaceNormal, SafeSurfaceNormal) == false) {
+            return false;
+        }
+
+        DirectX::BoundingOrientedBox ToeWorldObb{};
+        if (TryResolveWorldObb(World, ToeEntityId, InOutWorldMatrices, ToeWorldObb) == false) {
+            return false;
+        }
+
+        const SimpleMath::Vector3 ToeWorldCenter{ ToeWorldObb.Center.x, ToeWorldObb.Center.y, ToeWorldObb.Center.z };
+        if (IsFiniteVector3(ToeWorldCenter) == false) {
+            return false;
+        }
+
+        SimpleMath::Vector3 RotatedToeWorldCenter{};
+        if (TryResolveRotatedPointAroundPivot(ToeWorldCenter, FootWorldPosition, SurfaceAlignDeltaRotation, RotatedToeWorldCenter) == false) {
+            return false;
+        }
+
+        SimpleMath::Vector3 ToeForwardAxis{ RotatedToeWorldCenter - FootWorldPosition };
+        const float ToeForwardAxisProjectionOnSurfaceNormal{ ToeForwardAxis.Dot(SafeSurfaceNormal) };
+        if (IsFiniteFloat(ToeForwardAxisProjectionOnSurfaceNormal) == false) {
+            return false;
+        }
+
+        ToeForwardAxis -= SafeSurfaceNormal * ToeForwardAxisProjectionOnSurfaceNormal;
+        if (TryResolveNormalizedVector(ToeForwardAxis, ToeForwardAxis) == false) {
+            return false;
+        }
+
+        SimpleMath::Vector3 ToeRightAxis{ ResolveCrossProduct(SafeSurfaceNormal, ToeForwardAxis) };
+        if (TryResolveNormalizedVector(ToeRightAxis, ToeRightAxis) == false) {
+            return false;
+        }
+
+        ::std::array<SimpleMath::Vector3, 4> ToeBottomCorners{};
+        ::std::array<SimpleMath::Vector3, 4> ToeTopCorners{};
+        if (TryResolveObbVerticalCornerPairs(ToeWorldObb, ToeBottomCorners, ToeTopCorners) == false) {
+            return false;
+        }
+        (void)ToeTopCorners;
+
+        float ToeContactCorrectionNumerator{};
+        float ToeContactCorrectionDenominator{};
+        ::std::size_t ToeHitCount{};
+        const SimpleMath::Vector3 ToeCornerRayDirection{ SafeSurfaceNormal * -1.0f };
+        for (::std::size_t CornerIndex{}; CornerIndex < ToeBottomCorners.size(); ++CornerIndex) {
+            const SimpleMath::Vector3& ToeBottomCorner{ ToeBottomCorners[CornerIndex] };
+            SimpleMath::Vector3 RotatedToeBottomCorner{};
+            if (TryResolveRotatedPointAroundPivot(ToeBottomCorner, FootWorldPosition, SurfaceAlignDeltaRotation, RotatedToeBottomCorner) == false) {
+                continue;
+            }
+
+            const SimpleMath::Vector3 ToeCornerRayStartPoint{ RotatedToeBottomCorner + (SafeSurfaceNormal * FootRaycastStartOffset) };
+            if (IsFiniteVector3(ToeCornerRayStartPoint) == false) {
+                continue;
+            }
+
+            const SimpleMath::Ray ToeCornerRay{ ToeCornerRayStartPoint, ToeCornerRayDirection };
+            SimpleMath::Vector3 ToeCornerHitPoint{};
+            SimpleMath::Vector3 ToeCornerHitNormal{};
+            float ToeCornerHitDistance{};
+            const bool IsToeCornerHit{ TryResolveNearestTerrainRaycastHit(World, ToeCornerRay, FootRaycastLength, ToeCornerHitPoint, ToeCornerHitNormal, ToeCornerHitDistance) };
+            if (IsToeCornerHit == false || IsFiniteVector3(ToeCornerHitPoint) == false || IsFiniteVector3(ToeCornerHitNormal) == false || IsFiniteFloat(ToeCornerHitDistance) == false) {
+                continue;
+            }
+
+            const float ToeCornerDistanceToSurface{ (RotatedToeBottomCorner - ToeCornerHitPoint).Dot(SafeSurfaceNormal) };
+            const float ToeCornerLeverArm{ (RotatedToeBottomCorner - FootWorldPosition).Dot(ToeForwardAxis) };
+            if (IsFiniteFloat(ToeCornerDistanceToSurface) == false || IsFiniteFloat(ToeCornerLeverArm) == false) {
+                continue;
+            }
+
+            ToeContactCorrectionNumerator += ToeCornerDistanceToSurface * ToeCornerLeverArm;
+            ToeContactCorrectionDenominator += ToeCornerLeverArm * ToeCornerLeverArm;
+            ++ToeHitCount;
+        }
+
+        if (ToeHitCount < 2 || IsFiniteFloat(ToeContactCorrectionDenominator) == false || ToeContactCorrectionDenominator <= SurfaceNormalLengthEpsilon) {
+            return false;
+        }
+
+        float ToeContactCorrectionAngle{ ToeContactCorrectionNumerator / ToeContactCorrectionDenominator };
+        if (IsFiniteFloat(ToeContactCorrectionAngle) == false) {
+            return false;
+        }
+
+        ToeContactCorrectionAngle *= SafeAlignmentWeight;
+        ToeContactCorrectionAngle = ::std::clamp(ToeContactCorrectionAngle, -ToeContactCorrectionMaxRadians, ToeContactCorrectionMaxRadians);
+        if (::std::abs(ToeContactCorrectionAngle) <= FootOffsetEpsilon) {
+            return false;
+        }
+
+        const SimpleMath::Quaternion ToeContactCorrectionDeltaRotation{ SimpleMath::Quaternion::CreateFromAxisAngle(ToeRightAxis, ToeContactCorrectionAngle) };
+        return TryResolveNormalizedQuaternion(ToeContactCorrectionDeltaRotation, OutToeContactCorrectionDeltaRotation);
+    }
+
     bool TryAlignFootToSurface(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& RayOppositeDirection, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, ::std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
         if (FootEntityId == Arche::NullEntityID || IsFiniteVector3(RayOppositeDirection) == false || IsFiniteVector3(SurfaceNormal) == false) {
             return false;
         }
-
-        (void)ToeEntityId;
-        (void)AlignmentWeight;
 
         SimpleMath::Vector3 SafeRayOppositeDirection{};
         SimpleMath::Vector3 SafeSurfaceNormal{};
@@ -1182,6 +1313,13 @@ namespace {
         SimpleMath::Quaternion DesiredWorldRotation{};
         if (TryResolveWorldRotationWithWorldDelta(CurrentWorldRotation, SurfaceAlignDeltaRotation, DesiredWorldRotation) == false) {
             return false;
+        }
+
+        SimpleMath::Quaternion ToeContactCorrectionDeltaRotation{};
+        if (TryResolveToeContactCorrectionDeltaRotation(World, ToeEntityId, CurrentWorldPosition, SurfaceAlignDeltaRotation, SafeSurfaceNormal, AlignmentWeight, InOutWorldMatrices, ToeContactCorrectionDeltaRotation) == true) {
+            if (TryResolveWorldRotationWithWorldDelta(DesiredWorldRotation, ToeContactCorrectionDeltaRotation, DesiredWorldRotation) == false) {
+                return false;
+            }
         }
 
         return TryApplyWorldRotationToBoneTransform(World, FootEntityId, DesiredWorldRotation, InOutWorldMatrices);
