@@ -54,6 +54,7 @@
     <ClInclude Include="Scene\Components\ComponentInspection.h" />
     <ClInclude Include="Scene\Components\PickingGizmo.h" />
     <ClInclude Include="Scene\Components\PrefabInstance.h" />
+    <ClInclude Include="Scene\Components\PhysicsActor.h" />
     <ClInclude Include="Scene\Components\ScriptComponent.h" />
     <ClInclude Include="Scene\Components\SkySphere.h" />
     <ClInclude Include="Scene\Components\StaticMeshRenderer.h" />
@@ -123,6 +124,7 @@
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp" />
     <ClCompile Include="Scene\Components\Tags.cpp" />
     <ClCompile Include="Scene\Components\BoundingBox.cpp" />
+    <ClCompile Include="Scene\Components\PhysicsActor.cpp" />
     <ClCompile Include="Scene\Components\Camera.cpp" />
     <ClCompile Include="Scene\Components\Frustum.cpp" />
     <ClCompile Include="Scene\Components\StaticMeshRenderer.cpp" />

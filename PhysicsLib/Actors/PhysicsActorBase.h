@@ -22,9 +22,9 @@ Notes:
 #include "PhysicsLib/Simulation/Types/RigidBody.h"
 
 #ifdef _DEBUG
-#pragma comment(lib, "debug/DirectXTK12.lib")
+#pragma comment(lib, "DirectXTK12.lib")
 #else
-#pragma comment(lib, "release/DirectXTK12.lib")
+#pragma comment(lib, "DirectXTK12.lib")
 #endif
 
 class IPhysicsWorldMediator;

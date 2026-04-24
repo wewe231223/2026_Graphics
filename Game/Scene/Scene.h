@@ -10,6 +10,7 @@
 #include "SceneWorldSnapshot.h"
 #include "Game/Model/AssetRegistry.h"
 #include "Script/Core/LuaScriptFramework.h"
+#include "PhysicsLib/World/PhysicsWorld.h"
 
 namespace Game {
     class Scene final {
@@ -37,8 +38,13 @@ namespace Game {
         const AssetRegistry& GetAssetRegistry() const;
         Script::LuaBehaviorFramework& GetLuaScriptFramework();
         const Script::LuaBehaviorFramework& GetLuaScriptFramework() const;
+        PhysicsWorld& GetPhysicsWorld();
+        const PhysicsWorld& GetPhysicsWorld() const;
 
         void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap);
+        void InitializePhysicsWorld();
+        void RebuildPhysicsActors();
+        void UpdatePhysics(float Dt);
         void SetName(const std::string& NewName);
         const std::string& GetName() const;
 
@@ -67,6 +73,7 @@ namespace Game {
     private:
         std::string mName{};
         Arche::World mWorld{};
+        PhysicsWorld mPhysicsWorld{};
         FrameContext mFrameContext{};
         AssetRegistry mAssetRegistry{};
         std::vector<std::unique_ptr<ISystem>> mSystems{};

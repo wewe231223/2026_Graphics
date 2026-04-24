@@ -870,6 +870,7 @@ namespace Game {
         }
 
         if (RootNode.has_child("Entities") == false) {
+            OutScene.RebuildPhysicsActors();
             OutScene.BuildSystemExecutionPlan();
             return LoadResult;
         }
@@ -1689,6 +1690,7 @@ namespace Game {
             }
         }
 
+        OutScene.RebuildPhysicsActors();
         OutScene.BuildSystemExecutionPlan();
         return LoadResult;
     }

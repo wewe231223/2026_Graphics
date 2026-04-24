@@ -176,7 +176,7 @@ add_library(Game STATIC
     Game/Scene/Components/ComponentInspection.cpp
     Game/Scene/Components/FootIKRig.cpp
     Game/Scene/Components/FootIKRuntime.cpp
-    Game/Scene/Components/PhysicsProperties.cpp
+    Game/Scene/Components/PhysicsActor.cpp
     Game/Scene/Components/TerrainCollidee.cpp
     Game/Scene/Components/TerrainCollider.cpp
     Game/Scene/Systems/CameraRenderSystem.cpp

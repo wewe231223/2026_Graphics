@@ -7,6 +7,7 @@
 #include "FootIKRuntime.h"
 #include "Tags.h"
 #include "PrefabInstance.h"
+#include "PhysicsActor.h"
 #include "Name.h"
 #include "Material.h"
 #include "EntityHierarchy.h"
@@ -54,6 +55,7 @@ namespace Game {
         AppendComponentInspectionSection<FootIKRuntime>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<BehaviorInstanceComponent>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<BoundingBox>(ReadOnlyWorld, EntityId, OutSections);
+        AppendComponentInspectionSection<PhysicsActor>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<PrefabInstance>(ReadOnlyWorld, EntityId, OutSections);
 
         AppendComponentInspectionSection<Camera>(ReadOnlyWorld, EntityId, OutSections);

@@ -204,6 +204,9 @@
     <ClInclude Include="Scene\Components\PrefabInstance.h">
       <Filter>Model</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\PhysicsActor.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\PickingGizmo.h">
       <Filter>Model</Filter>
     </ClInclude>
@@ -321,6 +324,9 @@
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\BoundingBox.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\PhysicsActor.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\Bone.cpp">

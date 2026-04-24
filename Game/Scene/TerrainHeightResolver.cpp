@@ -293,6 +293,38 @@ namespace Game {
         return false;
     }
 
+    std::uint32_t TerrainHeightResolver::GetWidth() const {
+        return mWidth;
+    }
+
+    std::uint32_t TerrainHeightResolver::GetHeight() const {
+        return mHeight;
+    }
+
+    const std::vector<float>& TerrainHeightResolver::GetHeightValues() const {
+        return mHeightValues;
+    }
+
+    float TerrainHeightResolver::GetMaxHeight() const {
+        return mMaxHeight;
+    }
+
+    float TerrainHeightResolver::GetCellSizeX() const {
+        return mCellSizeX;
+    }
+
+    float TerrainHeightResolver::GetCellSizeZ() const {
+        return mCellSizeZ;
+    }
+
+    bool TerrainHeightResolver::GetCenterOrigin() const {
+        return mCenterOrigin;
+    }
+
+    bool TerrainHeightResolver::GetInitialized() const {
+        return mInitialized;
+    }
+
     std::uint32_t TerrainHeightResolver::CalculateHeightFieldIndex(std::uint32_t GridX, std::uint32_t GridZ) const {
         return (GridZ * mWidth) + GridX;
     }
