@@ -309,7 +309,7 @@ Entities:
     ParentEntityId: -1
     Components:
       Tag:
-        text: ObjectTag
+        text: SkyBoxTag
       Culling:
         frustumCulling: false
       Name:
@@ -326,7 +326,7 @@ Entities:
     ParentEntityId: -1
     Components:
       Tag:
-        text: ObjectTag
+        text: TerrainTag
       Culling:
         frustumCulling: true
       Name:
