@@ -40,6 +40,7 @@ namespace Game {
         OutSections.clear();
 
         AppendComponentInspectionSection<Name>(ReadOnlyWorld, EntityId, OutSections);
+        AppendComponentInspectionSection<Tag>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<Transform>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<EntityHierarchy>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<Bone>(ReadOnlyWorld, EntityId, OutSections);
@@ -58,6 +59,5 @@ namespace Game {
         AppendComponentInspectionSection<Camera>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<Frustum>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<SkySphere>(ReadOnlyWorld, EntityId, OutSections);
-        AppendComponentInspectionSection<LocalPlayerTag>(ReadOnlyWorld, EntityId, OutSections);
     }
 }

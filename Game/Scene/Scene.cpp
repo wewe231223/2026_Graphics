@@ -309,7 +309,7 @@ namespace Game {
         mLuaScriptFramework.RegisterComponentByDefinition<Game::FootIKRig>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::FootIKRuntime>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::PrefabInstance>();
-        mLuaScriptFramework.RegisterComponentByDefinition<Game::LocalPlayerTag>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Tag>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BehaviorInstanceComponent>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::TerrainCollider>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::TerrainCollidee>();

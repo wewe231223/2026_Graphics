@@ -54,7 +54,7 @@ namespace {
     constexpr const char* CullingTypeName{ "Culling" };
     constexpr const char* AnimationTypeName{ "Animation" };
     constexpr const char* CameraTypeName{ "Camera" };
-    constexpr const char* LocalPlayerTagTypeName{ "LocalPlayerTag" };
+    constexpr const char* TagTypeName{ "Tag" };
     constexpr const char* ScriptTypeName{ "Script" };
     constexpr const char* ScriptComponentTypeName{ "ScriptComponent" };
     constexpr const char* BehaviorInstanceComponentTypeName{ "BehaviorInstanceComponent" };
@@ -1454,9 +1454,24 @@ namespace Game {
                 }
             }
 
-            if (ComponentsNode.has_child(LocalPlayerTagTypeName)) {
-                LocalPlayerTag NewLocalPlayerTag{};
-                OutScene.GetWorld().AddComponent(Entity, NewLocalPlayerTag);
+            if (ComponentsNode.has_child(TagTypeName)) {
+                const c4::yml::ConstNodeRef TagNode{ ComponentsNode[TagTypeName] };
+                std::string TagText{};
+                if (TagNode.is_val() || TagNode.is_keyval()) {
+                    TagNode >> TagText;
+                }
+                else if (TagNode.has_child("text")) {
+                    TagNode["text"] >> TagText;
+                }
+                else if (TagNode.has_child("Text")) {
+                    TagNode["Text"] >> TagText;
+                }
+                else if (TagNode.has_child("mText")) {
+                    TagNode["mText"] >> TagText;
+                }
+
+                const Tag NewTag{ Game::CreateTagComponent(TagText) };
+                OutScene.GetWorld().AddComponent(Entity, NewTag);
             }
 
             const bool HasScriptNode{ ComponentsNode.has_child(ScriptTypeName) || ComponentsNode.has_child(ScriptComponentTypeName) || ComponentsNode.has_child(BehaviorInstanceComponentTypeName) };
@@ -1822,7 +1837,7 @@ namespace Game {
             const Culling* CullingComponent{ ReadOnlyWorld->GetComponent<Culling>(EntityId) };
             const Camera* CameraComponent{ ReadOnlyWorld->GetComponent<Camera>(EntityId) };
             const SkySphere* SkySphereComponent{ ReadOnlyWorld->GetComponent<SkySphere>(EntityId) };
-            const LocalPlayerTag* LocalPlayerTagComponent{ ReadOnlyWorld->GetComponent<LocalPlayerTag>(EntityId) };
+            const Tag* TagComponent{ ReadOnlyWorld->GetComponent<Tag>(EntityId) };
             const Animator* AnimatorComponent{ nullptr };
             Arche::EntityID AnimatorEntityId{ Arche::NullEntityID };
             const bool IsAnimatorFound{ TryFindAnimatorForSerializationInHierarchy(ReadOnlyWorld, EntityId, AnimatorComponent, AnimatorEntityId) };
@@ -1833,6 +1848,11 @@ namespace Game {
             }
 
             AppendLine(Stream, 2, "Components:");
+
+            if (TagComponent != nullptr) {
+                AppendLine(Stream, 3, std::string{ TagTypeName } + std::string{ ":" });
+                AppendLine(Stream, 4, std::string{ "text: " } + ToYamlText(Game::GetTagTextView(*TagComponent)));
+            }
 
             if (NameComponent != nullptr) {
                 AppendLine(Stream, 3, std::string{ NameTypeName } + std::string{ ":" });
@@ -1967,9 +1987,6 @@ namespace Game {
                 AppendLine(Stream, 4, std::string{ "startMode: " } + ResolveCameraModeText(CameraComponent->cameraFlags));
             }
 
-            if (LocalPlayerTagComponent != nullptr) {
-                AppendLine(Stream, 3, std::string{ LocalPlayerTagTypeName } + std::string{ ": {}" });
-            }
         }
 
         OutYamlText = Stream.str();
