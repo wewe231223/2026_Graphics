@@ -180,13 +180,15 @@ namespace {
                     continue;
                 }
 
-                AxisValue /= std::sqrt(AxisLengthSquared);
+                float AxisLength{ std::sqrt(AxisLengthSquared) };
+                AxisValue /= AxisLength;
                 if (AxisValue.Dot(CenterDelta) < 0.0F) {
                     AxisValue = -AxisValue;
                 }
 
-                if (Overlap < BestResult.mPenetration) {
-                    BestResult.mPenetration = Overlap;
+                float NormalizedOverlap{ Overlap / AxisLength };
+                if (NormalizedOverlap < BestResult.mPenetration) {
+                    BestResult.mPenetration = NormalizedOverlap;
                     BestResult.mNormal = AxisValue;
                     BestResult.mAxisType = DynamicSatAxisType::Edge;
                     BestResult.mAxisIndexA = AxisAIndex;
