@@ -95,6 +95,7 @@ target_compile_definitions(Asset PRIVATE
 )
 
 add_library(PhysicsLib STATIC
+    PhysicsLib/Common.cpp
     PhysicsLib/Actors/CollisionSolver/PhysicsDynamicCollisionSolver.cpp
     PhysicsLib/Actors/CollisionSolver/PhysicsKinematicCollisionSolver.cpp
     PhysicsLib/Actors/CollisionSolver/PhysicsStaticCollisionSolver.cpp
@@ -150,7 +151,6 @@ add_library(Game STATIC
     Game/Scene/Scene.cpp
     Game/Scene/SceneEntityFactory.cpp
     Game/Scene/SceneYamlSerializer.cpp
-    Game/Scene/TerrainHeightResolver.cpp
     Game/Scene/System.cpp
     Game/Scene/SystemSceduler.cpp
     Game/Scene/ParallelSystemBase.cpp
@@ -176,9 +176,7 @@ add_library(Game STATIC
     Game/Scene/Components/ComponentInspection.cpp
     Game/Scene/Components/FootIKRig.cpp
     Game/Scene/Components/FootIKRuntime.cpp
-    Game/Scene/Components/PhysicsProperties.cpp
-    Game/Scene/Components/TerrainCollidee.cpp
-    Game/Scene/Components/TerrainCollider.cpp
+    Game/Scene/Components/PhysicsActor.cpp
     Game/Scene/Systems/CameraRenderSystem.cpp
     Game/Scene/Systems/AnimationGraphSystem.cpp
     Game/Scene/Systems/AnimateSystem.cpp
@@ -186,10 +184,10 @@ add_library(Game STATIC
     Game/Scene/IK/FabrikFootIKSolver.cpp
     Game/Scene/IK/FootIKAlgorithms.cpp
     Game/Scene/Systems/FootIKSystem.cpp
+    Game/Scene/Systems/PhysicsActorUpdateSystem.cpp
     Game/Scene/Systems/SkinnedMeshPrepareSystem.cpp
     Game/Scene/Systems/StaticRenderSystem.cpp
     Game/Scene/Systems/SkinnedMeshRenderSystem.cpp
-    Game/Scene/Systems/TerrainCollideSystem.cpp
 )
 
 target_include_directories(Game PUBLIC

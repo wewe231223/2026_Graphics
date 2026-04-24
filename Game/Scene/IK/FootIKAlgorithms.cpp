@@ -13,10 +13,8 @@
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Name.h"
-#include "Game/Scene/Components/TerrainCollidee.h"
 #include "Game/Scene/Components/Transform.h"
 #include "Game/Scene/IK/FootIKSolver.h"
-#include "Game/Scene/TerrainHeightResolver.h"
 
 namespace Game::IK {
     constexpr float FootOffsetEpsilon{ 1.0e-4f };
@@ -317,7 +315,7 @@ namespace Game::IK {
         return true;
     }
 
-    bool TryResolveNearestTerrainRaycastHit(Arche::World& World, const SimpleMath::Ray& Ray, const float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal, float& OutHitDistance) {
+    bool TryResolveNearestTerrainRaycastHit(const IPhysicsWorld& PhysicsWorldInstance, const SimpleMath::Ray& Ray, const float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal, float& OutHitDistance) {
         if (IsFiniteVector3(Ray.position) == false || IsFiniteVector3(Ray.direction) == false || IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
             return false;
         }
@@ -326,16 +324,16 @@ namespace Game::IK {
         float NearestHitDistance{ RayLength };
         SimpleMath::Vector3 NearestHitPoint{};
         SimpleMath::Vector3 NearestHitNormal{ SimpleMath::Vector3::Up };
-        for (const auto [TerrainCollideeComponent] : World.Query<Game::TerrainCollidee>()) {
-            Game::TerrainHeightResolver* TerrainHeightResolverPointer{ TerrainCollideeComponent.mTerrainHeightResolver };
-            if (TerrainHeightResolverPointer == nullptr) {
+        std::vector<const PhysicsTerrainActor*> TerrainActors{ PhysicsWorldInstance.CollectTerrainActors() };
+        for (const PhysicsTerrainActor* TerrainActorPointer : TerrainActors) {
+            if (TerrainActorPointer == nullptr) {
                 continue;
             }
 
             SimpleMath::Vector3 CandidateHitPoint{};
             SimpleMath::Vector3 CandidateHitNormal{ SimpleMath::Vector3::Up };
             float CandidateHitDistance{};
-            const bool IsCandidateHit{ TerrainHeightResolverPointer->TryRaycast(Ray, RayLength, CandidateHitPoint, CandidateHitNormal, CandidateHitDistance) };
+            const bool IsCandidateHit{ TerrainActorPointer->TryRaycast(Ray, RayLength, CandidateHitPoint, CandidateHitNormal, CandidateHitDistance) };
             if (IsCandidateHit == false || IsFiniteVector3(CandidateHitPoint) == false || IsFiniteVector3(CandidateHitNormal) == false || IsFiniteFloat(CandidateHitDistance) == false || CandidateHitDistance < 0.0f || CandidateHitDistance > RayLength) {
                 continue;
             }
@@ -463,7 +461,7 @@ namespace Game::IK {
         return true;
     }
 
-    bool TryResolveFootTargetOffset(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutRayOppositeDirection, SimpleMath::Vector3& OutGroundNormal, SimpleMath::Vector3& OutTargetFootPosition, std::size_t& OutHitCount) {
+    bool TryResolveFootTargetOffset(Arche::World& World, const IPhysicsWorld& PhysicsWorldInstance, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutRayOppositeDirection, SimpleMath::Vector3& OutGroundNormal, SimpleMath::Vector3& OutTargetFootPosition, std::size_t& OutHitCount) {
         OutHitCount = 0;
         if (FootEntityId == Arche::NullEntityID || ToeEntityId == Arche::NullEntityID) {
             return false;
@@ -512,7 +510,7 @@ namespace Game::IK {
             SimpleMath::Vector3 HitPoint{};
             SimpleMath::Vector3 HitNormal{ SimpleMath::Vector3::Up };
             float HitDistance{};
-            const bool IsCornerHit{ TryResolveNearestTerrainRaycastHit(World, CornerRay, FootRaycastLength, HitPoint, HitNormal, HitDistance) };
+            const bool IsCornerHit{ TryResolveNearestTerrainRaycastHit(PhysicsWorldInstance, CornerRay, FootRaycastLength, HitPoint, HitNormal, HitDistance) };
             if (IsCornerHit == false || IsFiniteVector3(HitPoint) == false || IsFiniteVector3(HitNormal) == false || IsFiniteFloat(HitDistance) == false) {
                 continue;
             }
@@ -864,7 +862,7 @@ namespace Game::IK {
         return IsAnyBoneUpdated;
     }
 
-    bool TryResolveToeContactCorrectionDeltaRotation(Arche::World& World, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& FootWorldPosition, const SimpleMath::Quaternion& SurfaceAlignDeltaRotation, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, SimpleMath::Quaternion& OutToeContactCorrectionDeltaRotation) {
+    bool TryResolveToeContactCorrectionDeltaRotation(Arche::World& World, const IPhysicsWorld& PhysicsWorldInstance, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& FootWorldPosition, const SimpleMath::Quaternion& SurfaceAlignDeltaRotation, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, SimpleMath::Quaternion& OutToeContactCorrectionDeltaRotation) {
         OutToeContactCorrectionDeltaRotation = SimpleMath::Quaternion::Identity;
         if (ToeEntityId == Arche::NullEntityID || IsFiniteVector3(FootWorldPosition) == false || IsFiniteVector3(SurfaceNormal) == false || IsFiniteFloat(AlignmentWeight) == false) {
             return false;
@@ -937,7 +935,7 @@ namespace Game::IK {
             SimpleMath::Vector3 ToeCornerHitPoint{};
             SimpleMath::Vector3 ToeCornerHitNormal{};
             float ToeCornerHitDistance{};
-            const bool IsToeCornerHit{ TryResolveNearestTerrainRaycastHit(World, ToeCornerRay, FootRaycastLength, ToeCornerHitPoint, ToeCornerHitNormal, ToeCornerHitDistance) };
+            const bool IsToeCornerHit{ TryResolveNearestTerrainRaycastHit(PhysicsWorldInstance, ToeCornerRay, FootRaycastLength, ToeCornerHitPoint, ToeCornerHitNormal, ToeCornerHitDistance) };
             if (IsToeCornerHit == false || IsFiniteVector3(ToeCornerHitPoint) == false || IsFiniteVector3(ToeCornerHitNormal) == false || IsFiniteFloat(ToeCornerHitDistance) == false) {
                 continue;
             }
@@ -972,7 +970,7 @@ namespace Game::IK {
         return TryResolveNormalizedQuaternion(ToeContactCorrectionDeltaRotation, OutToeContactCorrectionDeltaRotation);
     }
 
-    bool TryAlignFootToSurface(Arche::World& World, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& RayOppositeDirection, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+    bool TryAlignFootToSurface(Arche::World& World, const IPhysicsWorld& PhysicsWorldInstance, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& RayOppositeDirection, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
         if (FootEntityId == Arche::NullEntityID || IsFiniteVector3(RayOppositeDirection) == false || IsFiniteVector3(SurfaceNormal) == false) {
             return false;
         }
@@ -1017,7 +1015,7 @@ namespace Game::IK {
         }
 
         SimpleMath::Quaternion ToeContactCorrectionDeltaRotation{};
-        if (TryResolveToeContactCorrectionDeltaRotation(World, ToeEntityId, CurrentWorldPosition, SurfaceAlignDeltaRotation, SafeSurfaceNormal, SafeAlignmentWeight, InOutWorldMatrices, ToeContactCorrectionDeltaRotation) == true) {
+        if (TryResolveToeContactCorrectionDeltaRotation(World, PhysicsWorldInstance, ToeEntityId, CurrentWorldPosition, SurfaceAlignDeltaRotation, SafeSurfaceNormal, SafeAlignmentWeight, InOutWorldMatrices, ToeContactCorrectionDeltaRotation) == true) {
             if (TryResolveWorldRotationWithWorldDelta(DesiredWorldRotation, ToeContactCorrectionDeltaRotation, DesiredWorldRotation) == false) {
                 return false;
             }

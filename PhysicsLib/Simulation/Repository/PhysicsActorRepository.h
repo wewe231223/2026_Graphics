@@ -39,6 +39,8 @@ public:
 
     PhysicsActorBase* GetActor(std::size_t Index) override;
     const PhysicsActorBase* GetActor(std::size_t Index) const override;
+    PhysicsTerrainActor* GetTerrainActor(std::size_t Index) override;
+    const PhysicsTerrainActor* GetTerrainActor(std::size_t Index) const override;
     std::size_t GetActorCount() const override;
 
     std::vector<PhysicsDynamicActor*> CollectDynamicActors() override;
@@ -46,6 +48,8 @@ public:
     std::vector<PhysicsKinematicActor*> CollectKinematicActors() override;
     std::vector<const PhysicsKinematicActor*> CollectKinematicActors() const override;
     std::vector<const PhysicsStaticActor*> CollectStaticActors() const override;
+    std::vector<PhysicsTerrainActor*> CollectTerrainActors() override;
+    std::vector<const PhysicsTerrainActor*> CollectTerrainActors() const override;
 
 private:
     std::vector<std::unique_ptr<PhysicsActorBase>> mActors;

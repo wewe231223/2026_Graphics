@@ -24,12 +24,12 @@ float GetEffectiveRestitution(const PhysicsActorBase& FirstActor, const PhysicsA
 }
 
 bool IsHeightFieldTerrainActor(const PhysicsActorBase& Actor) {
-    const PhysicsTerrainActor* TerrainActor{ dynamic_cast<const PhysicsTerrainActor*>(&Actor) };
-    if (TerrainActor == nullptr) {
+    if (Actor.IsTerrainActor() == false) {
         return false;
     }
 
-    PhysicsTerrainActor::ActorDesc TerrainActorDesc{ TerrainActor->GetActorDesc() };
+    const PhysicsTerrainActor& TerrainActor{ static_cast<const PhysicsTerrainActor&>(Actor) };
+    PhysicsTerrainActor::ActorDesc TerrainActorDesc{ TerrainActor.GetActorDesc() };
     bool HasHeightField{ TerrainActorDesc.HeightFieldWidth > 1U && TerrainActorDesc.HeightFieldHeight > 1U && !TerrainActorDesc.HeightFieldValues.empty() };
     return HasHeightField;
 }
@@ -68,14 +68,18 @@ bool ResolveKinematicActorPair(PhysicsActorBase& FirstActor, PhysicsActorBase& S
         return false;
     }
 
+    PhysicsActorBase::PhysicsActorType OtherType{ SecondActor.GetActorType() };
     float PenetrationDepth{ std::max(0.0F, SatResult.mPenetration - KinematicPositionCorrectionSlop) };
+    if (OtherType == PhysicsActorBase::PhysicsActorType::Dynamic) {
+        SecondActor.RegisterContactNormal(CollisionNormal);
+    }
+
     if (PenetrationDepth <= 0.0F) {
         return true;
     }
 
     float FirstPositionWeight{ 1.0F };
     float SecondPositionWeight{};
-    PhysicsActorBase::PhysicsActorType OtherType{ SecondActor.GetActorType() };
     if (OtherType == PhysicsActorBase::PhysicsActorType::Dynamic) {
         FirstPositionWeight = 0.0F;
         SecondPositionWeight = 1.0F;
@@ -121,6 +125,7 @@ bool ResolveKinematicAgainstDynamicActor(const PhysicsActorBase& FirstActor, Phy
     }
 
     float PenetrationDepth{ std::max(0.0F, SatResult.mPenetration - KinematicPositionCorrectionSlop) };
+    SecondActor.RegisterContactNormal(CollisionNormal);
     if (PenetrationDepth <= 0.0F) {
         return true;
     }

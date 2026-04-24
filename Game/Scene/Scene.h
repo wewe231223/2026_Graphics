@@ -3,15 +3,20 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include "Game/Scene/TerrainHeightResolver.h"
 #include "Arche/World.h"
 #include "System.h"
 #include "SystemSceduler.h"
 #include "SceneWorldSnapshot.h"
 #include "Game/Model/AssetRegistry.h"
 #include "Script/Core/LuaScriptFramework.h"
+#include "PhysicsLib/World/PhysicsWorld.h"
 
 namespace Game {
+    struct TerrainActorDescBinding final {
+        Arche::EntityID mEntityId{ Arche::NullEntityID };
+        PhysicsTerrainActor::ActorDesc mTerrainActorDesc{};
+    };
+
     class Scene final {
     public:
         Scene();
@@ -37,8 +42,13 @@ namespace Game {
         const AssetRegistry& GetAssetRegistry() const;
         Script::LuaBehaviorFramework& GetLuaScriptFramework();
         const Script::LuaBehaviorFramework& GetLuaScriptFramework() const;
+        PhysicsWorld& GetPhysicsWorld();
+        const PhysicsWorld& GetPhysicsWorld() const;
 
         void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap);
+        void InitializePhysicsWorld();
+        void RebuildPhysicsActors();
+        void UpdatePhysics(float Dt);
         void SetName(const std::string& NewName);
         const std::string& GetName() const;
 
@@ -48,8 +58,8 @@ namespace Game {
         void PrepareRender();
 
         void InitializeWorldSnapshot();
-        TerrainHeightResolver* CreateTerrainHeightResolver(const HeightFieldData& HeightFieldDataValue, const TerrainBuildDesc& TerrainBuildDescValue);
-        void ClearTerrainHeightResolvers();
+        void AddTerrainActorDesc(Arche::EntityID EntityId, const PhysicsTerrainActor::ActorDesc& TerrainActorDesc);
+        void ClearTerrainActorDescs();
 
         void OnFileDropped(const std::filesystem::path& FilePath);
         void UpdateWorldSnapshotIfNeeded();
@@ -67,6 +77,7 @@ namespace Game {
     private:
         std::string mName{};
         Arche::World mWorld{};
+        PhysicsWorld mPhysicsWorld{};
         FrameContext mFrameContext{};
         AssetRegistry mAssetRegistry{};
         std::vector<std::unique_ptr<ISystem>> mSystems{};
@@ -81,6 +92,6 @@ namespace Game {
         bool mIsBoundingBoxDrawEnabled{};
 
 		Script::LuaBehaviorFramework mLuaScriptFramework{};
-        std::vector<std::unique_ptr<TerrainHeightResolver>> mTerrainHeightResolvers{};
+        std::vector<TerrainActorDescBinding> mTerrainActorDescBindings{};
     };
 }

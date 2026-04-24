@@ -12,7 +12,6 @@
 #include "Game/Scene/Components/SkinnedMeshRenderer.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Transform.h"
-#include "Game/Scene/Components/TerrainCollidee.h"
 
 namespace Game {
     ModelHierarchySpawnRequest::ModelHierarchySpawnRequest() = default;
@@ -113,12 +112,6 @@ namespace Game {
             Transform NodeTransform{};
             NodeTransform.nodeToParent = ModelNodes[NodeIndex].GetNodeToParent();
             AddTransform(NodeEntities[NodeIndex], NodeTransform, NodeIndex == RootNodeIndex);
-
-            if (NodeIndex == RootNodeIndex && SpawnRequest.TerrainHeightResolverPointer != nullptr) {
-                TerrainCollidee TerrainCollideeComponent{};
-                TerrainCollideeComponent.mTerrainHeightResolver = SpawnRequest.TerrainHeightResolverPointer;
-                AddTerrainCollidee(NodeEntities[NodeIndex], TerrainCollideeComponent, true);
-            }
 
             const bool HasRenderableGeometry{ ModelNodes[NodeIndex].GetSubMeshes().empty() == false };
             if (HasRenderableGeometry == true) {
@@ -322,19 +315,6 @@ namespace Game {
         }
 
         *ExistingAnimator = AnimatorComponent;
-    }
-
-
-    void SceneEntityFactory::AddTerrainCollidee(Arche::EntityID EntityId, const TerrainCollidee& TerrainCollideeComponent, bool ReplaceExistingRootComponent) {
-        TerrainCollidee* ExistingTerrainCollidee{ mScene->GetWorld().GetComponent<TerrainCollidee>(EntityId) };
-        if (ExistingTerrainCollidee == nullptr) {
-            mScene->GetWorld().AddComponent(EntityId, TerrainCollideeComponent);
-            return;
-        }
-
-        if (ReplaceExistingRootComponent == true) {
-            *ExistingTerrainCollidee = TerrainCollideeComponent;
-        }
     }
     Arche::EntityID SceneEntityFactory::ResolveBoneRootEntityId(const Model& ModelData, const ModelNode& ModelNodeData, const std::vector<Arche::EntityID>& NodeEntities) const {
         const std::string& SkinBoneRootNodeName{ ModelNodeData.GetSkinBoneRootNodeName() };

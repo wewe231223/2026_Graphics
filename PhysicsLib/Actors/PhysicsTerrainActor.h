@@ -5,7 +5,7 @@ PhysicsLib Header Guide
 Role:
 - Provides a Static Actor for HeightField terrain surface queries and Dynamic Actor terrain collision.
 Initialization:
-- Fill ActorDesc HeightFieldWidth, HeightFieldHeight, HeightFieldCellSpacing, HeightFieldMaxHeight, and HeightFieldValues.
+- Fill ActorDesc HeightFieldWidth, HeightFieldHeight, HeightFieldCellSizeX, HeightFieldCellSizeZ, HeightFieldMaxHeight, and HeightFieldValues.
 Usage:
 - Register through PhysicsWorld::CreateTerrainActor and query surface height with TryGetSurfaceHeightAtWorldPosition.
 Notes:
@@ -31,7 +31,8 @@ public:
         float HalfExtentZ{};
         std::uint32_t HeightFieldWidth{};
         std::uint32_t HeightFieldHeight{};
-        float HeightFieldCellSpacing{};
+        float HeightFieldCellSizeX{};
+        float HeightFieldCellSizeZ{};
         float HeightFieldMaxHeight{};
         bool HeightFieldCenterOrigin{};
         std::vector<float> HeightFieldValues{};
@@ -50,22 +51,29 @@ public:
 public:
     void SetActorDesc(const ActorDesc& Desc);
     ActorDesc GetActorDesc() const;
+    static ActorDesc BuildHeightFieldActorDesc(std::uint32_t HeightFieldWidth, std::uint32_t HeightFieldHeight, const std::vector<float>& HeightFieldValues, float HeightFieldMaxHeight, float HeightFieldCellSizeX, float HeightFieldCellSizeZ, bool HeightFieldCenterOrigin);
+    bool IsTerrainActor() const override;
 
+    bool TryGetSurfaceAtWorldPosition(float WorldX, float WorldZ, float& OutWorldHeight, DirectX::SimpleMath::Vector3& OutWorldNormal) const;
     bool TryGetSurfaceHeightAtWorldPosition(float WorldX, float WorldZ, float& OutWorldHeight) const;
+    bool TryRaycast(const DirectX::SimpleMath::Ray& Ray, float MaxDistance, DirectX::SimpleMath::Vector3& OutHitPosition, DirectX::SimpleMath::Vector3& OutHitNormal, float& OutHitDistance) const;
     bool ResolveDynamicCollision(PhysicsActorBase& DynamicActor, float DeltaTime) const override;
     std::unique_ptr<PhysicsActorBase> Clone() const override;
 
 private:
     bool TryGetSurfaceHeightAtLocalPosition(float LocalX, float LocalZ, float& OutLocalHeight) const;
     bool TryGetSurfaceNormalAtLocalPosition(float LocalX, float LocalZ, DirectX::SimpleMath::Vector3& OutLocalNormal) const;
+    bool TryResolveSurfaceAtLocalPosition(float LocalX, float LocalZ, float& OutLocalHeight, DirectX::SimpleMath::Vector3& OutLocalNormal) const;
     std::size_t CalculateHeightFieldIndex(std::uint32_t X, std::uint32_t Z) const;
+    float SampleCellHeight(std::uint32_t X, std::uint32_t Z) const;
 
 private:
     float mHalfExtentX;
     float mHalfExtentZ;
     std::uint32_t mHeightFieldWidth;
     std::uint32_t mHeightFieldHeight;
-    float mHeightFieldCellSpacing;
+    float mHeightFieldCellSizeX;
+    float mHeightFieldCellSizeZ;
     float mHeightFieldMaxHeight;
     bool mHeightFieldCenterOrigin;
     std::vector<float> mHeightFieldValues;

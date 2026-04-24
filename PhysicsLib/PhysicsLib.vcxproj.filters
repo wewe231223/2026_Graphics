@@ -34,8 +34,12 @@
     <Filter Include="Simulation\Types">
       <UniqueIdentifier>{03b9f12d-ccf8-41e2-8268-6fa17a8bb8d0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Runtime">
+      <UniqueIdentifier>{988c8e8f-8a5a-4f64-9cd6-3d6b29bfbe4f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Common.cpp" />
     <ClCompile Include="Actors\CollisionSolver\PhysicsDynamicCollisionSolver.cpp">
       <Filter>Actors\CollisionSolver</Filter>
     </ClCompile>
@@ -81,11 +85,15 @@
     <ClCompile Include="Simulation\SpatialQuery\IPhysicsSpatialQuery.cpp">
       <Filter>Simulation\SpatialQuery</Filter>
     </ClCompile>
+    <ClCompile Include="Runtime\PhysicsRuntime.cpp">
+      <Filter>Runtime</Filter>
+    </ClCompile>
     <ClCompile Include="World\PhysicsWorld.cpp">
       <Filter>World</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Common.h" />
     <ClInclude Include="Actors\CollisionSolver\PhysicsDynamicCollisionSolver.h">
       <Filter>Actors\CollisionSolver</Filter>
     </ClInclude>
@@ -151,6 +159,15 @@
     </ClInclude>
     <ClInclude Include="Simulation\Types\RigidBody.h">
       <Filter>Simulation\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\PhysicsRuntime.h">
+      <Filter>Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\PhysicsRuntimeTypes.h">
+      <Filter>Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="Runtime\SpscRingQueue.h">
+      <Filter>Runtime</Filter>
     </ClInclude>
     <ClInclude Include="World\PhysicsWorld.h">
       <Filter>World</Filter>

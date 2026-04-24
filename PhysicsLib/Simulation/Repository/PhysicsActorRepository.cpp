@@ -119,6 +119,26 @@ const PhysicsActorBase* PhysicsActorRepository::GetActor(std::size_t Index) cons
     return mActors[Index].get();
 }
 
+PhysicsTerrainActor* PhysicsActorRepository::GetTerrainActor(std::size_t Index) {
+    PhysicsActorBase* ActorPointer{ GetActor(Index) };
+    if (ActorPointer == nullptr || ActorPointer->IsTerrainActor() == false) {
+        return nullptr;
+    }
+
+    PhysicsTerrainActor* TerrainActorPointer{ static_cast<PhysicsTerrainActor*>(ActorPointer) };
+    return TerrainActorPointer;
+}
+
+const PhysicsTerrainActor* PhysicsActorRepository::GetTerrainActor(std::size_t Index) const {
+    const PhysicsActorBase* ActorPointer{ GetActor(Index) };
+    if (ActorPointer == nullptr || ActorPointer->IsTerrainActor() == false) {
+        return nullptr;
+    }
+
+    const PhysicsTerrainActor* TerrainActorPointer{ static_cast<const PhysicsTerrainActor*>(ActorPointer) };
+    return TerrainActorPointer;
+}
+
 std::size_t PhysicsActorRepository::GetActorCount() const {
     std::size_t ActorCount{ mActors.size() };
     return ActorCount;
@@ -212,4 +232,40 @@ std::vector<const PhysicsStaticActor*> PhysicsActorRepository::CollectStaticActo
     }
 
     return StaticActors;
+}
+
+std::vector<PhysicsTerrainActor*> PhysicsActorRepository::CollectTerrainActors() {
+    std::vector<PhysicsTerrainActor*> TerrainActors{};
+    std::size_t ActorCount{ mActors.size() };
+    TerrainActors.reserve(ActorCount);
+
+    for (std::size_t ActorIndex{ 0U }; ActorIndex < ActorCount; ++ActorIndex) {
+        PhysicsActorBase* CurrentActor{ mActors[ActorIndex].get() };
+        if (CurrentActor == nullptr || CurrentActor->IsTerrainActor() == false) {
+            continue;
+        }
+
+        PhysicsTerrainActor* TerrainActor{ static_cast<PhysicsTerrainActor*>(CurrentActor) };
+        TerrainActors.push_back(TerrainActor);
+    }
+
+    return TerrainActors;
+}
+
+std::vector<const PhysicsTerrainActor*> PhysicsActorRepository::CollectTerrainActors() const {
+    std::vector<const PhysicsTerrainActor*> TerrainActors{};
+    std::size_t ActorCount{ mActors.size() };
+    TerrainActors.reserve(ActorCount);
+
+    for (std::size_t ActorIndex{ 0U }; ActorIndex < ActorCount; ++ActorIndex) {
+        const PhysicsActorBase* CurrentActor{ mActors[ActorIndex].get() };
+        if (CurrentActor == nullptr || CurrentActor->IsTerrainActor() == false) {
+            continue;
+        }
+
+        const PhysicsTerrainActor* TerrainActor{ static_cast<const PhysicsTerrainActor*>(CurrentActor) };
+        TerrainActors.push_back(TerrainActor);
+    }
+
+    return TerrainActors;
 }

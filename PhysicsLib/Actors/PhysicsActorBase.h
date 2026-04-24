@@ -15,6 +15,7 @@ Notes:
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <DirectXCollision.h>
 #include <DirectXTK12/SimpleMath.h>
@@ -36,7 +37,8 @@ public:
         Static = 1U << 0U,
         Kinematic = 1U << 1U,
         Trigger = 1U << 2U,
-        Sleeping = 1U << 3U
+        Sleeping = 1U << 3U,
+        TerrainCollide = 1U << 4U
     };
 
     enum class PhysicsActorType : std::uint32_t {
@@ -98,6 +100,14 @@ public:
     const DirectX::SimpleMath::Vector3& GetLinearMomentum() const;
     void SetAngularMomentum(const DirectX::SimpleMath::Vector3& AngularMomentum);
     const DirectX::SimpleMath::Vector3& GetAngularMomentum() const;
+    void SetAngularVelocity(const DirectX::SimpleMath::Vector3& AngularVelocity);
+    const DirectX::SimpleMath::Vector3& GetAngularVelocity() const;
+    void AddTorque(const DirectX::SimpleMath::Vector3& Torque);
+    const DirectX::SimpleMath::Vector3& GetTorque() const;
+    void ClearTorque();
+    void AddAngularImpulse(const DirectX::SimpleMath::Vector3& AngularImpulse);
+    void ApplyImpulseAtPoint(const DirectX::SimpleMath::Vector3& Impulse, const DirectX::SimpleMath::Vector3& WorldPoint);
+    const DirectX::SimpleMath::Matrix& GetInverseInertiaTensorWorld() const;
     void SetRigidBody(const RigidBody& RigidBodyState);
     const RigidBody& GetRigidBody() const;
 
@@ -107,6 +117,7 @@ public:
 
     void SetActorType(PhysicsActorType ActorType);
     PhysicsActorType GetActorType() const;
+    virtual bool IsTerrainActor() const;
 
     void SetLocalBoundingBox(const DirectX::BoundingOrientedBox& LocalBoundingBox);
     const DirectX::BoundingOrientedBox& GetLocalBoundingBox() const;
@@ -152,8 +163,12 @@ public:
     void SetIsSleeping(bool IsSleeping);
     bool GetIsSleeping() const;
 
+    void ClearContactState();
+    void RegisterContactNormal(const DirectX::SimpleMath::Vector3& ContactNormal);
+    bool HasSupportingContact(const DirectX::SimpleMath::Vector3& Gravity) const;
+
     void MoveToTarget(const DirectX::SimpleMath::Vector3& TargetPosition, float DeltaTime);
-    void UpdateSleepState();
+    void UpdateSleepState(const DirectX::SimpleMath::Vector3& Gravity);
     void UpdateWorldBoundingBox();
 
 public:
@@ -165,6 +180,7 @@ public:
 
 private:
     void NormalizeRigidBodyOrientation();
+    void UpdateInverseInertiaTensorWorld();
     void UpdateFatWorldBoundingBox();
 
 private:
@@ -174,6 +190,7 @@ private:
     float mSleepThreshold;
     float mBoundingBoxFatMargin;
     RigidBody mRigidBody;
+    std::vector<DirectX::SimpleMath::Vector3> mContactNormals;
     PhysicsActorFlags mFlags;
     PhysicsActorType mActorType;
     DirectX::BoundingOrientedBox mLocalBoundingBox;
