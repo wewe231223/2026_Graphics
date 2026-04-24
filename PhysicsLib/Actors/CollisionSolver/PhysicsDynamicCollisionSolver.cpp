@@ -83,6 +83,8 @@ bool PhysicsDynamicCollisionSolver::ResolveCollision(PhysicsActorBase& SelfActor
         return false;
     }
 
+    SelfActor.RegisterContactNormal(-SatResult.mNormal);
+    OtherActor.RegisterContactNormal(SatResult.mNormal);
     SelfActor.SetIsSleeping(false);
     OtherActor.SetIsSleeping(false);
     return true;

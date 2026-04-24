@@ -15,6 +15,7 @@ Notes:
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <DirectXCollision.h>
 #include <DirectXTK12/SimpleMath.h>
@@ -154,8 +155,12 @@ public:
     void SetIsSleeping(bool IsSleeping);
     bool GetIsSleeping() const;
 
+    void ClearContactState();
+    void RegisterContactNormal(const DirectX::SimpleMath::Vector3& ContactNormal);
+    bool HasSupportingContact(const DirectX::SimpleMath::Vector3& Gravity) const;
+
     void MoveToTarget(const DirectX::SimpleMath::Vector3& TargetPosition, float DeltaTime);
-    void UpdateSleepState();
+    void UpdateSleepState(const DirectX::SimpleMath::Vector3& Gravity);
     void UpdateWorldBoundingBox();
 
 public:
@@ -176,6 +181,7 @@ private:
     float mSleepThreshold;
     float mBoundingBoxFatMargin;
     RigidBody mRigidBody;
+    std::vector<DirectX::SimpleMath::Vector3> mContactNormals;
     PhysicsActorFlags mFlags;
     PhysicsActorType mActorType;
     DirectX::BoundingOrientedBox mLocalBoundingBox;

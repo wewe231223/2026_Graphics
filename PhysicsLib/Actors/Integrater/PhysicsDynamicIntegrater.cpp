@@ -45,13 +45,26 @@ void PhysicsDynamicIntegrater::Integrate(IPhysicsWorldMediator& WorldMediator, P
         return;
     }
 
-    if (!Actor.GetIsActive() || Actor.GetInverseMass() <= 0.0F || Actor.GetIsSleeping()) {
+    if (!Actor.GetIsActive() || Actor.GetInverseMass() <= 0.0F) {
+        return;
+    }
+
+    const DirectX::SimpleMath::Vector3& Gravity{ WorldMediator.GetGravity() };
+    if (Actor.GetIsSleeping()) {
+        float GravityLengthSquared{ Gravity.LengthSquared() };
+        float SleepThresholdSquared{ Actor.GetSleepThreshold() * Actor.GetSleepThreshold() };
+        if (GravityLengthSquared > SleepThresholdSquared && !Actor.HasSupportingContact(Gravity)) {
+            Actor.SetIsSleeping(false);
+        }
+    }
+
+    if (Actor.GetIsSleeping()) {
         return;
     }
 
     float ActorMass{ Actor.GetMass() };
     float ActorInverseMass{ Actor.GetInverseMass() };
-    DirectX::SimpleMath::Vector3 TotalAcceleration{ WorldMediator.GetGravity() + Actor.GetAcceleration() };
+    DirectX::SimpleMath::Vector3 TotalAcceleration{ Gravity + Actor.GetAcceleration() };
     DirectX::SimpleMath::Vector3 TotalForce{ (TotalAcceleration * ActorMass) + Actor.GetAccumulatedForce() };
     DirectX::SimpleMath::Vector3 NextLinearMomentum{ Actor.GetLinearMomentum() + (TotalForce * DeltaTime) };
     DirectX::SimpleMath::Vector3 NextVelocity{ NextLinearMomentum * ActorInverseMass };
@@ -64,5 +77,5 @@ void PhysicsDynamicIntegrater::Integrate(IPhysicsWorldMediator& WorldMediator, P
     Actor.SetVelocity(NextVelocity);
     Actor.SetLinearMomentum(NextLinearMomentum);
     Actor.ClearAccumulatedForce();
-    Actor.UpdateSleepState();
+    Actor.UpdateSleepState(Gravity);
 }

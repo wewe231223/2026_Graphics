@@ -16,6 +16,9 @@ DirectX::BoundingOrientedBox MakeDefaultBoundingOrientedBox() {
     BoundingBoxValue.Orientation = DirectX::XMFLOAT4{ 0.0F, 0.0F, 0.0F, 1.0F };
     return BoundingBoxValue;
 }
+
+constexpr float ContactNormalLengthEpsilon{ 0.00001F };
+constexpr float SupportingContactMinimumDot{ 0.5F };
 }
 
 PhysicsActorBase::PhysicsActorBase()
@@ -25,6 +28,7 @@ PhysicsActorBase::PhysicsActorBase()
       mSleepThreshold{ 0.05F },
       mBoundingBoxFatMargin{ 0.1F },
       mRigidBody{},
+      mContactNormals{},
       mFlags{ PhysicsActorFlags::None },
       mActorType{ PhysicsActorType::Dynamic },
       mLocalBoundingBox{ MakeDefaultBoundingOrientedBox() },
@@ -350,6 +354,38 @@ bool PhysicsActorBase::GetIsSleeping() const {
     return mIsSleeping;
 }
 
+void PhysicsActorBase::ClearContactState() {
+    mContactNormals.clear();
+}
+
+void PhysicsActorBase::RegisterContactNormal(const DirectX::SimpleMath::Vector3& ContactNormal) {
+    float ContactNormalLengthSquared{ ContactNormal.LengthSquared() };
+    if (ContactNormalLengthSquared <= (ContactNormalLengthEpsilon * ContactNormalLengthEpsilon)) {
+        return;
+    }
+
+    DirectX::SimpleMath::Vector3 NormalizedContactNormal{ ContactNormal / std::sqrt(ContactNormalLengthSquared) };
+    mContactNormals.push_back(NormalizedContactNormal);
+}
+
+bool PhysicsActorBase::HasSupportingContact(const DirectX::SimpleMath::Vector3& Gravity) const {
+    float GravityLengthSquared{ Gravity.LengthSquared() };
+    if (GravityLengthSquared <= (ContactNormalLengthEpsilon * ContactNormalLengthEpsilon)) {
+        return false;
+    }
+
+    DirectX::SimpleMath::Vector3 AntiGravityDirection{ -Gravity / std::sqrt(GravityLengthSquared) };
+    std::size_t ContactNormalCount{ mContactNormals.size() };
+    for (std::size_t ContactNormalIndex{ 0U }; ContactNormalIndex < ContactNormalCount; ++ContactNormalIndex) {
+        float SupportDot{ mContactNormals[ContactNormalIndex].Dot(AntiGravityDirection) };
+        if (SupportDot >= SupportingContactMinimumDot) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void PhysicsActorBase::MoveToTarget(const DirectX::SimpleMath::Vector3& TargetPosition, float DeltaTime) {
     if (DeltaTime <= 0.0F) {
         return;
@@ -360,11 +396,16 @@ void PhysicsActorBase::MoveToTarget(const DirectX::SimpleMath::Vector3& TargetPo
     SetPosition(TargetPosition);
 }
 
-void PhysicsActorBase::UpdateSleepState() {
+void PhysicsActorBase::UpdateSleepState(const DirectX::SimpleMath::Vector3& Gravity) {
     float VelocityLengthSquared{ mRigidBody.mVelocity.LengthSquared() };
     float AccelerationLengthSquared{ mRigidBody.mAcceleration.LengthSquared() };
+    DirectX::SimpleMath::Vector3 ForceAcceleration{ mRigidBody.mInverseMass > 0.0F ? mRigidBody.mAccumulatedForce * mRigidBody.mInverseMass : DirectX::SimpleMath::Vector3{} };
+    float ForceAccelerationLengthSquared{ ForceAcceleration.LengthSquared() };
+    float GravityLengthSquared{ Gravity.LengthSquared() };
     float ThresholdSquared{ mSleepThreshold * mSleepThreshold };
-    bool ShouldSleep{ VelocityLengthSquared <= ThresholdSquared && AccelerationLengthSquared <= ThresholdSquared };
+    bool HasUnsupportedGravity{ GravityLengthSquared > ThresholdSquared && !HasSupportingContact(Gravity) };
+    bool HasAcceleration{ AccelerationLengthSquared > ThresholdSquared || ForceAccelerationLengthSquared > ThresholdSquared || HasUnsupportedGravity };
+    bool ShouldSleep{ VelocityLengthSquared <= ThresholdSquared && !HasAcceleration };
     SetIsSleeping(ShouldSleep);
 }
 

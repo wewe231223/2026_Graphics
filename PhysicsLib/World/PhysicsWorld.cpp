@@ -72,7 +72,7 @@ void IntegrateKinematicActors(IPhysicsWorldMediator& WorldMediator, IPhysicsActo
     }
 }
 
-void ResolveKinematicCollisions(IPhysicsActorRepository& ActorRepository, float DeltaTime) {
+void ResolveKinematicCollisions(IPhysicsActorRepository& ActorRepository, const DirectX::SimpleMath::Vector3& Gravity, float DeltaTime) {
     if (DeltaTime <= 0.0F) {
         return;
     }
@@ -95,12 +95,19 @@ void ResolveKinematicCollisions(IPhysicsActorRepository& ActorRepository, float 
             }
 
             if (FirstActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Kinematic) {
-                FirstActor->ResolveActorCollision(*SecondActor, DeltaTime);
+                bool HasCollision{ FirstActor->ResolveActorCollision(*SecondActor, DeltaTime) };
+                if (HasCollision && SecondActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Dynamic) {
+                    SecondActor->UpdateSleepState(Gravity);
+                }
+
                 continue;
             }
 
             if (SecondActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Kinematic) {
-                SecondActor->ResolveActorCollision(*FirstActor, DeltaTime);
+                bool HasCollision{ SecondActor->ResolveActorCollision(*FirstActor, DeltaTime) };
+                if (HasCollision && FirstActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Dynamic) {
+                    FirstActor->UpdateSleepState(Gravity);
+                }
             }
         }
     }
@@ -209,8 +216,8 @@ void ResolveDynamicCollisions(IPhysicsWorldMediator& WorldMediator, std::vector<
             }
 
             HasAnyCollision = true;
-            FirstActor->UpdateSleepState();
-            SecondActor->UpdateSleepState();
+            FirstActor->UpdateSleepState(WorldMediator.GetGravity());
+            SecondActor->UpdateSleepState(WorldMediator.GetGravity());
         }
 
         if (!HasAnyCollision) {
@@ -254,7 +261,7 @@ void ResolveStaticCollisions(IPhysicsWorldMediator& WorldMediator, const std::ve
             }
 
             WorldMediator.PublishEvent(PhysicsSimulationEventType::StaticCollisionResolved, DynamicActor, StaticActor);
-            DynamicActor->UpdateSleepState();
+            DynamicActor->UpdateSleepState(WorldMediator.GetGravity());
         }
     }
 }
@@ -744,11 +751,22 @@ void PhysicsWorld::StepSimulation() {
     std::vector<PhysicsDynamicCollisionPairCandidate> PairCandidates{ GetSpatialQuery().QueryDynamicCollisionPairs(ActorRepository) };
     std::vector<PhysicsDynamicActor*> DynamicActors{ ActorRepository.CollectDynamicActors() };
     std::vector<const PhysicsStaticActor*> StaticActors{ ActorRepository.CollectStaticActors() };
+    std::size_t DynamicActorCount{ DynamicActors.size() };
+    for (std::size_t ActorIndex{ 0U }; ActorIndex < DynamicActorCount; ++ActorIndex) {
+        PhysicsDynamicActor* DynamicActor{ DynamicActors[ActorIndex] };
+        if (DynamicActor == nullptr) {
+            continue;
+        }
+
+        DynamicActor->ClearContactState();
+    }
+
+    IntegrateKinematicActors(*this, ActorRepository, mSettings.FixedTimeStep);
     ResolveDynamicCollisions(*this, PairCandidates, mSettings.FixedTimeStep);
     ResolveStaticCollisions(*this, DynamicActors, StaticActors, mSettings.FixedTimeStep);
+    ResolveKinematicCollisions(ActorRepository, mSettings.Gravity, mSettings.FixedTimeStep);
     IntegrateDynamicActors(*this, ActorRepository, mSettings.FixedTimeStep);
-    IntegrateKinematicActors(*this, ActorRepository, mSettings.FixedTimeStep);
-    ResolveKinematicCollisions(ActorRepository, mSettings.FixedTimeStep);
+    ResolveKinematicCollisions(ActorRepository, mSettings.Gravity, mSettings.FixedTimeStep);
 }
 
 void PhysicsWorld::Update(float DeltaTime) {

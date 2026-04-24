@@ -68,14 +68,18 @@ bool ResolveKinematicActorPair(PhysicsActorBase& FirstActor, PhysicsActorBase& S
         return false;
     }
 
+    PhysicsActorBase::PhysicsActorType OtherType{ SecondActor.GetActorType() };
     float PenetrationDepth{ std::max(0.0F, SatResult.mPenetration - KinematicPositionCorrectionSlop) };
+    if (OtherType == PhysicsActorBase::PhysicsActorType::Dynamic) {
+        SecondActor.RegisterContactNormal(CollisionNormal);
+    }
+
     if (PenetrationDepth <= 0.0F) {
         return true;
     }
 
     float FirstPositionWeight{ 1.0F };
     float SecondPositionWeight{};
-    PhysicsActorBase::PhysicsActorType OtherType{ SecondActor.GetActorType() };
     if (OtherType == PhysicsActorBase::PhysicsActorType::Dynamic) {
         FirstPositionWeight = 0.0F;
         SecondPositionWeight = 1.0F;
@@ -121,6 +125,7 @@ bool ResolveKinematicAgainstDynamicActor(const PhysicsActorBase& FirstActor, Phy
     }
 
     float PenetrationDepth{ std::max(0.0F, SatResult.mPenetration - KinematicPositionCorrectionSlop) };
+    SecondActor.RegisterContactNormal(CollisionNormal);
     if (PenetrationDepth <= 0.0F) {
         return true;
     }

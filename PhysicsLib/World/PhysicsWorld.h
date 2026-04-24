@@ -67,7 +67,7 @@ class PhysicsWorld final : public IPhysicsWorld {
 public:
     using WorldSettings = IPhysicsWorld::WorldSettings;
 
-public:
+    public:
     PhysicsWorld();
     ~PhysicsWorld() override;
     PhysicsWorld(const PhysicsWorld& Other);

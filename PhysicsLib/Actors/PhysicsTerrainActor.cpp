@@ -422,6 +422,7 @@ bool PhysicsTerrainActor::ResolveDynamicCollision(PhysicsActorBase& DynamicActor
         return false;
     }
 
+    DynamicActor.RegisterContactNormal(ContactNormal);
     DirectX::SimpleMath::Vector3 CorrectedPosition{ DynamicActor.GetPosition() };
     DirectX::SimpleMath::Vector3 CorrectedVelocity{ DynamicActor.GetVelocity() };
 
