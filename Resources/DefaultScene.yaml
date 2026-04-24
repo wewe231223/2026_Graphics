@@ -124,9 +124,17 @@ Entities:
       Animation:
         text: testset3.animbin
         initclip: 0
-      BB:
-        Center: [0.00, 0.00, 0.00]
-        Extents: [0.60, 0.85, 0.60]
+      Physics:
+        name: "TestSetRoot"
+        active: true
+        actorType: Dynamic
+        mass: 1.0
+        flags: [TerrainCollide]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
   - EntityId: 2
     ParentEntityId: -1
     Components:
@@ -142,9 +150,17 @@ Entities:
       PrefabInstance:
         <<: *Prefab1002
         prefabId: 1002
-      BB:
-        Center: [0.00, 0.00, 0.00]
-        Extents: [0.60, 0.85, 0.60]
+      Physics:
+        name: "TestSet2Root"
+        active: true
+        actorType: Dynamic
+        mass: 1.0
+        flags: [TerrainCollide]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
   - EntityId: 3
     ParentEntityId: -1
     Components:
@@ -268,9 +284,17 @@ Entities:
         blendSpeed: 12.0
         maxLift: 0.35
         maxDrop: 0.20
-      BB:
-        Center: [0.00, 0.00, 0.00]
-        Extents: [0.60, 0.85, 0.60]
+      Physics:
+        name: "PlayerActor"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [TerrainCollide, Kinematic]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
       Script:
         path: Script/Lua/PlayerBehavior.lua
   - EntityId: 10
@@ -416,6 +440,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2001
         prefabId: 2001
+      Physics:
+        name: "CSMProbeBox01"
+        active: true
+        actorType: Dynamic
+        mass: 0.75
+        flags: [TerrainCollide]
+        friction: 0.24
+        restitution: 0.68
   - EntityId: 18
     ParentEntityId: -1
     Components:
@@ -432,6 +464,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2002
         prefabId: 2002
+      Physics:
+        name: "CSMProbeSphere01"
+        active: true
+        actorType: Dynamic
+        mass: 1.35
+        flags: [TerrainCollide]
+        friction: 0.18
+        restitution: 0.82
   - EntityId: 19
     ParentEntityId: -1
     Components:
@@ -448,6 +488,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2003
         prefabId: 2003
+      Physics:
+        name: "CSMProbeCylinder01"
+        active: true
+        actorType: Dynamic
+        mass: 4.60
+        flags: [TerrainCollide]
+        friction: 0.72
+        restitution: 0.21
   - EntityId: 20
     ParentEntityId: -1
     Components:
@@ -464,6 +512,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2004
         prefabId: 2004
+      Physics:
+        name: "CSMProbeCone01"
+        active: true
+        actorType: Dynamic
+        mass: 2.15
+        flags: [TerrainCollide]
+        friction: 0.48
+        restitution: 0.36
   - EntityId: 21
     ParentEntityId: -1
     Components:
@@ -480,6 +536,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2005
         prefabId: 2005
+      Physics:
+        name: "CSMProbeTriPyramid01"
+        active: true
+        actorType: Dynamic
+        mass: 3.90
+        flags: [TerrainCollide]
+        friction: 0.64
+        restitution: 0.17
   - EntityId: 22
     ParentEntityId: -1
     Components:
@@ -496,6 +560,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2006
         prefabId: 2006
+      Physics:
+        name: "CSMProbeSquarePyramid01"
+        active: true
+        actorType: Dynamic
+        mass: 5.25
+        flags: [TerrainCollide]
+        friction: 0.39
+        restitution: 0.44
   - EntityId: 23
     ParentEntityId: -1
     Components:
@@ -512,6 +584,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2001
         prefabId: 2001
+      Physics:
+        name: "CSMProbeBox02"
+        active: true
+        actorType: Dynamic
+        mass: 7.80
+        flags: [TerrainCollide]
+        friction: 0.81
+        restitution: 0.09
   - EntityId: 24
     ParentEntityId: -1
     Components:
@@ -528,6 +608,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2002
         prefabId: 2002
+      Physics:
+        name: "CSMProbeSphere02"
+        active: true
+        actorType: Dynamic
+        mass: 0.42
+        flags: [TerrainCollide]
+        friction: 0.12
+        restitution: 0.91
   - EntityId: 25
     ParentEntityId: -1
     Components:
@@ -544,6 +632,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2003
         prefabId: 2003
+      Physics:
+        name: "CSMProbeCylinder02"
+        active: true
+        actorType: Dynamic
+        mass: 6.40
+        flags: [TerrainCollide]
+        friction: 0.87
+        restitution: 0.06
   - EntityId: 26
     ParentEntityId: -1
     Components:
@@ -560,6 +656,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2004
         prefabId: 2004
+      Physics:
+        name: "CSMProbeCone02"
+        active: true
+        actorType: Dynamic
+        mass: 1.10
+        flags: [TerrainCollide]
+        friction: 0.31
+        restitution: 0.57
   - EntityId: 27
     ParentEntityId: -1
     Components:
@@ -576,6 +680,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2005
         prefabId: 2005
+      Physics:
+        name: "CSMProbeTriPyramid02"
+        active: true
+        actorType: Dynamic
+        mass: 3.35
+        flags: [TerrainCollide]
+        friction: 0.55
+        restitution: 0.28
   - EntityId: 28
     ParentEntityId: -1
     Components:
@@ -592,6 +704,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2006
         prefabId: 2006
+      Physics:
+        name: "CSMProbeSquarePyramid02"
+        active: true
+        actorType: Dynamic
+        mass: 8.10
+        flags: [TerrainCollide]
+        friction: 0.69
+        restitution: 0.12
   - EntityId: 29
     ParentEntityId: -1
     Components:
@@ -608,6 +728,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2001
         prefabId: 2001
+      Physics:
+        name: "CSMProbeBox03"
+        active: true
+        actorType: Dynamic
+        mass: 4.95
+        flags: [TerrainCollide]
+        friction: 0.77
+        restitution: 0.19
   - EntityId: 30
     ParentEntityId: -1
     Components:
@@ -624,6 +752,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2002
         prefabId: 2002
+      Physics:
+        name: "CSMProbeSphere03"
+        active: true
+        actorType: Dynamic
+        mass: 6.85
+        flags: [TerrainCollide]
+        friction: 0.22
+        restitution: 0.73
   - EntityId: 31
     ParentEntityId: -1
     Components:
@@ -640,6 +776,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2003
         prefabId: 2003
+      Physics:
+        name: "CSMProbeCylinder03"
+        active: true
+        actorType: Dynamic
+        mass: 2.70
+        flags: [TerrainCollide]
+        friction: 0.43
+        restitution: 0.39
   - EntityId: 32
     ParentEntityId: -1
     Components:
@@ -656,6 +800,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2004
         prefabId: 2004
+      Physics:
+        name: "CSMProbeCone03"
+        active: true
+        actorType: Dynamic
+        mass: 9.25
+        flags: [TerrainCollide]
+        friction: 0.58
+        restitution: 0.15
   - EntityId: 33
     ParentEntityId: -1
     Components:
@@ -672,6 +824,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2005
         prefabId: 2005
+      Physics:
+        name: "CSMProbeTriPyramid03"
+        active: true
+        actorType: Dynamic
+        mass: 0.95
+        flags: [TerrainCollide]
+        friction: 0.34
+        restitution: 0.63
   - EntityId: 34
     ParentEntityId: -1
     Components:
@@ -688,6 +848,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2006
         prefabId: 2006
+      Physics:
+        name: "CSMProbeSquarePyramid03"
+        active: true
+        actorType: Dynamic
+        mass: 5.70
+        flags: [TerrainCollide]
+        friction: 0.91
+        restitution: 0.08
   - EntityId: 35
     ParentEntityId: -1
     Components:
@@ -704,6 +872,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2001
         prefabId: 2001
+      Physics:
+        name: "CSMProbeBox04"
+        active: true
+        actorType: Dynamic
+        mass: 6.15
+        flags: [TerrainCollide]
+        friction: 0.67
+        restitution: 0.24
   - EntityId: 36
     ParentEntityId: -1
     Components:
@@ -720,6 +896,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2002
         prefabId: 2002
+      Physics:
+        name: "CSMProbeSphere04"
+        active: true
+        actorType: Dynamic
+        mass: 1.85
+        flags: [TerrainCollide]
+        friction: 0.16
+        restitution: 0.79
   - EntityId: 37
     ParentEntityId: -1
     Components:
@@ -736,6 +920,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2003
         prefabId: 2003
+      Physics:
+        name: "CSMProbeCylinder04"
+        active: true
+        actorType: Dynamic
+        mass: 3.55
+        flags: [TerrainCollide]
+        friction: 0.52
+        restitution: 0.33
   - EntityId: 38
     ParentEntityId: -1
     Components:
@@ -752,6 +944,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2004
         prefabId: 2004
+      Physics:
+        name: "CSMProbeCone04"
+        active: true
+        actorType: Dynamic
+        mass: 4.25
+        flags: [TerrainCollide]
+        friction: 0.75
+        restitution: 0.18
   - EntityId: 39
     ParentEntityId: -1
     Components:
@@ -768,6 +968,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2005
         prefabId: 2005
+      Physics:
+        name: "CSMProbeTriPyramid04"
+        active: true
+        actorType: Dynamic
+        mass: 7.35
+        flags: [TerrainCollide]
+        friction: 0.47
+        restitution: 0.41
   - EntityId: 40
     ParentEntityId: -1
     Components:
@@ -784,6 +992,14 @@ Entities:
       PrefabInstance:
         <<: *Prefab2006
         prefabId: 2006
+      Physics:
+        name: "CSMProbeSquarePyramid04"
+        active: true
+        actorType: Dynamic
+        mass: 8.80
+        flags: [TerrainCollide]
+        friction: 0.84
+        restitution: 0.11
   - EntityId: 41
     ParentEntityId: -1
     Components:
@@ -800,3 +1016,11 @@ Entities:
       PrefabInstance:
         <<: *Prefab2001
         prefabId: 2001
+      Physics:
+        name: "CSMProbeBox05"
+        active: true
+        actorType: Dynamic
+        mass: 10.50
+        flags: [TerrainCollide]
+        friction: 0.29
+        restitution: 0.52

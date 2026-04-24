@@ -1,10 +1,12 @@
 ﻿#include "SceneYamlSerializer.h"
 #include <array>
+#include <cctype>
 #include <cstdint>
 #include <filesystem>
 #include <exception>
 #include <fstream>
 #include <format>
+#include <initializer_list>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -26,6 +28,7 @@
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/Name.h"
+#include "Game/Scene/Components/PhysicsActor.h"
 #include "Game/Scene/Components/PrefabInstance.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Tags.h"
@@ -61,6 +64,7 @@ namespace {
     constexpr const char* BoneSkinReferenceTypeName{ "BoneSkinReference" };
     constexpr const char* FootIKRigTypeName{ "FootIKRig" };
     constexpr const char* RuntimeVariablesTypeName{ "RuntimeVariables" };
+    constexpr const char* PhysicsTypeName{ "Physics" };
     constexpr const char* BoundingBoxTypeName{ "BB" };
     constexpr const char* DefaultMaterialPathText{ "Resources/DefaultResource/DefaultMaterial.json" };
     constexpr const char* CameraModeFreeLookText{ "FreeLook" };
@@ -545,6 +549,349 @@ namespace {
         return false;
     }
 
+    std::string TrimCopy(const std::string& Text) {
+        std::size_t BeginIndex{ 0 };
+        while (BeginIndex < Text.size() && std::isspace(static_cast<unsigned char>(Text[BeginIndex])) != 0) {
+            BeginIndex += 1;
+        }
+
+        std::size_t EndIndex{ Text.size() };
+        while (EndIndex > BeginIndex && std::isspace(static_cast<unsigned char>(Text[EndIndex - 1])) != 0) {
+            EndIndex -= 1;
+        }
+
+        return Text.substr(BeginIndex, EndIndex - BeginIndex);
+    }
+
+    std::string ToLowerCopy(const std::string& Text) {
+        std::string LowerText{ Text };
+        for (char& Character : LowerText) {
+            Character = static_cast<char>(std::tolower(static_cast<unsigned char>(Character)));
+        }
+
+        return LowerText;
+    }
+
+    bool TryReadStringChild(c4::yml::ConstNodeRef TargetNode, std::initializer_list<const char*> Keys, std::string& OutValue) {
+        if (TargetNode.readable() == false || TargetNode.is_map() == false) {
+            return false;
+        }
+
+        for (const char* Key : Keys) {
+            if (TargetNode.has_child(Key) == false) {
+                continue;
+            }
+
+            TargetNode[Key] >> OutValue;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool TryReadBoolChild(c4::yml::ConstNodeRef TargetNode, std::initializer_list<const char*> Keys, bool& OutValue) {
+        if (TargetNode.readable() == false || TargetNode.is_map() == false) {
+            return false;
+        }
+
+        for (const char* Key : Keys) {
+            if (TargetNode.has_child(Key) == false) {
+                continue;
+            }
+
+            std::string ValueText{};
+            TargetNode[Key] >> ValueText;
+            if (TryParseYamlBoolText(ValueText, OutValue) == true) {
+                return true;
+            }
+
+            TargetNode[Key] >> OutValue;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool TryReadFloatChild(c4::yml::ConstNodeRef TargetNode, std::initializer_list<const char*> Keys, float& OutValue) {
+        if (TargetNode.readable() == false || TargetNode.is_map() == false) {
+            return false;
+        }
+
+        for (const char* Key : Keys) {
+            if (TargetNode.has_child(Key) == false) {
+                continue;
+            }
+
+            TargetNode[Key] >> OutValue;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool TryParsePhysicsActorTypeText(const std::string& ActorTypeText, PhysicsActorBase::PhysicsActorType& OutActorType) {
+        const std::string NormalizedText{ ToLowerCopy(TrimCopy(ActorTypeText)) };
+        if (NormalizedText == "dynamic" || NormalizedText == "0") {
+            OutActorType = PhysicsActorBase::PhysicsActorType::Dynamic;
+            return true;
+        }
+
+        if (NormalizedText == "kinematic" || NormalizedText == "1") {
+            OutActorType = PhysicsActorBase::PhysicsActorType::Kinematic;
+            return true;
+        }
+
+        if (NormalizedText == "static" || NormalizedText == "2") {
+            OutActorType = PhysicsActorBase::PhysicsActorType::Static;
+            return true;
+        }
+
+        return false;
+    }
+
+    const char* ResolvePhysicsActorTypeYamlText(PhysicsActorBase::PhysicsActorType ActorType) {
+        switch (ActorType) {
+            case PhysicsActorBase::PhysicsActorType::Dynamic:
+                return "Dynamic";
+
+            case PhysicsActorBase::PhysicsActorType::Kinematic:
+                return "Kinematic";
+
+            case PhysicsActorBase::PhysicsActorType::Static:
+                return "Static";
+
+            default:
+                return "Dynamic";
+        }
+    }
+
+    bool TryParsePhysicsActorFlagText(const std::string& FlagText, PhysicsActorBase::PhysicsActorFlags& OutFlag) {
+        const std::string NormalizedText{ ToLowerCopy(TrimCopy(FlagText)) };
+        if (NormalizedText.empty() == true) {
+            return false;
+        }
+
+        bool IsNumericText{ true };
+        for (char Character : NormalizedText) {
+            if (std::isdigit(static_cast<unsigned char>(Character)) == 0) {
+                IsNumericText = false;
+                break;
+            }
+        }
+
+        if (IsNumericText == true) {
+            try {
+                OutFlag = static_cast<PhysicsActorBase::PhysicsActorFlags>(std::stoul(NormalizedText));
+                return true;
+            }
+            catch (const std::exception&) {
+                return false;
+            }
+        }
+
+        if (NormalizedText == "none") {
+            OutFlag = PhysicsActorBase::PhysicsActorFlags::None;
+            return true;
+        }
+
+        if (NormalizedText == "static") {
+            OutFlag = PhysicsActorBase::PhysicsActorFlags::Static;
+            return true;
+        }
+
+        if (NormalizedText == "kinematic") {
+            OutFlag = PhysicsActorBase::PhysicsActorFlags::Kinematic;
+            return true;
+        }
+
+        if (NormalizedText == "trigger") {
+            OutFlag = PhysicsActorBase::PhysicsActorFlags::Trigger;
+            return true;
+        }
+
+        if (NormalizedText == "sleeping") {
+            OutFlag = PhysicsActorBase::PhysicsActorFlags::Sleeping;
+            return true;
+        }
+
+        if (NormalizedText == "terraincollide" || NormalizedText == "terrain_collide" || NormalizedText == "terrain-collide" || NormalizedText == "terrain") {
+            OutFlag = PhysicsActorBase::PhysicsActorFlags::TerrainCollide;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool TryAppendPhysicsActorFlagsFromText(const std::string& FlagsText, PhysicsActorBase::PhysicsActorFlags& InOutFlags) {
+        std::size_t CurrentStart{ 0 };
+        while (CurrentStart < FlagsText.size()) {
+            const std::size_t TokenEnd{ FlagsText.find_first_of("|,", CurrentStart) };
+            const std::size_t TokenLength{ TokenEnd == std::string::npos ? FlagsText.size() - CurrentStart : TokenEnd - CurrentStart };
+            const std::string Token{ TrimCopy(FlagsText.substr(CurrentStart, TokenLength)) };
+            if (Token.empty() == false) {
+                PhysicsActorBase::PhysicsActorFlags Flag{};
+                if (TryParsePhysicsActorFlagText(Token, Flag) == false) {
+                    return false;
+                }
+
+                if (Flag == PhysicsActorBase::PhysicsActorFlags::None) {
+                    InOutFlags = PhysicsActorBase::PhysicsActorFlags::None;
+                }
+                else {
+                    InOutFlags = InOutFlags | Flag;
+                }
+            }
+
+            if (TokenEnd == std::string::npos) {
+                break;
+            }
+
+            CurrentStart = TokenEnd + 1;
+        }
+
+        return true;
+    }
+
+    bool TryReadPhysicsActorFlagsNode(c4::yml::ConstNodeRef FlagsNode, PhysicsActorBase::PhysicsActorFlags& OutFlags) {
+        if (FlagsNode.readable() == false) {
+            return false;
+        }
+
+        PhysicsActorBase::PhysicsActorFlags ParsedFlags{ PhysicsActorBase::PhysicsActorFlags::None };
+        if (FlagsNode.is_seq() == true) {
+            for (const c4::yml::ConstNodeRef FlagNode : FlagsNode.children()) {
+                std::string FlagText{};
+                FlagNode >> FlagText;
+                if (TryAppendPhysicsActorFlagsFromText(FlagText, ParsedFlags) == false) {
+                    return false;
+                }
+            }
+
+            OutFlags = ParsedFlags;
+            return true;
+        }
+
+        std::string FlagsText{};
+        FlagsNode >> FlagsText;
+        if (TryAppendPhysicsActorFlagsFromText(FlagsText, ParsedFlags) == false) {
+            return false;
+        }
+
+        OutFlags = ParsedFlags;
+        return true;
+    }
+
+    bool TryReadPhysicsActorFlagsChild(c4::yml::ConstNodeRef TargetNode, std::initializer_list<const char*> Keys, PhysicsActorBase::PhysicsActorFlags& OutFlags) {
+        if (TargetNode.readable() == false || TargetNode.is_map() == false) {
+            return false;
+        }
+
+        for (const char* Key : Keys) {
+            if (TargetNode.has_child(Key) == false) {
+                continue;
+            }
+
+            return TryReadPhysicsActorFlagsNode(TargetNode[Key], OutFlags);
+        }
+
+        return false;
+    }
+
+    bool HasPhysicsActorFlag(PhysicsActorBase::PhysicsActorFlags Flags, PhysicsActorBase::PhysicsActorFlags Flag) {
+        return (Flags & Flag) != PhysicsActorBase::PhysicsActorFlags::None;
+    }
+
+    std::string BuildPhysicsActorFlagsYamlText(PhysicsActorBase::PhysicsActorFlags Flags) {
+        if (Flags == PhysicsActorBase::PhysicsActorFlags::None) {
+            return "None";
+        }
+
+        std::vector<std::string> FlagTexts{};
+        if (HasPhysicsActorFlag(Flags, PhysicsActorBase::PhysicsActorFlags::Static) == true) {
+            FlagTexts.push_back("Static");
+        }
+
+        if (HasPhysicsActorFlag(Flags, PhysicsActorBase::PhysicsActorFlags::Kinematic) == true) {
+            FlagTexts.push_back("Kinematic");
+        }
+
+        if (HasPhysicsActorFlag(Flags, PhysicsActorBase::PhysicsActorFlags::Trigger) == true) {
+            FlagTexts.push_back("Trigger");
+        }
+
+        if (HasPhysicsActorFlag(Flags, PhysicsActorBase::PhysicsActorFlags::Sleeping) == true) {
+            FlagTexts.push_back("Sleeping");
+        }
+
+        if (HasPhysicsActorFlag(Flags, PhysicsActorBase::PhysicsActorFlags::TerrainCollide) == true) {
+            FlagTexts.push_back("TerrainCollide");
+        }
+
+        if (FlagTexts.empty() == true) {
+            return std::to_string(static_cast<std::uint32_t>(Flags));
+        }
+
+        std::string JoinedText{ FlagTexts[0] };
+        for (std::size_t FlagIndex{ 1 }; FlagIndex < FlagTexts.size(); ++FlagIndex) {
+            JoinedText += std::string{ ", " } + FlagTexts[FlagIndex];
+        }
+
+        return JoinedText;
+    }
+
+    bool TryReadBoundingBoxBinding(c4::yml::ConstNodeRef BoundingBoxNode, Arche::EntityID EntityId, PendingBoundingBoxBinding& OutBinding) {
+        if (BoundingBoxNode.readable() == false || BoundingBoxNode.is_map() == false) {
+            return false;
+        }
+
+        SimpleMath::Vector3 BoundingCenter{};
+        SimpleMath::Vector3 BoundingExtents{};
+        const bool IsCenterRead{ BoundingBoxNode.has_child("Center") && ReadVector3(BoundingBoxNode["Center"], BoundingCenter) };
+        const bool IsExtentsRead{ BoundingBoxNode.has_child("Extents") && ReadVector3(BoundingBoxNode["Extents"], BoundingExtents) };
+        if (IsCenterRead == false || IsExtentsRead == false) {
+            return false;
+        }
+
+        OutBinding.EntityId = EntityId;
+        OutBinding.Center = BoundingCenter;
+        OutBinding.Extents = BoundingExtents;
+        return true;
+    }
+
+    bool TryReadPhysicsActorSettings(c4::yml::ConstNodeRef PhysicsNode, Game::PhysicsActorSettings& OutSettings, std::string& OutErrorText) {
+        if (PhysicsNode.readable() == false || PhysicsNode.is_map() == false) {
+            OutErrorText = "Physics 섹터가 map 형식이 아닙니다.";
+            return false;
+        }
+
+        std::string NameText{};
+        if (TryReadStringChild(PhysicsNode, { "name", "Name" }, NameText) == true) {
+            Game::SetPhysicsActorSettingsName(OutSettings, NameText);
+        }
+
+        TryReadBoolChild(PhysicsNode, { "active", "isActive", "IsActive" }, OutSettings.mIsActive);
+        TryReadFloatChild(PhysicsNode, { "mass", "Mass" }, OutSettings.mMass);
+        TryReadFloatChild(PhysicsNode, { "friction", "Friction" }, OutSettings.mFriction);
+        TryReadFloatChild(PhysicsNode, { "restitution", "Restitution" }, OutSettings.mRestitution);
+
+        std::string ActorTypeText{};
+        if (TryReadStringChild(PhysicsNode, { "actorType", "ActorType", "type", "Type" }, ActorTypeText) == true) {
+            if (TryParsePhysicsActorTypeText(ActorTypeText, OutSettings.mActorType) == false) {
+                OutErrorText = std::string{ "Physics ActorType 값 오류: " } + ActorTypeText;
+                return false;
+            }
+        }
+
+        if (TryReadPhysicsActorFlagsChild(PhysicsNode, { "flags", "Flags" }, OutSettings.mFlags) == false) {
+            if (PhysicsNode.has_child("flags") == true || PhysicsNode.has_child("Flags") == true) {
+                OutErrorText = "Physics Flags 값 오류";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     bool TryReadTerrainBuildDesc(c4::yml::ConstNodeRef TerrainNode, const std::string& SceneName, Game::TerrainBuildDesc& OutDesc) {
         if (TerrainNode.readable() == false || TerrainNode.is_map() == false) {
             return false;
@@ -691,6 +1038,27 @@ namespace {
 
     void AppendColor4(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& Key, const float* Value) {
         AppendLine(Stream, IndentLevel, Key + std::string{ ": [" } + std::to_string(Value[0]) + std::string{ ", " } + std::to_string(Value[1]) + std::string{ ", " } + std::to_string(Value[2]) + std::string{ ", " } + std::to_string(Value[3]) + std::string{ "]" });
+    }
+
+    void AppendBoundingBox(std::ostringstream& Stream, std::size_t IndentLevel, const DirectX::BoundingOrientedBox& LocalBoundingBox) {
+        AppendLine(Stream, IndentLevel, std::string{ BoundingBoxTypeName } + std::string{ ":" });
+        AppendVector3(Stream, IndentLevel + 1, "Center", SimpleMath::Vector3{ LocalBoundingBox.Center.x, LocalBoundingBox.Center.y, LocalBoundingBox.Center.z });
+        AppendVector3(Stream, IndentLevel + 1, "Extents", SimpleMath::Vector3{ LocalBoundingBox.Extents.x, LocalBoundingBox.Extents.y, LocalBoundingBox.Extents.z });
+    }
+
+    void AppendPhysicsActorSettings(std::ostringstream& Stream, std::size_t IndentLevel, const Game::PhysicsActorSettings& SettingsComponent, const Game::BoundingBox* BoundingBoxComponent) {
+        AppendLine(Stream, IndentLevel, std::string{ PhysicsTypeName } + std::string{ ":" });
+        AppendLine(Stream, IndentLevel + 1, std::string{ "name: " } + ToYamlText(Game::GetPhysicsActorSettingsNameTextView(SettingsComponent)));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "active: " } + ToYamlBooleanText(SettingsComponent.mIsActive));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "actorType: " } + ResolvePhysicsActorTypeYamlText(SettingsComponent.mActorType));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "mass: " } + std::to_string(SettingsComponent.mMass));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "flags: [" } + BuildPhysicsActorFlagsYamlText(SettingsComponent.mFlags) + std::string{ "]" });
+        AppendLine(Stream, IndentLevel + 1, std::string{ "friction: " } + std::to_string(SettingsComponent.mFriction));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "restitution: " } + std::to_string(SettingsComponent.mRestitution));
+
+        if (BoundingBoxComponent != nullptr) {
+            AppendBoundingBox(Stream, IndentLevel + 1, BoundingBoxComponent->GetObb());
+        }
     }
 }
 
@@ -936,17 +1304,29 @@ namespace Game {
             }
 
             if (ComponentsNode.has_child(BoundingBoxTypeName)) {
-                const c4::yml::ConstNodeRef BoundingBoxNode{ ComponentsNode[BoundingBoxTypeName] };
-                SimpleMath::Vector3 BoundingCenter{};
-                SimpleMath::Vector3 BoundingExtents{};
-                const bool IsCenterRead{ BoundingBoxNode.has_child("Center") && ReadVector3(BoundingBoxNode["Center"], BoundingCenter) };
-                const bool IsExtentsRead{ BoundingBoxNode.has_child("Extents") && ReadVector3(BoundingBoxNode["Extents"], BoundingExtents) };
-                if (IsCenterRead && IsExtentsRead) {
-                    PendingBoundingBoxBinding NewPendingBinding{};
-                    NewPendingBinding.EntityId = Entity;
-                    NewPendingBinding.Center = BoundingCenter;
-                    NewPendingBinding.Extents = BoundingExtents;
+                PendingBoundingBoxBinding NewPendingBinding{};
+                if (TryReadBoundingBoxBinding(ComponentsNode[BoundingBoxTypeName], Entity, NewPendingBinding) == true) {
                     PendingBoundingBoxBindings.push_back(NewPendingBinding);
+                }
+            }
+
+            if (ComponentsNode.has_child(PhysicsTypeName)) {
+                const c4::yml::ConstNodeRef PhysicsNode{ ComponentsNode[PhysicsTypeName] };
+                PhysicsActorSettings NewPhysicsSettings{};
+                std::string PhysicsErrorText{};
+                if (TryReadPhysicsActorSettings(PhysicsNode, NewPhysicsSettings, PhysicsErrorText) == false) {
+                    LoadResult.IsSuccess = false;
+                    LoadResult.UndecidedItems.push_back(PhysicsErrorText);
+                }
+                else {
+                    OutScene.GetWorld().AddComponent(Entity, NewPhysicsSettings);
+                }
+
+                if (PhysicsNode.readable() == true && PhysicsNode.is_map() == true && PhysicsNode.has_child(BoundingBoxTypeName)) {
+                    PendingBoundingBoxBinding NewPendingBinding{};
+                    if (TryReadBoundingBoxBinding(PhysicsNode[BoundingBoxTypeName], Entity, NewPendingBinding) == true) {
+                        PendingBoundingBoxBindings.push_back(NewPendingBinding);
+                    }
                 }
             }
 
@@ -1830,6 +2210,7 @@ namespace Game {
             const Camera* CameraComponent{ ReadOnlyWorld->GetComponent<Camera>(EntityId) };
             const SkySphere* SkySphereComponent{ ReadOnlyWorld->GetComponent<SkySphere>(EntityId) };
             const Tag* TagComponent{ ReadOnlyWorld->GetComponent<Tag>(EntityId) };
+            const PhysicsActorSettings* PhysicsActorSettingsComponent{ ReadOnlyWorld->GetComponent<PhysicsActorSettings>(EntityId) };
             const Animator* AnimatorComponent{ nullptr };
             Arche::EntityID AnimatorEntityId{ Arche::NullEntityID };
             const bool IsAnimatorFound{ TryFindAnimatorForSerializationInHierarchy(ReadOnlyWorld, EntityId, AnimatorComponent, AnimatorEntityId) };
@@ -1913,11 +2294,11 @@ namespace Game {
             }
 
             const BoundingBox* BoundingBoxComponent{ ReadOnlyWorld->GetComponent<BoundingBox>(EntityId) };
-            if (BoundingBoxComponent != nullptr) {
-                const DirectX::BoundingOrientedBox& LocalBoundingBox{ BoundingBoxComponent->GetObb() };
-                AppendLine(Stream, 3, std::string{ BoundingBoxTypeName } + std::string{ ":" });
-                AppendVector3(Stream, 4, "Center", SimpleMath::Vector3{ LocalBoundingBox.Center.x, LocalBoundingBox.Center.y, LocalBoundingBox.Center.z });
-                AppendVector3(Stream, 4, "Extents", SimpleMath::Vector3{ LocalBoundingBox.Extents.x, LocalBoundingBox.Extents.y, LocalBoundingBox.Extents.z });
+            if (PhysicsActorSettingsComponent != nullptr) {
+                AppendPhysicsActorSettings(Stream, 3, *PhysicsActorSettingsComponent, BoundingBoxComponent);
+            }
+            else if (BoundingBoxComponent != nullptr) {
+                AppendBoundingBox(Stream, 3, BoundingBoxComponent->GetObb());
             }
 
             const PrefabInstance* PrefabInstanceComponent{ ReadOnlyWorld->GetComponent<PrefabInstance>(EntityId) };

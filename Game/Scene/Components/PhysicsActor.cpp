@@ -24,6 +24,20 @@ namespace {
 }
 
 namespace Game {
+    const char* PhysicsActorSettings::GetComponentInspectionName() {
+        return "PhysicsActorSettings";
+    }
+
+    void PhysicsActorSettings::BuildComponentInspectionFields(std::vector<ComponentInspectionField>& OutFields) const {
+        OutFields.push_back(ComponentInspectionField{ "Name", std::format("{}", GetPhysicsActorSettingsNameTextView(*this)) });
+        OutFields.push_back(ComponentInspectionField{ "IsActive", std::format("{}", mIsActive) });
+        OutFields.push_back(ComponentInspectionField{ "Mass", std::format("{:.3f}", mMass) });
+        OutFields.push_back(ComponentInspectionField{ "Flags", std::format("{}", static_cast<std::uint32_t>(mFlags)) });
+        OutFields.push_back(ComponentInspectionField{ "ActorType", std::format("{}", ResolvePhysicsActorTypeText(mActorType)) });
+        OutFields.push_back(ComponentInspectionField{ "Friction", std::format("{:.3f}", mFriction) });
+        OutFields.push_back(ComponentInspectionField{ "Restitution", std::format("{:.3f}", mRestitution) });
+    }
+
     const char* PhysicsActor::GetComponentInspectionName() {
         return "PhysicsActor";
     }
@@ -36,5 +50,23 @@ namespace Game {
 
     bool PhysicsActor::HasActor() const {
         return mActorPointer != nullptr;
+    }
+
+    PhysicsActorSettings CreatePhysicsActorSettingsComponent(std::string_view SourceName) {
+        PhysicsActorSettings NewSettings{};
+        NewSettings.mName.Assign(SourceName);
+        return NewSettings;
+    }
+
+    std::string_view GetPhysicsActorSettingsNameTextView(const PhysicsActorSettings& SettingsComponent) {
+        return SettingsComponent.mName.AsStringView();
+    }
+
+    const char* GetPhysicsActorSettingsNameText(const PhysicsActorSettings& SettingsComponent) {
+        return SettingsComponent.mName.data();
+    }
+
+    void SetPhysicsActorSettingsName(PhysicsActorSettings& SettingsComponent, std::string_view SourceName) {
+        SettingsComponent.mName.Assign(SourceName);
     }
 }

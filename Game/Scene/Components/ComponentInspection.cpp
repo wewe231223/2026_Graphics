@@ -55,6 +55,7 @@ namespace Game {
         AppendComponentInspectionSection<FootIKRuntime>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<BehaviorInstanceComponent>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<BoundingBox>(ReadOnlyWorld, EntityId, OutSections);
+        AppendComponentInspectionSection<PhysicsActorSettings>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<PhysicsActor>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<PrefabInstance>(ReadOnlyWorld, EntityId, OutSections);
 

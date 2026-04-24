@@ -4,6 +4,7 @@
 #include <array>
 #include <cctype>
 #include <cstdint>
+#include <memory>
 #include <string_view>
 #include <unordered_set>
 #include "Imgui/imgui.h"
@@ -33,6 +34,7 @@
 #include "Game/Scene/Components/ScriptComponent.h"
 #include "Game/Scene/Components/Tags.h"
 #include "Game/Base/Input.h"
+#include "PhysicsLib/Actors/PhysicsStaticActor.h"
 
 #include "Game/Scene/Events/SelectionEvent.h"
 #include "Core/Event/EventQueue.h"
@@ -69,33 +71,71 @@ namespace {
         return NextPrefabId;
     }
 
-    std::string ResolvePhysicsActorName(const Arche::World& World, Arche::EntityID EntityId, const Game::Tag& TagComponent) {
+    std::string ResolvePhysicsActorName(const Arche::World& World, Arche::EntityID EntityId, const Game::Tag* TagComponent) {
         const Game::Name* NameComponent{ World.GetComponent<Game::Name>(EntityId) };
         if (NameComponent != nullptr && Game::GetNameTextView(*NameComponent).empty() == false) {
             return std::string{ Game::GetNameTextView(*NameComponent) };
         }
 
-        return std::string{ Game::GetTagTextView(TagComponent) };
+        if (TagComponent != nullptr && Game::GetTagTextView(*TagComponent).empty() == false) {
+            return std::string{ Game::GetTagTextView(*TagComponent) };
+        }
+
+        return "PhysicsActor";
     }
 
-    PhysicsActorBase::ActorDesc BuildPhysicsActorDesc(const Arche::World& World, Arche::EntityID EntityId, const Game::Tag& TagComponent, const Game::BoundingBox& BoundingBoxComponent, const Game::Transform& TransformComponent, PhysicsActorBase::PhysicsActorType ActorType) {
-        PhysicsActorBase::ActorDesc Desc{};
-        Desc.Name = ResolvePhysicsActorName(World, EntityId, TagComponent);
-        Desc.IsActive = true;
-        Desc.Mass = 1.0f;
-        Desc.ActorType = ActorType;
+    PhysicsActorBase::PhysicsActorFlags BuildDefaultPhysicsActorFlags(PhysicsActorBase::PhysicsActorType ActorType) {
         PhysicsActorBase::PhysicsActorFlags ActorFlags{ PhysicsActorBase::PhysicsActorFlags::TerrainCollide };
         if (ActorType == PhysicsActorBase::PhysicsActorType::Kinematic) {
             ActorFlags = ActorFlags | PhysicsActorBase::PhysicsActorFlags::Kinematic;
         }
-        Desc.Flags = ActorFlags;
+        else if (ActorType == PhysicsActorBase::PhysicsActorType::Static) {
+            ActorFlags = ActorFlags | PhysicsActorBase::PhysicsActorFlags::Static;
+        }
+
+        return ActorFlags;
+    }
+
+    PhysicsActorBase::ActorDesc BuildPhysicsActorDesc(const Arche::World& World, Arche::EntityID EntityId, const Game::Tag* TagComponent, const Game::BoundingBox& BoundingBoxComponent, const Game::Transform& TransformComponent, const Game::PhysicsActorSettings& SettingsComponent) {
+        PhysicsActorBase::ActorDesc Desc{};
+        const std::string_view SettingsName{ Game::GetPhysicsActorSettingsNameTextView(SettingsComponent) };
+        Desc.Name = SettingsName.empty() == false ? std::string{ SettingsName } : ResolvePhysicsActorName(World, EntityId, TagComponent);
+        Desc.IsActive = SettingsComponent.mIsActive;
+        Desc.Mass = SettingsComponent.mMass;
+        Desc.Flags = SettingsComponent.mFlags;
+        Desc.ActorType = SettingsComponent.mActorType;
         Desc.LocalBoundingBox = BoundingBoxComponent.GetObb();
         Desc.Position = TransformComponent.position;
         Desc.Rotation = TransformComponent.rotationEuler;
         Desc.Scale = TransformComponent.scale;
         Desc.Velocity = DirectX::SimpleMath::Vector3{};
         Desc.Acceleration = DirectX::SimpleMath::Vector3{};
+        Desc.Friction = SettingsComponent.mFriction;
+        Desc.Restitution = SettingsComponent.mRestitution;
         return Desc;
+    }
+
+    PhysicsActorBase::ActorDesc BuildLegacyPhysicsActorDesc(const Arche::World& World, Arche::EntityID EntityId, const Game::Tag& TagComponent, const Game::BoundingBox& BoundingBoxComponent, const Game::Transform& TransformComponent, PhysicsActorBase::PhysicsActorType ActorType) {
+        Game::PhysicsActorSettings SettingsComponent{};
+        SettingsComponent.mActorType = ActorType;
+        SettingsComponent.mFlags = BuildDefaultPhysicsActorFlags(ActorType);
+        return BuildPhysicsActorDesc(World, EntityId, &TagComponent, BoundingBoxComponent, TransformComponent, SettingsComponent);
+    }
+
+    PhysicsActorBase* CreatePhysicsActor(PhysicsWorld& PhysicsWorldInstance, const PhysicsActorBase::ActorDesc& Desc, std::uint32_t& OutActorIndex) {
+        OutActorIndex = static_cast<std::uint32_t>(PhysicsWorldInstance.GetActorCount());
+        if (Desc.ActorType == PhysicsActorBase::PhysicsActorType::Kinematic) {
+            return PhysicsWorldInstance.CreateKinematicActor(Desc);
+        }
+
+        if (Desc.ActorType == PhysicsActorBase::PhysicsActorType::Static) {
+            std::unique_ptr<PhysicsActorBase> NewActor{ std::make_unique<PhysicsStaticActor>(Desc) };
+            PhysicsActorBase* CreatedActor{ NewActor.get() };
+            PhysicsWorldInstance.AddActor(std::move(NewActor));
+            return CreatedActor;
+        }
+
+        return PhysicsWorldInstance.CreateDynamicActor(Desc);
     }
 
     PhysicsTerrainActor::ActorDesc BuildPhysicsTerrainActorDesc(const PhysicsTerrainActor::ActorDesc& SourceDesc, const Game::Transform& TransformComponent) {
@@ -260,7 +300,32 @@ namespace Game {
         InitializePhysicsWorld();
 
         std::vector<PendingPhysicsActorBinding> PendingBindings{};
+        std::unordered_set<Arche::EntityID> ExplicitPhysicsActorEntities{};
+        for (auto [PhysicsSettingsComponent, BoundingBoxComponent, TransformComponent, EntityHierarchyComponent] : mWorld.Query<PhysicsActorSettings, BoundingBox, Transform, EntityHierarchy>()) {
+            std::uint32_t ActorIndex{};
+            const Tag* TagComponent{ std::as_const(mWorld).GetComponent<Tag>(EntityHierarchyComponent.self) };
+            PhysicsActorBase::ActorDesc Desc{ BuildPhysicsActorDesc(mWorld, EntityHierarchyComponent.self, TagComponent, BoundingBoxComponent, TransformComponent, PhysicsSettingsComponent) };
+            PhysicsActorBase* CreatedActor{ CreatePhysicsActor(mPhysicsWorld, Desc, ActorIndex) };
+            if (CreatedActor == nullptr) {
+                continue;
+            }
+
+            CreatedActor->SetOrientation(TransformComponent.rotation);
+            CreatedActor->SetLocalBoundingBox(BoundingBoxComponent.GetObb());
+            PendingPhysicsActorBinding Binding{};
+            Binding.mEntityId = EntityHierarchyComponent.self;
+            Binding.mActorPointer = CreatedActor;
+            Binding.mActorIndex = ActorIndex;
+            Binding.mActorType = Desc.ActorType;
+            PendingBindings.push_back(Binding);
+            ExplicitPhysicsActorEntities.insert(EntityHierarchyComponent.self);
+        }
+
         for (auto [TagComponent, BoundingBoxComponent, TransformComponent, EntityHierarchyComponent] : mWorld.Query<Tag, BoundingBox, Transform, EntityHierarchy>()) {
+            if (ExplicitPhysicsActorEntities.contains(EntityHierarchyComponent.self) == true) {
+                continue;
+            }
+
             const std::string_view TagText{ GetTagTextView(TagComponent) };
             PhysicsActorBase::PhysicsActorType ActorType{ PhysicsActorBase::PhysicsActorType::Dynamic };
 
@@ -274,16 +339,9 @@ namespace Game {
                 continue;
             }
 
-            const std::uint32_t ActorIndex{ static_cast<std::uint32_t>(mPhysicsWorld.GetActorCount()) };
-            PhysicsActorBase::ActorDesc Desc{ BuildPhysicsActorDesc(mWorld, EntityHierarchyComponent.self, TagComponent, BoundingBoxComponent, TransformComponent, ActorType) };
-            PhysicsActorBase* CreatedActor{ nullptr };
-            if (ActorType == PhysicsActorBase::PhysicsActorType::Kinematic) {
-                CreatedActor = mPhysicsWorld.CreateKinematicActor(Desc);
-            }
-            else {
-                CreatedActor = mPhysicsWorld.CreateDynamicActor(Desc);
-            }
-
+            std::uint32_t ActorIndex{};
+            PhysicsActorBase::ActorDesc Desc{ BuildLegacyPhysicsActorDesc(mWorld, EntityHierarchyComponent.self, TagComponent, BoundingBoxComponent, TransformComponent, ActorType) };
+            PhysicsActorBase* CreatedActor{ CreatePhysicsActor(mPhysicsWorld, Desc, ActorIndex) };
             if (CreatedActor == nullptr) {
                 continue;
             }
@@ -512,6 +570,8 @@ namespace Game {
         mLuaScriptFramework.RegisterComponentByDefinition<Game::FootIKRig>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::FootIKRuntime>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::PrefabInstance>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::PhysicsActorSettings>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::PhysicsActor>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::Tag>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BehaviorInstanceComponent>();
     }
