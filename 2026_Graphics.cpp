@@ -35,19 +35,21 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Core/Event/EventQueue.h"
 #include "Core/Event/FileDropEvent.h"
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(GRAPHICS_CMAKE_BUILD)
     #ifdef _DEBUG
         #pragma comment(lib, "out/debug/Arche.lib")
         #pragma comment(lib, "out/debug/Game.lib")  
         #pragma comment(lib, "out/debug/Asset.lib")
         #pragma comment(lib, "out/debug/Widget.lib")
         #pragma comment(lib, "out/debug/Script.lib")
+        #pragma comment(lib, "out/debug/PhysicsLib.lib")
     #else 
         #pragma comment(lib, "out/release/Arche.lib")
         #pragma comment(lib, "out/release/Game.lib")
         #pragma comment(lib, "out/release/Asset.lib")
         #pragma comment(lib, "out/release/Widget.lib")
         #pragma comment(lib, "out/release/Script.lib")
+        #pragma comment(lib, "out/release/PhysicsLib.lib")
     #endif 
 #endif 
 

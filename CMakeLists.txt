@@ -94,6 +94,47 @@ target_compile_definitions(Asset PRIVATE
     $<$<NOT:$<CONFIG:Debug>>:NDEBUG>
 )
 
+add_library(PhysicsLib STATIC
+    PhysicsLib/Actors/CollisionSolver/PhysicsDynamicCollisionSolver.cpp
+    PhysicsLib/Actors/CollisionSolver/PhysicsKinematicCollisionSolver.cpp
+    PhysicsLib/Actors/CollisionSolver/PhysicsStaticCollisionSolver.cpp
+    PhysicsLib/Actors/ConstraintSolver/PhysicsNoConstraintSolver.cpp
+    PhysicsLib/Actors/Integrater/PhysicsDynamicIntegrater.cpp
+    PhysicsLib/Actors/Integrater/PhysicsKinematicIntegrater.cpp
+    PhysicsLib/Actors/Integrater/PhysicsStaticIntegrater.cpp
+    PhysicsLib/Actors/PhysicsActorBase.cpp
+    PhysicsLib/Actors/PhysicsTerrainActor.cpp
+    PhysicsLib/Actors/SolverType/PhysicsSolverType.cpp
+    PhysicsLib/Simulation/Mediator/IPhysicsWorldMediator.cpp
+    PhysicsLib/Simulation/Repository/IPhysicsActorRepository.cpp
+    PhysicsLib/Simulation/Repository/PhysicsActorRepository.cpp
+    PhysicsLib/Simulation/SpatialQuery/BruteForcePhysicsSpatialQuery.cpp
+    PhysicsLib/Simulation/SpatialQuery/IPhysicsSpatialQuery.cpp
+    PhysicsLib/World/PhysicsWorld.cpp
+)
+
+target_include_directories(PhysicsLib PUBLIC
+    ${GraphicsRoot}
+    ${ExternalIncludeDir}
+)
+
+target_link_directories(PhysicsLib PUBLIC
+    $<$<CONFIG:Debug>:${ExternalLibDirDebug}>
+    $<$<CONFIG:Release>:${ExternalLibDirRelease}>
+)
+
+target_compile_definitions(PhysicsLib PRIVATE
+    _LIB
+    UNICODE
+    _UNICODE
+    $<$<CONFIG:Debug>:_DEBUG>
+    $<$<NOT:$<CONFIG:Debug>>:NDEBUG>
+)
+
+if(MSVC)
+    target_compile_options(PhysicsLib PRIVATE /bigobj)
+endif()
+
 add_library(Game STATIC
     Game/Asset/AnimationGraphAsset.cpp
     Game/Base/RenderFrameData.cpp
@@ -135,6 +176,7 @@ add_library(Game STATIC
     Game/Scene/Components/ComponentInspection.cpp
     Game/Scene/Components/FootIKRig.cpp
     Game/Scene/Components/FootIKRuntime.cpp
+    Game/Scene/Components/PhysicsProperties.cpp
     Game/Scene/Components/TerrainCollidee.cpp
     Game/Scene/Components/TerrainCollider.cpp
     Game/Scene/Systems/CameraRenderSystem.cpp
@@ -157,7 +199,7 @@ target_include_directories(Game PUBLIC
     ${ExternalLuaIncludeDir}
 )
 
-target_link_libraries(Game PUBLIC Utility)
+target_link_libraries(Game PUBLIC Utility PhysicsLib)
 
 target_compile_definitions(Game PRIVATE
     _LIB
@@ -218,6 +260,7 @@ target_link_libraries(2026_Graphics PRIVATE
 )
 
 target_compile_definitions(2026_Graphics PRIVATE
+    GRAPHICS_CMAKE_BUILD
     _WINDOWS
     UNICODE
     _UNICODE
