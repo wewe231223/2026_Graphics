@@ -260,18 +260,13 @@ void ResolveStaticCollisions(IPhysicsWorldMediator& WorldMediator, const std::ve
 }
 
 bool TryGetHighestTerrainSurfaceHeight(const IPhysicsActorRepository& ActorRepository, float WorldX, float WorldZ, float& OutSurfaceHeight) {
-    std::vector<const PhysicsStaticActor*> StaticActors{ ActorRepository.CollectStaticActors() };
-    std::size_t StaticActorCount{ StaticActors.size() };
+    std::vector<const PhysicsTerrainActor*> TerrainActors{ ActorRepository.CollectTerrainActors() };
+    std::size_t TerrainActorCount{ TerrainActors.size() };
     bool HasSurfaceHeight{};
     float HighestSurfaceHeight{};
 
-    for (std::size_t StaticActorIndex{ 0U }; StaticActorIndex < StaticActorCount; ++StaticActorIndex) {
-        const PhysicsStaticActor* StaticActor{ StaticActors[StaticActorIndex] };
-        if (StaticActor == nullptr) {
-            continue;
-        }
-
-        const PhysicsTerrainActor* TerrainActor{ dynamic_cast<const PhysicsTerrainActor*>(StaticActor) };
+    for (std::size_t TerrainActorIndex{ 0U }; TerrainActorIndex < TerrainActorCount; ++TerrainActorIndex) {
+        const PhysicsTerrainActor* TerrainActor{ TerrainActors[TerrainActorIndex] };
         if (TerrainActor == nullptr) {
             continue;
         }
@@ -533,7 +528,8 @@ PhysicsWorld::~PhysicsWorld() {
 }
 
 PhysicsWorld::PhysicsWorld(const PhysicsWorld& Other)
-    : mSettings{ Other.mSettings },
+    : IPhysicsWorld{ Other },
+      mSettings{ Other.mSettings },
       mFrameAccumulator{ Other.mSettings.FixedTimeStep },
       mLastUpdateStepCount{ Other.mLastUpdateStepCount },
       mLastUpdateStepElapsedMilliseconds{ Other.mLastUpdateStepElapsedMilliseconds },
@@ -551,6 +547,7 @@ PhysicsWorld& PhysicsWorld::operator=(const PhysicsWorld& Other) {
         return *this;
     }
 
+    IPhysicsWorld::operator=(Other);
     mSettings = Other.mSettings;
     mLastUpdateStepCount = Other.mLastUpdateStepCount;
     mLastUpdateStepElapsedMilliseconds = Other.mLastUpdateStepElapsedMilliseconds;
@@ -566,7 +563,8 @@ PhysicsWorld& PhysicsWorld::operator=(const PhysicsWorld& Other) {
 }
 
 PhysicsWorld::PhysicsWorld(PhysicsWorld&& Other) noexcept
-    : mSettings{ Other.mSettings },
+    : IPhysicsWorld{ std::move(Other) },
+      mSettings{ Other.mSettings },
       mFrameAccumulator{ std::move(Other.mFrameAccumulator) },
       mLastUpdateStepCount{ Other.mLastUpdateStepCount },
       mLastUpdateStepElapsedMilliseconds{ Other.mLastUpdateStepElapsedMilliseconds },
@@ -593,6 +591,7 @@ PhysicsWorld& PhysicsWorld::operator=(PhysicsWorld&& Other) noexcept {
         return *this;
     }
 
+    IPhysicsWorld::operator=(std::move(Other));
     mSettings = Other.mSettings;
     mFrameAccumulator = std::move(Other.mFrameAccumulator);
     mLastUpdateStepCount = Other.mLastUpdateStepCount;
@@ -683,9 +682,31 @@ const PhysicsActorBase* PhysicsWorld::GetActor(std::size_t Index) const {
     return mActorRepository->GetActor(Index);
 }
 
+PhysicsTerrainActor* PhysicsWorld::GetTerrainActor(std::size_t Index) {
+    PhysicsTerrainActor* TerrainActorPointer{ mActorRepository->GetTerrainActor(Index) };
+    return TerrainActorPointer;
+}
+
+const PhysicsTerrainActor* PhysicsWorld::GetTerrainActor(std::size_t Index) const {
+    const IPhysicsActorRepository& ActorRepository{ *mActorRepository };
+    const PhysicsTerrainActor* TerrainActorPointer{ ActorRepository.GetTerrainActor(Index) };
+    return TerrainActorPointer;
+}
+
 std::size_t PhysicsWorld::GetActorCount() const {
     std::size_t ActorCount{ mActorRepository->GetActorCount() };
     return ActorCount;
+}
+
+std::vector<PhysicsTerrainActor*> PhysicsWorld::CollectTerrainActors() {
+    std::vector<PhysicsTerrainActor*> TerrainActors{ mActorRepository->CollectTerrainActors() };
+    return TerrainActors;
+}
+
+std::vector<const PhysicsTerrainActor*> PhysicsWorld::CollectTerrainActors() const {
+    const IPhysicsActorRepository& ActorRepository{ *mActorRepository };
+    std::vector<const PhysicsTerrainActor*> TerrainActors{ ActorRepository.CollectTerrainActors() };
+    return TerrainActors;
 }
 
 const PhysicsWorld::WorldSettings& PhysicsWorld::GetSettings() const {

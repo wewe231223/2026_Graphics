@@ -24,12 +24,12 @@ float GetEffectiveRestitution(const PhysicsActorBase& FirstActor, const PhysicsA
 }
 
 bool IsHeightFieldTerrainActor(const PhysicsActorBase& Actor) {
-    const PhysicsTerrainActor* TerrainActor{ dynamic_cast<const PhysicsTerrainActor*>(&Actor) };
-    if (TerrainActor == nullptr) {
+    if (Actor.IsTerrainActor() == false) {
         return false;
     }
 
-    PhysicsTerrainActor::ActorDesc TerrainActorDesc{ TerrainActor->GetActorDesc() };
+    const PhysicsTerrainActor& TerrainActor{ static_cast<const PhysicsTerrainActor&>(Actor) };
+    PhysicsTerrainActor::ActorDesc TerrainActorDesc{ TerrainActor.GetActorDesc() };
     bool HasHeightField{ TerrainActorDesc.HeightFieldWidth > 1U && TerrainActorDesc.HeightFieldHeight > 1U && !TerrainActorDesc.HeightFieldValues.empty() };
     return HasHeightField;
 }

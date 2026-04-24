@@ -11,18 +11,13 @@
 
 namespace {
 bool TryGetHighestTerrainSurfaceHeight(const IPhysicsActorRepository& ActorRepository, float WorldX, float WorldZ, float& OutSurfaceHeight) {
-    std::vector<const PhysicsStaticActor*> StaticActors{ ActorRepository.CollectStaticActors() };
-    std::size_t StaticActorCount{ StaticActors.size() };
+    std::vector<const PhysicsTerrainActor*> TerrainActors{ ActorRepository.CollectTerrainActors() };
+    std::size_t TerrainActorCount{ TerrainActors.size() };
     bool HasSurfaceHeight{};
     float HighestSurfaceHeight{};
 
-    for (std::size_t StaticActorIndex{ 0U }; StaticActorIndex < StaticActorCount; ++StaticActorIndex) {
-        const PhysicsStaticActor* StaticActor{ StaticActors[StaticActorIndex] };
-        if (StaticActor == nullptr) {
-            continue;
-        }
-
-        const PhysicsTerrainActor* TerrainActor{ dynamic_cast<const PhysicsTerrainActor*>(StaticActor) };
+    for (std::size_t TerrainActorIndex{ 0U }; TerrainActorIndex < TerrainActorCount; ++TerrainActorIndex) {
+        const PhysicsTerrainActor* TerrainActor{ TerrainActors[TerrainActorIndex] };
         if (TerrainActor == nullptr) {
             continue;
         }

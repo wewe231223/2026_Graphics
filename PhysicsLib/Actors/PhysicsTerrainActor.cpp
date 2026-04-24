@@ -194,6 +194,10 @@ PhysicsTerrainActor::ActorDesc PhysicsTerrainActor::BuildHeightFieldActorDesc(st
     return Desc;
 }
 
+bool PhysicsTerrainActor::IsTerrainActor() const {
+    return true;
+}
+
 bool PhysicsTerrainActor::TryGetSurfaceHeightAtWorldPosition(float WorldX, float WorldZ, float& OutWorldHeight) const {
     DirectX::SimpleMath::Vector3 WorldNormal{ DirectX::SimpleMath::Vector3::Up };
     bool HasSurface{ TryGetSurfaceAtWorldPosition(WorldX, WorldZ, OutWorldHeight, WorldNormal) };

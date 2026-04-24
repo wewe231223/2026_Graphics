@@ -39,6 +39,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Common.cpp" />
     <ClCompile Include="Actors\CollisionSolver\PhysicsDynamicCollisionSolver.cpp">
       <Filter>Actors\CollisionSolver</Filter>
     </ClCompile>
@@ -92,6 +93,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Common.h" />
     <ClInclude Include="Actors\CollisionSolver\PhysicsDynamicCollisionSolver.h">
       <Filter>Actors\CollisionSolver</Filter>
     </ClInclude>

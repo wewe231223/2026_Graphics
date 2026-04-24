@@ -7,6 +7,7 @@
 #include "Utility/DirectXInclude.h"
 #include "Arche/World.h"
 #include "Game/Base/RenderFrameData.h"
+#include "PhysicsLib/Common.h"
 #include "Utility/SimpleMathWrapper.h"
 
 namespace Game {
@@ -50,6 +51,7 @@ namespace Game {
         RFD::RenderFrameData RenderData{};
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
         AssetRegistry* AssetRegistryResource{ nullptr };
+        IPhysicsWorld* PhysicsWorldResource{ nullptr };
         Arche::EntityID PickedEntityId{ Arche::NullEntityID };
         std::vector<SkinnedMeshPreparedData> SkinnedMeshPreparedDataItems{};
     };

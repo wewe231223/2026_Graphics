@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Common.cpp" />
     <ClCompile Include="Actors\CollisionSolver\PhysicsDynamicCollisionSolver.cpp" />
     <ClCompile Include="Actors\CollisionSolver\PhysicsKinematicCollisionSolver.cpp" />
     <ClCompile Include="Actors\CollisionSolver\PhysicsStaticCollisionSolver.cpp" />
@@ -38,6 +39,7 @@
     <ClCompile Include="World\PhysicsWorld.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Common.h" />
     <ClInclude Include="Actors\CollisionSolver\PhysicsDynamicCollisionSolver.h" />
     <ClInclude Include="Actors\CollisionSolver\PhysicsKinematicCollisionSolver.h" />
     <ClInclude Include="Actors\CollisionSolver\PhysicsStaticCollisionSolver.h" />

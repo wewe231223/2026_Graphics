@@ -108,6 +108,7 @@ public:
 
     void SetActorType(PhysicsActorType ActorType);
     PhysicsActorType GetActorType() const;
+    virtual bool IsTerrainActor() const;
 
     void SetLocalBoundingBox(const DirectX::BoundingOrientedBox& LocalBoundingBox);
     const DirectX::BoundingOrientedBox& GetLocalBoundingBox() const;

@@ -394,7 +394,7 @@ void PhysicsRuntime::PublishSnapshot(std::size_t LastUpdateStepCount, double Las
             continue;
         }
 
-        const PhysicsTerrainActor* TerrainActor{ dynamic_cast<const PhysicsTerrainActor*>(CurrentActor) };
+        const PhysicsTerrainActor* TerrainActor{ mPhysicsWorld.GetTerrainActor(ActorIndex) };
         if (TerrainActor != nullptr) {
             PhysicsTerrainActor::ActorDesc TerrainActorDesc{ TerrainActor->GetActorDesc() };
             SnapshotActor.mPosition = TerrainActorDesc.Position;

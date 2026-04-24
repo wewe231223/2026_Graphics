@@ -18,15 +18,7 @@ Notes:
 
 #include <DirectXTK12/SimpleMath.h>
 
-#include "PhysicsLib/Actors/PhysicsActor.h"
-#include "PhysicsLib/Actors/PhysicsDynamicActor.h"
-#include "PhysicsLib/Actors/PhysicsKinematicActor.h"
-#include "PhysicsLib/Actors/PhysicsTerrainActor.h"
-#include "PhysicsLib/Simulation/Mediator/IPhysicsWorldMediator.h"
-#include "PhysicsLib/Simulation/Types/PhysicsSimulationTypes.h"
-
-class IPhysicsActorRepository;
-class IPhysicsSpatialQuery;
+#include "PhysicsLib/Common.h"
 
 class PhysicsFrameAccumulator final {
 public:
@@ -71,12 +63,9 @@ private:
     std::vector<ActorState> mCurrentStates;
 };
 
-class PhysicsWorld final : public IPhysicsWorldMediator {
+class PhysicsWorld final : public IPhysicsWorld {
 public:
-    struct WorldSettings {
-        float FixedTimeStep;
-        DirectX::SimpleMath::Vector3 Gravity;
-    };
+    using WorldSettings = IPhysicsWorld::WorldSettings;
 
 public:
     PhysicsWorld();
@@ -89,30 +78,34 @@ public:
     explicit PhysicsWorld(const WorldSettings& Settings);
 
 public:
-    void Initialize(const WorldSettings& Settings);
+    void Initialize(const WorldSettings& Settings) override;
 
-    PhysicsDynamicActor* CreateDynamicActor(const PhysicsDynamicActor::ActorDesc& Desc);
-    PhysicsKinematicActor* CreateKinematicActor(const PhysicsKinematicActor::ActorDesc& Desc);
-    PhysicsTerrainActor* CreateTerrainActor(const PhysicsTerrainActor::ActorDesc& Desc);
-    void AddActor(std::unique_ptr<PhysicsActorBase> Actor);
-    void ClearActors();
+    PhysicsDynamicActor* CreateDynamicActor(const PhysicsDynamicActor::ActorDesc& Desc) override;
+    PhysicsKinematicActor* CreateKinematicActor(const PhysicsKinematicActor::ActorDesc& Desc) override;
+    PhysicsTerrainActor* CreateTerrainActor(const PhysicsTerrainActor::ActorDesc& Desc) override;
+    void AddActor(std::unique_ptr<PhysicsActorBase> Actor) override;
+    void ClearActors() override;
 
-    PhysicsActorBase* GetActor(std::size_t Index);
-    const PhysicsActorBase* GetActor(std::size_t Index) const;
-    std::size_t GetActorCount() const;
+    PhysicsActorBase* GetActor(std::size_t Index) override;
+    const PhysicsActorBase* GetActor(std::size_t Index) const override;
+    PhysicsTerrainActor* GetTerrainActor(std::size_t Index) override;
+    const PhysicsTerrainActor* GetTerrainActor(std::size_t Index) const override;
+    std::size_t GetActorCount() const override;
+    std::vector<PhysicsTerrainActor*> CollectTerrainActors() override;
+    std::vector<const PhysicsTerrainActor*> CollectTerrainActors() const override;
 
-    const WorldSettings& GetSettings() const;
-    float GetAccumulator() const;
-    float GetInterpolationAlpha() const;
-    std::size_t GetLastUpdateStepCount() const;
-    double GetLastUpdateStepElapsedMilliseconds() const;
-    double GetLastStepElapsedMilliseconds() const;
-    bool TryGetInterpolatedActorTransform(const PhysicsActorBase& Actor, DirectX::SimpleMath::Vector3& OutPosition, DirectX::SimpleMath::Quaternion& OutOrientation, DirectX::SimpleMath::Vector3& OutScale) const;
+    const WorldSettings& GetSettings() const override;
+    float GetAccumulator() const override;
+    float GetInterpolationAlpha() const override;
+    std::size_t GetLastUpdateStepCount() const override;
+    double GetLastUpdateStepElapsedMilliseconds() const override;
+    double GetLastStepElapsedMilliseconds() const override;
+    bool TryGetInterpolatedActorTransform(const PhysicsActorBase& Actor, DirectX::SimpleMath::Vector3& OutPosition, DirectX::SimpleMath::Quaternion& OutOrientation, DirectX::SimpleMath::Vector3& OutScale) const override;
 
-    void StepSimulation();
-    void Update(float DeltaTime);
-    bool ResolveKinematicTerrainContact(PhysicsActorBase& Actor);
-    void ResolveKinematicTerrainContacts();
+    void StepSimulation() override;
+    void Update(float DeltaTime) override;
+    bool ResolveKinematicTerrainContact(PhysicsActorBase& Actor) override;
+    void ResolveKinematicTerrainContacts() override;
 
     const DirectX::SimpleMath::Vector3& GetGravity() const override;
     IPhysicsActorRepository& GetActorRepository() override;

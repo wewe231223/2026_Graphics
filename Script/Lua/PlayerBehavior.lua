@@ -1,4 +1,4 @@
-local MoveSpeed = 10.0
+local MoveSpeed = 4.0
 local MaxRotationDegreesPerSecond = 720.0
 local IsMovingParameterIndex = 0
 local CurrentSpeedParameterIndex = 1

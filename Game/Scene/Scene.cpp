@@ -253,6 +253,7 @@ namespace Game {
         Settings.FixedTimeStep = 1.0f / 60.0f;
         Settings.Gravity = DirectX::SimpleMath::Vector3{ 0.0f, -9.8f, 0.0f };
         mPhysicsWorld.Initialize(Settings);
+        mFrameContext.PhysicsWorldResource = &mPhysicsWorld;
     }
 
     void Scene::RebuildPhysicsActors() {
@@ -351,12 +352,7 @@ namespace Game {
                 continue;
             }
 
-            PhysicsActorBase* ActorPointer{ PhysicsActorComponent->mActorPointer };
-            if (ActorPointer == nullptr || ActorPointer->GetActorType() != PhysicsActorBase::PhysicsActorType::Static) {
-                continue;
-            }
-
-            PhysicsTerrainActor* TerrainActorPointer{ dynamic_cast<PhysicsTerrainActor*>(ActorPointer) };
+            PhysicsTerrainActor* TerrainActorPointer{ mPhysicsWorld.GetTerrainActor(PhysicsActorComponent->mActorIndex) };
             if (TerrainActorPointer == nullptr) {
                 continue;
             }

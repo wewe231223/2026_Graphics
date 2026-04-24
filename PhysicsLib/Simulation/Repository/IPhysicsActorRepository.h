@@ -43,6 +43,8 @@ public:
 
     virtual PhysicsActorBase* GetActor(std::size_t Index) = 0;
     virtual const PhysicsActorBase* GetActor(std::size_t Index) const = 0;
+    virtual PhysicsTerrainActor* GetTerrainActor(std::size_t Index) = 0;
+    virtual const PhysicsTerrainActor* GetTerrainActor(std::size_t Index) const = 0;
     virtual std::size_t GetActorCount() const = 0;
 
     virtual std::vector<PhysicsDynamicActor*> CollectDynamicActors() = 0;
@@ -50,4 +52,6 @@ public:
     virtual std::vector<PhysicsKinematicActor*> CollectKinematicActors() = 0;
     virtual std::vector<const PhysicsKinematicActor*> CollectKinematicActors() const = 0;
     virtual std::vector<const PhysicsStaticActor*> CollectStaticActors() const = 0;
+    virtual std::vector<PhysicsTerrainActor*> CollectTerrainActors() = 0;
+    virtual std::vector<const PhysicsTerrainActor*> CollectTerrainActors() const = 0;
 };

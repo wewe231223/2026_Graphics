@@ -181,6 +181,10 @@ PhysicsActorBase::PhysicsActorType PhysicsActorBase::GetActorType() const {
     return mActorType;
 }
 
+bool PhysicsActorBase::IsTerrainActor() const {
+    return false;
+}
+
 void PhysicsActorBase::SetLocalBoundingBox(const DirectX::BoundingOrientedBox& LocalBoundingBox) {
     mLocalBoundingBox = LocalBoundingBox;
     UpdateWorldBoundingBox();

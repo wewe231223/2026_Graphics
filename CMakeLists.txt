@@ -95,6 +95,7 @@ target_compile_definitions(Asset PRIVATE
 )
 
 add_library(PhysicsLib STATIC
+    PhysicsLib/Common.cpp
     PhysicsLib/Actors/CollisionSolver/PhysicsDynamicCollisionSolver.cpp
     PhysicsLib/Actors/CollisionSolver/PhysicsKinematicCollisionSolver.cpp
     PhysicsLib/Actors/CollisionSolver/PhysicsStaticCollisionSolver.cpp
