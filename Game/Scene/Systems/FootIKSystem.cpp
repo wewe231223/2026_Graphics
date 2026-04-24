@@ -202,7 +202,6 @@ namespace Game {
     }
 
     void FootIKSystem::Execute(Arche::World& World, FrameContext& Ctx, const float Dt) {
-        const bool IsDebugGeometryDrawEnabled{ (Ctx.RenderData.globals.flags & RFD::FrameGlobalFlagDrawDebugGeometry) != 0u };
         const IPhysicsWorld* PhysicsWorldResource{ Ctx.PhysicsWorldResource };
 
         const Arche::World::WorldReadOnlyView& ReadOnlyWorld{ std::as_const(World).GetReadOnlyView() };
@@ -388,7 +387,7 @@ namespace Game {
                     }
                 }
 
-                if (IsDebugGeometryDrawEnabled == true && PhysicsWorldResource != nullptr) {
+                if (PhysicsWorldResource != nullptr) {
                     AppendFootCornerDebugLines(World, *PhysicsWorldResource, Ctx, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, WorldMatrices);
                     AppendFootCornerDebugLines(World, *PhysicsWorldResource, Ctx, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, WorldMatrices);
                 }

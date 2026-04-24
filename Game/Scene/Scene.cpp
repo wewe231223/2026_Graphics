@@ -696,9 +696,9 @@ namespace Game {
 
                 if (mIsDebugGeometryDrawEnabled) {
                     mFrameContext.RenderData.globals.flags |= RFD::FrameGlobalFlagDrawDebugGeometry;
-                    AppendDebugWorldAxes();
                 }
 
+                AppendDebugWorldAxes();
                 mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
                 mFrameContext.SkinnedMeshPreparedDataItems.clear();
                 break;
