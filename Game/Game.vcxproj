@@ -61,10 +61,6 @@
     <ClInclude Include="Scene\Components\SkinnedMeshRenderer.h" />
     <ClInclude Include="Scene\Components\Tags.h" />
     <ClInclude Include="Scene\Components\Transform.h" />
-    <ClInclude Include="Scene\Systems\TerrainCollideSystem.h" />
-    <ClInclude Include="Scene\TerrainHeightResolver.h" />
-    <ClInclude Include="Scene\Components\TerrainCollidee.h" />
-    <ClInclude Include="Scene\Components\TerrainCollider.h" />
     <ClInclude Include="Scene\Scene.h" />
     <ClInclude Include="Scene\SceneEntityFactory.h" />
     <ClInclude Include="Scene\SceneWorldSnapshot.h" />
@@ -130,10 +126,6 @@
     <ClCompile Include="Scene\Components\StaticMeshRenderer.cpp" />
     <ClCompile Include="Scene\Components\SkinnedMeshRenderer.cpp" />
     <ClCompile Include="Scene\Components\ComponentInspection.cpp" />
-    <ClCompile Include="Scene\Systems\TerrainCollideSystem.cpp" />
-    <ClCompile Include="Scene\TerrainHeightResolver.cpp" />
-    <ClCompile Include="Scene\Components\TerrainCollidee.cpp" />
-    <ClCompile Include="Scene\Components\TerrainCollider.cpp" />
     <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp" />
     <ClCompile Include="Scene\Systems\AnimateSystem.cpp" />
     <ClCompile Include="Scene\IK\FootIKSolver.cpp" />

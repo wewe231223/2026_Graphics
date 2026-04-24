@@ -3,7 +3,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include "Game/Scene/TerrainHeightResolver.h"
 #include "Arche/World.h"
 #include "System.h"
 #include "SystemSceduler.h"
@@ -13,6 +12,11 @@
 #include "PhysicsLib/World/PhysicsWorld.h"
 
 namespace Game {
+    struct TerrainActorDescBinding final {
+        Arche::EntityID mEntityId{ Arche::NullEntityID };
+        PhysicsTerrainActor::ActorDesc mTerrainActorDesc{};
+    };
+
     class Scene final {
     public:
         Scene();
@@ -54,8 +58,8 @@ namespace Game {
         void PrepareRender();
 
         void InitializeWorldSnapshot();
-        TerrainHeightResolver* CreateTerrainHeightResolver(const HeightFieldData& HeightFieldDataValue, const TerrainBuildDesc& TerrainBuildDescValue);
-        void ClearTerrainHeightResolvers();
+        void AddTerrainActorDesc(Arche::EntityID EntityId, const PhysicsTerrainActor::ActorDesc& TerrainActorDesc);
+        void ClearTerrainActorDescs();
 
         void OnFileDropped(const std::filesystem::path& FilePath);
         void UpdateWorldSnapshotIfNeeded();
@@ -88,6 +92,6 @@ namespace Game {
         bool mIsBoundingBoxDrawEnabled{};
 
 		Script::LuaBehaviorFramework mLuaScriptFramework{};
-        std::vector<std::unique_ptr<TerrainHeightResolver>> mTerrainHeightResolvers{};
+        std::vector<TerrainActorDescBinding> mTerrainActorDescBindings{};
     };
 }

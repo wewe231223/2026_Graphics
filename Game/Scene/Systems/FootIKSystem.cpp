@@ -18,11 +18,12 @@
 #include "Game/Scene/Components/FootIKRig.h"
 #include "Game/Scene/Components/FootIKRuntime.h"
 #include "Game/Scene/Components/Name.h"
-#include "Game/Scene/Components/TerrainCollidee.h"
+#include "Game/Scene/Components/PhysicsActor.h"
 #include "Game/Scene/Components/Transform.h"
 #include "Game/Scene/IK/FabrikFootIKSolver.h"
 #include "Game/Scene/IK/FootIKAlgorithms.h"
 #include "Game/Scene/IK/FootIKSolver.h"
+#include "PhysicsLib/Actors/PhysicsTerrainActor.h"
 
 namespace {
     constexpr std::size_t MinimumRayHitCountForFootSurfaceAlignment{ 3 };
@@ -44,16 +45,17 @@ namespace {
         float NearestHitDistance{ RayLength };
         SimpleMath::Vector3 NearestHitPoint{};
         SimpleMath::Vector3 NearestHitNormal{ SimpleMath::Vector3::Up };
-        for (const auto [TerrainCollideeComponent] : World.Query<Game::TerrainCollidee>()) {
-            Game::TerrainHeightResolver* TerrainHeightResolverPointer{ TerrainCollideeComponent.mTerrainHeightResolver };
-            if (TerrainHeightResolverPointer == nullptr) {
+        for (const auto [PhysicsActorComponent] : World.Query<Game::PhysicsActor>()) {
+            const PhysicsActorBase* ActorPointer{ PhysicsActorComponent.mActorPointer };
+            const PhysicsTerrainActor* TerrainActorPointer{ dynamic_cast<const PhysicsTerrainActor*>(ActorPointer) };
+            if (TerrainActorPointer == nullptr) {
                 continue;
             }
 
             SimpleMath::Vector3 CandidateHitPoint{};
             SimpleMath::Vector3 CandidateHitNormal{ SimpleMath::Vector3::Up };
             float CandidateHitDistance{};
-            const bool IsCandidateHit{ TerrainHeightResolverPointer->TryRaycast(Ray, RayLength, CandidateHitPoint, CandidateHitNormal, CandidateHitDistance) };
+            const bool IsCandidateHit{ TerrainActorPointer->TryRaycast(Ray, RayLength, CandidateHitPoint, CandidateHitNormal, CandidateHitDistance) };
             if (IsCandidateHit == false || IsFiniteVector3(CandidateHitPoint) == false || IsFiniteVector3(CandidateHitNormal) == false || IsFiniteFloat(CandidateHitDistance) == false || CandidateHitDistance < 0.0f || CandidateHitDistance > RayLength) {
                 continue;
             }
@@ -188,7 +190,7 @@ namespace Game {
             { typeid(BoundingBox), Access::Read },
             { typeid(Game::Name), Access::Read },
             { typeid(EntityHierarchy), Access::Read },
-            { typeid(TerrainCollidee), Access::Read },
+            { typeid(PhysicsActor), Access::Read },
             { typeid(Transform), Access::Write },
             { typeid(FootIKRuntime), Access::Write }
         } };

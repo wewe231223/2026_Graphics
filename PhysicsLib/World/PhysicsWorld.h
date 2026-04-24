@@ -111,6 +111,8 @@ public:
 
     void StepSimulation();
     void Update(float DeltaTime);
+    bool ResolveKinematicTerrainContact(PhysicsActorBase& Actor);
+    void ResolveKinematicTerrainContacts();
 
     const DirectX::SimpleMath::Vector3& GetGravity() const override;
     IPhysicsActorRepository& GetActorRepository() override;

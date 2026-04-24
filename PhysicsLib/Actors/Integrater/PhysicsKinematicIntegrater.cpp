@@ -47,10 +47,41 @@ bool TryGetHighestTerrainSurfaceHeight(const IPhysicsActorRepository& ActorRepos
     return true;
 }
 
-float GetActorHalfHeight(const PhysicsActorBase& Actor) {
-    const DirectX::BoundingOrientedBox& WorldBoundingBox{ Actor.GetWorldBoundingBox() };
-    float HalfHeight{ std::max(WorldBoundingBox.Extents.y, 0.0F) };
-    return HalfHeight;
+float GetActorBottomOffsetFromPositionY(const PhysicsActorBase& Actor) {
+    DirectX::XMFLOAT3 Corners[8]{};
+    Actor.GetWorldBoundingBox().GetCorners(Corners);
+
+    float MinimumY{ Corners[0].y };
+    for (std::size_t CornerIndex{ 1U }; CornerIndex < 8U; ++CornerIndex) {
+        if (Corners[CornerIndex].y < MinimumY) {
+            MinimumY = Corners[CornerIndex].y;
+        }
+    }
+
+    return MinimumY - Actor.GetPosition().y;
+}
+
+bool ResolveKinematicActorTerrainContact(const IPhysicsActorRepository& ActorRepository, PhysicsActorBase& Actor) {
+    if (!Actor.HasFlag(PhysicsActorBase::PhysicsActorFlags::TerrainCollide)) {
+        return false;
+    }
+
+    float SurfaceHeight{};
+    bool HasSurfaceHeight{ TryGetHighestTerrainSurfaceHeight(ActorRepository, Actor.GetPosition().x, Actor.GetPosition().z, SurfaceHeight) };
+    if (!HasSurfaceHeight) {
+        return false;
+    }
+
+    DirectX::SimpleMath::Vector3 NextPosition{ Actor.GetPosition() };
+    const float ActorBottomOffsetFromPositionY{ GetActorBottomOffsetFromPositionY(Actor) };
+    NextPosition.y = SurfaceHeight - ActorBottomOffsetFromPositionY;
+
+    DirectX::SimpleMath::Vector3 NextVelocity{ Actor.GetVelocity() };
+    NextVelocity.y = 0.0F;
+
+    Actor.SetPosition(NextPosition);
+    Actor.SetVelocity(NextVelocity);
+    return true;
 }
 }
 
@@ -102,17 +133,10 @@ void PhysicsKinematicIntegrater::Integrate(IPhysicsWorldMediator& WorldMediator,
     float DampingFactor{ std::max(0.0F, 1.0F - (Actor.GetLinearDamping() * DeltaTime)) };
     NextVelocity *= DampingFactor;
     DirectX::SimpleMath::Vector3 NextPosition{ Actor.GetPosition() + (NextVelocity * DeltaTime) };
-
-    const IPhysicsActorRepository& ActorRepository{ WorldMediator.GetActorRepository() };
-    float SurfaceHeight{};
-    bool HasSurfaceHeight{ TryGetHighestTerrainSurfaceHeight(ActorRepository, NextPosition.x, NextPosition.z, SurfaceHeight) };
-    if (HasSurfaceHeight) {
-        float HalfHeight{ GetActorHalfHeight(Actor) };
-        NextPosition.y = SurfaceHeight + HalfHeight + 0.02F;
-        NextVelocity.y = 0.0F;
-    }
-
     Actor.SetVelocity(NextVelocity);
     Actor.SetPosition(NextPosition);
+
+    const IPhysicsActorRepository& ActorRepository{ WorldMediator.GetActorRepository() };
+    ResolveKinematicActorTerrainContact(ActorRepository, Actor);
     Actor.ClearAccumulatedForce();
 }

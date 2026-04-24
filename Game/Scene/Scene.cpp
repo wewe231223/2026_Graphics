@@ -32,8 +32,6 @@
 #include "Game/Scene/Components/AnimatorGraphPlayer.h"
 #include "Game/Scene/Components/ScriptComponent.h"
 #include "Game/Scene/Components/Tags.h"
-#include "Game/Scene/Components/TerrainCollider.h"
-#include "Game/Scene/Components/TerrainCollidee.h"
 #include "Game/Base/Input.h"
 
 #include "Game/Scene/Events/SelectionEvent.h"
@@ -86,7 +84,11 @@ namespace {
         Desc.IsActive = true;
         Desc.Mass = 1.0f;
         Desc.ActorType = ActorType;
-        Desc.Flags = ActorType == PhysicsActorBase::PhysicsActorType::Kinematic ? PhysicsActorBase::PhysicsActorFlags::Kinematic : PhysicsActorBase::PhysicsActorFlags::None;
+        PhysicsActorBase::PhysicsActorFlags ActorFlags{ PhysicsActorBase::PhysicsActorFlags::TerrainCollide };
+        if (ActorType == PhysicsActorBase::PhysicsActorType::Kinematic) {
+            ActorFlags = ActorFlags | PhysicsActorBase::PhysicsActorFlags::Kinematic;
+        }
+        Desc.Flags = ActorFlags;
         Desc.LocalBoundingBox = BoundingBoxComponent.GetObb();
         Desc.Position = TransformComponent.position;
         Desc.Rotation = TransformComponent.rotationEuler;
@@ -96,36 +98,17 @@ namespace {
         return Desc;
     }
 
-    PhysicsTerrainActor::ActorDesc BuildPhysicsTerrainActorDesc(const Game::TerrainHeightResolver& TerrainHeightResolverValue, const Game::Transform& TransformComponent) {
-        PhysicsTerrainActor::ActorDesc Desc{};
+    PhysicsTerrainActor::ActorDesc BuildPhysicsTerrainActorDesc(const PhysicsTerrainActor::ActorDesc& SourceDesc, const Game::Transform& TransformComponent) {
+        PhysicsTerrainActor::ActorDesc Desc{ SourceDesc };
         Desc.Position = TransformComponent.position;
         Desc.Rotation = TransformComponent.rotationEuler;
         Desc.Scale = TransformComponent.scale;
-        Desc.HeightFieldWidth = TerrainHeightResolverValue.GetWidth();
-        Desc.HeightFieldHeight = TerrainHeightResolverValue.GetHeight();
-        Desc.HeightFieldCellSpacing = TerrainHeightResolverValue.GetCellSizeX();
-        Desc.HeightFieldMaxHeight = TerrainHeightResolverValue.GetMaxHeight();
-        Desc.HeightFieldCenterOrigin = TerrainHeightResolverValue.GetCenterOrigin();
-        Desc.HeightFieldValues = TerrainHeightResolverValue.GetHeightValues();
-
-        if (Desc.HeightFieldWidth > 1u) {
-            Desc.HalfExtentX = static_cast<float>(Desc.HeightFieldWidth - 1u) * TerrainHeightResolverValue.GetCellSizeX() * 0.5f;
-        }
-
-        if (Desc.HeightFieldHeight > 1u) {
-            Desc.HalfExtentZ = static_cast<float>(Desc.HeightFieldHeight - 1u) * TerrainHeightResolverValue.GetCellSizeZ() * 0.5f;
-        }
-
         return Desc;
     }
 
-    bool IsValidTerrainHeightResolver(const Game::TerrainHeightResolver* TerrainHeightResolverPointer) {
-        if (TerrainHeightResolverPointer == nullptr) {
-            return false;
-        }
-
-        const std::size_t ExpectedHeightValueCount{ static_cast<std::size_t>(TerrainHeightResolverPointer->GetWidth()) * static_cast<std::size_t>(TerrainHeightResolverPointer->GetHeight()) };
-        return TerrainHeightResolverPointer->GetInitialized() == true && TerrainHeightResolverPointer->GetWidth() > 1u && TerrainHeightResolverPointer->GetHeight() > 1u && TerrainHeightResolverPointer->GetHeightValues().size() == ExpectedHeightValueCount;
+    bool IsValidTerrainActorDesc(const PhysicsTerrainActor::ActorDesc& TerrainActorDesc) {
+        const std::size_t ExpectedHeightValueCount{ static_cast<std::size_t>(TerrainActorDesc.HeightFieldWidth) * static_cast<std::size_t>(TerrainActorDesc.HeightFieldHeight) };
+        return TerrainActorDesc.HeightFieldWidth > 1u && TerrainActorDesc.HeightFieldHeight > 1u && TerrainActorDesc.HeightFieldCellSizeX > 0.0f && TerrainActorDesc.HeightFieldCellSizeZ > 0.0f && TerrainActorDesc.HeightFieldMaxHeight > 0.0f && TerrainActorDesc.HeightFieldValues.size() == ExpectedHeightValueCount;
     }
 
     void AttachPhysicsActorComponent(Arche::World& World, const PendingPhysicsActorBinding& Binding) {
@@ -314,14 +297,18 @@ namespace Game {
             PendingBindings.push_back(Binding);
         }
 
-        for (auto [TerrainCollideeComponent, TransformComponent, EntityHierarchyComponent] : mWorld.Query<TerrainCollidee, Transform, EntityHierarchy>()) {
-            TerrainHeightResolver* TerrainHeightResolverPointer{ TerrainCollideeComponent.mTerrainHeightResolver };
-            if (IsValidTerrainHeightResolver(TerrainHeightResolverPointer) == false) {
+        for (const TerrainActorDescBinding& BindingSource : mTerrainActorDescBindings) {
+            if (BindingSource.mEntityId == Arche::NullEntityID || IsValidTerrainActorDesc(BindingSource.mTerrainActorDesc) == false) {
+                continue;
+            }
+
+            const Transform* TransformComponent{ std::as_const(mWorld).GetComponent<Transform>(BindingSource.mEntityId) };
+            if (TransformComponent == nullptr) {
                 continue;
             }
 
             const std::uint32_t ActorIndex{ static_cast<std::uint32_t>(mPhysicsWorld.GetActorCount()) };
-            PhysicsTerrainActor::ActorDesc Desc{ BuildPhysicsTerrainActorDesc(*TerrainHeightResolverPointer, TransformComponent) };
+            PhysicsTerrainActor::ActorDesc Desc{ BuildPhysicsTerrainActorDesc(BindingSource.mTerrainActorDesc, *TransformComponent) };
             PhysicsTerrainActor* CreatedActor{ mPhysicsWorld.CreateTerrainActor(Desc) };
             if (CreatedActor == nullptr) {
                 continue;
@@ -329,7 +316,7 @@ namespace Game {
 
             CreatedActor->SetName("TerrainActor");
             PendingPhysicsActorBinding Binding{};
-            Binding.mEntityId = EntityHierarchyComponent.self;
+            Binding.mEntityId = BindingSource.mEntityId;
             Binding.mActorPointer = CreatedActor;
             Binding.mActorIndex = ActorIndex;
             Binding.mActorType = PhysicsActorBase::PhysicsActorType::Static;
@@ -357,14 +344,15 @@ namespace Game {
             ActorPointer->SetVelocity(DirectX::SimpleMath::Vector3{});
         }
 
-        for (auto [PhysicsActorComponent, TerrainCollideeComponent, TransformComponent] : mWorld.Query<PhysicsActor, TerrainCollidee, Transform>()) {
-            PhysicsActorBase* ActorPointer{ PhysicsActorComponent.mActorPointer };
-            if (ActorPointer == nullptr || ActorPointer->GetActorType() != PhysicsActorBase::PhysicsActorType::Static) {
+        for (const TerrainActorDescBinding& BindingSource : mTerrainActorDescBindings) {
+            PhysicsActor* PhysicsActorComponent{ mWorld.GetComponent<PhysicsActor>(BindingSource.mEntityId) };
+            Transform* TransformComponent{ mWorld.GetComponent<Transform>(BindingSource.mEntityId) };
+            if (PhysicsActorComponent == nullptr || TransformComponent == nullptr || IsValidTerrainActorDesc(BindingSource.mTerrainActorDesc) == false) {
                 continue;
             }
 
-            TerrainHeightResolver* TerrainHeightResolverPointer{ TerrainCollideeComponent.mTerrainHeightResolver };
-            if (IsValidTerrainHeightResolver(TerrainHeightResolverPointer) == false) {
+            PhysicsActorBase* ActorPointer{ PhysicsActorComponent->mActorPointer };
+            if (ActorPointer == nullptr || ActorPointer->GetActorType() != PhysicsActorBase::PhysicsActorType::Static) {
                 continue;
             }
 
@@ -373,10 +361,11 @@ namespace Game {
                 continue;
             }
 
-            PhysicsTerrainActor::ActorDesc Desc{ BuildPhysicsTerrainActorDesc(*TerrainHeightResolverPointer, TransformComponent) };
+            PhysicsTerrainActor::ActorDesc Desc{ BuildPhysicsTerrainActorDesc(BindingSource.mTerrainActorDesc, *TransformComponent) };
             TerrainActorPointer->SetActorDesc(Desc);
         }
 
+        mPhysicsWorld.ResolveKinematicTerrainContacts();
         mPhysicsWorld.Update(Dt);
 
         for (auto [PhysicsActorComponent, TransformComponent, EntityHierarchyComponent] : mWorld.Query<PhysicsActor, Transform, EntityHierarchy>()) {
@@ -553,20 +542,26 @@ namespace Game {
         mLuaScriptFramework.RegisterComponentByDefinition<Game::PrefabInstance>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::Tag>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BehaviorInstanceComponent>();
-        mLuaScriptFramework.RegisterComponentByDefinition<Game::TerrainCollider>();
-        mLuaScriptFramework.RegisterComponentByDefinition<Game::TerrainCollidee>();
     }
 
-    TerrainHeightResolver* Scene::CreateTerrainHeightResolver(const HeightFieldData& HeightFieldDataValue, const TerrainBuildDesc& TerrainBuildDescValue) {
-        std::unique_ptr<TerrainHeightResolver> NewTerrainHeightResolver{ std::make_unique<TerrainHeightResolver>() };
-        NewTerrainHeightResolver->Initialize(HeightFieldDataValue, TerrainBuildDescValue);
-        TerrainHeightResolver* TerrainHeightResolverPointer{ NewTerrainHeightResolver.get() };
-        mTerrainHeightResolvers.push_back(std::move(NewTerrainHeightResolver));
-        return TerrainHeightResolverPointer;
+    void Scene::AddTerrainActorDesc(Arche::EntityID EntityId, const PhysicsTerrainActor::ActorDesc& TerrainActorDesc) {
+        for (TerrainActorDescBinding& Binding : mTerrainActorDescBindings) {
+            if (Binding.mEntityId != EntityId) {
+                continue;
+            }
+
+            Binding.mTerrainActorDesc = TerrainActorDesc;
+            return;
+        }
+
+        TerrainActorDescBinding NewBinding{};
+        NewBinding.mEntityId = EntityId;
+        NewBinding.mTerrainActorDesc = TerrainActorDesc;
+        mTerrainActorDescBindings.push_back(NewBinding);
     }
 
-    void Scene::ClearTerrainHeightResolvers() {
-        mTerrainHeightResolvers.clear();
+    void Scene::ClearTerrainActorDescs() {
+        mTerrainActorDescBindings.clear();
     }
 
     void Scene::InitializeWorldSnapshot() {

@@ -258,6 +258,84 @@ void ResolveStaticCollisions(IPhysicsWorldMediator& WorldMediator, const std::ve
         }
     }
 }
+
+bool TryGetHighestTerrainSurfaceHeight(const IPhysicsActorRepository& ActorRepository, float WorldX, float WorldZ, float& OutSurfaceHeight) {
+    std::vector<const PhysicsStaticActor*> StaticActors{ ActorRepository.CollectStaticActors() };
+    std::size_t StaticActorCount{ StaticActors.size() };
+    bool HasSurfaceHeight{};
+    float HighestSurfaceHeight{};
+
+    for (std::size_t StaticActorIndex{ 0U }; StaticActorIndex < StaticActorCount; ++StaticActorIndex) {
+        const PhysicsStaticActor* StaticActor{ StaticActors[StaticActorIndex] };
+        if (StaticActor == nullptr) {
+            continue;
+        }
+
+        const PhysicsTerrainActor* TerrainActor{ dynamic_cast<const PhysicsTerrainActor*>(StaticActor) };
+        if (TerrainActor == nullptr) {
+            continue;
+        }
+
+        float SurfaceHeight{};
+        bool HasCurrentSurfaceHeight{ TerrainActor->TryGetSurfaceHeightAtWorldPosition(WorldX, WorldZ, SurfaceHeight) };
+        if (!HasCurrentSurfaceHeight) {
+            continue;
+        }
+
+        if (!HasSurfaceHeight || SurfaceHeight > HighestSurfaceHeight) {
+            HighestSurfaceHeight = SurfaceHeight;
+            HasSurfaceHeight = true;
+        }
+    }
+
+    if (!HasSurfaceHeight) {
+        return false;
+    }
+
+    OutSurfaceHeight = HighestSurfaceHeight;
+    return true;
+}
+
+float GetActorBottomOffsetFromPositionY(const PhysicsActorBase& Actor) {
+    DirectX::XMFLOAT3 Corners[8]{};
+    Actor.GetWorldBoundingBox().GetCorners(Corners);
+
+    float MinimumY{ Corners[0].y };
+    for (std::size_t CornerIndex{ 1U }; CornerIndex < 8U; ++CornerIndex) {
+        if (Corners[CornerIndex].y < MinimumY) {
+            MinimumY = Corners[CornerIndex].y;
+        }
+    }
+
+    return MinimumY - Actor.GetPosition().y;
+}
+
+bool ResolveKinematicActorTerrainContactInternal(const IPhysicsActorRepository& ActorRepository, PhysicsActorBase& Actor) {
+    if (Actor.GetActorType() != PhysicsActorBase::PhysicsActorType::Kinematic || !Actor.GetIsActive()) {
+        return false;
+    }
+
+    if (!Actor.HasFlag(PhysicsActorBase::PhysicsActorFlags::TerrainCollide)) {
+        return false;
+    }
+
+    float SurfaceHeight{};
+    bool HasSurfaceHeight{ TryGetHighestTerrainSurfaceHeight(ActorRepository, Actor.GetPosition().x, Actor.GetPosition().z, SurfaceHeight) };
+    if (!HasSurfaceHeight) {
+        return false;
+    }
+
+    DirectX::SimpleMath::Vector3 NextPosition{ Actor.GetPosition() };
+    const float ActorBottomOffsetFromPositionY{ GetActorBottomOffsetFromPositionY(Actor) };
+    NextPosition.y = SurfaceHeight - ActorBottomOffsetFromPositionY;
+
+    DirectX::SimpleMath::Vector3 NextVelocity{ Actor.GetVelocity() };
+    NextVelocity.y = 0.0F;
+
+    Actor.SetPosition(NextPosition);
+    Actor.SetVelocity(NextVelocity);
+    return true;
+}
 }
 
 PhysicsFrameAccumulator::PhysicsFrameAccumulator()
@@ -668,6 +746,25 @@ void PhysicsWorld::Update(float DeltaTime) {
         mLastUpdateStepElapsedMilliseconds += StepElapsedTime.count();
         mLastStepElapsedMilliseconds = StepElapsedTime.count();
         ++mLastUpdateStepCount;
+    }
+}
+
+bool PhysicsWorld::ResolveKinematicTerrainContact(PhysicsActorBase& Actor) {
+    bool HasResolved{ ResolveKinematicActorTerrainContactInternal(*mActorRepository, Actor) };
+    return HasResolved;
+}
+
+void PhysicsWorld::ResolveKinematicTerrainContacts() {
+    IPhysicsActorRepository& ActorRepository{ GetActorRepository() };
+    std::vector<PhysicsKinematicActor*> KinematicActors{ ActorRepository.CollectKinematicActors() };
+    std::size_t KinematicActorCount{ KinematicActors.size() };
+    for (std::size_t ActorIndex{ 0U }; ActorIndex < KinematicActorCount; ++ActorIndex) {
+        PhysicsKinematicActor* KinematicActor{ KinematicActors[ActorIndex] };
+        if (KinematicActor == nullptr) {
+            continue;
+        }
+
+        ResolveKinematicActorTerrainContactInternal(ActorRepository, *KinematicActor);
     }
 }
 

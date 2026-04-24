@@ -1,4 +1,4 @@
-﻿SceneName: DefaultScene
+SceneName: DefaultScene
 
 Systems:
   - Type: AnimationGraphSystem
@@ -9,7 +9,6 @@ Systems:
   - Type: SkinnedMeshRenderSystem
   - Type: CameraRenderSystem
   - Type: ShadowMappingParameterSystem
-  - Type: TerrainCollideSystem
   
 DefaultTransform: &DefaultTransform
 rotationEuler: [0.0, 0.0, 0.0]
@@ -118,8 +117,6 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-5.00, 0.00, -50.00]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1001
         prefabId: 1001
@@ -138,8 +135,6 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [5.00, 0.00, -20.00]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1002
         prefabId: 1002
@@ -155,8 +150,6 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-10.00, 0.00, -12.00]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2001
         prefabId: 2001
@@ -172,8 +165,6 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-6.00, 0.00, -12.00]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2002
         prefabId: 2002
@@ -189,8 +180,6 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-2.00, 0.00, -12.00]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2003
         prefabId: 2003
@@ -206,8 +195,6 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [2.00, 0.00, -12.00]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2004
         prefabId: 2004
@@ -223,8 +210,6 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [6.00, 0.00, -12.00]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2005
         prefabId: 2005
@@ -240,8 +225,6 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [10.00, 0.00, -12.00]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2006
         prefabId: 2006
@@ -256,8 +239,6 @@ Entities:
         text: untitled
       Transform:
         <<: *DefaultTransform 
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1003
         prefabId: 1003
@@ -297,8 +278,6 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-5.00, 0.00, -30.00]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1004
         prefabId: 1004
@@ -317,8 +296,6 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [0.00, 0.00, 0.00]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2007
         prefabId: 2007
@@ -356,8 +333,6 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-5.00, 0.00, -35.00]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1004
         prefabId: 1004
@@ -376,8 +351,6 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-5.00, 0.00, -40.00]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1004
         prefabId: 1004
@@ -396,8 +369,6 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-5.00, 0.00, -45.00]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1004
         prefabId: 1004
@@ -416,8 +387,6 @@ Entities:
       Transform:
         <<: *DefaultTransform
         position: [-5.00, 0.00, -50.00]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab1004
         prefabId: 1004
@@ -437,8 +406,6 @@ Entities:
         <<: *DefaultTransform
         position: [-120.00, 0.00, -120.00]
         scale: [0.40, 0.40, 0.40]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2001
         prefabId: 2001
@@ -455,8 +422,6 @@ Entities:
         <<: *DefaultTransform
         position: [-80.00, 0.00, -100.00]
         scale: [0.65, 0.65, 0.65]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2002
         prefabId: 2002
@@ -473,8 +438,6 @@ Entities:
         <<: *DefaultTransform
         position: [-40.00, 0.00, -130.00]
         scale: [1.30, 2.40, 1.30]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2003
         prefabId: 2003
@@ -491,8 +454,6 @@ Entities:
         <<: *DefaultTransform
         position: [0.00, 0.00, -110.00]
         scale: [1.80, 1.80, 1.80]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2004
         prefabId: 2004
@@ -509,8 +470,6 @@ Entities:
         <<: *DefaultTransform
         position: [40.00, 0.00, -140.00]
         scale: [0.95, 1.90, 0.95]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2005
         prefabId: 2005
@@ -527,8 +486,6 @@ Entities:
         <<: *DefaultTransform
         position: [80.00, 0.00, -120.00]
         scale: [2.10, 2.10, 2.10]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2006
         prefabId: 2006
@@ -545,8 +502,6 @@ Entities:
         <<: *DefaultTransform
         position: [120.00, 0.00, -100.00]
         scale: [3.60, 0.80, 3.60]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2001
         prefabId: 2001
@@ -563,8 +518,6 @@ Entities:
         <<: *DefaultTransform
         position: [-120.00, 0.00, -40.00]
         scale: [0.35, 0.35, 0.35]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2002
         prefabId: 2002
@@ -581,8 +534,6 @@ Entities:
         <<: *DefaultTransform
         position: [-80.00, 0.00, -20.00]
         scale: [0.80, 3.20, 0.80]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2003
         prefabId: 2003
@@ -599,8 +550,6 @@ Entities:
         <<: *DefaultTransform
         position: [-40.00, 0.00, -60.00]
         scale: [1.10, 0.70, 1.10]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2004
         prefabId: 2004
@@ -617,8 +566,6 @@ Entities:
         <<: *DefaultTransform
         position: [0.00, 0.00, -40.00]
         scale: [1.55, 1.55, 1.55]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2005
         prefabId: 2005
@@ -635,8 +582,6 @@ Entities:
         <<: *DefaultTransform
         position: [40.00, 0.00, -20.00]
         scale: [2.80, 1.20, 2.80]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2006
         prefabId: 2006
@@ -653,8 +598,6 @@ Entities:
         <<: *DefaultTransform
         position: [80.00, 0.00, -60.00]
         scale: [0.90, 2.90, 0.90]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2001
         prefabId: 2001
@@ -671,8 +614,6 @@ Entities:
         <<: *DefaultTransform
         position: [120.00, 0.00, -40.00]
         scale: [2.60, 2.60, 2.60]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2002
         prefabId: 2002
@@ -689,8 +630,6 @@ Entities:
         <<: *DefaultTransform
         position: [-120.00, 0.00, 40.00]
         scale: [1.10, 1.10, 1.10]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2003
         prefabId: 2003
@@ -707,8 +646,6 @@ Entities:
         <<: *DefaultTransform
         position: [-80.00, 0.00, 60.00]
         scale: [3.20, 3.20, 3.20]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2004
         prefabId: 2004
@@ -725,8 +662,6 @@ Entities:
         <<: *DefaultTransform
         position: [-40.00, 0.00, 20.00]
         scale: [0.55, 0.55, 0.55]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2005
         prefabId: 2005
@@ -743,8 +678,6 @@ Entities:
         <<: *DefaultTransform
         position: [0.00, 0.00, 40.00]
         scale: [1.35, 2.70, 1.35]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2006
         prefabId: 2006
@@ -761,8 +694,6 @@ Entities:
         <<: *DefaultTransform
         position: [40.00, 0.00, 60.00]
         scale: [2.40, 2.40, 0.60]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2001
         prefabId: 2001
@@ -779,8 +710,6 @@ Entities:
         <<: *DefaultTransform
         position: [80.00, 0.00, 20.00]
         scale: [1.00, 1.00, 1.00]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2002
         prefabId: 2002
@@ -797,8 +726,6 @@ Entities:
         <<: *DefaultTransform
         position: [120.00, 0.00, 40.00]
         scale: [0.70, 1.60, 0.70]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2003
         prefabId: 2003
@@ -815,8 +742,6 @@ Entities:
         <<: *DefaultTransform
         position: [-120.00, 0.00, 120.00]
         scale: [1.90, 0.90, 1.90]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2004
         prefabId: 2004
@@ -833,8 +758,6 @@ Entities:
         <<: *DefaultTransform
         position: [-40.00, 0.00, 110.00]
         scale: [2.20, 2.20, 2.20]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2005
         prefabId: 2005
@@ -851,8 +774,6 @@ Entities:
         <<: *DefaultTransform
         position: [40.00, 0.00, 130.00]
         scale: [0.60, 3.40, 0.60]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2006
         prefabId: 2006
@@ -869,8 +790,6 @@ Entities:
         <<: *DefaultTransform
         position: [120.00, 0.00, 120.00]
         scale: [4.20, 4.20, 4.20]
-      TerrainCollider:
-        TerrainCollide: true
       PrefabInstance:
         <<: *Prefab2001
         prefabId: 2001

@@ -30,8 +30,6 @@
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Tags.h"
 #include "Game/Scene/Components/Transform.h"
-#include "Game/Scene/Components/TerrainCollider.h"
-#include "Game/Scene/Systems/TerrainCollideSystem.h"
 #include "Game/Scene/Systems/AnimationGraphSystem.h"
 #include "Game/Scene/Systems/AnimateSystem.h"
 #include "Game/Scene/Systems/FootIKSystem.h"
@@ -50,7 +48,6 @@ namespace {
     constexpr const char* MaterialTypeName{ "Material" };
     constexpr const char* StaticMeshRendererTypeName{ "StaticMeshRenderer" };
     constexpr const char* TerrainTypeName{ "Terrain" };
-    constexpr const char* TerrainColliderTypeName{ "TerrainCollider" };
     constexpr const char* CullingTypeName{ "Culling" };
     constexpr const char* AnimationTypeName{ "Animation" };
     constexpr const char* CameraTypeName{ "Camera" };
@@ -222,7 +219,6 @@ namespace {
             { "FootIKSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::FootIKSystem>(); } },
             { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },
             { "ShadowMappingParameterSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::ShadowMappingParameterSystem>(); } },
-            { "TerrainCollideSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TerrainCollideSystem>(); } },
         };
         const std::unordered_map<std::string_view, SystemFactory>::const_iterator FactoryIter{ SystemFactories.find(SystemName) };
         if (FactoryIter == SystemFactories.end()) {
@@ -875,7 +871,7 @@ namespace Game {
             return LoadResult;
         }
 
-        OutScene.ClearTerrainHeightResolvers();
+        OutScene.ClearTerrainActorDescs();
         SceneEntityFactory EntityFactory{ OutScene };
         std::unordered_map<std::int64_t, Arche::EntityID> EntityBySerializedId{};
         std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredParents{};
@@ -950,16 +946,6 @@ namespace Game {
                     NewPendingBinding.Extents = BoundingExtents;
                     PendingBoundingBoxBindings.push_back(NewPendingBinding);
                 }
-            }
-
-            if (ComponentsNode.has_child(TerrainColliderTypeName)) {
-                TerrainCollider NewTerrainCollider{};
-                const c4::yml::ConstNodeRef TerrainColliderNode{ ComponentsNode[TerrainColliderTypeName] };
-                if (TerrainColliderNode.has_child("TerrainCollide")) {
-                    TerrainColliderNode["TerrainCollide"] >> NewTerrainCollider.mTerrainCollide;
-                }
-
-                OutScene.GetWorld().AddComponent(Entity, NewTerrainCollider);
             }
 
             std::uint32_t MaterialGroupIndexForModel{ 0 };
@@ -1193,7 +1179,7 @@ namespace Game {
 
                         HeightMapLoader HeightMapLoaderInstance{};
                         const HeightFieldData HeightFieldDataValue{ HeightMapLoaderInstance.LoadHeightField(Desc.HeightMapPath) };
-                        TerrainHeightResolver* TerrainHeightResolverPointer{ OutScene.CreateTerrainHeightResolver(HeightFieldDataValue, Desc) };
+                        PhysicsTerrainActor::ActorDesc TerrainActorDesc{ PhysicsTerrainActor::BuildHeightFieldActorDesc(HeightFieldDataValue.Width, HeightFieldDataValue.Height, HeightFieldDataValue.HeightValues, Desc.MaxHeight, Desc.CellSizeX, Desc.CellSizeZ, Desc.CenterOrigin) };
 
                         ModelHierarchySpawnRequest SpawnRequest{};
                         SpawnRequest.ModelData = ModelData;
@@ -1201,11 +1187,13 @@ namespace Game {
                         SpawnRequest.MaterialGroupIndex = MaterialGroupIndexForModel;
                         SpawnRequest.FrustumCullingEnabled = FrustumCullingEnabled;
                         SpawnRequest.IsActive = IsActive;
-                        SpawnRequest.TerrainHeightResolverPointer = TerrainHeightResolverPointer;
                         const bool IsSpawned{ EntityFactory.SpawnModelHierarchy(SpawnRequest) };
                         if (IsSpawned == false) {
                             LoadResult.IsSuccess = false;
                             LoadResult.UndecidedItems.push_back(std::string{ "Terrain RootNode 를 찾을 수 없습니다: " } + Desc.HeightMapPath);
+                        }
+                        else {
+                            OutScene.AddTerrainActorDesc(Entity, TerrainActorDesc);
                         }
                     }
                 }
