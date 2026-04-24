@@ -33,6 +33,7 @@
 #include "Game/Scene/Systems/AnimationGraphSystem.h"
 #include "Game/Scene/Systems/AnimateSystem.h"
 #include "Game/Scene/Systems/FootIKSystem.h"
+#include "Game/Scene/Systems/PhysicsActorUpdateSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshPrepareSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshRenderSystem.h"
 #include "Game/Scene/Systems/StaticRenderSystem.h"
@@ -217,6 +218,7 @@ namespace {
             { "AnimationGraphSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimationGraphSystem>(); } },
             { "AnimateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimateSystem>(); } },
             { "FootIKSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::FootIKSystem>(); } },
+            { "PhysicsActorUpdateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::PhysicsActorUpdateSystem>(); } },
             { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },
             { "ShadowMappingParameterSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::ShadowMappingParameterSystem>(); } },
         };

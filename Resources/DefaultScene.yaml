@@ -4,6 +4,7 @@ Systems:
   - Type: AnimationGraphSystem
   - Type: AnimateSystem
   - Type: FootIKSystem
+  - Type: PhysicsActorUpdateSystem
   - Type: SkinnedMeshPrepareSystem
   - Type: StaticRenderSystem
   - Type: SkinnedMeshRenderSystem

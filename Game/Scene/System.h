@@ -18,6 +18,7 @@ namespace Game {
         PreUpdate,
         Update,
         PostUpdate,
+        PhysicsActorUpdate,
         TransformWorld,
         IK,
         RenderPrepare,

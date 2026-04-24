@@ -74,6 +74,7 @@
     <ClInclude Include="Scene\IK\FabrikFootIKSolver.h" />
     <ClInclude Include="Scene\IK\FootIKAlgorithms.h" />
     <ClInclude Include="Scene\Systems\FootIKSystem.h" />
+    <ClInclude Include="Scene\Systems\PhysicsActorUpdateSystem.h" />
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
     <ClInclude Include="Scene\Systems\ShadowMappingParameterSystem.h" />
     <ClInclude Include="Scene\Systems\SkinnedMeshPrepareSystem.h" />
@@ -132,6 +133,7 @@
     <ClCompile Include="Scene\IK\FabrikFootIKSolver.cpp" />
     <ClCompile Include="Scene\IK\FootIKAlgorithms.cpp" />
     <ClCompile Include="Scene\Systems\FootIKSystem.cpp" />
+    <ClCompile Include="Scene\Systems\PhysicsActorUpdateSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\ShadowMappingParameterSystem.cpp" />
     <ClCompile Include="Scene\Systems\SkinnedMeshPrepareSystem.cpp" />

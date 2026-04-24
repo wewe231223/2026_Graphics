@@ -99,6 +99,7 @@ namespace Widget {
         std::string PreUpdateLegendText{ "PreUpdate" };
         std::string UpdateLegendText{ "Update" };
         std::string PostUpdateLegendText{ "PostUpdate" };
+        std::string PhysicsActorUpdateLegendText{ "PhysicsActorUpdate" };
         std::string TransformWorldLegendText{ "TransformWorld" };
         std::string IkLegendText{ "IK" };
         std::string RenderPrepareLegendText{ "RenderPrepare" };
@@ -159,6 +160,7 @@ namespace Widget {
             PreUpdateLegendText = std::format("PreUpdate ({:.2f} ms)", ResolvePhaseDurationMilliseconds("PreUpdate"));
             UpdateLegendText = std::format("Update ({:.2f} ms)", ResolvePhaseDurationMilliseconds("Update"));
             PostUpdateLegendText = std::format("PostUpdate ({:.2f} ms)", ResolvePhaseDurationMilliseconds("PostUpdate"));
+            PhysicsActorUpdateLegendText = std::format("PhysicsActorUpdate ({:.2f} ms)", ResolvePhaseDurationMilliseconds("PhysicsActorUpdate"));
             TransformWorldLegendText = std::format("TransformWorld ({:.2f} ms)", ResolvePhaseDurationMilliseconds("TransformWorld"));
             IkLegendText = std::format("IK ({:.2f} ms)", ResolvePhaseDurationMilliseconds("IK"));
             RenderPrepareLegendText = std::format("RenderPrepare ({:.2f} ms)", ResolvePhaseDurationMilliseconds("RenderPrepare"));
@@ -172,6 +174,8 @@ namespace Widget {
         RenderLegendItem(UpdateLegendText.c_str(), GetColorByName("Update"));
         ImGui::NextColumn();
         RenderLegendItem(PostUpdateLegendText.c_str(), GetColorByName("PostUpdate"));
+        ImGui::NextColumn();
+        RenderLegendItem(PhysicsActorUpdateLegendText.c_str(), GetColorByName("PhysicsActorUpdate"));
         ImGui::NextColumn();
         RenderLegendItem(TransformWorldLegendText.c_str(), GetColorByName("TransformWorld"));
         ImGui::NextColumn();
@@ -204,6 +208,10 @@ namespace Widget {
 
         if (Name.find("PostUpdate") != std::string::npos) {
             return IM_COL32(55, 89, 182, 255);
+        }
+
+        if (Name.find("PhysicsActorUpdate") != std::string::npos) {
+            return IM_COL32(26, 188, 156, 255);
         }
 
         if (Name.find("Update") != std::string::npos) {

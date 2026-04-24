@@ -162,6 +162,9 @@
     <ClInclude Include="Scene\Systems\FootIKSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Systems\PhysicsActorUpdateSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\Tags.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -345,6 +348,9 @@
       <Filter>Scene\IK</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\FootIKSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\PhysicsActorUpdateSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Base\Input.cpp">

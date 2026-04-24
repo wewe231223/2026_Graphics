@@ -363,30 +363,6 @@ namespace Game {
 
         mPhysicsWorld.ResolveKinematicTerrainContacts();
         mPhysicsWorld.Update(Dt);
-
-        for (auto [PhysicsActorComponent, TransformComponent, EntityHierarchyComponent] : mWorld.Query<PhysicsActor, Transform, EntityHierarchy>()) {
-            PhysicsActorBase* ActorPointer{ PhysicsActorComponent.mActorPointer };
-            if (ActorPointer == nullptr || ActorPointer->GetActorType() == PhysicsActorBase::PhysicsActorType::Static) {
-                continue;
-            }
-
-            DirectX::SimpleMath::Vector3 PhysicsPosition{ ActorPointer->GetPosition() };
-            DirectX::SimpleMath::Quaternion PhysicsOrientation{ ActorPointer->GetOrientation() };
-            DirectX::SimpleMath::Vector3 PhysicsScale{ ActorPointer->GetScale() };
-            if (ActorPointer->GetActorType() == PhysicsActorBase::PhysicsActorType::Dynamic) {
-                mPhysicsWorld.TryGetInterpolatedActorTransform(*ActorPointer, PhysicsPosition, PhysicsOrientation, PhysicsScale);
-            }
-
-            TransformComponent.position = PhysicsPosition;
-            TransformComponent.rotation = PhysicsOrientation;
-            TransformComponent.scale = PhysicsScale;
-            TransformComponent.UpdateEulerRadiansFromRotation();
-
-            BoundingBox* BoundingBoxComponent{ mWorld.GetComponent<BoundingBox>(EntityHierarchyComponent.self) };
-            if (BoundingBoxComponent != nullptr) {
-                BoundingBoxComponent->SetWorldObb(ActorPointer->GetWorldBoundingBox());
-            }
-        }
     }
 
     void Scene::SetName(const std::string& NewName) {
