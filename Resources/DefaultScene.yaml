@@ -124,6 +124,9 @@ Entities:
       Animation:
         text: testset3.animbin
         initclip: 0
+      BB:
+        Center: [0.00, 0.00, 0.00]
+        Extents: [0.60, 0.85, 0.60]
   - EntityId: 2
     ParentEntityId: -1
     Components:
@@ -139,6 +142,9 @@ Entities:
       PrefabInstance:
         <<: *Prefab1002
         prefabId: 1002
+      BB:
+        Center: [0.00, 0.00, 0.00]
+        Extents: [0.60, 0.85, 0.60]
   - EntityId: 3
     ParentEntityId: -1
     Components:

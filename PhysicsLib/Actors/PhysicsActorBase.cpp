@@ -307,6 +307,7 @@ const DirectX::SimpleMath::Vector3& PhysicsActorBase::GetScale() const {
 void PhysicsActorBase::SetVelocity(const DirectX::SimpleMath::Vector3& Velocity) {
     mRigidBody.mVelocity = Velocity;
     SetLinearMomentum(mRigidBody.mVelocity * GetMass());
+    UpdateFatWorldBoundingBox();
 }
 
 const DirectX::SimpleMath::Vector3& PhysicsActorBase::GetVelocity() const {
@@ -339,6 +340,7 @@ void PhysicsActorBase::AddImpulse(const DirectX::SimpleMath::Vector3& Impulse) {
     SetLinearMomentum(NextLinearMomentum);
     float InverseMass{ GetInverseMass() };
     mRigidBody.mVelocity = InverseMass > 0.0F ? NextLinearMomentum * InverseMass : DirectX::SimpleMath::Vector3{};
+    UpdateFatWorldBoundingBox();
     SetIsSleeping(false);
 }
 
@@ -394,6 +396,7 @@ void PhysicsActorBase::SetIsSleeping(bool IsSleeping) {
         mRigidBody.mTorque = DirectX::SimpleMath::Vector3{};
         SetLinearMomentum(DirectX::SimpleMath::Vector3{});
         SetAngularMomentum(DirectX::SimpleMath::Vector3{});
+        UpdateFatWorldBoundingBox();
         return;
     }
 

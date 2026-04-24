@@ -26,6 +26,17 @@ namespace {
     constexpr float DynamicPenetrationVelocityFactor{ 0.08F };
     constexpr float DynamicPositionCorrectionFactor{ 0.1F };
     constexpr float DynamicPositionCorrectionSlop{ 0.004F };
+    constexpr std::size_t DynamicContactManifoldMaximumPointCount{ 4U };
+    constexpr float DynamicContactPointMergeDistanceSquared{ 0.0001F };
+
+    struct DynamicContactPoint {
+        DirectX::SimpleMath::Vector3 mPosition;
+    };
+
+    struct DynamicContactManifold {
+        std::array<DynamicContactPoint, DynamicContactManifoldMaximumPointCount> mContactPoints;
+        std::size_t mContactPointCount;
+    };
 
     float GetVectorComponent(const DirectX::SimpleMath::Vector3& Value, std::uint32_t AxisIndex) {
         if (AxisIndex == 0U) {
@@ -189,9 +200,158 @@ namespace {
         return true;
     }
 
-    void ApplyImpulseToVelocityPair(DirectX::SimpleMath::Vector3& InOutFirstVelocity, DirectX::SimpleMath::Vector3& InOutSecondVelocity, float FirstInverseMass, float SecondInverseMass, const DirectX::SimpleMath::Vector3& ImpulseValue) {
-        InOutFirstVelocity -= ImpulseValue * FirstInverseMass;
-        InOutSecondVelocity += ImpulseValue * SecondInverseMass;
+    DirectX::SimpleMath::Vector3 GetObbSupportPoint(const DynamicObb& ObbValue, const DirectX::SimpleMath::Vector3& Direction) {
+        DirectX::SimpleMath::Vector3 SupportPoint{ ObbValue.mCenter };
+        for (std::uint32_t AxisIndex{ 0U }; AxisIndex < 3U; ++AxisIndex) {
+            float DirectionDotAxis{ Direction.Dot(ObbValue.mAxes[AxisIndex]) };
+            float DirectionSign{ DirectionDotAxis >= 0.0F ? 1.0F : -1.0F };
+            float AxisExtent{ GetVectorComponent(ObbValue.mExtents, AxisIndex) };
+            SupportPoint += ObbValue.mAxes[AxisIndex] * AxisExtent * DirectionSign;
+        }
+
+        return SupportPoint;
+    }
+
+    bool IsPointInsideObb(const DynamicObb& ObbValue, const DirectX::SimpleMath::Vector3& Point) {
+        DirectX::SimpleMath::Vector3 CenterDelta{ Point - ObbValue.mCenter };
+        for (std::uint32_t AxisIndex{ 0U }; AxisIndex < 3U; ++AxisIndex) {
+            float ProjectedDistance{ CenterDelta.Dot(ObbValue.mAxes[AxisIndex]) };
+            float AxisExtent{ GetVectorComponent(ObbValue.mExtents, AxisIndex) };
+            if (std::abs(ProjectedDistance) > AxisExtent + DynamicSatAxisEpsilon) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    void AddContactPoint(DynamicContactManifold& InOutManifold, const DirectX::SimpleMath::Vector3& ContactPoint) {
+        for (std::size_t ContactPointIndex{ 0U }; ContactPointIndex < InOutManifold.mContactPointCount; ++ContactPointIndex) {
+            DirectX::SimpleMath::Vector3 PointDelta{ InOutManifold.mContactPoints[ContactPointIndex].mPosition - ContactPoint };
+            if (PointDelta.LengthSquared() <= DynamicContactPointMergeDistanceSquared) {
+                return;
+            }
+        }
+
+        if (InOutManifold.mContactPointCount >= DynamicContactManifoldMaximumPointCount) {
+            return;
+        }
+
+        InOutManifold.mContactPoints[InOutManifold.mContactPointCount] = DynamicContactPoint{ ContactPoint };
+        ++InOutManifold.mContactPointCount;
+    }
+
+    void AddObbCornersInsideOther(DynamicContactManifold& InOutManifold, const DirectX::BoundingOrientedBox& SourceBounds, const DynamicObb& TargetObb) {
+        DirectX::XMFLOAT3 Corners[8]{};
+        SourceBounds.GetCorners(Corners);
+        for (std::size_t CornerIndex{ 0U }; CornerIndex < 8U; ++CornerIndex) {
+            DirectX::SimpleMath::Vector3 CornerPoint{ Corners[CornerIndex].x, Corners[CornerIndex].y, Corners[CornerIndex].z };
+            if (!IsPointInsideObb(TargetObb, CornerPoint)) {
+                continue;
+            }
+
+            AddContactPoint(InOutManifold, CornerPoint);
+        }
+    }
+
+    DynamicContactManifold BuildContactManifold(const DirectX::BoundingOrientedBox& FirstBounds, const DirectX::BoundingOrientedBox& SecondBounds, const DynamicObb& FirstObb, const DynamicObb& SecondObb, const DynamicSatResult& SatResult) {
+        DynamicContactManifold Manifold{};
+        AddObbCornersInsideOther(Manifold, FirstBounds, SecondObb);
+        AddObbCornersInsideOther(Manifold, SecondBounds, FirstObb);
+        if (Manifold.mContactPointCount == 0U) {
+            DirectX::SimpleMath::Vector3 FirstSupportPoint{ GetObbSupportPoint(FirstObb, SatResult.mNormal) };
+            DirectX::SimpleMath::Vector3 SecondSupportPoint{ GetObbSupportPoint(SecondObb, -SatResult.mNormal) };
+            DirectX::SimpleMath::Vector3 ContactPoint{ (FirstSupportPoint + SecondSupportPoint) * 0.5F };
+            AddContactPoint(Manifold, ContactPoint);
+        }
+
+        return Manifold;
+    }
+
+    DirectX::SimpleMath::Vector3 CalculateVelocityAtPoint(const PhysicsActorBase& Actor, const DirectX::SimpleMath::Vector3& WorldPoint) {
+        DirectX::SimpleMath::Vector3 ContactOffset{ WorldPoint - Actor.GetPosition() };
+        DirectX::SimpleMath::Vector3 AngularVelocityContribution{ Actor.GetAngularVelocity().Cross(ContactOffset) };
+        DirectX::SimpleMath::Vector3 PointVelocity{ Actor.GetVelocity() + AngularVelocityContribution };
+        return PointVelocity;
+    }
+
+    float CalculateSingleActorContactImpulseDenominator(const PhysicsActorBase& Actor, const DirectX::SimpleMath::Vector3& ContactOffset, const DirectX::SimpleMath::Vector3& Direction) {
+        DirectX::SimpleMath::Vector3 RadiusCrossDirection{ ContactOffset.Cross(Direction) };
+        DirectX::SimpleMath::Vector3 AngularVelocityDelta{ DirectX::SimpleMath::Vector3::TransformNormal(RadiusCrossDirection, Actor.GetInverseInertiaTensorWorld()) };
+        DirectX::SimpleMath::Vector3 ContactVelocityDelta{ AngularVelocityDelta.Cross(ContactOffset) };
+        float Denominator{ Actor.GetInverseMass() + Direction.Dot(ContactVelocityDelta) };
+        return std::max(0.0F, Denominator);
+    }
+
+    float CalculateContactImpulseDenominator(const PhysicsActorBase& FirstActor, const PhysicsActorBase& SecondActor, const DirectX::SimpleMath::Vector3& ContactPoint, const DirectX::SimpleMath::Vector3& Direction) {
+        DirectX::SimpleMath::Vector3 FirstContactOffset{ ContactPoint - FirstActor.GetPosition() };
+        DirectX::SimpleMath::Vector3 SecondContactOffset{ ContactPoint - SecondActor.GetPosition() };
+        float FirstDenominator{ CalculateSingleActorContactImpulseDenominator(FirstActor, FirstContactOffset, Direction) };
+        float SecondDenominator{ CalculateSingleActorContactImpulseDenominator(SecondActor, SecondContactOffset, Direction) };
+        float Denominator{ FirstDenominator + SecondDenominator };
+        return Denominator;
+    }
+
+    void ApplyImpulseToActorPair(PhysicsActorBase& FirstActor, PhysicsActorBase& SecondActor, const DirectX::SimpleMath::Vector3& ContactPoint, const DirectX::SimpleMath::Vector3& ImpulseValue) {
+        FirstActor.ApplyImpulseAtPoint(-ImpulseValue, ContactPoint);
+        SecondActor.ApplyImpulseAtPoint(ImpulseValue, ContactPoint);
+    }
+
+    bool ResolveContactPointImpulse(PhysicsActorBase& FirstActor, PhysicsActorBase& SecondActor, const DirectX::SimpleMath::Vector3& ContactPoint, const DirectX::SimpleMath::Vector3& CollisionNormal, float PenetrationDepth, float EffectiveRestitution, float EffectiveFriction, float DeltaTime, std::size_t ContactPointCount) {
+        DirectX::SimpleMath::Vector3 FirstContactVelocity{ CalculateVelocityAtPoint(FirstActor, ContactPoint) };
+        DirectX::SimpleMath::Vector3 SecondContactVelocity{ CalculateVelocityAtPoint(SecondActor, ContactPoint) };
+        DirectX::SimpleMath::Vector3 RelativeVelocity{ SecondContactVelocity - FirstContactVelocity };
+        float RelativeNormalVelocity{ RelativeVelocity.Dot(CollisionNormal) };
+
+        float RestitutionFactor{};
+        if (RelativeNormalVelocity < -DynamicRestitutionThreshold) {
+            RestitutionFactor = EffectiveRestitution;
+        }
+
+        float SafeContactPointCount{ static_cast<float>(std::max<std::size_t>(ContactPointCount, 1U)) };
+        float InverseDeltaTime{ DeltaTime > DynamicSatAxisEpsilon ? (1.0F / DeltaTime) : 0.0F };
+        float PositionBiasVelocity{ std::max(0.0F, PenetrationDepth - DynamicPositionCorrectionSlop) * DynamicPenetrationVelocityFactor * InverseDeltaTime / SafeContactPointCount };
+        float ClosingVelocity{ std::min(RelativeNormalVelocity, 0.0F) };
+        float TargetSeparationVelocity{ (-ClosingVelocity * (1.0F + RestitutionFactor)) + PositionBiasVelocity };
+        float NormalDenominator{ CalculateContactImpulseDenominator(FirstActor, SecondActor, ContactPoint, CollisionNormal) };
+        if (NormalDenominator <= DynamicSatAxisEpsilon) {
+            return false;
+        }
+
+        float NormalImpulseMagnitude{ TargetSeparationVelocity / NormalDenominator };
+        if (NormalImpulseMagnitude < 0.0F) {
+            NormalImpulseMagnitude = 0.0F;
+        }
+
+        bool HasAppliedImpulse{};
+        if (NormalImpulseMagnitude > 0.0F) {
+            DirectX::SimpleMath::Vector3 NormalImpulse{ CollisionNormal * NormalImpulseMagnitude };
+            ApplyImpulseToActorPair(FirstActor, SecondActor, ContactPoint, NormalImpulse);
+            HasAppliedImpulse = true;
+        }
+
+        FirstContactVelocity = CalculateVelocityAtPoint(FirstActor, ContactPoint);
+        SecondContactVelocity = CalculateVelocityAtPoint(SecondActor, ContactPoint);
+        RelativeVelocity = SecondContactVelocity - FirstContactVelocity;
+        float VelocityAlongNormal{ RelativeVelocity.Dot(CollisionNormal) };
+        DirectX::SimpleMath::Vector3 TangentialVelocity{ RelativeVelocity - (CollisionNormal * VelocityAlongNormal) };
+        float TangentialVelocityLengthSquared{ TangentialVelocity.LengthSquared() };
+        if (TangentialVelocityLengthSquared > (DynamicSatAxisEpsilon * DynamicSatAxisEpsilon) && NormalImpulseMagnitude > 0.0F) {
+            DirectX::SimpleMath::Vector3 Tangent{ TangentialVelocity / std::sqrt(TangentialVelocityLengthSquared) };
+            float TangentialDenominator{ CalculateContactImpulseDenominator(FirstActor, SecondActor, ContactPoint, Tangent) };
+            if (TangentialDenominator > DynamicSatAxisEpsilon) {
+                float TangentialImpulseMagnitude{ -RelativeVelocity.Dot(Tangent) / TangentialDenominator };
+                float MaximumFrictionImpulse{ EffectiveFriction * NormalImpulseMagnitude };
+                TangentialImpulseMagnitude = std::clamp(TangentialImpulseMagnitude, -MaximumFrictionImpulse, MaximumFrictionImpulse);
+                if (std::abs(TangentialImpulseMagnitude) > DynamicSatAxisEpsilon) {
+                    DirectX::SimpleMath::Vector3 TangentialImpulse{ Tangent * TangentialImpulseMagnitude };
+                    ApplyImpulseToActorPair(FirstActor, SecondActor, ContactPoint, TangentialImpulse);
+                    HasAppliedImpulse = true;
+                }
+            }
+        }
+
+        return HasAppliedImpulse;
     }
 
     bool ResolveCollisionFromSatResult(PhysicsActorBase& FirstActor, PhysicsActorBase& SecondActor, const DynamicSatResult& SatResult, float DeltaTime) {
@@ -211,45 +371,24 @@ namespace {
             return false;
         }
 
-        DirectX::SimpleMath::Vector3 FirstVelocity{ FirstActor.GetVelocity() };
-        DirectX::SimpleMath::Vector3 SecondVelocity{ SecondActor.GetVelocity() };
-        DirectX::SimpleMath::Vector3 RelativeVelocity{ SecondVelocity - FirstVelocity };
-        float RelativeNormalVelocity{ RelativeVelocity.Dot(CollisionNormal) };
+        DirectX::BoundingOrientedBox FirstBounds{ FirstActor.GetWorldBoundingBox() };
+        DirectX::BoundingOrientedBox SecondBounds{ SecondActor.GetWorldBoundingBox() };
+        DynamicObb FirstObb{ CreateDynamicObb(FirstBounds) };
+        DynamicObb SecondObb{ CreateDynamicObb(SecondBounds) };
+        DynamicContactManifold ContactManifold{ BuildContactManifold(FirstBounds, SecondBounds, FirstObb, SecondObb, SatResult) };
+        if (ContactManifold.mContactPointCount == 0U) {
+            return false;
+        }
+
         float EffectiveRestitution{ std::min(FirstActor.GetRestitution(), SecondActor.GetRestitution()) };
         float EffectiveFriction{ std::sqrt(std::max(0.0F, FirstActor.GetFriction() * SecondActor.GetFriction())) };
 
-        float RestitutionFactor{};
-        if (RelativeNormalVelocity < -DynamicRestitutionThreshold) {
-            RestitutionFactor = EffectiveRestitution;
+        bool HasAppliedImpulse{};
+        for (std::size_t ContactPointIndex{ 0U }; ContactPointIndex < ContactManifold.mContactPointCount; ++ContactPointIndex) {
+            const DynamicContactPoint& ContactPoint{ ContactManifold.mContactPoints[ContactPointIndex] };
+            bool HasResolvedContact{ ResolveContactPointImpulse(FirstActor, SecondActor, ContactPoint.mPosition, CollisionNormal, SatResult.mPenetration, EffectiveRestitution, EffectiveFriction, DeltaTime, ContactManifold.mContactPointCount) };
+            HasAppliedImpulse = HasAppliedImpulse || HasResolvedContact;
         }
-
-        float InverseDeltaTime{ DeltaTime > DynamicSatAxisEpsilon ? (1.0F / DeltaTime) : 0.0F };
-        float PositionBiasVelocity{ std::max(0.0F, SatResult.mPenetration - DynamicPositionCorrectionSlop) * DynamicPenetrationVelocityFactor * InverseDeltaTime };
-        float ClosingVelocity{ std::min(RelativeNormalVelocity, 0.0F) };
-        float TargetSeparationVelocity{ (-ClosingVelocity * (1.0F + RestitutionFactor)) + PositionBiasVelocity };
-        float NormalImpulseMagnitude{ TargetSeparationVelocity / CombinedInverseMass };
-        if (NormalImpulseMagnitude < 0.0F) {
-            NormalImpulseMagnitude = 0.0F;
-        }
-
-        DirectX::SimpleMath::Vector3 NormalImpulse{ CollisionNormal * NormalImpulseMagnitude };
-        ApplyImpulseToVelocityPair(FirstVelocity, SecondVelocity, FirstInverseMass, SecondInverseMass, NormalImpulse);
-
-        RelativeVelocity = SecondVelocity - FirstVelocity;
-        float VelocityAlongNormal{ RelativeVelocity.Dot(CollisionNormal) };
-        DirectX::SimpleMath::Vector3 TangentialVelocity{ RelativeVelocity - (CollisionNormal * VelocityAlongNormal) };
-        float TangentialVelocityLengthSquared{ TangentialVelocity.LengthSquared() };
-        if (TangentialVelocityLengthSquared > (DynamicSatAxisEpsilon * DynamicSatAxisEpsilon)) {
-            DirectX::SimpleMath::Vector3 Tangent{ TangentialVelocity / std::sqrt(TangentialVelocityLengthSquared) };
-            float TangentialImpulseMagnitude{ -RelativeVelocity.Dot(Tangent) / CombinedInverseMass };
-            float MaximumFrictionImpulse{ EffectiveFriction * NormalImpulseMagnitude };
-            TangentialImpulseMagnitude = std::clamp(TangentialImpulseMagnitude, -MaximumFrictionImpulse, MaximumFrictionImpulse);
-            DirectX::SimpleMath::Vector3 TangentialImpulse{ Tangent * TangentialImpulseMagnitude };
-            ApplyImpulseToVelocityPair(FirstVelocity, SecondVelocity, FirstInverseMass, SecondInverseMass, TangentialImpulse);
-        }
-
-        FirstActor.SetVelocity(FirstVelocity);
-        SecondActor.SetVelocity(SecondVelocity);
 
         float CorrectedPenetration{ std::max(0.0F, SatResult.mPenetration - DynamicPositionCorrectionSlop) };
         if (CorrectedPenetration > 0.0F) {
@@ -259,6 +398,6 @@ namespace {
             SecondActor.SetPosition(SecondActor.GetPosition() + (CorrectionVector * SecondInverseMass));
         }
 
-        return true;
+        return HasAppliedImpulse || CorrectedPenetration > 0.0F;
     }
 }
