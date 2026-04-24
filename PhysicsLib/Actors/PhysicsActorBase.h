@@ -100,6 +100,14 @@ public:
     const DirectX::SimpleMath::Vector3& GetLinearMomentum() const;
     void SetAngularMomentum(const DirectX::SimpleMath::Vector3& AngularMomentum);
     const DirectX::SimpleMath::Vector3& GetAngularMomentum() const;
+    void SetAngularVelocity(const DirectX::SimpleMath::Vector3& AngularVelocity);
+    const DirectX::SimpleMath::Vector3& GetAngularVelocity() const;
+    void AddTorque(const DirectX::SimpleMath::Vector3& Torque);
+    const DirectX::SimpleMath::Vector3& GetTorque() const;
+    void ClearTorque();
+    void AddAngularImpulse(const DirectX::SimpleMath::Vector3& AngularImpulse);
+    void ApplyImpulseAtPoint(const DirectX::SimpleMath::Vector3& Impulse, const DirectX::SimpleMath::Vector3& WorldPoint);
+    const DirectX::SimpleMath::Matrix& GetInverseInertiaTensorWorld() const;
     void SetRigidBody(const RigidBody& RigidBodyState);
     const RigidBody& GetRigidBody() const;
 
@@ -172,6 +180,7 @@ public:
 
 private:
     void NormalizeRigidBodyOrientation();
+    void UpdateInverseInertiaTensorWorld();
     void UpdateFatWorldBoundingBox();
 
 private:

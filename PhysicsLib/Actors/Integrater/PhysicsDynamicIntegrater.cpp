@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 #include "PhysicsLib/Actors/Integrater/PhysicsDynamicIntegrater.h"
@@ -7,6 +8,38 @@
 
 #undef max
 #undef min
+
+namespace {
+constexpr float AngularVelocityEpsilon{ 0.00001F };
+
+DirectX::SimpleMath::Quaternion NormalizeQuaternionOrIdentity(const DirectX::SimpleMath::Quaternion& QuaternionValue) {
+    DirectX::SimpleMath::Quaternion NormalizedQuaternion{ QuaternionValue };
+    if (NormalizedQuaternion.LengthSquared() <= 0.0F) {
+        NormalizedQuaternion = DirectX::SimpleMath::Quaternion{ 0.0F, 0.0F, 0.0F, 1.0F };
+    } else {
+        NormalizedQuaternion.Normalize();
+    }
+
+    return NormalizedQuaternion;
+}
+
+DirectX::SimpleMath::Quaternion IntegrateOrientation(const DirectX::SimpleMath::Quaternion& CurrentOrientation, const DirectX::SimpleMath::Vector3& AngularVelocity, float DeltaTime) {
+    if (DeltaTime <= 0.0F) {
+        return NormalizeQuaternionOrIdentity(CurrentOrientation);
+    }
+
+    float AngularSpeed{ AngularVelocity.Length() };
+    if (AngularSpeed <= AngularVelocityEpsilon) {
+        return NormalizeQuaternionOrIdentity(CurrentOrientation);
+    }
+
+    DirectX::SimpleMath::Vector3 RotationAxis{ AngularVelocity / AngularSpeed };
+    DirectX::SimpleMath::Quaternion DeltaOrientation{ DirectX::SimpleMath::Quaternion::CreateFromAxisAngle(RotationAxis, AngularSpeed * DeltaTime) };
+    DirectX::SimpleMath::Quaternion NextOrientation{ CurrentOrientation * DeltaOrientation };
+    DirectX::SimpleMath::Quaternion NormalizedNextOrientation{ NormalizeQuaternionOrIdentity(NextOrientation) };
+    return NormalizedNextOrientation;
+}
+}
 
 PhysicsDynamicIntegrater::PhysicsDynamicIntegrater() {
 }
@@ -72,10 +105,20 @@ void PhysicsDynamicIntegrater::Integrate(IPhysicsWorldMediator& WorldMediator, P
     NextVelocity *= DampingFactor;
     NextLinearMomentum = NextVelocity * ActorMass;
 
+    DirectX::SimpleMath::Vector3 NextAngularMomentum{ Actor.GetAngularMomentum() + (Actor.GetTorque() * DeltaTime) };
+    float AngularDampingFactor{ std::max(0.0F, 1.0F - (Actor.GetAngularDamping() * DeltaTime)) };
+    NextAngularMomentum *= AngularDampingFactor;
+    DirectX::SimpleMath::Vector3 NextAngularVelocity{ DirectX::SimpleMath::Vector3::TransformNormal(NextAngularMomentum, Actor.GetInverseInertiaTensorWorld()) };
+    DirectX::SimpleMath::Quaternion NextOrientation{ IntegrateOrientation(Actor.GetOrientation(), NextAngularVelocity, DeltaTime) };
     DirectX::SimpleMath::Vector3 NextPosition{ Actor.GetPosition() + (NextVelocity * DeltaTime) };
+
     Actor.SetPosition(NextPosition);
     Actor.SetVelocity(NextVelocity);
     Actor.SetLinearMomentum(NextLinearMomentum);
+    Actor.SetAngularMomentum(NextAngularMomentum);
+    Actor.SetOrientation(NextOrientation);
+    Actor.SetAngularVelocity(DirectX::SimpleMath::Vector3::TransformNormal(NextAngularMomentum, Actor.GetInverseInertiaTensorWorld()));
     Actor.ClearAccumulatedForce();
+    Actor.ClearTorque();
     Actor.UpdateSleepState(Gravity);
 }

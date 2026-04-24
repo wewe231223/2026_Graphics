@@ -766,6 +766,7 @@ void PhysicsWorld::StepSimulation() {
     ResolveStaticCollisions(*this, DynamicActors, StaticActors, mSettings.FixedTimeStep);
     ResolveKinematicCollisions(ActorRepository, mSettings.Gravity, mSettings.FixedTimeStep);
     IntegrateDynamicActors(*this, ActorRepository, mSettings.FixedTimeStep);
+    ResolveStaticCollisions(*this, DynamicActors, StaticActors, mSettings.FixedTimeStep);
     ResolveKinematicCollisions(ActorRepository, mSettings.Gravity, mSettings.FixedTimeStep);
 }
 

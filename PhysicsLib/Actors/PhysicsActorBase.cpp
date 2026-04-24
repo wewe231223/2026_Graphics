@@ -19,6 +19,11 @@ DirectX::BoundingOrientedBox MakeDefaultBoundingOrientedBox() {
 
 constexpr float ContactNormalLengthEpsilon{ 0.00001F };
 constexpr float SupportingContactMinimumDot{ 0.5F };
+
+DirectX::SimpleMath::Matrix MakeZeroMatrix() {
+    DirectX::SimpleMath::Matrix ZeroMatrix{ 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F };
+    return ZeroMatrix;
+}
 }
 
 PhysicsActorBase::PhysicsActorBase()
@@ -35,6 +40,7 @@ PhysicsActorBase::PhysicsActorBase()
       mWorldBoundingBox{ MakeDefaultBoundingOrientedBox() },
       mFatWorldBoundingBox{ MakeDefaultBoundingOrientedBox() } {
     UpdateWorldBoundingBox();
+    UpdateInverseInertiaTensorWorld();
 }
 
 PhysicsActorBase::~PhysicsActorBase() {
@@ -77,6 +83,7 @@ PhysicsActorBase::PhysicsActorBase(const ActorDesc& Desc)
     SetVelocity(Desc.Velocity);
     SetAcceleration(Desc.Acceleration);
     UpdateWorldBoundingBox();
+    UpdateInverseInertiaTensorWorld();
     SetIsSleeping(Desc.IsSleeping);
 }
 
@@ -99,6 +106,7 @@ bool PhysicsActorBase::GetIsActive() const {
 void PhysicsActorBase::SetMass(float Mass) {
     mRigidBody.mMass = std::max(0.0F, Mass);
     mRigidBody.mInverseMass = mRigidBody.mMass > 0.0F ? (1.0F / mRigidBody.mMass) : 0.0F;
+    UpdateInverseInertiaTensorWorld();
 }
 
 float PhysicsActorBase::GetMass() const {
@@ -108,6 +116,7 @@ float PhysicsActorBase::GetMass() const {
 void PhysicsActorBase::SetInverseMass(float InverseMass) {
     mRigidBody.mInverseMass = std::max(0.0F, InverseMass);
     mRigidBody.mMass = mRigidBody.mInverseMass > 0.0F ? (1.0F / mRigidBody.mInverseMass) : 0.0F;
+    UpdateInverseInertiaTensorWorld();
 }
 
 float PhysicsActorBase::GetInverseMass() const {
@@ -132,6 +141,7 @@ const DirectX::SimpleMath::Matrix& PhysicsActorBase::GetLocalInertiaTensor() con
 
 void PhysicsActorBase::SetLocalInverseInertiaTensor(const DirectX::SimpleMath::Matrix& LocalInverseInertiaTensor) {
     mRigidBody.mLocalInverseInertiaTensor = LocalInverseInertiaTensor;
+    UpdateInverseInertiaTensorWorld();
 }
 
 const DirectX::SimpleMath::Matrix& PhysicsActorBase::GetLocalInverseInertiaTensor() const {
@@ -154,9 +164,49 @@ const DirectX::SimpleMath::Vector3& PhysicsActorBase::GetAngularMomentum() const
     return mRigidBody.mAngularMomentum;
 }
 
+void PhysicsActorBase::SetAngularVelocity(const DirectX::SimpleMath::Vector3& AngularVelocity) {
+    mRigidBody.mAngularVelocity = AngularVelocity;
+}
+
+const DirectX::SimpleMath::Vector3& PhysicsActorBase::GetAngularVelocity() const {
+    return mRigidBody.mAngularVelocity;
+}
+
+void PhysicsActorBase::AddTorque(const DirectX::SimpleMath::Vector3& Torque) {
+    mRigidBody.mTorque += Torque;
+    SetIsSleeping(false);
+}
+
+const DirectX::SimpleMath::Vector3& PhysicsActorBase::GetTorque() const {
+    return mRigidBody.mTorque;
+}
+
+void PhysicsActorBase::ClearTorque() {
+    mRigidBody.mTorque = DirectX::SimpleMath::Vector3{};
+}
+
+void PhysicsActorBase::AddAngularImpulse(const DirectX::SimpleMath::Vector3& AngularImpulse) {
+    DirectX::SimpleMath::Vector3 NextAngularMomentum{ GetAngularMomentum() + AngularImpulse };
+    SetAngularMomentum(NextAngularMomentum);
+    mRigidBody.mAngularVelocity = DirectX::SimpleMath::Vector3::TransformNormal(NextAngularMomentum, mRigidBody.mInverseInertiaTensorWorld);
+    SetIsSleeping(false);
+}
+
+void PhysicsActorBase::ApplyImpulseAtPoint(const DirectX::SimpleMath::Vector3& Impulse, const DirectX::SimpleMath::Vector3& WorldPoint) {
+    AddImpulse(Impulse);
+    DirectX::SimpleMath::Vector3 ContactOffset{ WorldPoint - GetPosition() };
+    DirectX::SimpleMath::Vector3 AngularImpulse{ ContactOffset.Cross(Impulse) };
+    AddAngularImpulse(AngularImpulse);
+}
+
+const DirectX::SimpleMath::Matrix& PhysicsActorBase::GetInverseInertiaTensorWorld() const {
+    return mRigidBody.mInverseInertiaTensorWorld;
+}
+
 void PhysicsActorBase::SetRigidBody(const RigidBody& RigidBodyState) {
     mRigidBody = RigidBodyState;
     NormalizeRigidBodyOrientation();
+    UpdateInverseInertiaTensorWorld();
     UpdateWorldBoundingBox();
 }
 
@@ -218,6 +268,7 @@ const DirectX::SimpleMath::Vector3& PhysicsActorBase::GetPosition() const {
 void PhysicsActorBase::SetRotation(const DirectX::SimpleMath::Vector3& Rotation) {
     mRigidBody.mOrientation = DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Rotation.y, Rotation.x, Rotation.z);
     NormalizeRigidBodyOrientation();
+    UpdateInverseInertiaTensorWorld();
     UpdateWorldBoundingBox();
 }
 
@@ -236,6 +287,7 @@ DirectX::SimpleMath::Vector3 PhysicsActorBase::GetRotation() const {
 void PhysicsActorBase::SetOrientation(const DirectX::SimpleMath::Quaternion& Orientation) {
     mRigidBody.mOrientation = Orientation;
     NormalizeRigidBodyOrientation();
+    UpdateInverseInertiaTensorWorld();
     UpdateWorldBoundingBox();
 }
 
@@ -398,14 +450,17 @@ void PhysicsActorBase::MoveToTarget(const DirectX::SimpleMath::Vector3& TargetPo
 
 void PhysicsActorBase::UpdateSleepState(const DirectX::SimpleMath::Vector3& Gravity) {
     float VelocityLengthSquared{ mRigidBody.mVelocity.LengthSquared() };
+    float AngularVelocityLengthSquared{ mRigidBody.mAngularVelocity.LengthSquared() };
     float AccelerationLengthSquared{ mRigidBody.mAcceleration.LengthSquared() };
     DirectX::SimpleMath::Vector3 ForceAcceleration{ mRigidBody.mInverseMass > 0.0F ? mRigidBody.mAccumulatedForce * mRigidBody.mInverseMass : DirectX::SimpleMath::Vector3{} };
     float ForceAccelerationLengthSquared{ ForceAcceleration.LengthSquared() };
+    DirectX::SimpleMath::Vector3 AngularAcceleration{ DirectX::SimpleMath::Vector3::TransformNormal(mRigidBody.mTorque, mRigidBody.mInverseInertiaTensorWorld) };
+    float AngularAccelerationLengthSquared{ AngularAcceleration.LengthSquared() };
     float GravityLengthSquared{ Gravity.LengthSquared() };
     float ThresholdSquared{ mSleepThreshold * mSleepThreshold };
     bool HasUnsupportedGravity{ GravityLengthSquared > ThresholdSquared && !HasSupportingContact(Gravity) };
-    bool HasAcceleration{ AccelerationLengthSquared > ThresholdSquared || ForceAccelerationLengthSquared > ThresholdSquared || HasUnsupportedGravity };
-    bool ShouldSleep{ VelocityLengthSquared <= ThresholdSquared && !HasAcceleration };
+    bool HasAcceleration{ AccelerationLengthSquared > ThresholdSquared || ForceAccelerationLengthSquared > ThresholdSquared || AngularAccelerationLengthSquared > ThresholdSquared || HasUnsupportedGravity };
+    bool ShouldSleep{ VelocityLengthSquared <= ThresholdSquared && AngularVelocityLengthSquared <= ThresholdSquared && !HasAcceleration };
     SetIsSleeping(ShouldSleep);
 }
 
@@ -426,6 +481,21 @@ void PhysicsActorBase::NormalizeRigidBodyOrientation() {
     }
 
     mRigidBody.mOrientation.Normalize();
+}
+
+void PhysicsActorBase::UpdateInverseInertiaTensorWorld() {
+    if (mRigidBody.mInverseMass <= 0.0F) {
+        mRigidBody.mInverseInertiaTensorWorld = MakeZeroMatrix();
+        mRigidBody.mAngularVelocity = DirectX::SimpleMath::Vector3{};
+        mRigidBody.mAngularMomentum = DirectX::SimpleMath::Vector3{};
+        mRigidBody.mTorque = DirectX::SimpleMath::Vector3{};
+        return;
+    }
+
+    NormalizeRigidBodyOrientation();
+    DirectX::SimpleMath::Matrix RotationMatrix{ DirectX::SimpleMath::Matrix::CreateFromQuaternion(mRigidBody.mOrientation) };
+    DirectX::SimpleMath::Matrix RotationTransposeMatrix{ RotationMatrix.Transpose() };
+    mRigidBody.mInverseInertiaTensorWorld = RotationTransposeMatrix * mRigidBody.mLocalInverseInertiaTensor * RotationMatrix;
 }
 
 void PhysicsActorBase::UpdateFatWorldBoundingBox() {

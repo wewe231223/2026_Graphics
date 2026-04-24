@@ -12,6 +12,12 @@
 namespace {
     constexpr float RaycastDistanceEpsilon{ 1.0E-4F };
     constexpr float RaycastDeltaEpsilon{ 1.0E-4F };
+    constexpr float TerrainContactEpsilon{ 1.0E-4F };
+    constexpr float TerrainRestitutionThreshold{ 1.25F };
+    constexpr float TerrainPenetrationVelocityFactor{ 0.04F };
+    constexpr float TerrainMaximumBiasVelocity{ 0.5F };
+    constexpr float TerrainPositionCorrectionFactor{ 1.0F };
+    constexpr float TerrainPositionCorrectionSlop{ 0.0005F };
 
     bool IsFiniteFloat(float Value) {
         return std::isfinite(Value) != 0;
@@ -42,6 +48,98 @@ namespace {
         OutSurfacePosition = DirectX::SimpleMath::Vector3{ RayPosition.x, SurfaceHeight, RayPosition.z };
         OutSurfaceNormal = SurfaceNormal;
         return true;
+    }
+
+    DirectX::SimpleMath::Vector3 NormalizeOrZero(const DirectX::SimpleMath::Vector3& Value) {
+        const float LengthSquared{ Value.LengthSquared() };
+        if (LengthSquared <= TerrainContactEpsilon * TerrainContactEpsilon) {
+            return DirectX::SimpleMath::Vector3{};
+        }
+
+        DirectX::SimpleMath::Vector3 NormalizedValue{ Value / std::sqrt(LengthSquared) };
+        return NormalizedValue;
+    }
+
+    DirectX::SimpleMath::Vector3 CalculateVelocityAtPoint(const PhysicsActorBase& Actor, const DirectX::SimpleMath::Vector3& WorldPoint) {
+        DirectX::SimpleMath::Vector3 ContactOffset{ WorldPoint - Actor.GetPosition() };
+        DirectX::SimpleMath::Vector3 AngularVelocityContribution{ Actor.GetAngularVelocity().Cross(ContactOffset) };
+        DirectX::SimpleMath::Vector3 PointVelocity{ Actor.GetVelocity() + AngularVelocityContribution };
+        return PointVelocity;
+    }
+
+    float CalculateContactImpulseDenominator(const PhysicsActorBase& Actor, const DirectX::SimpleMath::Vector3& ContactOffset, const DirectX::SimpleMath::Vector3& Direction) {
+        DirectX::SimpleMath::Vector3 RadiusCrossDirection{ ContactOffset.Cross(Direction) };
+        DirectX::SimpleMath::Vector3 AngularVelocityDelta{ DirectX::SimpleMath::Vector3::TransformNormal(RadiusCrossDirection, Actor.GetInverseInertiaTensorWorld()) };
+        DirectX::SimpleMath::Vector3 ContactVelocityDelta{ AngularVelocityDelta.Cross(ContactOffset) };
+        float Denominator{ Actor.GetInverseMass() + Direction.Dot(ContactVelocityDelta) };
+        return std::max(0.0F, Denominator);
+    }
+
+    bool ApplyTerrainContactImpulse(PhysicsActorBase& DynamicActor, const DirectX::SimpleMath::Vector3& ContactPoint, const DirectX::SimpleMath::Vector3& ContactNormal, float PenetrationDepth, float TerrainFriction, float DeltaTime) {
+        DirectX::SimpleMath::Vector3 NormalizedContactNormal{ NormalizeOrZero(ContactNormal) };
+        if (NormalizedContactNormal.LengthSquared() <= TerrainContactEpsilon * TerrainContactEpsilon) {
+            return false;
+        }
+
+        DirectX::SimpleMath::Vector3 ContactOffset{ ContactPoint - DynamicActor.GetPosition() };
+        DirectX::SimpleMath::Vector3 ContactVelocity{ CalculateVelocityAtPoint(DynamicActor, ContactPoint) };
+        float ContactNormalVelocity{ ContactVelocity.Dot(NormalizedContactNormal) };
+        float EffectiveRestitution{};
+        if (ContactNormalVelocity < -TerrainRestitutionThreshold) {
+            EffectiveRestitution = std::clamp(DynamicActor.GetRestitution(), 0.0F, 1.0F);
+        }
+
+        float InverseDeltaTime{ DeltaTime > TerrainContactEpsilon ? 1.0F / DeltaTime : 0.0F };
+        float BiasVelocity{ std::max(0.0F, PenetrationDepth - TerrainPositionCorrectionSlop) * TerrainPenetrationVelocityFactor * InverseDeltaTime };
+        BiasVelocity = std::min(BiasVelocity, TerrainMaximumBiasVelocity);
+        float RestitutionVelocity{ ContactNormalVelocity < 0.0F ? -ContactNormalVelocity * EffectiveRestitution : 0.0F };
+        float TargetNormalVelocity{ std::max(BiasVelocity, RestitutionVelocity) };
+        float NormalVelocityDelta{ TargetNormalVelocity - ContactNormalVelocity };
+        if (NormalVelocityDelta <= 0.0F) {
+            NormalVelocityDelta = 0.0F;
+        }
+
+        float NormalDenominator{ CalculateContactImpulseDenominator(DynamicActor, ContactOffset, NormalizedContactNormal) };
+        if (NormalDenominator <= TerrainContactEpsilon) {
+            return false;
+        }
+
+        float NormalImpulseMagnitude{ NormalVelocityDelta / NormalDenominator };
+        if (NormalImpulseMagnitude < 0.0F) {
+            NormalImpulseMagnitude = 0.0F;
+        }
+
+        if (NormalImpulseMagnitude > 0.0F) {
+            DirectX::SimpleMath::Vector3 NormalImpulse{ NormalizedContactNormal * NormalImpulseMagnitude };
+            DynamicActor.ApplyImpulseAtPoint(NormalImpulse, ContactPoint);
+        }
+
+        DirectX::SimpleMath::Vector3 ContactVelocityAfterNormal{ CalculateVelocityAtPoint(DynamicActor, ContactPoint) };
+        float VelocityAfterNormalProjection{ ContactVelocityAfterNormal.Dot(NormalizedContactNormal) };
+        DirectX::SimpleMath::Vector3 TangentialVelocity{ ContactVelocityAfterNormal - (NormalizedContactNormal * VelocityAfterNormalProjection) };
+        float TangentialVelocityLengthSquared{ TangentialVelocity.LengthSquared() };
+        if (TangentialVelocityLengthSquared > TerrainContactEpsilon * TerrainContactEpsilon && NormalImpulseMagnitude > 0.0F) {
+            DirectX::SimpleMath::Vector3 Tangent{ TangentialVelocity / std::sqrt(TangentialVelocityLengthSquared) };
+            float TangentDenominator{ CalculateContactImpulseDenominator(DynamicActor, ContactOffset, Tangent) };
+            if (TangentDenominator > TerrainContactEpsilon) {
+                float FrictionImpulseMagnitude{ -ContactVelocityAfterNormal.Dot(Tangent) / TangentDenominator };
+                float EffectiveFriction{ std::sqrt(std::max(0.0F, DynamicActor.GetFriction() * TerrainFriction)) };
+                float MaximumFrictionImpulse{ std::abs(NormalImpulseMagnitude) * EffectiveFriction };
+                FrictionImpulseMagnitude = std::clamp(FrictionImpulseMagnitude, -MaximumFrictionImpulse, MaximumFrictionImpulse);
+                if (std::abs(FrictionImpulseMagnitude) > TerrainContactEpsilon) {
+                    DirectX::SimpleMath::Vector3 FrictionImpulse{ Tangent * FrictionImpulseMagnitude };
+                    DynamicActor.ApplyImpulseAtPoint(FrictionImpulse, ContactPoint);
+                }
+            }
+        }
+
+        float CorrectedPenetration{ std::max(0.0F, PenetrationDepth - TerrainPositionCorrectionSlop) };
+        if (CorrectedPenetration > 0.0F) {
+            DirectX::SimpleMath::Vector3 CorrectedPosition{ DynamicActor.GetPosition() + (NormalizedContactNormal * CorrectedPenetration * TerrainPositionCorrectionFactor) };
+            DynamicActor.SetPosition(CorrectedPosition);
+        }
+
+        return NormalImpulseMagnitude > 0.0F || CorrectedPenetration > 0.0F;
     }
 }
 
@@ -382,6 +480,7 @@ bool PhysicsTerrainActor::ResolveDynamicCollision(PhysicsActorBase& DynamicActor
     PredictedWorldBoundingBox.GetCorners(DynamicCorners);
     float MaximumPenetrationDepth{};
     DirectX::SimpleMath::Vector3 ContactNormal{};
+    DirectX::SimpleMath::Vector3 ContactPoint{};
     bool HasContact{};
 
     for (std::size_t CornerIndex{ 0U }; CornerIndex < 8U; ++CornerIndex) {
@@ -414,6 +513,7 @@ bool PhysicsTerrainActor::ResolveDynamicCollision(PhysicsActorBase& DynamicActor
         if (PenetrationDepth > MaximumPenetrationDepth) {
             MaximumPenetrationDepth = PenetrationDepth;
             ContactNormal = SurfaceWorldNormal;
+            ContactPoint = SurfaceWorldPosition;
             HasContact = true;
         }
     }
@@ -423,38 +523,7 @@ bool PhysicsTerrainActor::ResolveDynamicCollision(PhysicsActorBase& DynamicActor
     }
 
     DynamicActor.RegisterContactNormal(ContactNormal);
-    DirectX::SimpleMath::Vector3 CorrectedPosition{ DynamicActor.GetPosition() };
-    DirectX::SimpleMath::Vector3 CorrectedVelocity{ DynamicActor.GetVelocity() };
-
-    CorrectedPosition += ContactNormal * MaximumPenetrationDepth;
-    float VelocityProjection{ CorrectedVelocity.Dot(ContactNormal) };
-    if (VelocityProjection < 0.0F) {
-        float DynamicRestitution{ DynamicActor.GetRestitution() };
-        float EffectiveRestitution{ std::clamp(DynamicRestitution, 0.0F, 1.0F) };
-        DirectX::SimpleMath::Vector3 LinearMomentum{ CorrectedVelocity / DynamicInverseMass };
-        float NormalImpulseMagnitude{ -(1.0F + EffectiveRestitution) * VelocityProjection / DynamicInverseMass };
-        DirectX::SimpleMath::Vector3 NormalImpulse{ ContactNormal * NormalImpulseMagnitude };
-        LinearMomentum += NormalImpulse;
-
-        DirectX::SimpleMath::Vector3 VelocityAfterNormal{ LinearMomentum * DynamicInverseMass };
-        DirectX::SimpleMath::Vector3 TangentialVelocity{ VelocityAfterNormal - (ContactNormal * VelocityAfterNormal.Dot(ContactNormal)) };
-        float TangentialVelocityLength{ TangentialVelocity.Length() };
-        if (TangentialVelocityLength > 0.0001F) {
-            DirectX::SimpleMath::Vector3 Tangent{ TangentialVelocity / TangentialVelocityLength };
-            float DynamicFriction{ DynamicActor.GetFriction() };
-            float EffectiveFriction{ std::sqrt(std::max(0.0F, DynamicFriction * GetFriction())) };
-            float FrictionImpulseMagnitude{ -VelocityAfterNormal.Dot(Tangent) / DynamicInverseMass };
-            float MaximumFrictionImpulse{ std::abs(NormalImpulseMagnitude) * EffectiveFriction };
-            FrictionImpulseMagnitude = std::clamp(FrictionImpulseMagnitude, -MaximumFrictionImpulse, MaximumFrictionImpulse);
-            LinearMomentum += Tangent * FrictionImpulseMagnitude;
-        }
-
-        CorrectedVelocity = LinearMomentum * DynamicInverseMass;
-    }
-
-    DynamicActor.SetPosition(CorrectedPosition);
-    DynamicActor.SetVelocity(CorrectedVelocity);
-
+    ApplyTerrainContactImpulse(DynamicActor, ContactPoint, ContactNormal, MaximumPenetrationDepth, GetFriction(), DeltaTime);
     return true;
 }
 
