@@ -4,13 +4,13 @@
 #include "Utility/StringUtils.h"
 #include "Utility/StdOutput.h"
 #include "Core/Config.h"
+#include <algorithm>
 #include <fstream>
 #include "Widget/PerformanceProvider.h"
 
 
 namespace Core {
     namespace DX {
-
 		DirectQueue::DirectQueue(HWND hWnd) {
 			mHwnd = hWnd;
 			DirectQueue::InitBasements();
@@ -68,19 +68,37 @@ namespace Core {
 			std::array<ID3D12DescriptorHeap*, 1> DescriptorHeaps{ mSrvHeap.GetHeap() };
 			mCommandList->SetDescriptorHeaps(static_cast<UINT>(DescriptorHeaps.size()), DescriptorHeaps.data());
 
-			auto& rt = mRenderTargets[currentIndex];
-			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
-
 			DrawCallResourceManager& DrawCallResources{ mDrawCallResourceManagers[currentIndex] };
 			mMaterialResourceManager.TransitionToShaderResource(mCommandList.Get(), static_cast<uint32_t>(currentIndex));
 			DrawCallResources.TransitionToShaderResource(mCommandList.Get());
+
+			EnsureShadowMapResources(Data.shadowMapping);
+			const uint32_t ShadowCascadeCount{ std::max<uint32_t>(1u, std::min<uint32_t>(Data.shadowMapping.cascadeCount, mShadowCascadeCount)) };
+			for (uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
+				TexPtr& ShadowDepthMap{ mShadowDepthMaps[CascadeIndex] };
+				if (ShadowDepthMap == nullptr) {
+					continue;
+				}
+
+				ShadowDepthMap->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE);
+
+				D3D12_CPU_DESCRIPTOR_HANDLE ShadowDsv{ ShadowDepthMap->GetDSV() };
+				mCommandList->ClearDepthStencilView(ShadowDsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+				mCommandList->OMSetRenderTargets(0, nullptr, FALSE, &ShadowDsv);
+				mCommandList->RSSetViewports(1, &mShadowViewports[CascadeIndex]);
+				mCommandList->RSSetScissorRects(1, &mShadowScissorRects[CascadeIndex]);
+				mDrawCallDispatcher.DrawDepthOnly(mCommandList.Get(), Data, CascadeIndex, DrawCallResources.GetShadowFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
+
+				ShadowDepthMap->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+			}
+
+			auto& rt = mRenderTargets[currentIndex];
+			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 
 			auto rtv = rt->GetRTV();
 			auto dsv = mDepthStencilBuffer->GetDSV();
 
 			mCommandList->ClearRenderTargetView(rtv, DirectX::Colors::Blue, 0, nullptr);
-
-
 			mCommandList->ClearDepthStencilView(mDepthStencilBuffer->GetDSV(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 			mCommandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
@@ -89,8 +107,21 @@ namespace Core {
 
 		
 			// Execute Render Tasks
-			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBoundingBoxContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
+			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetShadowMappingParameterSrvHandle(), mShadowMapBaseSrvHandle, DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBoundingBoxContextSrvHandle(), DrawCallResources.GetDebugGeometryContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
 			if (WidgetCore != nullptr) {
+#pragma region TemporaryShadowMapPreview
+				std::array<ID3D12Resource*, Widget::WidgetCore::ShadowMapPreviewCapacity> ShadowMapResources{};
+				const std::uint32_t ShadowMapPreviewCount{ std::min<std::uint32_t>(ShadowCascadeCount, Widget::WidgetCore::ShadowMapPreviewCapacity) };
+				for (std::uint32_t ShadowMapIndex{ 0 }; ShadowMapIndex < ShadowMapPreviewCount; ShadowMapIndex += 1) {
+					if (mShadowDepthMaps[ShadowMapIndex] == nullptr) {
+						continue;
+					}
+
+					ShadowMapResources[ShadowMapIndex] = mShadowDepthMaps[ShadowMapIndex]->GetResource();
+				}
+
+				WidgetCore->SetShadowMapTextures(ShadowMapResources, ShadowMapPreviewCount, mShadowMapSizes[0]);
+#pragma endregion
 				WidgetCore->Render(mCommandList);
 			}
 
@@ -222,6 +253,12 @@ namespace Core {
 		void DirectQueue::InitTargetResources() {
 			mRTVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, Constants::FrameCount<uint32_t>, false);
 			mSrvHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 512, true);
+			for (std::size_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < Game::RFD::ShadowCascadeMaxCount; ShadowCascadeIndex += 1) {
+				mShadowMapSrvHandles[ShadowCascadeIndex] = mSrvHeap.Allocate();
+			}
+
+			mShadowMapBaseSrvHandle = mShadowMapSrvHandles[0];
+			mShadowDSVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, Game::RFD::ShadowCascadeMaxCount, false);
 
 			for (auto&& [i, rt] : views::enumerate(mRenderTargets)) {
 				ComPtr<ID3D12Resource> backBuffer{ nullptr };
@@ -243,6 +280,61 @@ namespace Core {
 			mDepthStencilBuffer = Texture::CreateTarget(mDevice.Get(), Config::Query()->Get<uint32_t>("Window_Width"), Config::Query()->Get<uint32_t>("Window_Height"), DXGI_FORMAT_D24_UNORM_S8_UINT, TextureUsage::DepthStencil, &depthOptimizedClearValue);
 
 			mDepthStencilBuffer->CreateDSV(mDevice.Get(), &mDSVHeap);
+		}
+
+		void DirectQueue::EnsureShadowMapResources(const Game::RFD::ShadowMappingParameter& ShadowMappingParameter) {
+			const uint32_t RequiredShadowCascadeCount{ std::max<uint32_t>(1u, std::min<uint32_t>(ShadowMappingParameter.cascadeCount, Game::RFD::ShadowCascadeMaxCount)) };
+			std::array<uint32_t, Game::RFD::ShadowCascadeMaxCount> RequiredShadowMapSizes{};
+			for (uint32_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < RequiredShadowCascadeCount; ShadowCascadeIndex += 1) {
+				const float ShadowMapSizeFloat{ std::max(1.0f, ShadowMappingParameter.shadowMapSizes[ShadowCascadeIndex]) };
+				const uint64_t ShadowMapSize{ static_cast<uint64_t>(ShadowMapSizeFloat) };
+				const uint64_t ClampedShadowMapSize{ std::min<uint64_t>(ShadowMapSize, static_cast<uint64_t>(D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION)) };
+				RequiredShadowMapSizes[ShadowCascadeIndex] = static_cast<uint32_t>(ClampedShadowMapSize);
+			}
+
+			bool IsAllShadowDepthMapsValid{ true };
+			for (uint32_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < RequiredShadowCascadeCount; ShadowCascadeIndex += 1) {
+				if (mShadowDepthMaps[ShadowCascadeIndex] == nullptr) {
+					IsAllShadowDepthMapsValid = false;
+					break;
+				}
+			}
+
+			bool IsSameShadowMapSizes{ true };
+			for (uint32_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < RequiredShadowCascadeCount; ShadowCascadeIndex += 1) {
+				if (mShadowMapSizes[ShadowCascadeIndex] != RequiredShadowMapSizes[ShadowCascadeIndex]) {
+					IsSameShadowMapSizes = false;
+					break;
+				}
+			}
+
+			if (IsAllShadowDepthMapsValid == true && IsSameShadowMapSizes == true && mShadowCascadeCount == RequiredShadowCascadeCount) {
+				return;
+			}
+
+			mShadowCascadeCount = RequiredShadowCascadeCount;
+			mShadowMapSizes = {};
+			mShadowDSVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, RequiredShadowCascadeCount, false);
+
+			for (std::size_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < Game::RFD::ShadowCascadeMaxCount; ShadowCascadeIndex += 1) {
+				mShadowDepthMaps[ShadowCascadeIndex].reset();
+			}
+
+			CD3DX12_CLEAR_VALUE depthOptimizedClearValue{ DXGI_FORMAT_D24_UNORM_S8_UINT, 1.0f, 0 };
+			for (uint32_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < RequiredShadowCascadeCount; ShadowCascadeIndex += 1) {
+				const uint32_t CurrentShadowMapSize{ RequiredShadowMapSizes[ShadowCascadeIndex] };
+				mShadowMapSizes[ShadowCascadeIndex] = CurrentShadowMapSize;
+				mShadowDepthMaps[ShadowCascadeIndex] = Texture::CreateTarget(mDevice.Get(), CurrentShadowMapSize, CurrentShadowMapSize, DXGI_FORMAT_R24G8_TYPELESS, TextureUsage::DepthStencil, &depthOptimizedClearValue);
+				mShadowDepthMaps[ShadowCascadeIndex]->CreateDSV(mDevice.Get(), &mShadowDSVHeap);
+				D3D12_SHADER_RESOURCE_VIEW_DESC ShadowMapSrvDescription{};
+				ShadowMapSrvDescription.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+				ShadowMapSrvDescription.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+				ShadowMapSrvDescription.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+				ShadowMapSrvDescription.Texture2D.MipLevels = 1;
+				mDevice->CreateShaderResourceView(mShadowDepthMaps[ShadowCascadeIndex]->GetResource(), &ShadowMapSrvDescription, mShadowMapSrvHandles[ShadowCascadeIndex].GetCPU());
+				mShadowViewports[ShadowCascadeIndex] = D3D12_VIEWPORT{ 0.0f, 0.0f, static_cast<float>(CurrentShadowMapSize), static_cast<float>(CurrentShadowMapSize), 0.0f, 1.0f };
+				mShadowScissorRects[ShadowCascadeIndex] = D3D12_RECT{ 0, 0, static_cast<LONG>(CurrentShadowMapSize), static_cast<LONG>(CurrentShadowMapSize) };
+			}
 		}
 
 		ComPtr<IDXGIAdapter1> DirectQueue::GetBestAdapter() {

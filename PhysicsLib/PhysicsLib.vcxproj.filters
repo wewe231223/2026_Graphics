@@ -1,0 +1,159 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Actors">
+      <UniqueIdentifier>{6ab48a1d-74d6-4e41-88bb-16f02dabc751}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Actors\CollisionSolver">
+      <UniqueIdentifier>{a5d3e433-c9bb-42ca-b181-0f5eb5b0f8de}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Actors\ConstraintSolver">
+      <UniqueIdentifier>{162ec0bc-f2f0-4f9d-acb7-d3fbcabc4a70}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Actors\Integrater">
+      <UniqueIdentifier>{6fddf693-2864-4f48-b0f3-30dab4f08ce0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Actors\SolverType">
+      <UniqueIdentifier>{8f7fdd08-b4a0-4f49-a7e5-6c08ad8f13ef}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World">
+      <UniqueIdentifier>{f5df2b73-99b8-44de-a26e-47efec3f70df}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Simulation">
+      <UniqueIdentifier>{0c34eb1a-5cc6-4c82-aa13-a5ee0f6d0a8e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Simulation\Mediator">
+      <UniqueIdentifier>{0d75cd39-0e04-420d-98ee-89dfa7e5605e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Simulation\Repository">
+      <UniqueIdentifier>{f30ae93f-f82f-4a31-89ad-f87e8f126f4a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Simulation\SpatialQuery">
+      <UniqueIdentifier>{a4e9a3ec-3805-4692-bfe5-6776e89e0fce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Simulation\Types">
+      <UniqueIdentifier>{03b9f12d-ccf8-41e2-8268-6fa17a8bb8d0}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Actors\CollisionSolver\PhysicsDynamicCollisionSolver.cpp">
+      <Filter>Actors\CollisionSolver</Filter>
+    </ClCompile>
+    <ClCompile Include="Actors\CollisionSolver\PhysicsKinematicCollisionSolver.cpp">
+      <Filter>Actors\CollisionSolver</Filter>
+    </ClCompile>
+    <ClCompile Include="Actors\CollisionSolver\PhysicsStaticCollisionSolver.cpp">
+      <Filter>Actors\CollisionSolver</Filter>
+    </ClCompile>
+    <ClCompile Include="Actors\ConstraintSolver\PhysicsNoConstraintSolver.cpp">
+      <Filter>Actors\ConstraintSolver</Filter>
+    </ClCompile>
+    <ClCompile Include="Actors\Integrater\PhysicsDynamicIntegrater.cpp">
+      <Filter>Actors\Integrater</Filter>
+    </ClCompile>
+    <ClCompile Include="Actors\Integrater\PhysicsKinematicIntegrater.cpp">
+      <Filter>Actors\Integrater</Filter>
+    </ClCompile>
+    <ClCompile Include="Actors\Integrater\PhysicsStaticIntegrater.cpp">
+      <Filter>Actors\Integrater</Filter>
+    </ClCompile>
+    <ClCompile Include="Actors\PhysicsActorBase.cpp">
+      <Filter>Actors</Filter>
+    </ClCompile>
+    <ClCompile Include="Actors\PhysicsTerrainActor.cpp">
+      <Filter>Actors</Filter>
+    </ClCompile>
+    <ClCompile Include="Actors\SolverType\PhysicsSolverType.cpp">
+      <Filter>Actors\SolverType</Filter>
+    </ClCompile>
+    <ClCompile Include="Simulation\Mediator\IPhysicsWorldMediator.cpp">
+      <Filter>Simulation\Mediator</Filter>
+    </ClCompile>
+    <ClCompile Include="Simulation\Repository\IPhysicsActorRepository.cpp">
+      <Filter>Simulation\Repository</Filter>
+    </ClCompile>
+    <ClCompile Include="Simulation\Repository\PhysicsActorRepository.cpp">
+      <Filter>Simulation\Repository</Filter>
+    </ClCompile>
+    <ClCompile Include="Simulation\SpatialQuery\BruteForcePhysicsSpatialQuery.cpp">
+      <Filter>Simulation\SpatialQuery</Filter>
+    </ClCompile>
+    <ClCompile Include="Simulation\SpatialQuery\IPhysicsSpatialQuery.cpp">
+      <Filter>Simulation\SpatialQuery</Filter>
+    </ClCompile>
+    <ClCompile Include="World\PhysicsWorld.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Actors\CollisionSolver\PhysicsDynamicCollisionSolver.h">
+      <Filter>Actors\CollisionSolver</Filter>
+    </ClInclude>
+    <ClInclude Include="Actors\CollisionSolver\PhysicsKinematicCollisionSolver.h">
+      <Filter>Actors\CollisionSolver</Filter>
+    </ClInclude>
+    <ClInclude Include="Actors\CollisionSolver\PhysicsStaticCollisionSolver.h">
+      <Filter>Actors\CollisionSolver</Filter>
+    </ClInclude>
+    <ClInclude Include="Actors\ConstraintSolver\PhysicsNoConstraintSolver.h">
+      <Filter>Actors\ConstraintSolver</Filter>
+    </ClInclude>
+    <ClInclude Include="Actors\PhysicsActor.h">
+      <Filter>Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="Actors\PhysicsActorBase.h">
+      <Filter>Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="Actors\PhysicsDynamicActor.h">
+      <Filter>Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="Actors\PhysicsKinematicActor.h">
+      <Filter>Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="Actors\PhysicsStaticActor.h">
+      <Filter>Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="Actors\PhysicsTerrainActor.h">
+      <Filter>Actors</Filter>
+    </ClInclude>
+    <ClInclude Include="Actors\Integrater\PhysicsDynamicIntegrater.h">
+      <Filter>Actors\Integrater</Filter>
+    </ClInclude>
+    <ClInclude Include="Actors\Integrater\PhysicsKinematicIntegrater.h">
+      <Filter>Actors\Integrater</Filter>
+    </ClInclude>
+    <ClInclude Include="Actors\Integrater\PhysicsStaticIntegrater.h">
+      <Filter>Actors\Integrater</Filter>
+    </ClInclude>
+    <ClInclude Include="Actors\SolverType\PhysicsActorSolverType.h">
+      <Filter>Actors\SolverType</Filter>
+    </ClInclude>
+    <ClInclude Include="Actors\SolverType\PhysicsSolverType.h">
+      <Filter>Actors\SolverType</Filter>
+    </ClInclude>
+    <ClInclude Include="Simulation\Mediator\IPhysicsWorldMediator.h">
+      <Filter>Simulation\Mediator</Filter>
+    </ClInclude>
+    <ClInclude Include="Simulation\Repository\IPhysicsActorRepository.h">
+      <Filter>Simulation\Repository</Filter>
+    </ClInclude>
+    <ClInclude Include="Simulation\Repository\PhysicsActorRepository.h">
+      <Filter>Simulation\Repository</Filter>
+    </ClInclude>
+    <ClInclude Include="Simulation\SpatialQuery\BruteForcePhysicsSpatialQuery.h">
+      <Filter>Simulation\SpatialQuery</Filter>
+    </ClInclude>
+    <ClInclude Include="Simulation\SpatialQuery\IPhysicsSpatialQuery.h">
+      <Filter>Simulation\SpatialQuery</Filter>
+    </ClInclude>
+    <ClInclude Include="Simulation\Types\PhysicsSimulationTypes.h">
+      <Filter>Simulation\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="Simulation\Types\RigidBody.h">
+      <Filter>Simulation\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="World\PhysicsWorld.h">
+      <Filter>World</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

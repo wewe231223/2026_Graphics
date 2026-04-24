@@ -19,6 +19,8 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 set(GraphicsRoot ${CMAKE_CURRENT_SOURCE_DIR})
 set(ExternalIncludeDir ${GraphicsRoot}/External/Include)
 set(ExternalDirectXIncludeDir ${ExternalIncludeDir}/DirectX)
+set(ExternalRapidYmlIncludeDir ${ExternalIncludeDir}/rapidyml)
+set(ExternalLuaIncludeDir ${ExternalIncludeDir}/lua)
 set(ExternalLibDirDebug ${GraphicsRoot}/External/lib/debug)
 set(ExternalLibDirRelease ${GraphicsRoot}/External/lib/release)
 
@@ -82,7 +84,7 @@ target_include_directories(Asset PUBLIC
     ${ExternalIncludeDir}
 )
 
-target_link_libraries(Asset PUBLIC Utility assimp)
+target_link_libraries(Asset PUBLIC Utility $<$<CONFIG:Debug>:assimp-vc143-mtd> $<$<NOT:$<CONFIG:Debug>>:assimp-vc143-mt>)
 
 target_compile_definitions(Asset PRIVATE
     _LIB
@@ -92,8 +94,50 @@ target_compile_definitions(Asset PRIVATE
     $<$<NOT:$<CONFIG:Debug>>:NDEBUG>
 )
 
+add_library(PhysicsLib STATIC
+    PhysicsLib/Actors/CollisionSolver/PhysicsDynamicCollisionSolver.cpp
+    PhysicsLib/Actors/CollisionSolver/PhysicsKinematicCollisionSolver.cpp
+    PhysicsLib/Actors/CollisionSolver/PhysicsStaticCollisionSolver.cpp
+    PhysicsLib/Actors/ConstraintSolver/PhysicsNoConstraintSolver.cpp
+    PhysicsLib/Actors/Integrater/PhysicsDynamicIntegrater.cpp
+    PhysicsLib/Actors/Integrater/PhysicsKinematicIntegrater.cpp
+    PhysicsLib/Actors/Integrater/PhysicsStaticIntegrater.cpp
+    PhysicsLib/Actors/PhysicsActorBase.cpp
+    PhysicsLib/Actors/PhysicsTerrainActor.cpp
+    PhysicsLib/Actors/SolverType/PhysicsSolverType.cpp
+    PhysicsLib/Simulation/Mediator/IPhysicsWorldMediator.cpp
+    PhysicsLib/Simulation/Repository/IPhysicsActorRepository.cpp
+    PhysicsLib/Simulation/Repository/PhysicsActorRepository.cpp
+    PhysicsLib/Simulation/SpatialQuery/BruteForcePhysicsSpatialQuery.cpp
+    PhysicsLib/Simulation/SpatialQuery/IPhysicsSpatialQuery.cpp
+    PhysicsLib/World/PhysicsWorld.cpp
+)
+
+target_include_directories(PhysicsLib PUBLIC
+    ${GraphicsRoot}
+    ${ExternalIncludeDir}
+)
+
+target_link_directories(PhysicsLib PUBLIC
+    $<$<CONFIG:Debug>:${ExternalLibDirDebug}>
+    $<$<CONFIG:Release>:${ExternalLibDirRelease}>
+)
+
+target_compile_definitions(PhysicsLib PRIVATE
+    _LIB
+    UNICODE
+    _UNICODE
+    $<$<CONFIG:Debug>:_DEBUG>
+    $<$<NOT:$<CONFIG:Debug>>:NDEBUG>
+)
+
+if(MSVC)
+    target_compile_options(PhysicsLib PRIVATE /bigobj)
+endif()
+
 add_library(Game STATIC
     Game/Asset/AnimationGraphAsset.cpp
+    Game/Base/RenderFrameData.cpp
     Game/Base/Shader.cpp
     Game/Base/RootSignature.cpp
     Game/Base/Pipeline.cpp
@@ -111,6 +155,7 @@ add_library(Game STATIC
     Game/Scene/SystemSceduler.cpp
     Game/Scene/ParallelSystemBase.cpp
     Game/Scene/Components/Transform.cpp
+    Game/Scene/Components/ComponentText.cpp
     Game/Scene/Components/Name.cpp
     Game/Scene/Components/Material.cpp
     Game/Scene/Components/EntityHierarchy.cpp
@@ -129,14 +174,18 @@ add_library(Game STATIC
     Game/Scene/Components/RuntimeVariableTable.cpp
     Game/Scene/Components/AnimatorGraphPlayer.cpp
     Game/Scene/Components/ComponentInspection.cpp
+    Game/Scene/Components/FootIKRig.cpp
+    Game/Scene/Components/FootIKRuntime.cpp
+    Game/Scene/Components/PhysicsProperties.cpp
     Game/Scene/Components/TerrainCollidee.cpp
     Game/Scene/Components/TerrainCollider.cpp
     Game/Scene/Systems/CameraRenderSystem.cpp
-    Game/Scene/Systems/SkySystem.cpp
-    Game/Scene/Systems/PickingSystem.cpp
     Game/Scene/Systems/AnimationGraphSystem.cpp
     Game/Scene/Systems/AnimateSystem.cpp
-    Game/Scene/Systems/StaticBoundingBoxUpdateSystem.cpp
+    Game/Scene/IK/FootIKSolver.cpp
+    Game/Scene/IK/FabrikFootIKSolver.cpp
+    Game/Scene/IK/FootIKAlgorithms.cpp
+    Game/Scene/Systems/FootIKSystem.cpp
     Game/Scene/Systems/SkinnedMeshPrepareSystem.cpp
     Game/Scene/Systems/StaticRenderSystem.cpp
     Game/Scene/Systems/SkinnedMeshRenderSystem.cpp
@@ -146,9 +195,11 @@ add_library(Game STATIC
 target_include_directories(Game PUBLIC
     ${GraphicsRoot}
     ${ExternalIncludeDir}
+    ${ExternalRapidYmlIncludeDir}
+    ${ExternalLuaIncludeDir}
 )
 
-target_link_libraries(Game PUBLIC Utility)
+target_link_libraries(Game PUBLIC Utility PhysicsLib)
 
 target_compile_definitions(Game PRIVATE
     _LIB
@@ -157,6 +208,10 @@ target_compile_definitions(Game PRIVATE
     $<$<CONFIG:Debug>:_DEBUG>
     $<$<NOT:$<CONFIG:Debug>>:NDEBUG>
 )
+
+if(MSVC)
+    target_compile_options(Game PRIVATE /bigobj)
+endif()
 
 add_executable(2026_Graphics WIN32
     2026_Graphics.cpp
@@ -205,6 +260,7 @@ target_link_libraries(2026_Graphics PRIVATE
 )
 
 target_compile_definitions(2026_Graphics PRIVATE
+    GRAPHICS_CMAKE_BUILD
     _WINDOWS
     UNICODE
     _UNICODE

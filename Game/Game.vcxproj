@@ -48,6 +48,8 @@
     <ClInclude Include="Scene\Components\Animator.h" />
     <ClInclude Include="Scene\Components\AnimatorGraphPlayer.h" />
     <ClInclude Include="Scene\Components\RuntimeVariableTable.h" />
+    <ClInclude Include="Scene\Components\FootIKRig.h" />
+    <ClInclude Include="Scene\Components\FootIKRuntime.h" />
     <ClInclude Include="Scene\Components\Name.h" />
     <ClInclude Include="Scene\Components\ComponentInspection.h" />
     <ClInclude Include="Scene\Components\PickingGizmo.h" />
@@ -71,13 +73,19 @@
     <ClInclude Include="Scene\ParallelSystemBase.h" />
     <ClInclude Include="Scene\Systems\AnimationGraphSystem.h" />
     <ClInclude Include="Scene\Systems\AnimateSystem.h" />
+    <ClInclude Include="Scene\IK\FootIKSolver.h" />
+    <ClInclude Include="Scene\IK\FabrikFootIKSolver.h" />
+    <ClInclude Include="Scene\IK\FootIKAlgorithms.h" />
+    <ClInclude Include="Scene\Systems\FootIKSystem.h" />
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
+    <ClInclude Include="Scene\Systems\ShadowMappingParameterSystem.h" />
     <ClInclude Include="Scene\Systems\SkinnedMeshPrepareSystem.h" />
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
     <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Input.cpp" />
+    <ClCompile Include="Base\RenderFrameData.cpp" />
     <ClCompile Include="Base\Shader.cpp" />
     <ClCompile Include="Base\RootSignature.cpp" />
     <ClCompile Include="Base\Pipeline.cpp" />
@@ -102,11 +110,14 @@
     <ClCompile Include="Scene\SystemSceduler.cpp" />
     <ClCompile Include="Scene\ParallelSystemBase.cpp" />
     <ClCompile Include="Scene\Components\Transform.cpp" />
+    <ClCompile Include="Scene\Components\ComponentText.cpp" />
     <ClCompile Include="Scene\Components\Name.cpp" />
     <ClCompile Include="Scene\Components\Material.cpp" />
     <ClCompile Include="Scene\Components\Animator.cpp" />
     <ClCompile Include="Scene\Components\AnimatorGraphPlayer.cpp" />
     <ClCompile Include="Scene\Components\RuntimeVariableTable.cpp" />
+    <ClCompile Include="Scene\Components\FootIKRig.cpp" />
+    <ClCompile Include="Scene\Components\FootIKRuntime.cpp" />
     <ClCompile Include="Scene\Components\ScriptComponent.cpp" />
     <ClCompile Include="Scene\Components\SkySphere.cpp" />
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp" />
@@ -123,7 +134,12 @@
     <ClCompile Include="Scene\Components\TerrainCollider.cpp" />
     <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp" />
     <ClCompile Include="Scene\Systems\AnimateSystem.cpp" />
+    <ClCompile Include="Scene\IK\FootIKSolver.cpp" />
+    <ClCompile Include="Scene\IK\FabrikFootIKSolver.cpp" />
+    <ClCompile Include="Scene\IK\FootIKAlgorithms.cpp" />
+    <ClCompile Include="Scene\Systems\FootIKSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
+    <ClCompile Include="Scene\Systems\ShadowMappingParameterSystem.cpp" />
     <ClCompile Include="Scene\Systems\SkinnedMeshPrepareSystem.cpp" />
     <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\SkinnedMeshRenderSystem.cpp" />
@@ -134,6 +150,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="..\Shader\Source\BoundingBoxLineShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\DebugGeometryShader.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
@@ -156,10 +176,10 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Resources\DefaultScene.yaml" />
-    <None Include="..\Resources\DefaultScene\terrain_materials.json" />
     <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml" />
-    <None Include="..\Script\Lua\CameraController.lua" />
+    <None Include="..\Resources\ShadowMappingParameter.yaml" />
     <None Include="..\Shader\PSO\DefaultGraphics.json" />
+    <None Include="..\Shader\PSO\DebugGeometryGraphics.json" />
     <None Include="..\Shader\PSO\TerrainGraphics.json" />
     <None Include="..\Shader\PSO\SkinnedGraphics.json" />
     <None Include="..\Shader\PSO\SkyDomeGraphics.json" />

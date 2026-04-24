@@ -22,6 +22,9 @@
     <Filter Include="Scene\Systems">
       <UniqueIdentifier>{da518e6d-61b2-4bda-9554-c317d5a33a1b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Scene\IK">
+      <UniqueIdentifier>{f5d2968d-9490-4e3f-99b7-bb4d5914a6f1}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Scene\Components">
       <UniqueIdentifier>{b183f548-2f68-4399-9a93-420a6518d846}</UniqueIdentifier>
     </Filter>
@@ -129,6 +132,12 @@
     <ClInclude Include="Scene\Components\RuntimeVariableTable.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\FootIKRig.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\FootIKRuntime.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\Name.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -139,6 +148,18 @@
       <Filter>Scene\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\AnimateSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\IK\FootIKSolver.h">
+      <Filter>Scene\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\IK\FabrikFootIKSolver.h">
+      <Filter>Scene\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\IK\FootIKAlgorithms.h">
+      <Filter>Scene\IK</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\FootIKSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Components\Tags.h">
@@ -157,6 +178,9 @@
       <Filter>Scene\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\SkinnedMeshPrepareSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\ShadowMappingParameterSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Components\EntityHierarchy.h">
@@ -248,6 +272,9 @@
     <ClCompile Include="Scene\Components\Transform.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Components\ComponentText.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\Components\Name.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
@@ -261,6 +288,12 @@
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\RuntimeVariableTable.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\FootIKRig.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\FootIKRuntime.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\ScriptComponent.cpp">
@@ -320,7 +353,22 @@
     <ClCompile Include="Scene\Systems\AnimateSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\IK\FootIKSolver.cpp">
+      <Filter>Scene\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\IK\FabrikFootIKSolver.cpp">
+      <Filter>Scene\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\IK\FootIKAlgorithms.cpp">
+      <Filter>Scene\IK</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\FootIKSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
     <ClCompile Include="Base\Input.cpp">
+      <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Base\RenderFrameData.cpp">
       <Filter>Base</Filter>
     </ClCompile>
     <ClCompile Include="Base\Time.cpp">
@@ -333,6 +381,9 @@
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\SkinnedMeshPrepareSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\ShadowMappingParameterSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp">
@@ -379,20 +430,20 @@
     <None Include="..\Shader\PSO\SkyDomeGraphics.json">
       <Filter>PSO</Filter>
     </None>
-    <None Include="..\Resources\DefaultScene.yaml">
-      <Filter>Scene\Scene YAML</Filter>
+    <None Include="..\Shader\PSO\DebugGeometryGraphics.json">
+      <Filter>PSO</Filter>
     </None>
-    <None Include="..\Resources\DefaultScene\terrain_materials.json">
+    <None Include="..\Resources\DefaultScene.yaml">
       <Filter>Scene\Scene YAML</Filter>
     </None>
     <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml">
       <Filter>Scene\Scene YAML</Filter>
     </None>
-    <None Include="..\Script\Lua\CameraController.lua">
-      <Filter>Scene\Scene YAML</Filter>
-    </None>
     <None Include="..\Shader\Source\defines.hlsli">
       <Filter>Shader</Filter>
+    </None>
+    <None Include="..\Resources\ShadowMappingParameter.yaml">
+      <Filter>Scene\Scene YAML</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -412,6 +463,9 @@
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="..\Shader\Source\BoundingBoxLineShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\DebugGeometryShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
   </ItemGroup>

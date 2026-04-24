@@ -96,6 +96,14 @@ namespace Widget {
         }
 
         const std::vector<ProfileEntry> Entries{ PerformanceProvider::Get().GetCurrentFrameProfiles() };
+        std::string PreUpdateLegendText{ "PreUpdate" };
+        std::string UpdateLegendText{ "Update" };
+        std::string PostUpdateLegendText{ "PostUpdate" };
+        std::string TransformWorldLegendText{ "TransformWorld" };
+        std::string IkLegendText{ "IK" };
+        std::string RenderPrepareLegendText{ "RenderPrepare" };
+        std::string RenderLegendText{ "Render" };
+        std::string PostRenderLegendText{ "PostRender" };
 
         if (!Entries.empty()) {
             const double MinStart{ Entries.front().StartMicroseconds };
@@ -126,22 +134,55 @@ namespace Widget {
                 const float Y1{ Y0 + LayerHeight - 4.0f };
                 const uint32_t Color{ GetColorByName(Entry.Name) };
                 DrawList->AddRectFilled(ImVec2(X0, Y0), ImVec2(X1, Y1), Color, 4.0f);
+
+                const double EntryDurationMilliseconds{ std::max(0.0, Entry.EndMicroseconds - Entry.StartMicroseconds) / 1000.0 };
+                const std::string EntryLabelText{ std::format("{:.2f} ms", EntryDurationMilliseconds) };
+                const ImVec2 EntryLabelSize{ ImGui::CalcTextSize(EntryLabelText.c_str()) };
+                const float AvailableWidth{ X1 - X0 };
+                if (AvailableWidth >= EntryLabelSize.x + 8.0f) {
+                    const float TextX{ X0 + (AvailableWidth - EntryLabelSize.x) * 0.5f };
+                    const float TextY{ Y0 + ((Y1 - Y0) - EntryLabelSize.y) * 0.5f };
+                    DrawList->AddText(ImVec2(TextX, TextY), IM_COL32(255, 255, 255, 255), EntryLabelText.c_str());
+                }
             }
+
+            const auto ResolvePhaseDurationMilliseconds = [&Entries](const std::string& PhaseName) -> double {
+                double TotalDurationMicroseconds{};
+                for (const ProfileEntry& Entry : Entries) {
+                    if (Entry.Name == PhaseName) {
+                        TotalDurationMicroseconds += std::max(0.0, Entry.EndMicroseconds - Entry.StartMicroseconds);
+                    }
+                }
+                return TotalDurationMicroseconds / 1000.0;
+            };
+
+            PreUpdateLegendText = std::format("PreUpdate ({:.2f} ms)", ResolvePhaseDurationMilliseconds("PreUpdate"));
+            UpdateLegendText = std::format("Update ({:.2f} ms)", ResolvePhaseDurationMilliseconds("Update"));
+            PostUpdateLegendText = std::format("PostUpdate ({:.2f} ms)", ResolvePhaseDurationMilliseconds("PostUpdate"));
+            TransformWorldLegendText = std::format("TransformWorld ({:.2f} ms)", ResolvePhaseDurationMilliseconds("TransformWorld"));
+            IkLegendText = std::format("IK ({:.2f} ms)", ResolvePhaseDurationMilliseconds("IK"));
+            RenderPrepareLegendText = std::format("RenderPrepare ({:.2f} ms)", ResolvePhaseDurationMilliseconds("RenderPrepare"));
+            RenderLegendText = std::format("Render ({:.2f} ms)", ResolvePhaseDurationMilliseconds("Render"));
+            PostRenderLegendText = std::format("PostRender ({:.2f} ms)", ResolvePhaseDurationMilliseconds("PostRender"));
         }
 
-        RenderLegendItem("PreUpdate", GetColorByName("PreUpdate"));
-        ImGui::SameLine();
-        RenderLegendItem("Update", GetColorByName("Update"));
-        ImGui::SameLine();
-        RenderLegendItem("PostUpdate", GetColorByName("PostUpdate"));
-        ImGui::SameLine();
-        RenderLegendItem("TransformWorld", GetColorByName("TransformWorld"));
-        ImGui::SameLine();
-		RenderLegendItem("RenderPrepare", GetColorByName("RenderPrepare"));
-        ImGui::SameLine(); 
-        RenderLegendItem("Render", GetColorByName("Render"));
-        ImGui::SameLine();
-        RenderLegendItem("PostRender", GetColorByName("PostRender"));
+        ImGui::Columns(2, "PerformanceTimelineLegendColumns", false);
+        RenderLegendItem(PreUpdateLegendText.c_str(), GetColorByName("PreUpdate"));
+        ImGui::NextColumn();
+        RenderLegendItem(UpdateLegendText.c_str(), GetColorByName("Update"));
+        ImGui::NextColumn();
+        RenderLegendItem(PostUpdateLegendText.c_str(), GetColorByName("PostUpdate"));
+        ImGui::NextColumn();
+        RenderLegendItem(TransformWorldLegendText.c_str(), GetColorByName("TransformWorld"));
+        ImGui::NextColumn();
+        RenderLegendItem(IkLegendText.c_str(), GetColorByName("IK"));
+        ImGui::NextColumn();
+        RenderLegendItem(RenderPrepareLegendText.c_str(), GetColorByName("RenderPrepare"));
+        ImGui::NextColumn();
+        RenderLegendItem(RenderLegendText.c_str(), GetColorByName("Render"));
+        ImGui::NextColumn();
+        RenderLegendItem(PostRenderLegendText.c_str(), GetColorByName("PostRender"));
+        ImGui::Columns(1);
 
         ImGui::End();
     }
@@ -161,16 +202,20 @@ namespace Widget {
             return IM_COL32(52, 152, 219, 255);
         }
 
-        if (Name.find("Update") != std::string::npos) {
-            return IM_COL32(46, 204, 113, 255);
-        }
-
         if (Name.find("PostUpdate") != std::string::npos) {
             return IM_COL32(55, 89, 182, 255);
         }
 
+        if (Name.find("Update") != std::string::npos) {
+            return IM_COL32(46, 204, 113, 255);
+        }
+
         if (Name.find("TransformWorld") != std::string::npos) {
             return IM_COL32(230, 126, 34, 255);
+        }
+
+        if (Name.find("IK") != std::string::npos) {
+            return IM_COL32(241, 196, 15, 255);
         }
 
         if (Name.find("RenderPrepare") != std::string::npos) {

@@ -284,7 +284,16 @@
             "MinLinearMagPointMipLinear",
             "MinMagLinearMipPoint",
             "MinMagMipLinear",
-            "Anisotropic"
+            "Anisotropic",
+            "ComparisonMinMagMipPoint",
+            "ComparisonMinMagPointMipLinear",
+            "ComparisonMinPointMagLinearMipPoint",
+            "ComparisonMinPointMagMipLinear",
+            "ComparisonMinLinearMagMipPoint",
+            "ComparisonMinLinearMagPointMipLinear",
+            "ComparisonMinMagLinearMipPoint",
+            "ComparisonMinMagMipLinear",
+            "ComparisonAnisotropic"
           ]
         },
         "AddressU": {

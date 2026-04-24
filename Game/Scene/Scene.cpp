@@ -13,6 +13,8 @@
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/Culling.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/FootIKRig.h"
+#include "Game/Scene/Components/FootIKRuntime.h"
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/PrefabInstance.h"
@@ -70,6 +72,7 @@ namespace Game {
         mHierarchyEntitySelectedSubscriptionId{},
         mFileDropSubscriptionId{},
         mIsDefaultCameraControlBehaviorAttached{},
+        mIsDebugGeometryDrawEnabled{},
         mIsBoundingBoxDrawEnabled{} {
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
         mWorldSnapshot.BindWorld(&mWorld);
@@ -79,6 +82,7 @@ namespace Game {
         mLuaScriptFramework.SetFixedUpdateInterval(1.f); 
         mLuaScriptFramework.OpenDefaultLibraries(); 
         RegisterScriptTypes();
+        mIsDebugGeometryDrawEnabled = Config::Query()->Get<bool>("Draw_DebugGeometry");
 
         mHierarchyEntitySelectedSubscriptionId = Core::Event::Subscribe<Game::HierarchyEntitySelectedEventTag>([this](const Core::Event::Event<Game::HierarchyEntitySelectedEventTag>& HierarchyEntitySelectedEvent) {
             const Game::HierarchyEntitySelectedPayload* Payload{ HierarchyEntitySelectedEvent.GetPayloadAs<Game::HierarchyEntitySelectedPayload>() };
@@ -250,13 +254,35 @@ namespace Game {
         mLuaScriptFramework.RegisterGlobalFunction("IsInputMouseRightButtonDown", &Globals::IsInputMouseRightButtonDown);
         mLuaScriptFramework.RegisterGlobalFunction("IsInputMouseMiddleButtonDown", &Globals::IsInputMouseMiddleButtonDown);
         mLuaScriptFramework.RegisterGlobalFunction("GetInputMouseWheelDelta", &Globals::GetInputMouseWheelDelta);
+        mLuaScriptFramework.RegisterGlobalFunction("GetActiveCameraForwardDirection", [this]() -> DirectX::SimpleMath::Vector3 {
+            for (auto [TransformComponent, CameraComponent] : mWorld.Query<Transform, Camera>()) {
+                if (CameraComponent.isActive == false) {
+                    continue;
+                }
+
+                return TransformComponent.GetForwardDirection();
+            }
+
+            return DirectX::SimpleMath::Vector3::Forward;
+        });
+        mLuaScriptFramework.RegisterGlobalFunction("GetActiveCameraRightDirection", [this]() -> DirectX::SimpleMath::Vector3 {
+            for (auto [TransformComponent, CameraComponent] : mWorld.Query<Transform, Camera>()) {
+                if (CameraComponent.isActive == false) {
+                    continue;
+                }
+
+                return TransformComponent.TransformDirectionToWorld(DirectX::SimpleMath::Vector3::Right);
+            }
+
+            return DirectX::SimpleMath::Vector3::Right;
+        });
 
         mLuaScriptFramework.RegisterTypeByDefinition<Arche::EntityID>();
         mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector2>();
         mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector3>();
         mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Quaternion>();
         mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Matrix>();
-        mLuaScriptFramework.RegisterTypeByDefinition<Game::ComponentTextArray>();
+        mLuaScriptFramework.RegisterTypeUsertype<Game::ComponentTextArray>("Text", sol::constructors<Game::ComponentTextArray()>(), sol::meta_function::index, [](const Game::ComponentTextArray& TargetArray, std::size_t LuaIndex) -> Game::ComponentTextArray::value_type { if (LuaIndex >= TargetArray.size()) { return '\0'; } return TargetArray[LuaIndex]; }, sol::meta_function::new_index, [](Game::ComponentTextArray& TargetArray, std::size_t LuaIndex, const Game::ComponentTextArray::value_type Value) { if (LuaIndex >= TargetArray.size()) { return; } TargetArray[LuaIndex] = Value; }, "Get", [](const Game::ComponentTextArray& TargetArray, const std::size_t Index) -> Game::ComponentTextArray::value_type { if (Index >= TargetArray.size()) { return '\0'; } return TargetArray[Index]; }, "Set", [](Game::ComponentTextArray& TargetArray, const std::size_t Index, const Game::ComponentTextArray::value_type Value) { if (Index >= TargetArray.size()) { return; } TargetArray[Index] = Value; }, "Size", [](const Game::ComponentTextArray& TargetArray) -> std::size_t { return TargetArray.size(); });
         mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableBoolArray>();
         mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableIntArray>();
         mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableFloatArray>();
@@ -280,8 +306,10 @@ namespace Game {
         mLuaScriptFramework.RegisterComponentByDefinition<Game::RuntimeVariableTable>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::Animator>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::AnimatorGraphPlayer>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::FootIKRig>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::FootIKRuntime>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::PrefabInstance>();
-        mLuaScriptFramework.RegisterComponentByDefinition<Game::LocalPlayerTag>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::Tag>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BehaviorInstanceComponent>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::TerrainCollider>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::TerrainCollidee>();
@@ -347,10 +375,15 @@ namespace Game {
 
     void Scene::UpdateCameraVirtualMouseState() {
         Globals::Input& InputInstance{ Globals::Input::Get() };
+        const bool IsDebugGeometryToggleRequested{ InputInstance.IsKeyPressed(DirectX::Keyboard::Keys::F3) };
         const bool IsThirdPersonToggleRequested{ InputInstance.IsKeyPressed(DirectX::Keyboard::Keys::F8) };
         const bool IsBoundingBoxToggleRequested{ InputInstance.IsKeyPressed(DirectX::Keyboard::Keys::F9) };
         const DirectX::Mouse::ButtonStateTracker& MouseTracker{ InputInstance.GetMouseTracker() };
         const bool IsSelectionDragInput{ mFrameContext.PickedEntityId != Arche::NullEntityID && (MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED || MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::HELD) };
+
+        if (IsDebugGeometryToggleRequested) {
+            mIsDebugGeometryDrawEnabled = (mIsDebugGeometryDrawEnabled == false);
+        }
 
         if (IsBoundingBoxToggleRequested) {
             mIsBoundingBoxDrawEnabled = (mIsBoundingBoxDrawEnabled == false);
@@ -428,16 +461,35 @@ namespace Game {
         }
     }
 
+    void Scene::AppendDebugWorldAxes() {
+        constexpr float AxisLength{ 100000.0f };
+        constexpr float AxisThickness{ 0.0035f };
+        const SimpleMath::Vector3 Origin{ 0.0f, 0.0f, 0.0f };
+        mFrameContext.RenderData.debugGeometryContexts.push_back(RFD::DebugGeometryContext::CreateDirection(Origin, SimpleMath::Vector3{ 1.0f, 0.0f, 0.0f }, AxisLength, SimpleMath::Vector4{ 1.0f, 0.1f, 0.1f, 1.0f }, AxisThickness));
+        mFrameContext.RenderData.debugGeometryContexts.push_back(RFD::DebugGeometryContext::CreateDirection(Origin, SimpleMath::Vector3{ 0.0f, 1.0f, 0.0f }, AxisLength, SimpleMath::Vector4{ 0.1f, 1.0f, 0.1f, 1.0f }, AxisThickness));
+        mFrameContext.RenderData.debugGeometryContexts.push_back(RFD::DebugGeometryContext::CreateDirection(Origin, SimpleMath::Vector3{ 0.0f, 0.0f, 1.0f }, AxisLength, SimpleMath::Vector4{ 0.1f, 0.4f, 1.0f, 1.0f }, AxisThickness));
+    }
+
     void Scene::ExecutePhase(Phase TargetPhase, float Dt) {
         switch (TargetPhase) {
             case Phase::PreUpdate:
                 UpdateCameraVirtualMouseState();
                 mFrameContext.RenderData.modelContexts.clear();
                 mFrameContext.RenderData.boundingBoxContexts.clear();
+                mFrameContext.RenderData.debugGeometryContexts.clear();
                 mFrameContext.RenderData.drawRecords.clear();
                 mFrameContext.RenderData.bonePalette.clear();
                 mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
-                mFrameContext.RenderData.globals.flags = mIsBoundingBoxDrawEnabled ? RFD::FrameGlobalFlagDrawBoundingBoxes : 0u;
+                mFrameContext.RenderData.globals.flags = 0u;
+                if (mIsBoundingBoxDrawEnabled) {
+                    mFrameContext.RenderData.globals.flags |= RFD::FrameGlobalFlagDrawBoundingBoxes;
+                }
+
+                if (mIsDebugGeometryDrawEnabled) {
+                    mFrameContext.RenderData.globals.flags |= RFD::FrameGlobalFlagDrawDebugGeometry;
+                    AppendDebugWorldAxes();
+                }
+
                 mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
                 mFrameContext.SkinnedMeshPreparedDataItems.clear();
                 break;

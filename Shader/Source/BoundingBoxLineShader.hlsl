@@ -35,7 +35,7 @@ void GsMain(point BoundingBoxVsOutput Input[1], inout LineStream<BoundingBoxGsOu
     StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
     StructuredBuffer<BoundingBoxContextGpu> BoundingBoxContextBuffer = ResourceDescriptorHeap[RootConstants.ModelContextSrvIndex];
 
-    const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[0];
+    const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[RootConstants.FrameGlobalsElementIndex];
     const BoundingBoxContextGpu BoundingBoxContext = BoundingBoxContextBuffer[Input[0].InstanceId];
 
     const float3 Center = BoundingBoxContext.Center.xyz;

@@ -3,6 +3,12 @@ ParameterDefinitions:
   - ParameterName: IsMoving
     ParameterType: Bool
     DefaultValue: false
+  - ParameterName: CurrentSpeed
+    ParameterType: Float
+    DefaultValue: 0.0
+  - ParameterName: DirectionDeltaDegrees
+    ParameterType: Float
+    DefaultValue: 0.0
 
 Nodes:
   - NodeName: Idle

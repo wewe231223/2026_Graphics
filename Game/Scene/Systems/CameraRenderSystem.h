@@ -27,7 +27,8 @@ namespace Game {
 
     private:
         void ApplyThirdPersonCameraTransform(Arche::World& World, Transform& TransformComponent, Camera& CameraComponent, float Dt) const;
-        void WriteRenderGlobalsFromCamera(const Transform& TransformComponent, Camera& CameraComponent, Frustum& FrustumComponent, RFD::RenderFrameData& RenderData, float Dt) const;
+        void UpdateCameraMatricesAndFrustum(const Transform& TransformComponent, Camera& CameraComponent, Frustum& FrustumComponent) const;
+        void WriteCameraParameter(const Camera& CameraComponent, const Transform& TransformComponent, RFD::RenderFrameData& RenderData, float Dt) const;
 
     private:
         const std::string mName{ "CameraRenderSystem" };

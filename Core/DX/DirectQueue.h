@@ -46,6 +46,7 @@ namespace Core {
 			void InitWorkers();
 			void InitCommandList();
 			void InitTargetResources();
+			void EnsureShadowMapResources(const Game::RFD::ShadowMappingParameter& ShadowMappingParameter);
 
 			ComPtr<IDXGIAdapter1> GetBestAdapter();
 
@@ -78,6 +79,12 @@ namespace Core {
 
 			DescriptorHeap mDSVHeap{};
 			TexPtr mDepthStencilBuffer{};
+			DescriptorHeap mShadowDSVHeap{};
+			std::array<TexPtr, Game::RFD::ShadowCascadeMaxCount> mShadowDepthMaps{};
+			uint32_t mShadowCascadeCount{};
+			std::array<uint32_t, Game::RFD::ShadowCascadeMaxCount> mShadowMapSizes{};
+			DescriptorHandle mShadowMapBaseSrvHandle{};
+			std::array<DescriptorHandle, Game::RFD::ShadowCascadeMaxCount> mShadowMapSrvHandles{};
 			DescriptorHeap mSrvHeap{};
 			std::array<DrawCallResourceManager, Constants::FrameCount<size_t>> mDrawCallResourceManagers{};
 			MaterialResourceManager mMaterialResourceManager{};
@@ -91,6 +98,8 @@ namespace Core {
 
 			D3D12_VIEWPORT mViewport{ 0, 0, Config::Query()->Get<float>("Window_Width"), Config::Query()->Get<float>("Window_Height"), 0.f, 1.f };
 			D3D12_RECT mScissorRect{ 0, 0, Config::Query()->Get<LONG>("Window_Width"), Config::Query()->Get<LONG>("Window_Height") };
+			std::array<D3D12_VIEWPORT, Game::RFD::ShadowCascadeMaxCount> mShadowViewports{};
+			std::array<D3D12_RECT, Game::RFD::ShadowCascadeMaxCount> mShadowScissorRects{};
 		};
 
 	}

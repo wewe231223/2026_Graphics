@@ -29,7 +29,7 @@ SkyDomeVertexOutput VsMain(SkyDomeVertexInput Input, uint InstanceId : SV_Instan
     const uint DrawIndex = RootConstants.DrawRecordBaseIndex + InstanceId;
     const DrawRecordGpu DrawRecord = DrawRecordBuffer[DrawIndex];
     const ModelContextGpu ModelContext = ModelContextBuffer[DrawRecord.ObjectIndex];
-    const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[0];
+    const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[RootConstants.FrameGlobalsElementIndex];
 
     SkyDomeVertexOutput Output;
 

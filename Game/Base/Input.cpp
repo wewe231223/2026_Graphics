@@ -20,20 +20,29 @@ namespace Globals {
         // DirectXTK Mouse 초기화 (Window Handle 필요)
         mMouse->SetWindow(hWnd);
 		mhwnd = hWnd;
+        SetWindowFocused(IsWindowFocusedByOperatingSystem());
     }
 
     void Input::Update() {
+        const bool IsWindowFocused{ IsWindowFocusedByOperatingSystem() };
+        SetWindowFocused(IsWindowFocused);
+
+        if (mIsWindowFocused == false) {
+            if (mVirtualMouse) {
+                SetVirtualMouse(false);
+            }
+
+            ResetInputState();
+            return;
+        }
+
         mKeyboardState = mKeyboard->GetState();
         mMouseState = mMouse->GetState();
         mMouseWheelDelta = mMouseState.scrollWheelValue - mPreviousScrollWheelValue;
         mPreviousScrollWheelValue = mMouseState.scrollWheelValue;
 
         if (mIsImGuiInputBlocked) {
-            mKeyboardState = DirectX::Keyboard::State{};
-            mMouseState = DirectX::Mouse::State{};
-            mKeyboardTracker = DirectX::Keyboard::KeyboardStateTracker{};
-            mMouseTracker = DirectX::Mouse::ButtonStateTracker{};
-            mMouseWheelDelta = 0;
+            ResetInputState();
             return;
         }
 
@@ -53,7 +62,27 @@ namespace Globals {
         mIsImGuiInputBlocked = IsBlocked;
     }
 
+    void Input::SetWindowFocused(bool IsFocused) {
+        if (mIsWindowFocused == IsFocused) {
+            return;
+        }
+
+        mIsWindowFocused = IsFocused;
+        if (mIsWindowFocused == false && mVirtualMouse) {
+            SetVirtualMouse(false);
+        }
+
+        mKeyboard->Reset();
+        mMouse->ResetScrollWheelValue();
+        ResetInputState();
+        mPreviousScrollWheelValue = 0;
+    }
+
     void Input::SetVirtualMouse(bool enable) {
+        if (enable && mIsWindowFocused == false) {
+            return;
+        }
+
         if (mVirtualMouse == enable) {
             return; 
         }
@@ -107,7 +136,7 @@ namespace Globals {
     }
 
     float Input::GetMouseDeltaX() const {
-        if (not mVirtualMouse) {
+        if (not mVirtualMouse || mIsWindowFocused == false || mIsImGuiInputBlocked) {
             return 0.f; 
         }
 
@@ -115,7 +144,7 @@ namespace Globals {
     }
 
     float Input::GetMouseDeltaY() const {
-		if (not mVirtualMouse) {
+		if (not mVirtualMouse || mIsWindowFocused == false || mIsImGuiInputBlocked) {
 			return 0.f;
 		}
 
@@ -140,6 +169,23 @@ namespace Globals {
 
     bool Input::IsImGuiInputBlocked() const {
         return mIsImGuiInputBlocked;
+    }
+
+    bool Input::IsWindowFocusedByOperatingSystem() const {
+        if (mhwnd == nullptr) {
+            return false;
+        }
+
+        const HWND ForegroundWindowHandle{ GetForegroundWindow() };
+        return ForegroundWindowHandle == mhwnd;
+    }
+
+    void Input::ResetInputState() {
+        mKeyboardState = DirectX::Keyboard::State{};
+        mMouseState = DirectX::Mouse::State{};
+        mKeyboardTracker = DirectX::Keyboard::KeyboardStateTracker{};
+        mMouseTracker = DirectX::Mouse::ButtonStateTracker{};
+        mMouseWheelDelta = 0;
     }
 
     void Input::UpdateCursor() {

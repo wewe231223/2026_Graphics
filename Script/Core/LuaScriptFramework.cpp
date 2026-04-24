@@ -189,7 +189,7 @@ namespace Script {
         ExistingComponent->mOwnerEntity = TargetEntity;
         ExistingComponent->mBehaviorInstanceId = BehaviorInstanceId;
         ExistingComponent->mBehaviorAssetId = GenerateBehaviorAssetId();
-        Game::SetScriptFileName(*ExistingComponent, ::std::string_view{});
+        Game::SetScriptFileName(*ExistingComponent, std::string_view{});
 
         RuntimeBehaviorInstance NewRuntimeInstance{};
         NewRuntimeInstance.mContext.Bind(mWorld, TargetEntity, this);
@@ -561,7 +561,7 @@ namespace Script {
         ExistingComponent->mOwnerEntity = TargetEntity;
         ExistingComponent->mBehaviorInstanceId = InvalidBehaviorInstanceId;
         ExistingComponent->mBehaviorAssetId = BehaviorAssetId;
-        Game::SetScriptFileName(*ExistingComponent, ::std::string_view{});
+        Game::SetScriptFileName(*ExistingComponent, std::string_view{});
     }
 
     void LuaBehaviorFramework::StartFixedUpdateThread() {

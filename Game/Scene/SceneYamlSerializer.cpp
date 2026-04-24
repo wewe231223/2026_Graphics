@@ -22,6 +22,7 @@
 #include "Game/Scene/Components/AnimatorGraphPlayer.h"
 #include "Game/Scene/Components/RuntimeVariableTable.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/FootIKRig.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/Name.h"
@@ -33,10 +34,12 @@
 #include "Game/Scene/Systems/TerrainCollideSystem.h"
 #include "Game/Scene/Systems/AnimationGraphSystem.h"
 #include "Game/Scene/Systems/AnimateSystem.h"
+#include "Game/Scene/Systems/FootIKSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshPrepareSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshRenderSystem.h"
 #include "Game/Scene/Systems/StaticRenderSystem.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
+#include "Game/Scene/Systems/ShadowMappingParameterSystem.h"
 #include "Game/Scene/SceneEntityFactory.h"
 #include "Game/Model/TerrainMeshTypes.h"
 #include "Game/Model/HeightMapLoader.h"
@@ -51,13 +54,14 @@ namespace {
     constexpr const char* CullingTypeName{ "Culling" };
     constexpr const char* AnimationTypeName{ "Animation" };
     constexpr const char* CameraTypeName{ "Camera" };
-    constexpr const char* LocalPlayerTagTypeName{ "LocalPlayerTag" };
+    constexpr const char* TagTypeName{ "Tag" };
     constexpr const char* ScriptTypeName{ "Script" };
     constexpr const char* ScriptComponentTypeName{ "ScriptComponent" };
     constexpr const char* BehaviorInstanceComponentTypeName{ "BehaviorInstanceComponent" };
     constexpr const char* NameTypeName{ "Name" };
     constexpr const char* PrefabInstanceTypeName{ "PrefabInstance" };
     constexpr const char* BoneSkinReferenceTypeName{ "BoneSkinReference" };
+    constexpr const char* FootIKRigTypeName{ "FootIKRig" };
     constexpr const char* RuntimeVariablesTypeName{ "RuntimeVariables" };
     constexpr const char* BoundingBoxTypeName{ "BB" };
     constexpr const char* DefaultMaterialPathText{ "Resources/DefaultResource/DefaultMaterial.json" };
@@ -215,7 +219,9 @@ namespace {
             { "SkinnedMeshRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshRenderSystem>(); } },
             { "AnimationGraphSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimationGraphSystem>(); } },
             { "AnimateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimateSystem>(); } },
+            { "FootIKSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::FootIKSystem>(); } },
             { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },
+            { "ShadowMappingParameterSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::ShadowMappingParameterSystem>(); } },
             { "TerrainCollideSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TerrainCollideSystem>(); } },
         };
         const std::unordered_map<std::string_view, SystemFactory>::const_iterator FactoryIter{ SystemFactories.find(SystemName) };
@@ -506,6 +512,10 @@ namespace {
 
     std::string ToYamlText(const std::string& Text) {
         return ToYamlText(Text.c_str());
+    }
+
+    std::string ToYamlText(const std::string_view Text) {
+        return ToYamlText(std::string{ Text });
     }
 
     std::string ToYamlBooleanText(bool Value) {
@@ -1012,6 +1022,82 @@ namespace Game {
                 }
             }
 
+            if (ComponentsNode.has_child(FootIKRigTypeName)) {
+                FootIKRig NewFootIKRig{};
+                const c4::yml::ConstNodeRef FootIKRigNode{ ComponentsNode[FootIKRigTypeName] };
+                if (FootIKRigNode.has_child("enabled")) {
+                    FootIKRigNode["enabled"] >> NewFootIKRig.mEnabled;
+                }
+
+                if (FootIKRigNode.has_child("leftFootBoneName")) {
+                    std::string LeftFootBoneNameText{};
+                    FootIKRigNode["leftFootBoneName"] >> LeftFootBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mLeftFootBoneName, LeftFootBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("rightFootBoneName")) {
+                    std::string RightFootBoneNameText{};
+                    FootIKRigNode["rightFootBoneName"] >> RightFootBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mRightFootBoneName, RightFootBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("leftToeBoneName")) {
+                    std::string LeftToeBoneNameText{};
+                    FootIKRigNode["leftToeBoneName"] >> LeftToeBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mLeftToeBoneName, LeftToeBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("rightToeBoneName")) {
+                    std::string RightToeBoneNameText{};
+                    FootIKRigNode["rightToeBoneName"] >> RightToeBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mRightToeBoneName, RightToeBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("leftShinBoneName")) {
+                    std::string LeftShinBoneNameText{};
+                    FootIKRigNode["leftShinBoneName"] >> LeftShinBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mLeftShinBoneName, LeftShinBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("rightShinBoneName")) {
+                    std::string RightShinBoneNameText{};
+                    FootIKRigNode["rightShinBoneName"] >> RightShinBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mRightShinBoneName, RightShinBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("leftThighBoneName")) {
+                    std::string LeftThighBoneNameText{};
+                    FootIKRigNode["leftThighBoneName"] >> LeftThighBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mLeftThighBoneName, LeftThighBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("rightThighBoneName")) {
+                    std::string RightThighBoneNameText{};
+                    FootIKRigNode["rightThighBoneName"] >> RightThighBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mRightThighBoneName, RightThighBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("pelvisBoneName")) {
+                    std::string PelvisBoneNameText{};
+                    FootIKRigNode["pelvisBoneName"] >> PelvisBoneNameText;
+                    SetFootIKRigBoneName(NewFootIKRig.mPelvisBoneName, PelvisBoneNameText);
+                }
+
+                if (FootIKRigNode.has_child("blendSpeed")) {
+                    FootIKRigNode["blendSpeed"] >> NewFootIKRig.mBlendSpeed;
+                }
+
+                if (FootIKRigNode.has_child("maxLift")) {
+                    FootIKRigNode["maxLift"] >> NewFootIKRig.mMaxLift;
+                }
+
+                if (FootIKRigNode.has_child("maxDrop")) {
+                    FootIKRigNode["maxDrop"] >> NewFootIKRig.mMaxDrop;
+                }
+
+                OutScene.GetWorld().AddComponent(Entity, NewFootIKRig);
+            }
+
             if (ComponentsNode.has_child(MaterialTypeName)) {
                 Material NewMaterial{};
                 const c4::yml::ConstNodeRef MaterialNode{ ComponentsNode[MaterialTypeName] };
@@ -1368,9 +1454,24 @@ namespace Game {
                 }
             }
 
-            if (ComponentsNode.has_child(LocalPlayerTagTypeName)) {
-                LocalPlayerTag NewLocalPlayerTag{};
-                OutScene.GetWorld().AddComponent(Entity, NewLocalPlayerTag);
+            if (ComponentsNode.has_child(TagTypeName)) {
+                const c4::yml::ConstNodeRef TagNode{ ComponentsNode[TagTypeName] };
+                std::string TagText{};
+                if (TagNode.is_val() || TagNode.is_keyval()) {
+                    TagNode >> TagText;
+                }
+                else if (TagNode.has_child("text")) {
+                    TagNode["text"] >> TagText;
+                }
+                else if (TagNode.has_child("Text")) {
+                    TagNode["Text"] >> TagText;
+                }
+                else if (TagNode.has_child("mText")) {
+                    TagNode["mText"] >> TagText;
+                }
+
+                const Tag NewTag{ Game::CreateTagComponent(TagText) };
+                OutScene.GetWorld().AddComponent(Entity, NewTag);
             }
 
             const bool HasScriptNode{ ComponentsNode.has_child(ScriptTypeName) || ComponentsNode.has_child(ScriptComponentTypeName) || ComponentsNode.has_child(BehaviorInstanceComponentTypeName) };
@@ -1730,12 +1831,13 @@ namespace Game {
             const Name* NameComponent{ ReadOnlyWorld->GetComponent<Game::Name>(EntityId) };
             const Transform* TransformComponent{ ReadOnlyWorld->GetComponent<Game::Transform>(EntityId) };
             const BoneSkinReference* BoneSkinReferenceComponent{ ReadOnlyWorld->GetComponent<BoneSkinReference>(EntityId) };
+            const FootIKRig* FootIKRigComponent{ ReadOnlyWorld->GetComponent<FootIKRig>(EntityId) };
             const Material* MaterialComponent{ ReadOnlyWorld->GetComponent<Material>(EntityId) };
             const StaticMeshRenderer* StaticMeshRendererComponent{ ReadOnlyWorld->GetComponent<StaticMeshRenderer>(EntityId) };
             const Culling* CullingComponent{ ReadOnlyWorld->GetComponent<Culling>(EntityId) };
             const Camera* CameraComponent{ ReadOnlyWorld->GetComponent<Camera>(EntityId) };
             const SkySphere* SkySphereComponent{ ReadOnlyWorld->GetComponent<SkySphere>(EntityId) };
-            const LocalPlayerTag* LocalPlayerTagComponent{ ReadOnlyWorld->GetComponent<LocalPlayerTag>(EntityId) };
+            const Tag* TagComponent{ ReadOnlyWorld->GetComponent<Tag>(EntityId) };
             const Animator* AnimatorComponent{ nullptr };
             Arche::EntityID AnimatorEntityId{ Arche::NullEntityID };
             const bool IsAnimatorFound{ TryFindAnimatorForSerializationInHierarchy(ReadOnlyWorld, EntityId, AnimatorComponent, AnimatorEntityId) };
@@ -1746,6 +1848,11 @@ namespace Game {
             }
 
             AppendLine(Stream, 2, "Components:");
+
+            if (TagComponent != nullptr) {
+                AppendLine(Stream, 3, std::string{ TagTypeName } + std::string{ ":" });
+                AppendLine(Stream, 4, std::string{ "text: " } + ToYamlText(Game::GetTagTextView(*TagComponent)));
+            }
 
             if (NameComponent != nullptr) {
                 AppendLine(Stream, 3, std::string{ NameTypeName } + std::string{ ":" });
@@ -1765,6 +1872,23 @@ namespace Game {
                 const std::unordered_map<Arche::EntityID, std::uint32_t>::const_iterator BoneRootSerializedIter{ SerializedEntityIds.find(BoneSkinReferenceComponent->boneRootEntityId) };
                 const std::int32_t BoneRootSerializedId{ BoneRootSerializedIter == SerializedEntityIds.end() ? -1 : static_cast<std::int32_t>(BoneRootSerializedIter->second) };
                 AppendLine(Stream, 4, std::string{ "boneRootEntityId: " } + std::to_string(BoneRootSerializedId));
+            }
+
+            if (FootIKRigComponent != nullptr) {
+                AppendLine(Stream, 3, std::string{ FootIKRigTypeName } + std::string{ ":" });
+                AppendLine(Stream, 4, std::string{ "enabled: " } + ToYamlBooleanText(FootIKRigComponent->mEnabled));
+                AppendLine(Stream, 4, std::string{ "leftFootBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mLeftFootBoneName)));
+                AppendLine(Stream, 4, std::string{ "rightFootBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mRightFootBoneName)));
+                AppendLine(Stream, 4, std::string{ "leftToeBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mLeftToeBoneName)));
+                AppendLine(Stream, 4, std::string{ "rightToeBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mRightToeBoneName)));
+                AppendLine(Stream, 4, std::string{ "leftShinBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mLeftShinBoneName)));
+                AppendLine(Stream, 4, std::string{ "rightShinBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mRightShinBoneName)));
+                AppendLine(Stream, 4, std::string{ "leftThighBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mLeftThighBoneName)));
+                AppendLine(Stream, 4, std::string{ "rightThighBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mRightThighBoneName)));
+                AppendLine(Stream, 4, std::string{ "pelvisBoneName: " } + ToYamlText(GetFootIKRigBoneNameText(FootIKRigComponent->mPelvisBoneName)));
+                AppendLine(Stream, 4, std::string{ "blendSpeed: " } + std::to_string(FootIKRigComponent->mBlendSpeed));
+                AppendLine(Stream, 4, std::string{ "maxLift: " } + std::to_string(FootIKRigComponent->mMaxLift));
+                AppendLine(Stream, 4, std::string{ "maxDrop: " } + std::to_string(FootIKRigComponent->mMaxDrop));
             }
 
             if (MaterialComponent != nullptr) {
@@ -1863,9 +1987,6 @@ namespace Game {
                 AppendLine(Stream, 4, std::string{ "startMode: " } + ResolveCameraModeText(CameraComponent->cameraFlags));
             }
 
-            if (LocalPlayerTagComponent != nullptr) {
-                AppendLine(Stream, 3, std::string{ LocalPlayerTagTypeName } + std::string{ ": {}" });
-            }
         }
 
         OutYamlText = Stream.str();

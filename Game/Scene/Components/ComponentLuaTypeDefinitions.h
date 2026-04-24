@@ -16,9 +16,9 @@ LuaTypeDefinitionDeclWithName(
     Arche::EntityID,
     "EntityID",
     ComponentFields(
-        ComponentField(::std::uint32_t, index)
-        ComponentField(::std::uint32_t, generation)
-        ComponentField(::std::uint32_t, flags)
+        ComponentField(std::uint32_t, index)
+        ComponentField(std::uint32_t, generation)
+        ComponentField(std::uint32_t, flags)
     ),
     BOOST_PP_SEQ_NIL
 );
@@ -84,7 +84,7 @@ LuaTypeDefinitionDeclWithName(
     BOOST_PP_SEQ_NIL
 );
 
-LuaStdArrayTypeDefinitionDeclWithName(Game::ComponentTextArray::value_type, ::std::tuple_size_v<Game::ComponentTextArray>, "Text");
-LuaStdArrayTypeDefinitionDeclWithName(Game::RuntimeVariableBoolArray::value_type, ::std::tuple_size_v<Game::RuntimeVariableBoolArray>, "BoolValues");
-LuaStdArrayTypeDefinitionDeclWithName(Game::RuntimeVariableIntArray::value_type, ::std::tuple_size_v<Game::RuntimeVariableIntArray>, "IntValues");
-LuaStdArrayTypeDefinitionDeclWithName(Game::RuntimeVariableFloatArray::value_type, ::std::tuple_size_v<Game::RuntimeVariableFloatArray>, "FloatValues");
+LuaStdArrayTypeDefinitionDeclWithName(Game::ComponentTextArray::value_type, Game::ComponentTextArray::ElementCount, "Text");
+LuaStdArrayTypeDefinitionDeclWithName(Game::RuntimeVariableBoolArray::value_type, std::tuple_size_v<Game::RuntimeVariableBoolArray>, "BoolValues");
+LuaStdArrayTypeDefinitionDeclWithName(Game::RuntimeVariableIntArray::value_type, std::tuple_size_v<Game::RuntimeVariableIntArray>, "IntValues");
+LuaStdArrayTypeDefinitionDeclWithName(Game::RuntimeVariableFloatArray::value_type, std::tuple_size_v<Game::RuntimeVariableFloatArray>, "FloatValues");

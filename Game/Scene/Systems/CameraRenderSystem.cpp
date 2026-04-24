@@ -21,7 +21,7 @@ namespace Game {
     }
 
     Phase CameraRenderSystem::GetPhase() const {
-        return Phase::Render;
+        return Phase::RenderPrepare;
     }
 
     std::span<const ComponentAccess> CameraRenderSystem::ComponentAccesses() const {
@@ -41,7 +41,8 @@ namespace Game {
             }
 
             ApplyThirdPersonCameraTransform(World, TransformComponent, CameraComponent, Dt);
-            WriteRenderGlobalsFromCamera(TransformComponent, CameraComponent, FrustumComponent, Ctx.RenderData, Dt);
+            UpdateCameraMatricesAndFrustum(TransformComponent, CameraComponent, FrustumComponent);
+            WriteCameraParameter(CameraComponent, TransformComponent, Ctx.RenderData, Dt);
             break;
         }
     }
@@ -68,7 +69,7 @@ namespace Game {
         TransformComponent.Look(TargetPivotPosition);
     }
 
-    void CameraRenderSystem::WriteRenderGlobalsFromCamera(const Transform& TransformComponent, Camera& CameraComponent, Frustum& FrustumComponent, RFD::RenderFrameData& RenderData, float Dt) const {
+    void CameraRenderSystem::UpdateCameraMatricesAndFrustum(const Transform& TransformComponent, Camera& CameraComponent, Frustum& FrustumComponent) const {
         if (UseTemporaryFixedCamera) {
             CameraComponent.viewMatrix = DirectX::SimpleMath::Matrix::CreateLookAt(TemporaryFixedCameraPosition, TemporaryFixedCameraFocusPosition, TemporaryFixedCameraUpDirection);
         }
@@ -93,11 +94,24 @@ namespace Game {
         }
 
         FrustumComponent.UpdateFromViewProjection(CameraComponent.viewMatrix, CameraComponent.projMatrix);
+    }
 
+    void CameraRenderSystem::WriteCameraParameter(const Camera& CameraComponent, const Transform& TransformComponent, RFD::RenderFrameData& RenderData, float Dt) const {
+        RFD::CameraParameter CameraParameter{};
+        CameraParameter.view = CameraComponent.viewMatrix;
+        CameraParameter.proj = CameraComponent.projMatrix;
+        CameraParameter.viewProj = CameraParameter.view * CameraParameter.proj;
+        CameraParameter.position = DirectX::SimpleMath::Vector4{ TransformComponent.position.x, TransformComponent.position.y, TransformComponent.position.z, 1.0f };
+        CameraParameter.nearPlane = CameraComponent.nearPlane;
+        CameraParameter.farPlane = CameraComponent.farPlane;
+        CameraParameter.aspectRatio = CameraComponent.aspectRatio;
+        CameraParameter.fovRadians = DirectX::XMConvertToRadians(CameraComponent.fov);
+
+        RenderData.mainCamera = CameraParameter;
         RenderData.globals.prevViewProj = RenderData.globals.viewProj;
-        RenderData.globals.view = CameraComponent.viewMatrix;
-        RenderData.globals.proj = CameraComponent.projMatrix;
-        RenderData.globals.viewProj = RenderData.globals.view * RenderData.globals.proj;
+        RenderData.globals.view = CameraParameter.view;
+        RenderData.globals.proj = CameraParameter.proj;
+        RenderData.globals.viewProj = CameraParameter.viewProj;
         RenderData.globals.dt = Dt;
     }
 }

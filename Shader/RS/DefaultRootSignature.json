@@ -31,6 +31,21 @@
       "ShaderRegister": 0,
       "RegisterSpace": 0,
       "ShaderVisibility": "Pixel"
+    },
+    {
+      "Filter": "ComparisonMinMagLinearMipPoint",
+      "AddressU": "Clamp",
+      "AddressV": "Clamp",
+      "AddressW": "Clamp",
+      "MipLODBias": 0.0,
+      "MaxAnisotropy": 1,
+      "ComparisonFunc": "LessEqual",
+      "BorderColor": "OpaqueWhite",
+      "MinLOD": 0.0,
+      "MaxLOD": 3.402823466e+38,
+      "ShaderRegister": 1,
+      "RegisterSpace": 0,
+      "ShaderVisibility": "Pixel"
     }
   ]
 }

@@ -1,5 +1,4 @@
 #include "Name.h"
-#include <algorithm>
 #include <format>
 #include "Game/Scene/Components/ComponentInspection.h"
 
@@ -9,15 +8,17 @@ namespace Game {
     }
 
     void Name::BuildComponentInspectionFields(std::vector<ComponentInspectionField>& OutFields) const {
-        OutFields.push_back(ComponentInspectionField{ "Text", std::format("{}", Text.data()) });
+        OutFields.push_back(ComponentInspectionField{ "Text", std::format("{}", GetNameTextView(*this)) });
     }
 
-    Name CreateNameComponent(::std::string_view SourceText) {
+    Name CreateNameComponent(std::string_view SourceText) {
         Name NewName{};
-        const ::std::size_t CopyLength{ ::std::min(SourceText.size(), ComponentTextMaxLength) };
-        ::std::copy_n(SourceText.data(), CopyLength, NewName.Text.data());
-        NewName.Text[CopyLength] = '\0';
+        NewName.Text.Assign(SourceText);
         return NewName;
+    }
+
+    std::string_view GetNameTextView(const Name& NameComponent) {
+        return NameComponent.Text.AsStringView();
     }
 
     const char* GetNameText(const Name& NameComponent) {

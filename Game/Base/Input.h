@@ -27,6 +27,7 @@ namespace Globals {
         void Update();
         void Terminate(); 
         void SetImGuiInputBlocked(bool IsBlocked);
+        void SetWindowFocused(bool IsFocused);
 
 		void SetVirtualMouse(bool enable);
 		void ToggleVirtualMouse();
@@ -47,6 +48,8 @@ namespace Globals {
         bool IsImGuiInputBlocked() const;
 
     private:
+        bool IsWindowFocusedByOperatingSystem() const;
+        void ResetInputState();
         void UpdateCursor(); 
 
     private:
@@ -63,6 +66,7 @@ namespace Globals {
         bool mVirtualMouse{ false };
         bool mRightButtonVirtualMouseEnabled{ true };
         bool mIsImGuiInputBlocked{ false };
+        bool mIsWindowFocused{ true };
         POINT mVirtualMousePosition{};
         std::int32_t mPreviousScrollWheelValue{};
         std::int32_t mMouseWheelDelta{};

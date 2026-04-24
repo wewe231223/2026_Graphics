@@ -35,19 +35,21 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Core/Event/EventQueue.h"
 #include "Core/Event/FileDropEvent.h"
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(GRAPHICS_CMAKE_BUILD)
     #ifdef _DEBUG
         #pragma comment(lib, "out/debug/Arche.lib")
         #pragma comment(lib, "out/debug/Game.lib")  
         #pragma comment(lib, "out/debug/Asset.lib")
         #pragma comment(lib, "out/debug/Widget.lib")
         #pragma comment(lib, "out/debug/Script.lib")
+        #pragma comment(lib, "out/debug/PhysicsLib.lib")
     #else 
         #pragma comment(lib, "out/release/Arche.lib")
         #pragma comment(lib, "out/release/Game.lib")
         #pragma comment(lib, "out/release/Asset.lib")
         #pragma comment(lib, "out/release/Widget.lib")
         #pragma comment(lib, "out/release/Script.lib")
+        #pragma comment(lib, "out/release/PhysicsLib.lib")
     #endif 
 #endif 
 
@@ -203,6 +205,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                 Widget::PerformanceProvider::Get().BeginPhaseProfile("TransformWorld");
             }
             SceneInstance.ExecutePhase(Game::Phase::TransformWorld, Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("IK");
+            }
+            SceneInstance.ExecutePhase(Game::Phase::IK, Globals::Time::Get().GetDeltaTime<float>());
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().EndPhaseProfile();
             }
@@ -412,10 +422,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         }
         break;
     case WM_KILLFOCUS:
+        Globals::Input::Get().SetWindowFocused(false);
+        break;
     case WM_SETFOCUS:
+        Globals::Input::Get().SetWindowFocused(true);
         break;
         // 아래는 모든 입력을 Keyboard 에게 넘기는 부분입니다. 
     case WM_ACTIVATEAPP:
+        Globals::Input::Get().SetWindowFocused(wParam == TRUE);
+        DirectX::Keyboard::ProcessMessage(message, wParam, lParam);
+        DirectX::Mouse::ProcessMessage(message, wParam, lParam);
+        break;
     case WM_KEYDOWN:
     case WM_KEYUP:
     case WM_SYSKEYUP:

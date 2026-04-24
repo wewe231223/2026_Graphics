@@ -63,6 +63,7 @@ namespace Game {
         void RegisterScriptTypes(); 
         void AttachDefaultCameraControlBehavior();
         void UpdateCameraVirtualMouseState();
+        void AppendDebugWorldAxes();
     private:
         std::string mName{};
         Arche::World mWorld{};
@@ -76,6 +77,7 @@ namespace Game {
         std::uint64_t mHierarchyEntitySelectedSubscriptionId{};
         std::uint64_t mFileDropSubscriptionId{};
         bool mIsDefaultCameraControlBehaviorAttached{};
+        bool mIsDebugGeometryDrawEnabled{};
         bool mIsBoundingBoxDrawEnabled{};
 
 		Script::LuaBehaviorFramework mLuaScriptFramework{};
