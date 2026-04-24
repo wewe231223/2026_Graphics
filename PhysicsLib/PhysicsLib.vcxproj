@@ -34,6 +34,7 @@
     <ClCompile Include="Simulation\Repository\PhysicsActorRepository.cpp" />
     <ClCompile Include="Simulation\SpatialQuery\BruteForcePhysicsSpatialQuery.cpp" />
     <ClCompile Include="Simulation\SpatialQuery\IPhysicsSpatialQuery.cpp" />
+    <ClCompile Include="Runtime\PhysicsRuntime.cpp" />
     <ClCompile Include="World\PhysicsWorld.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -59,6 +60,9 @@
     <ClInclude Include="Simulation\SpatialQuery\IPhysicsSpatialQuery.h" />
     <ClInclude Include="Simulation\Types\PhysicsSimulationTypes.h" />
     <ClInclude Include="Simulation\Types\RigidBody.h" />
+    <ClInclude Include="Runtime\PhysicsRuntime.h" />
+    <ClInclude Include="Runtime\PhysicsRuntimeTypes.h" />
+    <ClInclude Include="Runtime\SpscRingQueue.h" />
     <ClInclude Include="World\PhysicsWorld.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -114,13 +118,13 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)External\Include;$(SolutionDir)</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\External\Include;$(SolutionDir);</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(SolutionDir)\External\lib\debug;</LibraryPath>
     <OutDir>$(SolutionDir)out\$(Configuration)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)External\Include;$(SolutionDir)</IncludePath>
-    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(SolutionDir)\External\lib￦release;</LibraryPath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\External\Include;$(SolutionDir);</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(SolutionDir)\External\lib;</LibraryPath>
     <OutDir>$(SolutionDir)out\$(Configuration)\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
