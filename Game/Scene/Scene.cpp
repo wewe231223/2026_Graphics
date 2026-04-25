@@ -84,15 +84,8 @@ namespace {
         return "PhysicsActor";
     }
 
-    PhysicsActorBase::PhysicsActorFlags BuildDefaultPhysicsActorFlags(PhysicsActorBase::PhysicsActorType ActorType) {
-        PhysicsActorBase::PhysicsActorFlags ActorFlags{ PhysicsActorBase::PhysicsActorFlags::TerrainCollide };
-        if (ActorType == PhysicsActorBase::PhysicsActorType::Kinematic) {
-            ActorFlags = ActorFlags | PhysicsActorBase::PhysicsActorFlags::Kinematic;
-        }
-        else if (ActorType == PhysicsActorBase::PhysicsActorType::Static) {
-            ActorFlags = ActorFlags | PhysicsActorBase::PhysicsActorFlags::Static;
-        }
-
+    PhysicsActorBase::PhysicsActorFlags BuildDefaultPhysicsActorFlags() {
+        PhysicsActorBase::PhysicsActorFlags ActorFlags{ PhysicsActorBase::PhysicsActorFlags::None };
         return ActorFlags;
     }
 
@@ -118,7 +111,7 @@ namespace {
     PhysicsActorBase::ActorDesc BuildLegacyPhysicsActorDesc(const Arche::World& World, Arche::EntityID EntityId, const Game::Tag& TagComponent, const Game::BoundingBox& BoundingBoxComponent, const Game::Transform& TransformComponent, PhysicsActorBase::PhysicsActorType ActorType) {
         Game::PhysicsActorSettings SettingsComponent{};
         SettingsComponent.mActorType = ActorType;
-        SettingsComponent.mFlags = BuildDefaultPhysicsActorFlags(ActorType);
+        SettingsComponent.mFlags = BuildDefaultPhysicsActorFlags();
         return BuildPhysicsActorDesc(World, EntityId, &TagComponent, BoundingBoxComponent, TransformComponent, SettingsComponent);
     }
 
@@ -400,7 +393,6 @@ namespace Game {
 
             SetActorTransformFromComponent(*ActorPointer, TransformComponent);
             ActorPointer->SetLocalBoundingBox(BoundingBoxComponent.GetObb());
-            ActorPointer->SetVelocity(DirectX::SimpleMath::Vector3{});
         }
 
         for (const TerrainActorDescBinding& BindingSource : mTerrainActorDescBindings) {

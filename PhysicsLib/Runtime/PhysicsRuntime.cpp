@@ -281,12 +281,16 @@ void PhysicsRuntime::ApplyImpulseCommand(const PhysicsAddImpulseCommand& Command
 
     std::size_t ActorIndex{ static_cast<std::size_t>(Command.mActorId) };
     PhysicsActorBase* TargetActor{ mPhysicsWorld.GetActor(ActorIndex) };
-    if (TargetActor == nullptr || TargetActor->GetActorType() != PhysicsActorBase::PhysicsActorType::Dynamic) {
+    if (TargetActor == nullptr) {
         return;
     }
 
-    PhysicsDynamicActor* DynamicActor{ static_cast<PhysicsDynamicActor*>(TargetActor) };
-    DynamicActor->AddImpulse(Command.mImpulse);
+    PhysicsActorBase::PhysicsActorType ActorType{ TargetActor->GetActorType() };
+    if (ActorType != PhysicsActorBase::PhysicsActorType::Dynamic && ActorType != PhysicsActorBase::PhysicsActorType::Kinematic) {
+        return;
+    }
+
+    TargetActor->AddImpulse(Command.mImpulse);
 }
 
 void PhysicsRuntime::ApplySetKinematicVelocityCommand(const PhysicsSetKinematicVelocityCommand& Command) {

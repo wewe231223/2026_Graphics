@@ -1,4 +1,5 @@
 local MoveSpeed = 4.0
+local JumpImpulse = 8.0
 local MaxRotationDegreesPerSecond = 720.0
 local IsMovingParameterIndex = 0
 local CurrentSpeedParameterIndex = 1
@@ -84,6 +85,19 @@ local function ApplyForwardMovement(TransformComponent, MoveInput, DeltaSeconds)
     return MoveSpeed * InputMagnitude
 end
 
+local function ApplyJumpImpulse(Context)
+    if IsInputKeyPressed(Space) == false then
+        return
+    end
+
+    local PhysicsActorComponent = Context:GetComponent("PhysicsActor")
+    if PhysicsActorComponent == nil or PhysicsActorComponent:HasActor() == false then
+        return
+    end
+
+    PhysicsActorComponent:AddImpulse(Vector3.new(0.0, JumpImpulse, 0.0))
+end
+
 local function SetMovingState(RuntimeVariableTableComponent, IsMoving)
     if RuntimeVariableTableComponent == nil then
         return
@@ -123,6 +137,7 @@ function Update(Context, DeltaSeconds)
     local CurrentSpeed = ApplyForwardMovement(TransformComponent, MoveInput, DeltaSeconds)
     local IsMoving = CurrentSpeed > 0.0
 
+    ApplyJumpImpulse(Context)
     SetMovingState(RuntimeVariableTableComponent, IsMoving)
     SetMotionParameters(RuntimeVariableTableComponent, CurrentSpeed, math.deg(RemainingDirectionDeltaRadians))
 end

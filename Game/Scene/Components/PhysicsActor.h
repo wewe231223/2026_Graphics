@@ -13,7 +13,7 @@ namespace Game {
             ComponentField(ComponentTextArray, mName)
             ComponentField(bool, mIsActive, true)
             ComponentField(float, mMass, 1.0f)
-            ComponentField(PhysicsActorBase::PhysicsActorFlags, mFlags, PhysicsActorBase::PhysicsActorFlags::TerrainCollide)
+            ComponentField(PhysicsActorBase::PhysicsActorFlags, mFlags, PhysicsActorBase::PhysicsActorFlags::None)
             ComponentField(PhysicsActorBase::PhysicsActorType, mActorType, PhysicsActorBase::PhysicsActorType::Dynamic)
             ComponentField(float, mFriction, 0.6f)
             ComponentField(float, mRestitution, 0.1f)
@@ -30,6 +30,7 @@ namespace Game {
         ),
         ComponentMethods(
             ComponentMethod(bool HasActor() const, HasActor)
+            ComponentMethod(void AddImpulse(const DirectX::SimpleMath::Vector3& Impulse), AddImpulse)
         )
     );
 

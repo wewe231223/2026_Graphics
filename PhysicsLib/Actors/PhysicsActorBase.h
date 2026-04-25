@@ -34,11 +34,10 @@ class PhysicsActorBase {
 public:
     enum class PhysicsActorFlags : std::uint32_t {
         None = 0U,
-        Static = 1U << 0U,
-        Kinematic = 1U << 1U,
         Trigger = 1U << 2U,
         Sleeping = 1U << 3U,
-        TerrainCollide = 1U << 4U
+        IgnoreTerrainCollide = 1U << 4U,
+        IgnoreGravity = 1U << 5U
     };
 
     enum class PhysicsActorType : std::uint32_t {

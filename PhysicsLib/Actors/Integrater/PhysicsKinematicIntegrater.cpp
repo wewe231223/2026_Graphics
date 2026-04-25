@@ -57,7 +57,7 @@ float GetActorBottomOffsetFromPositionY(const PhysicsActorBase& Actor) {
 }
 
 bool ResolveKinematicActorTerrainContact(const IPhysicsActorRepository& ActorRepository, PhysicsActorBase& Actor) {
-    if (!Actor.HasFlag(PhysicsActorBase::PhysicsActorFlags::TerrainCollide)) {
+    if (Actor.HasFlag(PhysicsActorBase::PhysicsActorFlags::IgnoreTerrainCollide)) {
         return false;
     }
 
@@ -69,6 +69,11 @@ bool ResolveKinematicActorTerrainContact(const IPhysicsActorRepository& ActorRep
 
     DirectX::SimpleMath::Vector3 NextPosition{ Actor.GetPosition() };
     const float ActorBottomOffsetFromPositionY{ GetActorBottomOffsetFromPositionY(Actor) };
+    const float ActorBottomY{ NextPosition.y + ActorBottomOffsetFromPositionY };
+    if (ActorBottomY >= SurfaceHeight || Actor.GetVelocity().y >= 0.0F) {
+        return false;
+    }
+
     NextPosition.y = SurfaceHeight - ActorBottomOffsetFromPositionY;
 
     DirectX::SimpleMath::Vector3 NextVelocity{ Actor.GetVelocity() };
@@ -113,8 +118,6 @@ PhysicsKinematicIntegrater& PhysicsKinematicIntegrater::operator=(PhysicsKinemat
 }
 
 void PhysicsKinematicIntegrater::Integrate(IPhysicsWorldMediator& WorldMediator, PhysicsActorBase& Actor, float DeltaTime) const {
-    (void)WorldMediator;
-
     if (Actor.GetActorType() != PhysicsActorBase::PhysicsActorType::Kinematic) {
         return;
     }
@@ -124,7 +127,13 @@ void PhysicsKinematicIntegrater::Integrate(IPhysicsWorldMediator& WorldMediator,
     }
 
     DirectX::SimpleMath::Vector3 NextVelocity{ Actor.GetVelocity() };
-    NextVelocity.y = 0.0F;
+    DirectX::SimpleMath::Vector3 Gravity{};
+    if (!Actor.HasFlag(PhysicsActorBase::PhysicsActorFlags::IgnoreGravity)) {
+        Gravity = WorldMediator.GetGravity();
+    }
+
+    DirectX::SimpleMath::Vector3 TotalAcceleration{ Gravity + Actor.GetAcceleration() };
+    NextVelocity += TotalAcceleration * DeltaTime;
     float DampingFactor{ std::max(0.0F, 1.0F - (Actor.GetLinearDamping() * DeltaTime)) };
     NextVelocity *= DampingFactor;
     DirectX::SimpleMath::Vector3 NextPosition{ Actor.GetPosition() + (NextVelocity * DeltaTime) };

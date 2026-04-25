@@ -437,7 +437,7 @@ bool PhysicsTerrainActor::ResolveDynamicCollision(PhysicsActorBase& DynamicActor
         return false;
     }
 
-    if (!DynamicActor.HasFlag(PhysicsActorBase::PhysicsActorFlags::TerrainCollide)) {
+    if (DynamicActor.HasFlag(PhysicsActorBase::PhysicsActorFlags::IgnoreTerrainCollide)) {
         return false;
     }
 

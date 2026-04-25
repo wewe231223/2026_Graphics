@@ -169,7 +169,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.0
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.6
         restitution: 0.1
         BB:
@@ -195,7 +195,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.0
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.6
         restitution: 0.1
         BB:
@@ -330,7 +330,7 @@ Entities:
         active: true
         actorType: Kinematic
         mass: 1.0
-        flags: [TerrainCollide, Kinematic]
+        flags: [None]
         friction: 0.6
         restitution: 0.1
         BB:
@@ -486,7 +486,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.75
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.24
         restitution: 0.68
   - EntityId: 18
@@ -510,7 +510,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.35
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.18
         restitution: 0.82
   - EntityId: 19
@@ -534,7 +534,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 4.60
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.72
         restitution: 0.21
   - EntityId: 20
@@ -558,7 +558,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 2.15
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.48
         restitution: 0.36
   - EntityId: 21
@@ -582,7 +582,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 3.90
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.64
         restitution: 0.17
   - EntityId: 22
@@ -606,7 +606,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 5.25
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.39
         restitution: 0.44
   - EntityId: 23
@@ -630,7 +630,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 7.80
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.81
         restitution: 0.09
   - EntityId: 24
@@ -654,7 +654,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.42
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.12
         restitution: 0.91
   - EntityId: 25
@@ -678,7 +678,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 6.40
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.87
         restitution: 0.06
   - EntityId: 26
@@ -702,7 +702,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.10
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.31
         restitution: 0.57
   - EntityId: 27
@@ -726,7 +726,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 3.35
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.55
         restitution: 0.28
   - EntityId: 28
@@ -750,7 +750,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 8.10
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.69
         restitution: 0.12
   - EntityId: 29
@@ -774,7 +774,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 4.95
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.77
         restitution: 0.19
   - EntityId: 30
@@ -798,7 +798,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 6.85
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.22
         restitution: 0.73
   - EntityId: 31
@@ -822,7 +822,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 2.70
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.43
         restitution: 0.39
   - EntityId: 32
@@ -846,7 +846,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 9.25
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.58
         restitution: 0.15
   - EntityId: 33
@@ -870,7 +870,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.95
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.34
         restitution: 0.63
   - EntityId: 34
@@ -894,7 +894,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 5.70
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.91
         restitution: 0.08
   - EntityId: 35
@@ -918,7 +918,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 6.15
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.67
         restitution: 0.24
   - EntityId: 36
@@ -942,7 +942,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.85
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.16
         restitution: 0.79
   - EntityId: 37
@@ -966,7 +966,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 3.55
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.52
         restitution: 0.33
   - EntityId: 38
@@ -990,7 +990,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 4.25
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.75
         restitution: 0.18
   - EntityId: 39
@@ -1014,7 +1014,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 7.35
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.47
         restitution: 0.41
   - EntityId: 40
@@ -1038,7 +1038,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 8.80
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.84
         restitution: 0.11
   - EntityId: 41
@@ -1062,7 +1062,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 10.50
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.29
         restitution: 0.52
   - EntityId: 42
@@ -1086,7 +1086,7 @@ Entities:
         active: true
         actorType: Kinematic
         mass: 0.00
-        flags: [Kinematic]
+        flags: [IgnoreGravity]
         friction: 0.95
         restitution: 0.05
   - EntityId: 43
@@ -1110,7 +1110,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.00
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.75
         restitution: 0.15
   - EntityId: 44
@@ -1134,7 +1134,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.00
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.75
         restitution: 0.15
   - EntityId: 45
@@ -1158,7 +1158,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.00
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.75
         restitution: 0.15
   - EntityId: 46
@@ -1182,7 +1182,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.00
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.75
         restitution: 0.15
   - EntityId: 47
@@ -1206,7 +1206,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.00
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.75
         restitution: 0.15
   - EntityId: 48
@@ -1230,7 +1230,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.00
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.75
         restitution: 0.15
   - EntityId: 49
@@ -1254,7 +1254,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.00
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.75
         restitution: 0.15
   - EntityId: 50
@@ -1278,7 +1278,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.00
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.75
         restitution: 0.15
   - EntityId: 51
@@ -1302,7 +1302,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.00
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.75
         restitution: 0.15
   - EntityId: 52
@@ -1326,7 +1326,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.65
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.18
         restitution: 0.72
   - EntityId: 53
@@ -1350,7 +1350,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.40
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.50
         restitution: 0.25
   - EntityId: 54
@@ -1374,7 +1374,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.65
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.18
         restitution: 0.72
   - EntityId: 55
@@ -1398,7 +1398,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.00
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.42
         restitution: 0.34
   - EntityId: 56
@@ -1422,7 +1422,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.20
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.45
         restitution: 0.30
   - EntityId: 57
@@ -1446,7 +1446,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 7.00
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.62
         restitution: 0.08
   - EntityId: 58
@@ -1472,7 +1472,7 @@ Entities:
         active: true
         actorType: Kinematic
         mass: 0.00
-        flags: [Kinematic]
+        flags: [IgnoreGravity]
         friction: 0.35
         restitution: 0.20
   - EntityId: 59
@@ -1496,7 +1496,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 2.00
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.10
         restitution: 0.82
   - EntityId: 60
@@ -1520,7 +1520,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.60
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.08
         restitution: 0.90
   - EntityId: 61
@@ -1544,7 +1544,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.80
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.30
         restitution: 0.35
   - EntityId: 62
@@ -1568,7 +1568,7 @@ Entities:
         active: true
         actorType: Kinematic
         mass: 0.00
-        flags: [Kinematic]
+        flags: [IgnoreGravity]
         friction: 0.82
         restitution: 0.10
   - EntityId: 63
@@ -1594,7 +1594,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.70
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.65
         restitution: 0.20
   - EntityId: 64
@@ -1618,7 +1618,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.70
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.65
         restitution: 0.20
   - EntityId: 65
@@ -1642,7 +1642,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.70
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.65
         restitution: 0.20
   - EntityId: 66
@@ -1666,7 +1666,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.70
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.65
         restitution: 0.20
   - EntityId: 67
@@ -1690,7 +1690,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.70
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.65
         restitution: 0.20
   - EntityId: 68
@@ -1714,7 +1714,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.70
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.65
         restitution: 0.20
   - EntityId: 69
@@ -1738,7 +1738,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.70
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.65
         restitution: 0.20
   - EntityId: 70
@@ -1762,7 +1762,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.70
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.65
         restitution: 0.20
   - EntityId: 71
@@ -1786,7 +1786,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.70
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.65
         restitution: 0.20
   - EntityId: 72
@@ -1810,7 +1810,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.70
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.65
         restitution: 0.20
   - EntityId: 73
@@ -1834,7 +1834,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 6.00
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.16
         restitution: 0.55
   - EntityId: 74
@@ -1858,7 +1858,7 @@ Entities:
         active: true
         actorType: Kinematic
         mass: 0.00
-        flags: [Kinematic]
+        flags: [IgnoreGravity]
         friction: 0.12
         restitution: 0.90
   - EntityId: 75
@@ -1882,7 +1882,7 @@ Entities:
         active: true
         actorType: Kinematic
         mass: 0.00
-        flags: [Kinematic]
+        flags: [IgnoreGravity]
         friction: 0.12
         restitution: 0.90
   - EntityId: 76
@@ -1906,7 +1906,7 @@ Entities:
         active: true
         actorType: Kinematic
         mass: 0.00
-        flags: [Kinematic]
+        flags: [IgnoreGravity]
         friction: 0.12
         restitution: 0.90
   - EntityId: 77
@@ -1930,7 +1930,7 @@ Entities:
         active: true
         actorType: Kinematic
         mass: 0.00
-        flags: [Kinematic]
+        flags: [IgnoreGravity]
         friction: 0.12
         restitution: 0.90
   - EntityId: 78
@@ -1954,7 +1954,7 @@ Entities:
         active: true
         actorType: Kinematic
         mass: 0.00
-        flags: [Kinematic]
+        flags: [IgnoreGravity]
         friction: 0.12
         restitution: 0.90
   - EntityId: 79
@@ -1978,7 +1978,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.40
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.05
         restitution: 0.95
   - EntityId: 80
@@ -2002,7 +2002,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.70
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.05
         restitution: 0.92
   - EntityId: 81
@@ -2026,7 +2026,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.30
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.05
         restitution: 0.98
   - EntityId: 82
@@ -2050,7 +2050,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.00
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.20
         restitution: 0.65
   - EntityId: 83
@@ -2074,7 +2074,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 1.00
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.20
         restitution: 0.55
   - EntityId: 84
@@ -2098,7 +2098,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.90
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.18
         restitution: 0.70
   - EntityId: 85
@@ -2122,7 +2122,7 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 0.50
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.12
         restitution: 0.85
   - EntityId: 86
@@ -2146,6 +2146,30 @@ Entities:
         active: true
         actorType: Dynamic
         mass: 8.00
-        flags: [TerrainCollide]
+        flags: [None]
         friction: 0.40
         restitution: 0.20
+  - EntityId: 87
+    ParentEntityId: -1
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: GravityKinematicWideBlock
+      Transform:
+        <<: *DefaultTransform
+        position: [55.00, 42.00, -18.00]
+        scale: [12.00, 1.00, 7.00]
+      PrefabInstance:
+        <<: *Prefab3008
+        prefabId: 3008
+      Physics:
+        name: "GravityKinematicWideBlock"
+        active: true
+        actorType: Kinematic
+        mass: 1.00
+        flags: [None]
+        friction: 0.55
+        restitution: 0.12

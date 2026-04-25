@@ -20,6 +20,13 @@ DirectX::BoundingOrientedBox MakeDefaultBoundingOrientedBox() {
 constexpr float ContactNormalLengthEpsilon{ 0.00001F };
 constexpr float SupportingContactMinimumDot{ 0.5F };
 
+PhysicsActorBase::PhysicsActorFlags FilterPhysicsActorFlags(PhysicsActorBase::PhysicsActorFlags Flags) {
+    constexpr std::uint32_t ValidFlagValue{ static_cast<std::uint32_t>(PhysicsActorBase::PhysicsActorFlags::Trigger) | static_cast<std::uint32_t>(PhysicsActorBase::PhysicsActorFlags::Sleeping) | static_cast<std::uint32_t>(PhysicsActorBase::PhysicsActorFlags::IgnoreTerrainCollide) | static_cast<std::uint32_t>(PhysicsActorBase::PhysicsActorFlags::IgnoreGravity) };
+    std::uint32_t FlagValue{ static_cast<std::uint32_t>(Flags) };
+    PhysicsActorBase::PhysicsActorFlags FilteredFlags{ static_cast<PhysicsActorBase::PhysicsActorFlags>(FlagValue & ValidFlagValue) };
+    return FilteredFlags;
+}
+
 DirectX::SimpleMath::Matrix MakeZeroMatrix() {
     DirectX::SimpleMath::Matrix ZeroMatrix{ 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F };
     return ZeroMatrix;
@@ -215,7 +222,7 @@ const RigidBody& PhysicsActorBase::GetRigidBody() const {
 }
 
 void PhysicsActorBase::SetFlags(PhysicsActorFlags Flags) {
-    mFlags = Flags;
+    mFlags = FilterPhysicsActorFlags(Flags);
 }
 
 PhysicsActorBase::PhysicsActorFlags PhysicsActorBase::GetFlags() const {

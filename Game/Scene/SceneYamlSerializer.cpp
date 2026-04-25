@@ -665,6 +665,19 @@ namespace {
         }
     }
 
+    PhysicsActorBase::PhysicsActorFlags FilterPhysicsActorFlags(PhysicsActorBase::PhysicsActorFlags Flags) {
+        constexpr std::uint32_t ValidFlagValue{ static_cast<std::uint32_t>(PhysicsActorBase::PhysicsActorFlags::Trigger) | static_cast<std::uint32_t>(PhysicsActorBase::PhysicsActorFlags::Sleeping) | static_cast<std::uint32_t>(PhysicsActorBase::PhysicsActorFlags::IgnoreTerrainCollide) | static_cast<std::uint32_t>(PhysicsActorBase::PhysicsActorFlags::IgnoreGravity) };
+        std::uint32_t FlagValue{ static_cast<std::uint32_t>(Flags) };
+        PhysicsActorBase::PhysicsActorFlags FilteredFlags{ static_cast<PhysicsActorBase::PhysicsActorFlags>(FlagValue & ValidFlagValue) };
+        return FilteredFlags;
+    }
+
+    bool IsObsoletePhysicsActorFlagText(const std::string& FlagText) {
+        const std::string NormalizedText{ ToLowerCopy(TrimCopy(FlagText)) };
+        bool IsObsoleteFlag{ NormalizedText == "static" || NormalizedText == "kinematic" || NormalizedText == "terraincollide" || NormalizedText == "terrain_collide" || NormalizedText == "terrain-collide" || NormalizedText == "terrain" };
+        return IsObsoleteFlag;
+    }
+
     bool TryParsePhysicsActorFlagText(const std::string& FlagText, PhysicsActorBase::PhysicsActorFlags& OutFlag) {
         const std::string NormalizedText{ ToLowerCopy(TrimCopy(FlagText)) };
         if (NormalizedText.empty() == true) {
@@ -681,7 +694,7 @@ namespace {
 
         if (IsNumericText == true) {
             try {
-                OutFlag = static_cast<PhysicsActorBase::PhysicsActorFlags>(std::stoul(NormalizedText));
+                OutFlag = FilterPhysicsActorFlags(static_cast<PhysicsActorBase::PhysicsActorFlags>(std::stoul(NormalizedText)));
                 return true;
             }
             catch (const std::exception&) {
@@ -691,16 +704,6 @@ namespace {
 
         if (NormalizedText == "none") {
             OutFlag = PhysicsActorBase::PhysicsActorFlags::None;
-            return true;
-        }
-
-        if (NormalizedText == "static") {
-            OutFlag = PhysicsActorBase::PhysicsActorFlags::Static;
-            return true;
-        }
-
-        if (NormalizedText == "kinematic") {
-            OutFlag = PhysicsActorBase::PhysicsActorFlags::Kinematic;
             return true;
         }
 
@@ -714,8 +717,13 @@ namespace {
             return true;
         }
 
-        if (NormalizedText == "terraincollide" || NormalizedText == "terrain_collide" || NormalizedText == "terrain-collide" || NormalizedText == "terrain") {
-            OutFlag = PhysicsActorBase::PhysicsActorFlags::TerrainCollide;
+        if (NormalizedText == "ignoreterraincollide" || NormalizedText == "ignore_terrain_collide" || NormalizedText == "ignore-terrain-collide" || NormalizedText == "noterraincollide" || NormalizedText == "no_terrain_collide" || NormalizedText == "no-terrain-collide") {
+            OutFlag = PhysicsActorBase::PhysicsActorFlags::IgnoreTerrainCollide;
+            return true;
+        }
+
+        if (NormalizedText == "ignoregravity" || NormalizedText == "ignore_gravity" || NormalizedText == "ignore-gravity" || NormalizedText == "nogravity" || NormalizedText == "no_gravity" || NormalizedText == "no-gravity") {
+            OutFlag = PhysicsActorBase::PhysicsActorFlags::IgnoreGravity;
             return true;
         }
 
@@ -729,6 +737,15 @@ namespace {
             const std::size_t TokenLength{ TokenEnd == std::string::npos ? FlagsText.size() - CurrentStart : TokenEnd - CurrentStart };
             const std::string Token{ TrimCopy(FlagsText.substr(CurrentStart, TokenLength)) };
             if (Token.empty() == false) {
+                if (IsObsoletePhysicsActorFlagText(Token) == true) {
+                    if (TokenEnd == std::string::npos) {
+                        break;
+                    }
+
+                    CurrentStart = TokenEnd + 1;
+                    continue;
+                }
+
                 PhysicsActorBase::PhysicsActorFlags Flag{};
                 if (TryParsePhysicsActorFlagText(Token, Flag) == false) {
                     return false;
@@ -807,14 +824,6 @@ namespace {
         }
 
         std::vector<std::string> FlagTexts{};
-        if (HasPhysicsActorFlag(Flags, PhysicsActorBase::PhysicsActorFlags::Static) == true) {
-            FlagTexts.push_back("Static");
-        }
-
-        if (HasPhysicsActorFlag(Flags, PhysicsActorBase::PhysicsActorFlags::Kinematic) == true) {
-            FlagTexts.push_back("Kinematic");
-        }
-
         if (HasPhysicsActorFlag(Flags, PhysicsActorBase::PhysicsActorFlags::Trigger) == true) {
             FlagTexts.push_back("Trigger");
         }
@@ -823,8 +832,12 @@ namespace {
             FlagTexts.push_back("Sleeping");
         }
 
-        if (HasPhysicsActorFlag(Flags, PhysicsActorBase::PhysicsActorFlags::TerrainCollide) == true) {
-            FlagTexts.push_back("TerrainCollide");
+        if (HasPhysicsActorFlag(Flags, PhysicsActorBase::PhysicsActorFlags::IgnoreTerrainCollide) == true) {
+            FlagTexts.push_back("IgnoreTerrainCollide");
+        }
+
+        if (HasPhysicsActorFlag(Flags, PhysicsActorBase::PhysicsActorFlags::IgnoreGravity) == true) {
+            FlagTexts.push_back("IgnoreGravity");
         }
 
         if (FlagTexts.empty() == true) {

@@ -52,6 +52,14 @@ namespace Game {
         return mActorPointer != nullptr;
     }
 
+    void PhysicsActor::AddImpulse(const DirectX::SimpleMath::Vector3& Impulse) {
+        if (mActorPointer == nullptr) {
+            return;
+        }
+
+        mActorPointer->AddImpulse(Impulse);
+    }
+
     PhysicsActorSettings CreatePhysicsActorSettingsComponent(std::string_view SourceName) {
         PhysicsActorSettings NewSettings{};
         NewSettings.mName.Assign(SourceName);

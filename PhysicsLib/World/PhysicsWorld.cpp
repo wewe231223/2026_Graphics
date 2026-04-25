@@ -44,6 +44,24 @@ struct DynamicSweepEntry {
     const DynamicActorSweepState* mSweepState;
 };
 
+DirectX::SimpleMath::Vector3 ResolveActorGravity(const IPhysicsWorldMediator& WorldMediator, const PhysicsActorBase& Actor) {
+    DirectX::SimpleMath::Vector3 Gravity{};
+    if (!Actor.HasFlag(PhysicsActorBase::PhysicsActorFlags::IgnoreGravity)) {
+        Gravity = WorldMediator.GetGravity();
+    }
+
+    return Gravity;
+}
+
+DirectX::SimpleMath::Vector3 ResolveActorGravity(const DirectX::SimpleMath::Vector3& WorldGravity, const PhysicsActorBase& Actor) {
+    DirectX::SimpleMath::Vector3 Gravity{};
+    if (!Actor.HasFlag(PhysicsActorBase::PhysicsActorFlags::IgnoreGravity)) {
+        Gravity = WorldGravity;
+    }
+
+    return Gravity;
+}
+
 DirectX::SimpleMath::Vector3 InterpolateVector3(const DirectX::SimpleMath::Vector3& StartValue, const DirectX::SimpleMath::Vector3& EndValue, float Alpha) {
     DirectX::SimpleMath::Vector3 InterpolatedValue{ StartValue + ((EndValue - StartValue) * Alpha) };
     return InterpolatedValue;
@@ -360,7 +378,7 @@ void ResolveKinematicCollisions(IPhysicsActorRepository& ActorRepository, const 
             if (FirstActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Kinematic) {
                 bool HasCollision{ FirstActor->ResolveActorCollision(*SecondActor, DeltaTime) };
                 if (HasCollision && SecondActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Dynamic) {
-                    SecondActor->UpdateSleepState(Gravity);
+                    SecondActor->UpdateSleepState(ResolveActorGravity(Gravity, *SecondActor));
                 }
 
                 continue;
@@ -369,7 +387,7 @@ void ResolveKinematicCollisions(IPhysicsActorRepository& ActorRepository, const 
             if (SecondActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Kinematic) {
                 bool HasCollision{ SecondActor->ResolveActorCollision(*FirstActor, DeltaTime) };
                 if (HasCollision && FirstActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Dynamic) {
-                    FirstActor->UpdateSleepState(Gravity);
+                    FirstActor->UpdateSleepState(ResolveActorGravity(Gravity, *FirstActor));
                 }
             }
         }
@@ -479,8 +497,8 @@ void ResolveDynamicCollisions(IPhysicsWorldMediator& WorldMediator, std::vector<
             }
 
             HasAnyCollision = true;
-            FirstActor->UpdateSleepState(WorldMediator.GetGravity());
-            SecondActor->UpdateSleepState(WorldMediator.GetGravity());
+            FirstActor->UpdateSleepState(ResolveActorGravity(WorldMediator, *FirstActor));
+            SecondActor->UpdateSleepState(ResolveActorGravity(WorldMediator, *SecondActor));
         }
 
         if (!HasAnyCollision) {
@@ -530,8 +548,8 @@ bool TryResolveSweptDynamicCollisionPair(IPhysicsWorldMediator& WorldMediator, c
         return false;
     }
 
-    FirstActor->UpdateSleepState(WorldMediator.GetGravity());
-    SecondActor->UpdateSleepState(WorldMediator.GetGravity());
+    FirstActor->UpdateSleepState(ResolveActorGravity(WorldMediator, *FirstActor));
+    SecondActor->UpdateSleepState(ResolveActorGravity(WorldMediator, *SecondActor));
     return true;
 }
 
@@ -588,7 +606,7 @@ void ResolveStaticCollisions(IPhysicsWorldMediator& WorldMediator, const std::ve
             }
 
             WorldMediator.PublishEvent(PhysicsSimulationEventType::StaticCollisionResolved, DynamicActor, StaticActor);
-            DynamicActor->UpdateSleepState(WorldMediator.GetGravity());
+            DynamicActor->UpdateSleepState(ResolveActorGravity(WorldMediator, *DynamicActor));
         }
     }
 }
@@ -644,7 +662,7 @@ bool ResolveKinematicActorTerrainContactInternal(const IPhysicsActorRepository& 
         return false;
     }
 
-    if (!Actor.HasFlag(PhysicsActorBase::PhysicsActorFlags::TerrainCollide)) {
+    if (Actor.HasFlag(PhysicsActorBase::PhysicsActorFlags::IgnoreTerrainCollide)) {
         return false;
     }
 
@@ -656,6 +674,11 @@ bool ResolveKinematicActorTerrainContactInternal(const IPhysicsActorRepository& 
 
     DirectX::SimpleMath::Vector3 NextPosition{ Actor.GetPosition() };
     const float ActorBottomOffsetFromPositionY{ GetActorBottomOffsetFromPositionY(Actor) };
+    const float ActorBottomY{ NextPosition.y + ActorBottomOffsetFromPositionY };
+    if (ActorBottomY >= SurfaceHeight || Actor.GetVelocity().y >= 0.0F) {
+        return false;
+    }
+
     NextPosition.y = SurfaceHeight - ActorBottomOffsetFromPositionY;
 
     DirectX::SimpleMath::Vector3 NextVelocity{ Actor.GetVelocity() };

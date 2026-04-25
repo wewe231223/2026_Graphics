@@ -114,11 +114,6 @@ void PhysicsActor<CollisionSolverType, IntegraterType, ConstraintSolverType, Act
     SetActorType(ActorTypeValue);
 
     if constexpr (ActorTypeValue == PhysicsActorBase::PhysicsActorType::Static) {
-        SetFlags(GetFlags() | PhysicsActorBase::PhysicsActorFlags::Static);
         SetMass(0.0F);
-    }
-
-    if constexpr (ActorTypeValue == PhysicsActorBase::PhysicsActorType::Kinematic) {
-        SetFlags(GetFlags() | PhysicsActorBase::PhysicsActorFlags::Kinematic);
     }
 }

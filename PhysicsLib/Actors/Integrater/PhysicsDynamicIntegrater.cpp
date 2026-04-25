@@ -82,7 +82,11 @@ void PhysicsDynamicIntegrater::Integrate(IPhysicsWorldMediator& WorldMediator, P
         return;
     }
 
-    const DirectX::SimpleMath::Vector3& Gravity{ WorldMediator.GetGravity() };
+    DirectX::SimpleMath::Vector3 Gravity{};
+    if (!Actor.HasFlag(PhysicsActorBase::PhysicsActorFlags::IgnoreGravity)) {
+        Gravity = WorldMediator.GetGravity();
+    }
+
     if (Actor.GetIsSleeping()) {
         float GravityLengthSquared{ Gravity.LengthSquared() };
         float SleepThresholdSquared{ Actor.GetSleepThreshold() * Actor.GetSleepThreshold() };
