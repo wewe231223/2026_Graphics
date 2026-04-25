@@ -23,6 +23,14 @@ namespace {
     }
 
     bool IsTextureMaterialType(asset::MaterialType MaterialTypeValue) {
+        const std::uint32_t TypeValue{ static_cast<std::uint32_t>(MaterialTypeValue) };
+        const std::uint32_t TerrainSplatTextureStart{ static_cast<std::uint32_t>(asset::MaterialType::TerrainSplatTexture0) };
+        const std::uint32_t TerrainSplatTextureEnd{ static_cast<std::uint32_t>(asset::MaterialType::TerrainSplatTexture3) };
+        const std::uint32_t TerrainDiffuseTextureStart{ static_cast<std::uint32_t>(asset::MaterialType::TerrainDiffuseTexture0) };
+        const std::uint32_t TerrainDiffuseTextureEnd{ static_cast<std::uint32_t>(asset::MaterialType::TerrainDiffuseTexture15) };
+        const std::uint32_t TerrainNormalTextureStart{ static_cast<std::uint32_t>(asset::MaterialType::TerrainNormalTexture0) };
+        const std::uint32_t TerrainNormalTextureEnd{ static_cast<std::uint32_t>(asset::MaterialType::TerrainNormalTexture15) };
+
         return MaterialTypeValue == asset::MaterialType::DiffuseTexture
             || MaterialTypeValue == asset::MaterialType::SpecularTexture
             || MaterialTypeValue == asset::MaterialType::AmbientTexture
@@ -33,7 +41,10 @@ namespace {
             || MaterialTypeValue == asset::MaterialType::NormalTexture
             || MaterialTypeValue == asset::MaterialType::DisplacementTexture
             || MaterialTypeValue == asset::MaterialType::ReflectionTexture
-            || MaterialTypeValue == asset::MaterialType::LightmapTexture;
+            || MaterialTypeValue == asset::MaterialType::LightmapTexture
+            || (TypeValue >= TerrainSplatTextureStart && TypeValue <= TerrainSplatTextureEnd)
+            || (TypeValue >= TerrainDiffuseTextureStart && TypeValue <= TerrainDiffuseTextureEnd)
+            || (TypeValue >= TerrainNormalTextureStart && TypeValue <= TerrainNormalTextureEnd);
     }
 }
 

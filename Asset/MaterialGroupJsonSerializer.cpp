@@ -3,6 +3,7 @@
 #include <array>
 #include <fstream>
 #include <sstream>
+#include <string>
 #include <string_view>
 #include "rapidjson/document.h"
 #include "rapidjson/prettywriter.h"
@@ -12,11 +13,58 @@ namespace asset {
     namespace {
         constexpr std::size_t LocalMaterialTypeCount{ static_cast<std::size_t>(asset::MaterialTypeCount) };
 
-        const std::array<std::string_view, LocalMaterialTypeCount>& GetMaterialTypeNames() {
-            static const std::array<std::string_view, LocalMaterialTypeCount> MaterialTypeNames{
-                "Shading Model", "Two Sided", "Wireframe", "Blend Mode", "Opacity", "Alpha Mode", "Alpha Cutoff", "Base Color", "Diffuse Color", "Ambient Color", "Specular Color", "Emissive Color", "Transparent Color", "Reflective Color", "Metallic Factor", "Roughness Factor", "Normal Scale", "Occlusion Strength", "Emissive Strength", "Diffuse Texture", "Specular Texture", "Ambient Texture", "Emissive Texture", "Opacity Texture", "Shininess Texture", "Height / Bump Texture", "Normal Texture", "Displacement Texture", "Reflection Texture", "Lightmap Texture"
-            };
+        std::array<std::string, LocalMaterialTypeCount> BuildMaterialTypeNames() {
+            std::array<std::string, LocalMaterialTypeCount> MaterialTypeNames{};
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::ShadingModel)] = "Shading Model";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::TwoSided)] = "Two Sided";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::Wireframe)] = "Wireframe";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::BlendMode)] = "Blend Mode";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::Opacity)] = "Opacity";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::AlphaMode)] = "Alpha Mode";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::AlphaCutoff)] = "Alpha Cutoff";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::BaseColor)] = "Base Color";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::DiffuseColor)] = "Diffuse Color";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::AmbientColor)] = "Ambient Color";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::SpecularColor)] = "Specular Color";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::EmissiveColor)] = "Emissive Color";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::TransparentColor)] = "Transparent Color";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::ReflectiveColor)] = "Reflective Color";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::MetallicFactor)] = "Metallic Factor";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::RoughnessFactor)] = "Roughness Factor";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::NormalScale)] = "Normal Scale";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::OcclusionStrength)] = "Occlusion Strength";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::EmissiveStrength)] = "Emissive Strength";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::DiffuseTexture)] = "Diffuse Texture";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::SpecularTexture)] = "Specular Texture";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::AmbientTexture)] = "Ambient Texture";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::EmissiveTexture)] = "Emissive Texture";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::OpacityTexture)] = "Opacity Texture";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::ShininessTexture)] = "Shininess Texture";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::HeightBumpTexture)] = "Height / Bump Texture";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::NormalTexture)] = "Normal Texture";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::DisplacementTexture)] = "Displacement Texture";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::ReflectionTexture)] = "Reflection Texture";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::LightmapTexture)] = "Lightmap Texture";
+            MaterialTypeNames[static_cast<std::size_t>(MaterialType::TerrainLayerCount)] = "Terrain Layer Count";
 
+            for (std::size_t Index{ 0 }; Index < 4; ++Index) {
+                MaterialTypeNames[static_cast<std::size_t>(MaterialType::TerrainSplatTexture0) + Index] = std::string{ "Terrain Splat Texture " } + std::to_string(Index);
+                MaterialTypeNames[static_cast<std::size_t>(MaterialType::TerrainSplatUvTransform0) + Index] = std::string{ "Terrain Splat UV Transform " } + std::to_string(Index);
+            }
+
+            for (std::size_t Index{ 0 }; Index < 16; ++Index) {
+                MaterialTypeNames[static_cast<std::size_t>(MaterialType::TerrainDiffuseTexture0) + Index] = std::string{ "Terrain Diffuse Texture " } + std::to_string(Index);
+                MaterialTypeNames[static_cast<std::size_t>(MaterialType::TerrainDiffuseColor0) + Index] = std::string{ "Terrain Diffuse Color " } + std::to_string(Index);
+                MaterialTypeNames[static_cast<std::size_t>(MaterialType::TerrainNormalTexture0) + Index] = std::string{ "Terrain Normal Texture " } + std::to_string(Index);
+                MaterialTypeNames[static_cast<std::size_t>(MaterialType::TerrainNormalColor0) + Index] = std::string{ "Terrain Normal Color " } + std::to_string(Index);
+                MaterialTypeNames[static_cast<std::size_t>(MaterialType::TerrainLayerUvTransform0) + Index] = std::string{ "Terrain Layer UV Transform " } + std::to_string(Index);
+            }
+
+            return MaterialTypeNames;
+        }
+
+        const std::array<std::string, LocalMaterialTypeCount>& GetMaterialTypeNames() {
+            static const std::array<std::string, LocalMaterialTypeCount> MaterialTypeNames{ BuildMaterialTypeNames() };
             return MaterialTypeNames;
         }
 
@@ -74,22 +122,51 @@ namespace asset {
 
         std::string_view MaterialTypeToString(const MaterialType Type) {
             const std::size_t Index{ static_cast<std::size_t>(Type) };
-            const std::array<std::string_view, LocalMaterialTypeCount>& MaterialTypeNames{ GetMaterialTypeNames() };
+            const std::array<std::string, LocalMaterialTypeCount>& MaterialTypeNames{ GetMaterialTypeNames() };
             if (Index >= MaterialTypeNames.size()) {
                 return std::string_view{};
             }
 
-            return MaterialTypeNames[Index];
+            return std::string_view{ MaterialTypeNames[Index] };
+        }
+
+        bool TryParseIndexedMaterialType(const std::string_view TypeName, const std::string_view Prefix, MaterialType BaseType, std::size_t MaxCount, MaterialType& Type) {
+            if (TypeName.size() <= Prefix.size() || TypeName.substr(0, Prefix.size()) != Prefix) {
+                return false;
+            }
+
+            std::size_t IndexValue{ 0 };
+            for (std::size_t CharacterIndex{ Prefix.size() }; CharacterIndex < TypeName.size(); ++CharacterIndex) {
+                const char Character{ TypeName[CharacterIndex] };
+                if (Character < '0' || Character > '9') {
+                    return false;
+                }
+
+                IndexValue = (IndexValue * 10) + static_cast<std::size_t>(Character - '0');
+            }
+
+            if (IndexValue >= MaxCount) {
+                return false;
+            }
+
+            Type = static_cast<MaterialType>(static_cast<std::size_t>(BaseType) + IndexValue);
+            return true;
         }
 
         bool TryParseMaterialType(const std::string_view TypeName, MaterialType& Type) {
-            const std::array<std::string_view, LocalMaterialTypeCount>& MaterialTypeNames{ GetMaterialTypeNames() };
+            const std::array<std::string, LocalMaterialTypeCount>& MaterialTypeNames{ GetMaterialTypeNames() };
             if (TypeName == "HeightBumpTexture" || TypeName == "Height/Bump" || TypeName == "Height / Bump Texture") {
                 Type = MaterialType::HeightBumpTexture;
                 return true;
             }
+            if (TryParseIndexedMaterialType(TypeName, "Terrain Splat Map ", MaterialType::TerrainSplatTexture0, 4, Type)) {
+                return true;
+            }
+            if (TryParseIndexedMaterialType(TypeName, "Terrain Splat Map Texture ", MaterialType::TerrainSplatTexture0, 4, Type)) {
+                return true;
+            }
             for (std::size_t Index{ 0 }; Index < MaterialTypeNames.size(); ++Index) {
-                if (MaterialTypeNames[Index] == TypeName) {
+                if (std::string_view{ MaterialTypeNames[Index] } == TypeName) {
                     Type = static_cast<MaterialType>(Index);
                     return true;
                 }
@@ -203,6 +280,219 @@ namespace asset {
 
             return MaterialMap{};
         }
+
+        MaterialMap DeserializeMaterialMapValue(const rapidjson::Value& MaterialMapValue) {
+            if (MaterialMapValue.IsObject()) {
+                return DeserializeMaterialMap(MaterialMapValue);
+            }
+
+            if (MaterialMapValue.IsString()) {
+                return MaterialMap{ std::string{ MaterialMapValue.GetString(), MaterialMapValue.GetStringLength() } };
+            }
+
+            if (MaterialMapValue.IsBool()) {
+                return MaterialMap{ MaterialMapValue.GetBool() };
+            }
+
+            if (MaterialMapValue.IsInt64()) {
+                return MaterialMap{ MaterialMapValue.GetInt64() };
+            }
+
+            if (MaterialMapValue.IsNumber()) {
+                return MaterialMap{ MaterialMapValue.GetFloat() };
+            }
+
+            if (MaterialMapValue.IsArray()) {
+                const rapidjson::SizeType ValueCount{ MaterialMapValue.Size() };
+                if (ValueCount == 2 && MaterialMapValue[0].IsNumber() && MaterialMapValue[1].IsNumber()) {
+                    return MaterialMap{ Vec2{ MaterialMapValue[0].GetFloat(), MaterialMapValue[1].GetFloat() } };
+                }
+
+                if (ValueCount == 3 && MaterialMapValue[0].IsNumber() && MaterialMapValue[1].IsNumber() && MaterialMapValue[2].IsNumber()) {
+                    return MaterialMap{ Vec3{ MaterialMapValue[0].GetFloat(), MaterialMapValue[1].GetFloat(), MaterialMapValue[2].GetFloat() } };
+                }
+
+                if (ValueCount >= 4 && MaterialMapValue[0].IsNumber() && MaterialMapValue[1].IsNumber() && MaterialMapValue[2].IsNumber() && MaterialMapValue[3].IsNumber()) {
+                    return MaterialMap{ Vec4{ MaterialMapValue[0].GetFloat(), MaterialMapValue[1].GetFloat(), MaterialMapValue[2].GetFloat(), MaterialMapValue[3].GetFloat() } };
+                }
+            }
+
+            return MaterialMap{};
+        }
+
+        void AppendMaterialProperty(Material& MaterialData, MaterialType TypeValue, MaterialMap MapData) {
+            MaterialProperty MaterialPropertyData{};
+            MaterialPropertyData.Type = TypeValue;
+            MaterialPropertyData.Data = std::move(MapData);
+            MaterialData.Properties.push_back(std::move(MaterialPropertyData));
+        }
+
+        bool TryAppendMaterialPropertyFromMember(Material& MaterialData, const rapidjson::Value& ObjectValue, const char* MemberName, MaterialType TypeValue) {
+            if (!ObjectValue.IsObject() || !ObjectValue.HasMember(MemberName)) {
+                return false;
+            }
+
+            AppendMaterialProperty(MaterialData, TypeValue, DeserializeMaterialMapValue(ObjectValue[MemberName]));
+            return true;
+        }
+
+        void AppendMaterialPropertiesFromObject(const rapidjson::Value& MaterialObject, Material& MaterialData) {
+            if (!MaterialObject.HasMember("Properties")) {
+                return;
+            }
+
+            if (MaterialObject["Properties"].IsObject()) {
+                for (rapidjson::Value::ConstMemberIterator PropertyIterator{ MaterialObject["Properties"].MemberBegin() }; PropertyIterator != MaterialObject["Properties"].MemberEnd(); ++PropertyIterator) {
+                    MaterialType TypeValue{};
+                    if (!TryParseMaterialType(std::string_view{ PropertyIterator->name.GetString(), PropertyIterator->name.GetStringLength() }, TypeValue)) {
+                        continue;
+                    }
+
+                    if (!PropertyIterator->value.IsObject()) {
+                        continue;
+                    }
+
+                    AppendMaterialProperty(MaterialData, TypeValue, DeserializeMaterialMap(PropertyIterator->value));
+                }
+            } else if (MaterialObject["Properties"].IsArray()) {
+                for (const rapidjson::Value& PropertyObject : MaterialObject["Properties"].GetArray()) {
+                    if (!PropertyObject.IsObject() || !PropertyObject.HasMember("Type") || !PropertyObject.HasMember("Data") || !PropertyObject["Data"].IsObject()) {
+                        continue;
+                    }
+
+                    MaterialType TypeValue{};
+                    bool IsTypeParsed{ false };
+                    if (PropertyObject["Type"].IsString()) {
+                        IsTypeParsed = TryParseMaterialType(std::string_view{ PropertyObject["Type"].GetString(), PropertyObject["Type"].GetStringLength() }, TypeValue);
+                    } else if (PropertyObject["Type"].IsUint()) {
+                        TypeValue = static_cast<MaterialType>(PropertyObject["Type"].GetUint());
+                        IsTypeParsed = true;
+                    }
+
+                    if (!IsTypeParsed) {
+                        continue;
+                    }
+
+                    AppendMaterialProperty(MaterialData, TypeValue, DeserializeMaterialMap(PropertyObject["Data"]));
+                }
+            }
+        }
+
+        void AppendTerrainSplatMaterialProperties(const rapidjson::Value& MaterialObject, Material& MaterialData) {
+            if (!MaterialObject.HasMember("SplatMaps") || !MaterialObject["SplatMaps"].IsArray()) {
+                return;
+            }
+
+            const rapidjson::Value& SplatMaps{ MaterialObject["SplatMaps"] };
+            const rapidjson::SizeType SplatMapCount{ SplatMaps.Size() > 4 ? 4 : SplatMaps.Size() };
+            for (rapidjson::SizeType SplatMapIndex{ 0 }; SplatMapIndex < SplatMapCount; ++SplatMapIndex) {
+                const rapidjson::Value& SplatMapValue{ SplatMaps[SplatMapIndex] };
+                const MaterialType SplatTextureType{ static_cast<MaterialType>(static_cast<std::uint32_t>(MaterialType::TerrainSplatTexture0) + SplatMapIndex) };
+                const MaterialType SplatUvTransformType{ static_cast<MaterialType>(static_cast<std::uint32_t>(MaterialType::TerrainSplatUvTransform0) + SplatMapIndex) };
+
+                if (SplatMapValue.IsObject() && !SplatMapValue.HasMember("Kind")) {
+                    bool HasTexture{ TryAppendMaterialPropertyFromMember(MaterialData, SplatMapValue, "Texture", SplatTextureType) };
+                    if (HasTexture == false) {
+                        HasTexture = TryAppendMaterialPropertyFromMember(MaterialData, SplatMapValue, "SplatTexture", SplatTextureType);
+                    }
+                    if (HasTexture == false) {
+                        TryAppendMaterialPropertyFromMember(MaterialData, SplatMapValue, "SplatMap", SplatTextureType);
+                    }
+
+                    bool HasUvTransform{ TryAppendMaterialPropertyFromMember(MaterialData, SplatMapValue, "UvTransform", SplatUvTransformType) };
+                    if (HasUvTransform == false) {
+                        HasUvTransform = TryAppendMaterialPropertyFromMember(MaterialData, SplatMapValue, "UVTransform", SplatUvTransformType);
+                    }
+                    if (HasUvTransform == false) {
+                        TryAppendMaterialPropertyFromMember(MaterialData, SplatMapValue, "SplatUvTransform", SplatUvTransformType);
+                    }
+                } else {
+                    AppendMaterialProperty(MaterialData, SplatTextureType, DeserializeMaterialMapValue(SplatMapValue));
+                }
+            }
+        }
+
+        std::size_t AppendTerrainLayerMaterialProperties(const rapidjson::Value& MaterialObject, Material& MaterialData) {
+            if (!MaterialObject.HasMember("Layers") || !MaterialObject["Layers"].IsArray()) {
+                return 0;
+            }
+
+            const rapidjson::Value& Layers{ MaterialObject["Layers"] };
+            const rapidjson::SizeType LayerCount{ Layers.Size() > 16 ? 16 : Layers.Size() };
+            for (rapidjson::SizeType LayerIndex{ 0 }; LayerIndex < LayerCount; ++LayerIndex) {
+                const rapidjson::Value& LayerValue{ Layers[LayerIndex] };
+                if (!LayerValue.IsObject()) {
+                    continue;
+                }
+
+                const MaterialType DiffuseTextureType{ static_cast<MaterialType>(static_cast<std::uint32_t>(MaterialType::TerrainDiffuseTexture0) + LayerIndex) };
+                const MaterialType DiffuseColorType{ static_cast<MaterialType>(static_cast<std::uint32_t>(MaterialType::TerrainDiffuseColor0) + LayerIndex) };
+                const MaterialType NormalTextureType{ static_cast<MaterialType>(static_cast<std::uint32_t>(MaterialType::TerrainNormalTexture0) + LayerIndex) };
+                const MaterialType NormalColorType{ static_cast<MaterialType>(static_cast<std::uint32_t>(MaterialType::TerrainNormalColor0) + LayerIndex) };
+                const MaterialType UvTransformType{ static_cast<MaterialType>(static_cast<std::uint32_t>(MaterialType::TerrainLayerUvTransform0) + LayerIndex) };
+
+                bool HasDiffuseTexture{ TryAppendMaterialPropertyFromMember(MaterialData, LayerValue, "DiffuseTexture", DiffuseTextureType) };
+                if (HasDiffuseTexture == false) {
+                    HasDiffuseTexture = TryAppendMaterialPropertyFromMember(MaterialData, LayerValue, "Diffuse Texture", DiffuseTextureType);
+                }
+                if (HasDiffuseTexture == false) {
+                    TryAppendMaterialPropertyFromMember(MaterialData, LayerValue, "Texture", DiffuseTextureType);
+                }
+
+                bool HasDiffuseColor{ TryAppendMaterialPropertyFromMember(MaterialData, LayerValue, "DiffuseColor", DiffuseColorType) };
+                if (HasDiffuseColor == false) {
+                    HasDiffuseColor = TryAppendMaterialPropertyFromMember(MaterialData, LayerValue, "Diffuse Color", DiffuseColorType);
+                }
+                if (HasDiffuseColor == false) {
+                    TryAppendMaterialPropertyFromMember(MaterialData, LayerValue, "Color", DiffuseColorType);
+                }
+
+                bool HasNormalTexture{ TryAppendMaterialPropertyFromMember(MaterialData, LayerValue, "NormalTexture", NormalTextureType) };
+                if (HasNormalTexture == false) {
+                    TryAppendMaterialPropertyFromMember(MaterialData, LayerValue, "Normal Texture", NormalTextureType);
+                }
+
+                bool HasNormalColor{ TryAppendMaterialPropertyFromMember(MaterialData, LayerValue, "NormalColor", NormalColorType) };
+                if (HasNormalColor == false) {
+                    TryAppendMaterialPropertyFromMember(MaterialData, LayerValue, "Normal Color", NormalColorType);
+                }
+
+                bool HasUvTransform{ TryAppendMaterialPropertyFromMember(MaterialData, LayerValue, "UvTransform", UvTransformType) };
+                if (HasUvTransform == false) {
+                    HasUvTransform = TryAppendMaterialPropertyFromMember(MaterialData, LayerValue, "UVTransform", UvTransformType);
+                }
+                if (HasUvTransform == false) {
+                    TryAppendMaterialPropertyFromMember(MaterialData, LayerValue, "LayerUvTransform", UvTransformType);
+                }
+            }
+
+            return static_cast<std::size_t>(LayerCount);
+        }
+
+        void AppendTerrainMaterialProperties(const rapidjson::Value& MaterialObject, Material& MaterialData) {
+            AppendTerrainSplatMaterialProperties(MaterialObject, MaterialData);
+            const std::size_t LayerCount{ AppendTerrainLayerMaterialProperties(MaterialObject, MaterialData) };
+            if (TryAppendMaterialPropertyFromMember(MaterialData, MaterialObject, "LayerCount", MaterialType::TerrainLayerCount) == false && LayerCount > 0) {
+                AppendMaterialProperty(MaterialData, MaterialType::TerrainLayerCount, MaterialMap{ static_cast<std::int64_t>(LayerCount) });
+            }
+        }
+
+        Material DeserializeMaterialObject(const rapidjson::Value& MaterialObject, bool IsTerrainMaterial) {
+            Material MaterialData{};
+            if (MaterialObject.HasMember("Name") && MaterialObject["Name"].IsString()) {
+                MaterialData.Name = MaterialObject["Name"].GetString();
+            }
+            if (MaterialObject.HasMember("PBR") && MaterialObject["PBR"].IsBool()) {
+                MaterialData.PBR = MaterialObject["PBR"].GetBool();
+            }
+
+            AppendMaterialPropertiesFromObject(MaterialObject, MaterialData);
+            if (IsTerrainMaterial == true) {
+                AppendTerrainMaterialProperties(MaterialObject, MaterialData);
+            }
+
+            return MaterialData;
+        }
     }
 
     MaterialGroupJsonSerializer::MaterialGroupJsonSerializer() {
@@ -311,7 +601,20 @@ namespace asset {
 
             if (MaterialGroupObject.HasMember("Items") && MaterialGroupObject["Items"].IsArray()) {
                 for (const rapidjson::Value& ItemObject : MaterialGroupObject["Items"].GetArray()) {
-                    if (!ItemObject.IsObject() || !ItemObject.HasMember("MaterialData") || !ItemObject["MaterialData"].IsObject()) {
+                    if (!ItemObject.IsObject()) {
+                        continue;
+                    }
+
+                    const rapidjson::Value* MaterialObjectPointer{ nullptr };
+                    bool IsTerrainMaterial{ false };
+                    if (ItemObject.HasMember("TerrainMaterialData") && ItemObject["TerrainMaterialData"].IsObject()) {
+                        MaterialObjectPointer = &ItemObject["TerrainMaterialData"];
+                        IsTerrainMaterial = true;
+                    } else if (ItemObject.HasMember("MaterialData") && ItemObject["MaterialData"].IsObject()) {
+                        MaterialObjectPointer = &ItemObject["MaterialData"];
+                    }
+
+                    if (MaterialObjectPointer == nullptr) {
                         continue;
                     }
 
@@ -320,55 +623,7 @@ namespace asset {
                         MaterialGroupItemData.PipelineName = ItemObject["PipelineName"].GetString();
                     }
 
-                    const rapidjson::Value& MaterialObject{ ItemObject["MaterialData"] };
-                    if (MaterialObject.HasMember("Name") && MaterialObject["Name"].IsString()) {
-                        MaterialGroupItemData.MaterialData.Name = MaterialObject["Name"].GetString();
-                    }
-                    if (MaterialObject.HasMember("PBR") && MaterialObject["PBR"].IsBool()) {
-                        MaterialGroupItemData.MaterialData.PBR = MaterialObject["PBR"].GetBool();
-                    }
-
-                    if (MaterialObject.HasMember("Properties") && MaterialObject["Properties"].IsObject()) {
-                        for (rapidjson::Value::ConstMemberIterator PropertyIterator{ MaterialObject["Properties"].MemberBegin() }; PropertyIterator != MaterialObject["Properties"].MemberEnd(); ++PropertyIterator) {
-                            MaterialType TypeValue{};
-                            if (!TryParseMaterialType(std::string_view{ PropertyIterator->name.GetString(), PropertyIterator->name.GetStringLength() }, TypeValue)) {
-                                continue;
-                            }
-
-                            if (!PropertyIterator->value.IsObject()) {
-                                continue;
-                            }
-
-                            MaterialProperty MaterialPropertyData{};
-                            MaterialPropertyData.Type = TypeValue;
-                            MaterialPropertyData.Data = DeserializeMaterialMap(PropertyIterator->value);
-                            MaterialGroupItemData.MaterialData.Properties.push_back(std::move(MaterialPropertyData));
-                        }
-                    } else if (MaterialObject.HasMember("Properties") && MaterialObject["Properties"].IsArray()) {
-                        for (const rapidjson::Value& PropertyObject : MaterialObject["Properties"].GetArray()) {
-                            if (!PropertyObject.IsObject() || !PropertyObject.HasMember("Type") || !PropertyObject.HasMember("Data") || !PropertyObject["Data"].IsObject()) {
-                                continue;
-                            }
-
-                            MaterialType TypeValue{};
-                            bool IsTypeParsed{ false };
-                            if (PropertyObject["Type"].IsString()) {
-                                IsTypeParsed = TryParseMaterialType(std::string_view{ PropertyObject["Type"].GetString(), PropertyObject["Type"].GetStringLength() }, TypeValue);
-                            } else if (PropertyObject["Type"].IsUint()) {
-                                TypeValue = static_cast<MaterialType>(PropertyObject["Type"].GetUint());
-                                IsTypeParsed = true;
-                            }
-
-                            if (!IsTypeParsed) {
-                                continue;
-                            }
-
-                            MaterialProperty MaterialPropertyData{};
-                            MaterialPropertyData.Type = TypeValue;
-                            MaterialPropertyData.Data = DeserializeMaterialMap(PropertyObject["Data"]);
-                            MaterialGroupItemData.MaterialData.Properties.push_back(std::move(MaterialPropertyData));
-                        }
-                    }
+                    MaterialGroupItemData.MaterialData = DeserializeMaterialObject(*MaterialObjectPointer, IsTerrainMaterial);
 
                     MaterialGroupData.Items.push_back(std::move(MaterialGroupItemData));
                 }

@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <vector>
 #include <DirectXTK12/SimpleMath.h>
+#include "Asset/Common.h"
 #include "Game/Base/Common.h"
 
 namespace SimpleMath = DirectX::SimpleMath;
@@ -25,7 +26,7 @@ namespace Game {
         };
 
         struct alignas(16) MaterialGpu final {
-            static constexpr std::uint32_t FieldCount{ 30 };
+            static constexpr std::uint32_t FieldCount{ asset::MaterialTypeCount };
             MaterialFieldGpu Fields[FieldCount]{};
         };
 
