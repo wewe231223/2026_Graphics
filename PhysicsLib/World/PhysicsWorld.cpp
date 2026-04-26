@@ -339,20 +339,6 @@ void IntegrateDynamicActors(IPhysicsWorldMediator& WorldMediator, IPhysicsActorR
     }
 }
 
-void IntegrateKinematicActors(IPhysicsWorldMediator& WorldMediator, IPhysicsActorRepository& ActorRepository, float DeltaTime) {
-    std::vector<PhysicsKinematicActor*> KinematicActors{ ActorRepository.CollectKinematicActors() };
-    std::size_t KinematicActorCount{ KinematicActors.size() };
-    for (std::size_t ActorIndex{ 0U }; ActorIndex < KinematicActorCount; ++ActorIndex) {
-        PhysicsKinematicActor* KinematicActor{ KinematicActors[ActorIndex] };
-        if (KinematicActor == nullptr) {
-            continue;
-        }
-
-        KinematicActor->Integrate(WorldMediator, DeltaTime);
-        KinematicActor->SolveConstraints(WorldMediator, DeltaTime);
-    }
-}
-
 void ResolveKinematicCollisions(IPhysicsActorRepository& ActorRepository, const DirectX::SimpleMath::Vector3& Gravity, float DeltaTime) {
     if (DeltaTime <= 0.0F) {
         return;
@@ -874,6 +860,7 @@ PhysicsWorld::PhysicsWorld()
       mLastUpdateStepCount{},
       mLastUpdateStepElapsedMilliseconds{},
       mLastStepElapsedMilliseconds{},
+      mKinematicActorSimulator{},
       mActorRepository{},
       mSpatialQuery{},
       mPublishedEvents{} {
@@ -891,6 +878,7 @@ PhysicsWorld::PhysicsWorld(const PhysicsWorld& Other)
       mLastUpdateStepCount{ Other.mLastUpdateStepCount },
       mLastUpdateStepElapsedMilliseconds{ Other.mLastUpdateStepElapsedMilliseconds },
       mLastStepElapsedMilliseconds{ Other.mLastStepElapsedMilliseconds },
+      mKinematicActorSimulator{ Other.mKinematicActorSimulator },
       mActorRepository{ Other.mActorRepository != nullptr ? Other.mActorRepository->Clone() : nullptr },
       mSpatialQuery{ Other.mSpatialQuery != nullptr ? Other.mSpatialQuery->Clone() : nullptr },
       mPublishedEvents{} {
@@ -909,6 +897,7 @@ PhysicsWorld& PhysicsWorld::operator=(const PhysicsWorld& Other) {
     mLastUpdateStepCount = Other.mLastUpdateStepCount;
     mLastUpdateStepElapsedMilliseconds = Other.mLastUpdateStepElapsedMilliseconds;
     mLastStepElapsedMilliseconds = Other.mLastStepElapsedMilliseconds;
+    mKinematicActorSimulator = Other.mKinematicActorSimulator;
     mActorRepository = Other.mActorRepository != nullptr ? Other.mActorRepository->Clone() : nullptr;
     mSpatialQuery = Other.mSpatialQuery != nullptr ? Other.mSpatialQuery->Clone() : nullptr;
     mPublishedEvents.clear();
@@ -926,6 +915,7 @@ PhysicsWorld::PhysicsWorld(PhysicsWorld&& Other) noexcept
       mLastUpdateStepCount{ Other.mLastUpdateStepCount },
       mLastUpdateStepElapsedMilliseconds{ Other.mLastUpdateStepElapsedMilliseconds },
       mLastStepElapsedMilliseconds{ Other.mLastStepElapsedMilliseconds },
+      mKinematicActorSimulator{ std::move(Other.mKinematicActorSimulator) },
       mActorRepository{ std::move(Other.mActorRepository) },
       mSpatialQuery{ std::move(Other.mSpatialQuery) },
       mPublishedEvents{ std::move(Other.mPublishedEvents) } {
@@ -954,6 +944,7 @@ PhysicsWorld& PhysicsWorld::operator=(PhysicsWorld&& Other) noexcept {
     mLastUpdateStepCount = Other.mLastUpdateStepCount;
     mLastUpdateStepElapsedMilliseconds = Other.mLastUpdateStepElapsedMilliseconds;
     mLastStepElapsedMilliseconds = Other.mLastStepElapsedMilliseconds;
+    mKinematicActorSimulator = std::move(Other.mKinematicActorSimulator);
     mActorRepository = std::move(Other.mActorRepository);
     mSpatialQuery = std::move(Other.mSpatialQuery);
     mPublishedEvents = std::move(Other.mPublishedEvents);
@@ -979,6 +970,7 @@ PhysicsWorld::PhysicsWorld(const WorldSettings& Settings)
       mLastUpdateStepCount{},
       mLastUpdateStepElapsedMilliseconds{},
       mLastStepElapsedMilliseconds{},
+      mKinematicActorSimulator{},
       mActorRepository{},
       mSpatialQuery{},
       mPublishedEvents{} {
@@ -1095,6 +1087,10 @@ bool PhysicsWorld::TryGetInterpolatedActorTransform(const PhysicsActorBase& Acto
     return HasInterpolatedState;
 }
 
+void PhysicsWorld::TickKinematicActors(float DeltaTime) {
+    mKinematicActorSimulator.Tick(*this, *mActorRepository, DeltaTime);
+}
+
 void PhysicsWorld::StepSimulation() {
     ClearPublishedEvents();
     IPhysicsActorRepository& ActorRepository{ GetActorRepository() };
@@ -1109,8 +1105,6 @@ void PhysicsWorld::StepSimulation() {
 
         DynamicActor->ClearContactState();
     }
-
-    IntegrateKinematicActors(*this, ActorRepository, mSettings.FixedTimeStep);
 
     std::vector<PhysicsDynamicCollisionPairCandidate> PreviousDynamicPairCandidates{ GetSpatialQuery().QueryDynamicCollisionPairs(ActorRepository) };
     ResolveDynamicCollisions(*this, PreviousDynamicPairCandidates, mSettings.FixedTimeStep);

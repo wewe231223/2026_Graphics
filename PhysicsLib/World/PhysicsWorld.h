@@ -19,6 +19,7 @@ Notes:
 #include <DirectXTK12/SimpleMath.h>
 
 #include "PhysicsLib/Common.h"
+#include "PhysicsLib/Simulation/Kinematic/PhysicsKinematicActorSimulator.h"
 
 class PhysicsFrameAccumulator final {
 public:
@@ -102,6 +103,7 @@ public:
     double GetLastStepElapsedMilliseconds() const override;
     bool TryGetInterpolatedActorTransform(const PhysicsActorBase& Actor, DirectX::SimpleMath::Vector3& OutPosition, DirectX::SimpleMath::Quaternion& OutOrientation, DirectX::SimpleMath::Vector3& OutScale) const override;
 
+    void TickKinematicActors(float DeltaTime) override;
     void StepSimulation() override;
     void Update(float DeltaTime) override;
     bool ResolveKinematicTerrainContact(PhysicsActorBase& Actor) override;
@@ -125,6 +127,7 @@ private:
     std::size_t mLastUpdateStepCount;
     double mLastUpdateStepElapsedMilliseconds;
     double mLastStepElapsedMilliseconds;
+    PhysicsKinematicActorSimulator mKinematicActorSimulator;
     std::unique_ptr<IPhysicsActorRepository> mActorRepository;
     std::unique_ptr<IPhysicsSpatialQuery> mSpatialQuery;
     std::vector<PhysicsSimulationEvent> mPublishedEvents;

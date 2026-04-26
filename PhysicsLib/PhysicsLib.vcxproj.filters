@@ -22,6 +22,9 @@
     <Filter Include="Simulation">
       <UniqueIdentifier>{0c34eb1a-5cc6-4c82-aa13-a5ee0f6d0a8e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Simulation\Kinematic">
+      <UniqueIdentifier>{55b371cc-f3f3-438a-b3a8-e9db18d97f35}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Simulation\Mediator">
       <UniqueIdentifier>{0d75cd39-0e04-420d-98ee-89dfa7e5605e}</UniqueIdentifier>
     </Filter>
@@ -69,6 +72,9 @@
     </ClCompile>
     <ClCompile Include="Actors\SolverType\PhysicsSolverType.cpp">
       <Filter>Actors\SolverType</Filter>
+    </ClCompile>
+    <ClCompile Include="Simulation\Kinematic\PhysicsKinematicActorSimulator.cpp">
+      <Filter>Simulation\Kinematic</Filter>
     </ClCompile>
     <ClCompile Include="Simulation\Mediator\IPhysicsWorldMediator.cpp">
       <Filter>Simulation\Mediator</Filter>
@@ -138,6 +144,9 @@
     </ClInclude>
     <ClInclude Include="Actors\SolverType\PhysicsSolverType.h">
       <Filter>Actors\SolverType</Filter>
+    </ClInclude>
+    <ClInclude Include="Simulation\Kinematic\PhysicsKinematicActorSimulator.h">
+      <Filter>Simulation\Kinematic</Filter>
     </ClInclude>
     <ClInclude Include="Simulation\Mediator\IPhysicsWorldMediator.h">
       <Filter>Simulation\Mediator</Filter>

@@ -55,6 +55,7 @@ public:
     virtual double GetLastStepElapsedMilliseconds() const = 0;
     virtual bool TryGetInterpolatedActorTransform(const PhysicsActorBase& Actor, DirectX::SimpleMath::Vector3& OutPosition, DirectX::SimpleMath::Quaternion& OutOrientation, DirectX::SimpleMath::Vector3& OutScale) const = 0;
 
+    virtual void TickKinematicActors(float DeltaTime) = 0;
     virtual void StepSimulation() = 0;
     virtual void Update(float DeltaTime) = 0;
     virtual bool ResolveKinematicTerrainContact(PhysicsActorBase& Actor) = 0;

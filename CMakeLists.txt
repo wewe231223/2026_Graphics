@@ -107,6 +107,7 @@ add_library(PhysicsLib STATIC
     PhysicsLib/Actors/PhysicsTerrainActor.cpp
     PhysicsLib/Actors/SolverType/PhysicsSolverType.cpp
     PhysicsLib/Simulation/Mediator/IPhysicsWorldMediator.cpp
+    PhysicsLib/Simulation/Kinematic/PhysicsKinematicActorSimulator.cpp
     PhysicsLib/Simulation/Repository/IPhysicsActorRepository.cpp
     PhysicsLib/Simulation/Repository/PhysicsActorRepository.cpp
     PhysicsLib/Simulation/SpatialQuery/BruteForcePhysicsSpatialQuery.cpp

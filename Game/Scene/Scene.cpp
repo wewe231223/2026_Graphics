@@ -411,7 +411,7 @@ namespace Game {
             TerrainActorPointer->SetActorDesc(Desc);
         }
 
-        mPhysicsWorld.ResolveKinematicTerrainContacts();
+        mPhysicsWorld.TickKinematicActors(Dt);
         mPhysicsWorld.Update(Dt);
     }
 

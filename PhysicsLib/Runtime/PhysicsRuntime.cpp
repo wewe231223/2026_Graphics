@@ -219,6 +219,7 @@ void PhysicsRuntime::RunPhysicsThread() {
         double LastStepElapsedMilliseconds{};
         while (TimeAccumulatorSeconds >= FixedStepSeconds && LastUpdateStepCount < mSettings.mMaxSubSteps) {
             Clock::time_point StepStartTime{ Clock::now() };
+            mPhysicsWorld.TickKinematicActors(mSettings.mWorldSettings.FixedTimeStep);
             mPhysicsWorld.StepSimulation();
             Clock::time_point StepEndTime{ Clock::now() };
 
