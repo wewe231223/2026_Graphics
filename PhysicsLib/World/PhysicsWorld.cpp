@@ -1,9 +1,11 @@
 ﻿#include "PhysicsWorld.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <cmath>
+#include <limits>
 #include <utility>
 
 #include "PhysicsLib/Simulation/Repository/IPhysicsActorRepository.h"
@@ -14,6 +16,8 @@
 #undef min
 #undef max
 
+#include "PhysicsLib/Actors/PhysicsDynamicCollisionInternal.inl"
+
 namespace {
 constexpr std::size_t DynamicCollisionSolverMinimumIterationCount{ 1U };
 constexpr std::size_t DynamicCollisionSolverMaximumIterationCount{ 4U };
@@ -21,6 +25,7 @@ constexpr std::size_t DynamicCollisionPairsPerAdditionalIteration{ 24U };
 constexpr std::uint32_t DynamicCcdMinimumSampleCount{ 4U };
 constexpr std::uint32_t DynamicCcdMaximumSampleCount{ 32U };
 constexpr float DynamicCcdMinimumExtent{ 0.05F };
+constexpr float KinematicDynamicCcdPositionCorrectionSlop{ 0.002F };
 
 struct AxisAlignedBounds {
     DirectX::SimpleMath::Vector3 mMinimum;
@@ -42,6 +47,11 @@ struct DynamicActorSweepState {
 
 struct DynamicSweepEntry {
     const DynamicActorSweepState* mSweepState;
+};
+
+struct KinematicDynamicSweepPairCandidate {
+    const PhysicsKinematicActorSweepState* mKinematicSweepState;
+    const DynamicActorSweepState* mDynamicSweepState;
 };
 
 DirectX::SimpleMath::Vector3 ResolveActorGravity(const IPhysicsWorldMediator& WorldMediator, const PhysicsActorBase& Actor) {
@@ -320,6 +330,111 @@ std::vector<PhysicsDynamicCollisionPairCandidate> QuerySweptDynamicCollisionPair
     return PairCandidates;
 }
 
+DirectX::BoundingOrientedBox CreateKinematicSweepStateBoundingBoxAtAlpha(const PhysicsKinematicActorSweepState& SweepState, float Alpha) {
+    float ClampedAlpha{ std::clamp(Alpha, 0.0F, 1.0F) };
+    DirectX::SimpleMath::Vector3 Position{ InterpolateVector3(SweepState.mPreviousPosition, SweepState.mCurrentPosition, ClampedAlpha) };
+    DirectX::SimpleMath::Quaternion Orientation{ InterpolateQuaternion(SweepState.mPreviousOrientation, SweepState.mCurrentOrientation, ClampedAlpha) };
+    DirectX::SimpleMath::Vector3 Scale{ InterpolateVector3(SweepState.mPreviousScale, SweepState.mCurrentScale, ClampedAlpha) };
+    DirectX::BoundingOrientedBox BoundingBox{ CreateActorBoundingBoxAtTransform(*SweepState.mActor, Position, Orientation, Scale) };
+    return BoundingBox;
+}
+
+bool IsKinematicDynamicSweepStatePairIntersectingAtAlpha(const PhysicsKinematicActorSweepState& KinematicState, const DynamicActorSweepState& DynamicState, float Alpha) {
+    DirectX::BoundingOrientedBox KinematicBounds{ CreateKinematicSweepStateBoundingBoxAtAlpha(KinematicState, Alpha) };
+    DirectX::BoundingOrientedBox DynamicBounds{ CreateSweepStateBoundingBoxAtAlpha(DynamicState, Alpha) };
+    bool IsIntersecting{ KinematicBounds.Intersects(DynamicBounds) };
+    return IsIntersecting;
+}
+
+std::uint32_t CalculateKinematicDynamicSweepSampleCount(const PhysicsKinematicActorSweepState& KinematicState, const DynamicActorSweepState& DynamicState) {
+    float KinematicMotionLength{ (KinematicState.mCurrentPosition - KinematicState.mPreviousPosition).Length() };
+    float DynamicMotionLength{ (DynamicState.mCurrentPosition - DynamicState.mPreviousPosition).Length() };
+    float MaximumMotionLength{ std::max(KinematicMotionLength, DynamicMotionLength) };
+    float KinematicMinimumExtent{ CalculateActorMinimumExtent(*KinematicState.mActor, KinematicState.mPreviousScale) };
+    float DynamicMinimumExtent{ CalculateActorMinimumExtent(*DynamicState.mActor, DynamicState.mPreviousScale) };
+    float MinimumExtent{ std::max(DynamicCcdMinimumExtent, std::min(KinematicMinimumExtent, DynamicMinimumExtent)) };
+    std::uint32_t SampleCount{ static_cast<std::uint32_t>(std::ceil(MaximumMotionLength / MinimumExtent)) };
+    SampleCount = std::clamp(SampleCount, DynamicCcdMinimumSampleCount, DynamicCcdMaximumSampleCount);
+    return SampleCount;
+}
+
+bool TryFindConservativeKinematicDynamicImpactAlpha(const PhysicsKinematicActorSweepState& KinematicState, const DynamicActorSweepState& DynamicState, float& OutImpactAlpha) {
+    if (IsKinematicDynamicSweepStatePairIntersectingAtAlpha(KinematicState, DynamicState, 0.0F)) {
+        OutImpactAlpha = 0.0F;
+        return true;
+    }
+
+    std::uint32_t SampleCount{ CalculateKinematicDynamicSweepSampleCount(KinematicState, DynamicState) };
+    float PreviousAlpha{};
+    for (std::uint32_t SampleIndex{ 1U }; SampleIndex <= SampleCount; ++SampleIndex) {
+        float CurrentAlpha{ static_cast<float>(SampleIndex) / static_cast<float>(SampleCount) };
+        if (!IsKinematicDynamicSweepStatePairIntersectingAtAlpha(KinematicState, DynamicState, CurrentAlpha)) {
+            PreviousAlpha = CurrentAlpha;
+            continue;
+        }
+
+        float LowAlpha{ PreviousAlpha };
+        float HighAlpha{ CurrentAlpha };
+        for (std::uint32_t IterationIndex{ 0U }; IterationIndex < 8U; ++IterationIndex) {
+            float MidAlpha{ (LowAlpha + HighAlpha) * 0.5F };
+            if (IsKinematicDynamicSweepStatePairIntersectingAtAlpha(KinematicState, DynamicState, MidAlpha)) {
+                HighAlpha = MidAlpha;
+            } else {
+                LowAlpha = MidAlpha;
+            }
+        }
+
+        OutImpactAlpha = HighAlpha;
+        return true;
+    }
+
+    return false;
+}
+
+AxisAlignedBounds ConvertKinematicSweepBounds(const PhysicsKinematicActorSweepBounds& Bounds) {
+    AxisAlignedBounds ConvertedBounds{ Bounds.mMinimum, Bounds.mMaximum };
+    return ConvertedBounds;
+}
+
+std::vector<KinematicDynamicSweepPairCandidate> QuerySweptKinematicDynamicCollisionPairs(const std::vector<PhysicsKinematicActorSweepState>& KinematicSweepStates, const std::vector<DynamicActorSweepState>& DynamicSweepStates) {
+    std::vector<KinematicDynamicSweepPairCandidate> PairCandidates{};
+    if (KinematicSweepStates.empty() || DynamicSweepStates.empty()) {
+        return PairCandidates;
+    }
+
+    PairCandidates.reserve(KinematicSweepStates.size() * DynamicSweepStates.size());
+    std::size_t KinematicSweepStateCount{ KinematicSweepStates.size() };
+    std::size_t DynamicSweepStateCount{ DynamicSweepStates.size() };
+    for (std::size_t KinematicStateIndex{ 0U }; KinematicStateIndex < KinematicSweepStateCount; ++KinematicStateIndex) {
+        const PhysicsKinematicActorSweepState& KinematicState{ KinematicSweepStates[KinematicStateIndex] };
+        if (KinematicState.mActor == nullptr || !KinematicState.mActor->GetIsActive() || KinematicState.mIsTeleport || !KinematicState.mCanUseForCcd) {
+            continue;
+        }
+
+        AxisAlignedBounds KinematicSweptBounds{ ConvertKinematicSweepBounds(KinematicState.mSweptBounds) };
+        for (std::size_t DynamicStateIndex{ 0U }; DynamicStateIndex < DynamicSweepStateCount; ++DynamicStateIndex) {
+            const DynamicActorSweepState& DynamicState{ DynamicSweepStates[DynamicStateIndex] };
+            if (DynamicState.mActor == nullptr || !DynamicState.mActor->GetIsActive() || DynamicState.mActor->GetInverseMass() <= 0.0F) {
+                continue;
+            }
+
+            DirectX::SimpleMath::Vector3 KinematicMotionDelta{ KinematicState.mCurrentPosition - KinematicState.mPreviousPosition };
+            DirectX::SimpleMath::Vector3 DynamicMotionDelta{ DynamicState.mCurrentPosition - DynamicState.mPreviousPosition };
+            if (KinematicMotionDelta.LengthSquared() <= 0.0F && DynamicMotionDelta.LengthSquared() <= 0.0F) {
+                continue;
+            }
+
+            if (!IsOverlappingAxisAlignedBounds(KinematicSweptBounds, DynamicState.mSweptBounds)) {
+                continue;
+            }
+
+            PairCandidates.push_back(KinematicDynamicSweepPairCandidate{ &KinematicState, &DynamicState });
+        }
+    }
+
+    return PairCandidates;
+}
+
 PhysicsFrameAccumulator::ActorState CreateActorStateFromActor(const PhysicsActorBase& Actor) {
     PhysicsFrameAccumulator::ActorState ActorStateValue{ &Actor, Actor.GetActorType(), Actor.GetPosition(), Actor.GetOrientation(), Actor.GetScale() };
     return ActorStateValue;
@@ -556,6 +671,142 @@ void ResolveSweptDynamicCollisions(IPhysicsWorldMediator& WorldMediator, const s
         }
 
         TryResolveSweptDynamicCollisionPair(WorldMediator, *FirstState, *SecondState, DeltaTime);
+    }
+}
+
+bool ApplyKinematicDynamicCcdImpulse(const PhysicsKinematicActorSweepState& KinematicState, PhysicsDynamicActor& DynamicActor, const DynamicContactManifold& ContactManifold, const DirectX::SimpleMath::Vector3& CollisionNormal, float ImpulseMagnitudeClamp) {
+    if (ContactManifold.mContactPointCount == 0U) {
+        return false;
+    }
+
+    float EffectiveRestitution{ std::min(KinematicState.mActor->GetRestitution(), DynamicActor.GetRestitution()) };
+    float SafeContactPointCount{ static_cast<float>(std::max<std::size_t>(ContactManifold.mContactPointCount, 1U)) };
+    float SafeImpulseMagnitudeClamp{ ImpulseMagnitudeClamp > 0.0F ? ImpulseMagnitudeClamp : std::numeric_limits<float>::max() };
+    float ContactImpulseClamp{ SafeImpulseMagnitudeClamp / SafeContactPointCount };
+    bool HasAppliedImpulse{};
+    for (std::size_t ContactPointIndex{ 0U }; ContactPointIndex < ContactManifold.mContactPointCount; ++ContactPointIndex) {
+        const DynamicContactPoint& ContactPoint{ ContactManifold.mContactPoints[ContactPointIndex] };
+        DirectX::SimpleMath::Vector3 DynamicContactVelocity{ CalculateVelocityAtPoint(DynamicActor, ContactPoint.mPosition) };
+        DirectX::SimpleMath::Vector3 RelativeVelocity{ DynamicContactVelocity - KinematicState.mVelocity };
+        float VelocityAlongNormal{ RelativeVelocity.Dot(CollisionNormal) };
+        if (VelocityAlongNormal >= 0.0F) {
+            continue;
+        }
+
+        DirectX::SimpleMath::Vector3 ContactOffset{ ContactPoint.mPosition - DynamicActor.GetPosition() };
+        float NormalDenominator{ CalculateSingleActorContactImpulseDenominator(DynamicActor, ContactOffset, CollisionNormal) };
+        if (NormalDenominator <= DynamicSatAxisEpsilon) {
+            continue;
+        }
+
+        float ImpulseMagnitude{ (-(1.0F + EffectiveRestitution) * VelocityAlongNormal) / NormalDenominator };
+        ImpulseMagnitude /= SafeContactPointCount;
+        ImpulseMagnitude = std::clamp(ImpulseMagnitude, 0.0F, ContactImpulseClamp);
+        if (ImpulseMagnitude <= 0.0F) {
+            continue;
+        }
+
+        DirectX::SimpleMath::Vector3 NormalImpulse{ CollisionNormal * ImpulseMagnitude };
+        DynamicActor.ApplyImpulseAtPoint(NormalImpulse, ContactPoint.mPosition);
+        HasAppliedImpulse = true;
+    }
+
+    return HasAppliedImpulse;
+}
+
+bool ResolveKinematicDynamicCcdAtImpact(const PhysicsKinematicActorSweepState& KinematicState, PhysicsDynamicActor& DynamicActor, const DirectX::BoundingOrientedBox& KinematicBounds, const DirectX::BoundingOrientedBox& DynamicBounds, const DynamicSatResult& SatResult, float ImpulseMagnitudeClamp) {
+    if (!SatResult.mIntersect) {
+        return false;
+    }
+
+    DirectX::SimpleMath::Vector3 CollisionNormal{ NormalizeOrZero(SatResult.mNormal) };
+    if (IsNearlyZeroVector(CollisionNormal, DynamicSatAxisEpsilon)) {
+        return false;
+    }
+
+    DynamicObb KinematicObb{ CreateDynamicObb(KinematicBounds) };
+    DynamicObb DynamicObbValue{ CreateDynamicObb(DynamicBounds) };
+    DynamicContactManifold ContactManifold{ BuildContactManifold(KinematicBounds, DynamicBounds, KinematicObb, DynamicObbValue, SatResult) };
+    bool HasAppliedImpulse{ ApplyKinematicDynamicCcdImpulse(KinematicState, DynamicActor, ContactManifold, CollisionNormal, ImpulseMagnitudeClamp) };
+
+    float CorrectedPenetration{ std::max(0.0F, SatResult.mPenetration - KinematicDynamicCcdPositionCorrectionSlop) };
+    if (CorrectedPenetration > 0.0F) {
+        DirectX::SimpleMath::Vector3 CorrectedPosition{ DynamicActor.GetPosition() + (CollisionNormal * CorrectedPenetration) };
+        DynamicActor.SetPosition(CorrectedPosition);
+    }
+
+    if (!HasAppliedImpulse && CorrectedPenetration <= 0.0F) {
+        return false;
+    }
+
+    DynamicActor.RegisterContactNormal(CollisionNormal);
+    DynamicActor.SetIsSleeping(false);
+    return true;
+}
+
+bool TryResolveSweptKinematicDynamicCollisionPair(IPhysicsWorldMediator& WorldMediator, const PhysicsKinematicActorSweepState& KinematicState, const DynamicActorSweepState& DynamicState, float DeltaTime, float ImpulseMagnitudeClamp) {
+    (void)DeltaTime;
+
+    PhysicsKinematicActor* KinematicActor{ KinematicState.mActor };
+    PhysicsDynamicActor* DynamicActor{ DynamicState.mActor };
+    if (KinematicActor == nullptr || DynamicActor == nullptr) {
+        return false;
+    }
+
+    if (!KinematicActor->GetIsActive() || !DynamicActor->GetIsActive() || DynamicActor->GetInverseMass() <= 0.0F) {
+        return false;
+    }
+
+    if (KinematicState.mIsTeleport || !KinematicState.mCanUseForCcd) {
+        return false;
+    }
+
+    if (KinematicActor->GetWorldBoundingBox().Intersects(DynamicActor->GetWorldBoundingBox())) {
+        return false;
+    }
+
+    if (IsKinematicDynamicSweepStatePairIntersectingAtAlpha(KinematicState, DynamicState, 0.0F)) {
+        return false;
+    }
+
+    float ImpactAlpha{};
+    bool HasImpactAlpha{ TryFindConservativeKinematicDynamicImpactAlpha(KinematicState, DynamicState, ImpactAlpha) };
+    if (!HasImpactAlpha) {
+        return false;
+    }
+
+    SetActorTransformAtSweepAlpha(*DynamicActor, DynamicState, ImpactAlpha);
+    DirectX::BoundingOrientedBox KinematicBounds{ CreateKinematicSweepStateBoundingBoxAtAlpha(KinematicState, ImpactAlpha) };
+    DirectX::BoundingOrientedBox DynamicBounds{ DynamicActor->GetWorldBoundingBox() };
+    DynamicObb KinematicObb{ CreateDynamicObb(KinematicBounds) };
+    DynamicObb DynamicObbValue{ CreateDynamicObb(DynamicBounds) };
+    DynamicSatResult SatResult{};
+    if (!ComputeObbSatResult(KinematicObb, DynamicObbValue, SatResult)) {
+        SetActorTransformAtSweepAlpha(*DynamicActor, DynamicState, 1.0F);
+        return false;
+    }
+
+    bool HasResolved{ ResolveKinematicDynamicCcdAtImpact(KinematicState, *DynamicActor, KinematicBounds, DynamicBounds, SatResult, ImpulseMagnitudeClamp) };
+    if (!HasResolved) {
+        SetActorTransformAtSweepAlpha(*DynamicActor, DynamicState, 1.0F);
+        return false;
+    }
+
+    DynamicActor->UpdateSleepState(ResolveActorGravity(WorldMediator, *DynamicActor));
+    return true;
+}
+
+void ResolveSweptKinematicDynamicCollisions(IPhysicsWorldMediator& WorldMediator, const std::vector<PhysicsKinematicActorSweepState>& KinematicSweepStates, const std::vector<DynamicActorSweepState>& DynamicSweepStates, float DeltaTime, float ImpulseMagnitudeClamp) {
+    std::vector<KinematicDynamicSweepPairCandidate> PairCandidates{ QuerySweptKinematicDynamicCollisionPairs(KinematicSweepStates, DynamicSweepStates) };
+    std::size_t PairCandidateCount{ PairCandidates.size() };
+    for (std::size_t PairIndex{ 0U }; PairIndex < PairCandidateCount; ++PairIndex) {
+        const PhysicsKinematicActorSweepState* KinematicState{ PairCandidates[PairIndex].mKinematicSweepState };
+        const DynamicActorSweepState* DynamicState{ PairCandidates[PairIndex].mDynamicSweepState };
+        if (KinematicState == nullptr || DynamicState == nullptr) {
+            continue;
+        }
+
+        TryResolveSweptKinematicDynamicCollisionPair(WorldMediator, *KinematicState, *DynamicState, DeltaTime, ImpulseMagnitudeClamp);
     }
 }
 
@@ -865,6 +1116,7 @@ PhysicsWorld::PhysicsWorld()
       mSpatialQuery{},
       mPublishedEvents{} {
     InitializeDependencies();
+    mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
 }
 
@@ -883,6 +1135,7 @@ PhysicsWorld::PhysicsWorld(const PhysicsWorld& Other)
       mSpatialQuery{ Other.mSpatialQuery != nullptr ? Other.mSpatialQuery->Clone() : nullptr },
       mPublishedEvents{} {
     InitializeDependencies();
+    mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.Initialize(mSettings.FixedTimeStep);
     mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
 }
@@ -902,6 +1155,7 @@ PhysicsWorld& PhysicsWorld::operator=(const PhysicsWorld& Other) {
     mSpatialQuery = Other.mSpatialQuery != nullptr ? Other.mSpatialQuery->Clone() : nullptr;
     mPublishedEvents.clear();
     InitializeDependencies();
+    mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.Initialize(mSettings.FixedTimeStep);
     mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
 
@@ -929,6 +1183,7 @@ PhysicsWorld::PhysicsWorld(PhysicsWorld&& Other) noexcept
     Other.mLastStepElapsedMilliseconds = 0.0;
     Other.InitializeDependencies();
     Other.mFrameAccumulator.Initialize(Other.mSettings.FixedTimeStep);
+    Other.mKinematicActorSimulator.Synchronize(*Other.mActorRepository);
     Other.mFrameAccumulator.SynchronizeStatePair(*Other.mActorRepository);
     Other.ClearPublishedEvents();
 }
@@ -958,6 +1213,7 @@ PhysicsWorld& PhysicsWorld::operator=(PhysicsWorld&& Other) noexcept {
     Other.mLastStepElapsedMilliseconds = 0.0;
     Other.InitializeDependencies();
     Other.mFrameAccumulator.Initialize(Other.mSettings.FixedTimeStep);
+    Other.mKinematicActorSimulator.Synchronize(*Other.mActorRepository);
     Other.mFrameAccumulator.SynchronizeStatePair(*Other.mActorRepository);
     Other.ClearPublishedEvents();
 
@@ -975,6 +1231,7 @@ PhysicsWorld::PhysicsWorld(const WorldSettings& Settings)
       mSpatialQuery{},
       mPublishedEvents{} {
     InitializeDependencies();
+    mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
 }
 
@@ -990,6 +1247,7 @@ void PhysicsWorld::Initialize(const WorldSettings& Settings) {
 
     if (mActorRepository != nullptr) {
         mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
+        mKinematicActorSimulator.Synchronize(*mActorRepository);
     }
 
     ClearPublishedEvents();
@@ -1003,6 +1261,7 @@ PhysicsDynamicActor* PhysicsWorld::CreateDynamicActor(const PhysicsDynamicActor:
 
 PhysicsKinematicActor* PhysicsWorld::CreateKinematicActor(const PhysicsKinematicActor::ActorDesc& Desc) {
     PhysicsKinematicActor* CreatedActor{ mActorRepository->CreateKinematicActor(Desc) };
+    mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
     return CreatedActor;
 }
@@ -1015,11 +1274,13 @@ PhysicsTerrainActor* PhysicsWorld::CreateTerrainActor(const PhysicsTerrainActor:
 
 void PhysicsWorld::AddActor(std::unique_ptr<PhysicsActorBase> Actor) {
     mActorRepository->AddActor(std::move(Actor));
+    mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
 }
 
 void PhysicsWorld::ClearActors() {
     mActorRepository->ClearActors();
+    mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
 }
 
@@ -1091,6 +1352,10 @@ void PhysicsWorld::TickKinematicActors(float DeltaTime) {
     mKinematicActorSimulator.Tick(*this, *mActorRepository, DeltaTime);
 }
 
+void PhysicsWorld::MarkKinematicActorTeleported(const PhysicsKinematicActor& Actor) {
+    mKinematicActorSimulator.MarkTeleported(Actor);
+}
+
 void PhysicsWorld::StepSimulation() {
     ClearPublishedEvents();
     IPhysicsActorRepository& ActorRepository{ GetActorRepository() };
@@ -1112,16 +1377,19 @@ void PhysicsWorld::StepSimulation() {
     ResolveKinematicCollisions(ActorRepository, mSettings.Gravity, mSettings.FixedTimeStep);
 
     std::vector<DynamicActorSweepState> DynamicActorSweepStates{ CaptureDynamicActorSweepStates(DynamicActors) };
+    const std::vector<PhysicsKinematicActorSweepState>& KinematicActorSweepStates{ mKinematicActorSimulator.GetSweepStates() };
     IntegrateDynamicActors(*this, ActorRepository, mSettings.FixedTimeStep);
 
     CompleteDynamicActorSweepStates(DynamicActorSweepStates);
     std::vector<PhysicsDynamicCollisionPairCandidate> SweptDynamicPairCandidates{ QuerySweptDynamicCollisionPairs(DynamicActorSweepStates) };
     ResolveSweptDynamicCollisions(*this, DynamicActorSweepStates, SweptDynamicPairCandidates, mSettings.FixedTimeStep);
+    ResolveSweptKinematicDynamicCollisions(*this, KinematicActorSweepStates, DynamicActorSweepStates, mSettings.FixedTimeStep, mSettings.KinematicDynamicCcdImpulseMagnitudeClamp);
 
     std::vector<PhysicsDynamicCollisionPairCandidate> CurrentDynamicPairCandidates{ GetSpatialQuery().QueryDynamicCollisionPairs(ActorRepository) };
     ResolveDynamicCollisions(*this, CurrentDynamicPairCandidates, mSettings.FixedTimeStep);
     ResolveStaticCollisions(*this, DynamicActors, StaticActors, mSettings.FixedTimeStep);
     ResolveKinematicCollisions(ActorRepository, mSettings.Gravity, mSettings.FixedTimeStep);
+    mKinematicActorSimulator.MarkSweepStatesConsumed();
 }
 
 void PhysicsWorld::Update(float DeltaTime) {

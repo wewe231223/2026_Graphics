@@ -104,6 +104,7 @@ public:
     bool TryGetInterpolatedActorTransform(const PhysicsActorBase& Actor, DirectX::SimpleMath::Vector3& OutPosition, DirectX::SimpleMath::Quaternion& OutOrientation, DirectX::SimpleMath::Vector3& OutScale) const override;
 
     void TickKinematicActors(float DeltaTime) override;
+    void MarkKinematicActorTeleported(const PhysicsKinematicActor& Actor) override;
     void StepSimulation() override;
     void Update(float DeltaTime) override;
     bool ResolveKinematicTerrainContact(PhysicsActorBase& Actor) override;

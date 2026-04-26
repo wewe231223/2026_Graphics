@@ -52,6 +52,30 @@ namespace Game {
         return mActorPointer != nullptr;
     }
 
+    DirectX::SimpleMath::Vector3 PhysicsActor::GetVelocity() const {
+        if (mActorPointer == nullptr) {
+            return DirectX::SimpleMath::Vector3{};
+        }
+
+        return mActorPointer->GetVelocity();
+    }
+
+    void PhysicsActor::SetVelocity(const DirectX::SimpleMath::Vector3& Velocity) {
+        if (mActorPointer == nullptr) {
+            return;
+        }
+
+        mActorPointer->SetVelocity(Velocity);
+    }
+
+    void PhysicsActor::AddForce(const DirectX::SimpleMath::Vector3& Force) {
+        if (mActorPointer == nullptr) {
+            return;
+        }
+
+        mActorPointer->AddForce(Force);
+    }
+
     void PhysicsActor::AddImpulse(const DirectX::SimpleMath::Vector3& Impulse) {
         if (mActorPointer == nullptr) {
             return;

@@ -132,7 +132,8 @@ void PhysicsKinematicIntegrater::Integrate(IPhysicsWorldMediator& WorldMediator,
         Gravity = WorldMediator.GetGravity();
     }
 
-    DirectX::SimpleMath::Vector3 TotalAcceleration{ Gravity + Actor.GetAcceleration() };
+    DirectX::SimpleMath::Vector3 ForceAcceleration{ Actor.GetInverseMass() > 0.0F ? Actor.GetAccumulatedForce() * Actor.GetInverseMass() : DirectX::SimpleMath::Vector3{} };
+    DirectX::SimpleMath::Vector3 TotalAcceleration{ Gravity + Actor.GetAcceleration() + ForceAcceleration };
     NextVelocity += TotalAcceleration * DeltaTime;
     float DampingFactor{ std::max(0.0F, 1.0F - (Actor.GetLinearDamping() * DeltaTime)) };
     NextVelocity *= DampingFactor;

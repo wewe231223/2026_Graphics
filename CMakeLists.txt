@@ -271,6 +271,7 @@ add_custom_command(TARGET 2026_Graphics POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GraphicsRoot}/Core/Config.prop $<TARGET_FILE_DIR:2026_Graphics>/Config.prop
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GraphicsRoot}/dxcompiler.dll $<TARGET_FILE_DIR:2026_Graphics>/dxcompiler.dll
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${GraphicsRoot}/D3D $<TARGET_FILE_DIR:2026_Graphics>/D3D
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${GraphicsRoot}/Script $<TARGET_FILE_DIR:2026_Graphics>/Script
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${GraphicsRoot}/Shader $<TARGET_FILE_DIR:2026_Graphics>/Shader
 )
 

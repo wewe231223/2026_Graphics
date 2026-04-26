@@ -30,6 +30,9 @@ namespace Game {
         ),
         ComponentMethods(
             ComponentMethod(bool HasActor() const, HasActor)
+            ComponentMethod(DirectX::SimpleMath::Vector3 GetVelocity() const, GetVelocity)
+            ComponentMethod(void SetVelocity(const DirectX::SimpleMath::Vector3& Velocity), SetVelocity)
+            ComponentMethod(void AddForce(const DirectX::SimpleMath::Vector3& Force), AddForce)
             ComponentMethod(void AddImpulse(const DirectX::SimpleMath::Vector3& Impulse), AddImpulse)
         )
     );

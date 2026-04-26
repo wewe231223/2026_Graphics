@@ -1,4 +1,9 @@
-local MoveSpeed = 4.0
+local WalkMoveSpeed = 4.0
+local RunMoveSpeed = 9.0
+local WalkMoveForce = 24.0
+local RunMoveForce = 52.0
+local BrakingForce = 48.0
+local StopSpeed = 0.08
 local JumpImpulse = 8.0
 local MaxRotationDegreesPerSecond = 720.0
 local IsMovingParameterIndex = 0
@@ -66,23 +71,70 @@ local function ApplySmoothedYawRotation(TransformComponent, FinalTargetDirection
     return NormalizeAngleRadians(TargetYawRadians - NextYawRadians)
 end
 
-local function ApplyForwardMovement(TransformComponent, MoveInput, DeltaSeconds)
-    local InputMagnitude = math.sqrt((MoveInput.x * MoveInput.x) + (MoveInput.y * MoveInput.y))
-    if InputMagnitude <= 0.0 then
+local function IsRunInputDown()
+    return IsInputKeyDown(LeftShift) or IsInputKeyDown(RightShift)
+end
+
+local function GetHorizontalVelocity(Velocity)
+    return Vector3.new(Velocity.x, 0.0, Velocity.z)
+end
+
+local function ApplyHorizontalVelocityLimit(PhysicsActorComponent, CurrentVelocity, MaxSpeed)
+    local HorizontalVelocity = GetHorizontalVelocity(CurrentVelocity)
+    local HorizontalSpeed = Vector3Length(HorizontalVelocity)
+
+    if HorizontalSpeed <= MaxSpeed then
+        return HorizontalSpeed
+    end
+
+    local ClampedHorizontalVelocity = ScaleVector3(NormalizeVector3(HorizontalVelocity), MaxSpeed)
+    PhysicsActorComponent:SetVelocity(Vector3.new(ClampedHorizontalVelocity.x, CurrentVelocity.y, ClampedHorizontalVelocity.z))
+    return MaxSpeed
+end
+
+local function ApplyMovementForce(Context, TransformComponent, MoveInput)
+    local PhysicsActorComponent = Context:GetComponent("PhysicsActor")
+    if PhysicsActorComponent == nil or PhysicsActorComponent:HasActor() == false then
         return 0.0
     end
 
-    local MoveDistance = MoveSpeed * InputMagnitude * DeltaSeconds
+    local InputMagnitude = math.sqrt((MoveInput.x * MoveInput.x) + (MoveInput.y * MoveInput.y))
     local CurrentForwardDirection = TransformComponent:GetForwardDirection()
     local FlatForwardDirection = NormalizeVector3(Vector3.new(CurrentForwardDirection.x, 0.0, CurrentForwardDirection.z))
-    if IsZeroVector3(FlatForwardDirection) then
-        return 0.0
+    local CurrentVelocity = PhysicsActorComponent:GetVelocity()
+    local HorizontalVelocity = GetHorizontalVelocity(CurrentVelocity)
+    local HorizontalSpeed = Vector3Length(HorizontalVelocity)
+
+    if InputMagnitude <= 0.0 or IsZeroVector3(FlatForwardDirection) then
+        if HorizontalSpeed <= StopSpeed then
+            PhysicsActorComponent:SetVelocity(Vector3.new(0.0, CurrentVelocity.y, 0.0))
+            return 0.0
+        end
+
+        local BrakeForce = ScaleVector3(HorizontalVelocity, -BrakingForce)
+        PhysicsActorComponent:AddForce(Vector3.new(BrakeForce.x, 0.0, BrakeForce.z))
+        return HorizontalSpeed
     end
 
-    local Translation = ScaleVector3(FlatForwardDirection, MoveDistance)
-    TransformComponent:Translate(Vector3.new(Translation.x, 0.0, Translation.z))
+    local IsRunning = IsRunInputDown()
+    local TargetSpeed = WalkMoveSpeed
+    local MoveForce = WalkMoveForce
+    if IsRunning then
+        TargetSpeed = RunMoveSpeed
+        MoveForce = RunMoveForce
+    end
 
-    return MoveSpeed * InputMagnitude
+    TargetSpeed = TargetSpeed * InputMagnitude
+    HorizontalSpeed = ApplyHorizontalVelocityLimit(PhysicsActorComponent, CurrentVelocity, TargetSpeed * 1.35)
+    CurrentVelocity = PhysicsActorComponent:GetVelocity()
+    HorizontalVelocity = GetHorizontalVelocity(CurrentVelocity)
+
+    local DesiredVelocity = ScaleVector3(FlatForwardDirection, TargetSpeed)
+    local VelocityDelta = SubtractVector3(DesiredVelocity, HorizontalVelocity)
+    local MovementForce = ScaleVector3(VelocityDelta, MoveForce)
+    PhysicsActorComponent:AddForce(Vector3.new(MovementForce.x, 0.0, MovementForce.z))
+
+    return HorizontalSpeed
 end
 
 local function ApplyJumpImpulse(Context)
@@ -134,7 +186,7 @@ function Update(Context, DeltaSeconds)
     local MoveInput = BuildMoveInput()
     local FinalTargetDirection = BuildFinalTargetDirection(MoveInput)
     local RemainingDirectionDeltaRadians = ApplySmoothedYawRotation(TransformComponent, FinalTargetDirection, DeltaSeconds)
-    local CurrentSpeed = ApplyForwardMovement(TransformComponent, MoveInput, DeltaSeconds)
+    local CurrentSpeed = ApplyMovementForce(Context, TransformComponent, MoveInput)
     local IsMoving = CurrentSpeed > 0.0
 
     ApplyJumpImpulse(Context)
