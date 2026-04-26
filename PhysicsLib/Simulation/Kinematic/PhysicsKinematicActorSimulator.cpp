@@ -183,6 +183,14 @@ void PhysicsKinematicActorSimulator::MarkSweepStatesConsumed() {
     std::size_t SweepStateCount{ mSweepStates.size() };
     for (std::size_t SweepStateIndex{ 0U }; SweepStateIndex < SweepStateCount; ++SweepStateIndex) {
         PhysicsKinematicActorSweepState& SweepState{ mSweepStates[SweepStateIndex] };
+        if (SweepState.mActor != nullptr) {
+            SweepState.mCurrentPosition = SweepState.mActor->GetPosition();
+            SweepState.mCurrentOrientation = SweepState.mActor->GetOrientation();
+            SweepState.mCurrentScale = SweepState.mActor->GetScale();
+            DirectX::BoundingOrientedBox CurrentBounds{ SweepState.mActor->GetWorldBoundingBox() };
+            SweepState.mCurrentBounds = MakeKinematicSweepBounds(CurrentBounds);
+        }
+
         SweepState.mPreviousPosition = SweepState.mCurrentPosition;
         SweepState.mPreviousOrientation = SweepState.mCurrentOrientation;
         SweepState.mPreviousScale = SweepState.mCurrentScale;

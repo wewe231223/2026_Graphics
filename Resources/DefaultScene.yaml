@@ -112,6 +112,11 @@ Prefabs:
     modelPath: primitive:box;size=1.000000;color=0.720000,0.470000,0.250000,1.000000
     materialPath: primitive_vertex_color_materials.json
     active: true
+  - &Prefab3009
+    prefabId: 3009
+    modelPath: primitive:sphere;size=1.000000;color=0.010000,0.010000,0.010000,1.000000
+    materialPath: primitive_vertex_color_materials.json
+    active: true
 
 Entities:
   - EntityId: 0
@@ -2173,3 +2178,27 @@ Entities:
         flags: [None]
         friction: 0.55
         restitution: 0.12
+  - EntityId: 88
+    ParentEntityId: -1
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: SoccerBounceBlackSphere
+      Transform:
+        <<: *DefaultTransform
+        position: [42.00, 48.00, 27.50]
+        scale: [0.90, 0.90, 0.90]
+      PrefabInstance:
+        <<: *Prefab3009
+        prefabId: 3009
+      Physics:
+        name: "SoccerBounceBlackSphere"
+        active: true
+        actorType: Dynamic
+        mass: 0.43
+        flags: [None]
+        friction: 0.03
+        restitution: 0.99
