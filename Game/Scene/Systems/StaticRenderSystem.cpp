@@ -104,6 +104,55 @@ namespace {
 
         return false;
     }
+
+    const Game::RegisteredMaterialGroup* ResolveMaterialGroup(const std::vector<Game::RegisteredMaterialGroup>& MaterialGroups, const Game::Material* MaterialComponent) {
+        if (MaterialGroups.empty() == true) {
+            return nullptr;
+        }
+
+        std::size_t ResolvedMaterialGroupIndex{ MaterialComponent == nullptr ? 0u : MaterialComponent->MaterialGroupIndex };
+        if (ResolvedMaterialGroupIndex >= MaterialGroups.size() || MaterialGroups[ResolvedMaterialGroupIndex].Items.empty()) {
+            ResolvedMaterialGroupIndex = 0;
+        }
+
+        if (ResolvedMaterialGroupIndex >= MaterialGroups.size() || MaterialGroups[ResolvedMaterialGroupIndex].Items.empty() == true) {
+            return nullptr;
+        }
+
+        return &MaterialGroups[ResolvedMaterialGroupIndex];
+    }
+
+    void AppendStaticDrawRecords(const std::vector<Game::ModelSubMesh>& SubMeshes, const Game::ModelNode& Node, const Game::RegisteredMaterialGroup* ResolvedMaterialGroup, std::uint32_t ObjectIndex, std::uint32_t MaterialFlags, std::uint32_t PickFlags, std::vector<Game::RFD::DrawRecord>& OutDrawRecords) {
+        for (std::size_t SubMeshIndex{ 0 }; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
+            const Game::ModelSubMesh& SubMesh{ SubMeshes[SubMeshIndex] };
+            const Interface::IPipeline* Pipeline{ nullptr };
+            std::uint32_t ResolvedMaterialIndex{ 0 };
+
+            if (ResolvedMaterialGroup != nullptr) {
+                std::size_t ResolvedItemIndex{ SubMesh.MaterialGroupItemIndex };
+                if (ResolvedItemIndex >= ResolvedMaterialGroup->Items.size()) {
+                    ResolvedItemIndex = 0;
+                }
+
+                if (ResolvedItemIndex < ResolvedMaterialGroup->Items.size()) {
+                    const Game::RegisteredMaterialGroupItem& RegisteredGroupItem{ ResolvedMaterialGroup->Items[ResolvedItemIndex] };
+                    Pipeline = RegisteredGroupItem.Pipeline;
+                    ResolvedMaterialIndex = RegisteredGroupItem.MaterialIndex;
+                }
+            }
+
+            Game::RFD::DrawRecord DrawRecord{};
+            DrawRecord.pso = Pipeline;
+            DrawRecord.mesh = &Node;
+            DrawRecord.submesh = static_cast<std::uint32_t>(SubMeshIndex);
+            DrawRecord.pass = 0;
+            DrawRecord.objectIndex = ObjectIndex;
+            DrawRecord.materialIndex = ResolvedMaterialIndex;
+            DrawRecord.flags = MaterialFlags | PickFlags;
+            DrawRecord.pad0 = 0;
+            OutDrawRecords.push_back(DrawRecord);
+        }
+    }
 }
 
 namespace Game {
@@ -133,6 +182,8 @@ namespace Game {
         RFD::RenderFrameData& RenderData{ Ctx.RenderData };
         const std::vector<RegisteredMaterialGroup>& MaterialGroups{ *Ctx.MaterialGroups };
         const Frustum* CullingFrustumComponent{ nullptr };
+        const std::uint32_t ShadowCascadeCount{ RFD::ResolveShadowCascadeCount(RenderData.shadowMapping) };
+        const std::array<DirectX::BoundingOrientedBox, RFD::ShadowCascadeMaxCount> ShadowCullingBoxes{ RFD::BuildShadowCullingBoxes(RenderData.shadowMapping) };
 
         for (auto [CameraComponent, FrustumComponent] : World.Query<Camera, Frustum>()) {
             if (CameraComponent.isActive == false) {
@@ -158,11 +209,6 @@ namespace Game {
                 BoundingBoxComponent->UpdateWorldObb(NodeWorld);
             }
 
-            const bool IsVisible{ IsVisibleByFrustum(World, EntityId, CullingFrustumComponent) };
-            if (IsVisible == false) {
-                continue;
-            }
-
             const std::vector<ModelNode>& Nodes{ Renderer.model->GetNodes() };
             if (Renderer.nodeIndex >= Nodes.size()) {
                 continue;
@@ -174,64 +220,44 @@ namespace Game {
                 continue;
             }
 
-            RFD::ModelContext ModelContext{};
-            ModelContext.world = NodeWorld;
-            ModelContext.prevWorld = ModelContext.world;
-
-            if (BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
-                const DirectX::BoundingOrientedBox& WorldObb{ BoundingBoxComponent->GetWorldObb() };
-                RFD::BoundingBoxContext BoundingBoxContext{};
-                BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
-                BoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
-                BoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
-                RenderData.boundingBoxContexts.push_back(BoundingBoxContext);
-            }
-
-            ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());
-            RenderData.modelContexts.push_back(ModelContext);
             const std::uint32_t MaterialFlags{ MaterialComponent == nullptr ? 0u : MaterialComponent->Flags };
             const bool IsPickedHierarchy{ IsEntityWithinPickedHierarchy(World, EntityId, Ctx.PickedEntityId) };
             const std::uint32_t PickFlags{ IsPickedHierarchy ? PickedDrawFlagBitMask : 0u };
-            const RegisteredMaterialGroup* ResolvedMaterialGroup{ nullptr };
-            if (MaterialGroups.empty() == false) {
-                std::size_t ResolvedMaterialGroupIndex{ MaterialComponent == nullptr ? 0u : MaterialComponent->MaterialGroupIndex };
-                if (ResolvedMaterialGroupIndex >= MaterialGroups.size() || MaterialGroups[ResolvedMaterialGroupIndex].Items.empty()) {
-                    ResolvedMaterialGroupIndex = 0;
+            const RegisteredMaterialGroup* ResolvedMaterialGroup{ ResolveMaterialGroup(MaterialGroups, MaterialComponent) };
+            const bool IsVisible{ IsVisibleByFrustum(World, EntityId, CullingFrustumComponent) };
+
+            if (IsVisible == true) {
+                RFD::ModelContext ModelContext{};
+                ModelContext.world = NodeWorld;
+                ModelContext.prevWorld = ModelContext.world;
+
+                if (BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
+                    const DirectX::BoundingOrientedBox& WorldObb{ BoundingBoxComponent->GetWorldObb() };
+                    RFD::BoundingBoxContext BoundingBoxContext{};
+                    BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
+                    BoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
+                    BoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
+                    RenderData.boundingBoxContexts.push_back(BoundingBoxContext);
                 }
 
-                if (ResolvedMaterialGroupIndex < MaterialGroups.size() && MaterialGroups[ResolvedMaterialGroupIndex].Items.empty() == false) {
-                    ResolvedMaterialGroup = &MaterialGroups[ResolvedMaterialGroupIndex];
-                }
+                ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());
+                RenderData.modelContexts.push_back(ModelContext);
+                AppendStaticDrawRecords(SubMeshes, Node, ResolvedMaterialGroup, ModelContext.objectID, MaterialFlags, PickFlags, RenderData.drawRecords);
             }
 
-            for (std::size_t SubMeshIndex{ 0 }; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
-                const ModelSubMesh& SubMesh{ SubMeshes[SubMeshIndex] };
-                const Interface::IPipeline* Pipeline{ nullptr };
-                std::uint32_t ResolvedMaterialIndex{ 0 };
-
-                if (ResolvedMaterialGroup != nullptr) {
-                    std::size_t ResolvedItemIndex{ SubMesh.MaterialGroupItemIndex };
-                    if (ResolvedItemIndex >= ResolvedMaterialGroup->Items.size()) {
-                        ResolvedItemIndex = 0;
-                    }
-
-                    if (ResolvedItemIndex < ResolvedMaterialGroup->Items.size()) {
-                        const RegisteredMaterialGroupItem& RegisteredGroupItem{ ResolvedMaterialGroup->Items[ResolvedItemIndex] };
-                        Pipeline = RegisteredGroupItem.Pipeline;
-                        ResolvedMaterialIndex = RegisteredGroupItem.MaterialIndex;
-                    }
+            for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
+                const bool IsVisibleByShadow{ IsVisibleByShadowBox(World, EntityId, ShadowCullingBoxes[CascadeIndex]) };
+                if (IsVisibleByShadow == false) {
+                    continue;
                 }
 
-                RFD::DrawRecord DrawRecord{};
-                DrawRecord.pso = Pipeline;
-                DrawRecord.mesh = &Node;
-                DrawRecord.submesh = static_cast<std::uint32_t>(SubMeshIndex);
-                DrawRecord.pass = 0;
-                DrawRecord.objectIndex = ModelContext.objectID;
-                DrawRecord.materialIndex = ResolvedMaterialIndex;
-                DrawRecord.flags = MaterialFlags | PickFlags;
-                DrawRecord.pad0 = 0;
-                RenderData.drawRecords.push_back(DrawRecord);
+                RFD::ShadowRenderContext& ShadowRenderContext{ RenderData.ShadowRenderContexts[CascadeIndex] };
+                RFD::ModelContext ShadowModelContext{};
+                ShadowModelContext.world = NodeWorld;
+                ShadowModelContext.prevWorld = ShadowModelContext.world;
+                ShadowModelContext.objectID = static_cast<std::uint32_t>(ShadowRenderContext.ModelContexts.size());
+                ShadowRenderContext.ModelContexts.push_back(ShadowModelContext);
+                AppendStaticDrawRecords(SubMeshes, Node, ResolvedMaterialGroup, ShadowModelContext.objectID, MaterialFlags, 0u, ShadowRenderContext.DrawRecords);
             }
         }
     }
@@ -252,5 +278,19 @@ namespace Game {
         }
 
         return CullingFrustumComponent->Intersects(BoundingBoxComponent->GetWorldObb());
+    }
+
+    bool StaticRenderSystem::IsVisibleByShadowBox(Arche::World& World, Arche::EntityID EntityId, const DirectX::BoundingOrientedBox& CullingBox) const {
+        const Culling* CullingComponent{ std::as_const(World).GetComponent<Culling>(EntityId) };
+        if (CullingComponent != nullptr && CullingComponent->frustumCulling == false) {
+            return true;
+        }
+
+        const BoundingBox* BoundingBoxComponent{ std::as_const(World).GetComponent<BoundingBox>(EntityId) };
+        if (BoundingBoxComponent == nullptr || BoundingBoxComponent->HasWorldObb() == false) {
+            return true;
+        }
+
+        return CullingBox.Intersects(BoundingBoxComponent->GetWorldObb());
     }
 }

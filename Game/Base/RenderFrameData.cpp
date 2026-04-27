@@ -6,6 +6,8 @@ namespace {
     constexpr float MinimumDebugGeometryLineThickness{ 0.0001f };
     constexpr float MinimumDebugGeometryDirectionLength{ 0.0001f };
     constexpr float MinimumDebugGeometryExtent{ 0.0001f };
+    constexpr float MinimumProjectionDivisor{ 0.000001f };
+    constexpr float MinimumProjectionDepthSpan{ 0.001f };
 
     float ResolveMinimumPositiveValue(float Value, float MinimumValue) {
         return (std::max)(Value, MinimumValue);
@@ -29,6 +31,38 @@ namespace {
 
         const float QuaternionLengthInverse{ 1.0f / std::sqrt(QuaternionLengthSquared) };
         return DirectX::SimpleMath::Quaternion{ QuaternionValue.x * QuaternionLengthInverse, QuaternionValue.y * QuaternionLengthInverse, QuaternionValue.z * QuaternionLengthInverse, QuaternionValue.w * QuaternionLengthInverse };
+    }
+
+    float ResolveProjectionDivisor(float Value) {
+        if (std::abs(Value) > MinimumProjectionDivisor) {
+            return Value;
+        }
+
+        return Value < 0.0f ? -MinimumProjectionDivisor : MinimumProjectionDivisor;
+    }
+
+    DirectX::BoundingOrientedBox BuildShadowCullingBox(const Game::RFD::CameraParameter& ShadowCameraParameter) {
+        const SimpleMath::Matrix& ProjectionMatrix{ ShadowCameraParameter.proj };
+        const float ProjectionScaleX{ ResolveProjectionDivisor(ProjectionMatrix._11) };
+        const float ProjectionScaleY{ ResolveProjectionDivisor(ProjectionMatrix._22) };
+        const float ProjectionCenterX{ -ProjectionMatrix._41 / ProjectionScaleX };
+        const float ProjectionCenterY{ -ProjectionMatrix._42 / ProjectionScaleY };
+        const float ProjectionHalfWidth{ std::abs(1.0f / ProjectionScaleX) };
+        const float ProjectionHalfHeight{ std::abs(1.0f / ProjectionScaleY) };
+        const float EffectiveNearPlane{ (std::max)(ShadowCameraParameter.nearPlane, 0.0f) };
+        const float EffectiveFarPlane{ (std::max)(ShadowCameraParameter.farPlane, EffectiveNearPlane + MinimumProjectionDepthSpan) };
+        const float ProjectionHalfDepth{ (EffectiveFarPlane - EffectiveNearPlane) * 0.5f };
+        const float ProjectionCenterZ{ EffectiveNearPlane + ProjectionHalfDepth };
+
+        DirectX::BoundingOrientedBox LightSpaceBox{};
+        LightSpaceBox.Center = DirectX::XMFLOAT3{ ProjectionCenterX, ProjectionCenterY, ProjectionCenterZ };
+        LightSpaceBox.Extents = DirectX::XMFLOAT3{ ProjectionHalfWidth, ProjectionHalfHeight, ProjectionHalfDepth };
+        LightSpaceBox.Orientation = DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 1.0f };
+
+        DirectX::BoundingOrientedBox WorldSpaceBox{};
+        const SimpleMath::Matrix InverseViewMatrix{ ShadowCameraParameter.view.Invert() };
+        LightSpaceBox.Transform(WorldSpaceBox, InverseViewMatrix);
+        return WorldSpaceBox;
     }
 }
 
@@ -85,6 +119,21 @@ namespace Game {
             DebugGeometryContext NewDebugGeometryContext{};
             NewDebugGeometryContext.SetWireCube(CenterValue, ExtentsValue, OrientationValue, ColorValue, LineThicknessValue);
             return NewDebugGeometryContext;
+        }
+
+        std::uint32_t ResolveShadowCascadeCount(const ShadowMappingParameter& ShadowMappingParameter) {
+            return (std::max)(1u, (std::min)(ShadowMappingParameter.cascadeCount, ShadowCascadeMaxCount));
+        }
+
+        std::array<DirectX::BoundingOrientedBox, ShadowCascadeMaxCount> BuildShadowCullingBoxes(const ShadowMappingParameter& ShadowMappingParameter) {
+            std::array<DirectX::BoundingOrientedBox, ShadowCascadeMaxCount> ShadowCullingBoxes{};
+            const std::uint32_t ShadowCascadeCount{ ResolveShadowCascadeCount(ShadowMappingParameter) };
+
+            for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
+                ShadowCullingBoxes[CascadeIndex] = BuildShadowCullingBox(ShadowMappingParameter.shadowCameras[CascadeIndex]);
+            }
+
+            return ShadowCullingBoxes;
         }
     }
 }

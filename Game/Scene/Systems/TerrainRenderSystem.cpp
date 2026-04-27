@@ -132,6 +132,76 @@ namespace {
         BoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
         RenderData.boundingBoxContexts.push_back(BoundingBoxContext);
     }
+
+    const Game::RegisteredMaterialGroup* ResolveMaterialGroup(const std::vector<Game::RegisteredMaterialGroup>& MaterialGroups, const Game::Material* MaterialComponent) {
+        if (MaterialGroups.empty() == true) {
+            return nullptr;
+        }
+
+        std::size_t ResolvedMaterialGroupIndex{ MaterialComponent == nullptr ? 0u : MaterialComponent->MaterialGroupIndex };
+        if (ResolvedMaterialGroupIndex >= MaterialGroups.size() || MaterialGroups[ResolvedMaterialGroupIndex].Items.empty()) {
+            ResolvedMaterialGroupIndex = 0;
+        }
+
+        if (ResolvedMaterialGroupIndex >= MaterialGroups.size() || MaterialGroups[ResolvedMaterialGroupIndex].Items.empty() == true) {
+            return nullptr;
+        }
+
+        return &MaterialGroups[ResolvedMaterialGroupIndex];
+    }
+
+    bool IsWorldBoundingBoxVisibleByFrustum(const DirectX::BoundingOrientedBox& WorldBoundingBox, const Game::Frustum* CullingFrustumComponent, bool IsFrustumCullingEnabled) {
+        if (IsFrustumCullingEnabled == false) {
+            return true;
+        }
+
+        if (CullingFrustumComponent == nullptr) {
+            return true;
+        }
+
+        return CullingFrustumComponent->Intersects(WorldBoundingBox);
+    }
+
+    bool IsWorldBoundingBoxVisibleByShadowBox(const DirectX::BoundingOrientedBox& WorldBoundingBox, const DirectX::BoundingOrientedBox& CullingBox, bool IsFrustumCullingEnabled) {
+        if (IsFrustumCullingEnabled == false) {
+            return true;
+        }
+
+        return CullingBox.Intersects(WorldBoundingBox);
+    }
+
+    void AppendTerrainDrawRecord(const Game::TerrainTileMetadata& TileMetadata, const Game::TerrainRenderResource& Resource, const Game::ModelNode& Node, const Game::RegisteredMaterialGroup* ResolvedMaterialGroup, std::uint32_t ObjectIndex, std::uint32_t MaterialFlags, std::uint32_t PickFlags, const TerrainTileTessellationData& TessellationData, std::vector<Game::RFD::TerrainPatchContext>& OutTerrainPatchContexts, std::vector<Game::RFD::DrawRecord>& OutDrawRecords) {
+        const std::uint32_t TileSubMeshIndex{ TileMetadata.mSubMeshIndex };
+        const Game::ModelSubMesh& SubMesh{ Node.GetSubMesh(TileSubMeshIndex) };
+        const Interface::IPipeline* Pipeline{ nullptr };
+        std::uint32_t ResolvedMaterialIndex{ 0 };
+
+        if (ResolvedMaterialGroup != nullptr) {
+            std::size_t ResolvedItemIndex{ SubMesh.MaterialGroupItemIndex };
+            if (ResolvedItemIndex >= ResolvedMaterialGroup->Items.size()) {
+                ResolvedItemIndex = 0;
+            }
+
+            if (ResolvedItemIndex < ResolvedMaterialGroup->Items.size()) {
+                const Game::RegisteredMaterialGroupItem& RegisteredGroupItem{ ResolvedMaterialGroup->Items[ResolvedItemIndex] };
+                Pipeline = RegisteredGroupItem.Pipeline;
+                ResolvedMaterialIndex = RegisteredGroupItem.MaterialIndex;
+            }
+        }
+
+        Game::RFD::DrawRecord DrawRecord{};
+        DrawRecord.pso = Pipeline;
+        DrawRecord.mesh = &Node;
+        DrawRecord.submesh = TileSubMeshIndex;
+        DrawRecord.pass = 0;
+        DrawRecord.objectIndex = ObjectIndex;
+        DrawRecord.materialIndex = ResolvedMaterialIndex;
+        DrawRecord.flags = MaterialFlags | PickFlags;
+        DrawRecord.TerrainPatchContextIndex = static_cast<std::uint32_t>(OutTerrainPatchContexts.size());
+        DrawRecord.pad0 = 0;
+        OutTerrainPatchContexts.push_back(BuildTerrainPatchContext(TileMetadata, Resource, TessellationData));
+        OutDrawRecords.push_back(DrawRecord);
+    }
 }
 
 namespace Game {
@@ -183,6 +253,8 @@ namespace Game {
         RFD::RenderFrameData& RenderData{ Ctx.RenderData };
         const std::vector<RegisteredMaterialGroup>& MaterialGroups{ *Ctx.MaterialGroups };
         const Frustum* CullingFrustumComponent{ nullptr };
+        const std::uint32_t ShadowCascadeCount{ RFD::ResolveShadowCascadeCount(RenderData.shadowMapping) };
+        const std::array<DirectX::BoundingOrientedBox, RFD::ShadowCascadeMaxCount> ShadowCullingBoxes{ RFD::BuildShadowCullingBoxes(RenderData.shadowMapping) };
         SimpleMath::Vector3 CameraPosition{};
         bool HasCameraPosition{ false };
 
@@ -234,11 +306,20 @@ namespace Game {
                 BoundingBoxComponent->SetWorldObb(ParentWorldBoundingBox);
             }
 
-            if (IsParentVisible == false) {
+            std::array<bool, RFD::ShadowCascadeMaxCount> IsParentVisibleByShadowCascade{};
+            bool HasVisibleShadowParent{ false };
+            for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
+                IsParentVisibleByShadowCascade[CascadeIndex] = IsWorldBoundingBoxVisibleByShadowBox(ParentWorldBoundingBox, ShadowCullingBoxes[CascadeIndex], IsFrustumCullingEnabled);
+                if (IsParentVisibleByShadowCascade[CascadeIndex] == true) {
+                    HasVisibleShadowParent = true;
+                }
+            }
+
+            if (IsParentVisible == false && HasVisibleShadowParent == false) {
                 continue;
             }
 
-            if (BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
+            if (IsParentVisible == true && BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
                 AppendBoundingBoxContext(BoundingBoxComponent->GetWorldObb(), RenderData);
             }
 
@@ -283,20 +364,12 @@ namespace Game {
             const bool IsPickedParentHierarchy{ IsEntityWithinPickedHierarchy(World, EntityId, Ctx.PickedEntityId) };
             const bool IsPickedTileInThisTerrain{ PickedTerrainRenderer != nullptr && PickedTerrainRenderer->mResource == Renderer.mResource && PickedTerrainRenderer->mTileMetadataIndex != InvalidTerrainTileMetadataIndex && IsEntityWithinPickedHierarchy(World, Ctx.PickedEntityId, EntityId) };
             const std::uint32_t PickedTileMetadataIndex{ IsPickedTileInThisTerrain == true ? PickedTerrainRenderer->mTileMetadataIndex : InvalidTerrainTileMetadataIndex };
-            const RegisteredMaterialGroup* ResolvedMaterialGroup{ nullptr };
-            if (MaterialGroups.empty() == false) {
-                std::size_t ResolvedMaterialGroupIndex{ MaterialComponent == nullptr ? 0u : MaterialComponent->MaterialGroupIndex };
-                if (ResolvedMaterialGroupIndex >= MaterialGroups.size() || MaterialGroups[ResolvedMaterialGroupIndex].Items.empty()) {
-                    ResolvedMaterialGroupIndex = 0;
-                }
-
-                if (ResolvedMaterialGroupIndex < MaterialGroups.size() && MaterialGroups[ResolvedMaterialGroupIndex].Items.empty() == false) {
-                    ResolvedMaterialGroup = &MaterialGroups[ResolvedMaterialGroupIndex];
-                }
-            }
+            const RegisteredMaterialGroup* ResolvedMaterialGroup{ ResolveMaterialGroup(MaterialGroups, MaterialComponent) };
 
             bool HasModelContext{ false };
             std::uint32_t ObjectIndex{ 0 };
+            std::array<bool, RFD::ShadowCascadeMaxCount> HasShadowModelContexts{};
+            std::array<std::uint32_t, RFD::ShadowCascadeMaxCount> ShadowObjectIndices{};
             for (std::size_t TileMetadataIndex{ 0 }; TileMetadataIndex < TileMetadataItems.size(); ++TileMetadataIndex) {
                 const TerrainTileMetadata& TileMetadata{ TileMetadataItems[TileMetadataIndex] };
                 const std::uint32_t TileSubMeshIndex{ TileMetadata.mSubMeshIndex };
@@ -305,53 +378,48 @@ namespace Game {
                 }
 
                 DirectX::BoundingOrientedBox TileWorldBoundingBox{};
-                const bool IsVisible{ IsTileVisibleByFrustum(TileMetadata.mLocalBoundingBox, NodeWorld, CullingFrustumComponent, IsFrustumCullingEnabled, TileWorldBoundingBox) };
-                if (IsVisible == false) {
-                    continue;
-                }
-
-                if (HasModelContext == false) {
-                    RFD::ModelContext ModelContext{};
-                    ModelContext.world = NodeWorld;
-                    ModelContext.prevWorld = ModelContext.world;
-                    ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());
-                    ObjectIndex = ModelContext.objectID;
-                    RenderData.modelContexts.push_back(ModelContext);
-                    HasModelContext = true;
-                }
-
-                AppendBoundingBoxContext(TileWorldBoundingBox, RenderData);
-
-                const ModelSubMesh& SubMesh{ NodePointer->GetSubMesh(TileSubMeshIndex) };
-                const Interface::IPipeline* Pipeline{ nullptr };
-                std::uint32_t ResolvedMaterialIndex{ 0 };
-
-                if (ResolvedMaterialGroup != nullptr) {
-                    std::size_t ResolvedItemIndex{ SubMesh.MaterialGroupItemIndex };
-                    if (ResolvedItemIndex >= ResolvedMaterialGroup->Items.size()) {
-                        ResolvedItemIndex = 0;
-                    }
-
-                    if (ResolvedItemIndex < ResolvedMaterialGroup->Items.size()) {
-                        const RegisteredMaterialGroupItem& RegisteredGroupItem{ ResolvedMaterialGroup->Items[ResolvedItemIndex] };
-                        Pipeline = RegisteredGroupItem.Pipeline;
-                        ResolvedMaterialIndex = RegisteredGroupItem.MaterialIndex;
-                    }
-                }
-
-                RFD::DrawRecord DrawRecord{};
-                DrawRecord.pso = Pipeline;
-                DrawRecord.mesh = NodePointer;
-                DrawRecord.submesh = TileSubMeshIndex;
-                DrawRecord.pass = 0;
-                DrawRecord.objectIndex = ObjectIndex;
-                DrawRecord.materialIndex = ResolvedMaterialIndex;
+                TileMetadata.mLocalBoundingBox.Transform(TileWorldBoundingBox, NodeWorld);
+                const bool IsVisible{ IsWorldBoundingBoxVisibleByFrustum(TileWorldBoundingBox, CullingFrustumComponent, IsFrustumCullingEnabled) };
                 const bool IsPickedTile{ IsPickedParentHierarchy == true || PickedTileMetadataIndex == static_cast<std::uint32_t>(TileMetadataIndex) };
-                DrawRecord.flags = MaterialFlags | (IsPickedTile == true ? PickedDrawFlagBitMask : 0u);
-                DrawRecord.TerrainPatchContextIndex = static_cast<std::uint32_t>(RenderData.TerrainPatchContexts.size());
-                DrawRecord.pad0 = 0;
-                RenderData.TerrainPatchContexts.push_back(BuildTerrainPatchContext(TileMetadata, *Renderer.mResource, TileTessellationItems[TileMetadataIndex]));
-                RenderData.drawRecords.push_back(DrawRecord);
+
+                if (IsVisible == true) {
+                    if (HasModelContext == false) {
+                        RFD::ModelContext ModelContext{};
+                        ModelContext.world = NodeWorld;
+                        ModelContext.prevWorld = ModelContext.world;
+                        ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());
+                        ObjectIndex = ModelContext.objectID;
+                        RenderData.modelContexts.push_back(ModelContext);
+                        HasModelContext = true;
+                    }
+
+                    AppendBoundingBoxContext(TileWorldBoundingBox, RenderData);
+                    AppendTerrainDrawRecord(TileMetadata, *Renderer.mResource, *NodePointer, ResolvedMaterialGroup, ObjectIndex, MaterialFlags, IsPickedTile == true ? PickedDrawFlagBitMask : 0u, TileTessellationItems[TileMetadataIndex], RenderData.TerrainPatchContexts, RenderData.drawRecords);
+                }
+
+                for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
+                    if (IsParentVisibleByShadowCascade[CascadeIndex] == false) {
+                        continue;
+                    }
+
+                    const bool IsVisibleByShadow{ IsWorldBoundingBoxVisibleByShadowBox(TileWorldBoundingBox, ShadowCullingBoxes[CascadeIndex], IsFrustumCullingEnabled) };
+                    if (IsVisibleByShadow == false) {
+                        continue;
+                    }
+
+                    RFD::ShadowRenderContext& ShadowRenderContext{ RenderData.ShadowRenderContexts[CascadeIndex] };
+                    if (HasShadowModelContexts[CascadeIndex] == false) {
+                        RFD::ModelContext ShadowModelContext{};
+                        ShadowModelContext.world = NodeWorld;
+                        ShadowModelContext.prevWorld = ShadowModelContext.world;
+                        ShadowModelContext.objectID = static_cast<std::uint32_t>(ShadowRenderContext.ModelContexts.size());
+                        ShadowObjectIndices[CascadeIndex] = ShadowModelContext.objectID;
+                        ShadowRenderContext.ModelContexts.push_back(ShadowModelContext);
+                        HasShadowModelContexts[CascadeIndex] = true;
+                    }
+
+                    AppendTerrainDrawRecord(TileMetadata, *Renderer.mResource, *NodePointer, ResolvedMaterialGroup, ShadowObjectIndices[CascadeIndex], MaterialFlags, 0u, TileTessellationItems[TileMetadataIndex], ShadowRenderContext.TerrainPatchContexts, ShadowRenderContext.DrawRecords);
+                }
             }
         }
     }

@@ -9,6 +9,7 @@
 #include "Game/Model/AssetRegistry.h"
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/BoundingBox.h"
+#include "Game/Scene/Components/Culling.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/SkinnedMeshRenderer.h"
@@ -39,6 +40,69 @@ namespace {
 
         return false;
     }
+
+    const Game::RegisteredMaterialGroup* ResolveMaterialGroup(const std::vector<Game::RegisteredMaterialGroup>& MaterialGroups, const Game::Material* MaterialComponent) {
+        if (MaterialGroups.empty() == true) {
+            return nullptr;
+        }
+
+        std::size_t ResolvedMaterialGroupIndex{ MaterialComponent == nullptr ? 0u : MaterialComponent->MaterialGroupIndex };
+        if (ResolvedMaterialGroupIndex >= MaterialGroups.size() || MaterialGroups[ResolvedMaterialGroupIndex].Items.empty()) {
+            ResolvedMaterialGroupIndex = 0;
+        }
+
+        if (ResolvedMaterialGroupIndex >= MaterialGroups.size() || MaterialGroups[ResolvedMaterialGroupIndex].Items.empty() == true) {
+            return nullptr;
+        }
+
+        return &MaterialGroups[ResolvedMaterialGroupIndex];
+    }
+
+    bool IsVisibleByShadowBox(Arche::World& World, Arche::EntityID EntityId, const DirectX::BoundingOrientedBox& CullingBox) {
+        const Game::Culling* CullingComponent{ std::as_const(World).GetComponent<Game::Culling>(EntityId) };
+        if (CullingComponent != nullptr && CullingComponent->frustumCulling == false) {
+            return true;
+        }
+
+        const Game::BoundingBox* BoundingBoxComponent{ std::as_const(World).GetComponent<Game::BoundingBox>(EntityId) };
+        if (BoundingBoxComponent == nullptr || BoundingBoxComponent->HasWorldObb() == false) {
+            return true;
+        }
+
+        return CullingBox.Intersects(BoundingBoxComponent->GetWorldObb());
+    }
+
+    void AppendSkinnedDrawRecords(const std::vector<Game::ModelSubMesh>& SubMeshes, const Game::ModelNode& Node, const Game::RegisteredMaterialGroup* ResolvedMaterialGroup, std::uint32_t ObjectIndex, std::uint32_t MaterialFlags, std::uint32_t PickFlags, std::vector<Game::RFD::DrawRecord>& OutDrawRecords) {
+        for (std::size_t SubMeshIndex{ 0 }; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
+            const Game::ModelSubMesh& SubMesh{ SubMeshes[SubMeshIndex] };
+            const Interface::IPipeline* Pipeline{ nullptr };
+            std::uint32_t ResolvedMaterialIndex{ 0 };
+
+            if (ResolvedMaterialGroup != nullptr) {
+                std::size_t ResolvedItemIndex{ SubMesh.MaterialGroupItemIndex };
+                if (ResolvedItemIndex >= ResolvedMaterialGroup->Items.size()) {
+                    ResolvedItemIndex = 0;
+                }
+
+                if (ResolvedItemIndex < ResolvedMaterialGroup->Items.size()) {
+                    const Game::RegisteredMaterialGroupItem& RegisteredGroupItem{ ResolvedMaterialGroup->Items[ResolvedItemIndex] };
+                    Pipeline = RegisteredGroupItem.Pipeline;
+                    ResolvedMaterialIndex = RegisteredGroupItem.MaterialIndex;
+                }
+            }
+
+            Game::RFD::DrawRecord DrawRecord{};
+            DrawRecord.pso = Pipeline;
+            DrawRecord.mesh = &Node;
+            DrawRecord.submesh = static_cast<std::uint32_t>(SubMeshIndex);
+            DrawRecord.pass = 0;
+            DrawRecord.objectIndex = ObjectIndex;
+            DrawRecord.materialIndex = ResolvedMaterialIndex;
+            DrawRecord.flags = MaterialFlags | PickFlags;
+            DrawRecord.pad0 = 0;
+            OutDrawRecords.push_back(DrawRecord);
+        }
+    }
 }
 
 namespace Game {
@@ -57,7 +121,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> SkinnedMeshRenderSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 4> Accesses{ { { typeid(SkinnedMeshRenderer), Access::Read }, { typeid(Transform), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(BoundingBox), Access::Read } } };
+        static std::array<ComponentAccess, 5> Accesses{ { { typeid(SkinnedMeshRenderer), Access::Read }, { typeid(Transform), Access::Read }, { typeid(EntityHierarchy), Access::Read }, { typeid(BoundingBox), Access::Read }, { typeid(Culling), Access::Read } } };
         return Accesses;
     }
 
@@ -71,6 +135,8 @@ namespace Game {
 
         RFD::RenderFrameData& RenderData{ Ctx.RenderData };
         const std::vector<RegisteredMaterialGroup>& MaterialGroups{ *Ctx.MaterialGroups };
+        const std::uint32_t ShadowCascadeCount{ RFD::ResolveShadowCascadeCount(RenderData.shadowMapping) };
+        const std::array<DirectX::BoundingOrientedBox, RFD::ShadowCascadeMaxCount> ShadowCullingBoxes{ RFD::BuildShadowCullingBoxes(RenderData.shadowMapping) };
         std::unordered_map<Arche::EntityID, const SkinnedMeshPreparedData*> PreparedDataByEntity{};
         PreparedDataByEntity.reserve(Ctx.SkinnedMeshPreparedDataItems.size());
         for (const SkinnedMeshPreparedData& PreparedData : Ctx.SkinnedMeshPreparedDataItems) {
@@ -144,17 +210,7 @@ namespace Game {
             const std::uint32_t MaterialFlags{ MaterialComponent == nullptr ? 0u : MaterialComponent->Flags };
             const bool IsPickedHierarchy{ IsEntityWithinPickedHierarchy(World, EntityId, Ctx.PickedEntityId) };
             const std::uint32_t PickFlags{ IsPickedHierarchy ? PickedDrawFlagBitMask : 0u };
-            const RegisteredMaterialGroup* ResolvedMaterialGroup{ nullptr };
-            if (MaterialGroups.empty() == false) {
-                std::size_t ResolvedMaterialGroupIndex{ MaterialComponent == nullptr ? 0u : MaterialComponent->MaterialGroupIndex };
-                if (ResolvedMaterialGroupIndex >= MaterialGroups.size() || MaterialGroups[ResolvedMaterialGroupIndex].Items.empty()) {
-                    ResolvedMaterialGroupIndex = 0;
-                }
-
-                if (ResolvedMaterialGroupIndex < MaterialGroups.size() && MaterialGroups[ResolvedMaterialGroupIndex].Items.empty() == false) {
-                    ResolvedMaterialGroup = &MaterialGroups[ResolvedMaterialGroupIndex];
-                }
-            }
+            const RegisteredMaterialGroup* ResolvedMaterialGroup{ ResolveMaterialGroup(MaterialGroups, MaterialComponent) };
 
             RFD::ModelContext ModelContext{};
             ModelContext.world = TransformComponent.worldMatrix;
@@ -163,35 +219,23 @@ namespace Game {
             ModelContext.boneIndexStart = GlobalBoneIndexStart;
             ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());
             RenderData.modelContexts.push_back(ModelContext);
+            AppendSkinnedDrawRecords(SubMeshes, Node, ResolvedMaterialGroup, ModelContext.objectID, MaterialFlags, PickFlags, RenderData.drawRecords);
 
-            for (std::size_t SubMeshIndex{ 0 }; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
-                const ModelSubMesh& SubMesh{ SubMeshes[SubMeshIndex] };
-                const Interface::IPipeline* Pipeline{ nullptr };
-                std::uint32_t ResolvedMaterialIndex{ 0 };
-
-                if (ResolvedMaterialGroup != nullptr) {
-                    std::size_t ResolvedItemIndex{ SubMesh.MaterialGroupItemIndex };
-                    if (ResolvedItemIndex >= ResolvedMaterialGroup->Items.size()) {
-                        ResolvedItemIndex = 0;
-                    }
-
-                    if (ResolvedItemIndex < ResolvedMaterialGroup->Items.size()) {
-                        const RegisteredMaterialGroupItem& RegisteredGroupItem{ ResolvedMaterialGroup->Items[ResolvedItemIndex] };
-                        Pipeline = RegisteredGroupItem.Pipeline;
-                        ResolvedMaterialIndex = RegisteredGroupItem.MaterialIndex;
-                    }
+            for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
+                const bool IsVisibleByShadow{ IsVisibleByShadowBox(World, EntityId, ShadowCullingBoxes[CascadeIndex]) };
+                if (IsVisibleByShadow == false) {
+                    continue;
                 }
 
-                RFD::DrawRecord DrawRecord{};
-                DrawRecord.pso = Pipeline;
-                DrawRecord.mesh = &Node;
-                DrawRecord.submesh = static_cast<std::uint32_t>(SubMeshIndex);
-                DrawRecord.pass = 0;
-                DrawRecord.objectIndex = ModelContext.objectID;
-                DrawRecord.materialIndex = ResolvedMaterialIndex;
-                DrawRecord.flags = MaterialFlags | PickFlags;
-                DrawRecord.pad0 = 0;
-                RenderData.drawRecords.push_back(DrawRecord);
+                RFD::ShadowRenderContext& ShadowRenderContext{ RenderData.ShadowRenderContexts[CascadeIndex] };
+                RFD::ModelContext ShadowModelContext{};
+                ShadowModelContext.world = TransformComponent.worldMatrix;
+                ShadowModelContext.prevWorld = ShadowModelContext.world;
+                ShadowModelContext.flags = SkinnedModelContextFlagBitMask;
+                ShadowModelContext.boneIndexStart = GlobalBoneIndexStart;
+                ShadowModelContext.objectID = static_cast<std::uint32_t>(ShadowRenderContext.ModelContexts.size());
+                ShadowRenderContext.ModelContexts.push_back(ShadowModelContext);
+                AppendSkinnedDrawRecords(SubMeshes, Node, ResolvedMaterialGroup, ShadowModelContext.objectID, MaterialFlags, 0u, ShadowRenderContext.DrawRecords);
             }
         }
     }

@@ -122,20 +122,20 @@ namespace Core {
 			DrawDebugGeometries(CommandList, Data, FrameGlobalsSrvHandle, DebugGeometryContextSrvHandle);
 		}
 
-		void DrawCallDispatcher::DrawDepthOnly(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, std::uint32_t ShadowFrameGlobalsIndex, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+		void DrawCallDispatcher::DrawDepthOnly(ID3D12GraphicsCommandList* CommandList, const Game::RFD::ShadowRenderContext& ShadowRenderContext, std::uint32_t ShadowFrameGlobalsIndex, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			const Interface::IPipeline* ActivePipeline{ nullptr };
 			size_t DrawRecordIndex{ 0 };
 
-			while (DrawRecordIndex < Data.drawRecords.size()) {
-				const Game::RFD::DrawRecord& StartRecord{ Data.drawRecords[DrawRecordIndex] };
+			while (DrawRecordIndex < ShadowRenderContext.DrawRecords.size()) {
+				const Game::RFD::DrawRecord& StartRecord{ ShadowRenderContext.DrawRecords[DrawRecordIndex] };
 				if (StartRecord.pso == nullptr || StartRecord.mesh == nullptr) {
 					DrawRecordIndex += 1;
 					continue;
 				}
 
 				size_t RunEndIndex{ DrawRecordIndex + 1 };
-				while (RunEndIndex < Data.drawRecords.size()) {
-					const Game::RFD::DrawRecord& NextRecord{ Data.drawRecords[RunEndIndex] };
+				while (RunEndIndex < ShadowRenderContext.DrawRecords.size()) {
+					const Game::RFD::DrawRecord& NextRecord{ ShadowRenderContext.DrawRecords[RunEndIndex] };
 					bool IsSameRun{ NextRecord.pass == StartRecord.pass && NextRecord.pso == StartRecord.pso && NextRecord.mesh == StartRecord.mesh && NextRecord.submesh == StartRecord.submesh };
 					if (IsSameRun == false) {
 						break;

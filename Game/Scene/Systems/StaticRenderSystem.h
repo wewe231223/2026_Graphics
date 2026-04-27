@@ -25,6 +25,7 @@ namespace Game {
 
     private:
         bool IsVisibleByFrustum(Arche::World& World, Arche::EntityID EntityId, const Frustum* CullingFrustumComponent) const;
+        bool IsVisibleByShadowBox(Arche::World& World, Arche::EntityID EntityId, const DirectX::BoundingOrientedBox& CullingBox) const;
 
     private:
         const std::string mName{ "StaticRenderSystem" };

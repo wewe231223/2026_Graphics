@@ -1,6 +1,8 @@
 ﻿#pragma once
+#include <array>
 #include <cstdint>
 #include <vector>
+#include <DirectXCollision.h>
 #include <DirectXTK12/SimpleMath.h>
 #include "Asset/Common.h"
 #include "Game/Base/Common.h"
@@ -165,6 +167,15 @@ namespace Game {
             uint32_t pad0{ 0 };
         };
 
+        struct ShadowRenderContext final {
+            std::vector<ModelContext> ModelContexts{};
+            std::vector<TerrainPatchContext> TerrainPatchContexts{};
+            std::vector<DrawRecord> DrawRecords{};
+        };
+
+        std::uint32_t ResolveShadowCascadeCount(const ShadowMappingParameter& ShadowMappingParameter);
+        std::array<DirectX::BoundingOrientedBox, ShadowCascadeMaxCount> BuildShadowCullingBoxes(const ShadowMappingParameter& ShadowMappingParameter);
+
         // ------------------------------------------------------------
         // 5) Scene -> Renderer 프레임 패킷
         //    - Renderer는 drawRecords를 정렬 후 contiguous run을 DrawIndexedInstanced로 소비
@@ -183,6 +194,7 @@ namespace Game {
             std::vector<MaterialGpu> materials{};
             std::vector<MaterialTextureTableItemGpu> materialTextureTable{};
             std::vector<SimpleMath::Matrix> bonePalette{};
+            std::array<ShadowRenderContext, ShadowCascadeMaxCount> ShadowRenderContexts{};
 
 
             // Render Loop 참고 순서

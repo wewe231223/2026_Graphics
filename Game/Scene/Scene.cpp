@@ -743,6 +743,12 @@ namespace Game {
                 mFrameContext.RenderData.TerrainPatchContexts.clear();
                 mFrameContext.RenderData.drawRecords.clear();
                 mFrameContext.RenderData.bonePalette.clear();
+                for (RFD::ShadowRenderContext& ShadowRenderContext : mFrameContext.RenderData.ShadowRenderContexts) {
+                    ShadowRenderContext.ModelContexts.clear();
+                    ShadowRenderContext.TerrainPatchContexts.clear();
+                    ShadowRenderContext.DrawRecords.clear();
+                }
+
                 mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
                 mFrameContext.RenderData.globals.flags = 0u;
                 if (mIsBoundingBoxDrawEnabled) {

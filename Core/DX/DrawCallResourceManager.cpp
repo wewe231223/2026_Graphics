@@ -25,14 +25,30 @@ namespace Core {
 			mTerrainPatchContextSrvHandle = mSrvHeap->Allocate();
 			mBonePaletteSrvHandle = mSrvHeap->Allocate();
 			mDrawRecordSrvHandle = mSrvHeap->Allocate();
+			for (std::uint32_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < Game::RFD::ShadowCascadeMaxCount; ShadowCascadeIndex += 1) {
+				mShadowModelContextSrvHandles[ShadowCascadeIndex] = mSrvHeap->Allocate();
+				mShadowTerrainPatchContextSrvHandles[ShadowCascadeIndex] = mSrvHeap->Allocate();
+				mShadowDrawRecordSrvHandles[ShadowCascadeIndex] = mSrvHeap->Allocate();
+			}
+
 			mCopyFuture = Interface::CopyFuture{};
 			static_cast<void>(FrameIndex);
 		}
 
 		void DrawCallResourceManager::PrepareFrameResources(Game::RFD::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue* CopyQueue) {
 			std::stable_sort(Data.drawRecords.begin(), Data.drawRecords.end(), DrawCallResourceManager::CompareDrawRecordByPso);
-			DrawCallResourceManager::BuildDrawRecordGpu(Data);
-			const std::uint32_t ShadowCascadeCount{ std::max<std::uint32_t>(1u, std::min<std::uint32_t>(Data.shadowMapping.cascadeCount, Game::RFD::ShadowCascadeMaxCount)) };
+			DrawCallResourceManager::BuildDrawRecordGpu(Data.drawRecords, mDrawRecordsGpu);
+			const std::uint32_t ShadowCascadeCount{ Game::RFD::ResolveShadowCascadeCount(Data.shadowMapping) };
+			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
+				Game::RFD::ShadowRenderContext& ShadowRenderContext{ Data.ShadowRenderContexts[CascadeIndex] };
+				DrawCallResourceManager::SortShadowDrawRecords(ShadowRenderContext.DrawRecords);
+				DrawCallResourceManager::BuildDrawRecordGpu(ShadowRenderContext.DrawRecords, mShadowDrawRecordsGpu[CascadeIndex]);
+			}
+
+			for (std::uint32_t CascadeIndex{ ShadowCascadeCount }; CascadeIndex < Game::RFD::ShadowCascadeMaxCount; CascadeIndex += 1) {
+				mShadowDrawRecordsGpu[CascadeIndex].clear();
+			}
+
 			std::array<Game::RFD::FrameGlobals, Game::RFD::ShadowCascadeMaxCount> ShadowFrameGlobalsArray{};
 			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
 				Game::RFD::FrameGlobals ShadowFrameGlobals{ Data.globals };
@@ -52,6 +68,15 @@ namespace Core {
 			std::size_t TerrainPatchContextsSizeInBytes{ sizeof(Game::RFD::TerrainPatchContext) * Data.TerrainPatchContexts.size() };
 			std::size_t BonePaletteSizeInBytes{ sizeof(SimpleMath::Matrix) * Data.bonePalette.size() };
 			std::size_t DrawRecordsGpuSizeInBytes{ sizeof(DrawRecordGPU) * mDrawRecordsGpu.size() };
+			std::array<std::size_t, Game::RFD::ShadowCascadeMaxCount> ShadowModelContextsSizeInBytes{};
+			std::array<std::size_t, Game::RFD::ShadowCascadeMaxCount> ShadowTerrainPatchContextsSizeInBytes{};
+			std::array<std::size_t, Game::RFD::ShadowCascadeMaxCount> ShadowDrawRecordsGpuSizeInBytes{};
+			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
+				const Game::RFD::ShadowRenderContext& ShadowRenderContext{ Data.ShadowRenderContexts[CascadeIndex] };
+				ShadowModelContextsSizeInBytes[CascadeIndex] = sizeof(Game::RFD::ModelContext) * ShadowRenderContext.ModelContexts.size();
+				ShadowTerrainPatchContextsSizeInBytes[CascadeIndex] = sizeof(Game::RFD::TerrainPatchContext) * ShadowRenderContext.TerrainPatchContexts.size();
+				ShadowDrawRecordsGpuSizeInBytes[CascadeIndex] = sizeof(DrawRecordGPU) * mShadowDrawRecordsGpu[CascadeIndex].size();
+			}
 
 			std::byte DummyByte{ 0 };
 			void* FrameGlobalsSourceData{ FrameGlobalsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&Data.globals) };
@@ -91,8 +116,24 @@ namespace Core {
 			bool DrawRecordCopyResult{ mDrawRecordVector.Copy(GraphicsAllocator, DrawRecordSourceData, DrawRecordsGpuSizeInBytes) };
 			ErrorHandler::report(DrawRecordCopyResult == false, "DrawCallResourceManager", "Failed to copy draw record data.", ErrorHandler::Level::Critical);
 
+			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
+				Game::RFD::ShadowRenderContext& ShadowRenderContext{ Data.ShadowRenderContexts[CascadeIndex] };
+				void* ShadowModelContextSourceData{ ShadowModelContextsSizeInBytes[CascadeIndex] == 0 ? &DummyByte : static_cast<void*>(ShadowRenderContext.ModelContexts.data()) };
+				void* ShadowTerrainPatchContextSourceData{ ShadowTerrainPatchContextsSizeInBytes[CascadeIndex] == 0 ? &DummyByte : static_cast<void*>(ShadowRenderContext.TerrainPatchContexts.data()) };
+				void* ShadowDrawRecordSourceData{ ShadowDrawRecordsGpuSizeInBytes[CascadeIndex] == 0 ? &DummyByte : static_cast<void*>(mShadowDrawRecordsGpu[CascadeIndex].data()) };
+
+				bool ShadowModelContextCopyResult{ mShadowModelContextVectors[CascadeIndex].Copy(GraphicsAllocator, ShadowModelContextSourceData, ShadowModelContextsSizeInBytes[CascadeIndex]) };
+				ErrorHandler::report(ShadowModelContextCopyResult == false, "DrawCallResourceManager", "Failed to copy shadow model context data.", ErrorHandler::Level::Critical);
+
+				bool ShadowTerrainPatchContextCopyResult{ mShadowTerrainPatchContextVectors[CascadeIndex].Copy(GraphicsAllocator, ShadowTerrainPatchContextSourceData, ShadowTerrainPatchContextsSizeInBytes[CascadeIndex]) };
+				ErrorHandler::report(ShadowTerrainPatchContextCopyResult == false, "DrawCallResourceManager", "Failed to copy shadow terrain patch context data.", ErrorHandler::Level::Critical);
+
+				bool ShadowDrawRecordCopyResult{ mShadowDrawRecordVectors[CascadeIndex].Copy(GraphicsAllocator, ShadowDrawRecordSourceData, ShadowDrawRecordsGpuSizeInBytes[CascadeIndex]) };
+				ErrorHandler::report(ShadowDrawRecordCopyResult == false, "DrawCallResourceManager", "Failed to copy shadow draw record data.", ErrorHandler::Level::Critical);
+			}
+
 			std::vector<Interface::CopyQueueCopyRequest> CopyRequests{};
-			CopyRequests.reserve(9);
+			CopyRequests.reserve(9ULL + (static_cast<std::size_t>(ShadowCascadeCount) * 3ULL));
 
 			auto AddCopyRequestIfValid{ [&CopyRequests, &GraphicsAllocator](GraphicsVector& Vector) {
 				if (Vector.IsValid() == false) {
@@ -111,11 +152,17 @@ namespace Core {
 			AddCopyRequestIfValid(mTerrainPatchContextVector);
 			AddCopyRequestIfValid(mBonePaletteVector);
 			AddCopyRequestIfValid(mDrawRecordVector);
+			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
+				AddCopyRequestIfValid(mShadowModelContextVectors[CascadeIndex]);
+				AddCopyRequestIfValid(mShadowTerrainPatchContextVectors[CascadeIndex]);
+				AddCopyRequestIfValid(mShadowDrawRecordVectors[CascadeIndex]);
+			}
 
 			mCopyFuture = CopyQueue->EnqueueCopyFuture(CopyRequests);
 			ErrorHandler::report(mCopyFuture.IsValid() == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
 
 			DrawCallResourceManager::UpdateShaderResourceViews(1, ShadowCascadeCount, 1, static_cast<std::uint32_t>(Data.modelContexts.size()), static_cast<std::uint32_t>(Data.boundingBoxContexts.size()), static_cast<std::uint32_t>(Data.debugGeometryContexts.size()), static_cast<std::uint32_t>(Data.TerrainPatchContexts.size()), static_cast<std::uint32_t>(Data.bonePalette.size()), static_cast<std::uint32_t>(mDrawRecordsGpu.size()));
+			DrawCallResourceManager::UpdateShadowShaderResourceViews(ShadowCascadeCount);
 		}
 
 		void DrawCallResourceManager::TransitionToShaderResource(ID3D12GraphicsCommandList* CommandList) {
@@ -162,6 +209,23 @@ namespace Core {
 			if (mDrawRecordVector.IsValid() == true) {
 				D3D12_RESOURCE_BARRIER DrawRecordBarrier{ mDrawRecordVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
 				CommandList->ResourceBarrier(1, &DrawRecordBarrier);
+			}
+
+			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < Game::RFD::ShadowCascadeMaxCount; CascadeIndex += 1) {
+				if (mShadowModelContextVectors[CascadeIndex].IsValid() == true) {
+					D3D12_RESOURCE_BARRIER ShadowModelContextBarrier{ mShadowModelContextVectors[CascadeIndex].CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
+					CommandList->ResourceBarrier(1, &ShadowModelContextBarrier);
+				}
+
+				if (mShadowTerrainPatchContextVectors[CascadeIndex].IsValid() == true) {
+					D3D12_RESOURCE_BARRIER ShadowTerrainPatchContextBarrier{ mShadowTerrainPatchContextVectors[CascadeIndex].CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
+					CommandList->ResourceBarrier(1, &ShadowTerrainPatchContextBarrier);
+				}
+
+				if (mShadowDrawRecordVectors[CascadeIndex].IsValid() == true) {
+					D3D12_RESOURCE_BARRIER ShadowDrawRecordBarrier{ mShadowDrawRecordVectors[CascadeIndex].CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
+					CommandList->ResourceBarrier(1, &ShadowDrawRecordBarrier);
+				}
 			}
 		}
 
@@ -210,6 +274,23 @@ namespace Core {
 				D3D12_RESOURCE_BARRIER DrawRecordBarrier{ mDrawRecordVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST) };
 				CommandList->ResourceBarrier(1, &DrawRecordBarrier);
 			}
+
+			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < Game::RFD::ShadowCascadeMaxCount; CascadeIndex += 1) {
+				if (mShadowModelContextVectors[CascadeIndex].IsValid() == true) {
+					D3D12_RESOURCE_BARRIER ShadowModelContextBarrier{ mShadowModelContextVectors[CascadeIndex].CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST) };
+					CommandList->ResourceBarrier(1, &ShadowModelContextBarrier);
+				}
+
+				if (mShadowTerrainPatchContextVectors[CascadeIndex].IsValid() == true) {
+					D3D12_RESOURCE_BARRIER ShadowTerrainPatchContextBarrier{ mShadowTerrainPatchContextVectors[CascadeIndex].CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST) };
+					CommandList->ResourceBarrier(1, &ShadowTerrainPatchContextBarrier);
+				}
+
+				if (mShadowDrawRecordVectors[CascadeIndex].IsValid() == true) {
+					D3D12_RESOURCE_BARRIER ShadowDrawRecordBarrier{ mShadowDrawRecordVectors[CascadeIndex].CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST) };
+					CommandList->ResourceBarrier(1, &ShadowDrawRecordBarrier);
+				}
+			}
 		}
 
 		void DrawCallResourceManager::QueueWaitForUpload(ID3D12CommandQueue* WaitingQueue) const {
@@ -256,6 +337,21 @@ namespace Core {
 			return mDrawRecordSrvHandle;
 		}
 
+		DescriptorHandle DrawCallResourceManager::GetShadowModelContextSrvHandle(std::uint32_t ShadowCascadeIndex) const {
+			const std::uint32_t ClampedShadowCascadeIndex{ std::min<std::uint32_t>(ShadowCascadeIndex, Game::RFD::ShadowCascadeMaxCount - 1u) };
+			return mShadowModelContextSrvHandles[ClampedShadowCascadeIndex];
+		}
+
+		DescriptorHandle DrawCallResourceManager::GetShadowTerrainPatchContextSrvHandle(std::uint32_t ShadowCascadeIndex) const {
+			const std::uint32_t ClampedShadowCascadeIndex{ std::min<std::uint32_t>(ShadowCascadeIndex, Game::RFD::ShadowCascadeMaxCount - 1u) };
+			return mShadowTerrainPatchContextSrvHandles[ClampedShadowCascadeIndex];
+		}
+
+		DescriptorHandle DrawCallResourceManager::GetShadowDrawRecordSrvHandle(std::uint32_t ShadowCascadeIndex) const {
+			const std::uint32_t ClampedShadowCascadeIndex{ std::min<std::uint32_t>(ShadowCascadeIndex, Game::RFD::ShadowCascadeMaxCount - 1u) };
+			return mShadowDrawRecordSrvHandles[ClampedShadowCascadeIndex];
+		}
+
 		bool DrawCallResourceManager::CompareDrawRecordByPso(const Game::RFD::DrawRecord& Left, const Game::RFD::DrawRecord& Right) {
 			if (Left.pass != Right.pass) {
 				return Left.pass < Right.pass;
@@ -276,11 +372,28 @@ namespace Core {
 			return false;
 		}
 
-		void DrawCallResourceManager::BuildDrawRecordGpu(const Game::RFD::RenderFrameData& Data) {
-			mDrawRecordsGpu.resize(Data.drawRecords.size());
-			for (std::size_t Index{ 0 }; Index < Data.drawRecords.size(); ++Index) {
-				const Game::RFD::DrawRecord& SourceRecord{ Data.drawRecords[Index] };
-				DrawRecordGPU& DestinationRecord{ mDrawRecordsGpu[Index] };
+		void DrawCallResourceManager::SortShadowDrawRecords(std::vector<Game::RFD::DrawRecord>& DrawRecords) {
+			if (DrawRecords.size() < 2ULL) {
+				return;
+			}
+
+			const bool IsSorted{ DrawCallResourceManager::IsDrawRecordsSorted(DrawRecords) };
+			if (IsSorted == true) {
+				return;
+			}
+
+			std::sort(DrawRecords.begin(), DrawRecords.end(), DrawCallResourceManager::CompareDrawRecordByPso);
+		}
+
+		bool DrawCallResourceManager::IsDrawRecordsSorted(const std::vector<Game::RFD::DrawRecord>& DrawRecords) {
+			return std::is_sorted(DrawRecords.begin(), DrawRecords.end(), DrawCallResourceManager::CompareDrawRecordByPso);
+		}
+
+		void DrawCallResourceManager::BuildDrawRecordGpu(const std::vector<Game::RFD::DrawRecord>& DrawRecords, std::vector<DrawRecordGPU>& OutDrawRecordsGpu) {
+			OutDrawRecordsGpu.resize(DrawRecords.size());
+			for (std::size_t Index{ 0 }; Index < DrawRecords.size(); ++Index) {
+				const Game::RFD::DrawRecord& SourceRecord{ DrawRecords[Index] };
+				DrawRecordGPU& DestinationRecord{ OutDrawRecordsGpu[Index] };
 				DestinationRecord.ObjectIndex = SourceRecord.objectIndex;
 				DestinationRecord.MaterialIndex = SourceRecord.materialIndex;
 				DestinationRecord.Flags = SourceRecord.flags;
@@ -414,6 +527,60 @@ namespace Core {
 			else {
 				mDrawRecordSrvResource = nullptr;
 				mDrawRecordSrvElementCount = 0;
+			}
+		}
+
+		void DrawCallResourceManager::UpdateShadowShaderResourceViews(std::uint32_t ShadowCascadeCount) {
+			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < Game::RFD::ShadowCascadeMaxCount; CascadeIndex += 1) {
+				GraphicsVector& ShadowModelContextVector{ mShadowModelContextVectors[CascadeIndex] };
+				GraphicsVector& ShadowTerrainPatchContextVector{ mShadowTerrainPatchContextVectors[CascadeIndex] };
+				GraphicsVector& ShadowDrawRecordVector{ mShadowDrawRecordVectors[CascadeIndex] };
+				const bool IsActiveCascade{ CascadeIndex < ShadowCascadeCount };
+				ID3D12Resource* ShadowModelContextResource{ ShadowModelContextVector.IsValid() == true ? ShadowModelContextVector.GetResource() : nullptr };
+				ID3D12Resource* ShadowTerrainPatchContextResource{ ShadowTerrainPatchContextVector.IsValid() == true ? ShadowTerrainPatchContextVector.GetResource() : nullptr };
+				ID3D12Resource* ShadowDrawRecordResource{ ShadowDrawRecordVector.IsValid() == true ? ShadowDrawRecordVector.GetResource() : nullptr };
+				const std::uint32_t ShadowModelContextCount{ IsActiveCascade == true ? static_cast<std::uint32_t>(ShadowModelContextVector.GetSizeInBytes() / sizeof(Game::RFD::ModelContext)) : 0u };
+				const std::uint32_t ShadowTerrainPatchContextCount{ IsActiveCascade == true ? static_cast<std::uint32_t>(ShadowTerrainPatchContextVector.GetSizeInBytes() / sizeof(Game::RFD::TerrainPatchContext)) : 0u };
+				const std::uint32_t ShadowDrawRecordCount{ IsActiveCascade == true ? static_cast<std::uint32_t>(ShadowDrawRecordVector.GetSizeInBytes() / sizeof(DrawRecordGPU)) : 0u };
+
+				if (IsActiveCascade == true && ShadowModelContextVector.IsValid() == true) {
+					bool IsUpdateRequired{ DrawCallResourceManager::IsShaderResourceViewUpdateRequired(mShadowModelContextSrvResources[CascadeIndex], ShadowModelContextResource, mShadowModelContextSrvElementCounts[CascadeIndex], ShadowModelContextCount) };
+					if (IsUpdateRequired == true) {
+						ShadowModelContextVector.CreateShaderResourceView(mDevice, mShadowModelContextSrvHandles[CascadeIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, ShadowModelContextCount, sizeof(Game::RFD::ModelContext), D3D12_BUFFER_SRV_FLAG_NONE);
+						mShadowModelContextSrvResources[CascadeIndex] = ShadowModelContextResource;
+						mShadowModelContextSrvElementCounts[CascadeIndex] = ShadowModelContextCount;
+					}
+				}
+				else {
+					mShadowModelContextSrvResources[CascadeIndex] = nullptr;
+					mShadowModelContextSrvElementCounts[CascadeIndex] = 0;
+				}
+
+				if (IsActiveCascade == true && ShadowTerrainPatchContextVector.IsValid() == true) {
+					bool IsUpdateRequired{ DrawCallResourceManager::IsShaderResourceViewUpdateRequired(mShadowTerrainPatchContextSrvResources[CascadeIndex], ShadowTerrainPatchContextResource, mShadowTerrainPatchContextSrvElementCounts[CascadeIndex], ShadowTerrainPatchContextCount) };
+					if (IsUpdateRequired == true) {
+						ShadowTerrainPatchContextVector.CreateShaderResourceView(mDevice, mShadowTerrainPatchContextSrvHandles[CascadeIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, ShadowTerrainPatchContextCount, sizeof(Game::RFD::TerrainPatchContext), D3D12_BUFFER_SRV_FLAG_NONE);
+						mShadowTerrainPatchContextSrvResources[CascadeIndex] = ShadowTerrainPatchContextResource;
+						mShadowTerrainPatchContextSrvElementCounts[CascadeIndex] = ShadowTerrainPatchContextCount;
+					}
+				}
+				else {
+					mShadowTerrainPatchContextSrvResources[CascadeIndex] = nullptr;
+					mShadowTerrainPatchContextSrvElementCounts[CascadeIndex] = 0;
+				}
+
+				if (IsActiveCascade == true && ShadowDrawRecordVector.IsValid() == true) {
+					bool IsUpdateRequired{ DrawCallResourceManager::IsShaderResourceViewUpdateRequired(mShadowDrawRecordSrvResources[CascadeIndex], ShadowDrawRecordResource, mShadowDrawRecordSrvElementCounts[CascadeIndex], ShadowDrawRecordCount) };
+					if (IsUpdateRequired == true) {
+						ShadowDrawRecordVector.CreateShaderResourceView(mDevice, mShadowDrawRecordSrvHandles[CascadeIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, ShadowDrawRecordCount, sizeof(DrawRecordGPU), D3D12_BUFFER_SRV_FLAG_NONE);
+						mShadowDrawRecordSrvResources[CascadeIndex] = ShadowDrawRecordResource;
+						mShadowDrawRecordSrvElementCounts[CascadeIndex] = ShadowDrawRecordCount;
+					}
+				}
+				else {
+					mShadowDrawRecordSrvResources[CascadeIndex] = nullptr;
+					mShadowDrawRecordSrvElementCounts[CascadeIndex] = 0;
+				}
 			}
 		}
 

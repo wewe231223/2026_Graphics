@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <cstdint>
 #include <vector>
 #include "Core/Common.h"
@@ -35,11 +36,17 @@ namespace Core {
 			DescriptorHandle GetTerrainPatchContextSrvHandle() const;
 			DescriptorHandle GetBonePaletteSrvHandle() const;
 			DescriptorHandle GetDrawRecordSrvHandle() const;
+			DescriptorHandle GetShadowModelContextSrvHandle(std::uint32_t ShadowCascadeIndex) const;
+			DescriptorHandle GetShadowTerrainPatchContextSrvHandle(std::uint32_t ShadowCascadeIndex) const;
+			DescriptorHandle GetShadowDrawRecordSrvHandle(std::uint32_t ShadowCascadeIndex) const;
 
 		private:
 			static bool CompareDrawRecordByPso(const Game::RFD::DrawRecord& Left, const Game::RFD::DrawRecord& Right);
-			void BuildDrawRecordGpu(const Game::RFD::RenderFrameData& Data);
+			static bool IsDrawRecordsSorted(const std::vector<Game::RFD::DrawRecord>& DrawRecords);
+			static void SortShadowDrawRecords(std::vector<Game::RFD::DrawRecord>& DrawRecords);
+			void BuildDrawRecordGpu(const std::vector<Game::RFD::DrawRecord>& DrawRecords, std::vector<DrawRecordGPU>& OutDrawRecordsGpu);
 			void UpdateShaderResourceViews(std::uint32_t FrameGlobalsCount, std::uint32_t ShadowFrameGlobalsCount, std::uint32_t ShadowMappingParameterCount, std::uint32_t ModelContextCount, std::uint32_t BoundingBoxContextCount, std::uint32_t DebugGeometryContextCount, std::uint32_t TerrainPatchContextCount, std::uint32_t BonePaletteCount, std::uint32_t DrawRecordCount);
+			void UpdateShadowShaderResourceViews(std::uint32_t ShadowCascadeCount);
 			bool IsShaderResourceViewUpdateRequired(ID3D12Resource* CachedResource, ID3D12Resource* CurrentResource, std::uint32_t CachedElementCount, std::uint32_t CurrentElementCount) const;
 
 		private:
@@ -55,6 +62,9 @@ namespace Core {
 			DescriptorHandle mTerrainPatchContextSrvHandle{};
 			DescriptorHandle mBonePaletteSrvHandle{};
 			DescriptorHandle mDrawRecordSrvHandle{};
+			std::array<DescriptorHandle, Game::RFD::ShadowCascadeMaxCount> mShadowModelContextSrvHandles{};
+			std::array<DescriptorHandle, Game::RFD::ShadowCascadeMaxCount> mShadowTerrainPatchContextSrvHandles{};
+			std::array<DescriptorHandle, Game::RFD::ShadowCascadeMaxCount> mShadowDrawRecordSrvHandles{};
 
 			ID3D12Resource* mFrameGlobalsSrvResource{};
 			ID3D12Resource* mShadowFrameGlobalsSrvResource{};
@@ -65,6 +75,9 @@ namespace Core {
 			ID3D12Resource* mTerrainPatchContextSrvResource{};
 			ID3D12Resource* mBonePaletteSrvResource{};
 			ID3D12Resource* mDrawRecordSrvResource{};
+			std::array<ID3D12Resource*, Game::RFD::ShadowCascadeMaxCount> mShadowModelContextSrvResources{};
+			std::array<ID3D12Resource*, Game::RFD::ShadowCascadeMaxCount> mShadowTerrainPatchContextSrvResources{};
+			std::array<ID3D12Resource*, Game::RFD::ShadowCascadeMaxCount> mShadowDrawRecordSrvResources{};
 
 			std::uint32_t mFrameGlobalsSrvElementCount{};
 			std::uint32_t mShadowFrameGlobalsSrvElementCount{};
@@ -75,6 +88,9 @@ namespace Core {
 			std::uint32_t mTerrainPatchContextSrvElementCount{};
 			std::uint32_t mBonePaletteSrvElementCount{};
 			std::uint32_t mDrawRecordSrvElementCount{};
+			std::array<std::uint32_t, Game::RFD::ShadowCascadeMaxCount> mShadowModelContextSrvElementCounts{};
+			std::array<std::uint32_t, Game::RFD::ShadowCascadeMaxCount> mShadowTerrainPatchContextSrvElementCounts{};
+			std::array<std::uint32_t, Game::RFD::ShadowCascadeMaxCount> mShadowDrawRecordSrvElementCounts{};
 
 			GraphicsVector mFrameGlobalsVector{};
 			GraphicsVector mShadowFrameGlobalsVector{};
@@ -85,9 +101,13 @@ namespace Core {
 			GraphicsVector mTerrainPatchContextVector{};
 			GraphicsVector mBonePaletteVector{};
 			GraphicsVector mDrawRecordVector{};
+			std::array<GraphicsVector, Game::RFD::ShadowCascadeMaxCount> mShadowModelContextVectors{};
+			std::array<GraphicsVector, Game::RFD::ShadowCascadeMaxCount> mShadowTerrainPatchContextVectors{};
+			std::array<GraphicsVector, Game::RFD::ShadowCascadeMaxCount> mShadowDrawRecordVectors{};
 
 			Interface::CopyFuture mCopyFuture{};
 			std::vector<DrawRecordGPU> mDrawRecordsGpu{};
+			std::array<std::vector<DrawRecordGPU>, Game::RFD::ShadowCascadeMaxCount> mShadowDrawRecordsGpu{};
 		};
 	}
 }
