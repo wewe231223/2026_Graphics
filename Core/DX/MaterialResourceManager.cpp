@@ -99,14 +99,12 @@ namespace Core {
 			}
 		}
 
-		void MaterialResourceManager::WaitForUpload(Interface::ICopyQueue* CopyQueue, std::uint32_t RtvIndex) const {
-			static_cast<void>(CopyQueue);
-
+		void MaterialResourceManager::QueueWaitForUpload(ID3D12CommandQueue* WaitingQueue, std::uint32_t RtvIndex) const {
 			if (mPerFrameCopyFutures[RtvIndex].IsValid() == false) {
 				return;
 			}
 
-			mPerFrameCopyFutures[RtvIndex].Wait();
+			mPerFrameCopyFutures[RtvIndex].QueueWait(WaitingQueue);
 		}
 
 		DescriptorHandle MaterialResourceManager::GetMaterialSrvHandle() const {

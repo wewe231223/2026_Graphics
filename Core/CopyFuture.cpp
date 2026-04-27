@@ -83,6 +83,20 @@ void CopyFuture::Wait() const {
     }
 }
 
+void CopyFuture::QueueWait(ID3D12CommandQueue* WaitingQueue) const {
+    if (WaitingQueue == nullptr) {
+        return;
+    }
+
+    for (const FuturePoint& Point : mFuturePoints) {
+        if (Point.Queue == nullptr) {
+            continue;
+        }
+
+        Point.Queue->QueueWaitFuture(WaitingQueue, Point.Ticket);
+    }
+}
+
 CopyFuture::CopyFuture(const ICopyQueue* Queue, std::uint64_t Ticket)
     : mFuturePoints{} {
     if (Queue != nullptr and Ticket > 0) {

@@ -32,6 +32,7 @@ namespace Interface {
         bool IsComplete() const;
         bool IsInFlight() const;
         void Wait() const;
+        void QueueWait(ID3D12CommandQueue* WaitingQueue) const;
 
         CopyFuture(const ICopyQueue* Queue, std::uint64_t Ticket);
 
@@ -118,6 +119,7 @@ namespace Interface {
         virtual void DispatchCopies() = 0;
         virtual bool IsFutureComplete(std::uint64_t CopyTicket) const = 0;
         virtual void WaitFuture(std::uint64_t CopyTicket) const = 0;
+        virtual void QueueWaitFuture(ID3D12CommandQueue* WaitingQueue, std::uint64_t CopyTicket) const = 0;
         virtual void Flush() = 0;
 
         virtual std::uint64_t GetRequiredUploadBufferSize() const = 0;

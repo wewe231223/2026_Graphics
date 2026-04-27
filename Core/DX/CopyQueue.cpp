@@ -139,6 +139,19 @@ void CopyQueue::WaitFuture(std::uint64_t CopyTicket) const {
     WaitForSubmitFence(SubmitFenceValue);
 }
 
+void CopyQueue::QueueWaitFuture(ID3D12CommandQueue* WaitingQueue, std::uint64_t CopyTicket) const {
+    if (WaitingQueue == nullptr) {
+        return;
+    }
+
+    std::uint64_t SubmitFenceValue{ ResolveCopyTicketToFenceValue(CopyTicket) };
+    if (SubmitFenceValue == 0) {
+        return;
+    }
+
+    ErrorHandler::report(WaitingQueue->Wait(mCopyFence.Get(), SubmitFenceValue), "CopyQueue", "Failed to queue wait for copy queue fence.", ErrorHandler::Level::Critical);
+}
+
 void CopyQueue::Flush() {
     DispatchCopies();
     WaitForQueueIdle();

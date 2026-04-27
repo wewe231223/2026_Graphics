@@ -27,7 +27,7 @@ namespace Core {
 			void PrepareFrameResources(std::uint32_t RtvIndex, const Game::RFD::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue* CopyQueue);
 			void TransitionToShaderResource(ID3D12GraphicsCommandList* CommandList, std::uint32_t RtvIndex);
 			void TransitionToCopyDestination(ID3D12GraphicsCommandList* CommandList, std::uint32_t RtvIndex);
-			void WaitForUpload(Interface::ICopyQueue* CopyQueue, std::uint32_t RtvIndex) const;
+			void QueueWaitForUpload(ID3D12CommandQueue* WaitingQueue, std::uint32_t RtvIndex) const;
 
 			DescriptorHandle GetMaterialSrvHandle() const;
 			DescriptorHandle GetMaterialTextureTableSrvHandle(std::uint32_t RtvIndex) const;

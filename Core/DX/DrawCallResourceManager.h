@@ -24,7 +24,7 @@ namespace Core {
 			void PrepareFrameResources(Game::RFD::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue* CopyQueue);
 			void TransitionToShaderResource(ID3D12GraphicsCommandList* CommandList);
 			void TransitionToCopyDestination(ID3D12GraphicsCommandList* CommandList);
-			void WaitForUpload(Interface::ICopyQueue* CopyQueue) const;
+			void QueueWaitForUpload(ID3D12CommandQueue* WaitingQueue) const;
 
 			DescriptorHandle GetFrameGlobalsSrvHandle() const;
 			DescriptorHandle GetShadowFrameGlobalsSrvHandle() const;

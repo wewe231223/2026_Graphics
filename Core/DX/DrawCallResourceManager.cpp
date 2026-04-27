@@ -195,14 +195,12 @@ namespace Core {
 			}
 		}
 
-		void DrawCallResourceManager::WaitForUpload(Interface::ICopyQueue* CopyQueue) const {
-			static_cast<void>(CopyQueue);
-
+		void DrawCallResourceManager::QueueWaitForUpload(ID3D12CommandQueue* WaitingQueue) const {
 			if (mCopyFuture.IsValid() == false) {
 				return;
 			}
 
-			mCopyFuture.Wait();
+			mCopyFuture.QueueWait(WaitingQueue);
 		}
 
 		DescriptorHandle DrawCallResourceManager::GetFrameGlobalsSrvHandle() const {

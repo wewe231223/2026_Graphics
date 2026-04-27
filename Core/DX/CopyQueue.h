@@ -43,6 +43,7 @@ namespace Core {
             void DispatchCopies() override;
             bool IsFutureComplete(std::uint64_t CopyTicket) const override;
             void WaitFuture(std::uint64_t CopyTicket) const override;
+            void QueueWaitFuture(ID3D12CommandQueue* WaitingQueue, std::uint64_t CopyTicket) const override;
             void Flush() override;
 
             std::uint64_t GetRequiredUploadBufferSize() const override;

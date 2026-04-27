@@ -135,8 +135,8 @@ namespace Core {
 
 
 			mCommandList->Close();
-			DrawCallResources.WaitForUpload(mCopyQueue);
-			mMaterialResourceManager.WaitForUpload(mCopyQueue, static_cast<uint32_t>(currentIndex));
+			DrawCallResources.QueueWaitForUpload(mDirectCommandQueue.Get());
+			mMaterialResourceManager.QueueWaitForUpload(mDirectCommandQueue.Get(), static_cast<uint32_t>(currentIndex));
 
 
 			ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
