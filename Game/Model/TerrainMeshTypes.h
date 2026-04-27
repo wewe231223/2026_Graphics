@@ -14,6 +14,7 @@ namespace Game {
         float CellSizeZ{ 1.0f };
         bool FlipV{ false };
         bool CenterOrigin{ false };
+        std::uint32_t TileQuadCount{ 56 };
     };
 
     struct HeightFieldData final {

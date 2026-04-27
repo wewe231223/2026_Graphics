@@ -17,6 +17,8 @@
 #include "Game/Base/RenderFrameData.h"
 
 namespace Game {
+    class TerrainRenderResource;
+
     template<typename T, typename TGpu = void>
     struct ResourceBucket final {
         using AssetType = T;
@@ -53,6 +55,10 @@ namespace Game {
 
     struct ModelBucketTag final {
         using BucketType = ResourceBucket<std::shared_ptr<Model>>;
+    };
+
+    struct TerrainRenderResourceBucketTag final {
+        using BucketType = ResourceBucket<std::shared_ptr<TerrainRenderResource>>;
     };
 
 
@@ -114,6 +120,7 @@ namespace Game {
 
     private:
         ResourceBucket<std::shared_ptr<Model>> mModelBucket{};
+        ResourceBucket<std::shared_ptr<TerrainRenderResource>> mTerrainRenderResourceBucket{};
         ResourceBucket<std::shared_ptr<asset::Animation>> mAnimationBucket{};
         ResourceBucket<std::shared_ptr<AnimationGraphAsset>> mAnimationGraphBucket{};
         ResourceBucket<RegisteredMaterial, RFD::MaterialGpu> mMaterialBucket{};
@@ -170,6 +177,16 @@ namespace Game {
     template<>
     inline const ModelBucketTag::BucketType& AssetRegistryStorage::GetBucket<ModelBucketTag>() const {
         return mModelBucket;
+    }
+
+    template<>
+    inline TerrainRenderResourceBucketTag::BucketType& AssetRegistryStorage::GetBucket<TerrainRenderResourceBucketTag>() {
+        return mTerrainRenderResourceBucket;
+    }
+
+    template<>
+    inline const TerrainRenderResourceBucketTag::BucketType& AssetRegistryStorage::GetBucket<TerrainRenderResourceBucketTag>() const {
+        return mTerrainRenderResourceBucket;
     }
 
     template<>

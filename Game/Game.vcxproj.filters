@@ -72,6 +72,12 @@
     <ClInclude Include="Model\TerrainMeshTypes.h">
       <Filter>Model</Filter>
     </ClInclude>
+    <ClInclude Include="Model\TerrainRenderResource.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\TerrainTiledMeshBuilder.h">
+      <Filter>Model</Filter>
+    </ClInclude>
     <ClInclude Include="Base\RenderFrameData.h">
       <Filter>Base</Filter>
     </ClInclude>
@@ -112,6 +118,9 @@
       <Filter>Scene\Components</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Components\StaticMeshRenderer.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\TerrainRenderer.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Components\SkinnedMeshRenderer.h">
@@ -175,6 +184,9 @@
       <Filter>Base</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\TerrainRenderSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h">
@@ -323,6 +335,9 @@
     <ClCompile Include="Scene\Components\StaticMeshRenderer.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Components\TerrainRenderer.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\Components\SkinnedMeshRenderer.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
@@ -330,6 +345,9 @@
       <Filter>Scene\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\TerrainRenderSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp">
@@ -387,6 +405,12 @@
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Model\TerrainMeshBuilder.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\TerrainRenderResource.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\TerrainTiledMeshBuilder.cpp">
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\PrefabInstance.cpp">

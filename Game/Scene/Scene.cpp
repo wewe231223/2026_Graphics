@@ -23,6 +23,7 @@
 #include "Game/Scene/Components/PrefabInstance.h"
 #include "Game/Scene/Components/PhysicsActor.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
+#include "Game/Scene/Components/TerrainRenderer.h"
 #include "Game/Scene/Components/Transform.h"
 #include "Game/Scene/Components/ComponentLuaTypeDefinitions.h"
 #include "Game/Scene/Components/Camera.h"
@@ -548,6 +549,7 @@ namespace Game {
         mLuaScriptFramework.RegisterComponentByDefinition<Game::Transform>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::EntityHierarchy>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::StaticMeshRenderer>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::TerrainRenderer>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::SkinnedMeshRenderer>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::Culling>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BoundingBox>();

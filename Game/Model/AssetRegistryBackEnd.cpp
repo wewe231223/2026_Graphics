@@ -3,6 +3,7 @@
 namespace Game {
     AssetRegistryStorage::AssetRegistryStorage()
         : mModelBucket{},
+        mTerrainRenderResourceBucket{},
         mAnimationBucket{},
         mAnimationGraphBucket{},
         mMaterialBucket{},
@@ -22,6 +23,7 @@ namespace Game {
 
     AssetRegistryStorage::AssetRegistryStorage(AssetRegistryStorage&& Other) noexcept
         : mModelBucket{ std::move(Other.mModelBucket) },
+        mTerrainRenderResourceBucket{ std::move(Other.mTerrainRenderResourceBucket) },
         mAnimationBucket{ std::move(Other.mAnimationBucket) },
         mAnimationGraphBucket{ std::move(Other.mAnimationGraphBucket) },
         mMaterialBucket{ std::move(Other.mMaterialBucket) },
@@ -42,6 +44,7 @@ namespace Game {
         }
 
         mModelBucket = std::move(Other.mModelBucket);
+        mTerrainRenderResourceBucket = std::move(Other.mTerrainRenderResourceBucket);
         mAnimationBucket = std::move(Other.mAnimationBucket);
         mAnimationGraphBucket = std::move(Other.mAnimationGraphBucket);
         mMaterialBucket = std::move(Other.mMaterialBucket);

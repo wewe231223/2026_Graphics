@@ -18,6 +18,7 @@
 #include "Game/Base/Pipeline.h"
 #include "Game/Base/RenderFrameData.h"
 #include "Game/Model/AssetRegistryBackEnd.h"
+#include "Game/Model/TerrainMeshTypes.h"
 
 
 #ifdef min
@@ -30,6 +31,8 @@
 
 
 namespace Game {
+    class TerrainRenderResource;
+
     class AssetRegistry final {
     public:
         using TextureResidencyDecider = std::function<bool(std::uint32_t TextureTableIndex, bool IsUsedByDrawRecords, bool IsLoaded)>;
@@ -50,6 +53,7 @@ namespace Game {
         std::shared_ptr<IAssetRegistryBackEnd> GetBackEnd() const;
 
         std::shared_ptr<Model> GetModel(const std::string& ModelBinaryPath);
+        std::shared_ptr<TerrainRenderResource> GetTerrainRenderResource(const TerrainBuildDesc& Desc);
         std::shared_ptr<asset::Animation> GetAnimation(const std::string& AnimationBinaryPath);
         std::shared_ptr<AnimationGraphAsset> GetAnimationGraph(const std::string& AnimationGraphPath);
         bool LoadMaterialGroups(const std::string& MaterialJsonPath);
@@ -63,6 +67,7 @@ namespace Game {
         const std::vector<RFD::MaterialTextureTableItemGpu>& GetMaterialTextureTable() const;
         std::uint32_t FindMaterialGroupIndexBySourcePath(const std::string& MaterialSourcePath) const;
         std::string FindModelSelectorByPointer(const Model* ModelPointer) const;
+        std::string FindTerrainRenderResourceSelectorByPointer(const TerrainRenderResource* TerrainRenderResourcePointer) const;
         std::string FindAnimationSelectorByPointer(const asset::Animation* AnimationPointer) const;
         std::string FindAnimationGraphSelectorByPointer(const AnimationGraphAsset* AnimationGraphPointer) const;
         std::string FindMaterialGroupSourcePathByIndex(std::uint32_t MaterialGroupIndex) const;

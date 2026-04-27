@@ -32,6 +32,7 @@
 #include "Game/Scene/Components/PrefabInstance.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/Tags.h"
+#include "Game/Scene/Components/TerrainRenderer.h"
 #include "Game/Scene/Components/Transform.h"
 #include "Game/Scene/Systems/AnimationGraphSystem.h"
 #include "Game/Scene/Systems/AnimateSystem.h"
@@ -40,9 +41,11 @@
 #include "Game/Scene/Systems/SkinnedMeshPrepareSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshRenderSystem.h"
 #include "Game/Scene/Systems/StaticRenderSystem.h"
+#include "Game/Scene/Systems/TerrainRenderSystem.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
 #include "Game/Scene/Systems/ShadowMappingParameterSystem.h"
 #include "Game/Scene/SceneEntityFactory.h"
+#include "Game/Model/TerrainRenderResource.h"
 #include "Game/Model/TerrainMeshTypes.h"
 #include "Game/Model/HeightMapLoader.h"
 #include "Utility/StdOutput.h"
@@ -218,6 +221,7 @@ namespace {
         static const std::unordered_map<std::string_view, SystemFactory> SystemFactories{
             { "SkinnedMeshPrepareSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshPrepareSystem>(); } },
             { "StaticRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::StaticRenderSystem>(); } },
+            { "TerrainRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TerrainRenderSystem>(); } },
             { "SkinnedMeshRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshRenderSystem>(); } },
             { "AnimationGraphSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimationGraphSystem>(); } },
             { "AnimateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimateSystem>(); } },
@@ -532,6 +536,7 @@ namespace {
         Selector += std::string{ ";CellSizeZ=" } + std::to_string(Desc.CellSizeZ);
         Selector += std::string{ ";FlipV=" } + (Desc.FlipV == true ? std::string{ "true" } : std::string{ "false" });
         Selector += std::string{ ";CenterOrigin=" } + (Desc.CenterOrigin == true ? std::string{ "true" } : std::string{ "false" });
+        Selector += std::string{ ";TileQuadCount=" } + std::to_string(Desc.TileQuadCount);
         return Selector;
     }
 
@@ -955,6 +960,10 @@ namespace {
             OutDesc.CenterOrigin = Value;
         }
 
+        if (TerrainNode.has_child("TileQuadCount")) {
+            TerrainNode["TileQuadCount"] >> OutDesc.TileQuadCount;
+        }
+
         return true;
     }
 
@@ -1009,6 +1018,9 @@ namespace {
 
                     OutDesc.CenterOrigin = BoolValue;
                 }
+                else if (Key == "TileQuadCount") {
+                    OutDesc.TileQuadCount = static_cast<std::uint32_t>(std::stoul(Value));
+                }
                 else {
                     return false;
                 }
@@ -1035,6 +1047,7 @@ namespace {
         AppendLine(Stream, IndentLevel + 1, std::string{ "CellSizeZ: " } + std::to_string(Desc.CellSizeZ));
         AppendLine(Stream, IndentLevel + 1, std::string{ "FlipV: " } + ToYamlBooleanText(Desc.FlipV));
         AppendLine(Stream, IndentLevel + 1, std::string{ "CenterOrigin: " } + ToYamlBooleanText(Desc.CenterOrigin));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "TileQuadCount: " } + std::to_string(Desc.TileQuadCount));
     }
 
     void AppendVector3(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& Key, const SimpleMath::Vector3& Value) {
@@ -1560,9 +1573,8 @@ namespace Game {
                     LoadResult.UndecidedItems.push_back("Terrain Component 데이터 해석 실패");
                 }
                 else {
-                    const std::string TerrainSelector{ BuildTerrainModelSelector(Desc) };
-                    const std::shared_ptr<Model> ModelData{ OutScene.GetAssetRegistry().GetModel(TerrainSelector) };
-                    if (ModelData == nullptr) {
+                    const std::shared_ptr<TerrainRenderResource> TerrainResource{ OutScene.GetAssetRegistry().GetTerrainRenderResource(Desc) };
+                    if (TerrainResource == nullptr) {
                         LoadResult.IsSuccess = false;
                         LoadResult.UndecidedItems.push_back(std::string{ "Terrain 생성 실패: " } + Desc.HeightMapPath);
                     }
@@ -1576,20 +1588,68 @@ namespace Game {
                         const HeightFieldData HeightFieldDataValue{ HeightMapLoaderInstance.LoadHeightField(Desc.HeightMapPath) };
                         PhysicsTerrainActor::ActorDesc TerrainActorDesc{ PhysicsTerrainActor::BuildHeightFieldActorDesc(HeightFieldDataValue.Width, HeightFieldDataValue.Height, HeightFieldDataValue.HeightValues, Desc.MaxHeight, Desc.CellSizeX, Desc.CellSizeZ, Desc.CenterOrigin) };
 
-                        ModelHierarchySpawnRequest SpawnRequest{};
-                        SpawnRequest.ModelData = ModelData;
-                        SpawnRequest.RootEntityId = Entity;
-                        SpawnRequest.MaterialGroupIndex = MaterialGroupIndexForModel;
-                        SpawnRequest.FrustumCullingEnabled = FrustumCullingEnabled;
-                        SpawnRequest.IsActive = IsActive;
-                        const bool IsSpawned{ EntityFactory.SpawnModelHierarchy(SpawnRequest) };
-                        if (IsSpawned == false) {
-                            LoadResult.IsSuccess = false;
-                            LoadResult.UndecidedItems.push_back(std::string{ "Terrain RootNode 를 찾을 수 없습니다: " } + Desc.HeightMapPath);
+                        TerrainRenderer TerrainRendererComponent{};
+                        TerrainRendererComponent.mResource = TerrainResource.get();
+                        TerrainRendererComponent.mTileQuadCount = Desc.TileQuadCount;
+                        TerrainRendererComponent.mActive = IsActive;
+                        OutScene.GetWorld().AddComponent(Entity, TerrainRendererComponent);
+
+                        BoundingBox TerrainBoundingBox{};
+                        TerrainBoundingBox.SetObb(TerrainResource->GetLocalBoundingBox());
+                        BoundingBox* ExistingTerrainBoundingBox{ OutScene.GetWorld().GetComponent<BoundingBox>(Entity) };
+                        if (ExistingTerrainBoundingBox == nullptr) {
+                            OutScene.GetWorld().AddComponent(Entity, TerrainBoundingBox);
                         }
                         else {
-                            OutScene.AddTerrainActorDesc(Entity, TerrainActorDesc);
+                            ExistingTerrainBoundingBox->SetObb(TerrainResource->GetLocalBoundingBox());
                         }
+
+                        Culling TerrainCulling{};
+                        TerrainCulling.frustumCulling = FrustumCullingEnabled;
+                        Culling* ExistingTerrainCulling{ OutScene.GetWorld().GetComponent<Culling>(Entity) };
+                        if (ExistingTerrainCulling == nullptr) {
+                            OutScene.GetWorld().AddComponent(Entity, TerrainCulling);
+                        }
+                        else {
+                            ExistingTerrainCulling->frustumCulling = FrustumCullingEnabled;
+                        }
+
+                        const Material* ParentTerrainMaterial{ OutScene.GetWorld().GetComponent<Material>(Entity) };
+                        const std::vector<TerrainTileMetadata>& TileMetadataItems{ TerrainResource->GetTileMetadata() };
+                        for (std::size_t TileMetadataIndex{ 0 }; TileMetadataIndex < TileMetadataItems.size(); ++TileMetadataIndex) {
+                            const TerrainTileMetadata& TileMetadata{ TileMetadataItems[TileMetadataIndex] };
+                            const Arche::EntityID TileEntity{ EntityFactory.CreateEntity(true) };
+                            EntityFactory.AttachChildEntity(Entity, TileEntity);
+
+                            const Name TileName{ CreateNameComponent(std::format("Terrain_Tile_{}_{}", TileMetadata.mTileIndexX, TileMetadata.mTileIndexZ)) };
+                            OutScene.GetWorld().AddComponent(TileEntity, TileName);
+
+                            TerrainRenderer TileTerrainRenderer{};
+                            TileTerrainRenderer.mResource = TerrainResource.get();
+                            TileTerrainRenderer.mTileQuadCount = Desc.TileQuadCount;
+                            TileTerrainRenderer.mTileMetadataIndex = static_cast<std::uint32_t>(TileMetadataIndex);
+                            TileTerrainRenderer.mActive = IsActive;
+                            OutScene.GetWorld().AddComponent(TileEntity, TileTerrainRenderer);
+
+                            Material TileMaterial{};
+                            if (ParentTerrainMaterial == nullptr) {
+                                TileMaterial.MaterialGroupIndex = MaterialGroupIndexForModel;
+                            }
+                            else {
+                                TileMaterial = *ParentTerrainMaterial;
+                            }
+                            OutScene.GetWorld().AddComponent(TileEntity, TileMaterial);
+
+                            Culling TileCulling{};
+                            TileCulling.frustumCulling = FrustumCullingEnabled;
+                            OutScene.GetWorld().AddComponent(TileEntity, TileCulling);
+
+                            BoundingBox TileBoundingBox{};
+                            TileBoundingBox.SetObb(TileMetadata.mLocalBoundingBox);
+                            OutScene.GetWorld().AddComponent(TileEntity, TileBoundingBox);
+                        }
+
+                        OutScene.AddTerrainActorDesc(Entity, TerrainActorDesc);
                     }
                 }
             }
@@ -2219,6 +2279,7 @@ namespace Game {
             const FootIKRig* FootIKRigComponent{ ReadOnlyWorld->GetComponent<FootIKRig>(EntityId) };
             const Material* MaterialComponent{ ReadOnlyWorld->GetComponent<Material>(EntityId) };
             const StaticMeshRenderer* StaticMeshRendererComponent{ ReadOnlyWorld->GetComponent<StaticMeshRenderer>(EntityId) };
+            const TerrainRenderer* TerrainRendererComponent{ ReadOnlyWorld->GetComponent<TerrainRenderer>(EntityId) };
             const Culling* CullingComponent{ ReadOnlyWorld->GetComponent<Culling>(EntityId) };
             const Camera* CameraComponent{ ReadOnlyWorld->GetComponent<Camera>(EntityId) };
             const SkySphere* SkySphereComponent{ ReadOnlyWorld->GetComponent<SkySphere>(EntityId) };
@@ -2339,6 +2400,26 @@ namespace Game {
                         const std::string ModelSelectorForYaml{ MakeSceneRelativeResourcePath(TargetSnapshot.GetSceneName(), ModelSelector) };
                         AppendLine(Stream, 4, std::string{ "modelPath: " } + ToYamlText(ModelSelectorForYaml));
                         AppendLine(Stream, 4, std::string{ "active: " } + ToYamlBooleanText(StaticMeshRendererComponent->active));
+                    }
+                }
+            }
+
+            if (TerrainRendererComponent != nullptr && PrefabInstanceComponent == nullptr) {
+                const std::string TerrainSelector{ AssetRegistryInstance->FindTerrainRenderResourceSelectorByPointer(TerrainRendererComponent->mResource) };
+                if (TerrainSelector.empty()) {
+                    SaveResult.IsSuccess = false;
+                    SaveResult.UndecidedItems.push_back("TerrainRenderer resource 포인터에 대응되는 selector 를 찾지 못했습니다.");
+                }
+                else {
+                    TerrainBuildDesc TerrainDesc{};
+                    const bool IsTerrainResource{ TryParseTerrainModelSelector(TerrainSelector, TerrainDesc) };
+                    if (IsTerrainResource == true) {
+                        AppendTerrainBuildDesc(Stream, 3, TargetSnapshot.GetSceneName(), TerrainDesc);
+                        AppendLine(Stream, 4, std::string{ "active: " } + ToYamlBooleanText(TerrainRendererComponent->mActive));
+                    }
+                    else {
+                        SaveResult.IsSuccess = false;
+                        SaveResult.UndecidedItems.push_back("TerrainRenderer selector 해석 실패");
                     }
                 }
             }

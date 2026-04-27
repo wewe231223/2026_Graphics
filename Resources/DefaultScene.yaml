@@ -7,6 +7,7 @@ Systems:
   - Type: PhysicsActorUpdateSystem
   - Type: SkinnedMeshPrepareSystem
   - Type: StaticRenderSystem
+  - Type: TerrainRenderSystem
   - Type: SkinnedMeshRenderSystem
   - Type: CameraRenderSystem
   - Type: ShadowMappingParameterSystem
@@ -397,6 +398,7 @@ Entities:
         CellSizeZ: 1
         FlipV: false
         CenterOrigin: true
+        TileQuadCount: 56
         active: true
   - EntityId: 13
     ParentEntityId: -1

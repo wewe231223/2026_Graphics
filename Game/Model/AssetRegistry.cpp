@@ -7,12 +7,16 @@
 #include <string_view>
 #include <sstream>
 #include <fstream>
+#include <utility>
 #include <ryml_std.hpp>
 #include <ryml.hpp>
 #include "Asset/AssetBinaryReader.h"
 #include "Asset/AnimationBinaryReader.h"
 #include "Asset/MaterialGroupJsonSerializer.h"
 #include "PrimitiveModelFactory.h"
+#include "HeightMapLoader.h"
+#include "TerrainRenderResource.h"
+#include "TerrainTiledMeshBuilder.h"
 
 namespace {
     constexpr std::uint32_t MaterialFieldCount{ asset::MaterialTypeCount };
@@ -45,6 +49,18 @@ namespace {
             || (TypeValue >= TerrainSplatTextureStart && TypeValue <= TerrainSplatTextureEnd)
             || (TypeValue >= TerrainDiffuseTextureStart && TypeValue <= TerrainDiffuseTextureEnd)
             || (TypeValue >= TerrainNormalTextureStart && TypeValue <= TerrainNormalTextureEnd);
+    }
+
+    std::string BuildTerrainRenderResourceKey(const Game::TerrainBuildDesc& Desc) {
+        std::string Key{ "terrain:" };
+        Key += std::string{ "HeightMapPath=" } + Desc.HeightMapPath;
+        Key += std::string{ ";MaxHeight=" } + std::to_string(Desc.MaxHeight);
+        Key += std::string{ ";CellSizeX=" } + std::to_string(Desc.CellSizeX);
+        Key += std::string{ ";CellSizeZ=" } + std::to_string(Desc.CellSizeZ);
+        Key += std::string{ ";FlipV=" } + (Desc.FlipV == true ? std::string{ "true" } : std::string{ "false" });
+        Key += std::string{ ";CenterOrigin=" } + (Desc.CenterOrigin == true ? std::string{ "true" } : std::string{ "false" });
+        Key += std::string{ ";TileQuadCount=" } + std::to_string(Desc.TileQuadCount);
+        return Key;
     }
 }
 
@@ -159,6 +175,45 @@ namespace Game {
         ModelBucket.mAssets.push_back(NewModel);
         ModelBucket.mNameLookup.insert_or_assign(ModelBinaryPath, NewIndex);
         return NewModel;
+    }
+
+    std::shared_ptr<TerrainRenderResource> AssetRegistry::GetTerrainRenderResource(const TerrainBuildDesc& Desc) {
+        IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
+        AssetRegistryStorage& Storage{ BackEnd->GetStorage() };
+        auto& TerrainBucket{ Storage.GetBucket<TerrainRenderResourceBucketTag>() };
+        const std::string TerrainKey{ BuildTerrainRenderResourceKey(Desc) };
+
+        const auto FoundTerrain{ TerrainBucket.mNameLookup.find(TerrainKey) };
+        if (FoundTerrain != TerrainBucket.mNameLookup.end() && FoundTerrain->second < TerrainBucket.mAssets.size()) {
+            return TerrainBucket.mAssets[FoundTerrain->second];
+        }
+
+        TerrainTiledMeshData TiledMeshData{};
+        try {
+            HeightMapLoader Loader{};
+            TerrainTiledMeshBuilder Builder{};
+            const HeightFieldData HeightField{ Loader.LoadHeightField(Desc.HeightMapPath) };
+            TiledMeshData = Builder.Build(HeightField, Desc);
+        }
+        catch (const std::exception&) {
+            return nullptr;
+        }
+
+        std::shared_ptr<Model> NewModel{ std::make_shared<Model>() };
+        if (mDevice != nullptr && mCopyQueue != nullptr && mAllocator != nullptr) {
+            const bool IsInitialized{ NewModel->InitializeFromModelResult(TiledMeshData.mModelData, mAllocator, mCopyQueue) };
+            if (IsInitialized == false) {
+                return nullptr;
+            }
+        }
+
+        std::shared_ptr<TerrainRenderResource> NewResource{ std::make_shared<TerrainRenderResource>() };
+        NewResource->Initialize(NewModel, std::move(TiledMeshData.mTileMetadata), TiledMeshData.mTileQuadCount, TiledMeshData.mTileCountX, TiledMeshData.mTileCountZ, TiledMeshData.mLocalBoundingBox);
+
+        const std::uint32_t NewIndex{ static_cast<std::uint32_t>(TerrainBucket.mAssets.size()) };
+        TerrainBucket.mAssets.push_back(NewResource);
+        TerrainBucket.mNameLookup.insert_or_assign(TerrainKey, NewIndex);
+        return NewResource;
     }
 
     std::shared_ptr<asset::Animation> AssetRegistry::GetAnimation(const std::string& AnimationBinaryPath) {
@@ -370,6 +425,29 @@ namespace Game {
 
             const std::shared_ptr<Model>& RegisteredModel{ ModelBucket.mAssets[ModelIndex] };
             if (RegisteredModel.get() == ModelPointer) {
+                return Pair.first;
+            }
+        }
+
+        return std::string{};
+    }
+
+    std::string AssetRegistry::FindTerrainRenderResourceSelectorByPointer(const TerrainRenderResource* TerrainRenderResourcePointer) const {
+        if (TerrainRenderResourcePointer == nullptr) {
+            return std::string{};
+        }
+
+        const IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
+        const AssetRegistryStorage& Storage{ BackEnd->GetStorage() };
+        const auto& TerrainBucket{ Storage.GetBucket<TerrainRenderResourceBucketTag>() };
+        for (const auto& Pair : TerrainBucket.mNameLookup) {
+            const std::uint32_t TerrainIndex{ Pair.second };
+            if (TerrainIndex >= TerrainBucket.mAssets.size()) {
+                continue;
+            }
+
+            const std::shared_ptr<TerrainRenderResource>& RegisteredResource{ TerrainBucket.mAssets[TerrainIndex] };
+            if (RegisteredResource.get() == TerrainRenderResourcePointer) {
                 return Pair.first;
             }
         }

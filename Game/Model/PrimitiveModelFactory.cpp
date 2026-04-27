@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <exception>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -56,6 +57,18 @@ namespace {
         }
 
         return false;
+    }
+
+    bool TryParseUInt32(const std::string& Text, std::uint32_t& OutValue) {
+        const char* Begin{ Text.c_str() };
+        char* End{ nullptr };
+        const unsigned long Value{ std::strtoul(Begin, &End, 10) };
+        if (End == Begin || *End != '\0' || Value > static_cast<unsigned long>((std::numeric_limits<std::uint32_t>::max)())) {
+            return false;
+        }
+
+        OutValue = static_cast<std::uint32_t>(Value);
+        return true;
     }
 
     void AddVertex(MeshData& Data, const asset::Vec3& Position, const asset::Vec3& Normal, const asset::Vec2& TexCoord, const asset::Vec4& Color) {
@@ -480,6 +493,11 @@ namespace {
             }
             else if (Key == "CenterOrigin") {
                 if (TryParseBool(Value, OutData.Desc.CenterOrigin) == false) {
+                    return false;
+                }
+            }
+            else if (Key == "TileQuadCount") {
+                if (TryParseUInt32(Value, OutData.Desc.TileQuadCount) == false) {
                     return false;
                 }
             }

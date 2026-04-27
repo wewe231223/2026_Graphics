@@ -143,14 +143,19 @@ add_library(Game STATIC
     Game/Base/Shader.cpp
     Game/Base/RootSignature.cpp
     Game/Base/Pipeline.cpp
+    Game/Base/Input.cpp
+    Game/Base/Time.cpp
     Game/Model/HeightMapLoader.cpp
     Game/Model/AssetRegistry.cpp
     Game/Model/AssetRegistryBackEnd.cpp
     Game/Model/Model.cpp
     Game/Model/PrimitiveModelFactory.cpp
     Game/Model/TerrainMeshBuilder.cpp
+    Game/Model/TerrainRenderResource.cpp
+    Game/Model/TerrainTiledMeshBuilder.cpp
     Game/Scene/Scene.cpp
     Game/Scene/SceneEntityFactory.cpp
+    Game/Scene/SceneWorldSnapshot.cpp
     Game/Scene/SceneYamlSerializer.cpp
     Game/Scene/System.cpp
     Game/Scene/SystemSceduler.cpp
@@ -162,6 +167,7 @@ add_library(Game STATIC
     Game/Scene/Components/EntityHierarchy.cpp
     Game/Scene/Components/Tags.cpp
     Game/Scene/Components/StaticMeshRenderer.cpp
+    Game/Scene/Components/TerrainRenderer.cpp
     Game/Scene/Components/SkinnedMeshRenderer.cpp
     Game/Scene/Components/Culling.cpp
     Game/Scene/Components/BoundingBox.cpp
@@ -173,6 +179,7 @@ add_library(Game STATIC
     Game/Scene/Components/PrefabInstance.cpp
     Game/Scene/Components/ScriptComponent.cpp
     Game/Scene/Components/RuntimeVariableTable.cpp
+    Game/Scene/Components/Animator.cpp
     Game/Scene/Components/AnimatorGraphPlayer.cpp
     Game/Scene/Components/ComponentInspection.cpp
     Game/Scene/Components/FootIKRig.cpp
@@ -187,8 +194,11 @@ add_library(Game STATIC
     Game/Scene/Systems/FootIKSystem.cpp
     Game/Scene/Systems/PhysicsActorUpdateSystem.cpp
     Game/Scene/Systems/SkinnedMeshPrepareSystem.cpp
+    Game/Scene/Systems/ShadowMappingParameterSystem.cpp
     Game/Scene/Systems/StaticRenderSystem.cpp
+    Game/Scene/Systems/TerrainRenderSystem.cpp
     Game/Scene/Systems/SkinnedMeshRenderSystem.cpp
+    Script/Core/LuaScriptFramework.cpp
 )
 
 target_include_directories(Game PUBLIC
@@ -198,7 +208,12 @@ target_include_directories(Game PUBLIC
     ${ExternalLuaIncludeDir}
 )
 
-target_link_libraries(Game PUBLIC Utility PhysicsLib)
+target_link_directories(Game PUBLIC
+    $<$<CONFIG:Debug>:${ExternalLibDirDebug}>
+    $<$<CONFIG:Release>:${ExternalLibDirRelease}>
+)
+
+target_link_libraries(Game PUBLIC Utility PhysicsLib lua54 DirectXTK12)
 
 target_compile_definitions(Game PRIVATE
     _LIB
@@ -232,6 +247,17 @@ add_executable(2026_Graphics WIN32
     Core/DX/GraphicsAllocator.cpp
     Core/DX/GraphicsVector.cpp
     Core/DX/Texture.cpp
+    External/Include/ImGui/imgui.cpp
+    External/Include/ImGui/imgui_draw.cpp
+    External/Include/ImGui/imgui_impl_dx12.cpp
+    External/Include/ImGui/imgui_impl_win32.cpp
+    External/Include/ImGui/imgui_tables.cpp
+    External/Include/ImGui/imgui_widgets.cpp
+    Widget/Console.cpp
+    Widget/PerformanceProvider.cpp
+    Widget/PerformanceWidgets.cpp
+    Widget/SceneHierarchyWidget.cpp
+    Widget/WidgetCore.cpp
 )
 
 set_target_properties(2026_Graphics PROPERTIES OUTPUT_NAME "2026_Graphics")
@@ -268,9 +294,14 @@ target_compile_definitions(2026_Graphics PRIVATE
 )
 
 add_custom_command(TARGET 2026_Graphics POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GraphicsRoot}/Core/Config.prop $<TARGET_FILE_DIR:2026_Graphics>/Config.prop
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GraphicsRoot}/Config.prop $<TARGET_FILE_DIR:2026_Graphics>/Config.prop
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GraphicsRoot}/dxcompiler.dll $<TARGET_FILE_DIR:2026_Graphics>/dxcompiler.dll
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GraphicsRoot}/c4core.dll $<TARGET_FILE_DIR:2026_Graphics>/c4core.dll
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GraphicsRoot}/ryml.dll $<TARGET_FILE_DIR:2026_Graphics>/ryml.dll
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GraphicsRoot}/lua54.dll $<TARGET_FILE_DIR:2026_Graphics>/lua54.dll
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GraphicsRoot}/$<$<CONFIG:Debug>:assimp-vc143-mtd.dll>$<$<NOT:$<CONFIG:Debug>>:assimp-vc143-mt.dll> $<TARGET_FILE_DIR:2026_Graphics>/$<$<CONFIG:Debug>:assimp-vc143-mtd.dll>$<$<NOT:$<CONFIG:Debug>>:assimp-vc143-mt.dll>
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${GraphicsRoot}/D3D $<TARGET_FILE_DIR:2026_Graphics>/D3D
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${GraphicsRoot}/Resources $<TARGET_FILE_DIR:2026_Graphics>/Resources
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${GraphicsRoot}/Script $<TARGET_FILE_DIR:2026_Graphics>/Script
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${GraphicsRoot}/Shader $<TARGET_FILE_DIR:2026_Graphics>/Shader
 )

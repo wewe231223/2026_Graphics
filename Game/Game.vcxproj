@@ -35,6 +35,8 @@
     <ClInclude Include="Model\PrimitiveModelFactory.h" />
     <ClInclude Include="Model\TerrainMeshBuilder.h" />
     <ClInclude Include="Model\TerrainMeshTypes.h" />
+    <ClInclude Include="Model\TerrainRenderResource.h" />
+    <ClInclude Include="Model\TerrainTiledMeshBuilder.h" />
     <ClInclude Include="Scene\Components\BoundingBox.h" />
     <ClInclude Include="Scene\Components\Bone.h" />
     <ClInclude Include="Scene\Components\BoneSkinReference.h" />
@@ -58,6 +60,7 @@
     <ClInclude Include="Scene\Components\ScriptComponent.h" />
     <ClInclude Include="Scene\Components\SkySphere.h" />
     <ClInclude Include="Scene\Components\StaticMeshRenderer.h" />
+    <ClInclude Include="Scene\Components\TerrainRenderer.h" />
     <ClInclude Include="Scene\Components\SkinnedMeshRenderer.h" />
     <ClInclude Include="Scene\Components\Tags.h" />
     <ClInclude Include="Scene\Components\Transform.h" />
@@ -79,6 +82,7 @@
     <ClInclude Include="Scene\Systems\ShadowMappingParameterSystem.h" />
     <ClInclude Include="Scene\Systems\SkinnedMeshPrepareSystem.h" />
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
+    <ClInclude Include="Scene\Systems\TerrainRenderSystem.h" />
     <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h" />
   </ItemGroup>
   <ItemGroup>
@@ -94,6 +98,8 @@
     <ClCompile Include="Model\Model.cpp" />
     <ClCompile Include="Model\PrimitiveModelFactory.cpp" />
     <ClCompile Include="Model\TerrainMeshBuilder.cpp" />
+    <ClCompile Include="Model\TerrainRenderResource.cpp" />
+    <ClCompile Include="Model\TerrainTiledMeshBuilder.cpp" />
     <ClCompile Include="Asset\AnimationGraphAsset.cpp" />
     <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp" />
     <ClCompile Include="Scene\Components\Culling.cpp" />
@@ -125,6 +131,7 @@
     <ClCompile Include="Scene\Components\Camera.cpp" />
     <ClCompile Include="Scene\Components\Frustum.cpp" />
     <ClCompile Include="Scene\Components\StaticMeshRenderer.cpp" />
+    <ClCompile Include="Scene\Components\TerrainRenderer.cpp" />
     <ClCompile Include="Scene\Components\SkinnedMeshRenderer.cpp" />
     <ClCompile Include="Scene\Components\ComponentInspection.cpp" />
     <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp" />
@@ -138,6 +145,7 @@
     <ClCompile Include="Scene\Systems\ShadowMappingParameterSystem.cpp" />
     <ClCompile Include="Scene\Systems\SkinnedMeshPrepareSystem.cpp" />
     <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />
+    <ClCompile Include="Scene\Systems\TerrainRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\SkinnedMeshRenderSystem.cpp" />
   </ItemGroup>
   <ItemGroup>
