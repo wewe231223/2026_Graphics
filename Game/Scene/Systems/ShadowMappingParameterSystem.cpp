@@ -31,7 +31,8 @@ namespace {
     constexpr float ShadowFarPlaneOffset{ 0.35f };
     constexpr float ShadowProjectionSizeOffset{ 0.35f };
     constexpr float ShadowCameraBackOffset{ 4.0f };
-    constexpr float ShadowCascadeProjectionCoverageScale{ 1.0f };
+    constexpr float ShadowCasterDepthExpansionScale{ 1.0f };
+    constexpr float ShadowCascadeProjectionCoverageScale{ 1.10f };
     constexpr float ParallelDirectionThreshold{ 0.98f };
     constexpr bool ShadowViewProjectionStabilizationEnabled{ false };
 
@@ -159,7 +160,8 @@ namespace {
             FrustumRadius = std::max(FrustumRadius, std::sqrtf(std::max(DistanceSquared, 0.0f)));
         }
 
-        const float ShadowLightDistance{ std::max(FrustumRadius + ShadowCameraBackOffset, ShadowMinimumNearPlane + ShadowFarPlaneOffset + ShadowMinimumFarOffset) };
+        const float ShadowCasterDepthExpansionDistance{ std::max(FrustumRadius * ShadowCasterDepthExpansionScale, ShadowCameraBackOffset) };
+        const float ShadowLightDistance{ std::max(FrustumRadius + ShadowCasterDepthExpansionDistance, ShadowMinimumNearPlane + ShadowFarPlaneOffset + ShadowMinimumFarOffset) };
         OutShadowCameraPosition = FrustumCenter - (NormalizedLightDirection * ShadowLightDistance);
         OutShadowView = DirectX::SimpleMath::Matrix::CreateLookAt(OutShadowCameraPosition, FrustumCenter, UpDirection);
 
@@ -199,7 +201,7 @@ namespace {
         const float ProjectionRight{ ProjectionCenterX + ShadowProjectionHalfWidth };
         const float ProjectionBottom{ ProjectionCenterY - ShadowProjectionHalfHeight };
         const float ProjectionTop{ ProjectionCenterY + ShadowProjectionHalfHeight };
-        OutShadowNearPlane = std::max(ShadowMinimumNearPlane, MinimumDepth - ShadowNearPlaneOffset);
+        OutShadowNearPlane = std::max(ShadowMinimumNearPlane, MinimumDepth - ShadowCasterDepthExpansionDistance - ShadowNearPlaneOffset);
         OutShadowFarPlane = std::max(OutShadowNearPlane + ShadowMinimumFarOffset, MaximumDepth + ShadowFarPlaneOffset);
         OutShadowAspectRatio = ShadowProjectionWidth / std::max(ShadowProjectionHeight, ShadowMinimumExtent);
         OutShadowProjection = DirectX::SimpleMath::Matrix::CreateOrthographicOffCenter(ProjectionLeft, ProjectionRight, ProjectionBottom, ProjectionTop, OutShadowNearPlane, OutShadowFarPlane);
