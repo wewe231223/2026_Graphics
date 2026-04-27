@@ -15,6 +15,8 @@ namespace Game {
         bool FlipV{ false };
         bool CenterOrigin{ false };
         std::uint32_t TileQuadCount{ 56 };
+        std::uint32_t LodCount{ 1 };
+        std::vector<float> LodDistances{};
     };
 
     struct HeightFieldData final {

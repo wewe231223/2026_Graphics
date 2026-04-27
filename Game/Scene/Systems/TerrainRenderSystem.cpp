@@ -1,5 +1,6 @@
 #include "TerrainRenderSystem.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -135,13 +136,17 @@ namespace Game {
         RFD::RenderFrameData& RenderData{ Ctx.RenderData };
         const std::vector<RegisteredMaterialGroup>& MaterialGroups{ *Ctx.MaterialGroups };
         const Frustum* CullingFrustumComponent{ nullptr };
+        SimpleMath::Vector3 CameraPosition{};
+        bool HasCameraPosition{ false };
 
-        for (auto [CameraComponent, FrustumComponent] : World.Query<Camera, Frustum>()) {
+        for (auto [CameraTransformComponent, CameraComponent, FrustumComponent] : World.Query<Transform, Camera, Frustum>()) {
             if (CameraComponent.isActive == false) {
                 continue;
             }
 
             CullingFrustumComponent = &FrustumComponent;
+            CameraPosition = CameraTransformComponent.position;
+            HasCameraPosition = true;
             break;
         }
 
@@ -214,7 +219,17 @@ namespace Game {
                     continue;
                 }
 
-                const std::uint32_t LodSubMeshIndex{ TileMetadata.mSubMeshIndexByLod[0] };
+                std::uint32_t SelectedLodIndex{ SelectLodIndex(TileMetadata, NodeWorld, CameraPosition, HasCameraPosition, *Renderer.mResource) };
+                if (SelectedLodIndex >= TileMetadata.mSubMeshIndexByLod.size()) {
+                    SelectedLodIndex = static_cast<std::uint32_t>(TileMetadata.mSubMeshIndexByLod.size() - 1ULL);
+                }
+
+                std::uint32_t LodSubMeshIndex{ TileMetadata.mSubMeshIndexByLod[SelectedLodIndex] };
+                while (LodSubMeshIndex >= NodePointer->GetSubMeshes().size() && SelectedLodIndex > 0u) {
+                    SelectedLodIndex -= 1u;
+                    LodSubMeshIndex = TileMetadata.mSubMeshIndexByLod[SelectedLodIndex];
+                }
+
                 if (LodSubMeshIndex >= NodePointer->GetSubMeshes().size()) {
                     continue;
                 }
@@ -267,6 +282,35 @@ namespace Game {
                 RenderData.drawRecords.push_back(DrawRecord);
             }
         }
+    }
+
+    std::uint32_t TerrainRenderSystem::SelectLodIndex(const TerrainTileMetadata& TileMetadata, const SimpleMath::Matrix& WorldMatrix, const SimpleMath::Vector3& CameraPosition, bool HasCameraPosition, const TerrainRenderResource& Resource) const {
+        const std::size_t AvailableLodCount{ (std::min)(static_cast<std::size_t>(Resource.GetLodCount()), TileMetadata.mSubMeshIndexByLod.size()) };
+        if (AvailableLodCount <= 1ULL || HasCameraPosition == false) {
+            return 0u;
+        }
+
+        const std::vector<float>& LodDistances{ Resource.GetLodDistances() };
+        if (LodDistances.empty() == true) {
+            return 0u;
+        }
+
+        const SimpleMath::Vector3 WorldCenter{ SimpleMath::Vector3::Transform(TileMetadata.mCenter, WorldMatrix) };
+        const SimpleMath::Vector3 CenterToCamera{ WorldCenter - CameraPosition };
+        const float DistanceSquared{ CenterToCamera.LengthSquared() };
+        std::uint32_t SelectedLodIndex{ 0 };
+        const std::size_t ThresholdCount{ (std::min)(LodDistances.size(), AvailableLodCount - 1ULL) };
+
+        for (std::size_t ThresholdIndex{ 0 }; ThresholdIndex < ThresholdCount; ++ThresholdIndex) {
+            const float ThresholdDistance{ LodDistances[ThresholdIndex] };
+            if (ThresholdDistance > 0.0f && DistanceSquared < ThresholdDistance * ThresholdDistance) {
+                return static_cast<std::uint32_t>(ThresholdIndex);
+            }
+
+            SelectedLodIndex = static_cast<std::uint32_t>(ThresholdIndex + 1ULL);
+        }
+
+        return SelectedLodIndex;
     }
 
     bool TerrainRenderSystem::IsTileVisibleByFrustum(const DirectX::BoundingOrientedBox& LocalBoundingBox, const SimpleMath::Matrix& WorldMatrix, const Frustum* CullingFrustumComponent, bool IsFrustumCullingEnabled, DirectX::BoundingOrientedBox& OutWorldBoundingBox) const {

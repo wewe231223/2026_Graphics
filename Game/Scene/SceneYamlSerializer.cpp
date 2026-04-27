@@ -528,6 +528,40 @@ namespace {
         return Value ? std::string{ "true" } : std::string{ "false" };
     }
 
+    std::string BuildFloatListText(const std::vector<float>& Values) {
+        std::string Text{};
+        for (std::size_t Index{ 0 }; Index < Values.size(); ++Index) {
+            if (Index > 0ULL) {
+                Text += ",";
+            }
+
+            Text += std::to_string(Values[Index]);
+        }
+
+        return Text;
+    }
+
+    bool TryParseFloatListText(const std::string& Text, std::vector<float>& OutValues) {
+        if (Text.empty() == true) {
+            return false;
+        }
+
+        std::stringstream Stream{ Text };
+        std::string ValueToken{};
+        std::vector<float> Values{};
+
+        while (std::getline(Stream, ValueToken, ',')) {
+            if (ValueToken.empty() == true) {
+                return false;
+            }
+
+            Values.push_back(std::stof(ValueToken));
+        }
+
+        OutValues = std::move(Values);
+        return true;
+    }
+
     std::string BuildTerrainModelSelector(const Game::TerrainBuildDesc& Desc) {
         std::string Selector{ "terrain:" };
         Selector += std::string{ "HeightMapPath=" } + Desc.HeightMapPath;
@@ -537,6 +571,11 @@ namespace {
         Selector += std::string{ ";FlipV=" } + (Desc.FlipV == true ? std::string{ "true" } : std::string{ "false" });
         Selector += std::string{ ";CenterOrigin=" } + (Desc.CenterOrigin == true ? std::string{ "true" } : std::string{ "false" });
         Selector += std::string{ ";TileQuadCount=" } + std::to_string(Desc.TileQuadCount);
+        Selector += std::string{ ";LodCount=" } + std::to_string(Desc.LodCount);
+        if (Desc.LodDistances.empty() == false) {
+            Selector += std::string{ ";LodDistances=" } + BuildFloatListText(Desc.LodDistances);
+        }
+
         return Selector;
     }
 
@@ -964,6 +1003,24 @@ namespace {
             TerrainNode["TileQuadCount"] >> OutDesc.TileQuadCount;
         }
 
+        if (TerrainNode.has_child("LodCount")) {
+            TerrainNode["LodCount"] >> OutDesc.LodCount;
+        }
+
+        if (TerrainNode.has_child("LodDistances")) {
+            const c4::yml::ConstNodeRef LodDistancesNode{ TerrainNode["LodDistances"] };
+            if (LodDistancesNode.is_seq() == false) {
+                return false;
+            }
+
+            OutDesc.LodDistances.clear();
+            for (const c4::yml::ConstNodeRef LodDistanceNode : LodDistancesNode.children()) {
+                float LodDistance{};
+                LodDistanceNode >> LodDistance;
+                OutDesc.LodDistances.push_back(LodDistance);
+            }
+        }
+
         return true;
     }
 
@@ -1021,6 +1078,17 @@ namespace {
                 else if (Key == "TileQuadCount") {
                     OutDesc.TileQuadCount = static_cast<std::uint32_t>(std::stoul(Value));
                 }
+                else if (Key == "LodCount") {
+                    OutDesc.LodCount = static_cast<std::uint32_t>(std::stoul(Value));
+                }
+                else if (Key == "LodDistances") {
+                    std::vector<float> LodDistances{};
+                    if (TryParseFloatListText(Value, LodDistances) == false) {
+                        return false;
+                    }
+
+                    OutDesc.LodDistances = std::move(LodDistances);
+                }
                 else {
                     return false;
                 }
@@ -1048,6 +1116,8 @@ namespace {
         AppendLine(Stream, IndentLevel + 1, std::string{ "FlipV: " } + ToYamlBooleanText(Desc.FlipV));
         AppendLine(Stream, IndentLevel + 1, std::string{ "CenterOrigin: " } + ToYamlBooleanText(Desc.CenterOrigin));
         AppendLine(Stream, IndentLevel + 1, std::string{ "TileQuadCount: " } + std::to_string(Desc.TileQuadCount));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "LodCount: " } + std::to_string(Desc.LodCount));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "LodDistances: [" } + BuildFloatListText(Desc.LodDistances) + std::string{ "]" });
     }
 
     void AppendVector3(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& Key, const SimpleMath::Vector3& Value) {

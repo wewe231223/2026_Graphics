@@ -47,6 +47,8 @@ namespace Game {
 
         TerrainTiledMeshData TiledData{};
         TiledData.mTileQuadCount = Desc.TileQuadCount;
+        TiledData.mLodCount = Desc.LodCount;
+        TiledData.mLodDistances = Desc.LodDistances;
 
         const std::uint32_t VertexCountX{ Field.Width };
         const std::uint32_t VertexCountZ{ Field.Height };
@@ -57,6 +59,7 @@ namespace Game {
         TiledData.mTileCountX = (QuadCountX + Desc.TileQuadCount - 1u) / Desc.TileQuadCount;
         TiledData.mTileCountZ = (QuadCountZ + Desc.TileQuadCount - 1u) / Desc.TileQuadCount;
         TiledData.mTileMetadata.reserve(static_cast<std::size_t>(TiledData.mTileCountX) * static_cast<std::size_t>(TiledData.mTileCountZ));
+        std::vector<std::uint32_t> NormalIndices{};
 
         asset::ModelNode& RootNode{ TiledData.mModelData.CreateNode("Terrain", nullptr) };
         RootNode.Vertices().Resize(VertexCount);
@@ -77,42 +80,38 @@ namespace Game {
                 const std::uint32_t StartZ{ TileZ * Desc.TileQuadCount };
                 const std::uint32_t EndX{ (std::min)(StartX + Desc.TileQuadCount, QuadCountX) };
                 const std::uint32_t EndZ{ (std::min)(StartZ + Desc.TileQuadCount, QuadCountZ) };
-                const std::size_t IndexOffset{ RootNode.Indices().size() };
-
-                for (std::uint32_t GridZ{ StartZ }; GridZ < EndZ; ++GridZ) {
-                    for (std::uint32_t GridX{ StartX }; GridX < EndX; ++GridX) {
-                        const std::uint32_t I0{ CalculateIndex(Field.Width, GridX, GridZ) };
-                        const std::uint32_t I1{ CalculateIndex(Field.Width, GridX + 1u, GridZ) };
-                        const std::uint32_t I2{ CalculateIndex(Field.Width, GridX, GridZ + 1u) };
-                        const std::uint32_t I3{ CalculateIndex(Field.Width, GridX + 1u, GridZ + 1u) };
-
-                        RootNode.Indices().push_back(I0);
-                        RootNode.Indices().push_back(I2);
-                        RootNode.Indices().push_back(I1);
-                        RootNode.Indices().push_back(I1);
-                        RootNode.Indices().push_back(I2);
-                        RootNode.Indices().push_back(I3);
-                    }
-                }
-
-                asset::ModelNode::SubMesh SubMesh{};
-                SubMesh.IndexOffset = IndexOffset;
-                SubMesh.IndexCount = RootNode.Indices().size() - IndexOffset;
-                SubMesh.MaterialGroupItemIndex = 0;
-                RootNode.SubMeshes().push_back(SubMesh);
 
                 TerrainTileMetadata TileMetadata{};
                 TileMetadata.mTileIndexX = TileX;
                 TileMetadata.mTileIndexZ = TileZ;
                 TileMetadata.mLocalBoundingBox = BuildBoundingBoxFromRange(RootNode.Vertices(), Field.Width, StartX, StartZ, EndX, EndZ);
                 TileMetadata.mCenter = SimpleMath::Vector3{ TileMetadata.mLocalBoundingBox.Center.x, TileMetadata.mLocalBoundingBox.Center.y, TileMetadata.mLocalBoundingBox.Center.z };
-                TileMetadata.mSubMeshIndex = static_cast<std::uint32_t>(RootNode.SubMeshes().size() - 1ULL);
-                TileMetadata.mSubMeshIndexByLod.push_back(TileMetadata.mSubMeshIndex);
+
+                for (std::uint32_t LodIndex{ 0 }; LodIndex < TiledData.mLodCount; ++LodIndex) {
+                    const std::size_t IndexOffset{ RootNode.Indices().size() };
+                    const std::uint32_t LodStride{ CalculateLodStride(LodIndex) };
+                    AppendTileLodIndices(RootNode.Indices(), Field.Width, StartX, StartZ, EndX, EndZ, LodStride);
+
+                    asset::ModelNode::SubMesh SubMesh{};
+                    SubMesh.IndexOffset = IndexOffset;
+                    SubMesh.IndexCount = RootNode.Indices().size() - IndexOffset;
+                    SubMesh.MaterialGroupItemIndex = 0;
+                    RootNode.SubMeshes().push_back(SubMesh);
+
+                    const std::uint32_t SubMeshIndex{ static_cast<std::uint32_t>(RootNode.SubMeshes().size() - 1ULL) };
+                    if (LodIndex == 0u) {
+                        TileMetadata.mSubMeshIndex = SubMeshIndex;
+                        NormalIndices.insert(NormalIndices.end(), RootNode.Indices().begin() + static_cast<std::ptrdiff_t>(IndexOffset), RootNode.Indices().end());
+                    }
+
+                    TileMetadata.mSubMeshIndexByLod.push_back(SubMeshIndex);
+                }
+
                 TiledData.mTileMetadata.push_back(std::move(TileMetadata));
             }
         }
 
-        AccumulateNormals(RootNode.Vertices(), RootNode.Indices());
+        AccumulateNormals(RootNode.Vertices(), NormalIndices);
         TiledData.mLocalBoundingBox = BuildBoundingBoxFromAllVertices(RootNode.Vertices());
         RootNode.SetBoundingBox(TiledData.mLocalBoundingBox);
         return TiledData;
@@ -135,6 +134,10 @@ namespace Game {
             throw std::runtime_error{ "TileQuadCount must be greater than zero." };
         }
 
+        if (Desc.LodCount == 0u) {
+            throw std::runtime_error{ "LodCount must be greater than zero." };
+        }
+
         if (Field.Width < 2u || Field.Height < 2u) {
             throw std::runtime_error{ "Height field size must be at least 2x2." };
         }
@@ -147,6 +150,19 @@ namespace Game {
 
     std::uint32_t TerrainTiledMeshBuilder::CalculateIndex(std::uint32_t Width, std::uint32_t X, std::uint32_t Z) const {
         return (Z * Width) + X;
+    }
+
+    std::uint32_t TerrainTiledMeshBuilder::CalculateLodStride(std::uint32_t LodIndex) const {
+        std::uint32_t Stride{ 1 };
+        for (std::uint32_t Index{ 0 }; Index < LodIndex; ++Index) {
+            if (Stride >= 1024u) {
+                return Stride;
+            }
+
+            Stride *= 2u;
+        }
+
+        return Stride;
     }
 
     float TerrainTiledMeshBuilder::CalculateWorldHeight(const HeightFieldData& Field, const TerrainBuildDesc& Desc, std::uint32_t X, std::uint32_t Z) const {
@@ -184,6 +200,33 @@ namespace Game {
         }
 
         return asset::Vec2{ U, V };
+    }
+
+    void TerrainTiledMeshBuilder::AppendTileLodIndices(std::vector<std::uint32_t>& OutIndices, std::uint32_t FieldWidth, std::uint32_t StartX, std::uint32_t StartZ, std::uint32_t EndX, std::uint32_t EndZ, std::uint32_t LodStride) const {
+        const std::uint32_t EffectiveStride{ (std::max)(LodStride, 1u) };
+
+        for (std::uint32_t GridZ{ StartZ }; GridZ < EndZ;) {
+            const std::uint32_t NextZ{ (std::min)(GridZ + EffectiveStride, EndZ) };
+
+            for (std::uint32_t GridX{ StartX }; GridX < EndX;) {
+                const std::uint32_t NextX{ (std::min)(GridX + EffectiveStride, EndX) };
+                const std::uint32_t I0{ CalculateIndex(FieldWidth, GridX, GridZ) };
+                const std::uint32_t I1{ CalculateIndex(FieldWidth, NextX, GridZ) };
+                const std::uint32_t I2{ CalculateIndex(FieldWidth, GridX, NextZ) };
+                const std::uint32_t I3{ CalculateIndex(FieldWidth, NextX, NextZ) };
+
+                OutIndices.push_back(I0);
+                OutIndices.push_back(I2);
+                OutIndices.push_back(I1);
+                OutIndices.push_back(I1);
+                OutIndices.push_back(I2);
+                OutIndices.push_back(I3);
+
+                GridX = NextX;
+            }
+
+            GridZ = NextZ;
+        }
     }
 
     DirectX::BoundingOrientedBox TerrainTiledMeshBuilder::BuildBoundingBoxFromRange(const asset::VertexAttributes& Vertices, std::uint32_t FieldWidth, std::uint32_t StartX, std::uint32_t StartZ, std::uint32_t EndX, std::uint32_t EndZ) const {

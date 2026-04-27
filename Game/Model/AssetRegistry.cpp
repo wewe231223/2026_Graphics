@@ -51,6 +51,19 @@ namespace {
             || (TypeValue >= TerrainNormalTextureStart && TypeValue <= TerrainNormalTextureEnd);
     }
 
+    std::string BuildFloatListText(const std::vector<float>& Values) {
+        std::string Text{};
+        for (std::size_t Index{ 0 }; Index < Values.size(); ++Index) {
+            if (Index > 0ULL) {
+                Text += ",";
+            }
+
+            Text += std::to_string(Values[Index]);
+        }
+
+        return Text;
+    }
+
     std::string BuildTerrainRenderResourceKey(const Game::TerrainBuildDesc& Desc) {
         std::string Key{ "terrain:" };
         Key += std::string{ "HeightMapPath=" } + Desc.HeightMapPath;
@@ -60,6 +73,11 @@ namespace {
         Key += std::string{ ";FlipV=" } + (Desc.FlipV == true ? std::string{ "true" } : std::string{ "false" });
         Key += std::string{ ";CenterOrigin=" } + (Desc.CenterOrigin == true ? std::string{ "true" } : std::string{ "false" });
         Key += std::string{ ";TileQuadCount=" } + std::to_string(Desc.TileQuadCount);
+        Key += std::string{ ";LodCount=" } + std::to_string(Desc.LodCount);
+        if (Desc.LodDistances.empty() == false) {
+            Key += std::string{ ";LodDistances=" } + BuildFloatListText(Desc.LodDistances);
+        }
+
         return Key;
     }
 }
@@ -208,7 +226,7 @@ namespace Game {
         }
 
         std::shared_ptr<TerrainRenderResource> NewResource{ std::make_shared<TerrainRenderResource>() };
-        NewResource->Initialize(NewModel, std::move(TiledMeshData.mTileMetadata), TiledMeshData.mTileQuadCount, TiledMeshData.mTileCountX, TiledMeshData.mTileCountZ, TiledMeshData.mLocalBoundingBox);
+        NewResource->Initialize(NewModel, std::move(TiledMeshData.mTileMetadata), TiledMeshData.mTileQuadCount, TiledMeshData.mTileCountX, TiledMeshData.mTileCountZ, TiledMeshData.mLodCount, std::move(TiledMeshData.mLodDistances), TiledMeshData.mLocalBoundingBox);
 
         const std::uint32_t NewIndex{ static_cast<std::uint32_t>(TerrainBucket.mAssets.size()) };
         TerrainBucket.mAssets.push_back(NewResource);

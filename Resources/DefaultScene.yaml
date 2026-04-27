@@ -399,6 +399,8 @@ Entities:
         FlipV: false
         CenterOrigin: true
         TileQuadCount: 56
+        LodCount: 4
+        LodDistances: [90.0, 180.0, 360.0]
         active: true
   - EntityId: 13
     ParentEntityId: -1

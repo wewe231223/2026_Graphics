@@ -6,6 +6,8 @@
 
 namespace Game {
     struct Frustum;
+    struct TerrainTileMetadata;
+    class TerrainRenderResource;
 
     class TerrainRenderSystem final : public ISystem {
     public:
@@ -24,6 +26,7 @@ namespace Game {
         void Execute(Arche::World& World, FrameContext& Ctx, float Dt) override;
 
     private:
+        std::uint32_t SelectLodIndex(const TerrainTileMetadata& TileMetadata, const SimpleMath::Matrix& WorldMatrix, const SimpleMath::Vector3& CameraPosition, bool HasCameraPosition, const TerrainRenderResource& Resource) const;
         bool IsTileVisibleByFrustum(const DirectX::BoundingOrientedBox& LocalBoundingBox, const SimpleMath::Matrix& WorldMatrix, const Frustum* CullingFrustumComponent, bool IsFrustumCullingEnabled, DirectX::BoundingOrientedBox& OutWorldBoundingBox) const;
 
     private:

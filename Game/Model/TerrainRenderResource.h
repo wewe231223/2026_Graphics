@@ -28,12 +28,14 @@ namespace Game {
         TerrainRenderResource& operator=(TerrainRenderResource&& Other) noexcept;
 
     public:
-        void Initialize(std::shared_ptr<Model> ModelValue, std::vector<TerrainTileMetadata> TileMetadataValue, std::uint32_t TileQuadCountValue, std::uint32_t TileCountXValue, std::uint32_t TileCountZValue, const DirectX::BoundingOrientedBox& LocalBoundingBoxValue);
+        void Initialize(std::shared_ptr<Model> ModelValue, std::vector<TerrainTileMetadata> TileMetadataValue, std::uint32_t TileQuadCountValue, std::uint32_t TileCountXValue, std::uint32_t TileCountZValue, std::uint32_t LodCountValue, std::vector<float> LodDistancesValue, const DirectX::BoundingOrientedBox& LocalBoundingBoxValue);
         const std::shared_ptr<Model>& GetModel() const;
         const std::vector<TerrainTileMetadata>& GetTileMetadata() const;
         std::uint32_t GetTileQuadCount() const;
         std::uint32_t GetTileCountX() const;
         std::uint32_t GetTileCountZ() const;
+        std::uint32_t GetLodCount() const;
+        const std::vector<float>& GetLodDistances() const;
         const DirectX::BoundingOrientedBox& GetLocalBoundingBox() const;
 
     private:
@@ -42,6 +44,8 @@ namespace Game {
         std::uint32_t mTileQuadCount{ 0 };
         std::uint32_t mTileCountX{ 0 };
         std::uint32_t mTileCountZ{ 0 };
+        std::uint32_t mLodCount{ 1 };
+        std::vector<float> mLodDistances{};
         DirectX::BoundingOrientedBox mLocalBoundingBox{};
     };
 }
