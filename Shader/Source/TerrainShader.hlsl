@@ -13,6 +13,19 @@ struct TerrainVertexInput {
     float4 Color : COLOR0;
 };
 
+struct TerrainControlPoint {
+    float3 Position : POSITION;
+    float3 Normal : NORMAL;
+    float2 TexCoord0 : TEXCOORD0;
+    float4 Color : COLOR0;
+    uint DrawIndex : DRAW_INDEX;
+};
+
+struct TerrainPatchConstantOutput {
+    float EdgeTessFactors[4] : SV_TessFactor;
+    float InsideTessFactors[2] : SV_InsideTessFactor;
+};
+
 struct TerrainVertexOutput {
     float4 Position : SV_POSITION;
     float3 Normal : NORMAL;
@@ -23,27 +36,162 @@ struct TerrainVertexOutput {
     uint Flags : FLAGS;
 };
 
-TerrainVertexOutput VsMain(TerrainVertexInput Input, uint InstanceId : SV_InstanceID) {
+struct TerrainDepthVertexOutput {
+    float4 Position : SV_POSITION;
+};
+
+TerrainControlPoint VsMain(TerrainVertexInput Input, uint InstanceId : SV_InstanceID) {
+    TerrainControlPoint Output;
+    Output.Position = Input.Position;
+    Output.Normal = Input.Normal;
+    Output.TexCoord0 = Input.TexCoord0;
+    Output.Color = Input.Color;
+    Output.DrawIndex = RootConstants.DrawRecordBaseIndex + InstanceId;
+    return Output;
+}
+
+TerrainPatchContextGpu ResolveTerrainPatchContext(uint DrawIndex) {
+    StructuredBuffer<DrawRecordGpu> DrawRecordBuffer = ResourceDescriptorHeap[RootConstants.DrawRecordSrvIndex];
+    StructuredBuffer<TerrainPatchContextGpu> TerrainPatchContextBuffer = ResourceDescriptorHeap[RootConstants.TerrainPatchContextSrvIndex];
+
+    const DrawRecordGpu DrawRecord = DrawRecordBuffer[DrawIndex];
+    return TerrainPatchContextBuffer[DrawRecord.TerrainPatchContextIndex];
+}
+
+TerrainPatchConstantOutput HsPatchConstant(InputPatch<TerrainControlPoint, 4> Patch, uint PatchId : SV_PrimitiveID) {
+    TerrainPatchConstantOutput Output;
+    const TerrainPatchContextGpu PatchContext = ResolveTerrainPatchContext(Patch[0].DrawIndex);
+    Output.EdgeTessFactors[0] = max(PatchContext.OuterTessFactors.x, 1.0f);
+    Output.EdgeTessFactors[1] = max(PatchContext.OuterTessFactors.y, 1.0f);
+    Output.EdgeTessFactors[2] = max(PatchContext.OuterTessFactors.z, 1.0f);
+    Output.EdgeTessFactors[3] = max(PatchContext.OuterTessFactors.w, 1.0f);
+    Output.InsideTessFactors[0] = max(PatchContext.InsideTessFactors.x, 1.0f);
+    Output.InsideTessFactors[1] = max(PatchContext.InsideTessFactors.y, 1.0f);
+    return Output;
+}
+
+[domain("quad")]
+[partitioning("integer")]
+[outputtopology("triangle_ccw")]
+[outputcontrolpoints(4)]
+[patchconstantfunc("HsPatchConstant")]
+TerrainControlPoint HsMain(InputPatch<TerrainControlPoint, 4> Patch, uint ControlPointId : SV_OutputControlPointID, uint PatchId : SV_PrimitiveID) {
+    return Patch[ControlPointId];
+}
+
+uint ResolveTerrainHeightFieldWidth(TerrainPatchContextGpu PatchContext) {
+    return max((uint)PatchContext.HeightFieldParameters.x, 1u);
+}
+
+uint ResolveTerrainHeightFieldHeight(TerrainPatchContextGpu PatchContext) {
+    return max((uint)PatchContext.HeightFieldParameters.y, 1u);
+}
+
+float SampleTerrainHeight01(TerrainPatchContextGpu PatchContext, float2 GridPosition) {
+    StructuredBuffer<float> HeightFieldBuffer = ResourceDescriptorHeap[NonUniformResourceIndex(PatchContext.HeightFieldSrvDescriptorIndex)];
+    const uint Width = ResolveTerrainHeightFieldWidth(PatchContext);
+    const uint Height = ResolveTerrainHeightFieldHeight(PatchContext);
+    const float MaxGridX = (float)(Width - 1u);
+    const float MaxGridZ = (float)(Height - 1u);
+    const float2 ClampedGridPosition = clamp(GridPosition, float2(0.0f, 0.0f), float2(MaxGridX, MaxGridZ));
+    const uint X0 = min((uint)floor(ClampedGridPosition.x), Width - 1u);
+    const uint Z0 = min((uint)floor(ClampedGridPosition.y), Height - 1u);
+    const uint X1 = min(X0 + 1u, Width - 1u);
+    const uint Z1 = min(Z0 + 1u, Height - 1u);
+    const float2 Blend = saturate(ClampedGridPosition - float2((float)X0, (float)Z0));
+
+    const float Height00 = saturate(HeightFieldBuffer[(Z0 * Width) + X0]);
+    const float Height10 = saturate(HeightFieldBuffer[(Z0 * Width) + X1]);
+    const float Height01 = saturate(HeightFieldBuffer[(Z1 * Width) + X0]);
+    const float Height11 = saturate(HeightFieldBuffer[(Z1 * Width) + X1]);
+    const float HeightX0 = lerp(Height00, Height10, Blend.x);
+    const float HeightX1 = lerp(Height01, Height11, Blend.x);
+    return lerp(HeightX0, HeightX1, Blend.y);
+}
+
+float SampleTerrainHeight(TerrainPatchContextGpu PatchContext, float2 GridPosition) {
+    return SampleTerrainHeight01(PatchContext, GridPosition) * PatchContext.HeightFieldParameters.z;
+}
+
+float2 BuildTerrainGridPosition(TerrainPatchContextGpu PatchContext, float2 DomainUv) {
+    return PatchContext.TileGrid.xy + (DomainUv * PatchContext.TileGrid.zw);
+}
+
+float3 BuildTerrainLocalPosition(TerrainPatchContextGpu PatchContext, float2 GridPosition) {
+    const float HeightValue = SampleTerrainHeight(PatchContext, GridPosition);
+    const float LocalX = (GridPosition.x * PatchContext.TerrainParameters.x) - PatchContext.TerrainParameters.z;
+    const float LocalZ = (GridPosition.y * PatchContext.TerrainParameters.y) - PatchContext.TerrainParameters.w;
+    return float3(LocalX, HeightValue, LocalZ);
+}
+
+float2 BuildTerrainTexCoord(TerrainPatchContextGpu PatchContext, float2 GridPosition) {
+    const uint Width = ResolveTerrainHeightFieldWidth(PatchContext);
+    const uint Height = ResolveTerrainHeightFieldHeight(PatchContext);
+    const float U = GridPosition.x / max((float)(Width - 1u), 1.0f);
+    float V = GridPosition.y / max((float)(Height - 1u), 1.0f);
+    if (PatchContext.HeightFieldParameters.w > 0.5f) {
+        V = 1.0f - V;
+    }
+
+    return float2(U, V);
+}
+
+float3 BuildTerrainLocalNormal(TerrainPatchContextGpu PatchContext, float2 GridPosition) {
+    const float HeightNegativeX = SampleTerrainHeight(PatchContext, GridPosition + float2(-1.0f, 0.0f));
+    const float HeightPositiveX = SampleTerrainHeight(PatchContext, GridPosition + float2(1.0f, 0.0f));
+    const float HeightNegativeZ = SampleTerrainHeight(PatchContext, GridPosition + float2(0.0f, -1.0f));
+    const float HeightPositiveZ = SampleTerrainHeight(PatchContext, GridPosition + float2(0.0f, 1.0f));
+    const float3 DeltaX = float3(PatchContext.TerrainParameters.x * 2.0f, HeightPositiveX - HeightNegativeX, 0.0f);
+    const float3 DeltaZ = float3(0.0f, HeightPositiveZ - HeightNegativeZ, PatchContext.TerrainParameters.y * 2.0f);
+    return normalize(cross(DeltaZ, DeltaX));
+}
+
+[domain("quad")]
+TerrainVertexOutput DsMain(TerrainPatchConstantOutput PatchConstants, float2 DomainUv : SV_DomainLocation, const OutputPatch<TerrainControlPoint, 4> Patch) {
     StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
     StructuredBuffer<ModelContextGpu> ModelContextBuffer = ResourceDescriptorHeap[RootConstants.ModelContextSrvIndex];
     StructuredBuffer<DrawRecordGpu> DrawRecordBuffer = ResourceDescriptorHeap[RootConstants.DrawRecordSrvIndex];
 
-    const uint DrawIndex = RootConstants.DrawRecordBaseIndex + InstanceId;
+    const uint DrawIndex = Patch[0].DrawIndex;
     const DrawRecordGpu DrawRecord = DrawRecordBuffer[DrawIndex];
     const ModelContextGpu ModelContext = ModelContextBuffer[DrawRecord.ObjectIndex];
     const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[RootConstants.FrameGlobalsElementIndex];
+    const TerrainPatchContextGpu PatchContext = ResolveTerrainPatchContext(DrawIndex);
+    const float2 GridPosition = BuildTerrainGridPosition(PatchContext, DomainUv);
+    const float3 LocalPosition = BuildTerrainLocalPosition(PatchContext, GridPosition);
+    const float3 LocalNormal = BuildTerrainLocalNormal(PatchContext, GridPosition);
 
     TerrainVertexOutput Output;
-
     const float4x4 World = transpose(ModelContext.World);
-    const float4 WorldPosition = mul(float4(Input.Position, 1.0f), World);
+    const float4 WorldPosition = mul(float4(LocalPosition, 1.0f), World);
     Output.Position = mul(WorldPosition, transpose(FrameGlobals.ViewProj));
-    Output.Normal = normalize(mul(Input.Normal, (float3x3)World));
+    Output.Normal = normalize(mul(LocalNormal, (float3x3)World));
     Output.WorldPosition = WorldPosition.xyz;
-    Output.TexCoord0 = Input.TexCoord0;
-    Output.Color = Input.Color;
+    Output.TexCoord0 = BuildTerrainTexCoord(PatchContext, GridPosition);
+    Output.Color = Patch[0].Color;
     Output.MaterialIndex = DrawRecord.MaterialIndex;
     Output.Flags = DrawRecord.Flags;
+    return Output;
+}
+
+[domain("quad")]
+TerrainDepthVertexOutput DsMainDepth(TerrainPatchConstantOutput PatchConstants, float2 DomainUv : SV_DomainLocation, const OutputPatch<TerrainControlPoint, 4> Patch) {
+    StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
+    StructuredBuffer<ModelContextGpu> ModelContextBuffer = ResourceDescriptorHeap[RootConstants.ModelContextSrvIndex];
+    StructuredBuffer<DrawRecordGpu> DrawRecordBuffer = ResourceDescriptorHeap[RootConstants.DrawRecordSrvIndex];
+
+    const uint DrawIndex = Patch[0].DrawIndex;
+    const DrawRecordGpu DrawRecord = DrawRecordBuffer[DrawIndex];
+    const ModelContextGpu ModelContext = ModelContextBuffer[DrawRecord.ObjectIndex];
+    const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[RootConstants.FrameGlobalsElementIndex];
+    const TerrainPatchContextGpu PatchContext = ResolveTerrainPatchContext(DrawIndex);
+    const float2 GridPosition = BuildTerrainGridPosition(PatchContext, DomainUv);
+    const float3 LocalPosition = BuildTerrainLocalPosition(PatchContext, GridPosition);
+    const float4x4 World = transpose(ModelContext.World);
+    const float4 WorldPosition = mul(float4(LocalPosition, 1.0f), World);
+
+    TerrainDepthVertexOutput Output;
+    Output.Position = mul(WorldPosition, transpose(FrameGlobals.ViewProj));
     return Output;
 }
 

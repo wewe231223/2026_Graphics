@@ -35,13 +35,10 @@ namespace Game {
     private:
         void ValidateBuildInput(const HeightFieldData& Field, const TerrainBuildDesc& Desc) const;
         std::uint32_t CalculateIndex(std::uint32_t Width, std::uint32_t X, std::uint32_t Z) const;
-        std::uint32_t CalculateLodStride(std::uint32_t LodIndex) const;
         float CalculateWorldHeight(const HeightFieldData& Field, const TerrainBuildDesc& Desc, std::uint32_t X, std::uint32_t Z) const;
         asset::Vec3 CalculatePosition(const HeightFieldData& Field, const TerrainBuildDesc& Desc, std::uint32_t X, std::uint32_t Z) const;
         asset::Vec2 CalculateTexCoord(const HeightFieldData& Field, const TerrainBuildDesc& Desc, std::uint32_t X, std::uint32_t Z) const;
-        void AppendTileLodIndices(std::vector<std::uint32_t>& OutIndices, std::uint32_t FieldWidth, std::uint32_t StartX, std::uint32_t StartZ, std::uint32_t EndX, std::uint32_t EndZ, std::uint32_t LodStride) const;
-        DirectX::BoundingOrientedBox BuildBoundingBoxFromRange(const asset::VertexAttributes& Vertices, std::uint32_t FieldWidth, std::uint32_t StartX, std::uint32_t StartZ, std::uint32_t EndX, std::uint32_t EndZ) const;
-        DirectX::BoundingOrientedBox BuildBoundingBoxFromAllVertices(const asset::VertexAttributes& Vertices) const;
-        void AccumulateNormals(asset::VertexAttributes& Vertices, const std::vector<std::uint32_t>& Indices) const;
+        void WritePatchVertex(asset::VertexAttributes& Vertices, std::uint32_t VertexIndex, const HeightFieldData& Field, const TerrainBuildDesc& Desc, std::uint32_t X, std::uint32_t Z) const;
+        DirectX::BoundingOrientedBox BuildBoundingBoxFromRange(const HeightFieldData& Field, const TerrainBuildDesc& Desc, std::uint32_t StartX, std::uint32_t StartZ, std::uint32_t EndX, std::uint32_t EndZ) const;
     };
 }

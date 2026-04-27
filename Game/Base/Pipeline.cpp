@@ -59,6 +59,7 @@ namespace {
 		D3D12_DEPTH_STENCIL_DESC DepthStencilState{};
 		D3D12_INDEX_BUFFER_STRIP_CUT_VALUE IBStripCutValue{};
 		D3D12_PRIMITIVE_TOPOLOGY_TYPE PrimitiveTopologyType{};
+		D3D_PRIMITIVE_TOPOLOGY PrimitiveTopology{};
 		std::array<DXGI_FORMAT, 8> RtvFormats{};
 		UINT NumRenderTargets{};
 		DXGI_FORMAT DsvFormat{};
@@ -71,6 +72,7 @@ namespace {
 	struct CompiledPipelineData {
 		ComPtr<ID3D12RootSignature> RootSignature{};
 		ComPtr<ID3D12PipelineState> PipelineState{};
+		D3D_PRIMITIVE_TOPOLOGY PrimitiveTopology{ D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST };
 		std::vector<Game::VertexInputBinding> VertexInputBindings{};
 	};
 
@@ -611,6 +613,30 @@ namespace {
 		return D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 	}
 
+	D3D_PRIMITIVE_TOPOLOGY ParsePrimitiveTopology(const std::string& value) {
+		if (value == "PointList") {
+			return D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
+		}
+
+		if (value == "LineList") {
+			return D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+		}
+
+		if (value == "LineStrip") {
+			return D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
+		}
+
+		if (value == "TriangleStrip") {
+			return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
+		}
+
+		if (value == "4ControlPointPatchList") {
+			return D3D_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST;
+		}
+
+		return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	}
+
 	D3D12_INDEX_BUFFER_STRIP_CUT_VALUE ParseStripCut(const std::string& value) {
 		if (value == "0xFFFF") {
 			return D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFF;
@@ -668,6 +694,7 @@ namespace {
 		pipelineData.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC{ D3D12_DEFAULT };
 		pipelineData.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
 		pipelineData.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		pipelineData.PrimitiveTopology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 		pipelineData.RtvFormats.fill(DXGI_FORMAT_UNKNOWN);
 		pipelineData.NumRenderTargets = 0;
 		pipelineData.DsvFormat = DXGI_FORMAT_UNKNOWN;
@@ -822,6 +849,7 @@ namespace {
 
 		pipelineData.IBStripCutValue = ParseStripCut(ReadOptionalString(document, "IBStripCutValue", "Disabled"));
 		pipelineData.PrimitiveTopologyType = ParsePrimitiveTopologyType(ReadOptionalString(document, "PrimitiveTopologyType", "Triangle"));
+		pipelineData.PrimitiveTopology = ParsePrimitiveTopology(ReadOptionalString(document, "PrimitiveTopology", "TriangleList"));
 
 		if (document.HasMember("RTVFormats") == true && document["RTVFormats"].IsArray() == true) {
 			std::size_t index{ 0 };
@@ -864,6 +892,10 @@ namespace {
 
 		shaderByteCode = shader.GetByteCode(shaderData.Identifier);
 		return shaderByteCode.pShaderBytecode != nullptr && shaderByteCode.BytecodeLength > 0;
+	}
+
+	bool HasShaderData(const PipelineShaderData& shaderData) {
+		return shaderData.Source.empty() == false && shaderData.Identifier.empty() == false;
 	}
 
 	bool CreatePipelineFromFile(ID3D12Device* device, const std::filesystem::path& path, std::unordered_map<std::string, CompiledPipelineData>& pipelines) {
@@ -944,26 +976,33 @@ namespace {
 			}
 
 		} else {
-			if (ResolveShaderByteCode(pipelineData.Vs, vertexShader, vertexShaderByteCode) == false || ResolveShaderByteCode(pipelineData.Ps, pixelShader, pixelShaderByteCode) == false) {
-				ErrorHandler::report("Failed to resolve required graphics shader byte code.", "Pipeline: " + pipelineData.Name, ErrorHandler::Level::Critical);
+			if (ResolveShaderByteCode(pipelineData.Vs, vertexShader, vertexShaderByteCode) == false) {
+				ErrorHandler::report("Failed to resolve vertex shader byte code.", "Pipeline: " + pipelineData.Name, ErrorHandler::Level::Critical);
 				return false;
 			}
 
-			if (pipelineData.Ds.Source.empty() == false || pipelineData.Ds.Identifier.empty() == false) {
+			if (HasShaderData(pipelineData.Ps) == true) {
+				if (ResolveShaderByteCode(pipelineData.Ps, pixelShader, pixelShaderByteCode) == false) {
+					ErrorHandler::report("Failed to resolve pixel shader byte code.", "Pipeline: " + pipelineData.Name, ErrorHandler::Level::Critical);
+					return false;
+				}
+			}
+
+			if (HasShaderData(pipelineData.Ds) == true) {
 				if (ResolveShaderByteCode(pipelineData.Ds, domainShader, domainShaderByteCode) == false) {
 					ErrorHandler::report("Failed to resolve domain shader byte code.", "Pipeline: " + pipelineData.Name, ErrorHandler::Level::Critical);
 					return false;
 				}
 			}
 
-			if (pipelineData.Hs.Source.empty() == false || pipelineData.Hs.Identifier.empty() == false) {
+			if (HasShaderData(pipelineData.Hs) == true) {
 				if (ResolveShaderByteCode(pipelineData.Hs, hullShader, hullShaderByteCode) == false) {
 					ErrorHandler::report("Failed to resolve hull shader byte code.", "Pipeline: " + pipelineData.Name, ErrorHandler::Level::Critical);
 					return false;
 				}
 			}
 
-			if (pipelineData.Gs.Source.empty() == false || pipelineData.Gs.Identifier.empty() == false) {
+			if (HasShaderData(pipelineData.Gs) == true) {
 				if (ResolveShaderByteCode(pipelineData.Gs, geometryShader, geometryShaderByteCode) == false) {
 					ErrorHandler::report("Failed to resolve geometry shader byte code.", "Pipeline: " + pipelineData.Name, ErrorHandler::Level::Critical);
 					return false;
@@ -1016,6 +1055,7 @@ namespace {
 		CompiledPipelineData compiledPipelineData{};
 		compiledPipelineData.RootSignature = rootSignature.Get();
 		compiledPipelineData.PipelineState = pipelineState;
+		compiledPipelineData.PrimitiveTopology = pipelineData.PrimitiveTopology;
 		compiledPipelineData.VertexInputBindings = BuildVertexInputBindings(pipelineData.InputLayout);
 		pipelines[pipelineData.Name] = compiledPipelineData;
 		return true;
@@ -1043,6 +1083,7 @@ namespace Game {
 
 			mRootSignature = iterator->second.RootSignature;
 			mPipelineState = iterator->second.PipelineState;
+			mPrimitiveTopology = iterator->second.PrimitiveTopology;
 			mVertexInputBindings = iterator->second.VertexInputBindings;
 			return true;
 		}
@@ -1069,6 +1110,10 @@ namespace Game {
 
 		ID3D12RootSignature* Pipeline::GetRootSignature() const {
 			return mRootSignature.Get();
+		}
+
+		D3D_PRIMITIVE_TOPOLOGY Pipeline::GetPrimitiveTopology() const {
+			return mPrimitiveTopology;
 		}
 
 		std::span<const VertexInputBinding> Pipeline::GetVertexInputBindings() const {

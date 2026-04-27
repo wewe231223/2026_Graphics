@@ -22,6 +22,7 @@ namespace Core {
 			mModelContextSrvHandle = mSrvHeap->Allocate();
 			mBoundingBoxContextSrvHandle = mSrvHeap->Allocate();
 			mDebugGeometryContextSrvHandle = mSrvHeap->Allocate();
+			mTerrainPatchContextSrvHandle = mSrvHeap->Allocate();
 			mBonePaletteSrvHandle = mSrvHeap->Allocate();
 			mDrawRecordSrvHandle = mSrvHeap->Allocate();
 			mCopyFuture = Interface::CopyFuture{};
@@ -48,6 +49,7 @@ namespace Core {
 			std::size_t ModelContextsSizeInBytes{ sizeof(Game::RFD::ModelContext) * Data.modelContexts.size() };
 			std::size_t BoundingBoxContextsSizeInBytes{ sizeof(Game::RFD::BoundingBoxContext) * Data.boundingBoxContexts.size() };
 			std::size_t DebugGeometryContextsSizeInBytes{ sizeof(Game::RFD::DebugGeometryContext) * Data.debugGeometryContexts.size() };
+			std::size_t TerrainPatchContextsSizeInBytes{ sizeof(Game::RFD::TerrainPatchContext) * Data.TerrainPatchContexts.size() };
 			std::size_t BonePaletteSizeInBytes{ sizeof(SimpleMath::Matrix) * Data.bonePalette.size() };
 			std::size_t DrawRecordsGpuSizeInBytes{ sizeof(DrawRecordGPU) * mDrawRecordsGpu.size() };
 
@@ -58,6 +60,7 @@ namespace Core {
 			void* ModelContextSourceData{ ModelContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.modelContexts.data()) };
 			void* BoundingBoxContextSourceData{ BoundingBoxContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.boundingBoxContexts.data()) };
 			void* DebugGeometryContextSourceData{ DebugGeometryContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.debugGeometryContexts.data()) };
+			void* TerrainPatchContextSourceData{ TerrainPatchContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.TerrainPatchContexts.data()) };
 			void* BonePaletteSourceData{ BonePaletteSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.bonePalette.data()) };
 			void* DrawRecordSourceData{ DrawRecordsGpuSizeInBytes == 0 ? &DummyByte : static_cast<void*>(mDrawRecordsGpu.data()) };
 
@@ -79,6 +82,9 @@ namespace Core {
 			bool DebugGeometryContextCopyResult{ mDebugGeometryContextVector.Copy(GraphicsAllocator, DebugGeometryContextSourceData, DebugGeometryContextsSizeInBytes) };
 			ErrorHandler::report(DebugGeometryContextCopyResult == false, "DrawCallResourceManager", "Failed to copy debug geometry context data.", ErrorHandler::Level::Critical);
 
+			bool TerrainPatchContextCopyResult{ mTerrainPatchContextVector.Copy(GraphicsAllocator, TerrainPatchContextSourceData, TerrainPatchContextsSizeInBytes) };
+			ErrorHandler::report(TerrainPatchContextCopyResult == false, "DrawCallResourceManager", "Failed to copy terrain patch context data.", ErrorHandler::Level::Critical);
+
 			bool BonePaletteCopyResult{ mBonePaletteVector.Copy(GraphicsAllocator, BonePaletteSourceData, BonePaletteSizeInBytes) };
 			ErrorHandler::report(BonePaletteCopyResult == false, "DrawCallResourceManager", "Failed to copy bone palette data.", ErrorHandler::Level::Critical);
 
@@ -86,7 +92,7 @@ namespace Core {
 			ErrorHandler::report(DrawRecordCopyResult == false, "DrawCallResourceManager", "Failed to copy draw record data.", ErrorHandler::Level::Critical);
 
 			std::vector<Interface::CopyQueueCopyRequest> CopyRequests{};
-			CopyRequests.reserve(8);
+			CopyRequests.reserve(9);
 
 			auto AddCopyRequestIfValid{ [&CopyRequests, &GraphicsAllocator](GraphicsVector& Vector) {
 				if (Vector.IsValid() == false) {
@@ -102,13 +108,14 @@ namespace Core {
 			AddCopyRequestIfValid(mModelContextVector);
 			AddCopyRequestIfValid(mBoundingBoxContextVector);
 			AddCopyRequestIfValid(mDebugGeometryContextVector);
+			AddCopyRequestIfValid(mTerrainPatchContextVector);
 			AddCopyRequestIfValid(mBonePaletteVector);
 			AddCopyRequestIfValid(mDrawRecordVector);
 
 			mCopyFuture = CopyQueue->EnqueueCopyFuture(CopyRequests);
 			ErrorHandler::report(mCopyFuture.IsValid() == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
 
-			DrawCallResourceManager::UpdateShaderResourceViews(1, ShadowCascadeCount, 1, static_cast<std::uint32_t>(Data.modelContexts.size()), static_cast<std::uint32_t>(Data.boundingBoxContexts.size()), static_cast<std::uint32_t>(Data.debugGeometryContexts.size()), static_cast<std::uint32_t>(Data.bonePalette.size()), static_cast<std::uint32_t>(mDrawRecordsGpu.size()));
+			DrawCallResourceManager::UpdateShaderResourceViews(1, ShadowCascadeCount, 1, static_cast<std::uint32_t>(Data.modelContexts.size()), static_cast<std::uint32_t>(Data.boundingBoxContexts.size()), static_cast<std::uint32_t>(Data.debugGeometryContexts.size()), static_cast<std::uint32_t>(Data.TerrainPatchContexts.size()), static_cast<std::uint32_t>(Data.bonePalette.size()), static_cast<std::uint32_t>(mDrawRecordsGpu.size()));
 		}
 
 		void DrawCallResourceManager::TransitionToShaderResource(ID3D12GraphicsCommandList* CommandList) {
@@ -140,6 +147,11 @@ namespace Core {
 			if (mDebugGeometryContextVector.IsValid() == true) {
 				D3D12_RESOURCE_BARRIER DebugGeometryContextBarrier{ mDebugGeometryContextVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
 				CommandList->ResourceBarrier(1, &DebugGeometryContextBarrier);
+			}
+
+			if (mTerrainPatchContextVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER TerrainPatchContextBarrier{ mTerrainPatchContextVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
+				CommandList->ResourceBarrier(1, &TerrainPatchContextBarrier);
 			}
 
 			if (mBonePaletteVector.IsValid() == true) {
@@ -182,6 +194,11 @@ namespace Core {
 			if (mDebugGeometryContextVector.IsValid() == true) {
 				D3D12_RESOURCE_BARRIER DebugGeometryContextBarrier{ mDebugGeometryContextVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST) };
 				CommandList->ResourceBarrier(1, &DebugGeometryContextBarrier);
+			}
+
+			if (mTerrainPatchContextVector.IsValid() == true) {
+				D3D12_RESOURCE_BARRIER TerrainPatchContextBarrier{ mTerrainPatchContextVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST) };
+				CommandList->ResourceBarrier(1, &TerrainPatchContextBarrier);
 			}
 
 			if (mBonePaletteVector.IsValid() == true) {
@@ -227,6 +244,10 @@ namespace Core {
 			return mDebugGeometryContextSrvHandle;
 		}
 
+		DescriptorHandle DrawCallResourceManager::GetTerrainPatchContextSrvHandle() const {
+			return mTerrainPatchContextSrvHandle;
+		}
+
 		DescriptorHandle DrawCallResourceManager::GetBonePaletteSrvHandle() const {
 			return mBonePaletteSrvHandle;
 		}
@@ -263,17 +284,18 @@ namespace Core {
 				DestinationRecord.ObjectIndex = SourceRecord.objectIndex;
 				DestinationRecord.MaterialIndex = SourceRecord.materialIndex;
 				DestinationRecord.Flags = SourceRecord.flags;
-				DestinationRecord.Pad0 = SourceRecord.pad0;
+				DestinationRecord.TerrainPatchContextIndex = SourceRecord.TerrainPatchContextIndex;
 			}
 		}
 
-		void DrawCallResourceManager::UpdateShaderResourceViews(std::uint32_t FrameGlobalsCount, std::uint32_t ShadowFrameGlobalsCount, std::uint32_t ShadowMappingParameterCount, std::uint32_t ModelContextCount, std::uint32_t BoundingBoxContextCount, std::uint32_t DebugGeometryContextCount, std::uint32_t BonePaletteCount, std::uint32_t DrawRecordCount) {
+		void DrawCallResourceManager::UpdateShaderResourceViews(std::uint32_t FrameGlobalsCount, std::uint32_t ShadowFrameGlobalsCount, std::uint32_t ShadowMappingParameterCount, std::uint32_t ModelContextCount, std::uint32_t BoundingBoxContextCount, std::uint32_t DebugGeometryContextCount, std::uint32_t TerrainPatchContextCount, std::uint32_t BonePaletteCount, std::uint32_t DrawRecordCount) {
 			ID3D12Resource* FrameGlobalsResource{ mFrameGlobalsVector.IsValid() == true ? mFrameGlobalsVector.GetResource() : nullptr };
 			ID3D12Resource* ShadowFrameGlobalsResource{ mShadowFrameGlobalsVector.IsValid() == true ? mShadowFrameGlobalsVector.GetResource() : nullptr };
 			ID3D12Resource* ShadowMappingParameterResource{ mShadowMappingParameterVector.IsValid() == true ? mShadowMappingParameterVector.GetResource() : nullptr };
 			ID3D12Resource* ModelContextResource{ mModelContextVector.IsValid() == true ? mModelContextVector.GetResource() : nullptr };
 			ID3D12Resource* BoundingBoxContextResource{ mBoundingBoxContextVector.IsValid() == true ? mBoundingBoxContextVector.GetResource() : nullptr };
 			ID3D12Resource* DebugGeometryContextResource{ mDebugGeometryContextVector.IsValid() == true ? mDebugGeometryContextVector.GetResource() : nullptr };
+			ID3D12Resource* TerrainPatchContextResource{ mTerrainPatchContextVector.IsValid() == true ? mTerrainPatchContextVector.GetResource() : nullptr };
 			ID3D12Resource* BonePaletteResource{ mBonePaletteVector.IsValid() == true ? mBonePaletteVector.GetResource() : nullptr };
 			ID3D12Resource* DrawRecordResource{ mDrawRecordVector.IsValid() == true ? mDrawRecordVector.GetResource() : nullptr };
 
@@ -353,6 +375,19 @@ namespace Core {
 			else {
 				mDebugGeometryContextSrvResource = nullptr;
 				mDebugGeometryContextSrvElementCount = 0;
+			}
+
+			if (mTerrainPatchContextVector.IsValid() == true) {
+				bool IsUpdateRequired{ DrawCallResourceManager::IsShaderResourceViewUpdateRequired(mTerrainPatchContextSrvResource, TerrainPatchContextResource, mTerrainPatchContextSrvElementCount, TerrainPatchContextCount) };
+				if (IsUpdateRequired == true) {
+					mTerrainPatchContextVector.CreateShaderResourceView(mDevice, mTerrainPatchContextSrvHandle.GetCPU(), DXGI_FORMAT_UNKNOWN, 0, TerrainPatchContextCount, sizeof(Game::RFD::TerrainPatchContext), D3D12_BUFFER_SRV_FLAG_NONE);
+					mTerrainPatchContextSrvResource = TerrainPatchContextResource;
+					mTerrainPatchContextSrvElementCount = TerrainPatchContextCount;
+				}
+			}
+			else {
+				mTerrainPatchContextSrvResource = nullptr;
+				mTerrainPatchContextSrvElementCount = 0;
 			}
 
 			if (mBonePaletteVector.IsValid() == true) {

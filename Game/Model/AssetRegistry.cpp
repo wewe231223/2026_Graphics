@@ -17,6 +17,7 @@
 #include "HeightMapLoader.h"
 #include "TerrainRenderResource.h"
 #include "TerrainTiledMeshBuilder.h"
+#include "Utility/ErrorHandler.h"
 
 namespace {
     constexpr std::uint32_t MaterialFieldCount{ asset::MaterialTypeCount };
@@ -207,13 +208,15 @@ namespace Game {
         }
 
         TerrainTiledMeshData TiledMeshData{};
+        HeightFieldData HeightField{};
         try {
             HeightMapLoader Loader{};
             TerrainTiledMeshBuilder Builder{};
-            const HeightFieldData HeightField{ Loader.LoadHeightField(Desc.HeightMapPath) };
+            HeightField = Loader.LoadHeightField(Desc.HeightMapPath);
             TiledMeshData = Builder.Build(HeightField, Desc);
         }
-        catch (const std::exception&) {
+        catch (const std::exception& Exception) {
+            ErrorHandler::report("TerrainRenderResource", Exception.what(), ErrorHandler::Level::Warning);
             return nullptr;
         }
 
@@ -227,6 +230,13 @@ namespace Game {
 
         std::shared_ptr<TerrainRenderResource> NewResource{ std::make_shared<TerrainRenderResource>() };
         NewResource->Initialize(NewModel, std::move(TiledMeshData.mTileMetadata), TiledMeshData.mTileQuadCount, TiledMeshData.mTileCountX, TiledMeshData.mTileCountZ, TiledMeshData.mLodCount, std::move(TiledMeshData.mLodDistances), TiledMeshData.mLocalBoundingBox);
+        if (mDevice != nullptr && mCopyQueue != nullptr && mAllocator != nullptr && mSrvHeap != nullptr) {
+            const bool IsHeightFieldInitialized{ NewResource->InitializeHeightField(HeightField, Desc, mDevice, mCopyQueue, mAllocator, mSrvHeap) };
+            if (IsHeightFieldInitialized == false) {
+                ErrorHandler::report("TerrainRenderResource", "Failed to initialize terrain height field GPU resource.", ErrorHandler::Level::Warning);
+                return nullptr;
+            }
+        }
 
         const std::uint32_t NewIndex{ static_cast<std::uint32_t>(TerrainBucket.mAssets.size()) };
         TerrainBucket.mAssets.push_back(NewResource);

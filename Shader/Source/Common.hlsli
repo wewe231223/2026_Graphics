@@ -96,7 +96,20 @@ struct DrawRecordGpu
     uint ObjectIndex;
     uint MaterialIndex;
     uint Flags;
-    uint Pad0;
+    uint TerrainPatchContextIndex;
+};
+
+struct TerrainPatchContextGpu
+{
+    float4 OuterTessFactors;
+    float4 InsideTessFactors;
+    float4 TileGrid;
+    float4 HeightFieldParameters;
+    float4 TerrainParameters;
+    uint HeightFieldSrvDescriptorIndex;
+    uint Padding0;
+    uint Padding1;
+    uint Padding2;
 };
 
 struct MaterialFieldGpu
@@ -135,6 +148,7 @@ struct RootConstantsB1
     uint ShadowMappingParameterSrvIndex;
     uint ShadowMapTextureBaseSrvIndex;
     uint FrameGlobalsElementIndex;
+    uint TerrainPatchContextSrvIndex;
     uint Reserved1;
 };
 

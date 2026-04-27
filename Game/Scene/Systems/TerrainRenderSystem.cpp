@@ -18,6 +18,53 @@
 
 namespace {
     constexpr std::uint32_t PickedDrawFlagBitMask{ 0x1u };
+    constexpr std::uint32_t InvalidSrvDescriptorIndex{ 0xffffffffu };
+    constexpr std::uint32_t TerrainEdgeNegativeXIndex{ 0u };
+    constexpr std::uint32_t TerrainEdgeNegativeZIndex{ 1u };
+    constexpr std::uint32_t TerrainEdgePositiveXIndex{ 2u };
+    constexpr std::uint32_t TerrainEdgePositiveZIndex{ 3u };
+    constexpr std::array<std::uint32_t, 8> TerrainTessFactorDivisors{ 1u, 2u, 4u, 8u, 16u, 32u, 64u, 128u };
+
+    struct TerrainTileTessellationData final {
+    public:
+        std::array<float, 4> OuterTessFactors{ 1.0f, 1.0f, 1.0f, 1.0f };
+        std::array<float, 2> InsideTessFactors{ 1.0f, 1.0f };
+    };
+
+    std::uint32_t CalculateTerrainTileLinearIndex(std::uint32_t TileCountX, std::uint32_t TileIndexX, std::uint32_t TileIndexZ) {
+        return (TileIndexZ * TileCountX) + TileIndexX;
+    }
+
+    float CalculateTerrainTessFactor(std::uint32_t TileQuadCount, std::uint32_t LodIndex) {
+        const std::uint32_t BaseFactor{ (std::max)(TileQuadCount, 1u) };
+        const std::uint32_t DivisorIndex{ (std::min)(LodIndex, static_cast<std::uint32_t>(TerrainTessFactorDivisors.size() - 1ULL)) };
+        const std::uint32_t Factor{ (std::max)(BaseFactor / TerrainTessFactorDivisors[DivisorIndex], 1u) };
+
+        return static_cast<float>(Factor);
+    }
+
+    void SetTerrainInsideTessFactors(TerrainTileTessellationData& TessellationData) {
+        const float InsideFactor{ (std::max)((std::max)(TessellationData.OuterTessFactors[TerrainEdgeNegativeXIndex], TessellationData.OuterTessFactors[TerrainEdgePositiveXIndex]), (std::max)(TessellationData.OuterTessFactors[TerrainEdgeNegativeZIndex], TessellationData.OuterTessFactors[TerrainEdgePositiveZIndex])) };
+        TessellationData.InsideTessFactors[0] = InsideFactor;
+        TessellationData.InsideTessFactors[1] = InsideFactor;
+    }
+
+    void MatchTerrainSharedEdge(TerrainTileTessellationData& FirstTessellationData, std::uint32_t FirstEdgeIndex, TerrainTileTessellationData& SecondTessellationData, std::uint32_t SecondEdgeIndex) {
+        const float SharedFactor{ (std::max)(FirstTessellationData.OuterTessFactors[FirstEdgeIndex], SecondTessellationData.OuterTessFactors[SecondEdgeIndex]) };
+        FirstTessellationData.OuterTessFactors[FirstEdgeIndex] = SharedFactor;
+        SecondTessellationData.OuterTessFactors[SecondEdgeIndex] = SharedFactor;
+    }
+
+    Game::RFD::TerrainPatchContext BuildTerrainPatchContext(const Game::TerrainTileMetadata& TileMetadata, const Game::TerrainRenderResource& Resource, const TerrainTileTessellationData& TessellationData) {
+        Game::RFD::TerrainPatchContext PatchContext{};
+        PatchContext.OuterTessFactors = SimpleMath::Vector4{ TessellationData.OuterTessFactors[0], TessellationData.OuterTessFactors[1], TessellationData.OuterTessFactors[2], TessellationData.OuterTessFactors[3] };
+        PatchContext.InsideTessFactors = SimpleMath::Vector4{ TessellationData.InsideTessFactors[0], TessellationData.InsideTessFactors[1], 0.0f, 0.0f };
+        PatchContext.TileGrid = SimpleMath::Vector4{ static_cast<float>(TileMetadata.mStartX), static_cast<float>(TileMetadata.mStartZ), static_cast<float>(TileMetadata.mQuadCountX), static_cast<float>(TileMetadata.mQuadCountZ) };
+        PatchContext.HeightFieldParameters = SimpleMath::Vector4{ static_cast<float>(Resource.GetHeightFieldWidth()), static_cast<float>(Resource.GetHeightFieldHeight()), Resource.GetMaxHeight(), Resource.IsHeightFieldFlipV() == true ? 1.0f : 0.0f };
+        PatchContext.TerrainParameters = SimpleMath::Vector4{ Resource.GetCellSizeX(), Resource.GetCellSizeZ(), Resource.GetOriginOffsetX(), Resource.GetOriginOffsetZ() };
+        PatchContext.HeightFieldSrvDescriptorIndex = Resource.GetHeightFieldSrvDescriptorIndex();
+        return PatchContext;
+    }
 
     SimpleMath::Matrix BuildLocalWorldMatrix(const Game::Transform& TransformComponent) {
         const SimpleMath::Matrix TrsMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
@@ -167,6 +214,10 @@ namespace Game {
                 continue;
             }
 
+            if (Renderer.mResource->GetHeightFieldSrvDescriptorIndex() == InvalidSrvDescriptorIndex) {
+                continue;
+            }
+
             SimpleMath::Matrix NodeWorld{};
             const bool IsWorldMatrixBuilt{ TryBuildWorldMatrix(World, EntityId, NodeWorld) };
             if (IsWorldMatrixBuilt == false) {
@@ -192,6 +243,39 @@ namespace Game {
             }
 
             const std::vector<TerrainTileMetadata>& TileMetadataItems{ Renderer.mResource->GetTileMetadata() };
+            std::vector<TerrainTileTessellationData> TileTessellationItems{};
+            TileTessellationItems.resize(TileMetadataItems.size());
+            for (std::size_t TileMetadataIndex{ 0 }; TileMetadataIndex < TileMetadataItems.size(); ++TileMetadataIndex) {
+                const TerrainTileMetadata& TileMetadata{ TileMetadataItems[TileMetadataIndex] };
+                const std::uint32_t SelectedLodIndex{ SelectLodIndex(TileMetadata, NodeWorld, CameraPosition, HasCameraPosition, *Renderer.mResource) };
+                const float TessFactor{ CalculateTerrainTessFactor(Renderer.mResource->GetTileQuadCount(), SelectedLodIndex) };
+                TerrainTileTessellationData& TessellationData{ TileTessellationItems[TileMetadataIndex] };
+                TessellationData.OuterTessFactors[TerrainEdgeNegativeXIndex] = TessFactor;
+                TessellationData.OuterTessFactors[TerrainEdgeNegativeZIndex] = TessFactor;
+                TessellationData.OuterTessFactors[TerrainEdgePositiveXIndex] = TessFactor;
+                TessellationData.OuterTessFactors[TerrainEdgePositiveZIndex] = TessFactor;
+            }
+
+            for (std::size_t TileMetadataIndex{ 0 }; TileMetadataIndex < TileMetadataItems.size(); ++TileMetadataIndex) {
+                const TerrainTileMetadata& TileMetadata{ TileMetadataItems[TileMetadataIndex] };
+                if (TileMetadata.mTileIndexX + 1u < Renderer.mResource->GetTileCountX()) {
+                    const std::uint32_t NeighborIndex{ CalculateTerrainTileLinearIndex(Renderer.mResource->GetTileCountX(), TileMetadata.mTileIndexX + 1u, TileMetadata.mTileIndexZ) };
+                    if (NeighborIndex < TileTessellationItems.size()) {
+                        MatchTerrainSharedEdge(TileTessellationItems[TileMetadataIndex], TerrainEdgePositiveXIndex, TileTessellationItems[NeighborIndex], TerrainEdgeNegativeXIndex);
+                    }
+                }
+
+                if (TileMetadata.mTileIndexZ + 1u < Renderer.mResource->GetTileCountZ()) {
+                    const std::uint32_t NeighborIndex{ CalculateTerrainTileLinearIndex(Renderer.mResource->GetTileCountX(), TileMetadata.mTileIndexX, TileMetadata.mTileIndexZ + 1u) };
+                    if (NeighborIndex < TileTessellationItems.size()) {
+                        MatchTerrainSharedEdge(TileTessellationItems[TileMetadataIndex], TerrainEdgePositiveZIndex, TileTessellationItems[NeighborIndex], TerrainEdgeNegativeZIndex);
+                    }
+                }
+            }
+
+            for (TerrainTileTessellationData& TessellationData : TileTessellationItems) {
+                SetTerrainInsideTessFactors(TessellationData);
+            }
 
             const Material* MaterialComponent{ std::as_const(World).GetComponent<Material>(EntityId) };
             const std::uint32_t MaterialFlags{ MaterialComponent == nullptr ? 0u : MaterialComponent->Flags };
@@ -215,22 +299,8 @@ namespace Game {
             std::uint32_t ObjectIndex{ 0 };
             for (std::size_t TileMetadataIndex{ 0 }; TileMetadataIndex < TileMetadataItems.size(); ++TileMetadataIndex) {
                 const TerrainTileMetadata& TileMetadata{ TileMetadataItems[TileMetadataIndex] };
-                if (TileMetadata.mSubMeshIndexByLod.empty() == true) {
-                    continue;
-                }
-
-                std::uint32_t SelectedLodIndex{ SelectLodIndex(TileMetadata, NodeWorld, CameraPosition, HasCameraPosition, *Renderer.mResource) };
-                if (SelectedLodIndex >= TileMetadata.mSubMeshIndexByLod.size()) {
-                    SelectedLodIndex = static_cast<std::uint32_t>(TileMetadata.mSubMeshIndexByLod.size() - 1ULL);
-                }
-
-                std::uint32_t LodSubMeshIndex{ TileMetadata.mSubMeshIndexByLod[SelectedLodIndex] };
-                while (LodSubMeshIndex >= NodePointer->GetSubMeshes().size() && SelectedLodIndex > 0u) {
-                    SelectedLodIndex -= 1u;
-                    LodSubMeshIndex = TileMetadata.mSubMeshIndexByLod[SelectedLodIndex];
-                }
-
-                if (LodSubMeshIndex >= NodePointer->GetSubMeshes().size()) {
+                const std::uint32_t TileSubMeshIndex{ TileMetadata.mSubMeshIndex };
+                if (TileSubMeshIndex >= NodePointer->GetSubMeshes().size()) {
                     continue;
                 }
 
@@ -252,7 +322,7 @@ namespace Game {
 
                 AppendBoundingBoxContext(TileWorldBoundingBox, RenderData);
 
-                const ModelSubMesh& SubMesh{ NodePointer->GetSubMesh(LodSubMeshIndex) };
+                const ModelSubMesh& SubMesh{ NodePointer->GetSubMesh(TileSubMeshIndex) };
                 const Interface::IPipeline* Pipeline{ nullptr };
                 std::uint32_t ResolvedMaterialIndex{ 0 };
 
@@ -272,20 +342,22 @@ namespace Game {
                 RFD::DrawRecord DrawRecord{};
                 DrawRecord.pso = Pipeline;
                 DrawRecord.mesh = NodePointer;
-                DrawRecord.submesh = LodSubMeshIndex;
+                DrawRecord.submesh = TileSubMeshIndex;
                 DrawRecord.pass = 0;
                 DrawRecord.objectIndex = ObjectIndex;
                 DrawRecord.materialIndex = ResolvedMaterialIndex;
                 const bool IsPickedTile{ IsPickedParentHierarchy == true || PickedTileMetadataIndex == static_cast<std::uint32_t>(TileMetadataIndex) };
                 DrawRecord.flags = MaterialFlags | (IsPickedTile == true ? PickedDrawFlagBitMask : 0u);
+                DrawRecord.TerrainPatchContextIndex = static_cast<std::uint32_t>(RenderData.TerrainPatchContexts.size());
                 DrawRecord.pad0 = 0;
+                RenderData.TerrainPatchContexts.push_back(BuildTerrainPatchContext(TileMetadata, *Renderer.mResource, TileTessellationItems[TileMetadataIndex]));
                 RenderData.drawRecords.push_back(DrawRecord);
             }
         }
     }
 
     std::uint32_t TerrainRenderSystem::SelectLodIndex(const TerrainTileMetadata& TileMetadata, const SimpleMath::Matrix& WorldMatrix, const SimpleMath::Vector3& CameraPosition, bool HasCameraPosition, const TerrainRenderResource& Resource) const {
-        const std::size_t AvailableLodCount{ (std::min)(static_cast<std::size_t>(Resource.GetLodCount()), TileMetadata.mSubMeshIndexByLod.size()) };
+        const std::size_t AvailableLodCount{ static_cast<std::size_t>(Resource.GetLodCount()) };
         if (AvailableLodCount <= 1ULL || HasCameraPosition == false) {
             return 0u;
         }

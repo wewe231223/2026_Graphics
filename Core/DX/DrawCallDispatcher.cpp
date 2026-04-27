@@ -17,6 +17,7 @@ namespace Core {
 				uint32_t ShadowMappingParameterSrvIndex{ 0 };
 				uint32_t ShadowMapTextureBaseSrvIndex{ 0 };
 				uint32_t FrameGlobalsElementIndex{ 0 };
+				uint32_t TerrainPatchContextSrvIndex{ 0 };
 				uint32_t Reserved1{ 0 };
 			};
 
@@ -51,13 +52,15 @@ namespace Core {
 			: mBoundingBoxLinePipeline{},
 			mIsBoundingBoxLinePipelineInitialized{},
 			mDebugGeometryPipeline{},
-			mIsDebugGeometryPipelineInitialized{} {
+			mIsDebugGeometryPipelineInitialized{},
+			mTerrainDepthPipeline{},
+			mIsTerrainDepthPipelineInitialized{} {
 		}
 
 		DrawCallDispatcher::~DrawCallDispatcher() {
 		}
 
-		void DrawCallDispatcher::DrawForward(ID3D12GraphicsCommandList* CommandList, Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ShadowMappingParameterSrvHandle, DescriptorHandle ShadowMapTextureBaseSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle DebugGeometryContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+		void DrawCallDispatcher::DrawForward(ID3D12GraphicsCommandList* CommandList, Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ShadowMappingParameterSrvHandle, DescriptorHandle ShadowMapTextureBaseSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle DebugGeometryContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			const Interface::IPipeline* ActivePipeline{ nullptr };
 			size_t DrawRecordIndex{ 0 };
 
@@ -91,10 +94,11 @@ namespace Core {
 				RootConstants.ShadowMappingParameterSrvIndex = ShadowMappingParameterSrvHandle.GetIndex();
 				RootConstants.ShadowMapTextureBaseSrvIndex = ShadowMapTextureBaseSrvHandle.GetIndex();
 				RootConstants.FrameGlobalsElementIndex = 0u;
+				RootConstants.TerrainPatchContextSrvIndex = TerrainPatchContextSrvHandle.GetIndex();
 				RootConstants.Reserved1 = 0u;
 				CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
 
-				CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+				CommandList->IASetPrimitiveTopology(StartRecord.pso->GetPrimitiveTopology());
 
 				const std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{ BuildVertexBufferViews(*StartRecord.pso, *StartRecord.mesh) };
 				if (VertexBufferViews.empty() == false) {
@@ -118,7 +122,7 @@ namespace Core {
 			DrawDebugGeometries(CommandList, Data, FrameGlobalsSrvHandle, DebugGeometryContextSrvHandle);
 		}
 
-		void DrawCallDispatcher::DrawDepthOnly(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, std::uint32_t ShadowFrameGlobalsIndex, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+		void DrawCallDispatcher::DrawDepthOnly(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, std::uint32_t ShadowFrameGlobalsIndex, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			const Interface::IPipeline* ActivePipeline{ nullptr };
 			size_t DrawRecordIndex{ 0 };
 
@@ -139,7 +143,18 @@ namespace Core {
 					RunEndIndex += 1;
 				}
 
-				ActivePipeline = StartRecord.pso->Set(ActivePipeline, CommandList);
+				const Interface::IPipeline* DepthPipeline{ StartRecord.pso };
+				if (StartRecord.TerrainPatchContextIndex != InvalidDescriptorIndex) {
+					if (mIsTerrainDepthPipelineInitialized == false) {
+						mIsTerrainDepthPipelineInitialized = mTerrainDepthPipeline.Initialize("TerrainDepthGraphics");
+					}
+
+					if (mIsTerrainDepthPipelineInitialized == true) {
+						DepthPipeline = &mTerrainDepthPipeline;
+					}
+				}
+
+				ActivePipeline = DepthPipeline->Set(ActivePipeline, CommandList);
 
 				DrawRootConstantsB1 RootConstants{};
 				RootConstants.FrameGlobalsSrvIndex = FrameGlobalsSrvHandle.GetIndex();
@@ -152,12 +167,13 @@ namespace Core {
 				RootConstants.ShadowMappingParameterSrvIndex = InvalidDescriptorIndex;
 				RootConstants.ShadowMapTextureBaseSrvIndex = InvalidDescriptorIndex;
 				RootConstants.FrameGlobalsElementIndex = ShadowFrameGlobalsIndex;
+				RootConstants.TerrainPatchContextSrvIndex = TerrainPatchContextSrvHandle.GetIndex();
 				RootConstants.Reserved1 = 0u;
 				CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
 
-				CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+				CommandList->IASetPrimitiveTopology(DepthPipeline->GetPrimitiveTopology());
 
-				const std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{ BuildVertexBufferViews(*StartRecord.pso, *StartRecord.mesh) };
+				const std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{ BuildVertexBufferViews(*DepthPipeline, *StartRecord.mesh) };
 				if (VertexBufferViews.empty() == false) {
 					CommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
 				}
@@ -207,6 +223,7 @@ namespace Core {
 			RootConstants.ShadowMappingParameterSrvIndex = InvalidDescriptorIndex;
 			RootConstants.ShadowMapTextureBaseSrvIndex = InvalidDescriptorIndex;
 			RootConstants.FrameGlobalsElementIndex = 0u;
+			RootConstants.TerrainPatchContextSrvIndex = InvalidDescriptorIndex;
 			RootConstants.Reserved1 = 0u;
 			CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
 
@@ -245,6 +262,7 @@ namespace Core {
 			RootConstants.ShadowMappingParameterSrvIndex = InvalidDescriptorIndex;
 			RootConstants.ShadowMapTextureBaseSrvIndex = InvalidDescriptorIndex;
 			RootConstants.FrameGlobalsElementIndex = 0u;
+			RootConstants.TerrainPatchContextSrvIndex = InvalidDescriptorIndex;
 			RootConstants.Reserved1 = 0u;
 			CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
 

@@ -740,6 +740,7 @@ namespace Game {
                 mFrameContext.RenderData.modelContexts.clear();
                 mFrameContext.RenderData.boundingBoxContexts.clear();
                 mFrameContext.RenderData.debugGeometryContexts.clear();
+                mFrameContext.RenderData.TerrainPatchContexts.clear();
                 mFrameContext.RenderData.drawRecords.clear();
                 mFrameContext.RenderData.bonePalette.clear();
                 mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();

@@ -139,6 +139,18 @@ namespace Game {
             static DebugGeometryContext CreateWireCube(const SimpleMath::Vector3& CenterValue, const SimpleMath::Vector3& ExtentsValue, const SimpleMath::Quaternion& OrientationValue, const SimpleMath::Vector4& ColorValue, float LineThicknessValue);
         };
 
+        struct alignas(16) TerrainPatchContext final {
+            SimpleMath::Vector4 OuterTessFactors{};
+            SimpleMath::Vector4 InsideTessFactors{};
+            SimpleMath::Vector4 TileGrid{};
+            SimpleMath::Vector4 HeightFieldParameters{};
+            SimpleMath::Vector4 TerrainParameters{};
+            std::uint32_t HeightFieldSrvDescriptorIndex{ 0xffffffffu };
+            std::uint32_t Padding0{ 0u };
+            std::uint32_t Padding1{ 0u };
+            std::uint32_t Padding2{ 0u };
+        };
+
         struct DrawRecord {
             const Interface::IPipeline* pso{ nullptr };
             const Interface::IModelNode* mesh{ nullptr };
@@ -148,6 +160,8 @@ namespace Game {
             uint32_t objectIndex{ 0 };
             uint32_t materialIndex{ 0 };
             uint32_t flags{ 0 };
+            uint32_t TerrainPatchContextIndex{ 0xffffffffu };
+
             uint32_t pad0{ 0 };
         };
 
@@ -164,6 +178,7 @@ namespace Game {
             std::vector<ModelContext> modelContexts{};   // SRV
             std::vector<BoundingBoxContext> boundingBoxContexts{};
             std::vector<DebugGeometryContext> debugGeometryContexts{};
+            std::vector<TerrainPatchContext> TerrainPatchContexts{};
             std::vector<DrawRecord> drawRecords{};       // CPU
             std::vector<MaterialGpu> materials{};
             std::vector<MaterialTextureTableItemGpu> materialTextureTable{};

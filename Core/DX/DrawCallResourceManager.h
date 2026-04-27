@@ -32,13 +32,14 @@ namespace Core {
 			DescriptorHandle GetModelContextSrvHandle() const;
 			DescriptorHandle GetBoundingBoxContextSrvHandle() const;
 			DescriptorHandle GetDebugGeometryContextSrvHandle() const;
+			DescriptorHandle GetTerrainPatchContextSrvHandle() const;
 			DescriptorHandle GetBonePaletteSrvHandle() const;
 			DescriptorHandle GetDrawRecordSrvHandle() const;
 
 		private:
 			static bool CompareDrawRecordByPso(const Game::RFD::DrawRecord& Left, const Game::RFD::DrawRecord& Right);
 			void BuildDrawRecordGpu(const Game::RFD::RenderFrameData& Data);
-			void UpdateShaderResourceViews(std::uint32_t FrameGlobalsCount, std::uint32_t ShadowFrameGlobalsCount, std::uint32_t ShadowMappingParameterCount, std::uint32_t ModelContextCount, std::uint32_t BoundingBoxContextCount, std::uint32_t DebugGeometryContextCount, std::uint32_t BonePaletteCount, std::uint32_t DrawRecordCount);
+			void UpdateShaderResourceViews(std::uint32_t FrameGlobalsCount, std::uint32_t ShadowFrameGlobalsCount, std::uint32_t ShadowMappingParameterCount, std::uint32_t ModelContextCount, std::uint32_t BoundingBoxContextCount, std::uint32_t DebugGeometryContextCount, std::uint32_t TerrainPatchContextCount, std::uint32_t BonePaletteCount, std::uint32_t DrawRecordCount);
 			bool IsShaderResourceViewUpdateRequired(ID3D12Resource* CachedResource, ID3D12Resource* CurrentResource, std::uint32_t CachedElementCount, std::uint32_t CurrentElementCount) const;
 
 		private:
@@ -51,6 +52,7 @@ namespace Core {
 			DescriptorHandle mModelContextSrvHandle{};
 			DescriptorHandle mBoundingBoxContextSrvHandle{};
 			DescriptorHandle mDebugGeometryContextSrvHandle{};
+			DescriptorHandle mTerrainPatchContextSrvHandle{};
 			DescriptorHandle mBonePaletteSrvHandle{};
 			DescriptorHandle mDrawRecordSrvHandle{};
 
@@ -60,6 +62,7 @@ namespace Core {
 			ID3D12Resource* mModelContextSrvResource{};
 			ID3D12Resource* mBoundingBoxContextSrvResource{};
 			ID3D12Resource* mDebugGeometryContextSrvResource{};
+			ID3D12Resource* mTerrainPatchContextSrvResource{};
 			ID3D12Resource* mBonePaletteSrvResource{};
 			ID3D12Resource* mDrawRecordSrvResource{};
 
@@ -69,6 +72,7 @@ namespace Core {
 			std::uint32_t mModelContextSrvElementCount{};
 			std::uint32_t mBoundingBoxContextSrvElementCount{};
 			std::uint32_t mDebugGeometryContextSrvElementCount{};
+			std::uint32_t mTerrainPatchContextSrvElementCount{};
 			std::uint32_t mBonePaletteSrvElementCount{};
 			std::uint32_t mDrawRecordSrvElementCount{};
 
@@ -78,6 +82,7 @@ namespace Core {
 			GraphicsVector mModelContextVector{};
 			GraphicsVector mBoundingBoxContextVector{};
 			GraphicsVector mDebugGeometryContextVector{};
+			GraphicsVector mTerrainPatchContextVector{};
 			GraphicsVector mBonePaletteVector{};
 			GraphicsVector mDrawRecordVector{};
 

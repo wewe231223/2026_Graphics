@@ -11,6 +11,9 @@ Source=SkyDomeShader.hlsl|Entry=VsMain|Profile=vs_6_6|Arguments=-O3
 Source=SkyDomeShader.hlsl|Entry=PsMain|Profile=ps_6_6|Arguments=-O3
 
 Source=TerrainShader.hlsl|Entry=VsMain|Profile=vs_6_6|Arguments=-O3
+Source=TerrainShader.hlsl|Entry=HsMain|Profile=hs_6_6|Arguments=-O3
+Source=TerrainShader.hlsl|Entry=DsMain|Profile=ds_6_6|Arguments=-O3
+Source=TerrainShader.hlsl|Entry=DsMainDepth|Profile=ds_6_6|Arguments=-O3
 Source=TerrainShader.hlsl|Entry=PsMain|Profile=ps_6_6|Arguments=-O3
 
 Source=BoundingBoxLineShader.hlsl|Entry=VsMain|Profile=vs_6_6|Arguments=-O3

@@ -21,6 +21,7 @@ namespace Game {
 			const Interface::IPipeline* Set(const Interface::IPipeline* pipeline, ID3D12GraphicsCommandList* commandList) const;
 			ID3D12PipelineState* Get() const;
 			ID3D12RootSignature* GetRootSignature() const;
+			D3D_PRIMITIVE_TOPOLOGY GetPrimitiveTopology() const;
 			std::span<const VertexInputBinding> GetVertexInputBindings() const;
 
 			bool operator==(const Pipeline& other) const;
@@ -32,6 +33,7 @@ namespace Game {
 		private:
 			ComPtr<ID3D12RootSignature> mRootSignature{};
 			ComPtr<ID3D12PipelineState> mPipelineState{};
+			D3D_PRIMITIVE_TOPOLOGY mPrimitiveTopology{ D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST };
 			std::vector<VertexInputBinding> mVertexInputBindings{};
 		};
 

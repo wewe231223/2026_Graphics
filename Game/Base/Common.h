@@ -27,6 +27,7 @@ namespace Interface {
         virtual const IPipeline* Set(const IPipeline* pipeline, ID3D12GraphicsCommandList* commandList) const       PURE;
         virtual ID3D12PipelineState* Get() const                                                                    PURE;
         virtual ID3D12RootSignature* GetRootSignature() const                                                       PURE;
+        virtual D3D_PRIMITIVE_TOPOLOGY GetPrimitiveTopology() const                                                 PURE;
         virtual std::span<const Game::VertexInputBinding> GetVertexInputBindings() const                           PURE;
     };
 }

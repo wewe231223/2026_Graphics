@@ -133,7 +133,7 @@ namespace Core {
             std::uint32_t ObjectIndex{ 0 };
             std::uint32_t MaterialIndex{ 0 };
             std::uint32_t Flags{ 0 };
-            std::uint32_t Pad0{ 0 };
+            std::uint32_t TerrainPatchContextIndex{ 0xffffffffu };
         };
     }
 }
