@@ -75,6 +75,10 @@ local function IsRunInputDown()
     return IsInputKeyDown(LeftShift) or IsInputKeyDown(RightShift)
 end
 
+local function IsActiveCameraFreeLookMode()
+    return IsFlagEnabled(GetActiveCameraFlags(), CameraFlagFreeLook)
+end
+
 local function GetHorizontalVelocity(Velocity)
     return Vector3.new(Velocity.x, 0.0, Velocity.z)
 end
@@ -183,6 +187,12 @@ function Update(Context, DeltaSeconds)
     end
 
     local RuntimeVariableTableComponent = Context:GetComponent("RuntimeVariableTable")
+    if IsActiveCameraFreeLookMode() then
+        SetMovingState(RuntimeVariableTableComponent, false)
+        SetMotionParameters(RuntimeVariableTableComponent, 0.0, 0.0)
+        return
+    end
+
     local MoveInput = BuildMoveInput()
     local FinalTargetDirection = BuildFinalTargetDirection(MoveInput)
     local RemainingDirectionDeltaRadians = ApplySmoothedYawRotation(TransformComponent, FinalTargetDirection, DeltaSeconds)

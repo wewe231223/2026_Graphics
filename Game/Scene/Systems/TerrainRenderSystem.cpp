@@ -27,6 +27,7 @@ namespace {
 
     struct TerrainTileTessellationData final {
     public:
+        float BaseTessFactor{ 1.0f };
         std::array<float, 4> OuterTessFactors{ 1.0f, 1.0f, 1.0f, 1.0f };
         std::array<float, 2> InsideTessFactors{ 1.0f, 1.0f };
     };
@@ -44,9 +45,8 @@ namespace {
     }
 
     void SetTerrainInsideTessFactors(TerrainTileTessellationData& TessellationData) {
-        const float InsideFactor{ (std::max)((std::max)(TessellationData.OuterTessFactors[TerrainEdgeNegativeXIndex], TessellationData.OuterTessFactors[TerrainEdgePositiveXIndex]), (std::max)(TessellationData.OuterTessFactors[TerrainEdgeNegativeZIndex], TessellationData.OuterTessFactors[TerrainEdgePositiveZIndex])) };
-        TessellationData.InsideTessFactors[0] = InsideFactor;
-        TessellationData.InsideTessFactors[1] = InsideFactor;
+        TessellationData.InsideTessFactors[0] = TessellationData.BaseTessFactor;
+        TessellationData.InsideTessFactors[1] = TessellationData.BaseTessFactor;
     }
 
     void MatchTerrainSharedEdge(TerrainTileTessellationData& FirstTessellationData, std::uint32_t FirstEdgeIndex, TerrainTileTessellationData& SecondTessellationData, std::uint32_t SecondEdgeIndex) {
@@ -331,6 +331,7 @@ namespace Game {
                 const std::uint32_t SelectedLodIndex{ SelectLodIndex(TileMetadata, NodeWorld, CameraPosition, HasCameraPosition, *Renderer.mResource) };
                 const float TessFactor{ CalculateTerrainTessFactor(Renderer.mResource->GetTileQuadCount(), SelectedLodIndex) };
                 TerrainTileTessellationData& TessellationData{ TileTessellationItems[TileMetadataIndex] };
+                TessellationData.BaseTessFactor = TessFactor;
                 TessellationData.OuterTessFactors[TerrainEdgeNegativeXIndex] = TessFactor;
                 TessellationData.OuterTessFactors[TerrainEdgeNegativeZIndex] = TessFactor;
                 TessellationData.OuterTessFactors[TerrainEdgePositiveXIndex] = TessFactor;

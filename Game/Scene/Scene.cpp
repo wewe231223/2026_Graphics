@@ -530,6 +530,17 @@ namespace Game {
 
             return DirectX::SimpleMath::Vector3::Right;
         });
+        mLuaScriptFramework.RegisterGlobalFunction("GetActiveCameraFlags", [this]() -> std::uint32_t {
+            for (auto [CameraComponent] : mWorld.Query<Camera>()) {
+                if (CameraComponent.isActive == false) {
+                    continue;
+                }
+
+                return CameraComponent.cameraFlags;
+            }
+
+            return CameraFlagNone;
+        });
 
         mLuaScriptFramework.RegisterTypeByDefinition<Arche::EntityID>();
         mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector2>();
