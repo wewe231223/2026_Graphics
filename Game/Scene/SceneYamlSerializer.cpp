@@ -47,7 +47,7 @@
 #include "Game/Scene/SceneEntityFactory.h"
 #include "Game/Model/TerrainRenderResource.h"
 #include "Game/Model/TerrainMeshTypes.h"
-#include "Game/Model/HeightMapLoader.h"
+#include "Game/Model/TerrainHeightFieldFactory.h"
 #include "Utility/StdOutput.h"
 
 namespace {
@@ -562,21 +562,12 @@ namespace {
         return true;
     }
 
-    std::string BuildTerrainModelSelector(const Game::TerrainBuildDesc& Desc) {
-        std::string Selector{ "terrain:" };
-        Selector += std::string{ "HeightMapPath=" } + Desc.HeightMapPath;
-        Selector += std::string{ ";MaxHeight=" } + std::to_string(Desc.MaxHeight);
-        Selector += std::string{ ";CellSizeX=" } + std::to_string(Desc.CellSizeX);
-        Selector += std::string{ ";CellSizeZ=" } + std::to_string(Desc.CellSizeZ);
-        Selector += std::string{ ";FlipV=" } + (Desc.FlipV == true ? std::string{ "true" } : std::string{ "false" });
-        Selector += std::string{ ";CenterOrigin=" } + (Desc.CenterOrigin == true ? std::string{ "true" } : std::string{ "false" });
-        Selector += std::string{ ";TileQuadCount=" } + std::to_string(Desc.TileQuadCount);
-        Selector += std::string{ ";LodCount=" } + std::to_string(Desc.LodCount);
-        if (Desc.LodDistances.empty() == false) {
-            Selector += std::string{ ";LodDistances=" } + BuildFloatListText(Desc.LodDistances);
+    std::string BuildTerrainHeightSourceTypeText(Game::TerrainHeightSourceType SourceType) {
+        if (SourceType == Game::TerrainHeightSourceType::Procedural) {
+            return "Procedural";
         }
 
-        return Selector;
+        return "HeightMap";
     }
 
     bool TryParseYamlBoolText(const std::string& ValueText, bool& OutValue) {
@@ -587,6 +578,20 @@ namespace {
 
         if (ValueText == "false" || ValueText == "False" || ValueText == "0") {
             OutValue = false;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool TryParseTerrainHeightSourceTypeText(const std::string& ValueText, Game::TerrainHeightSourceType& OutValue) {
+        if (ValueText == "HeightMap" || ValueText == "heightmap" || ValueText == "HeightMapPath") {
+            OutValue = Game::TerrainHeightSourceType::HeightMap;
+            return true;
+        }
+
+        if (ValueText == "Procedural" || ValueText == "procedural") {
+            OutValue = Game::TerrainHeightSourceType::Procedural;
             return true;
         }
 
@@ -949,22 +954,226 @@ namespace {
         return true;
     }
 
+    bool TryReadTerrainProceduralHeightFieldDesc(c4::yml::ConstNodeRef ProceduralNode, Game::TerrainProceduralHeightFieldDesc& OutDesc) {
+        if (ProceduralNode.readable() == false || ProceduralNode.is_map() == false) {
+            return false;
+        }
+
+        if (ProceduralNode.has_child("Width")) {
+            ProceduralNode["Width"] >> OutDesc.mWidth;
+        }
+
+        if (ProceduralNode.has_child("Height")) {
+            ProceduralNode["Height"] >> OutDesc.mHeight;
+        }
+
+        if (ProceduralNode.has_child("Seed")) {
+            ProceduralNode["Seed"] >> OutDesc.mSeed;
+        }
+
+        if (ProceduralNode.has_child("OctaveCount")) {
+            ProceduralNode["OctaveCount"] >> OutDesc.mOctaveCount;
+        }
+
+        if (ProceduralNode.has_child("NoiseScale")) {
+            ProceduralNode["NoiseScale"] >> OutDesc.mNoiseScale;
+        }
+
+        if (ProceduralNode.has_child("Persistence")) {
+            ProceduralNode["Persistence"] >> OutDesc.mPersistence;
+        }
+
+        if (ProceduralNode.has_child("Lacunarity")) {
+            ProceduralNode["Lacunarity"] >> OutDesc.mLacunarity;
+        }
+
+        if (ProceduralNode.has_child("BaseHeight")) {
+            ProceduralNode["BaseHeight"] >> OutDesc.mBaseHeight;
+        }
+
+        if (ProceduralNode.has_child("HeightAmplitude")) {
+            ProceduralNode["HeightAmplitude"] >> OutDesc.mHeightAmplitude;
+        }
+
+        if (ProceduralNode.has_child("SmoothingPassCount")) {
+            ProceduralNode["SmoothingPassCount"] >> OutDesc.mSmoothingPassCount;
+        }
+
+        if (ProceduralNode.has_child("MinimumWidth")) {
+            ProceduralNode["MinimumWidth"] >> OutDesc.mMinimumWidth;
+        }
+
+        if (ProceduralNode.has_child("MinimumHeight")) {
+            ProceduralNode["MinimumHeight"] >> OutDesc.mMinimumHeight;
+        }
+
+        if (ProceduralNode.has_child("MaximumOctaveCount")) {
+            ProceduralNode["MaximumOctaveCount"] >> OutDesc.mMaximumOctaveCount;
+        }
+
+        if (ProceduralNode.has_child("MaximumSmoothingPassCount")) {
+            ProceduralNode["MaximumSmoothingPassCount"] >> OutDesc.mMaximumSmoothingPassCount;
+        }
+
+        if (ProceduralNode.has_child("MinimumHeightValue")) {
+            ProceduralNode["MinimumHeightValue"] >> OutDesc.mMinimumHeightValue;
+        }
+
+        if (ProceduralNode.has_child("MaximumHeightValue")) {
+            ProceduralNode["MaximumHeightValue"] >> OutDesc.mMaximumHeightValue;
+        }
+
+        if (ProceduralNode.has_child("SampleScaleX")) {
+            ProceduralNode["SampleScaleX"] >> OutDesc.mSampleScaleX;
+        }
+
+        if (ProceduralNode.has_child("SampleScaleZ")) {
+            ProceduralNode["SampleScaleZ"] >> OutDesc.mSampleScaleZ;
+        }
+
+        if (ProceduralNode.has_child("InitialFrequency")) {
+            ProceduralNode["InitialFrequency"] >> OutDesc.mInitialFrequency;
+        }
+
+        if (ProceduralNode.has_child("InitialAmplitude")) {
+            ProceduralNode["InitialAmplitude"] >> OutDesc.mInitialAmplitude;
+        }
+
+        if (ProceduralNode.has_child("OctaveSeedStep")) {
+            ProceduralNode["OctaveSeedStep"] >> OutDesc.mOctaveSeedStep;
+        }
+
+        if (ProceduralNode.has_child("NoiseNormalizationScale")) {
+            ProceduralNode["NoiseNormalizationScale"] >> OutDesc.mNoiseNormalizationScale;
+        }
+
+        if (ProceduralNode.has_child("NoiseNormalizationBias")) {
+            ProceduralNode["NoiseNormalizationBias"] >> OutDesc.mNoiseNormalizationBias;
+        }
+
+        if (ProceduralNode.has_child("HashShiftA")) {
+            ProceduralNode["HashShiftA"] >> OutDesc.mHashShiftA;
+        }
+
+        if (ProceduralNode.has_child("HashShiftB")) {
+            ProceduralNode["HashShiftB"] >> OutDesc.mHashShiftB;
+        }
+
+        if (ProceduralNode.has_child("HashShiftC")) {
+            ProceduralNode["HashShiftC"] >> OutDesc.mHashShiftC;
+        }
+
+        if (ProceduralNode.has_child("HashShiftLimitExclusive")) {
+            ProceduralNode["HashShiftLimitExclusive"] >> OutDesc.mHashShiftLimitExclusive;
+        }
+
+        if (ProceduralNode.has_child("HashMultiplierA")) {
+            ProceduralNode["HashMultiplierA"] >> OutDesc.mHashMultiplierA;
+        }
+
+        if (ProceduralNode.has_child("HashMultiplierB")) {
+            ProceduralNode["HashMultiplierB"] >> OutDesc.mHashMultiplierB;
+        }
+
+        if (ProceduralNode.has_child("HashCoordinateOffsetX")) {
+            ProceduralNode["HashCoordinateOffsetX"] >> OutDesc.mHashCoordinateOffsetX;
+        }
+
+        if (ProceduralNode.has_child("HashCoordinateOffsetZ")) {
+            ProceduralNode["HashCoordinateOffsetZ"] >> OutDesc.mHashCoordinateOffsetZ;
+        }
+
+        if (ProceduralNode.has_child("GradientDirectionCount")) {
+            ProceduralNode["GradientDirectionCount"] >> OutDesc.mGradientDirectionCount;
+        }
+
+        if (ProceduralNode.has_child("FadeCoefficientA")) {
+            ProceduralNode["FadeCoefficientA"] >> OutDesc.mFadeCoefficientA;
+        }
+
+        if (ProceduralNode.has_child("FadeCoefficientB")) {
+            ProceduralNode["FadeCoefficientB"] >> OutDesc.mFadeCoefficientB;
+        }
+
+        if (ProceduralNode.has_child("FadeCoefficientC")) {
+            ProceduralNode["FadeCoefficientC"] >> OutDesc.mFadeCoefficientC;
+        }
+
+        if (ProceduralNode.has_child("SmoothingCornerWeight")) {
+            ProceduralNode["SmoothingCornerWeight"] >> OutDesc.mSmoothingCornerWeight;
+        }
+
+        if (ProceduralNode.has_child("SmoothingEdgeWeight")) {
+            ProceduralNode["SmoothingEdgeWeight"] >> OutDesc.mSmoothingEdgeWeight;
+        }
+
+        if (ProceduralNode.has_child("SmoothingCenterWeight")) {
+            ProceduralNode["SmoothingCenterWeight"] >> OutDesc.mSmoothingCenterWeight;
+        }
+
+        if (ProceduralNode.has_child("SmoothingWeightSum")) {
+            ProceduralNode["SmoothingWeightSum"] >> OutDesc.mSmoothingWeightSum;
+        }
+
+        return true;
+    }
+
     bool TryReadTerrainBuildDesc(c4::yml::ConstNodeRef TerrainNode, const std::string& SceneName, Game::TerrainBuildDesc& OutDesc) {
         if (TerrainNode.readable() == false || TerrainNode.is_map() == false) {
             return false;
         }
 
-        std::string HeightMapPath{};
-        if (TerrainNode.has_child("HeightMapPath") == false) {
+        if (TerrainNode.has_child("HeightSourceType")) {
+            std::string HeightSourceTypeText{};
+            TerrainNode["HeightSourceType"] >> HeightSourceTypeText;
+            if (TryParseTerrainHeightSourceTypeText(HeightSourceTypeText, OutDesc.mHeightSourceType) == false) {
+                return false;
+            }
+        }
+        else if (TerrainNode.has_child("HeightSource")) {
+            std::string HeightSourceTypeText{};
+            TerrainNode["HeightSource"] >> HeightSourceTypeText;
+            if (TryParseTerrainHeightSourceTypeText(HeightSourceTypeText, OutDesc.mHeightSourceType) == false) {
+                return false;
+            }
+        }
+
+        if (TerrainNode.has_child("ProceduralHeightField")) {
+            const bool IsProceduralDescRead{ TryReadTerrainProceduralHeightFieldDesc(TerrainNode["ProceduralHeightField"], OutDesc.mProceduralHeightFieldDesc) };
+            if (IsProceduralDescRead == false) {
+                return false;
+            }
+
+            if (TerrainNode.has_child("HeightSourceType") == false && TerrainNode.has_child("HeightSource") == false && TerrainNode.has_child("HeightMapPath") == false) {
+                OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+        }
+
+        if (TerrainNode.has_child("ProceduralHeightFieldPath")) {
+            std::string ProceduralHeightFieldPath{};
+            TerrainNode["ProceduralHeightFieldPath"] >> ProceduralHeightFieldPath;
+            if (ProceduralHeightFieldPath.empty()) {
+                return false;
+            }
+
+            OutDesc.mProceduralHeightFieldPath = ResolveSceneResourcePath(SceneName, ProceduralHeightFieldPath);
+            OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+        }
+
+        if (TerrainNode.has_child("HeightMapPath")) {
+            std::string HeightMapPath{};
+            TerrainNode["HeightMapPath"] >> HeightMapPath;
+            if (HeightMapPath.empty()) {
+                return false;
+            }
+
+            OutDesc.HeightMapPath = ResolveSceneResourcePath(SceneName, HeightMapPath);
+        }
+
+        if (OutDesc.mHeightSourceType == Game::TerrainHeightSourceType::HeightMap && OutDesc.HeightMapPath.empty() == true) {
             return false;
         }
 
-        TerrainNode["HeightMapPath"] >> HeightMapPath;
-        if (HeightMapPath.empty()) {
-            return false;
-        }
-
-        OutDesc.HeightMapPath = ResolveSceneResourcePath(SceneName, HeightMapPath);
         if (TerrainNode.has_child("MaxHeight")) {
             TerrainNode["MaxHeight"] >> OutDesc.MaxHeight;
         }
@@ -1047,8 +1256,173 @@ namespace {
 
                 const std::string Key{ Token.substr(0, EqualsIndex) };
                 const std::string Value{ Token.substr(EqualsIndex + 1) };
-                if (Key == "HeightMapPath") {
+                if (Key == "HeightSourceType") {
+                    if (TryParseTerrainHeightSourceTypeText(Value, OutDesc.mHeightSourceType) == false) {
+                        return false;
+                    }
+                }
+                else if (Key == "HeightMapPath") {
                     OutDesc.HeightMapPath = Value;
+                }
+                else if (Key == "ProceduralHeightFieldPath") {
+                    OutDesc.mProceduralHeightFieldPath = Value;
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralWidth") {
+                    OutDesc.mProceduralHeightFieldDesc.mWidth = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralHeight") {
+                    OutDesc.mProceduralHeightFieldDesc.mHeight = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralSeed") {
+                    OutDesc.mProceduralHeightFieldDesc.mSeed = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralOctaveCount") {
+                    OutDesc.mProceduralHeightFieldDesc.mOctaveCount = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralNoiseScale") {
+                    OutDesc.mProceduralHeightFieldDesc.mNoiseScale = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralPersistence") {
+                    OutDesc.mProceduralHeightFieldDesc.mPersistence = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralLacunarity") {
+                    OutDesc.mProceduralHeightFieldDesc.mLacunarity = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralBaseHeight") {
+                    OutDesc.mProceduralHeightFieldDesc.mBaseHeight = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralHeightAmplitude") {
+                    OutDesc.mProceduralHeightFieldDesc.mHeightAmplitude = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralSmoothingPassCount") {
+                    OutDesc.mProceduralHeightFieldDesc.mSmoothingPassCount = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralMinimumWidth") {
+                    OutDesc.mProceduralHeightFieldDesc.mMinimumWidth = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralMinimumHeight") {
+                    OutDesc.mProceduralHeightFieldDesc.mMinimumHeight = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralMaximumOctaveCount") {
+                    OutDesc.mProceduralHeightFieldDesc.mMaximumOctaveCount = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralMaximumSmoothingPassCount") {
+                    OutDesc.mProceduralHeightFieldDesc.mMaximumSmoothingPassCount = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralMinimumHeightValue") {
+                    OutDesc.mProceduralHeightFieldDesc.mMinimumHeightValue = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralMaximumHeightValue") {
+                    OutDesc.mProceduralHeightFieldDesc.mMaximumHeightValue = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralSampleScaleX") {
+                    OutDesc.mProceduralHeightFieldDesc.mSampleScaleX = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralSampleScaleZ") {
+                    OutDesc.mProceduralHeightFieldDesc.mSampleScaleZ = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralInitialFrequency") {
+                    OutDesc.mProceduralHeightFieldDesc.mInitialFrequency = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralInitialAmplitude") {
+                    OutDesc.mProceduralHeightFieldDesc.mInitialAmplitude = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralOctaveSeedStep") {
+                    OutDesc.mProceduralHeightFieldDesc.mOctaveSeedStep = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralNoiseNormalizationScale") {
+                    OutDesc.mProceduralHeightFieldDesc.mNoiseNormalizationScale = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralNoiseNormalizationBias") {
+                    OutDesc.mProceduralHeightFieldDesc.mNoiseNormalizationBias = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralHashShiftA") {
+                    OutDesc.mProceduralHeightFieldDesc.mHashShiftA = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralHashShiftB") {
+                    OutDesc.mProceduralHeightFieldDesc.mHashShiftB = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralHashShiftC") {
+                    OutDesc.mProceduralHeightFieldDesc.mHashShiftC = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralHashShiftLimitExclusive") {
+                    OutDesc.mProceduralHeightFieldDesc.mHashShiftLimitExclusive = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralHashMultiplierA") {
+                    OutDesc.mProceduralHeightFieldDesc.mHashMultiplierA = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralHashMultiplierB") {
+                    OutDesc.mProceduralHeightFieldDesc.mHashMultiplierB = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralHashCoordinateOffsetX") {
+                    OutDesc.mProceduralHeightFieldDesc.mHashCoordinateOffsetX = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralHashCoordinateOffsetZ") {
+                    OutDesc.mProceduralHeightFieldDesc.mHashCoordinateOffsetZ = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralGradientDirectionCount") {
+                    OutDesc.mProceduralHeightFieldDesc.mGradientDirectionCount = static_cast<std::uint32_t>(std::stoul(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralFadeCoefficientA") {
+                    OutDesc.mProceduralHeightFieldDesc.mFadeCoefficientA = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralFadeCoefficientB") {
+                    OutDesc.mProceduralHeightFieldDesc.mFadeCoefficientB = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralFadeCoefficientC") {
+                    OutDesc.mProceduralHeightFieldDesc.mFadeCoefficientC = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralSmoothingCornerWeight") {
+                    OutDesc.mProceduralHeightFieldDesc.mSmoothingCornerWeight = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralSmoothingEdgeWeight") {
+                    OutDesc.mProceduralHeightFieldDesc.mSmoothingEdgeWeight = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralSmoothingCenterWeight") {
+                    OutDesc.mProceduralHeightFieldDesc.mSmoothingCenterWeight = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralSmoothingWeightSum") {
+                    OutDesc.mProceduralHeightFieldDesc.mSmoothingWeightSum = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "MaxHeight") {
                     OutDesc.MaxHeight = std::stof(Value);
@@ -1104,12 +1478,69 @@ namespace {
             return false;
         }
 
+        if (OutDesc.mHeightSourceType == Game::TerrainHeightSourceType::Procedural) {
+            return true;
+        }
+
         return OutDesc.HeightMapPath.empty() == false;
+    }
+
+    void AppendTerrainProceduralHeightFieldDesc(std::ostringstream& Stream, std::size_t IndentLevel, const Game::TerrainProceduralHeightFieldDesc& Desc) {
+        AppendLine(Stream, IndentLevel, "ProceduralHeightField:");
+        AppendLine(Stream, IndentLevel + 1, std::string{ "Width: " } + std::to_string(Desc.mWidth));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "Height: " } + std::to_string(Desc.mHeight));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "Seed: " } + std::to_string(Desc.mSeed));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "OctaveCount: " } + std::to_string(Desc.mOctaveCount));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "NoiseScale: " } + std::to_string(Desc.mNoiseScale));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "Persistence: " } + std::to_string(Desc.mPersistence));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "Lacunarity: " } + std::to_string(Desc.mLacunarity));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "BaseHeight: " } + std::to_string(Desc.mBaseHeight));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "HeightAmplitude: " } + std::to_string(Desc.mHeightAmplitude));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "SmoothingPassCount: " } + std::to_string(Desc.mSmoothingPassCount));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "MinimumWidth: " } + std::to_string(Desc.mMinimumWidth));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "MinimumHeight: " } + std::to_string(Desc.mMinimumHeight));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "MaximumOctaveCount: " } + std::to_string(Desc.mMaximumOctaveCount));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "MaximumSmoothingPassCount: " } + std::to_string(Desc.mMaximumSmoothingPassCount));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "MinimumHeightValue: " } + std::to_string(Desc.mMinimumHeightValue));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "MaximumHeightValue: " } + std::to_string(Desc.mMaximumHeightValue));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "SampleScaleX: " } + std::to_string(Desc.mSampleScaleX));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "SampleScaleZ: " } + std::to_string(Desc.mSampleScaleZ));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "InitialFrequency: " } + std::to_string(Desc.mInitialFrequency));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "InitialAmplitude: " } + std::to_string(Desc.mInitialAmplitude));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "OctaveSeedStep: " } + std::to_string(Desc.mOctaveSeedStep));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "NoiseNormalizationScale: " } + std::to_string(Desc.mNoiseNormalizationScale));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "NoiseNormalizationBias: " } + std::to_string(Desc.mNoiseNormalizationBias));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "HashShiftA: " } + std::to_string(Desc.mHashShiftA));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "HashShiftB: " } + std::to_string(Desc.mHashShiftB));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "HashShiftC: " } + std::to_string(Desc.mHashShiftC));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "HashShiftLimitExclusive: " } + std::to_string(Desc.mHashShiftLimitExclusive));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "HashMultiplierA: " } + std::to_string(Desc.mHashMultiplierA));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "HashMultiplierB: " } + std::to_string(Desc.mHashMultiplierB));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "HashCoordinateOffsetX: " } + std::to_string(Desc.mHashCoordinateOffsetX));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "HashCoordinateOffsetZ: " } + std::to_string(Desc.mHashCoordinateOffsetZ));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "GradientDirectionCount: " } + std::to_string(Desc.mGradientDirectionCount));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "FadeCoefficientA: " } + std::to_string(Desc.mFadeCoefficientA));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "FadeCoefficientB: " } + std::to_string(Desc.mFadeCoefficientB));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "FadeCoefficientC: " } + std::to_string(Desc.mFadeCoefficientC));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "SmoothingCornerWeight: " } + std::to_string(Desc.mSmoothingCornerWeight));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "SmoothingEdgeWeight: " } + std::to_string(Desc.mSmoothingEdgeWeight));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "SmoothingCenterWeight: " } + std::to_string(Desc.mSmoothingCenterWeight));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "SmoothingWeightSum: " } + std::to_string(Desc.mSmoothingWeightSum));
     }
 
     void AppendTerrainBuildDesc(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& SceneName, const Game::TerrainBuildDesc& Desc) {
         AppendLine(Stream, IndentLevel, std::string{ TerrainTypeName } + std::string{ ":" });
-        AppendLine(Stream, IndentLevel + 1, std::string{ "HeightMapPath: " } + ToYamlText(MakeSceneRelativeResourcePath(SceneName, Desc.HeightMapPath)));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "HeightSourceType: " } + BuildTerrainHeightSourceTypeText(Desc.mHeightSourceType));
+        if (Desc.mHeightSourceType == Game::TerrainHeightSourceType::HeightMap) {
+            AppendLine(Stream, IndentLevel + 1, std::string{ "HeightMapPath: " } + ToYamlText(MakeSceneRelativeResourcePath(SceneName, Desc.HeightMapPath)));
+        }
+        else if (Desc.mProceduralHeightFieldPath.empty() == false) {
+            AppendLine(Stream, IndentLevel + 1, std::string{ "ProceduralHeightFieldPath: " } + ToYamlText(MakeSceneRelativeResourcePath(SceneName, Desc.mProceduralHeightFieldPath)));
+        }
+        else {
+            AppendTerrainProceduralHeightFieldDesc(Stream, IndentLevel + 1, Desc.mProceduralHeightFieldDesc);
+        }
+
         AppendLine(Stream, IndentLevel + 1, std::string{ "MaxHeight: " } + std::to_string(Desc.MaxHeight));
         AppendLine(Stream, IndentLevel + 1, std::string{ "CellSizeX: " } + std::to_string(Desc.CellSizeX));
         AppendLine(Stream, IndentLevel + 1, std::string{ "CellSizeZ: " } + std::to_string(Desc.CellSizeZ));
@@ -1646,7 +2077,7 @@ namespace Game {
                     const std::shared_ptr<TerrainRenderResource> TerrainResource{ OutScene.GetAssetRegistry().GetTerrainRenderResource(Desc) };
                     if (TerrainResource == nullptr) {
                         LoadResult.IsSuccess = false;
-                        LoadResult.UndecidedItems.push_back(std::string{ "Terrain 생성 실패: " } + Desc.HeightMapPath);
+                        LoadResult.UndecidedItems.push_back(std::string{ "Terrain 생성 실패: " } + (Desc.mHeightSourceType == TerrainHeightSourceType::Procedural ? std::string{ "Procedural" } : Desc.HeightMapPath));
                     }
                     else {
                         bool IsActive{ true };
@@ -1654,8 +2085,8 @@ namespace Game {
                             TerrainNode["active"] >> IsActive;
                         }
 
-                        HeightMapLoader HeightMapLoaderInstance{};
-                        const HeightFieldData HeightFieldDataValue{ HeightMapLoaderInstance.LoadHeightField(Desc.HeightMapPath) };
+                        TerrainHeightFieldFactory HeightFieldFactory{};
+                        const HeightFieldData HeightFieldDataValue{ HeightFieldFactory.Build(Desc) };
                         PhysicsTerrainActor::ActorDesc TerrainActorDesc{ PhysicsTerrainActor::BuildHeightFieldActorDesc(HeightFieldDataValue.Width, HeightFieldDataValue.Height, HeightFieldDataValue.HeightValues, Desc.MaxHeight, Desc.CellSizeX, Desc.CellSizeZ, Desc.CenterOrigin) };
 
                         TerrainRenderer TerrainRendererComponent{};

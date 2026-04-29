@@ -8,7 +8,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include "HeightMapLoader.h"
+#include "TerrainHeightFieldFactory.h"
 #include "TerrainMeshBuilder.h"
 #include "TerrainMeshTypes.h"
 
@@ -394,6 +394,20 @@ namespace {
         return OutValues.empty() == false;
     }
 
+    bool TryParseTerrainHeightSourceTypeText(const std::string& Text, Game::TerrainHeightSourceType& OutValue) {
+        if (Text == "HeightMap" || Text == "heightmap" || Text == "HeightMapPath") {
+            OutValue = Game::TerrainHeightSourceType::HeightMap;
+            return true;
+        }
+
+        if (Text == "Procedural" || Text == "procedural") {
+            OutValue = Game::TerrainHeightSourceType::Procedural;
+            return true;
+        }
+
+        return false;
+    }
+
     bool TryParseSelector(const std::string& Selector, std::string& OutPrimitiveType, PrimitiveParameters& OutParameters) {
         const std::size_t FirstSeparator{ Selector.find(';') };
         if (FirstSeparator == std::string::npos) {
@@ -468,8 +482,290 @@ namespace {
 
             const std::string Key{ Token.substr(0, EqualsIndex) };
             const std::string Value{ Token.substr(EqualsIndex + 1) };
-            if (Key == "HeightMapPath") {
+            if (Key == "HeightSourceType") {
+                if (TryParseTerrainHeightSourceTypeText(Value, OutData.Desc.mHeightSourceType) == false) {
+                    return false;
+                }
+            }
+            else if (Key == "HeightMapPath") {
                 OutData.Desc.HeightMapPath = Value;
+            }
+            else if (Key == "ProceduralHeightFieldPath") {
+                OutData.Desc.mProceduralHeightFieldPath = Value;
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralWidth") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mWidth) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralHeight") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mHeight) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralSeed") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mSeed) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralOctaveCount") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mOctaveCount) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralNoiseScale") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mNoiseScale) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralPersistence") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mPersistence) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralLacunarity") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mLacunarity) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralBaseHeight") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mBaseHeight) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralHeightAmplitude") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mHeightAmplitude) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralSmoothingPassCount") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mSmoothingPassCount) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralMinimumWidth") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mMinimumWidth) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralMinimumHeight") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mMinimumHeight) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralMaximumOctaveCount") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mMaximumOctaveCount) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralMaximumSmoothingPassCount") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mMaximumSmoothingPassCount) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralMinimumHeightValue") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mMinimumHeightValue) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralMaximumHeightValue") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mMaximumHeightValue) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralSampleScaleX") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mSampleScaleX) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralSampleScaleZ") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mSampleScaleZ) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralInitialFrequency") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mInitialFrequency) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralInitialAmplitude") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mInitialAmplitude) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralOctaveSeedStep") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mOctaveSeedStep) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralNoiseNormalizationScale") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mNoiseNormalizationScale) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralNoiseNormalizationBias") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mNoiseNormalizationBias) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralHashShiftA") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mHashShiftA) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralHashShiftB") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mHashShiftB) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralHashShiftC") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mHashShiftC) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralHashShiftLimitExclusive") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mHashShiftLimitExclusive) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralHashMultiplierA") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mHashMultiplierA) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralHashMultiplierB") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mHashMultiplierB) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralHashCoordinateOffsetX") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mHashCoordinateOffsetX) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralHashCoordinateOffsetZ") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mHashCoordinateOffsetZ) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralGradientDirectionCount") {
+                if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mGradientDirectionCount) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralFadeCoefficientA") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mFadeCoefficientA) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralFadeCoefficientB") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mFadeCoefficientB) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralFadeCoefficientC") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mFadeCoefficientC) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralSmoothingCornerWeight") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mSmoothingCornerWeight) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralSmoothingEdgeWeight") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mSmoothingEdgeWeight) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralSmoothingCenterWeight") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mSmoothingCenterWeight) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
+            else if (Key == "ProceduralSmoothingWeightSum") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mSmoothingWeightSum) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
             }
             else if (Key == "MaxHeight") {
                 if (TryParseFloat(Value, OutData.Desc.MaxHeight) == false) {
@@ -501,6 +797,19 @@ namespace {
                     return false;
                 }
             }
+            else if (Key == "LodCount") {
+                if (TryParseUInt32(Value, OutData.Desc.LodCount) == false) {
+                    return false;
+                }
+            }
+            else if (Key == "LodDistances") {
+                std::vector<float> LodDistances{};
+                if (TryParseFloatList(Value, LodDistances) == false) {
+                    return false;
+                }
+
+                OutData.Desc.LodDistances = std::move(LodDistances);
+            }
             else {
                 return false;
             }
@@ -510,6 +819,10 @@ namespace {
             }
 
             CurrentStart = TokenEnd + 1;
+        }
+
+        if (OutData.Desc.mHeightSourceType == Game::TerrainHeightSourceType::Procedural) {
+            return true;
         }
 
         return OutData.Desc.HeightMapPath.empty() == false;
@@ -522,9 +835,9 @@ namespace {
         }
 
         try {
-            Game::HeightMapLoader Loader{};
+            Game::TerrainHeightFieldFactory HeightFieldFactory{};
             Game::TerrainMeshBuilder Builder{};
-            const Game::HeightFieldData HeightField{ Loader.LoadHeightField(TerrainData.Desc.HeightMapPath) };
+            const Game::HeightFieldData HeightField{ HeightFieldFactory.Build(TerrainData.Desc) };
             Game::TerrainMeshData TerrainMesh{ Builder.Build(HeightField, TerrainData.Desc) };
             OutData.Vertices = std::move(TerrainMesh.Vertices);
             OutData.Indices = std::move(TerrainMesh.Indices);

@@ -1,5 +1,6 @@
 ﻿#include "AssetRegistry.h"
 #include <array>
+#include <bit>
 #include <filesystem>
 #include <limits>
 #include <unordered_set>
@@ -14,13 +15,15 @@
 #include "Asset/AnimationBinaryReader.h"
 #include "Asset/MaterialGroupJsonSerializer.h"
 #include "PrimitiveModelFactory.h"
-#include "HeightMapLoader.h"
+#include "TerrainHeightFieldFactory.h"
 #include "TerrainRenderResource.h"
 #include "TerrainTiledMeshBuilder.h"
 #include "Utility/ErrorHandler.h"
 
 namespace {
     constexpr std::uint32_t MaterialFieldCount{ asset::MaterialTypeCount };
+    constexpr std::uint64_t TerrainKeyHashOffset{ 14695981039346656037ULL };
+    constexpr std::uint64_t TerrainKeyHashPrime{ 1099511628211ULL };
 
     bool IsSupportedMaterialType(asset::MaterialType MaterialTypeValue) {
         const std::uint32_t TypeValue{ static_cast<std::uint32_t>(MaterialTypeValue) };
@@ -52,32 +55,129 @@ namespace {
             || (TypeValue >= TerrainNormalTextureStart && TypeValue <= TerrainNormalTextureEnd);
     }
 
-    std::string BuildFloatListText(const std::vector<float>& Values) {
-        std::string Text{};
-        for (std::size_t Index{ 0 }; Index < Values.size(); ++Index) {
-            if (Index > 0ULL) {
-                Text += ",";
-            }
-
-            Text += std::to_string(Values[Index]);
+    std::string BuildTerrainHeightSourceTypeText(Game::TerrainHeightSourceType SourceType) {
+        if (SourceType == Game::TerrainHeightSourceType::Procedural) {
+            return "Procedural";
         }
 
-        return Text;
+        return "HeightMap";
+    }
+
+    void AppendTerrainKeyHashByte(std::uint64_t& Hash, std::uint8_t Value) {
+        Hash ^= static_cast<std::uint64_t>(Value);
+        Hash *= TerrainKeyHashPrime;
+    }
+
+    void AppendTerrainKeyHashUInt32(std::uint64_t& Hash, std::uint32_t Value) {
+        for (std::uint32_t Shift{ 0 }; Shift < 32; Shift += 8) {
+            AppendTerrainKeyHashByte(Hash, static_cast<std::uint8_t>((Value >> Shift) & 0xffu));
+        }
+    }
+
+    void AppendTerrainKeyHashFloat(std::uint64_t& Hash, float Value) {
+        const std::uint32_t Bits{ std::bit_cast<std::uint32_t>(Value) };
+        AppendTerrainKeyHashUInt32(Hash, Bits);
+    }
+
+    void AppendTerrainKeyHashBool(std::uint64_t& Hash, bool Value) {
+        AppendTerrainKeyHashByte(Hash, Value == true ? static_cast<std::uint8_t>(1) : static_cast<std::uint8_t>(0));
+    }
+
+    void AppendTerrainKeyHashString(std::uint64_t& Hash, const std::string& Value) {
+        AppendTerrainKeyHashUInt32(Hash, static_cast<std::uint32_t>(Value.size()));
+        for (const char Character : Value) {
+            AppendTerrainKeyHashByte(Hash, static_cast<std::uint8_t>(Character));
+        }
+    }
+
+    void AppendTerrainKeyHashFloatVector(std::uint64_t& Hash, const std::vector<float>& Values) {
+        AppendTerrainKeyHashUInt32(Hash, static_cast<std::uint32_t>(Values.size()));
+        for (const float Value : Values) {
+            AppendTerrainKeyHashFloat(Hash, Value);
+        }
+    }
+
+    std::uint64_t BuildTerrainStringHash(const std::string& Value) {
+        std::uint64_t Hash{ TerrainKeyHashOffset };
+        AppendTerrainKeyHashString(Hash, Value);
+        return Hash;
+    }
+
+    std::uint64_t BuildTerrainProceduralHeightFieldDescHash(const Game::TerrainProceduralHeightFieldDesc& Desc) {
+        std::uint64_t Hash{ TerrainKeyHashOffset };
+        AppendTerrainKeyHashUInt32(Hash, Desc.mWidth);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mHeight);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mSeed);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mOctaveCount);
+        AppendTerrainKeyHashFloat(Hash, Desc.mNoiseScale);
+        AppendTerrainKeyHashFloat(Hash, Desc.mPersistence);
+        AppendTerrainKeyHashFloat(Hash, Desc.mLacunarity);
+        AppendTerrainKeyHashFloat(Hash, Desc.mBaseHeight);
+        AppendTerrainKeyHashFloat(Hash, Desc.mHeightAmplitude);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mSmoothingPassCount);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mMinimumWidth);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mMinimumHeight);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mMaximumOctaveCount);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mMaximumSmoothingPassCount);
+        AppendTerrainKeyHashFloat(Hash, Desc.mMinimumHeightValue);
+        AppendTerrainKeyHashFloat(Hash, Desc.mMaximumHeightValue);
+        AppendTerrainKeyHashFloat(Hash, Desc.mSampleScaleX);
+        AppendTerrainKeyHashFloat(Hash, Desc.mSampleScaleZ);
+        AppendTerrainKeyHashFloat(Hash, Desc.mInitialFrequency);
+        AppendTerrainKeyHashFloat(Hash, Desc.mInitialAmplitude);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mOctaveSeedStep);
+        AppendTerrainKeyHashFloat(Hash, Desc.mNoiseNormalizationScale);
+        AppendTerrainKeyHashFloat(Hash, Desc.mNoiseNormalizationBias);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mHashShiftA);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mHashShiftB);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mHashShiftC);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mHashShiftLimitExclusive);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mHashMultiplierA);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mHashMultiplierB);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mHashCoordinateOffsetX);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mHashCoordinateOffsetZ);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mGradientDirectionCount);
+        AppendTerrainKeyHashFloat(Hash, Desc.mFadeCoefficientA);
+        AppendTerrainKeyHashFloat(Hash, Desc.mFadeCoefficientB);
+        AppendTerrainKeyHashFloat(Hash, Desc.mFadeCoefficientC);
+        AppendTerrainKeyHashFloat(Hash, Desc.mSmoothingCornerWeight);
+        AppendTerrainKeyHashFloat(Hash, Desc.mSmoothingEdgeWeight);
+        AppendTerrainKeyHashFloat(Hash, Desc.mSmoothingCenterWeight);
+        AppendTerrainKeyHashFloat(Hash, Desc.mSmoothingWeightSum);
+        return Hash;
+    }
+
+    std::uint64_t BuildTerrainMeshDescHash(const Game::TerrainBuildDesc& Desc) {
+        std::uint64_t Hash{ TerrainKeyHashOffset };
+        AppendTerrainKeyHashFloat(Hash, Desc.MaxHeight);
+        AppendTerrainKeyHashFloat(Hash, Desc.CellSizeX);
+        AppendTerrainKeyHashFloat(Hash, Desc.CellSizeZ);
+        AppendTerrainKeyHashBool(Hash, Desc.FlipV);
+        AppendTerrainKeyHashBool(Hash, Desc.CenterOrigin);
+        AppendTerrainKeyHashUInt32(Hash, Desc.TileQuadCount);
+        AppendTerrainKeyHashUInt32(Hash, Desc.LodCount);
+        AppendTerrainKeyHashFloatVector(Hash, Desc.LodDistances);
+        return Hash;
+    }
+
+    std::string BuildTerrainKeyHashText(std::uint64_t Hash) {
+        return std::to_string(Hash);
     }
 
     std::string BuildTerrainRenderResourceKey(const Game::TerrainBuildDesc& Desc) {
         std::string Key{ "terrain:" };
-        Key += std::string{ "HeightMapPath=" } + Desc.HeightMapPath;
-        Key += std::string{ ";MaxHeight=" } + std::to_string(Desc.MaxHeight);
-        Key += std::string{ ";CellSizeX=" } + std::to_string(Desc.CellSizeX);
-        Key += std::string{ ";CellSizeZ=" } + std::to_string(Desc.CellSizeZ);
-        Key += std::string{ ";FlipV=" } + (Desc.FlipV == true ? std::string{ "true" } : std::string{ "false" });
-        Key += std::string{ ";CenterOrigin=" } + (Desc.CenterOrigin == true ? std::string{ "true" } : std::string{ "false" });
-        Key += std::string{ ";TileQuadCount=" } + std::to_string(Desc.TileQuadCount);
-        Key += std::string{ ";LodCount=" } + std::to_string(Desc.LodCount);
-        if (Desc.LodDistances.empty() == false) {
-            Key += std::string{ ";LodDistances=" } + BuildFloatListText(Desc.LodDistances);
+        Key += std::string{ "HeightSourceType=" } + BuildTerrainHeightSourceTypeText(Desc.mHeightSourceType);
+        if (Desc.mHeightSourceType == Game::TerrainHeightSourceType::HeightMap) {
+            Key += std::string{ ";HeightMapPathHash=" } + BuildTerrainKeyHashText(BuildTerrainStringHash(Desc.HeightMapPath));
         }
+        else if (Desc.mProceduralHeightFieldPath.empty() == false) {
+            Key += std::string{ ";ProceduralHeightFieldPathHash=" } + BuildTerrainKeyHashText(BuildTerrainStringHash(Desc.mProceduralHeightFieldPath));
+        }
+        else {
+            Key += std::string{ ";ProceduralDescHash=" } + BuildTerrainKeyHashText(BuildTerrainProceduralHeightFieldDescHash(Desc.mProceduralHeightFieldDesc));
+        }
+
+        Key += std::string{ ";MeshDescHash=" } + BuildTerrainKeyHashText(BuildTerrainMeshDescHash(Desc));
 
         return Key;
     }
@@ -210,9 +310,9 @@ namespace Game {
         TerrainTiledMeshData TiledMeshData{};
         HeightFieldData HeightField{};
         try {
-            HeightMapLoader Loader{};
+            TerrainHeightFieldFactory HeightFieldFactory{};
             TerrainTiledMeshBuilder Builder{};
-            HeightField = Loader.LoadHeightField(Desc.HeightMapPath);
+            HeightField = HeightFieldFactory.Build(Desc);
             TiledMeshData = Builder.Build(HeightField, Desc);
         }
         catch (const std::exception& Exception) {

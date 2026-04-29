@@ -392,8 +392,9 @@ Entities:
       Material:
         materialPath: terrain_materials.json
       Terrain:
-        HeightMapPath: Heightmap_01_Mountains.png
-        MaxHeight: 256.0
+        HeightSourceType: Procedural
+        ProceduralHeightFieldPath: TerrainProceduralHeightField.yaml
+        MaxHeight: 96.0
         CellSizeX: 1
         CellSizeZ: 1
         FlipV: false

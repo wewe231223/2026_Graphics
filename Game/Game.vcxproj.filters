@@ -66,10 +66,19 @@
     <ClInclude Include="Model\HeightMapLoader.h">
       <Filter>Model</Filter>
     </ClInclude>
+    <ClInclude Include="Model\TerrainHeightFieldFactory.h">
+      <Filter>Model</Filter>
+    </ClInclude>
     <ClInclude Include="Model\TerrainMeshBuilder.h">
       <Filter>Model</Filter>
     </ClInclude>
     <ClInclude Include="Model\TerrainMeshTypes.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\TerrainProceduralHeightFieldConfigLoader.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\TerrainProceduralHeightFieldGenerator.h">
       <Filter>Model</Filter>
     </ClInclude>
     <ClInclude Include="Model\TerrainRenderResource.h">
@@ -252,6 +261,15 @@
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Model\HeightMapLoader.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\TerrainHeightFieldFactory.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\TerrainProceduralHeightFieldGenerator.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\TerrainProceduralHeightFieldConfigLoader.cpp">
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Scene.cpp">
@@ -446,6 +464,9 @@
       <Filter>PSO</Filter>
     </None>
     <None Include="..\Resources\DefaultScene.yaml">
+      <Filter>Scene\Scene YAML</Filter>
+    </None>
+    <None Include="..\Resources\DefaultScene\TerrainProceduralHeightField.yaml">
       <Filter>Scene\Scene YAML</Filter>
     </None>
     <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml">

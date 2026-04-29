@@ -33,8 +33,11 @@
     <ClInclude Include="Model\HeightMapLoader.h" />
     <ClInclude Include="Model\Model.h" />
     <ClInclude Include="Model\PrimitiveModelFactory.h" />
+    <ClInclude Include="Model\TerrainHeightFieldFactory.h" />
     <ClInclude Include="Model\TerrainMeshBuilder.h" />
     <ClInclude Include="Model\TerrainMeshTypes.h" />
+    <ClInclude Include="Model\TerrainProceduralHeightFieldConfigLoader.h" />
+    <ClInclude Include="Model\TerrainProceduralHeightFieldGenerator.h" />
     <ClInclude Include="Model\TerrainRenderResource.h" />
     <ClInclude Include="Model\TerrainTiledMeshBuilder.h" />
     <ClInclude Include="Scene\Components\BoundingBox.h" />
@@ -95,9 +98,12 @@
     <ClCompile Include="Model\AssetRegistry.cpp" />
     <ClCompile Include="Model\AssetRegistryBackEnd.cpp" />
     <ClCompile Include="Model\HeightMapLoader.cpp" />
+    <ClCompile Include="Model\TerrainHeightFieldFactory.cpp" />
     <ClCompile Include="Model\Model.cpp" />
     <ClCompile Include="Model\PrimitiveModelFactory.cpp" />
     <ClCompile Include="Model\TerrainMeshBuilder.cpp" />
+    <ClCompile Include="Model\TerrainProceduralHeightFieldConfigLoader.cpp" />
+    <ClCompile Include="Model\TerrainProceduralHeightFieldGenerator.cpp" />
     <ClCompile Include="Model\TerrainRenderResource.cpp" />
     <ClCompile Include="Model\TerrainTiledMeshBuilder.cpp" />
     <ClCompile Include="Asset\AnimationGraphAsset.cpp" />
@@ -188,6 +194,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Resources\DefaultScene.yaml" />
+    <None Include="..\Resources\DefaultScene\TerrainProceduralHeightField.yaml" />
     <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml" />
     <None Include="..\Resources\ShadowMappingParameter.yaml" />
     <None Include="..\Shader\PSO\DefaultGraphics.json" />

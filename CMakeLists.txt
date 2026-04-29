@@ -146,6 +146,9 @@ add_library(Game STATIC
     Game/Base/Input.cpp
     Game/Base/Time.cpp
     Game/Model/HeightMapLoader.cpp
+    Game/Model/TerrainHeightFieldFactory.cpp
+    Game/Model/TerrainProceduralHeightFieldConfigLoader.cpp
+    Game/Model/TerrainProceduralHeightFieldGenerator.cpp
     Game/Model/AssetRegistry.cpp
     Game/Model/AssetRegistryBackEnd.cpp
     Game/Model/Model.cpp
