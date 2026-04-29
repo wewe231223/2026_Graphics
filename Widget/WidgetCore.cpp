@@ -122,6 +122,8 @@ namespace Widget {
 			widget->Render(mSceneWorldSnapshot);
 		}
 
+		RenderRenderSettings();
+
 #pragma region TemporaryShadowMapPreview
 		if (mShadowMapCount > 0) {
 			ImGui::Begin("Shadow Map");
@@ -192,6 +194,10 @@ namespace Widget {
 		mSceneWorldSnapshot = Snapshot;
 	}
 
+	bool WidgetCore::IsPostProcessEnabled() const {
+		return mIsPostProcessEnabled;
+	}
+
 
 	void WidgetCore::BuildWidgets() {
 		MakeWidget<FrameTimeWidget>();
@@ -200,5 +206,16 @@ namespace Widget {
 		MakeWidget<VramUsageWidget>();
 		MakeWidget<ImGuiConsole>();
 		MakeWidget<SceneHierarchyWidget>();
+	}
+
+	void WidgetCore::RenderRenderSettings() {
+		if (!ImGui::Begin("Render Settings")) {
+			ImGui::End();
+			return;
+		}
+
+		ImGui::Checkbox("Post Process", &mIsPostProcessEnabled);
+
+		ImGui::End();
 	}
 }

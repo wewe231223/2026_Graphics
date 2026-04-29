@@ -2,6 +2,8 @@
 #include <array>
 #include <atomic>
 #include <mutex>
+#include <string>
+#include <unordered_map>
 #include "Core/Common.h"
 #include "Core/DX/DesciptorHeap.h"
 #include "Core/DX/DrawCallDispatcher.h"
@@ -20,6 +22,31 @@
 namespace Core {
 	namespace DX {
 		class GraphicsAllocator;
+
+		struct PostProcessRootConstants final {
+			std::uint32_t mSourceSrvIndex{};
+			std::uint32_t mDestinationUavIndex{};
+			std::uint32_t mTargetWidth{};
+			std::uint32_t mTargetHeight{};
+			std::uint32_t mParameter0{};
+			std::uint32_t mParameter1{};
+			std::uint32_t mParameter2{};
+			std::uint32_t mParameter3{};
+			std::uint32_t mParameter4{};
+			std::uint32_t mParameter5{};
+			std::uint32_t mParameter6{};
+			std::uint32_t mParameter7{};
+		};
+
+		struct PostProcessJob final {
+			std::string mPipelineName{};
+			TexPtr mSourceTarget{};
+			TexPtr mDestinationTarget{};
+			PostProcessRootConstants mRootConstants{};
+			std::uint32_t mThreadGroupSizeX{ 8u };
+			std::uint32_t mThreadGroupSizeY{ 8u };
+			std::uint32_t mThreadGroupSizeZ{ 1u };
+		};
 
 		class DirectQueue : public Interface::IFutureSyncObject {
 		public:
@@ -58,6 +85,15 @@ namespace Core {
 			void InitTargetResources();
 			void InitGBufferResources();
 			void EnsureShadowMapResources(const Game::RFD::ShadowMappingParameter& ShadowMappingParameter);
+			PostProcessJob BuildToneMappingPostProcessJob(const TexPtr& SourceTarget, const TexPtr& DestinationTarget, bool IsPostProcessEnabled);
+			void PreparePostProcessJobResources(ID3D12GraphicsCommandList* CommandList, const PostProcessJob& Job);
+			Interface::Future EnqueuePostProcessJob(const Interface::Future& WaitFuture, const PostProcessJob& Job);
+			Game::Base::Pipeline* ResolvePostProcessPipeline(const std::string& PipelineName);
+			void BeginPostProcessFinalPass(std::uint32_t CurrentIndex, const std::array<ID3D12DescriptorHeap*, 1>& DescriptorHeaps, const Interface::Future& PostProcessFuture);
+			void CopyPostProcessToBackBuffer(const TexPtr& PostProcessTarget, const TexPtr& RenderTarget);
+			void DrawFinalOverlays(Game::RFD::RenderFrameData& Data, Widget::WidgetCore* WidgetCore, DrawCallResourceManager& DrawCallResources, D3D12_CPU_DESCRIPTOR_HANDLE Dsv, std::uint32_t CurrentIndex, std::uint32_t ShadowCascadeCount);
+			void FinishPresentTarget(const TexPtr& RenderTarget, DrawCallResourceManager& DrawCallResources, std::uint32_t CurrentIndex);
+			void ExecutePostProcessFinalPass();
 
 			ComPtr<IDXGIAdapter1> GetBestAdapter();
 
@@ -97,6 +133,7 @@ namespace Core {
 
 			DescriptorHeap mRTVHeap{};
 			std::array<TexPtr, Constants::FrameCount<size_t>> mRenderTargets{};
+			std::array<TexPtr, Constants::FrameCount<size_t>> mLightingTargets{};
 			std::array<TexPtr, Constants::FrameCount<size_t>> mPostProcessTargets{};
 			std::array<TexPtr, GBufferTargetCount> mGBufferTargets{};
 			uint32_t mRTVIndex{};
@@ -113,6 +150,7 @@ namespace Core {
 			std::array<DrawCallResourceManager, Constants::FrameCount<size_t>> mDrawCallResourceManagers{};
 			MaterialResourceManager mMaterialResourceManager{};
 			DrawCallDispatcher mDrawCallDispatcher{};
+			std::unordered_map<std::string, Game::Base::Pipeline> mPostProcessPipelines{};
 
 
 			FrameSync mFrameSync{};

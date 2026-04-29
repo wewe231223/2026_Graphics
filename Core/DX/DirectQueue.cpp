@@ -5,8 +5,18 @@
 #include "Utility/StdOutput.h"
 #include "Core/Config.h"
 #include <algorithm>
+#include <bit>
 #include <fstream>
+#include <utility>
 #include "Widget/PerformanceProvider.h"
+
+namespace {
+	static_assert(sizeof(Core::DX::PostProcessRootConstants) == (sizeof(std::uint32_t) * 12ULL));
+
+	std::uint32_t DivideRoundUp(std::uint32_t Value, std::uint32_t Divisor) {
+		return (Value + Divisor - 1u) / Divisor;
+	}
+}
 
 
 namespace Core {
@@ -109,23 +119,24 @@ namespace Core {
 
 		void DirectQueue::Render(Game::RFD::RenderFrameData& Data, Widget::WidgetCore* WidgetCore) {
 			ErrorHandler::report(mCopyQueue == nullptr, "DirectQueue", "CopyQueue is not set.", ErrorHandler::Level::Critical);
+			ErrorHandler::report(mComputeQueue == nullptr, "DirectQueue", "ComputeQueue is not set.", ErrorHandler::Level::Critical);
 
-			auto currentIndex = mFrameSync.GetCurrentIndex();
+			std::uint32_t CurrentIndex{ mFrameSync.GetCurrentIndex() };
 
-			auto& allocator = mMainCommandAllocators[currentIndex];
-			allocator->Reset();
-			mCommandList->Reset(allocator.Get(), nullptr);
+			ComPtr<ID3D12CommandAllocator>& MainCommandAllocator{ mMainCommandAllocators[CurrentIndex] };
+			MainCommandAllocator->Reset();
+			mCommandList->Reset(MainCommandAllocator.Get(), nullptr);
 
 			std::array<ID3D12DescriptorHeap*, 1> DescriptorHeaps{ mSrvHeap.GetHeap() };
 			mCommandList->SetDescriptorHeaps(static_cast<UINT>(DescriptorHeaps.size()), DescriptorHeaps.data());
 
-			DrawCallResourceManager& DrawCallResources{ mDrawCallResourceManagers[currentIndex] };
-			mMaterialResourceManager.TransitionToShaderResource(mCommandList.Get(), static_cast<uint32_t>(currentIndex));
+			DrawCallResourceManager& DrawCallResources{ mDrawCallResourceManagers[CurrentIndex] };
+			mMaterialResourceManager.TransitionToShaderResource(mCommandList.Get(), static_cast<std::uint32_t>(CurrentIndex));
 			DrawCallResources.TransitionToShaderResource(mCommandList.Get());
 
 			EnsureShadowMapResources(Data.shadowMapping);
-			const uint32_t ShadowCascadeCount{ std::max<uint32_t>(1u, std::min<uint32_t>(Data.shadowMapping.cascadeCount, mShadowCascadeCount)) };
-			for (uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
+			const std::uint32_t ShadowCascadeCount{ std::max<std::uint32_t>(1u, std::min<std::uint32_t>(Data.shadowMapping.cascadeCount, mShadowCascadeCount)) };
+			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
 				TexPtr& ShadowDepthMap{ mShadowDepthMaps[CascadeIndex] };
 				if (ShadowDepthMap == nullptr) {
 					continue;
@@ -138,7 +149,7 @@ namespace Core {
 				mCommandList->OMSetRenderTargets(0, nullptr, FALSE, &ShadowDsv);
 				mCommandList->RSSetViewports(1, &mShadowViewports[CascadeIndex]);
 				mCommandList->RSSetScissorRects(1, &mShadowScissorRects[CascadeIndex]);
-				mDrawCallDispatcher.DrawDepthOnly(mCommandList.Get(), Data.ShadowRenderContexts[CascadeIndex], CascadeIndex, DrawCallResources.GetShadowFrameGlobalsSrvHandle(), DrawCallResources.GetShadowModelContextSrvHandle(CascadeIndex), DrawCallResources.GetShadowTerrainPatchContextSrvHandle(CascadeIndex), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetShadowDrawRecordSrvHandle(CascadeIndex), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
+				mDrawCallDispatcher.DrawDepthOnly(mCommandList.Get(), Data.ShadowRenderContexts[CascadeIndex], CascadeIndex, DrawCallResources.GetShadowFrameGlobalsSrvHandle(), DrawCallResources.GetShadowModelContextSrvHandle(CascadeIndex), DrawCallResources.GetShadowTerrainPatchContextSrvHandle(CascadeIndex), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetShadowDrawRecordSrvHandle(CascadeIndex), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
 
 				ShadowDepthMap->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 			}
@@ -154,65 +165,52 @@ namespace Core {
 				mCommandList->ClearRenderTargetView(GBufferRtvs[GBufferIndex], GBufferClearColors[GBufferIndex], 0, nullptr);
 			}
 
-			auto dsv = mDepthStencilBuffer->GetDSV();
-			mCommandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-			mCommandList->OMSetRenderTargets(static_cast<UINT>(GBufferRtvs.size()), GBufferRtvs.data(), FALSE, &dsv);
+			D3D12_CPU_DESCRIPTOR_HANDLE Dsv{ mDepthStencilBuffer->GetDSV() };
+			mCommandList->ClearDepthStencilView(Dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+			mCommandList->OMSetRenderTargets(static_cast<UINT>(GBufferRtvs.size()), GBufferRtvs.data(), FALSE, &Dsv);
 
 			mCommandList->RSSetViewports(1, &mViewport);
 			mCommandList->RSSetScissorRects(1, &mScissorRect);
 
 		
 			// Execute Render Tasks
-			mDrawCallDispatcher.DrawGBuffer(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetTerrainPatchContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
+			mDrawCallDispatcher.DrawGBuffer(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetTerrainPatchContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
 
 			for (std::uint32_t GBufferIndex{ 0 }; GBufferIndex < GBufferTargetCount; GBufferIndex += 1) {
 				mGBufferTargets[GBufferIndex]->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 			}
 
-			TexPtr& RenderTarget{ mRenderTargets[currentIndex] };
-			RenderTarget->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
+			TexPtr& RenderTarget{ mRenderTargets[CurrentIndex] };
+			TexPtr& LightingTarget{ mLightingTargets[CurrentIndex] };
+			TexPtr& PostProcessTarget{ mPostProcessTargets[CurrentIndex] };
+			const bool IsPostProcessEnabled{ WidgetCore == nullptr || WidgetCore->IsPostProcessEnabled() };
+			PostProcessJob ToneMappingJob{ BuildToneMappingPostProcessJob(LightingTarget, PostProcessTarget, IsPostProcessEnabled) };
+			LightingTarget->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 
-			auto rtv = RenderTarget->GetRTV();
-
-			mCommandList->ClearRenderTargetView(rtv, DirectX::Colors::Blue, 0, nullptr);
-			mCommandList->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
+			D3D12_CPU_DESCRIPTOR_HANDLE LightingRtv{ LightingTarget->GetRTV() };
+			mCommandList->ClearRenderTargetView(LightingRtv, DirectX::Colors::Blue, 0, nullptr);
+			mCommandList->OMSetRenderTargets(1, &LightingRtv, FALSE, nullptr);
 			mDrawCallDispatcher.DrawDeferredLighting(mCommandList.Get(), DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetShadowMappingParameterSrvHandle(), mShadowMapBaseSrvHandle, mGBufferTargets[GBufferAlbedoIndex]->GetSRVDescriptorHandle(), mGBufferTargets[GBufferNormalIndex]->GetSRVDescriptorHandle(), mGBufferTargets[GBufferWorldPositionIndex]->GetSRVDescriptorHandle());
+			mCommandList->OMSetRenderTargets(1, &LightingRtv, FALSE, &Dsv);
+			mDrawCallDispatcher.DrawSkyDome(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetTerrainPatchContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
 
-			mCommandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
-			mDrawCallDispatcher.DrawForwardOverlays(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBoundingBoxContextSrvHandle(), DrawCallResources.GetDebugGeometryContextSrvHandle(), DrawCallResources.GetTerrainPatchContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
-			if (WidgetCore != nullptr) {
-#pragma region TemporaryShadowMapPreview
-				std::array<ID3D12Resource*, Widget::WidgetCore::ShadowMapPreviewCapacity> ShadowMapResources{};
-				const std::uint32_t ShadowMapPreviewCount{ std::min<std::uint32_t>(ShadowCascadeCount, Widget::WidgetCore::ShadowMapPreviewCapacity) };
-				for (std::uint32_t ShadowMapIndex{ 0 }; ShadowMapIndex < ShadowMapPreviewCount; ShadowMapIndex += 1) {
-					if (mShadowDepthMaps[ShadowMapIndex] == nullptr) {
-						continue;
-					}
-
-					ShadowMapResources[ShadowMapIndex] = mShadowDepthMaps[ShadowMapIndex]->GetResource();
-				}
-
-				WidgetCore->SetShadowMapTextures(ShadowMapResources, ShadowMapPreviewCount, mShadowMapSizes[0]);
-#pragma endregion
-				WidgetCore->Render(mCommandList);
-			}
-
-
-
-			DrawCallResources.TransitionToCopyDestination(mCommandList.Get());
-			mMaterialResourceManager.TransitionToCopyDestination(mCommandList.Get(), static_cast<uint32_t>(currentIndex));
-
-			RenderTarget->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PRESENT);
-
-
+			PreparePostProcessJobResources(mCommandList.Get(), ToneMappingJob);
 
 			mCommandList->Close();
 			DrawCallResources.QueueWaitForUpload(mDirectCommandQueue.Get());
-			mMaterialResourceManager.QueueWaitForUpload(mDirectCommandQueue.Get(), static_cast<uint32_t>(currentIndex));
+			mMaterialResourceManager.QueueWaitForUpload(mDirectCommandQueue.Get(), static_cast<std::uint32_t>(CurrentIndex));
 
+			ID3D12CommandList* MainCommandLists[]{ mCommandList.Get() };
+			mDirectCommandQueue->ExecuteCommandLists(_countof(MainCommandLists), MainCommandLists);
 
-			ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
-			mDirectCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
+			Interface::Future SceneRenderFuture{ SignalFuture() };
+			Interface::Future PostProcessFuture{ EnqueuePostProcessJob(SceneRenderFuture, ToneMappingJob) };
+
+			BeginPostProcessFinalPass(CurrentIndex, DescriptorHeaps, PostProcessFuture);
+			CopyPostProcessToBackBuffer(PostProcessTarget, RenderTarget);
+			DrawFinalOverlays(Data, WidgetCore, DrawCallResources, Dsv, CurrentIndex, ShadowCascadeCount);
+			FinishPresentTarget(RenderTarget, DrawCallResources, CurrentIndex);
+			ExecutePostProcessFinalPass();
 
 			ErrorHandler::report(mSwapChain->Present(Constants::AllowTearing ? 0 : 1, Constants::AllowTearing ? DXGI_PRESENT_ALLOW_TEARING : 0), "DirectQueue", "Failed to present SwapChain.", ErrorHandler::Level::Critical);
 			if (!Config::Query()->Get<bool>("Block_ImGui")) {
@@ -333,7 +331,7 @@ namespace Core {
 		}
 
 		void DirectQueue::InitTargetResources() {
-			mRTVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, (Constants::FrameCount<uint32_t> * 2u) + GBufferTargetCount, false);
+			mRTVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, (Constants::FrameCount<std::uint32_t> * 3u) + GBufferTargetCount, false);
 			mSrvHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 512, true);
 			for (std::size_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < Game::RFD::ShadowCascadeMaxCount; ShadowCascadeIndex += 1) {
 				mShadowMapSrvHandles[ShadowCascadeIndex] = mSrvHeap.Allocate();
@@ -352,6 +350,12 @@ namespace Core {
 
 			const std::uint32_t Width{ Config::Query()->Get<uint32_t>("Window_Width") };
 			const std::uint32_t Height{ Config::Query()->Get<uint32_t>("Window_Height") };
+			for (TexPtr& LightingTarget : mLightingTargets) {
+				LightingTarget = Texture::CreateTarget(mDevice.Get(), Width, Height, DXGI_FORMAT_R16G16B16A16_FLOAT, TextureUsage::RenderTarget);
+				LightingTarget->CreateRTV(mDevice.Get(), &mRTVHeap);
+				LightingTarget->CreateSRV(mDevice.Get(), &mSrvHeap);
+			}
+
 			for (TexPtr& PostProcessTarget : mPostProcessTargets) {
 				PostProcessTarget = Texture::CreateTarget(mDevice.Get(), Width, Height, DXGI_FORMAT_R8G8B8A8_UNORM, TextureUsage::RenderTargetUnorderedAccess);
 				PostProcessTarget->CreateRTV(mDevice.Get(), &mRTVHeap);
@@ -442,6 +446,150 @@ namespace Core {
 				mShadowViewports[ShadowCascadeIndex] = D3D12_VIEWPORT{ 0.0f, 0.0f, static_cast<float>(CurrentShadowMapSize), static_cast<float>(CurrentShadowMapSize), 0.0f, 1.0f };
 				mShadowScissorRects[ShadowCascadeIndex] = D3D12_RECT{ 0, 0, static_cast<LONG>(CurrentShadowMapSize), static_cast<LONG>(CurrentShadowMapSize) };
 			}
+		}
+
+		PostProcessJob DirectQueue::BuildToneMappingPostProcessJob(const TexPtr& SourceTarget, const TexPtr& DestinationTarget, bool IsPostProcessEnabled) {
+			PostProcessJob Job{};
+			Job.mPipelineName = "ToneMappingCompute";
+			Job.mSourceTarget = SourceTarget;
+			Job.mDestinationTarget = DestinationTarget;
+			Job.mRootConstants.mParameter0 = std::bit_cast<std::uint32_t>(0.7f);
+			Job.mRootConstants.mParameter1 = std::bit_cast<std::uint32_t>(2.2f);
+			Job.mRootConstants.mParameter2 = IsPostProcessEnabled == true ? 1u : 0u;
+			Job.mThreadGroupSizeX = 8u;
+			Job.mThreadGroupSizeY = 8u;
+			Job.mThreadGroupSizeZ = 1u;
+			return Job;
+		}
+
+		void DirectQueue::PreparePostProcessJobResources(ID3D12GraphicsCommandList* CommandList, const PostProcessJob& Job) {
+			if (CommandList == nullptr || Job.mSourceTarget == nullptr || Job.mDestinationTarget == nullptr) {
+				return;
+			}
+
+			Job.mSourceTarget->Transition(CommandList, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			Job.mDestinationTarget->Transition(CommandList, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		}
+
+		Interface::Future DirectQueue::EnqueuePostProcessJob(const Interface::Future& WaitFuture, const PostProcessJob& Job) {
+			if (mComputeQueue == nullptr || Job.mSourceTarget == nullptr || Job.mDestinationTarget == nullptr) {
+				return Interface::Future{};
+			}
+
+			Game::Base::Pipeline* Pipeline{ ResolvePostProcessPipeline(Job.mPipelineName) };
+			ErrorHandler::report(Pipeline == nullptr, "DirectQueue", "Failed to initialize post process pipeline.", ErrorHandler::Level::Critical);
+
+			PostProcessRootConstants RootConstants{ Job.mRootConstants };
+			RootConstants.mSourceSrvIndex = Job.mSourceTarget->GetSRVDescriptorHandle().GetIndex();
+			RootConstants.mDestinationUavIndex = Job.mDestinationTarget->GetUAVDescriptorHandle().GetIndex();
+			RootConstants.mTargetWidth = Job.mDestinationTarget->GetWidth();
+			RootConstants.mTargetHeight = Job.mDestinationTarget->GetHeight();
+
+			Interface::ComputeQueueDispatchRequest PostProcessRequest{};
+			PostProcessRequest.WaitFuture = WaitFuture;
+			PostProcessRequest.RootSignature = Pipeline->GetRootSignature();
+			PostProcessRequest.PipelineState = Pipeline->Get();
+			PostProcessRequest.DescriptorHeaps = std::vector<ID3D12DescriptorHeap*>{ mSrvHeap.GetHeap() };
+			PostProcessRequest.RecordCommands = [RootConstants](ID3D12GraphicsCommandList* CommandList) {
+				if (CommandList == nullptr) {
+					return;
+				}
+
+				CommandList->SetComputeRoot32BitConstants(0, static_cast<UINT>(sizeof(PostProcessRootConstants) / sizeof(std::uint32_t)), &RootConstants, 0);
+			};
+			const std::uint32_t ThreadGroupSizeX{ std::max<std::uint32_t>(1u, Job.mThreadGroupSizeX) };
+			const std::uint32_t ThreadGroupSizeY{ std::max<std::uint32_t>(1u, Job.mThreadGroupSizeY) };
+			PostProcessRequest.ThreadGroupCountX = DivideRoundUp(Job.mDestinationTarget->GetWidth(), ThreadGroupSizeX);
+			PostProcessRequest.ThreadGroupCountY = DivideRoundUp(Job.mDestinationTarget->GetHeight(), ThreadGroupSizeY);
+			PostProcessRequest.ThreadGroupCountZ = std::max<std::uint32_t>(1u, Job.mThreadGroupSizeZ);
+
+			Interface::Future PostProcessFuture{ mComputeQueue->EnqueueComputeFuture(PostProcessRequest) };
+			mComputeQueue->DispatchComputes();
+			return PostProcessFuture;
+		}
+
+		Game::Base::Pipeline* DirectQueue::ResolvePostProcessPipeline(const std::string& PipelineName) {
+			if (PipelineName.empty() == true) {
+				return nullptr;
+			}
+
+			std::unordered_map<std::string, Game::Base::Pipeline>::iterator FoundPipeline{ mPostProcessPipelines.find(PipelineName) };
+			if (FoundPipeline != mPostProcessPipelines.end()) {
+				return &FoundPipeline->second;
+			}
+
+			Game::Base::Pipeline NewPipeline{};
+			if (NewPipeline.Initialize(PipelineName) == false) {
+				return nullptr;
+			}
+
+			std::pair<std::unordered_map<std::string, Game::Base::Pipeline>::iterator, bool> InsertResult{ mPostProcessPipelines.emplace(PipelineName, std::move(NewPipeline)) };
+			if (InsertResult.second == false) {
+				return nullptr;
+			}
+
+			return &InsertResult.first->second;
+		}
+
+		void DirectQueue::BeginPostProcessFinalPass(std::uint32_t CurrentIndex, const std::array<ID3D12DescriptorHeap*, 1>& DescriptorHeaps, const Interface::Future& PostProcessFuture) {
+			ComPtr<ID3D12CommandAllocator>& PostProcessCommandAllocator{ mPostProcessCommandAllocators[CurrentIndex] };
+			PostProcessCommandAllocator->Reset();
+			mPostProcessCommandList->Reset(PostProcessCommandAllocator.Get(), nullptr);
+			mPostProcessCommandList->SetDescriptorHeaps(static_cast<UINT>(DescriptorHeaps.size()), DescriptorHeaps.data());
+			QueueWaitFuture(PostProcessFuture);
+		}
+
+		void DirectQueue::CopyPostProcessToBackBuffer(const TexPtr& PostProcessTarget, const TexPtr& RenderTarget) {
+			if (PostProcessTarget == nullptr || RenderTarget == nullptr) {
+				return;
+			}
+
+			PostProcessTarget->Transition(mPostProcessCommandList.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE);
+			RenderTarget->Transition(mPostProcessCommandList.Get(), D3D12_RESOURCE_STATE_COPY_DEST);
+			mPostProcessCommandList->CopyResource(RenderTarget->GetResource(), PostProcessTarget->GetResource());
+		}
+
+		void DirectQueue::DrawFinalOverlays(Game::RFD::RenderFrameData& Data, Widget::WidgetCore* WidgetCore, DrawCallResourceManager& DrawCallResources, D3D12_CPU_DESCRIPTOR_HANDLE Dsv, std::uint32_t CurrentIndex, std::uint32_t ShadowCascadeCount) {
+			TexPtr& RenderTarget{ mRenderTargets[CurrentIndex] };
+			RenderTarget->Transition(mPostProcessCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
+			mPostProcessCommandList->RSSetViewports(1, &mViewport);
+			mPostProcessCommandList->RSSetScissorRects(1, &mScissorRect);
+
+			D3D12_CPU_DESCRIPTOR_HANDLE Rtv{ RenderTarget->GetRTV() };
+			mPostProcessCommandList->OMSetRenderTargets(1, &Rtv, FALSE, &Dsv);
+			mDrawCallDispatcher.DrawForwardOverlays(mPostProcessCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBoundingBoxContextSrvHandle(), DrawCallResources.GetDebugGeometryContextSrvHandle(), DrawCallResources.GetTerrainPatchContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
+			if (WidgetCore != nullptr) {
+#pragma region TemporaryShadowMapPreview
+				std::array<ID3D12Resource*, Widget::WidgetCore::ShadowMapPreviewCapacity> ShadowMapResources{};
+				const std::uint32_t ShadowMapPreviewCount{ std::min<std::uint32_t>(ShadowCascadeCount, Widget::WidgetCore::ShadowMapPreviewCapacity) };
+				for (std::uint32_t ShadowMapIndex{ 0 }; ShadowMapIndex < ShadowMapPreviewCount; ShadowMapIndex += 1) {
+					if (mShadowDepthMaps[ShadowMapIndex] == nullptr) {
+						continue;
+					}
+
+					ShadowMapResources[ShadowMapIndex] = mShadowDepthMaps[ShadowMapIndex]->GetResource();
+				}
+
+				WidgetCore->SetShadowMapTextures(ShadowMapResources, ShadowMapPreviewCount, mShadowMapSizes[0]);
+#pragma endregion
+				WidgetCore->Render(mPostProcessCommandList);
+			}
+		}
+
+		void DirectQueue::FinishPresentTarget(const TexPtr& RenderTarget, DrawCallResourceManager& DrawCallResources, std::uint32_t CurrentIndex) {
+			if (RenderTarget == nullptr) {
+				return;
+			}
+
+			DrawCallResources.TransitionToCopyDestination(mPostProcessCommandList.Get());
+			mMaterialResourceManager.TransitionToCopyDestination(mPostProcessCommandList.Get(), static_cast<std::uint32_t>(CurrentIndex));
+			RenderTarget->Transition(mPostProcessCommandList.Get(), D3D12_RESOURCE_STATE_PRESENT);
+		}
+
+		void DirectQueue::ExecutePostProcessFinalPass() {
+			mPostProcessCommandList->Close();
+			ID3D12CommandList* PostProcessCommandLists[]{ mPostProcessCommandList.Get() };
+			mDirectCommandQueue->ExecuteCommandLists(_countof(PostProcessCommandLists), PostProcessCommandLists);
 		}
 
 		ComPtr<IDXGIAdapter1> DirectQueue::GetBestAdapter() {

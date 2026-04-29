@@ -46,7 +46,7 @@ GBufferOutput PsMain(VertexOutput Input) {
     }
     
     Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[TextureSrvIndex];
-    const float4 SampledColor = ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
+    const float4 SampledColor = ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
     const float4 ScalarAppliedColor = ApplyMaterialScalarColor(SampledColor, MaterialData);
     return BuildGBufferOutput(ScalarAppliedColor, Input.Normal, Input.WorldPosition, Input.Flags);
 }

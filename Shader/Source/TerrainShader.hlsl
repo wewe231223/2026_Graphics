@@ -220,12 +220,12 @@ bool IsMaterialColorValid(float4 ColorValue) {
 float4 ResolveTerrainFallbackColor(MaterialGpu MaterialData) {
     const float4 BaseColor = MaterialData.Fields[MATERIAL_TYPE_BASE_COLOR].FloatValue;
     if (IsMaterialColorValid(BaseColor)) {
-        return BaseColor;
+        return ApplyBaseColorToLinear(BaseColor);
     }
 
     const float4 DiffuseColor = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_COLOR].FloatValue;
     if (IsMaterialColorValid(DiffuseColor)) {
-        return DiffuseColor;
+        return ApplyBaseColorToLinear(DiffuseColor);
     }
 
     return float4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -275,7 +275,7 @@ float4 ResolveTerrainLayerDiffuse(MaterialGpu MaterialData, StructuredBuffer<Mat
     const float4 LayerUvTransform = MaterialData.Fields[MATERIAL_TYPE_TERRAIN_LAYER_UV_TRANSFORM0 + LayerIndex].FloatValue;
     const float2 LayerUv = ResolveTerrainTransformedUv(BaseUv, LayerUvTransform);
     const float4 LayerColorValue = MaterialData.Fields[MATERIAL_TYPE_TERRAIN_DIFFUSE_COLOR0 + LayerIndex].FloatValue;
-    const float4 LayerColor = IsMaterialColorValid(LayerColorValue) ? LayerColorValue : FallbackColor;
+    const float4 LayerColor = IsMaterialColorValid(LayerColorValue) ? ApplyBaseColorToLinear(LayerColorValue) : FallbackColor;
     const int64_t TextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_TERRAIN_DIFFUSE_TEXTURE0 + LayerIndex].IntValue;
     const uint TextureSrvIndex = ResolveMaterialTextureSrvIndex(MaterialTextureTableBuffer, TextureTableIndex);
     if (TextureSrvIndex == InvalidSrvDescriptorIndex) {
@@ -283,7 +283,7 @@ float4 ResolveTerrainLayerDiffuse(MaterialGpu MaterialData, StructuredBuffer<Mat
     }
 
     Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[NonUniformResourceIndex(TextureSrvIndex)];
-    return ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, LayerUv)) * LayerColor;
+    return ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, LayerUv)) * LayerColor;
 }
 
 float3 ResolveTerrainLayerNormalTangent(MaterialGpu MaterialData, StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer, float2 BaseUv, uint LayerIndex) {

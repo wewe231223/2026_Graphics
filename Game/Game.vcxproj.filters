@@ -457,6 +457,9 @@
     <None Include="..\Resources\ShadowMappingParameter.yaml">
       <Filter>Scene\Scene YAML</Filter>
     </None>
+    <None Include="..\Shader\Source\PostProcessCommon.hlsli">
+      <Filter>Shader</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shader\Source\BasicShader.hlsl">
@@ -478,6 +481,12 @@
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="..\Shader\Source\DebugGeometryShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\DeferredLightingShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\ToneMappingShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
   </ItemGroup>

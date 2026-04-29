@@ -33,6 +33,7 @@ namespace Widget {
         void SetShadowMapTextures(const std::array<ID3D12Resource*, ShadowMapPreviewCapacity>& Resources, std::uint32_t ShadowMapCount, std::uint32_t ShadowMapSize);
 #pragma endregion
         void SetSceneWorldSnapshot(const Game::SceneWorldSnapshot* Snapshot);
+        bool IsPostProcessEnabled() const;
 
         template<std::derived_from<IWidget> T, typename... Args>
         void MakeWidget(Args&&... args) {
@@ -41,6 +42,7 @@ namespace Widget {
 
     private:
         void BuildWidgets();
+        void RenderRenderSettings();
 
     private:
         ComPtr<ID3D12DescriptorHeap> mSRVHeap{ nullptr };
@@ -55,6 +57,7 @@ namespace Widget {
         std::array<D3D12_CPU_DESCRIPTOR_HANDLE, ShadowMapPreviewCapacity> mShadowMapSrvCpuHandles{};
         std::array<D3D12_GPU_DESCRIPTOR_HANDLE, ShadowMapPreviewCapacity> mShadowMapSrvGpuHandles{};
 #pragma endregion
+        bool mIsPostProcessEnabled{ true };
         bool mIsInitialized{ false };
     };
 }

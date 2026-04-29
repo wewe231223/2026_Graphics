@@ -70,7 +70,7 @@ GBufferOutput PsMain(VertexOutput Input) {
         if (TextureSrvIndex != 0xffffffffu)
         {
             Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[TextureSrvIndex];
-            SampledColor = ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
+            SampledColor = ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
         }
     }
 

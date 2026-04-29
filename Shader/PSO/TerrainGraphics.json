@@ -77,7 +77,7 @@
   },
   "SampleMask": 4294967295,
   "RasterizerState": {
-    "FillMode": "Wireframe",
+    "FillMode": "Solid",
     "CullMode": "Back",
     "FrontCounterClockwise": false,
     "DepthBias": 0,

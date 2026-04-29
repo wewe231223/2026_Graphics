@@ -26,3 +26,5 @@ Source=DebugGeometryShader.hlsl|Entry=PsMain|Profile=ps_6_6|Arguments=-O3
 
 Source=DeferredLightingShader.hlsl|Entry=VsMain|Profile=vs_6_6|Arguments=-O3
 Source=DeferredLightingShader.hlsl|Entry=PsMain|Profile=ps_6_6|Arguments=-O3
+
+Source=ToneMappingShader.hlsl|Entry=CsMain|Profile=cs_6_6|Arguments=-O3

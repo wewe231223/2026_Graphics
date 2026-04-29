@@ -49,7 +49,7 @@ GBufferOutput PsMain(PrimitiveVertexOutput Input) {
     StructuredBuffer<MaterialGpu> MaterialBuffer = ResourceDescriptorHeap[RootConstants.MaterialSrvIndex];
 
     const MaterialGpu MaterialData = MaterialBuffer[Input.MaterialIndex];
-    const float4 BaseColor = ApplyBaseColor(Input.Color);
+    const float4 BaseColor = ApplyBaseColorToLinear(Input.Color);
     const float4 ScalarAppliedColor = ApplyMaterialScalarColor(BaseColor, MaterialData);
     return BuildGBufferOutput(ScalarAppliedColor, Input.Normal, Input.WorldPosition, Input.Flags);
 }

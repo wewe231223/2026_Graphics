@@ -168,9 +168,19 @@ GBufferOutput BuildGBufferOutput(float4 Albedo, float3 WorldNormal, float3 World
     return Output;
 }
 
+float3 DecodeSrgbColor(float3 Color)
+{
+    return pow(saturate(Color), 2.2f);
+}
+
 float4 ApplyBaseColor(float4 Color)
 {
     return saturate(Color);
+}
+
+float4 ApplyBaseColorToLinear(float4 Color)
+{
+    return float4(DecodeSrgbColor(Color.rgb), saturate(Color.a));
 }
 
 float4 ApplyMaterialScalarColor(float4 BaseColor, MaterialGpu MaterialData)
@@ -191,7 +201,8 @@ float4 ApplyMaterialScalarColor(float4 BaseColor, MaterialGpu MaterialData)
     }
 
     const float EffectiveOpacity = (Opacity > 0.0f) ? Opacity : ScalarColor.a;
-    float4 ResultColor = BaseColor * float4(ScalarColor.rgb, 1.0f);
+    const float3 ScalarRgb = DecodeSrgbColor(ScalarColor.rgb);
+    float4 ResultColor = BaseColor * float4(ScalarRgb, 1.0f);
     ResultColor.a *= saturate(EffectiveOpacity);
     return saturate(ResultColor);
 }
@@ -205,7 +216,7 @@ float3 ApplyDirectionalLight(float3 BaseRgb, float3 WorldNormal)
     const float DiffuseIntensity = saturate(dot(NormalizedNormal, -LightDirection));
 
     const float3 LitColor = BaseRgb * (AmbientIntensity + (DiffuseIntensity * LightColor));
-    return saturate(LitColor);
+    return LitColor;
 }
 
 float ResolveCascadeSplitDistance(ShadowMappingParameterGpu ShadowMappingParameter, uint CascadeIndex)
@@ -333,12 +344,12 @@ float3 ApplyDirectionalLightWithShadow(float3 BaseRgb, float3 WorldNormal, float
         const float3 CascadeShadowColor = ResolveCascadeShadowColor(CascadeIndex);
         const float ShadowMask = (ShadowColorBlendFactor > 0.0f) ? 1.0f : 0.0f;
         const float3 LitColor = lerp(FullyLitColor, CascadeShadowColor, ShadowMask);
-        return saturate(LitColor);
+        return LitColor;
     }
 
     const float DiffuseShadowFactor = lerp(1.0f - saturate(ShadowStrength), 1.0f, ShadowVisibility);
     const float3 LitColor = BaseRgb * (AmbientIntensity + (DiffuseIntensity * DiffuseShadowFactor * LightColor));
-    return saturate(LitColor);
+    return LitColor;
 }
 
 float4 ApplyMaterialLighting(float4 BaseColor, float3 WorldNormal)
