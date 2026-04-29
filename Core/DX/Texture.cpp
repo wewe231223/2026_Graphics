@@ -210,6 +210,11 @@ Texture::Ptr Texture::CreateTarget(ID3D12Device* device, uint32_t width, uint32_
         flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
         initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
     }
+    else if (usage == TextureUsage::RenderTargetUnorderedAccess) {
+        flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+        flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+        initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    }
     else if (usage == TextureUsage::DepthStencil) {
         flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
         initialState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
@@ -316,7 +321,7 @@ D3D12_GPU_DESCRIPTOR_HANDLE Texture::GetSRV() const {
 }
 
 D3D12_GPU_DESCRIPTOR_HANDLE Texture::GetUAV() const {
-    return mSRVHandle.IsShaderVisible() ? mUAVHandle.GetGPU() : D3D12_GPU_DESCRIPTOR_HANDLE();
+    return mUAVHandle.IsShaderVisible() ? mUAVHandle.GetGPU() : D3D12_GPU_DESCRIPTOR_HANDLE();
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE Texture::GetRTV() const {
@@ -329,6 +334,10 @@ D3D12_CPU_DESCRIPTOR_HANDLE Texture::GetDSV() const {
 
 DescriptorHandle Texture::GetSRVDescriptorHandle() const {
     return mSRVHandle;
+}
+
+DescriptorHandle Texture::GetUAVDescriptorHandle() const {
+    return mUAVHandle;
 }
 
 void Texture::Transition(ID3D12GraphicsCommandList* cmdList, D3D12_RESOURCE_STATES newState) {

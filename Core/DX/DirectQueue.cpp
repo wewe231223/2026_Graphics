@@ -21,7 +21,10 @@ namespace Core {
         }
 
         DirectQueue::~DirectQueue() {
-
+			if (mDirectFenceEvent != nullptr) {
+				CloseHandle(mDirectFenceEvent);
+				mDirectFenceEvent = nullptr;
+			}
         }
 
 		ID3D12Device* DirectQueue::GetDevice() const {
@@ -32,8 +35,56 @@ namespace Core {
 			return mPrimaryAdapter.Get();
 		}
 
+		ID3D12CommandQueue* DirectQueue::GetCommandQueue() const {
+			return mDirectCommandQueue.Get();
+		}
+
 		DescriptorHeap* DirectQueue::GetSrvHeap() {
 			return &mSrvHeap;
+		}
+
+		void DirectQueue::QueueWaitFuture(const Interface::Future& Future) const {
+			Future.QueueWait(mDirectCommandQueue.Get());
+		}
+
+		bool DirectQueue::IsFutureComplete(std::uint64_t DirectTicket) const {
+			if (DirectTicket == 0 || mDirectFence == nullptr) {
+				return true;
+			}
+
+			return mDirectFence->GetCompletedValue() >= DirectTicket;
+		}
+
+		void DirectQueue::WaitFuture(std::uint64_t DirectTicket) const {
+			if (IsFutureComplete(DirectTicket) == true || mDirectFence == nullptr || mDirectFenceEvent == nullptr) {
+				return;
+			}
+
+			std::lock_guard<std::mutex> FenceGuard{ mDirectFenceMutex };
+			ErrorHandler::report(mDirectFence->SetEventOnCompletion(DirectTicket, mDirectFenceEvent), "DirectQueue", "Failed to set direct queue fence completion event.", ErrorHandler::Level::Critical);
+			WaitForSingleObjectEx(mDirectFenceEvent, INFINITE, FALSE);
+		}
+
+		void DirectQueue::QueueWaitFuture(ID3D12CommandQueue* WaitingQueue, std::uint64_t DirectTicket) const {
+			if (WaitingQueue == nullptr || DirectTicket == 0 || mDirectFence == nullptr) {
+				return;
+			}
+
+			ErrorHandler::report(WaitingQueue->Wait(mDirectFence.Get(), DirectTicket), "DirectQueue", "Failed to queue wait for direct queue fence.", ErrorHandler::Level::Critical);
+		}
+
+		Interface::Future DirectQueue::SignalFuture() {
+			if (mDirectCommandQueue == nullptr || mDirectFence == nullptr) {
+				return Interface::Future{};
+			}
+
+			std::uint64_t DirectTicket{ mDirectFenceValueCounter.fetch_add(1) + 1 };
+			ErrorHandler::report(mDirectCommandQueue->Signal(mDirectFence.Get(), DirectTicket), "DirectQueue", "Failed to signal direct queue fence.", ErrorHandler::Level::Critical);
+			return Interface::Future{ this, DirectTicket };
+		}
+
+		void DirectQueue::SetComputeQueue(Interface::IComputeQueue* ComputeQueue) {
+			mComputeQueue = ComputeQueue;
 		}
 
 		void DirectQueue::SetUploadInfrastructure(GraphicsAllocator* GraphicsAllocator, Interface::ICopyQueue* CopyQueue) {
@@ -118,10 +169,10 @@ namespace Core {
 				mGBufferTargets[GBufferIndex]->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 			}
 
-			auto& rt = mRenderTargets[currentIndex];
-			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
+			TexPtr& RenderTarget{ mRenderTargets[currentIndex] };
+			RenderTarget->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 
-			auto rtv = rt->GetRTV();
+			auto rtv = RenderTarget->GetRTV();
 
 			mCommandList->ClearRenderTargetView(rtv, DirectX::Colors::Blue, 0, nullptr);
 			mCommandList->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
@@ -151,7 +202,7 @@ namespace Core {
 			DrawCallResources.TransitionToCopyDestination(mCommandList.Get());
 			mMaterialResourceManager.TransitionToCopyDestination(mCommandList.Get(), static_cast<uint32_t>(currentIndex));
 
-			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PRESENT);
+			RenderTarget->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PRESENT);
 
 
 
@@ -260,6 +311,9 @@ namespace Core {
 
 		void DirectQueue::InitWorkers() {
 			mFrameSync = FrameSync(mDevice.Get());
+			ErrorHandler::report(mDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(mDirectFence.GetAddressOf())), "DirectQueue", "Failed to create direct queue fence.", ErrorHandler::Level::Critical);
+			mDirectFenceEvent = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
+			ErrorHandler::report(mDirectFenceEvent == nullptr, "DirectQueue", "Failed to create direct queue fence event.", ErrorHandler::Level::Critical);
 		}
 
 		void DirectQueue::InitCommandList() {
@@ -269,10 +323,17 @@ namespace Core {
 			ErrorHandler::report(mDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mMainCommandAllocators[0].Get(), nullptr, IID_PPV_ARGS(mCommandList.GetAddressOf())), "DirectQueue", "Failed to create Main Command List.", ErrorHandler::Level::Critical);
 
 			mCommandList->Close();
+
+			for (ComPtr<ID3D12CommandAllocator>& PostProcessCommandAllocator : mPostProcessCommandAllocators) {
+				ErrorHandler::report(mDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(PostProcessCommandAllocator.GetAddressOf())), "DirectQueue", "Failed to create post process command allocator.", ErrorHandler::Level::Critical);
+			}
+
+			ErrorHandler::report(mDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mPostProcessCommandAllocators[0].Get(), nullptr, IID_PPV_ARGS(mPostProcessCommandList.GetAddressOf())), "DirectQueue", "Failed to create post process command list.", ErrorHandler::Level::Critical);
+			mPostProcessCommandList->Close();
 		}
 
 		void DirectQueue::InitTargetResources() {
-			mRTVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, Constants::FrameCount<uint32_t> + GBufferTargetCount, false);
+			mRTVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, (Constants::FrameCount<uint32_t> * 2u) + GBufferTargetCount, false);
 			mSrvHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 512, true);
 			for (std::size_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < Game::RFD::ShadowCascadeMaxCount; ShadowCascadeIndex += 1) {
 				mShadowMapSrvHandles[ShadowCascadeIndex] = mSrvHeap.Allocate();
@@ -287,6 +348,14 @@ namespace Core {
 				rt = Texture::CreateFromResource(backBuffer.Get(), "BackBuffer_" + std::to_string(i));
 
 				rt->CreateRTV(mDevice.Get(), &mRTVHeap);
+			}
+
+			const std::uint32_t Width{ Config::Query()->Get<uint32_t>("Window_Width") };
+			const std::uint32_t Height{ Config::Query()->Get<uint32_t>("Window_Height") };
+			for (TexPtr& PostProcessTarget : mPostProcessTargets) {
+				PostProcessTarget = Texture::CreateTarget(mDevice.Get(), Width, Height, DXGI_FORMAT_R8G8B8A8_UNORM, TextureUsage::RenderTargetUnorderedAccess);
+				PostProcessTarget->CreateRTV(mDevice.Get(), &mRTVHeap);
+				PostProcessTarget->CreateUAV(mDevice.Get(), &mSrvHeap);
 			}
 
 			for (std::size_t Index{ 0 }; Index < Constants::FrameCount<std::size_t>; ++Index) {

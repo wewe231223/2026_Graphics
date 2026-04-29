@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <span>
 #include <vector>
@@ -62,6 +63,19 @@ namespace Interface {
         std::vector<std::byte> SourceData{};
     };
 
+    using ComputeCommandRecorder = std::function<void(ID3D12GraphicsCommandList* CommandList)>;
+
+    struct ComputeQueueDispatchRequest final {
+        Future WaitFuture{};
+        Microsoft::WRL::ComPtr<ID3D12RootSignature> RootSignature{};
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> PipelineState{};
+        std::vector<ID3D12DescriptorHeap*> DescriptorHeaps{};
+        ComputeCommandRecorder RecordCommands{};
+        std::uint32_t ThreadGroupCountX{};
+        std::uint32_t ThreadGroupCountY{ 1 };
+        std::uint32_t ThreadGroupCountZ{ 1 };
+    };
+
 
     class IDescriptorHeap {
     public:
@@ -87,6 +101,20 @@ namespace Interface {
         virtual void Flush() = 0;
 
         virtual std::uint64_t GetRequiredUploadBufferSize() const = 0;
+    };
+
+    class IComputeQueue : public IFutureSyncObject {
+    public:
+        virtual ~IComputeQueue() = default;
+
+    public:
+        virtual bool Initialize(ID3D12Device* Device) = 0;
+        virtual Future EnqueueComputeFuture(const ComputeQueueDispatchRequest& DispatchRequest) = 0;
+        virtual Future EnqueueComputeFuture(std::span<const ComputeQueueDispatchRequest> DispatchRequests) = 0;
+
+        virtual void DispatchComputes() = 0;
+        virtual void Flush() = 0;
+        virtual ID3D12CommandQueue* GetCommandQueue() const = 0;
     };
 }
 

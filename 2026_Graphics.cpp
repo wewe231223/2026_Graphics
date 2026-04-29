@@ -17,6 +17,7 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "DirectXTK12/Keyboard.h"
 #include "DirectXTK12/Mouse.h"
 #include "Core/DX/DirectQueue.h"
+#include "Core/DX/ComputeQueue.h"
 #include "Core/DX/CopyQueue.h"
 #include "Core/DX/GraphicsAllocator.h"
 #include "Utility/ErrorHandler.h"
@@ -98,6 +99,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     MSG msg;
 
     Core::DX::DirectQueue directQueue(hWnd);
+    Core::DX::ComputeQueue computeQueue{ directQueue.GetDevice() };
+    directQueue.SetComputeQueue(&computeQueue);
     const bool IsImGuiBlocked{ Config::Query()->Get<bool>("Block_ImGui") };
     Widget::WidgetCore WidgetCoreInstance{};
     if (!IsImGuiBlocked) {

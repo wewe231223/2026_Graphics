@@ -85,7 +85,8 @@ namespace Core {
             ShaderResource,
             RenderTarget,
             DepthStencil,
-            UnorderedAccess
+            UnorderedAccess,
+            RenderTargetUnorderedAccess
         };
 
         class Texture {
@@ -124,6 +125,7 @@ namespace Core {
             D3D12_CPU_DESCRIPTOR_HANDLE GetRTV() const; 
             D3D12_CPU_DESCRIPTOR_HANDLE GetDSV() const; 
             DescriptorHandle GetSRVDescriptorHandle() const;
+            DescriptorHandle GetUAVDescriptorHandle() const;
 
             void Transition(ID3D12GraphicsCommandList* cmdList, D3D12_RESOURCE_STATES newState);
 

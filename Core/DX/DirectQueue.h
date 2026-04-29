@@ -1,5 +1,7 @@
 #pragma once
 #include <array>
+#include <atomic>
+#include <mutex>
 #include "Core/Common.h"
 #include "Core/DX/DesciptorHeap.h"
 #include "Core/DX/DrawCallDispatcher.h"
@@ -19,7 +21,7 @@ namespace Core {
 	namespace DX {
 		class GraphicsAllocator;
 
-		class DirectQueue {
+		class DirectQueue : public Interface::IFutureSyncObject {
 		public:
 			DirectQueue(HWND hWnd);
 			~DirectQueue();
@@ -35,8 +37,16 @@ namespace Core {
 
 			IDXGIAdapter1* GetPrimaryAdapter() const;
 
+			ID3D12CommandQueue* GetCommandQueue() const;
+
 			DescriptorHeap* GetSrvHeap();
 
+			void QueueWaitFuture(const Interface::Future& Future) const;
+			bool IsFutureComplete(std::uint64_t DirectTicket) const override;
+			void WaitFuture(std::uint64_t DirectTicket) const override;
+			void QueueWaitFuture(ID3D12CommandQueue* WaitingQueue, std::uint64_t DirectTicket) const override;
+			Interface::Future SignalFuture();
+			void SetComputeQueue(Interface::IComputeQueue* ComputeQueue);
 			void SetUploadInfrastructure(GraphicsAllocator* GraphicsAllocator, Interface::ICopyQueue* CopyQueue);
 			void PreRender(Game::RFD::RenderFrameData& Data, float Dt);
 			void Render(Game::RFD::RenderFrameData& Data, Widget::WidgetCore* WidgetCore);
@@ -73,14 +83,21 @@ namespace Core {
 			ComPtr<ID3D12Device> mDevice{ nullptr };
 			ComPtr<IDXGIAdapter1> mPrimaryAdapter{ nullptr };
 			ComPtr<ID3D12CommandQueue> mDirectCommandQueue{ nullptr };
+			ComPtr<ID3D12Fence> mDirectFence{ nullptr };
+			HANDLE mDirectFenceEvent{ nullptr };
+			mutable std::mutex mDirectFenceMutex{};
+			std::atomic<std::uint64_t> mDirectFenceValueCounter{};
 
 			ComPtr<IDXGISwapChain1> mSwapChain{ nullptr };
 
 			ComPtr<ID3D12GraphicsCommandList> mCommandList{ nullptr };
 			std::array<ComPtr<ID3D12CommandAllocator>, Constants::FrameCount<size_t>> mMainCommandAllocators{};
+			ComPtr<ID3D12GraphicsCommandList> mPostProcessCommandList{ nullptr };
+			std::array<ComPtr<ID3D12CommandAllocator>, Constants::FrameCount<size_t>> mPostProcessCommandAllocators{};
 
 			DescriptorHeap mRTVHeap{};
 			std::array<TexPtr, Constants::FrameCount<size_t>> mRenderTargets{};
+			std::array<TexPtr, Constants::FrameCount<size_t>> mPostProcessTargets{};
 			std::array<TexPtr, GBufferTargetCount> mGBufferTargets{};
 			uint32_t mRTVIndex{};
 
@@ -101,6 +118,7 @@ namespace Core {
 			FrameSync mFrameSync{};
 			GraphicsAllocator* mGraphicsAllocator{ nullptr };
 			Interface::ICopyQueue* mCopyQueue{ nullptr };
+			Interface::IComputeQueue* mComputeQueue{ nullptr };
 
 
 			D3D12_VIEWPORT mViewport{ 0, 0, Config::Query()->Get<float>("Window_Width"), Config::Query()->Get<float>("Window_Height"), 0.f, 1.f };
