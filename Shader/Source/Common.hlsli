@@ -152,6 +152,22 @@ struct RootConstantsB1
     uint Reserved1;
 };
 
+struct GBufferOutput {
+    float4 Albedo : SV_TARGET0;
+    float4 NormalFlags : SV_TARGET1;
+    float4 WorldPosition : SV_TARGET2;
+};
+
+GBufferOutput BuildGBufferOutput(float4 Albedo, float3 WorldNormal, float3 WorldPosition, uint Flags) {
+    GBufferOutput Output;
+    const float3 EncodedNormal = (normalize(WorldNormal) * 0.5f) + 0.5f;
+    const float PickedFlag = ((Flags & 0x1u) != 0u) ? 1.0f : 0.0f;
+    Output.Albedo = saturate(Albedo);
+    Output.NormalFlags = float4(EncodedNormal, PickedFlag);
+    Output.WorldPosition = float4(WorldPosition, 1.0f);
+    return Output;
+}
+
 float4 ApplyBaseColor(float4 Color)
 {
     return saturate(Color);

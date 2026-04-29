@@ -28,8 +28,7 @@ VertexOutput VsMain(VertexInput Input, uint InstanceId : SV_InstanceID)
     return Output;
 }
 
-float4 PsMain(VertexOutput Input) : SV_TARGET
-{
+GBufferOutput PsMain(VertexOutput Input) {
     StructuredBuffer<MaterialGpu> MaterialBuffer = ResourceDescriptorHeap[RootConstants.MaterialSrvIndex];
     StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer = ResourceDescriptorHeap[RootConstants.MaterialTextureTableSrvIndex];
 
@@ -37,26 +36,17 @@ float4 PsMain(VertexOutput Input) : SV_TARGET
     const int64_t DiffuseColorTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_TEXTURE].IntValue;
 
     if (DiffuseColorTextureTableIndex < 0) {
-        return float4(1.0f, 0.0f, 1.0f, 1.0f);
+        return BuildGBufferOutput(float4(1.0f, 0.0f, 1.0f, 1.0f), Input.Normal, Input.WorldPosition, Input.Flags);
     }
 
     const uint TextureTableIndex = (uint)DiffuseColorTextureTableIndex;
     const uint TextureSrvIndex = MaterialTextureTableBuffer[TextureTableIndex].TextureSrvDescriptorIndex;
     if (TextureSrvIndex == 0xffffffffu) {
-        return float4(1.0f, 0.0f, 1.0f, 1.0f);
+        return BuildGBufferOutput(float4(1.0f, 0.0f, 1.0f, 1.0f), Input.Normal, Input.WorldPosition, Input.Flags);
     }
     
     Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[TextureSrvIndex];
     const float4 SampledColor = ApplyBaseColor(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
     const float4 ScalarAppliedColor = ApplyMaterialScalarColor(SampledColor, MaterialData);
-    float4 LitColor = ApplyMaterialLighting(ScalarAppliedColor, Input.Normal);
-    if (RootConstants.ShadowMappingParameterSrvIndex != 0xffffffffu && RootConstants.ShadowMapTextureBaseSrvIndex != 0xffffffffu) {
-        StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
-        StructuredBuffer<ShadowMappingParameterGpu> ShadowMappingParameterBuffer = ResourceDescriptorHeap[RootConstants.ShadowMappingParameterSrvIndex];
-        const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[0];
-        const ShadowMappingParameterGpu ShadowMappingParameter = ShadowMappingParameterBuffer[0];
-        LitColor = ApplyMaterialLightingWithShadow(ScalarAppliedColor, Input.Normal, Input.WorldPosition, ShadowMappingParameter, FrameGlobals, RootConstants.ShadowMapTextureBaseSrvIndex, ShadowComparisonSampler);
-    }
-
-    return ResolveFlags(LitColor, Input.Flags);
+    return BuildGBufferOutput(ScalarAppliedColor, Input.Normal, Input.WorldPosition, Input.Flags);
 }

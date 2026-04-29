@@ -92,22 +92,43 @@ namespace Core {
 				ShadowDepthMap->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 			}
 
-			auto& rt = mRenderTargets[currentIndex];
-			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
+			std::array<D3D12_CPU_DESCRIPTOR_HANDLE, GBufferTargetCount> GBufferRtvs{};
+			const std::array<float, 4> GBufferAlbedoClearColor{ 0.0f, 0.0f, 0.0f, 0.0f };
+			const std::array<float, 4> GBufferNormalClearColor{ 0.5f, 0.5f, 1.0f, 0.0f };
+			const std::array<float, 4> GBufferWorldPositionClearColor{ 0.0f, 0.0f, 0.0f, 0.0f };
+			const std::array<const float*, GBufferTargetCount> GBufferClearColors{ GBufferAlbedoClearColor.data(), GBufferNormalClearColor.data(), GBufferWorldPositionClearColor.data() };
+			for (std::uint32_t GBufferIndex{ 0 }; GBufferIndex < GBufferTargetCount; GBufferIndex += 1) {
+				mGBufferTargets[GBufferIndex]->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
+				GBufferRtvs[GBufferIndex] = mGBufferTargets[GBufferIndex]->GetRTV();
+				mCommandList->ClearRenderTargetView(GBufferRtvs[GBufferIndex], GBufferClearColors[GBufferIndex], 0, nullptr);
+			}
 
-			auto rtv = rt->GetRTV();
 			auto dsv = mDepthStencilBuffer->GetDSV();
-
-			mCommandList->ClearRenderTargetView(rtv, DirectX::Colors::Blue, 0, nullptr);
-			mCommandList->ClearDepthStencilView(mDepthStencilBuffer->GetDSV(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-			mCommandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
+			mCommandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+			mCommandList->OMSetRenderTargets(static_cast<UINT>(GBufferRtvs.size()), GBufferRtvs.data(), FALSE, &dsv);
 
 			mCommandList->RSSetViewports(1, &mViewport);
 			mCommandList->RSSetScissorRects(1, &mScissorRect);
 
 		
 			// Execute Render Tasks
-			mDrawCallDispatcher.DrawForward(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetShadowMappingParameterSrvHandle(), mShadowMapBaseSrvHandle, DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBoundingBoxContextSrvHandle(), DrawCallResources.GetDebugGeometryContextSrvHandle(), DrawCallResources.GetTerrainPatchContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
+			mDrawCallDispatcher.DrawGBuffer(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetTerrainPatchContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
+
+			for (std::uint32_t GBufferIndex{ 0 }; GBufferIndex < GBufferTargetCount; GBufferIndex += 1) {
+				mGBufferTargets[GBufferIndex]->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+			}
+
+			auto& rt = mRenderTargets[currentIndex];
+			rt->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
+
+			auto rtv = rt->GetRTV();
+
+			mCommandList->ClearRenderTargetView(rtv, DirectX::Colors::Blue, 0, nullptr);
+			mCommandList->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
+			mDrawCallDispatcher.DrawDeferredLighting(mCommandList.Get(), DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetShadowMappingParameterSrvHandle(), mShadowMapBaseSrvHandle, mGBufferTargets[GBufferAlbedoIndex]->GetSRVDescriptorHandle(), mGBufferTargets[GBufferNormalIndex]->GetSRVDescriptorHandle(), mGBufferTargets[GBufferWorldPositionIndex]->GetSRVDescriptorHandle());
+
+			mCommandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
+			mDrawCallDispatcher.DrawForwardOverlays(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBoundingBoxContextSrvHandle(), DrawCallResources.GetDebugGeometryContextSrvHandle(), DrawCallResources.GetTerrainPatchContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<uint32_t>(currentIndex)));
 			if (WidgetCore != nullptr) {
 #pragma region TemporaryShadowMapPreview
 				std::array<ID3D12Resource*, Widget::WidgetCore::ShadowMapPreviewCapacity> ShadowMapResources{};
@@ -251,7 +272,7 @@ namespace Core {
 		}
 
 		void DirectQueue::InitTargetResources() {
-			mRTVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, Constants::FrameCount<uint32_t>, false);
+			mRTVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, Constants::FrameCount<uint32_t> + GBufferTargetCount, false);
 			mSrvHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 512, true);
 			for (std::size_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < Game::RFD::ShadowCascadeMaxCount; ShadowCascadeIndex += 1) {
 				mShadowMapSrvHandles[ShadowCascadeIndex] = mSrvHeap.Allocate();
@@ -280,6 +301,23 @@ namespace Core {
 			mDepthStencilBuffer = Texture::CreateTarget(mDevice.Get(), Config::Query()->Get<uint32_t>("Window_Width"), Config::Query()->Get<uint32_t>("Window_Height"), DXGI_FORMAT_D24_UNORM_S8_UINT, TextureUsage::DepthStencil, &depthOptimizedClearValue);
 
 			mDepthStencilBuffer->CreateDSV(mDevice.Get(), &mDSVHeap);
+			DirectQueue::InitGBufferResources();
+		}
+
+		void DirectQueue::InitGBufferResources() {
+			const std::uint32_t Width{ Config::Query()->Get<uint32_t>("Window_Width") };
+			const std::uint32_t Height{ Config::Query()->Get<uint32_t>("Window_Height") };
+			const std::array<DXGI_FORMAT, GBufferTargetCount> Formats{ DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_R32G32B32A32_FLOAT };
+			const std::array<DirectX::XMFLOAT4, GBufferTargetCount> ClearColors{ DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 0.0f }, DirectX::XMFLOAT4{ 0.5f, 0.5f, 1.0f, 0.0f }, DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 0.0f } };
+
+			for (std::uint32_t GBufferIndex{ 0 }; GBufferIndex < GBufferTargetCount; GBufferIndex += 1) {
+				const DirectX::XMFLOAT4& ClearColor{ ClearColors[GBufferIndex] };
+				const float ClearColorValues[4]{ ClearColor.x, ClearColor.y, ClearColor.z, ClearColor.w };
+				CD3DX12_CLEAR_VALUE OptimizedClearValue{ Formats[GBufferIndex], ClearColorValues };
+				mGBufferTargets[GBufferIndex] = Texture::CreateTarget(mDevice.Get(), Width, Height, Formats[GBufferIndex], TextureUsage::RenderTarget, &OptimizedClearValue);
+				mGBufferTargets[GBufferIndex]->CreateRTV(mDevice.Get(), &mRTVHeap);
+				mGBufferTargets[GBufferIndex]->CreateSRV(mDevice.Get(), &mSrvHeap);
+			}
 		}
 
 		void DirectQueue::EnsureShadowMapResources(const Game::RFD::ShadowMappingParameter& ShadowMappingParameter) {

@@ -46,6 +46,7 @@ namespace Core {
 			void InitWorkers();
 			void InitCommandList();
 			void InitTargetResources();
+			void InitGBufferResources();
 			void EnsureShadowMapResources(const Game::RFD::ShadowMappingParameter& ShadowMappingParameter);
 
 			ComPtr<IDXGIAdapter1> GetBestAdapter();
@@ -55,6 +56,11 @@ namespace Core {
 			void DrainDebugMessages();
 
 		private:
+			static constexpr std::uint32_t GBufferTargetCount{ 3 };
+			static constexpr std::uint32_t GBufferAlbedoIndex{ 0 };
+			static constexpr std::uint32_t GBufferNormalIndex{ 1 };
+			static constexpr std::uint32_t GBufferWorldPositionIndex{ 2 };
+
 			HWND mHwnd{ nullptr };
 			ComPtr<IDXGIFactory6> mFactory{ nullptr };
 
@@ -75,6 +81,7 @@ namespace Core {
 
 			DescriptorHeap mRTVHeap{};
 			std::array<TexPtr, Constants::FrameCount<size_t>> mRenderTargets{};
+			std::array<TexPtr, GBufferTargetCount> mGBufferTargets{};
 			uint32_t mRTVIndex{};
 
 			DescriptorHeap mDSVHeap{};

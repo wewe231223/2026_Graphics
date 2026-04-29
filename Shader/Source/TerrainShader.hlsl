@@ -358,7 +358,7 @@ void ResolveTerrainMaterial(MaterialGpu MaterialData, StructuredBuffer<MaterialT
     OutNormalTangent = normalize(AccumulatedNormal / TotalWeight);
 }
 
-float4 PsMain(TerrainVertexOutput Input) : SV_TARGET {
+GBufferOutput PsMain(TerrainVertexOutput Input) {
     StructuredBuffer<MaterialGpu> MaterialBuffer = ResourceDescriptorHeap[RootConstants.MaterialSrvIndex];
     StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer = ResourceDescriptorHeap[RootConstants.MaterialTextureTableSrvIndex];
     const MaterialGpu MaterialData = MaterialBuffer[Input.MaterialIndex];
@@ -369,14 +369,5 @@ float4 PsMain(TerrainVertexOutput Input) : SV_TARGET {
     const float3 TerrainNormal = ResolveTerrainWorldNormal(Input.Normal, TerrainNormalTangent);
     const float4 BaseColor = ApplyBaseColor(TerrainColor);
     const float4 ScalarAppliedColor = ApplyMaterialScalarColor(BaseColor, MaterialData);
-    float4 LitColor = ApplyMaterialLighting(ScalarAppliedColor, TerrainNormal);
-    if (RootConstants.ShadowMappingParameterSrvIndex != 0xffffffffu && RootConstants.ShadowMapTextureBaseSrvIndex != 0xffffffffu) {
-        StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
-        StructuredBuffer<ShadowMappingParameterGpu> ShadowMappingParameterBuffer = ResourceDescriptorHeap[RootConstants.ShadowMappingParameterSrvIndex];
-        const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[0];
-        const ShadowMappingParameterGpu ShadowMappingParameter = ShadowMappingParameterBuffer[0];
-        LitColor = ApplyMaterialLightingWithShadow(ScalarAppliedColor, TerrainNormal, Input.WorldPosition, ShadowMappingParameter, FrameGlobals, RootConstants.ShadowMapTextureBaseSrvIndex, ShadowComparisonSampler);
-    }
-
-    return ResolveFlags(LitColor, Input.Flags);
+    return BuildGBufferOutput(ScalarAppliedColor, TerrainNormal, Input.WorldPosition, Input.Flags);
 }

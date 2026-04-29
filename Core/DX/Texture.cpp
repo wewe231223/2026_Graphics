@@ -327,6 +327,10 @@ D3D12_CPU_DESCRIPTOR_HANDLE Texture::GetDSV() const {
     return mDSVHandle.IsValid() ? mDSVHandle.GetCPU() : D3D12_CPU_DESCRIPTOR_HANDLE();
 }
 
+DescriptorHandle Texture::GetSRVDescriptorHandle() const {
+    return mSRVHandle;
+}
+
 void Texture::Transition(ID3D12GraphicsCommandList* cmdList, D3D12_RESOURCE_STATES newState) {
     if (mCurrentState != newState) {
         auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(mResource.Get(), mCurrentState, newState);

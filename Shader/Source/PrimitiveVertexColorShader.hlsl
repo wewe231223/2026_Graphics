@@ -45,21 +45,11 @@ PrimitiveVertexOutput VsMain(PrimitiveVertexInput Input, uint InstanceId : SV_In
     return Output;
 }
 
-float4 PsMain(PrimitiveVertexOutput Input) : SV_TARGET
-{
+GBufferOutput PsMain(PrimitiveVertexOutput Input) {
     StructuredBuffer<MaterialGpu> MaterialBuffer = ResourceDescriptorHeap[RootConstants.MaterialSrvIndex];
 
     const MaterialGpu MaterialData = MaterialBuffer[Input.MaterialIndex];
     const float4 BaseColor = ApplyBaseColor(Input.Color);
     const float4 ScalarAppliedColor = ApplyMaterialScalarColor(BaseColor, MaterialData);
-    float4 LitColor = ApplyMaterialLighting(ScalarAppliedColor, Input.Normal);
-    if (RootConstants.ShadowMappingParameterSrvIndex != 0xffffffffu && RootConstants.ShadowMapTextureBaseSrvIndex != 0xffffffffu) {
-        StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
-        StructuredBuffer<ShadowMappingParameterGpu> ShadowMappingParameterBuffer = ResourceDescriptorHeap[RootConstants.ShadowMappingParameterSrvIndex];
-        const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[0];
-        const ShadowMappingParameterGpu ShadowMappingParameter = ShadowMappingParameterBuffer[0];
-        LitColor = ApplyMaterialLightingWithShadow(ScalarAppliedColor, Input.Normal, Input.WorldPosition, ShadowMappingParameter, FrameGlobals, RootConstants.ShadowMapTextureBaseSrvIndex, ShadowComparisonSampler);
-    }
-
-    return ResolveFlags(LitColor, Input.Flags);
+    return BuildGBufferOutput(ScalarAppliedColor, Input.Normal, Input.WorldPosition, Input.Flags);
 }

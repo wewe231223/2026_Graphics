@@ -123,6 +123,7 @@ namespace Core {
             D3D12_GPU_DESCRIPTOR_HANDLE GetUAV() const;
             D3D12_CPU_DESCRIPTOR_HANDLE GetRTV() const; 
             D3D12_CPU_DESCRIPTOR_HANDLE GetDSV() const; 
+            DescriptorHandle GetSRVDescriptorHandle() const;
 
             void Transition(ID3D12GraphicsCommandList* cmdList, D3D12_RESOURCE_STATES newState);
 

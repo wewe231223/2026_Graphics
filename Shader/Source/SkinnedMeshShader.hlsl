@@ -53,8 +53,7 @@ VertexOutput VsMain(SkinnedVertexInput Input, uint InstanceId : SV_InstanceID)
     return Output;
 }
 
-float4 PsMain(VertexOutput Input) : SV_TARGET
-{
+GBufferOutput PsMain(VertexOutput Input) {
     StructuredBuffer<MaterialGpu> MaterialBuffer = ResourceDescriptorHeap[RootConstants.MaterialSrvIndex];
     StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer = ResourceDescriptorHeap[RootConstants.MaterialTextureTableSrvIndex];
 
@@ -76,14 +75,5 @@ float4 PsMain(VertexOutput Input) : SV_TARGET
     }
 
     const float4 ScalarAppliedColor = ApplyMaterialScalarColor(SampledColor, MaterialData);
-    float4 LitColor = ApplyMaterialLighting(ScalarAppliedColor, Input.Normal);
-    if (RootConstants.ShadowMappingParameterSrvIndex != 0xffffffffu && RootConstants.ShadowMapTextureBaseSrvIndex != 0xffffffffu) {
-        StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
-        StructuredBuffer<ShadowMappingParameterGpu> ShadowMappingParameterBuffer = ResourceDescriptorHeap[RootConstants.ShadowMappingParameterSrvIndex];
-        const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[0];
-        const ShadowMappingParameterGpu ShadowMappingParameter = ShadowMappingParameterBuffer[0];
-        LitColor = ApplyMaterialLightingWithShadow(ScalarAppliedColor, Input.Normal, Input.WorldPosition, ShadowMappingParameter, FrameGlobals, RootConstants.ShadowMapTextureBaseSrvIndex, ShadowComparisonSampler);
-    }
-    
-    return ResolveFlags(LitColor, Input.Flags);
+    return BuildGBufferOutput(ScalarAppliedColor, Input.Normal, Input.WorldPosition, Input.Flags);
 }

@@ -21,6 +21,17 @@ namespace Core {
 				uint32_t Reserved1{ 0 };
 			};
 
+			bool HasVertexInputBinding(const Interface::IPipeline& Pipeline, Game::VertexAttributeKind Kind) {
+				const std::span<const Game::VertexInputBinding> VertexInputBindings{ Pipeline.GetVertexInputBindings() };
+				for (const Game::VertexInputBinding& VertexInputBinding : VertexInputBindings) {
+					if (VertexInputBinding.Kind == Kind) {
+						return true;
+					}
+				}
+
+				return false;
+			}
+
 			std::vector<D3D12_VERTEX_BUFFER_VIEW> BuildVertexBufferViews(const Interface::IPipeline& Pipeline, const Interface::IModelNode& Mesh) {
 				const std::span<const Game::VertexInputBinding> VertexInputBindings{ Pipeline.GetVertexInputBindings() };
 				std::uint32_t MaxInputSlot{ 0 };
@@ -49,7 +60,15 @@ namespace Core {
 		}
 
 		DrawCallDispatcher::DrawCallDispatcher()
-			: mBoundingBoxLinePipeline{},
+			: mDeferredLightingPipeline{},
+			mIsDeferredLightingPipelineInitialized{},
+			mSkyDomePipeline{},
+			mIsSkyDomePipelineInitialized{},
+			mDefaultDepthPipeline{},
+			mIsDefaultDepthPipelineInitialized{},
+			mSkinnedDepthPipeline{},
+			mIsSkinnedDepthPipelineInitialized{},
+			mBoundingBoxLinePipeline{},
 			mIsBoundingBoxLinePipelineInitialized{},
 			mDebugGeometryPipeline{},
 			mIsDebugGeometryPipelineInitialized{},
@@ -60,13 +79,13 @@ namespace Core {
 		DrawCallDispatcher::~DrawCallDispatcher() {
 		}
 
-		void DrawCallDispatcher::DrawForward(ID3D12GraphicsCommandList* CommandList, Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ShadowMappingParameterSrvHandle, DescriptorHandle ShadowMapTextureBaseSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle DebugGeometryContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+		void DrawCallDispatcher::DrawGBuffer(ID3D12GraphicsCommandList* CommandList, Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			const Interface::IPipeline* ActivePipeline{ nullptr };
 			size_t DrawRecordIndex{ 0 };
 
 			while (DrawRecordIndex < Data.drawRecords.size()) {
 				Game::RFD::DrawRecord& StartRecord{ Data.drawRecords[DrawRecordIndex] };
-				if (StartRecord.pso == nullptr || StartRecord.mesh == nullptr) {
+				if (StartRecord.pso == nullptr || StartRecord.mesh == nullptr || DrawCallDispatcher::IsSkyDomePipeline(StartRecord.pso) == true) {
 					DrawRecordIndex += 1;
 					continue;
 				}
@@ -91,8 +110,8 @@ namespace Core {
 				RootConstants.DrawRecordBaseIndex = static_cast<uint32_t>(DrawRecordIndex);
 				RootConstants.MaterialSrvIndex = MaterialSrvHandle.GetIndex();
 				RootConstants.MaterialTextureTableSrvIndex = MaterialTextureTableSrvHandle.GetIndex();
-				RootConstants.ShadowMappingParameterSrvIndex = ShadowMappingParameterSrvHandle.GetIndex();
-				RootConstants.ShadowMapTextureBaseSrvIndex = ShadowMapTextureBaseSrvHandle.GetIndex();
+				RootConstants.ShadowMappingParameterSrvIndex = InvalidDescriptorIndex;
+				RootConstants.ShadowMapTextureBaseSrvIndex = InvalidDescriptorIndex;
 				RootConstants.FrameGlobalsElementIndex = 0u;
 				RootConstants.TerrainPatchContextSrvIndex = TerrainPatchContextSrvHandle.GetIndex();
 				RootConstants.Reserved1 = 0u;
@@ -117,7 +136,44 @@ namespace Core {
 				CommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
 				DrawRecordIndex = RunEndIndex;
 			}
+		}
 
+		void DrawCallDispatcher::DrawDeferredLighting(ID3D12GraphicsCommandList* CommandList, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ShadowMappingParameterSrvHandle, DescriptorHandle ShadowMapTextureBaseSrvHandle, DescriptorHandle GBufferAlbedoSrvHandle, DescriptorHandle GBufferNormalSrvHandle, DescriptorHandle GBufferWorldPositionSrvHandle) {
+			if (CommandList == nullptr) {
+				return;
+			}
+
+			if (mIsDeferredLightingPipelineInitialized == false) {
+				mIsDeferredLightingPipelineInitialized = mDeferredLightingPipeline.Initialize("DeferredLightingGraphics");
+			}
+
+			if (mIsDeferredLightingPipelineInitialized == false) {
+				return;
+			}
+
+			mDeferredLightingPipeline.Set(nullptr, CommandList);
+
+			DrawRootConstantsB1 RootConstants{};
+			RootConstants.FrameGlobalsSrvIndex = FrameGlobalsSrvHandle.GetIndex();
+			RootConstants.ModelContextSrvIndex = GBufferAlbedoSrvHandle.GetIndex();
+			RootConstants.BonePaletteSrvIndex = GBufferNormalSrvHandle.GetIndex();
+			RootConstants.DrawRecordSrvIndex = GBufferWorldPositionSrvHandle.GetIndex();
+			RootConstants.DrawRecordBaseIndex = 0u;
+			RootConstants.MaterialSrvIndex = InvalidDescriptorIndex;
+			RootConstants.MaterialTextureTableSrvIndex = InvalidDescriptorIndex;
+			RootConstants.ShadowMappingParameterSrvIndex = ShadowMappingParameterSrvHandle.GetIndex();
+			RootConstants.ShadowMapTextureBaseSrvIndex = ShadowMapTextureBaseSrvHandle.GetIndex();
+			RootConstants.FrameGlobalsElementIndex = 0u;
+			RootConstants.TerrainPatchContextSrvIndex = InvalidDescriptorIndex;
+			RootConstants.Reserved1 = 0u;
+			CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
+
+			CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			CommandList->DrawInstanced(3u, 1u, 0u, 0u);
+		}
+
+		void DrawCallDispatcher::DrawForwardOverlays(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle DebugGeometryContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+			DrawSkyDome(CommandList, Data, FrameGlobalsSrvHandle, ModelContextSrvHandle, TerrainPatchContextSrvHandle, BonePaletteSrvHandle, DrawRecordSrvHandle, MaterialSrvHandle, MaterialTextureTableSrvHandle);
 			DrawBoundingBoxes(CommandList, Data, FrameGlobalsSrvHandle, BoundingBoxContextSrvHandle, BonePaletteSrvHandle, DrawRecordSrvHandle, MaterialSrvHandle, MaterialTextureTableSrvHandle);
 			DrawDebugGeometries(CommandList, Data, FrameGlobalsSrvHandle, DebugGeometryContextSrvHandle);
 		}
@@ -128,7 +184,7 @@ namespace Core {
 
 			while (DrawRecordIndex < ShadowRenderContext.DrawRecords.size()) {
 				const Game::RFD::DrawRecord& StartRecord{ ShadowRenderContext.DrawRecords[DrawRecordIndex] };
-				if (StartRecord.pso == nullptr || StartRecord.mesh == nullptr) {
+				if (StartRecord.pso == nullptr || StartRecord.mesh == nullptr || DrawCallDispatcher::IsSkyDomePipeline(StartRecord.pso) == true) {
 					DrawRecordIndex += 1;
 					continue;
 				}
@@ -143,15 +199,10 @@ namespace Core {
 					RunEndIndex += 1;
 				}
 
-				const Interface::IPipeline* DepthPipeline{ StartRecord.pso };
-				if (StartRecord.TerrainPatchContextIndex != InvalidDescriptorIndex) {
-					if (mIsTerrainDepthPipelineInitialized == false) {
-						mIsTerrainDepthPipelineInitialized = mTerrainDepthPipeline.Initialize("TerrainDepthGraphics");
-					}
-
-					if (mIsTerrainDepthPipelineInitialized == true) {
-						DepthPipeline = &mTerrainDepthPipeline;
-					}
+				const Interface::IPipeline* DepthPipeline{ DrawCallDispatcher::ResolveDepthOnlyPipeline(StartRecord) };
+				if (DepthPipeline == nullptr) {
+					DrawRecordIndex = RunEndIndex;
+					continue;
 				}
 
 				ActivePipeline = DepthPipeline->Set(ActivePipeline, CommandList);
@@ -174,6 +225,122 @@ namespace Core {
 				CommandList->IASetPrimitiveTopology(DepthPipeline->GetPrimitiveTopology());
 
 				const std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{ BuildVertexBufferViews(*DepthPipeline, *StartRecord.mesh) };
+				if (VertexBufferViews.empty() == false) {
+					CommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
+				}
+
+				const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ StartRecord.mesh->GetIndexBufferView() };
+				CommandList->IASetIndexBuffer(&IndexBufferView);
+
+				const Game::ModelSubMesh& SubMesh{ StartRecord.mesh->GetSubMesh(StartRecord.submesh) };
+				UINT IndexCountPerInstance{ static_cast<UINT>(SubMesh.IndexCount) };
+				UINT InstanceCount{ static_cast<UINT>(RunEndIndex - DrawRecordIndex) };
+				UINT StartIndexLocation{ static_cast<UINT>(SubMesh.IndexOffset) };
+				INT BaseVertexLocation{ 0 };
+				UINT StartInstanceLocation{ 0 };
+				CommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
+				DrawRecordIndex = RunEndIndex;
+			}
+		}
+
+		bool DrawCallDispatcher::IsSkyDomePipeline(const Interface::IPipeline* Pipeline) {
+			if (Pipeline == nullptr) {
+				return false;
+			}
+
+			if (mIsSkyDomePipelineInitialized == false) {
+				mIsSkyDomePipelineInitialized = mSkyDomePipeline.Initialize("SkyDomeGraphics");
+			}
+
+			if (mIsSkyDomePipelineInitialized == false) {
+				return false;
+			}
+
+			return Pipeline->Get() == mSkyDomePipeline.Get();
+		}
+
+		const Interface::IPipeline* DrawCallDispatcher::ResolveDepthOnlyPipeline(const Game::RFD::DrawRecord& DrawRecord) {
+			if (DrawRecord.pso == nullptr) {
+				return nullptr;
+			}
+
+			if (DrawRecord.TerrainPatchContextIndex != InvalidDescriptorIndex) {
+				if (mIsTerrainDepthPipelineInitialized == false) {
+					mIsTerrainDepthPipelineInitialized = mTerrainDepthPipeline.Initialize("TerrainDepthGraphics");
+				}
+
+				return mIsTerrainDepthPipelineInitialized == true ? &mTerrainDepthPipeline : nullptr;
+			}
+
+			const bool HasSkinningInput{ HasVertexInputBinding(*DrawRecord.pso, Game::VertexAttributeKind::BoneIndices) || HasVertexInputBinding(*DrawRecord.pso, Game::VertexAttributeKind::BoneWeights) };
+			if (HasSkinningInput == true) {
+				if (mIsSkinnedDepthPipelineInitialized == false) {
+					mIsSkinnedDepthPipelineInitialized = mSkinnedDepthPipeline.Initialize("SkinnedDepthGraphics");
+				}
+
+				return mIsSkinnedDepthPipelineInitialized == true ? &mSkinnedDepthPipeline : nullptr;
+			}
+
+			if (mIsDefaultDepthPipelineInitialized == false) {
+				mIsDefaultDepthPipelineInitialized = mDefaultDepthPipeline.Initialize("DefaultDepthGraphics");
+			}
+
+			return mIsDefaultDepthPipelineInitialized == true ? &mDefaultDepthPipeline : nullptr;
+		}
+
+		void DrawCallDispatcher::DrawSkyDome(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+			if (CommandList == nullptr) {
+				return;
+			}
+
+			if (mIsSkyDomePipelineInitialized == false) {
+				mIsSkyDomePipelineInitialized = mSkyDomePipeline.Initialize("SkyDomeGraphics");
+			}
+
+			if (mIsSkyDomePipelineInitialized == false) {
+				return;
+			}
+
+			const Interface::IPipeline* ActivePipeline{ nullptr };
+			size_t DrawRecordIndex{ 0 };
+
+			while (DrawRecordIndex < Data.drawRecords.size()) {
+				const Game::RFD::DrawRecord& StartRecord{ Data.drawRecords[DrawRecordIndex] };
+				if (StartRecord.pso == nullptr || StartRecord.mesh == nullptr || DrawCallDispatcher::IsSkyDomePipeline(StartRecord.pso) == false) {
+					DrawRecordIndex += 1;
+					continue;
+				}
+
+				size_t RunEndIndex{ DrawRecordIndex + 1 };
+				while (RunEndIndex < Data.drawRecords.size()) {
+					const Game::RFD::DrawRecord& NextRecord{ Data.drawRecords[RunEndIndex] };
+					bool IsSameRun{ NextRecord.pass == StartRecord.pass && NextRecord.pso == StartRecord.pso && NextRecord.mesh == StartRecord.mesh && NextRecord.submesh == StartRecord.submesh };
+					if (IsSameRun == false) {
+						break;
+					}
+					RunEndIndex += 1;
+				}
+
+				ActivePipeline = StartRecord.pso->Set(ActivePipeline, CommandList);
+
+				DrawRootConstantsB1 RootConstants{};
+				RootConstants.FrameGlobalsSrvIndex = FrameGlobalsSrvHandle.GetIndex();
+				RootConstants.ModelContextSrvIndex = ModelContextSrvHandle.GetIndex();
+				RootConstants.BonePaletteSrvIndex = BonePaletteSrvHandle.GetIndex();
+				RootConstants.DrawRecordSrvIndex = DrawRecordSrvHandle.GetIndex();
+				RootConstants.DrawRecordBaseIndex = static_cast<uint32_t>(DrawRecordIndex);
+				RootConstants.MaterialSrvIndex = MaterialSrvHandle.GetIndex();
+				RootConstants.MaterialTextureTableSrvIndex = MaterialTextureTableSrvHandle.GetIndex();
+				RootConstants.ShadowMappingParameterSrvIndex = InvalidDescriptorIndex;
+				RootConstants.ShadowMapTextureBaseSrvIndex = InvalidDescriptorIndex;
+				RootConstants.FrameGlobalsElementIndex = 0u;
+				RootConstants.TerrainPatchContextSrvIndex = TerrainPatchContextSrvHandle.GetIndex();
+				RootConstants.Reserved1 = 0u;
+				CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
+
+				CommandList->IASetPrimitiveTopology(StartRecord.pso->GetPrimitiveTopology());
+
+				const std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{ BuildVertexBufferViews(*StartRecord.pso, *StartRecord.mesh) };
 				if (VertexBufferViews.empty() == false) {
 					CommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
 				}
