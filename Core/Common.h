@@ -6,6 +6,7 @@
 #include <vector>
 #include <wrl/client.h>
 #include <d3d12.h>
+#include "Core/Future.h"
 
 namespace Core {
     namespace DX {
@@ -14,40 +15,6 @@ namespace Core {
 }
 
 namespace Interface {
-    class ICopyQueue;
-
-    class CopyFuture final {
-    public:
-        CopyFuture();
-        ~CopyFuture();
-        CopyFuture(const CopyFuture& Other);
-        CopyFuture& operator=(const CopyFuture& Other);
-        CopyFuture(CopyFuture&& Other) noexcept;
-        CopyFuture& operator=(CopyFuture&& Other) noexcept;
-
-    public:
-        static CopyFuture Merge(std::span<const CopyFuture> Futures);
-
-        bool IsValid() const;
-        bool IsComplete() const;
-        bool IsInFlight() const;
-        void Wait() const;
-        void QueueWait(ID3D12CommandQueue* WaitingQueue) const;
-
-        CopyFuture(const ICopyQueue* Queue, std::uint64_t Ticket);
-
-    private:
-        struct FuturePoint final {
-            const ICopyQueue* Queue{};
-            std::uint64_t Ticket{};
-        };
-
-        bool Contains(const ICopyQueue* Queue, std::uint64_t Ticket) const;
-
-    private:
-        std::vector<FuturePoint> mFuturePoints{};
-    };
-
     class IAllocationHandle {
     public:
         virtual ~IAllocationHandle() = default;
@@ -105,21 +72,18 @@ namespace Interface {
         virtual ID3D12DescriptorHeap* GetHeap() const = 0;
     };
 
-    class ICopyQueue {
+    class ICopyQueue : public IFutureSyncObject {
     public:
         virtual ~ICopyQueue() = default;
 
     public:
         virtual bool Initialize(ID3D12Device* Device) = 0;
-        virtual CopyFuture EnqueueCopyFuture(const CopyQueueCopyRequest& CopyRequest) = 0;
-        virtual CopyFuture EnqueueCopyFuture(std::span<const CopyQueueCopyRequest> CopyRequests) = 0;
-        virtual CopyFuture EnqueueTextureCopyFuture(const CopyQueueTextureCopyRequest& CopyRequest) = 0;
-        virtual CopyFuture EnqueueTextureCopyFuture(std::span<const CopyQueueTextureCopyRequest> CopyRequests) = 0;
+        virtual Future EnqueueCopyFuture(const CopyQueueCopyRequest& CopyRequest) = 0;
+        virtual Future EnqueueCopyFuture(std::span<const CopyQueueCopyRequest> CopyRequests) = 0;
+        virtual Future EnqueueTextureCopyFuture(const CopyQueueTextureCopyRequest& CopyRequest) = 0;
+        virtual Future EnqueueTextureCopyFuture(std::span<const CopyQueueTextureCopyRequest> CopyRequests) = 0;
 
         virtual void DispatchCopies() = 0;
-        virtual bool IsFutureComplete(std::uint64_t CopyTicket) const = 0;
-        virtual void WaitFuture(std::uint64_t CopyTicket) const = 0;
-        virtual void QueueWaitFuture(ID3D12CommandQueue* WaitingQueue, std::uint64_t CopyTicket) const = 0;
         virtual void Flush() = 0;
 
         virtual std::uint64_t GetRequiredUploadBufferSize() const = 0;

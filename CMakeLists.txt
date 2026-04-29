@@ -231,7 +231,7 @@ add_executable(2026_Graphics WIN32
     2026_Graphics.cpp
     2026_Graphics.rc
     Core/Config.cpp
-    Core/CopyFuture.cpp
+    Core/Future.cpp
     Core/Event/Event.cpp
     Core/Event/EventQueue.cpp
     Core/Event/FileDropEvent.cpp

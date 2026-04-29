@@ -183,7 +183,7 @@ exit 0
   <ItemGroup>
     <ClCompile Include="2026_Graphics.cpp" />
     <ClCompile Include="Core\Config.cpp" />
-    <ClCompile Include="Core\CopyFuture.cpp" />
+    <ClCompile Include="Core\Future.cpp" />
     <ClCompile Include="Core\Event\Event.cpp" />
     <ClCompile Include="Core\Event\EventQueue.cpp" />
     <ClCompile Include="Core\Event\FileDropEvent.cpp" />
@@ -204,6 +204,7 @@ exit 0
     <ClInclude Include="2026_Graphics.h" />
     <ClInclude Include="Core\Common.h" />
     <ClInclude Include="Core\Config.h" />
+    <ClInclude Include="Core\Future.h" />
     <ClInclude Include="Core\Event\Event.h" />
     <ClInclude Include="Core\Event\Event.inl" />
     <ClInclude Include="Core\Event\EventQueue.h" />

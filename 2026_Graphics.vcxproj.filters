@@ -38,7 +38,7 @@
     <ClCompile Include="Core\Config.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="Core\CopyFuture.cpp">
+    <ClCompile Include="Core\Future.cpp">
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="Core\Event\Event.cpp">
@@ -149,6 +149,9 @@
       <Filter>Core\DX</Filter>
     </ClInclude>
     <ClInclude Include="Core\Common.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Future.h">
       <Filter>Core\DX</Filter>
     </ClInclude>
     <ClInclude Include="Core\DX\DrawCallResourceManager.h">

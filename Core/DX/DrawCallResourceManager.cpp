@@ -31,7 +31,7 @@ namespace Core {
 				mShadowDrawRecordSrvHandles[ShadowCascadeIndex] = mSrvHeap->Allocate();
 			}
 
-			mCopyFuture = Interface::CopyFuture{};
+			mCopyFuture = Interface::Future{};
 			static_cast<void>(FrameIndex);
 		}
 

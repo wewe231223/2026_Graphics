@@ -18,7 +18,7 @@ namespace Core {
 			mMaterialSrvHandle = mSrvHeap->Allocate();
 			for (std::size_t Index{ 0 }; Index < Constants::FrameCount<std::size_t>; ++Index) {
 				mMaterialTextureTableSrvHandles[Index] = mSrvHeap->Allocate();
-				mPerFrameCopyFutures[Index] = Interface::CopyFuture{};
+				mPerFrameCopyFutures[Index] = Interface::Future{};
 				mPerFrameMaterialTextureTableHashes[Index] = 0;
 				mPerFrameMaterialTextureTableSizesInBytes[Index] = 0;
 			}
@@ -66,7 +66,7 @@ namespace Core {
 				ErrorHandler::report(mPerFrameCopyFutures[RtvIndex].IsValid() == false, "MaterialResourceManager", "Failed to enqueue material upload copy requests.", ErrorHandler::Level::Critical);
 			}
 			else {
-				mPerFrameCopyFutures[RtvIndex] = Interface::CopyFuture{};
+				mPerFrameCopyFutures[RtvIndex] = Interface::Future{};
 			}
 
 			MaterialResourceManager::UpdateMaterialShaderResourceView(static_cast<std::uint32_t>(Data.materials.size()));

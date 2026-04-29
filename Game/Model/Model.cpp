@@ -378,14 +378,14 @@ namespace Game {
                 std::vector<ModelNode::VertexAttributeRange> VertexRanges{};
                 std::unique_ptr<Interface::IAllocationHandle> VertexAllocation{};
                 std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{};
-                Interface::CopyFuture VertexCopyFuture{};
+                Interface::Future VertexCopyFuture{};
                 UploadVertexData(SourceVertices, Allocator, CopyQueue, VertexRawData, VertexRanges, VertexAllocation, VertexBufferViews, VertexCopyFuture);
                 DestinationNode.SetVertexData(std::move(VertexRawData), std::move(VertexRanges), std::move(VertexAllocation), std::move(VertexBufferViews));
 
                 std::vector<std::byte> IndexRawData{};
                 std::unique_ptr<Interface::IAllocationHandle> IndexAllocation{};
                 D3D12_INDEX_BUFFER_VIEW IndexBufferView{};
-                Interface::CopyFuture IndexCopyFuture{};
+                Interface::Future IndexCopyFuture{};
                 UploadIndexData(SourceNode.Indices(), Allocator, CopyQueue, IndexRawData, IndexAllocation, IndexBufferView, IndexCopyFuture);
                 DestinationNode.SetIndexData(std::move(IndexRawData), std::move(IndexAllocation), IndexBufferView);
             }
@@ -523,7 +523,7 @@ namespace Game {
         }
     }
 
-    bool Model::UploadVertexData(const asset::VertexAttributes& Vertices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews, Interface::CopyFuture& OutCopyFuture) const {
+    bool Model::UploadVertexData(const asset::VertexAttributes& Vertices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews, Interface::Future& OutCopyFuture) const {
         std::vector<AttributeUploadSource> Sources{};
         const std::size_t VertexCount{ Vertices.VertexCount() };
         std::vector<asset::UVec4> DefaultBoneIndices{};
@@ -601,10 +601,10 @@ namespace Game {
         return true;
     }
 
-    bool Model::UploadIndexData(const std::vector<std::uint32_t>& Indices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, D3D12_INDEX_BUFFER_VIEW& OutView, Interface::CopyFuture& OutCopyFuture) const {
+    bool Model::UploadIndexData(const std::vector<std::uint32_t>& Indices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, D3D12_INDEX_BUFFER_VIEW& OutView, Interface::Future& OutCopyFuture) const {
         if (Indices.empty()) {
             OutView = D3D12_INDEX_BUFFER_VIEW{};
-            OutCopyFuture = Interface::CopyFuture{};
+            OutCopyFuture = Interface::Future{};
             return false;
         }
 
@@ -612,7 +612,7 @@ namespace Game {
         const bool AllocateResult{ AllocateBufferResource(Allocator, ByteSize, L"Model.IndexBuffer", OutAllocation) };
         if (AllocateResult == false) {
             OutView = D3D12_INDEX_BUFFER_VIEW{};
-            OutCopyFuture = Interface::CopyFuture{};
+            OutCopyFuture = Interface::Future{};
             return false;
         }
 
@@ -626,7 +626,7 @@ namespace Game {
         OutCopyFuture = CopyQueue->EnqueueCopyFuture(Request);
         if (OutCopyFuture.IsValid() == false) {
             OutView = D3D12_INDEX_BUFFER_VIEW{};
-            OutCopyFuture = Interface::CopyFuture{};
+            OutCopyFuture = Interface::Future{};
             return false;
         }
 

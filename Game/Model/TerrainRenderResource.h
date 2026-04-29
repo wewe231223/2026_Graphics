@@ -65,7 +65,7 @@ namespace Game {
         std::vector<float> mLodDistances{};
         DirectX::BoundingOrientedBox mLocalBoundingBox{};
         std::unique_ptr<Interface::IAllocationHandle> mHeightFieldAllocation{};
-        Interface::CopyFuture mHeightFieldCopyFuture{};
+        Interface::Future mHeightFieldCopyFuture{};
         Core::DX::DescriptorHandle mHeightFieldSrvHandle{};
         std::uint32_t mHeightFieldSrvDescriptorIndex{ 0xffffffffu };
         std::uint32_t mHeightFieldWidth{ 0 };

@@ -105,7 +105,7 @@ namespace Core {
 			std::array<GraphicsVector, Game::RFD::ShadowCascadeMaxCount> mShadowTerrainPatchContextVectors{};
 			std::array<GraphicsVector, Game::RFD::ShadowCascadeMaxCount> mShadowDrawRecordVectors{};
 
-			Interface::CopyFuture mCopyFuture{};
+			Interface::Future mCopyFuture{};
 			std::vector<DrawRecordGPU> mDrawRecordsGpu{};
 			std::array<std::vector<DrawRecordGPU>, Game::RFD::ShadowCascadeMaxCount> mShadowDrawRecordsGpu{};
 		};

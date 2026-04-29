@@ -78,46 +78,46 @@ bool CopyQueue::Initialize(ID3D12Device* Device) {
 }
 
 
-Interface::CopyFuture CopyQueue::EnqueueCopyFuture(const Interface::CopyQueueCopyRequest& CopyRequest) {
+Interface::Future CopyQueue::EnqueueCopyFuture(const Interface::CopyQueueCopyRequest& CopyRequest) {
     std::span<const Interface::CopyQueueCopyRequest> CopyRequests{ &CopyRequest, 1 };
     return EnqueueCopyFuture(CopyRequests);
 }
 
-Interface::CopyFuture CopyQueue::EnqueueCopyFuture(std::span<const Interface::CopyQueueCopyRequest> CopyRequests) {
+Interface::Future CopyQueue::EnqueueCopyFuture(std::span<const Interface::CopyQueueCopyRequest> CopyRequests) {
     std::vector<PreparedCopyRequest> PreparedRequests{};
     bool IsPrepared{ PrepareCopyRequests(CopyRequests, PreparedRequests) };
     if (IsPrepared == false) {
-        return Interface::CopyFuture{};
+        return Interface::Future{};
     }
 
     std::uint64_t CopyTicket{ GenerateCopyTicket() };
     bool IsEnqueued{ EnqueuePreparedCopyRequests(CopyTicket, PreparedRequests) };
     if (IsEnqueued == false) {
-        return Interface::CopyFuture{};
+        return Interface::Future{};
     }
 
-    return Interface::CopyFuture{ this, CopyTicket };
+    return Interface::Future{ this, CopyTicket };
 }
 
-Interface::CopyFuture CopyQueue::EnqueueTextureCopyFuture(const Interface::CopyQueueTextureCopyRequest& CopyRequest) {
+Interface::Future CopyQueue::EnqueueTextureCopyFuture(const Interface::CopyQueueTextureCopyRequest& CopyRequest) {
     std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests{ &CopyRequest, 1 };
     return EnqueueTextureCopyFuture(CopyRequests);
 }
 
-Interface::CopyFuture CopyQueue::EnqueueTextureCopyFuture(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests) {
+Interface::Future CopyQueue::EnqueueTextureCopyFuture(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests) {
     std::vector<PreparedCopyRequest> PreparedRequests{};
     bool IsPrepared{ PrepareTextureCopyRequests(CopyRequests, PreparedRequests) };
     if (IsPrepared == false) {
-        return Interface::CopyFuture{};
+        return Interface::Future{};
     }
 
     std::uint64_t CopyTicket{ GenerateCopyTicket() };
     bool IsEnqueued{ EnqueuePreparedCopyRequests(CopyTicket, PreparedRequests) };
     if (IsEnqueued == false) {
-        return Interface::CopyFuture{};
+        return Interface::Future{};
     }
 
-    return Interface::CopyFuture{ this, CopyTicket };
+    return Interface::Future{ this, CopyTicket };
 }
 
 void CopyQueue::DispatchCopies() {
