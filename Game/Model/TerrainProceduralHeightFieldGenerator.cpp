@@ -1,33 +1,90 @@
 #include "TerrainProceduralHeightFieldGenerator.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <execution>
+#include <numeric>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 
 namespace {
+    struct GradientVector final {
+        float mX{};
+        float mZ{};
+    };
+
+    constexpr std::uint32_t GradientDirectionCount12{ 12u };
+    constexpr std::uint32_t GradientDirectionCount16{ 16u };
+    constexpr std::uint32_t PcgStateMultiplier{ 747796405u };
+    constexpr std::uint32_t PcgStateIncrement{ 2891336453u };
+    constexpr std::uint32_t PcgOutputMultiplier{ 277803737u };
+    constexpr std::uint32_t PcgRotationShift{ 28u };
+    constexpr std::uint32_t PcgRotationBias{ 4u };
+    constexpr std::uint32_t PcgOutputShift{ 22u };
+    constexpr std::array<GradientVector, GradientDirectionCount12> GradientVectors12{ {
+        GradientVector{ 1.0f, 0.0f },
+        GradientVector{ 0.866025404f, 0.5f },
+        GradientVector{ 0.5f, 0.866025404f },
+        GradientVector{ 0.0f, 1.0f },
+        GradientVector{ -0.5f, 0.866025404f },
+        GradientVector{ -0.866025404f, 0.5f },
+        GradientVector{ -1.0f, 0.0f },
+        GradientVector{ -0.866025404f, -0.5f },
+        GradientVector{ -0.5f, -0.866025404f },
+        GradientVector{ 0.0f, -1.0f },
+        GradientVector{ 0.5f, -0.866025404f },
+        GradientVector{ 0.866025404f, -0.5f }
+    } };
+    constexpr std::array<GradientVector, GradientDirectionCount16> GradientVectors16{ {
+        GradientVector{ 1.0f, 0.0f },
+        GradientVector{ 0.923879533f, 0.382683432f },
+        GradientVector{ 0.707106781f, 0.707106781f },
+        GradientVector{ 0.382683432f, 0.923879533f },
+        GradientVector{ 0.0f, 1.0f },
+        GradientVector{ -0.382683432f, 0.923879533f },
+        GradientVector{ -0.707106781f, 0.707106781f },
+        GradientVector{ -0.923879533f, 0.382683432f },
+        GradientVector{ -1.0f, 0.0f },
+        GradientVector{ -0.923879533f, -0.382683432f },
+        GradientVector{ -0.707106781f, -0.707106781f },
+        GradientVector{ -0.382683432f, -0.923879533f },
+        GradientVector{ 0.0f, -1.0f },
+        GradientVector{ 0.382683432f, -0.923879533f },
+        GradientVector{ 0.707106781f, -0.707106781f },
+        GradientVector{ 0.923879533f, -0.382683432f }
+    } };
+
     float ClampHeightValue(const Game::TerrainProceduralHeightFieldDesc& Desc, float Value) {
         return std::clamp(Value, Desc.mMinimumHeightValue, Desc.mMaximumHeightValue);
     }
 
-    std::uint32_t MixHash(std::uint32_t Value, const Game::TerrainProceduralHeightFieldDesc& Desc) {
-        Value ^= Value >> Desc.mHashShiftA;
-        Value *= Desc.mHashMultiplierA;
-        Value ^= Value >> Desc.mHashShiftB;
-        Value *= Desc.mHashMultiplierB;
-        Value ^= Value >> Desc.mHashShiftC;
-        return Value;
+    std::uint32_t MixHash(std::uint32_t Value) {
+        const std::uint32_t State{ (Value * PcgStateMultiplier) + PcgStateIncrement };
+        const std::uint32_t Shift{ (State >> PcgRotationShift) + PcgRotationBias };
+        const std::uint32_t Word{ ((State >> Shift) ^ State) * PcgOutputMultiplier };
+        return (Word >> PcgOutputShift) ^ Word;
     }
 
-    std::uint32_t HashGrid(std::int32_t X, std::int32_t Z, std::uint32_t Seed, const Game::TerrainProceduralHeightFieldDesc& Desc) {
-        std::uint32_t Hash{ MixHash(Seed, Desc) };
-        Hash ^= MixHash(static_cast<std::uint32_t>(X) + Desc.mHashCoordinateOffsetX, Desc);
-        Hash = MixHash(Hash, Desc);
-        Hash ^= MixHash(static_cast<std::uint32_t>(Z) + Desc.mHashCoordinateOffsetZ, Desc);
-        return MixHash(Hash, Desc);
+    std::uint32_t HashGrid(std::int32_t X, std::int32_t Z, std::uint32_t Seed) {
+        const std::uint32_t SeedHash{ MixHash(Seed) };
+        const std::uint32_t ZSeedHash{ MixHash(SeedHash) };
+        const std::uint32_t XHash{ MixHash(static_cast<std::uint32_t>(X) ^ SeedHash) };
+        const std::uint32_t ZHash{ MixHash(static_cast<std::uint32_t>(Z) ^ ZSeedHash) };
+        return MixHash(XHash ^ ZHash ^ Seed);
+    }
+
+    const GradientVector& SelectGradientVector(std::uint32_t Hash, std::uint32_t GradientDirectionCount) {
+        if (GradientDirectionCount == GradientDirectionCount12) {
+            const std::size_t GradientIndex{ static_cast<std::size_t>(Hash % GradientDirectionCount12) };
+            return GradientVectors12[GradientIndex];
+        }
+
+        const std::size_t GradientIndex{ static_cast<std::size_t>(Hash % GradientDirectionCount16) };
+        return GradientVectors16[GradientIndex];
     }
 
     float Fade(float Value, const Game::TerrainProceduralHeightFieldDesc& Desc) {
@@ -47,6 +104,13 @@ namespace {
         return (static_cast<std::size_t>(Z) * static_cast<std::size_t>(Width)) + static_cast<std::size_t>(X);
     }
 
+    std::vector<std::uint32_t> CreateRowIndices(std::uint32_t Height) {
+        std::vector<std::uint32_t> RowIndices{};
+        RowIndices.resize(Height);
+        std::iota(RowIndices.begin(), RowIndices.end(), 0u);
+        return RowIndices;
+    }
+
     float SampleHeightValue(const Game::HeightFieldData& Field, std::int32_t X, std::int32_t Z) {
         const std::uint32_t ClampedX{ ClampCoordinate(X, Field.Width - 1u) };
         const std::uint32_t ClampedZ{ ClampCoordinate(Z, Field.Height - 1u) };
@@ -56,37 +120,9 @@ namespace {
     float GradientDot(std::int32_t GridX, std::int32_t GridZ, float X, float Z, std::uint32_t Seed, const Game::TerrainProceduralHeightFieldDesc& Desc) {
         const float DistanceX{ X - static_cast<float>(GridX) };
         const float DistanceZ{ Z - static_cast<float>(GridZ) };
-        const std::uint32_t Direction{ HashGrid(GridX, GridZ, Seed, Desc) % Desc.mGradientDirectionCount };
-
-        if (Direction == 0u) {
-            return DistanceX + DistanceZ;
-        }
-
-        if (Direction == 1u) {
-            return -DistanceX + DistanceZ;
-        }
-
-        if (Direction == 2u) {
-            return DistanceX - DistanceZ;
-        }
-
-        if (Direction == 3u) {
-            return -DistanceX - DistanceZ;
-        }
-
-        if (Direction == 4u) {
-            return DistanceX;
-        }
-
-        if (Direction == 5u) {
-            return -DistanceX;
-        }
-
-        if (Direction == 6u) {
-            return DistanceZ;
-        }
-
-        return -DistanceZ;
+        const std::uint32_t Hash{ HashGrid(GridX, GridZ, Seed) };
+        const GradientVector& Gradient{ SelectGradientVector(Hash, Desc.mGradientDirectionCount) };
+        return (Gradient.mX * DistanceX) + (Gradient.mZ * DistanceZ);
     }
 
     float PerlinNoise(float X, float Z, std::uint32_t Seed, const Game::TerrainProceduralHeightFieldDesc& Desc) {
@@ -162,12 +198,8 @@ namespace {
             throw std::runtime_error{ "Procedural height field smoothing pass count must be 64 or less." };
         }
 
-        if (Desc.mHashShiftLimitExclusive == 0u || Desc.mHashShiftA >= Desc.mHashShiftLimitExclusive || Desc.mHashShiftB >= Desc.mHashShiftLimitExclusive || Desc.mHashShiftC >= Desc.mHashShiftLimitExclusive) {
-            throw std::runtime_error{ "Procedural height field hash shifts must be less than 32." };
-        }
-
-        if (Desc.mGradientDirectionCount == 0u || Desc.mGradientDirectionCount > 8u) {
-            throw std::runtime_error{ "Procedural height field gradient direction count must be between 1 and 8." };
+        if (Desc.mGradientDirectionCount != GradientDirectionCount12 && Desc.mGradientDirectionCount != GradientDirectionCount16) {
+            throw std::runtime_error{ "Procedural height field gradient direction count must be 12 or 16." };
         }
 
         if (Desc.mSmoothingCornerWeight < 0.0f || Desc.mSmoothingEdgeWeight < 0.0f || Desc.mSmoothingCenterWeight < 0.0f || Desc.mSmoothingWeightSum <= 0.0f) {
@@ -199,10 +231,8 @@ namespace {
         return ClampHeightValue(Desc, Desc.mBaseHeight + (NormalizedNoise * Desc.mHeightAmplitude));
     }
 
-    void ApplySmoothingPass(Game::HeightFieldData& Field, std::vector<float>& TemporaryValues, const Game::TerrainProceduralHeightFieldDesc& Desc) {
-        TemporaryValues.resize(Field.HeightValues.size());
-
-        for (std::uint32_t Z{ 0u }; Z < Field.Height; ++Z) {
+    void ApplySmoothingPass(Game::HeightFieldData& Field, std::vector<float>& TemporaryValues, const std::vector<std::uint32_t>& RowIndices, const Game::TerrainProceduralHeightFieldDesc& Desc) {
+        std::for_each(std::execution::par, RowIndices.cbegin(), RowIndices.cend(), [&](std::uint32_t Z) {
             for (std::uint32_t X{ 0u }; X < Field.Width; ++X) {
                 const float Height00{ SampleHeightValue(Field, static_cast<std::int32_t>(X) - 1, static_cast<std::int32_t>(Z) - 1) };
                 const float Height10{ SampleHeightValue(Field, static_cast<std::int32_t>(X), static_cast<std::int32_t>(Z) - 1) };
@@ -217,7 +247,7 @@ namespace {
                 const std::size_t Index{ CalculateHeightIndex(Field.Width, X, Z) };
                 TemporaryValues[Index] = ClampHeightValue(Desc, SmoothedHeight);
             }
-        }
+        });
 
         Field.HeightValues.swap(TemporaryValues);
     }
@@ -228,8 +258,11 @@ namespace {
         }
 
         std::vector<float> TemporaryValues{};
+        TemporaryValues.resize(Field.HeightValues.size());
+        const std::vector<std::uint32_t> RowIndices{ CreateRowIndices(Field.Height) };
+
         for (std::uint32_t PassIndex{ 0u }; PassIndex < Desc.mSmoothingPassCount; ++PassIndex) {
-            ApplySmoothingPass(Field, TemporaryValues, Desc);
+            ApplySmoothingPass(Field, TemporaryValues, RowIndices, Desc);
         }
     }
 }
@@ -282,12 +315,13 @@ namespace Game {
         const std::size_t PixelCount{ static_cast<std::size_t>(Field.Width) * static_cast<std::size_t>(Field.Height) };
         Field.HeightValues.resize(PixelCount);
 
-        for (std::uint32_t Z{ 0u }; Z < Field.Height; ++Z) {
+        const std::vector<std::uint32_t> RowIndices{ CreateRowIndices(Field.Height) };
+        std::for_each(std::execution::par, RowIndices.cbegin(), RowIndices.cend(), [&](std::uint32_t Z) {
             for (std::uint32_t X{ 0u }; X < Field.Width; ++X) {
                 const std::size_t Index{ CalculateHeightIndex(Field.Width, X, Z) };
                 Field.HeightValues[Index] = CalculateFractalHeight01(Desc, X, Z);
             }
-        }
+        });
 
         SmoothHeightField(Field, Desc);
         return Field;

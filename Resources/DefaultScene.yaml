@@ -394,7 +394,7 @@ Entities:
       Terrain:
         HeightSourceType: Procedural
         ProceduralHeightFieldPath: TerrainProceduralHeightField.yaml
-        MaxHeight: 96.0
+        MaxHeight: 84.0
         CellSizeX: 1
         CellSizeZ: 1
         FlipV: false

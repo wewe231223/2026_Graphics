@@ -22,7 +22,7 @@ namespace Game {
         float mLacunarity{ 1.7f };
         float mBaseHeight{ 0.2f };
         float mHeightAmplitude{ 0.45f };
-        std::uint32_t mSmoothingPassCount{ 8 };
+        std::uint32_t mSmoothingPassCount{ 2 };
         std::uint32_t mMinimumWidth{ 2 };
         std::uint32_t mMinimumHeight{ 2 };
         std::uint32_t mMaximumOctaveCount{ 16 };
@@ -44,7 +44,7 @@ namespace Game {
         std::uint32_t mHashMultiplierB{ 0x846ca68bu };
         std::uint32_t mHashCoordinateOffsetX{ 0x9e3779b9u };
         std::uint32_t mHashCoordinateOffsetZ{ 0x85ebca6bu };
-        std::uint32_t mGradientDirectionCount{ 8 };
+        std::uint32_t mGradientDirectionCount{ 16 };
         float mFadeCoefficientA{ 6.0f };
         float mFadeCoefficientB{ -15.0f };
         float mFadeCoefficientC{ 10.0f };
