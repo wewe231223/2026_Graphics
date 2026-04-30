@@ -62,23 +62,8 @@ namespace {
         }
     };
 
-    struct AnimationChannelLookupCacheKey final {
-        const Game::Model* mModel{};
-        const asset::AnimationClip* mClip{};
-
-        bool operator==(const AnimationChannelLookupCacheKey& O) const = default;
-    };
-
-    struct AnimationChannelLookupCacheKeyHasher final {
-        std::size_t operator()(const AnimationChannelLookupCacheKey& V) const {
-            std::size_t seed{ 0u };
-            HashCombine(seed, V.mModel);
-            HashCombine(seed, V.mClip);
-            return seed;
-        }
-    };
-
     using ResolvedAnimatorCache = std::unordered_map<Arche::EntityID, ResolvedAnimator>;
+    using ResolvedBoneSkinReferenceCache = std::unordered_map<Arche::EntityID, ResolvedBoneSkinReference>;
 
     ResolvedAnimator ResolveAnimatorInHierarchy(Arche::World& World, Arche::EntityID startId, ResolvedAnimatorCache& Cache) {
         if (auto it = Cache.find(startId); it != Cache.end()) return it->second;
@@ -103,12 +88,24 @@ namespace {
         return Cache[startId] = {};
     }
 
-    ResolvedBoneSkinReference ResolveBoneSkinReferenceInHierarchy(Arche::World& World, Arche::EntityID StartEntityId) {
+    ResolvedBoneSkinReference ResolveBoneSkinReferenceInHierarchy(Arche::World& World, Arche::EntityID StartEntityId, ResolvedBoneSkinReferenceCache& Cache) {
+        if (auto Iterator{ Cache.find(StartEntityId) }; Iterator != Cache.end()) {
+            return Iterator->second;
+        }
+
         Arche::EntityID CurrentEntityId{ StartEntityId };
         while (CurrentEntityId != Arche::NullEntityID) {
+            if (auto Iterator{ Cache.find(CurrentEntityId) }; Iterator != Cache.end()) {
+                Cache.insert_or_assign(StartEntityId, Iterator->second);
+                return Iterator->second;
+            }
+
             const Game::BoneSkinReference* BoneSkinReferenceComponent{ std::as_const(World).GetComponent<Game::BoneSkinReference>(CurrentEntityId) };
             if (BoneSkinReferenceComponent != nullptr) {
-                return ResolvedBoneSkinReference{ CurrentEntityId, BoneSkinReferenceComponent };
+                ResolvedBoneSkinReference Result{ CurrentEntityId, BoneSkinReferenceComponent };
+                Cache.insert_or_assign(CurrentEntityId, Result);
+                Cache.insert_or_assign(StartEntityId, Result);
+                return Result;
             }
 
             const Game::EntityHierarchy* HierarchyComponent{ std::as_const(World).GetComponent<Game::EntityHierarchy>(CurrentEntityId) };
@@ -119,7 +116,9 @@ namespace {
             CurrentEntityId = HierarchyComponent->parent;
         }
 
-        return ResolvedBoneSkinReference{};
+        ResolvedBoneSkinReference Result{};
+        Cache.insert_or_assign(StartEntityId, Result);
+        return Result;
     }
 
     template<typename TKey>
@@ -181,63 +180,6 @@ namespace {
         T = SimpleMath::Vector3::Lerp(T, TT, Alpha);
     }
 
-    void ApplyAnimatedPoseIterative(Arche::World& World, Arche::EntityID RootId, const Game::Model& Model, std::span<const asset::AnimationChannel* const> SrcLookup, double SrcTick, std::span<const asset::AnimationChannel* const> DstLookup, double DstTick, float BlendAlpha) {
-
-        const auto& Nodes = Model.GetNodes();
-        std::vector<Arche::EntityID> Stack;
-        Stack.reserve(256);
-        Stack.push_back(RootId);
-
-        while (!Stack.empty()) {
-            const Arche::EntityID EntityId = Stack.back();
-            Stack.pop_back();
-
-            if (EntityId == Arche::NullEntityID) continue;
-
-            if (const auto* Hierarchy{ std::as_const(World).GetComponent<Game::EntityHierarchy>(EntityId) }) {
-                Arche::EntityID ChildId{ Hierarchy->firstChild };
-                while (ChildId != Arche::NullEntityID) {
-                    Stack.push_back(ChildId);
-                    const Game::EntityHierarchy* ChildHierarchy{ std::as_const(World).GetComponent<Game::EntityHierarchy>(ChildId) };
-                    ChildId = ChildHierarchy == nullptr ? Arche::NullEntityID : ChildHierarchy->nextSibling;
-                }
-            }
-
-            auto* Bone = World.GetComponent<Game::Bone>(EntityId);
-            auto* Transform = World.GetComponent<Game::Transform>(EntityId);
-
-            if (!Bone || !Transform || Bone->model != &Model || Bone->nodeIndex >= Nodes.size()) continue;
-
-            const auto* SrcCh = SrcLookup[Bone->nodeIndex];
-            const auto* DstCh = DstLookup[Bone->nodeIndex];
-
-            if (!SrcCh && !DstCh) continue;
-
-            SimpleMath::Vector3 S{ 1.0f, 1.0f, 1.0f }, T{ 0.0f, 0.0f, 0.0f };
-            SimpleMath::Quaternion R = SimpleMath::Quaternion::Identity;
-
-            if (SrcCh) {
-                S = SampleScale(*SrcCh, SrcTick);
-                R = SampleRotation(*SrcCh, SrcTick);
-                T = SamplePosition(*SrcCh, SrcTick);
-            }
-
-            if (DstCh) {
-                BlendTransforms(S, R, T, SampleScale(*DstCh, DstTick), SampleRotation(*DstCh, DstTick), SamplePosition(*DstCh, DstTick), BlendAlpha);
-            }
-
-            if (EntityId == RootId) {
-                T = SimpleMath::Vector3::Zero;
-            }
-
-            SimpleMath::Matrix AnimLocal = SimpleMath::Matrix::CreateScale(S) * SimpleMath::Matrix::CreateFromQuaternion(R) * SimpleMath::Matrix::CreateTranslation(T);
-            SimpleMath::Matrix DeltaLocal = Nodes[Bone->nodeIndex].GetNodeToParent().Invert() * AnimLocal;
-
-            DeltaLocal.Decompose(Transform->scale, Transform->rotation, Transform->position);
-            Transform->UpdateEulerRadiansFromRotation();
-
-        }
-    }
 }
 
 namespace Game {
@@ -255,26 +197,174 @@ namespace Game {
 
     std::span<const ResourceAccess> AnimateSystem::ResourceAccesses() const { return {}; }
 
+    const std::vector<const asset::AnimationChannel*>& AnimateSystem::GetAnimationChannelLookup(const Model& TargetModel, const asset::AnimationClip& TargetClip) {
+        const std::vector<ModelNode>& Nodes{ TargetModel.GetNodes() };
+        const ModelNode* NodeData{ Nodes.empty() == true ? nullptr : Nodes.data() };
+        const std::size_t NodeCount{ Nodes.size() };
+        const asset::AnimationChannel* ChannelData{ TargetClip.Channels.empty() == true ? nullptr : TargetClip.Channels.data() };
+        const std::size_t ChannelCount{ TargetClip.Channels.size() };
+
+        for (AnimationChannelLookupCacheEntry& CacheEntry : mAnimationChannelLookupCache) {
+            if (CacheEntry.mModel != &TargetModel || CacheEntry.mClip != &TargetClip) {
+                continue;
+            }
+
+            const bool IsCacheValid{ CacheEntry.mNodeData == NodeData && CacheEntry.mNodeCount == NodeCount && CacheEntry.mChannelData == ChannelData && CacheEntry.mChannelCount == ChannelCount && CacheEntry.mLookup.size() == NodeCount };
+            if (IsCacheValid == false) {
+                CacheEntry.mNodeData = NodeData;
+                CacheEntry.mNodeCount = NodeCount;
+                CacheEntry.mChannelData = ChannelData;
+                CacheEntry.mChannelCount = ChannelCount;
+                CacheEntry.mLookup = BuildAnimationChannelLookup(TargetModel, TargetClip);
+            }
+
+            return CacheEntry.mLookup;
+        }
+
+        AnimationChannelLookupCacheEntry NewEntry{};
+        NewEntry.mModel = &TargetModel;
+        NewEntry.mClip = &TargetClip;
+        NewEntry.mNodeData = NodeData;
+        NewEntry.mNodeCount = NodeCount;
+        NewEntry.mChannelData = ChannelData;
+        NewEntry.mChannelCount = ChannelCount;
+        NewEntry.mLookup = BuildAnimationChannelLookup(TargetModel, TargetClip);
+        mAnimationChannelLookupCache.push_back(std::move(NewEntry));
+        return mAnimationChannelLookupCache.back().mLookup;
+    }
+
+    const SimpleMath::Matrix& AnimateSystem::GetNodeToParentInverse(const Model& TargetModel, std::uint32_t NodeIndex) {
+        static const SimpleMath::Matrix IdentityMatrix{ SimpleMath::Matrix::Identity };
+
+        const std::vector<ModelNode>& Nodes{ TargetModel.GetNodes() };
+        if (NodeIndex >= Nodes.size()) {
+            return IdentityMatrix;
+        }
+
+        const ModelNode* NodePointer{ &Nodes[NodeIndex] };
+        for (NodeToParentInverseCacheEntry& CacheEntry : mNodeToParentInverseCache) {
+            if (CacheEntry.mModel != &TargetModel || CacheEntry.mNodeIndex != NodeIndex) {
+                continue;
+            }
+
+            if (CacheEntry.mNode != NodePointer) {
+                CacheEntry.mNode = NodePointer;
+                CacheEntry.mInverse = NodePointer->GetNodeToParent().Invert();
+            }
+
+            return CacheEntry.mInverse;
+        }
+
+        NodeToParentInverseCacheEntry NewEntry{};
+        NewEntry.mModel = &TargetModel;
+        NewEntry.mNode = NodePointer;
+        NewEntry.mNodeIndex = NodeIndex;
+        NewEntry.mInverse = NodePointer->GetNodeToParent().Invert();
+        mNodeToParentInverseCache.push_back(NewEntry);
+        return mNodeToParentInverseCache.back().mInverse;
+    }
+
+    void AnimateSystem::ApplyAnimatedPoseIterative(Arche::World& World, const BoneTransformBindingMap& BoneTransformBindings, Arche::EntityID RootId, const Model& TargetModel, std::span<const asset::AnimationChannel* const> SourceLookup, double SourceTick, std::span<const asset::AnimationChannel* const> DestinationLookup, double DestinationTick, float BlendAlpha) {
+        const std::vector<ModelNode>& Nodes{ TargetModel.GetNodes() };
+        std::vector<Arche::EntityID> Stack{};
+        Stack.reserve(256);
+        Stack.push_back(RootId);
+
+        while (Stack.empty() == false) {
+            const Arche::EntityID EntityId{ Stack.back() };
+            Stack.pop_back();
+
+            if (EntityId == Arche::NullEntityID) {
+                continue;
+            }
+
+            const EntityHierarchy* HierarchyComponent{ std::as_const(World).GetComponent<EntityHierarchy>(EntityId) };
+            if (HierarchyComponent != nullptr) {
+                Arche::EntityID ChildId{ HierarchyComponent->firstChild };
+                while (ChildId != Arche::NullEntityID) {
+                    Stack.push_back(ChildId);
+                    const EntityHierarchy* ChildHierarchyComponent{ std::as_const(World).GetComponent<EntityHierarchy>(ChildId) };
+                    ChildId = ChildHierarchyComponent == nullptr ? Arche::NullEntityID : ChildHierarchyComponent->nextSibling;
+                }
+            }
+
+            const Bone* BoneComponent{};
+            Transform* TransformComponent{};
+            const BoneTransformBindingMap::const_iterator BindingIterator{ BoneTransformBindings.find(EntityId) };
+            if (BindingIterator != BoneTransformBindings.end()) {
+                BoneComponent = BindingIterator->second.mBone;
+                TransformComponent = BindingIterator->second.mTransform;
+            }
+            else {
+                BoneComponent = std::as_const(World).GetComponent<Bone>(EntityId);
+                TransformComponent = World.GetComponent<Transform>(EntityId);
+            }
+
+            if (BoneComponent == nullptr || TransformComponent == nullptr || BoneComponent->model != &TargetModel || BoneComponent->nodeIndex >= Nodes.size()) {
+                continue;
+            }
+
+            const asset::AnimationChannel* SourceChannel{ SourceLookup[BoneComponent->nodeIndex] };
+            const asset::AnimationChannel* DestinationChannel{ DestinationLookup[BoneComponent->nodeIndex] };
+
+            if (SourceChannel == nullptr && DestinationChannel == nullptr) {
+                continue;
+            }
+
+            SimpleMath::Vector3 Scale{ 1.0f, 1.0f, 1.0f };
+            SimpleMath::Vector3 Translation{ 0.0f, 0.0f, 0.0f };
+            SimpleMath::Quaternion Rotation{ SimpleMath::Quaternion::Identity };
+
+            if (SourceChannel != nullptr) {
+                Scale = SampleScale(*SourceChannel, SourceTick);
+                Rotation = SampleRotation(*SourceChannel, SourceTick);
+                Translation = SamplePosition(*SourceChannel, SourceTick);
+            }
+
+            if (DestinationChannel != nullptr && BlendAlpha == 0.0f) {
+                Rotation.Normalize();
+            }
+            else if (DestinationChannel != nullptr) {
+                BlendTransforms(Scale, Rotation, Translation, SampleScale(*DestinationChannel, DestinationTick), SampleRotation(*DestinationChannel, DestinationTick), SamplePosition(*DestinationChannel, DestinationTick), BlendAlpha);
+            }
+
+            if (EntityId == RootId) {
+                Translation = SimpleMath::Vector3::Zero;
+            }
+
+            const SimpleMath::Matrix AnimationLocal{ SimpleMath::Matrix::CreateScale(Scale) * SimpleMath::Matrix::CreateFromQuaternion(Rotation) * SimpleMath::Matrix::CreateTranslation(Translation) };
+            SimpleMath::Matrix DeltaLocal{ GetNodeToParentInverse(TargetModel, BoneComponent->nodeIndex) * AnimationLocal };
+
+            DeltaLocal.Decompose(TransformComponent->scale, TransformComponent->rotation, TransformComponent->position);
+            TransformComponent->UpdateEulerRadiansFromRotation();
+        }
+    }
+
     void AnimateSystem::Execute(Arche::World& World, FrameContext&, float Dt) {
         ResolvedAnimatorCache AnimatorCache{};
         AnimatorCache.reserve(32);
 
+        ResolvedBoneSkinReferenceCache BoneSkinReferenceCache{};
+        BoneSkinReferenceCache.reserve(32);
+
         std::unordered_set<Arche::EntityID> UpdatedAnimators{};
         UpdatedAnimators.reserve(32);
-
-        std::unordered_map<AnimationChannelLookupCacheKey, std::vector<const asset::AnimationChannel*>, AnimationChannelLookupCacheKeyHasher> ChannelCache{};
-        ChannelCache.reserve(32);
 
         std::unordered_set<PoseApplyCacheKey, PoseApplyCacheKeyHasher> AppliedPoses{};
         AppliedPoses.reserve(32);
 
+        BoneTransformBindingMap BoneTransformBindings{};
+        BoneTransformBindings.reserve(256);
+        for (auto [BoneComponent, TransformComponent, HierarchyComponent] : World.Query<Bone, Transform, EntityHierarchy>()) {
+            BoneTransformBindings.insert_or_assign(HierarchyComponent.self, BoneTransformBinding{ &BoneComponent, &TransformComponent });
+        }
 
         for (auto [SMR, Hierarchy, Trans] : World.Query<SkinnedMeshRenderer, EntityHierarchy, Transform>()) {
             (void)Trans;
             auto Resolved = ResolveAnimatorInHierarchy(World, Hierarchy.self, AnimatorCache);
             if (!Resolved.Component || !Resolved.Component->animation || !SMR.model) continue;
 
-            const ResolvedBoneSkinReference ResolvedBoneSkinReferenceComponent{ ResolveBoneSkinReferenceInHierarchy(World, Hierarchy.self) };
+            const ResolvedBoneSkinReference ResolvedBoneSkinReferenceComponent{ ResolveBoneSkinReferenceInHierarchy(World, Hierarchy.self, BoneSkinReferenceCache) };
             if (ResolvedBoneSkinReferenceComponent.Component == nullptr) continue;
 
             const Arche::EntityID BoneRootEntityId{ ResolvedBoneSkinReferenceComponent.Component->boneRootEntityId };
@@ -311,17 +401,9 @@ namespace Game {
                 }
             }
 
-            auto GetLookup = [&](const asset::AnimationClip& Clip) -> const std::vector<const asset::AnimationChannel*>& {
-                AnimationChannelLookupCacheKey Key{ SMR.model, &Clip };
-                const auto Iterator{ ChannelCache.find(Key) };
-                if (Iterator != ChannelCache.end()) {
-                    return Iterator->second;
-                }
-
-                return ChannelCache.emplace(Key, BuildAnimationChannelLookup(*SMR.model, Clip)).first->second;
-            };
-
-            ApplyAnimatedPoseIterative(World, BoneRootEntityId, *SMR.model, GetLookup(SrcClip), SrcLocalTime * SrcTPS, GetLookup(DstClip), DstLocalTime * DstTPS, BlendAlpha);
+            const std::vector<const asset::AnimationChannel*>& SourceLookup{ GetAnimationChannelLookup(*SMR.model, SrcClip) };
+            const std::vector<const asset::AnimationChannel*>& DestinationLookup{ GetAnimationChannelLookup(*SMR.model, DstClip) };
+            ApplyAnimatedPoseIterative(World, BoneTransformBindings, BoneRootEntityId, *SMR.model, SourceLookup, SrcLocalTime * SrcTPS, DestinationLookup, DstLocalTime * DstTPS, BlendAlpha);
         }
     }
 }
