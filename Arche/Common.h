@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <tuple>
 #include "TypeSystem.h" 
 
 #ifdef max 
@@ -36,7 +37,7 @@ namespace Arche {
         }
 
         bool operator==(const EntityID& Other) const {
-            return index == Other.index && generation == Other.generation;
+            return std::tie(index, generation) == std::tie(Other.index, Other.generation);
         }
 
         bool operator!=(const EntityID& Other) const {

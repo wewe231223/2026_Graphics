@@ -51,6 +51,14 @@ public:
     std::vector<PhysicsTerrainActor*> CollectTerrainActors() override;
     std::vector<const PhysicsTerrainActor*> CollectTerrainActors() const override;
 
+    void CollectDynamicActors(std::vector<PhysicsDynamicActor*>& OutActors) override;
+    void CollectDynamicActors(std::vector<const PhysicsDynamicActor*>& OutActors) const override;
+    void CollectKinematicActors(std::vector<PhysicsKinematicActor*>& OutActors) override;
+    void CollectKinematicActors(std::vector<const PhysicsKinematicActor*>& OutActors) const override;
+    void CollectStaticActors(std::vector<const PhysicsStaticActor*>& OutActors) const override;
+    void CollectTerrainActors(std::vector<PhysicsTerrainActor*>& OutActors) override;
+    void CollectTerrainActors(std::vector<const PhysicsTerrainActor*>& OutActors) const override;
+
 private:
     std::vector<std::unique_ptr<PhysicsActorBase>> mActors;
 };

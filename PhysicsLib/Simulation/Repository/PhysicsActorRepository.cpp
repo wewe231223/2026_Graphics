@@ -146,8 +146,50 @@ std::size_t PhysicsActorRepository::GetActorCount() const {
 
 std::vector<PhysicsDynamicActor*> PhysicsActorRepository::CollectDynamicActors() {
     std::vector<PhysicsDynamicActor*> DynamicActors{};
+    CollectDynamicActors(DynamicActors);
+    return DynamicActors;
+}
+
+std::vector<const PhysicsDynamicActor*> PhysicsActorRepository::CollectDynamicActors() const {
+    std::vector<const PhysicsDynamicActor*> DynamicActors{};
+    CollectDynamicActors(DynamicActors);
+    return DynamicActors;
+}
+
+std::vector<PhysicsKinematicActor*> PhysicsActorRepository::CollectKinematicActors() {
+    std::vector<PhysicsKinematicActor*> KinematicActors{};
+    CollectKinematicActors(KinematicActors);
+    return KinematicActors;
+}
+
+std::vector<const PhysicsKinematicActor*> PhysicsActorRepository::CollectKinematicActors() const {
+    std::vector<const PhysicsKinematicActor*> KinematicActors{};
+    CollectKinematicActors(KinematicActors);
+    return KinematicActors;
+}
+
+std::vector<const PhysicsStaticActor*> PhysicsActorRepository::CollectStaticActors() const {
+    std::vector<const PhysicsStaticActor*> StaticActors{};
+    CollectStaticActors(StaticActors);
+    return StaticActors;
+}
+
+std::vector<PhysicsTerrainActor*> PhysicsActorRepository::CollectTerrainActors() {
+    std::vector<PhysicsTerrainActor*> TerrainActors{};
+    CollectTerrainActors(TerrainActors);
+    return TerrainActors;
+}
+
+std::vector<const PhysicsTerrainActor*> PhysicsActorRepository::CollectTerrainActors() const {
+    std::vector<const PhysicsTerrainActor*> TerrainActors{};
+    CollectTerrainActors(TerrainActors);
+    return TerrainActors;
+}
+
+void PhysicsActorRepository::CollectDynamicActors(std::vector<PhysicsDynamicActor*>& OutActors) {
+    OutActors.clear();
     std::size_t ActorCount{ mActors.size() };
-    DynamicActors.reserve(ActorCount);
+    OutActors.reserve(ActorCount);
 
     for (std::size_t ActorIndex{ 0U }; ActorIndex < ActorCount; ++ActorIndex) {
         PhysicsActorBase* CurrentActor{ mActors[ActorIndex].get() };
@@ -156,16 +198,14 @@ std::vector<PhysicsDynamicActor*> PhysicsActorRepository::CollectDynamicActors()
         }
 
         PhysicsDynamicActor* DynamicActor{ static_cast<PhysicsDynamicActor*>(CurrentActor) };
-        DynamicActors.push_back(DynamicActor);
+        OutActors.push_back(DynamicActor);
     }
-
-    return DynamicActors;
 }
 
-std::vector<const PhysicsDynamicActor*> PhysicsActorRepository::CollectDynamicActors() const {
-    std::vector<const PhysicsDynamicActor*> DynamicActors{};
+void PhysicsActorRepository::CollectDynamicActors(std::vector<const PhysicsDynamicActor*>& OutActors) const {
+    OutActors.clear();
     std::size_t ActorCount{ mActors.size() };
-    DynamicActors.reserve(ActorCount);
+    OutActors.reserve(ActorCount);
 
     for (std::size_t ActorIndex{ 0U }; ActorIndex < ActorCount; ++ActorIndex) {
         const PhysicsActorBase* CurrentActor{ mActors[ActorIndex].get() };
@@ -174,16 +214,14 @@ std::vector<const PhysicsDynamicActor*> PhysicsActorRepository::CollectDynamicAc
         }
 
         const PhysicsDynamicActor* DynamicActor{ static_cast<const PhysicsDynamicActor*>(CurrentActor) };
-        DynamicActors.push_back(DynamicActor);
+        OutActors.push_back(DynamicActor);
     }
-
-    return DynamicActors;
 }
 
-std::vector<PhysicsKinematicActor*> PhysicsActorRepository::CollectKinematicActors() {
-    std::vector<PhysicsKinematicActor*> KinematicActors{};
+void PhysicsActorRepository::CollectKinematicActors(std::vector<PhysicsKinematicActor*>& OutActors) {
+    OutActors.clear();
     std::size_t ActorCount{ mActors.size() };
-    KinematicActors.reserve(ActorCount);
+    OutActors.reserve(ActorCount);
 
     for (std::size_t ActorIndex{ 0U }; ActorIndex < ActorCount; ++ActorIndex) {
         PhysicsActorBase* CurrentActor{ mActors[ActorIndex].get() };
@@ -192,16 +230,14 @@ std::vector<PhysicsKinematicActor*> PhysicsActorRepository::CollectKinematicActo
         }
 
         PhysicsKinematicActor* KinematicActor{ static_cast<PhysicsKinematicActor*>(CurrentActor) };
-        KinematicActors.push_back(KinematicActor);
+        OutActors.push_back(KinematicActor);
     }
-
-    return KinematicActors;
 }
 
-std::vector<const PhysicsKinematicActor*> PhysicsActorRepository::CollectKinematicActors() const {
-    std::vector<const PhysicsKinematicActor*> KinematicActors{};
+void PhysicsActorRepository::CollectKinematicActors(std::vector<const PhysicsKinematicActor*>& OutActors) const {
+    OutActors.clear();
     std::size_t ActorCount{ mActors.size() };
-    KinematicActors.reserve(ActorCount);
+    OutActors.reserve(ActorCount);
 
     for (std::size_t ActorIndex{ 0U }; ActorIndex < ActorCount; ++ActorIndex) {
         const PhysicsActorBase* CurrentActor{ mActors[ActorIndex].get() };
@@ -210,16 +246,14 @@ std::vector<const PhysicsKinematicActor*> PhysicsActorRepository::CollectKinemat
         }
 
         const PhysicsKinematicActor* KinematicActor{ static_cast<const PhysicsKinematicActor*>(CurrentActor) };
-        KinematicActors.push_back(KinematicActor);
+        OutActors.push_back(KinematicActor);
     }
-
-    return KinematicActors;
 }
 
-std::vector<const PhysicsStaticActor*> PhysicsActorRepository::CollectStaticActors() const {
-    std::vector<const PhysicsStaticActor*> StaticActors{};
+void PhysicsActorRepository::CollectStaticActors(std::vector<const PhysicsStaticActor*>& OutActors) const {
+    OutActors.clear();
     std::size_t ActorCount{ mActors.size() };
-    StaticActors.reserve(ActorCount);
+    OutActors.reserve(ActorCount);
 
     for (std::size_t ActorIndex{ 0U }; ActorIndex < ActorCount; ++ActorIndex) {
         const PhysicsActorBase* CurrentActor{ mActors[ActorIndex].get() };
@@ -228,16 +262,14 @@ std::vector<const PhysicsStaticActor*> PhysicsActorRepository::CollectStaticActo
         }
 
         const PhysicsStaticActor* StaticActor{ static_cast<const PhysicsStaticActor*>(CurrentActor) };
-        StaticActors.push_back(StaticActor);
+        OutActors.push_back(StaticActor);
     }
-
-    return StaticActors;
 }
 
-std::vector<PhysicsTerrainActor*> PhysicsActorRepository::CollectTerrainActors() {
-    std::vector<PhysicsTerrainActor*> TerrainActors{};
+void PhysicsActorRepository::CollectTerrainActors(std::vector<PhysicsTerrainActor*>& OutActors) {
+    OutActors.clear();
     std::size_t ActorCount{ mActors.size() };
-    TerrainActors.reserve(ActorCount);
+    OutActors.reserve(ActorCount);
 
     for (std::size_t ActorIndex{ 0U }; ActorIndex < ActorCount; ++ActorIndex) {
         PhysicsActorBase* CurrentActor{ mActors[ActorIndex].get() };
@@ -246,16 +278,14 @@ std::vector<PhysicsTerrainActor*> PhysicsActorRepository::CollectTerrainActors()
         }
 
         PhysicsTerrainActor* TerrainActor{ static_cast<PhysicsTerrainActor*>(CurrentActor) };
-        TerrainActors.push_back(TerrainActor);
+        OutActors.push_back(TerrainActor);
     }
-
-    return TerrainActors;
 }
 
-std::vector<const PhysicsTerrainActor*> PhysicsActorRepository::CollectTerrainActors() const {
-    std::vector<const PhysicsTerrainActor*> TerrainActors{};
+void PhysicsActorRepository::CollectTerrainActors(std::vector<const PhysicsTerrainActor*>& OutActors) const {
+    OutActors.clear();
     std::size_t ActorCount{ mActors.size() };
-    TerrainActors.reserve(ActorCount);
+    OutActors.reserve(ActorCount);
 
     for (std::size_t ActorIndex{ 0U }; ActorIndex < ActorCount; ++ActorIndex) {
         const PhysicsActorBase* CurrentActor{ mActors[ActorIndex].get() };
@@ -264,8 +294,6 @@ std::vector<const PhysicsTerrainActor*> PhysicsActorRepository::CollectTerrainAc
         }
 
         const PhysicsTerrainActor* TerrainActor{ static_cast<const PhysicsTerrainActor*>(CurrentActor) };
-        TerrainActors.push_back(TerrainActor);
+        OutActors.push_back(TerrainActor);
     }
-
-    return TerrainActors;
 }

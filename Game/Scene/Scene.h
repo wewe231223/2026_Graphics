@@ -15,6 +15,7 @@ namespace Game {
     struct TerrainActorDescBinding final {
         Arche::EntityID mEntityId{ Arche::NullEntityID };
         PhysicsTerrainActor::ActorDesc mTerrainActorDesc{};
+        bool mIsTerrainActorDescApplied{};
     };
 
     class Scene final {

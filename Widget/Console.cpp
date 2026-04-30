@@ -7,6 +7,7 @@
 #include <format>
 #include <fstream>
 #include <sstream>
+#include <tuple>
 #include "External/Include/ImGui/imgui.h"
 #include "Utility/StdOutput.h"
 #include "Game/Base/Input.h"
@@ -20,7 +21,7 @@ namespace Widget {
         if (!mItems.empty()) {
             ConsoleLogEntry& LastEntry{ mItems.back() };
 
-            if (LastEntry.Level == ParsedEntry.Level && LastEntry.Message == ParsedEntry.Message) {
+            if (std::tie(LastEntry.Level, LastEntry.Message) == std::tie(ParsedEntry.Level, ParsedEntry.Message)) {
                 LastEntry.RepeatCount += 1;
                 LastEntry.Timestamp = ParsedEntry.Timestamp;
                 LastEntry.RenderText = BuildRenderText(LastEntry);

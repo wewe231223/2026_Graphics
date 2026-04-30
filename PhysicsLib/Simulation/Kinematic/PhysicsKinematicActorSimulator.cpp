@@ -89,11 +89,11 @@ void PhysicsKinematicActorSimulator::Tick(IPhysicsWorldMediator& WorldMediator, 
     std::vector<PhysicsKinematicActorSweepState> PreviousSweepStates{ std::move(mSweepStates) };
     mSweepStates.clear();
 
-    std::vector<PhysicsKinematicActor*> KinematicActors{ ActorRepository.CollectKinematicActors() };
-    mSweepStates.reserve(KinematicActors.size());
-    std::size_t KinematicActorCount{ KinematicActors.size() };
+    ActorRepository.CollectKinematicActors(mKinematicActorScratch);
+    mSweepStates.reserve(mKinematicActorScratch.size());
+    std::size_t KinematicActorCount{ mKinematicActorScratch.size() };
     for (std::size_t ActorIndex{ 0U }; ActorIndex < KinematicActorCount; ++ActorIndex) {
-        PhysicsKinematicActor* KinematicActor{ KinematicActors[ActorIndex] };
+        PhysicsKinematicActor* KinematicActor{ mKinematicActorScratch[ActorIndex] };
         if (KinematicActor == nullptr) {
             continue;
         }
@@ -140,11 +140,11 @@ void PhysicsKinematicActorSimulator::Synchronize(IPhysicsActorRepository& ActorR
     mSweepStates.clear();
     mTeleportedActors.clear();
 
-    std::vector<PhysicsKinematicActor*> KinematicActors{ ActorRepository.CollectKinematicActors() };
-    mSweepStates.reserve(KinematicActors.size());
-    std::size_t KinematicActorCount{ KinematicActors.size() };
+    ActorRepository.CollectKinematicActors(mKinematicActorScratch);
+    mSweepStates.reserve(mKinematicActorScratch.size());
+    std::size_t KinematicActorCount{ mKinematicActorScratch.size() };
     for (std::size_t ActorIndex{ 0U }; ActorIndex < KinematicActorCount; ++ActorIndex) {
-        PhysicsKinematicActor* KinematicActor{ KinematicActors[ActorIndex] };
+        PhysicsKinematicActor* KinematicActor{ mKinematicActorScratch[ActorIndex] };
         if (KinematicActor == nullptr) {
             continue;
         }

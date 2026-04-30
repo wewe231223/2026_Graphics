@@ -86,7 +86,8 @@ std::unique_ptr<IPhysicsSpatialQuery> BruteForcePhysicsSpatialQuery::Clone() con
 }
 
 std::vector<PhysicsDynamicCollisionPairCandidate> BruteForcePhysicsSpatialQuery::QueryDynamicCollisionPairs(IPhysicsActorRepository& ActorRepository) const {
-    std::vector<PhysicsDynamicActor*> DynamicActors{ ActorRepository.CollectDynamicActors() };
+    std::vector<PhysicsDynamicActor*> DynamicActors{};
+    ActorRepository.CollectDynamicActors(DynamicActors);
     std::size_t DynamicActorCount{ DynamicActors.size() };
 
     std::vector<DynamicBroadPhaseEntry> DynamicEntries{};

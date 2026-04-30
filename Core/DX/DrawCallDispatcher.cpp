@@ -1,4 +1,5 @@
 #include "DrawCallDispatcher.h"
+#include <tuple>
 #include <vector>
 
 namespace Core {
@@ -93,7 +94,7 @@ namespace Core {
 				size_t RunEndIndex{ DrawRecordIndex + 1 };
 				while (RunEndIndex < Data.drawRecords.size()) {
 					const Game::RFD::DrawRecord& NextRecord{ Data.drawRecords[RunEndIndex] };
-					bool IsSameRun{ NextRecord.pass == StartRecord.pass && NextRecord.pso == StartRecord.pso && NextRecord.mesh == StartRecord.mesh && NextRecord.submesh == StartRecord.submesh };
+					bool IsSameRun{ std::tie(NextRecord.pass, NextRecord.pso, NextRecord.mesh, NextRecord.submesh) == std::tie(StartRecord.pass, StartRecord.pso, StartRecord.mesh, StartRecord.submesh) };
 					if (IsSameRun == false) {
 						break;
 					}
@@ -191,7 +192,7 @@ namespace Core {
 				size_t RunEndIndex{ DrawRecordIndex + 1 };
 				while (RunEndIndex < ShadowRenderContext.DrawRecords.size()) {
 					const Game::RFD::DrawRecord& NextRecord{ ShadowRenderContext.DrawRecords[RunEndIndex] };
-					bool IsSameRun{ NextRecord.pass == StartRecord.pass && NextRecord.pso == StartRecord.pso && NextRecord.mesh == StartRecord.mesh && NextRecord.submesh == StartRecord.submesh };
+					bool IsSameRun{ std::tie(NextRecord.pass, NextRecord.pso, NextRecord.mesh, NextRecord.submesh) == std::tie(StartRecord.pass, StartRecord.pso, StartRecord.mesh, StartRecord.submesh) };
 					if (IsSameRun == false) {
 						break;
 					}
@@ -313,7 +314,7 @@ namespace Core {
 				size_t RunEndIndex{ DrawRecordIndex + 1 };
 				while (RunEndIndex < Data.drawRecords.size()) {
 					const Game::RFD::DrawRecord& NextRecord{ Data.drawRecords[RunEndIndex] };
-					bool IsSameRun{ NextRecord.pass == StartRecord.pass && NextRecord.pso == StartRecord.pso && NextRecord.mesh == StartRecord.mesh && NextRecord.submesh == StartRecord.submesh };
+					bool IsSameRun{ std::tie(NextRecord.pass, NextRecord.pso, NextRecord.mesh, NextRecord.submesh) == std::tie(StartRecord.pass, StartRecord.pso, StartRecord.mesh, StartRecord.submesh) };
 					if (IsSameRun == false) {
 						break;
 					}

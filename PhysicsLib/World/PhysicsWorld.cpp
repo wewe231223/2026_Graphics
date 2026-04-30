@@ -440,8 +440,8 @@ PhysicsFrameAccumulator::ActorState CreateActorStateFromActor(const PhysicsActor
     return ActorStateValue;
 }
 
-void IntegrateDynamicActors(IPhysicsWorldMediator& WorldMediator, IPhysicsActorRepository& ActorRepository, float DeltaTime) {
-    std::vector<PhysicsDynamicActor*> DynamicActors{ ActorRepository.CollectDynamicActors() };
+void IntegrateDynamicActors(IPhysicsWorldMediator& WorldMediator, IPhysicsActorRepository& ActorRepository, std::vector<PhysicsDynamicActor*>& DynamicActors, float DeltaTime) {
+    ActorRepository.CollectDynamicActors(DynamicActors);
     std::size_t DynamicActorCount{ DynamicActors.size() };
     for (std::size_t ActorIndex{ 0U }; ActorIndex < DynamicActorCount; ++ActorIndex) {
         PhysicsDynamicActor* DynamicActor{ DynamicActors[ActorIndex] };
@@ -849,7 +849,8 @@ void ResolveStaticCollisions(IPhysicsWorldMediator& WorldMediator, const std::ve
 }
 
 bool TryGetHighestTerrainSurfaceHeight(const IPhysicsActorRepository& ActorRepository, float WorldX, float WorldZ, float& OutSurfaceHeight) {
-    std::vector<const PhysicsTerrainActor*> TerrainActors{ ActorRepository.CollectTerrainActors() };
+    std::vector<const PhysicsTerrainActor*> TerrainActors{};
+    ActorRepository.CollectTerrainActors(TerrainActors);
     std::size_t TerrainActorCount{ TerrainActors.size() };
     bool HasSurfaceHeight{};
     float HighestSurfaceHeight{};
@@ -1114,7 +1115,11 @@ PhysicsWorld::PhysicsWorld()
       mKinematicActorSimulator{},
       mActorRepository{},
       mSpatialQuery{},
-      mPublishedEvents{} {
+      mPublishedEvents{},
+      mDynamicActorScratch{},
+      mIntegrateDynamicActorScratch{},
+      mStaticActorScratch{},
+      mKinematicActorScratch{} {
     InitializeDependencies();
     mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
@@ -1133,7 +1138,11 @@ PhysicsWorld::PhysicsWorld(const PhysicsWorld& Other)
       mKinematicActorSimulator{ Other.mKinematicActorSimulator },
       mActorRepository{ Other.mActorRepository != nullptr ? Other.mActorRepository->Clone() : nullptr },
       mSpatialQuery{ Other.mSpatialQuery != nullptr ? Other.mSpatialQuery->Clone() : nullptr },
-      mPublishedEvents{} {
+      mPublishedEvents{},
+      mDynamicActorScratch{},
+      mIntegrateDynamicActorScratch{},
+      mStaticActorScratch{},
+      mKinematicActorScratch{} {
     InitializeDependencies();
     mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.Initialize(mSettings.FixedTimeStep);
@@ -1154,6 +1163,10 @@ PhysicsWorld& PhysicsWorld::operator=(const PhysicsWorld& Other) {
     mActorRepository = Other.mActorRepository != nullptr ? Other.mActorRepository->Clone() : nullptr;
     mSpatialQuery = Other.mSpatialQuery != nullptr ? Other.mSpatialQuery->Clone() : nullptr;
     mPublishedEvents.clear();
+    mDynamicActorScratch.clear();
+    mIntegrateDynamicActorScratch.clear();
+    mStaticActorScratch.clear();
+    mKinematicActorScratch.clear();
     InitializeDependencies();
     mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.Initialize(mSettings.FixedTimeStep);
@@ -1172,7 +1185,11 @@ PhysicsWorld::PhysicsWorld(PhysicsWorld&& Other) noexcept
       mKinematicActorSimulator{ std::move(Other.mKinematicActorSimulator) },
       mActorRepository{ std::move(Other.mActorRepository) },
       mSpatialQuery{ std::move(Other.mSpatialQuery) },
-      mPublishedEvents{ std::move(Other.mPublishedEvents) } {
+      mPublishedEvents{ std::move(Other.mPublishedEvents) },
+      mDynamicActorScratch{},
+      mIntegrateDynamicActorScratch{},
+      mStaticActorScratch{},
+      mKinematicActorScratch{} {
     if (mActorRepository != nullptr) {
         mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
     }
@@ -1181,6 +1198,10 @@ PhysicsWorld::PhysicsWorld(PhysicsWorld&& Other) noexcept
     Other.mLastUpdateStepCount = 0U;
     Other.mLastUpdateStepElapsedMilliseconds = 0.0;
     Other.mLastStepElapsedMilliseconds = 0.0;
+    Other.mDynamicActorScratch.clear();
+    Other.mIntegrateDynamicActorScratch.clear();
+    Other.mStaticActorScratch.clear();
+    Other.mKinematicActorScratch.clear();
     Other.InitializeDependencies();
     Other.mFrameAccumulator.Initialize(Other.mSettings.FixedTimeStep);
     Other.mKinematicActorSimulator.Synchronize(*Other.mActorRepository);
@@ -1203,6 +1224,10 @@ PhysicsWorld& PhysicsWorld::operator=(PhysicsWorld&& Other) noexcept {
     mActorRepository = std::move(Other.mActorRepository);
     mSpatialQuery = std::move(Other.mSpatialQuery);
     mPublishedEvents = std::move(Other.mPublishedEvents);
+    mDynamicActorScratch.clear();
+    mIntegrateDynamicActorScratch.clear();
+    mStaticActorScratch.clear();
+    mKinematicActorScratch.clear();
     if (mActorRepository != nullptr) {
         mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
     }
@@ -1211,6 +1236,10 @@ PhysicsWorld& PhysicsWorld::operator=(PhysicsWorld&& Other) noexcept {
     Other.mLastUpdateStepCount = 0U;
     Other.mLastUpdateStepElapsedMilliseconds = 0.0;
     Other.mLastStepElapsedMilliseconds = 0.0;
+    Other.mDynamicActorScratch.clear();
+    Other.mIntegrateDynamicActorScratch.clear();
+    Other.mStaticActorScratch.clear();
+    Other.mKinematicActorScratch.clear();
     Other.InitializeDependencies();
     Other.mFrameAccumulator.Initialize(Other.mSettings.FixedTimeStep);
     Other.mKinematicActorSimulator.Synchronize(*Other.mActorRepository);
@@ -1229,7 +1258,11 @@ PhysicsWorld::PhysicsWorld(const WorldSettings& Settings)
       mKinematicActorSimulator{},
       mActorRepository{},
       mSpatialQuery{},
-      mPublishedEvents{} {
+      mPublishedEvents{},
+      mDynamicActorScratch{},
+      mIntegrateDynamicActorScratch{},
+      mStaticActorScratch{},
+      mKinematicActorScratch{} {
     InitializeDependencies();
     mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
@@ -1244,6 +1277,11 @@ void PhysicsWorld::Initialize(const WorldSettings& Settings) {
     if (mActorRepository != nullptr) {
         mActorRepository->ClearActors();
     }
+
+    mDynamicActorScratch.clear();
+    mIntegrateDynamicActorScratch.clear();
+    mStaticActorScratch.clear();
+    mKinematicActorScratch.clear();
 
     if (mActorRepository != nullptr) {
         mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
@@ -1280,6 +1318,10 @@ void PhysicsWorld::AddActor(std::unique_ptr<PhysicsActorBase> Actor) {
 
 void PhysicsWorld::ClearActors() {
     mActorRepository->ClearActors();
+    mDynamicActorScratch.clear();
+    mIntegrateDynamicActorScratch.clear();
+    mStaticActorScratch.clear();
+    mKinematicActorScratch.clear();
     mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
 }
@@ -1309,13 +1351,15 @@ std::size_t PhysicsWorld::GetActorCount() const {
 }
 
 std::vector<PhysicsTerrainActor*> PhysicsWorld::CollectTerrainActors() {
-    std::vector<PhysicsTerrainActor*> TerrainActors{ mActorRepository->CollectTerrainActors() };
+    std::vector<PhysicsTerrainActor*> TerrainActors{};
+    mActorRepository->CollectTerrainActors(TerrainActors);
     return TerrainActors;
 }
 
 std::vector<const PhysicsTerrainActor*> PhysicsWorld::CollectTerrainActors() const {
     const IPhysicsActorRepository& ActorRepository{ *mActorRepository };
-    std::vector<const PhysicsTerrainActor*> TerrainActors{ ActorRepository.CollectTerrainActors() };
+    std::vector<const PhysicsTerrainActor*> TerrainActors{};
+    ActorRepository.CollectTerrainActors(TerrainActors);
     return TerrainActors;
 }
 
@@ -1359,11 +1403,11 @@ void PhysicsWorld::MarkKinematicActorTeleported(const PhysicsKinematicActor& Act
 void PhysicsWorld::StepSimulation() {
     ClearPublishedEvents();
     IPhysicsActorRepository& ActorRepository{ GetActorRepository() };
-    std::vector<PhysicsDynamicActor*> DynamicActors{ ActorRepository.CollectDynamicActors() };
-    std::vector<const PhysicsStaticActor*> StaticActors{ ActorRepository.CollectStaticActors() };
-    std::size_t DynamicActorCount{ DynamicActors.size() };
+    ActorRepository.CollectDynamicActors(mDynamicActorScratch);
+    ActorRepository.CollectStaticActors(mStaticActorScratch);
+    std::size_t DynamicActorCount{ mDynamicActorScratch.size() };
     for (std::size_t ActorIndex{ 0U }; ActorIndex < DynamicActorCount; ++ActorIndex) {
-        PhysicsDynamicActor* DynamicActor{ DynamicActors[ActorIndex] };
+        PhysicsDynamicActor* DynamicActor{ mDynamicActorScratch[ActorIndex] };
         if (DynamicActor == nullptr) {
             continue;
         }
@@ -1373,12 +1417,12 @@ void PhysicsWorld::StepSimulation() {
 
     std::vector<PhysicsDynamicCollisionPairCandidate> PreviousDynamicPairCandidates{ GetSpatialQuery().QueryDynamicCollisionPairs(ActorRepository) };
     ResolveDynamicCollisions(*this, PreviousDynamicPairCandidates, mSettings.FixedTimeStep);
-    ResolveStaticCollisions(*this, DynamicActors, StaticActors, mSettings.FixedTimeStep);
+    ResolveStaticCollisions(*this, mDynamicActorScratch, mStaticActorScratch, mSettings.FixedTimeStep);
     ResolveKinematicCollisions(ActorRepository, mSettings.Gravity, mSettings.FixedTimeStep);
 
-    std::vector<DynamicActorSweepState> DynamicActorSweepStates{ CaptureDynamicActorSweepStates(DynamicActors) };
+    std::vector<DynamicActorSweepState> DynamicActorSweepStates{ CaptureDynamicActorSweepStates(mDynamicActorScratch) };
     const std::vector<PhysicsKinematicActorSweepState>& KinematicActorSweepStates{ mKinematicActorSimulator.GetSweepStates() };
-    IntegrateDynamicActors(*this, ActorRepository, mSettings.FixedTimeStep);
+    IntegrateDynamicActors(*this, ActorRepository, mIntegrateDynamicActorScratch, mSettings.FixedTimeStep);
 
     CompleteDynamicActorSweepStates(DynamicActorSweepStates);
     std::vector<PhysicsDynamicCollisionPairCandidate> SweptDynamicPairCandidates{ QuerySweptDynamicCollisionPairs(DynamicActorSweepStates) };
@@ -1387,7 +1431,7 @@ void PhysicsWorld::StepSimulation() {
 
     std::vector<PhysicsDynamicCollisionPairCandidate> CurrentDynamicPairCandidates{ GetSpatialQuery().QueryDynamicCollisionPairs(ActorRepository) };
     ResolveDynamicCollisions(*this, CurrentDynamicPairCandidates, mSettings.FixedTimeStep);
-    ResolveStaticCollisions(*this, DynamicActors, StaticActors, mSettings.FixedTimeStep);
+    ResolveStaticCollisions(*this, mDynamicActorScratch, mStaticActorScratch, mSettings.FixedTimeStep);
     ResolveKinematicCollisions(ActorRepository, mSettings.Gravity, mSettings.FixedTimeStep);
     mKinematicActorSimulator.MarkSweepStatesConsumed();
 }
@@ -1418,10 +1462,10 @@ bool PhysicsWorld::ResolveKinematicTerrainContact(PhysicsActorBase& Actor) {
 
 void PhysicsWorld::ResolveKinematicTerrainContacts() {
     IPhysicsActorRepository& ActorRepository{ GetActorRepository() };
-    std::vector<PhysicsKinematicActor*> KinematicActors{ ActorRepository.CollectKinematicActors() };
-    std::size_t KinematicActorCount{ KinematicActors.size() };
+    ActorRepository.CollectKinematicActors(mKinematicActorScratch);
+    std::size_t KinematicActorCount{ mKinematicActorScratch.size() };
     for (std::size_t ActorIndex{ 0U }; ActorIndex < KinematicActorCount; ++ActorIndex) {
-        PhysicsKinematicActor* KinematicActor{ KinematicActors[ActorIndex] };
+        PhysicsKinematicActor* KinematicActor{ mKinematicActorScratch[ActorIndex] };
         if (KinematicActor == nullptr) {
             continue;
         }

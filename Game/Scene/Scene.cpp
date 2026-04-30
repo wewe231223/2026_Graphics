@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <memory>
 #include <string_view>
+#include <tuple>
 #include <unordered_set>
 #include "Imgui/imgui.h"
 #include "Core/Config.h"
@@ -145,6 +146,20 @@ namespace {
         return TerrainActorDesc.HeightFieldWidth > 1u && TerrainActorDesc.HeightFieldHeight > 1u && TerrainActorDesc.HeightFieldCellSizeX > 0.0f && TerrainActorDesc.HeightFieldCellSizeZ > 0.0f && TerrainActorDesc.HeightFieldMaxHeight > 0.0f && TerrainActorDesc.HeightFieldValues.size() == ExpectedHeightValueCount;
     }
 
+    void ApplyTerrainActorTransformIfChanged(PhysicsTerrainActor& TerrainActor, const Game::Transform& TransformComponent) {
+        if (TerrainActor.GetPosition() != TransformComponent.position) {
+            TerrainActor.SetPosition(TransformComponent.position);
+        }
+
+        if (TerrainActor.GetRotation() != TransformComponent.rotationEuler) {
+            TerrainActor.SetRotation(TransformComponent.rotationEuler);
+        }
+
+        if (TerrainActor.GetScale() != TransformComponent.scale) {
+            TerrainActor.SetScale(TransformComponent.scale);
+        }
+    }
+
     void AttachPhysicsActorComponent(Arche::World& World, const PendingPhysicsActorBinding& Binding) {
         Game::PhysicsActor* ExistingPhysicsActorComponent{ World.GetComponent<Game::PhysicsActor>(Binding.mEntityId) };
         if (ExistingPhysicsActorComponent != nullptr) {
@@ -162,9 +177,17 @@ namespace {
     }
 
     void SetActorTransformFromComponent(PhysicsActorBase& Actor, const Game::Transform& TransformComponent) {
-        Actor.SetPosition(TransformComponent.position);
-        Actor.SetOrientation(TransformComponent.rotation);
-        Actor.SetScale(TransformComponent.scale);
+        if (Actor.GetPosition() != TransformComponent.position) {
+            Actor.SetPosition(TransformComponent.position);
+        }
+
+        if (Actor.GetOrientation() != TransformComponent.rotation) {
+            Actor.SetOrientation(TransformComponent.rotation);
+        }
+
+        if (Actor.GetScale() != TransformComponent.scale) {
+            Actor.SetScale(TransformComponent.scale);
+        }
     }
 }
 
@@ -288,6 +311,10 @@ namespace Game {
         Settings.Gravity = DirectX::SimpleMath::Vector3{ 0.0f, -9.8f, 0.0f };
         mPhysicsWorld.Initialize(Settings);
         mFrameContext.PhysicsWorldResource = &mPhysicsWorld;
+
+        for (TerrainActorDescBinding& Binding : mTerrainActorDescBindings) {
+            Binding.mIsTerrainActorDescApplied = false;
+        }
     }
 
     void Scene::RebuildPhysicsActors() {
@@ -392,11 +419,21 @@ namespace Game {
                 continue;
             }
 
-            SetActorTransformFromComponent(*ActorPointer, TransformComponent);
-            ActorPointer->SetLocalBoundingBox(BoundingBoxComponent.GetObb());
+            const bool IsActorTransformChanged{ std::make_tuple(ActorPointer->GetPosition(), ActorPointer->GetOrientation(), ActorPointer->GetScale()) != std::make_tuple(TransformComponent.position, TransformComponent.rotation, TransformComponent.scale) };
+            if (IsActorTransformChanged == true) {
+                SetActorTransformFromComponent(*ActorPointer, TransformComponent);
+            }
+
+            const DirectX::BoundingOrientedBox& ComponentLocalBoundingBox{ BoundingBoxComponent.GetObb() };
+            const DirectX::BoundingOrientedBox& ActorLocalBoundingBox{ ActorPointer->GetLocalBoundingBox() };
+            const std::tuple<DirectX::SimpleMath::Vector3, DirectX::SimpleMath::Vector3, DirectX::SimpleMath::Quaternion> ActorLocalBoundingBoxValue{ DirectX::SimpleMath::Vector3{ ActorLocalBoundingBox.Center }, DirectX::SimpleMath::Vector3{ ActorLocalBoundingBox.Extents }, DirectX::SimpleMath::Quaternion{ ActorLocalBoundingBox.Orientation } };
+            const std::tuple<DirectX::SimpleMath::Vector3, DirectX::SimpleMath::Vector3, DirectX::SimpleMath::Quaternion> ComponentLocalBoundingBoxValue{ DirectX::SimpleMath::Vector3{ ComponentLocalBoundingBox.Center }, DirectX::SimpleMath::Vector3{ ComponentLocalBoundingBox.Extents }, DirectX::SimpleMath::Quaternion{ ComponentLocalBoundingBox.Orientation } };
+            if (ActorLocalBoundingBoxValue != ComponentLocalBoundingBoxValue) {
+                ActorPointer->SetLocalBoundingBox(ComponentLocalBoundingBox);
+            }
         }
 
-        for (const TerrainActorDescBinding& BindingSource : mTerrainActorDescBindings) {
+        for (TerrainActorDescBinding& BindingSource : mTerrainActorDescBindings) {
             PhysicsActor* PhysicsActorComponent{ mWorld.GetComponent<PhysicsActor>(BindingSource.mEntityId) };
             Transform* TransformComponent{ mWorld.GetComponent<Transform>(BindingSource.mEntityId) };
             if (PhysicsActorComponent == nullptr || TransformComponent == nullptr || IsValidTerrainActorDesc(BindingSource.mTerrainActorDesc) == false) {
@@ -408,8 +445,14 @@ namespace Game {
                 continue;
             }
 
-            PhysicsTerrainActor::ActorDesc Desc{ BuildPhysicsTerrainActorDesc(BindingSource.mTerrainActorDesc, *TransformComponent) };
-            TerrainActorPointer->SetActorDesc(Desc);
+            if (BindingSource.mIsTerrainActorDescApplied == false) {
+                PhysicsTerrainActor::ActorDesc Desc{ BuildPhysicsTerrainActorDesc(BindingSource.mTerrainActorDesc, *TransformComponent) };
+                TerrainActorPointer->SetActorDesc(Desc);
+                BindingSource.mIsTerrainActorDescApplied = true;
+                continue;
+            }
+
+            ApplyTerrainActorTransformIfChanged(*TerrainActorPointer, *TransformComponent);
         }
 
         mPhysicsWorld.TickKinematicActors(Dt);
@@ -587,7 +630,12 @@ namespace Game {
                 continue;
             }
 
+            const bool IsTerrainActorDescChanged{ std::tie(Binding.mTerrainActorDesc.HalfExtentX, Binding.mTerrainActorDesc.HalfExtentZ, Binding.mTerrainActorDesc.HeightFieldWidth, Binding.mTerrainActorDesc.HeightFieldHeight, Binding.mTerrainActorDesc.HeightFieldCellSizeX, Binding.mTerrainActorDesc.HeightFieldCellSizeZ, Binding.mTerrainActorDesc.HeightFieldMaxHeight, Binding.mTerrainActorDesc.HeightFieldCenterOrigin, Binding.mTerrainActorDesc.HeightFieldValues) != std::tie(TerrainActorDesc.HalfExtentX, TerrainActorDesc.HalfExtentZ, TerrainActorDesc.HeightFieldWidth, TerrainActorDesc.HeightFieldHeight, TerrainActorDesc.HeightFieldCellSizeX, TerrainActorDesc.HeightFieldCellSizeZ, TerrainActorDesc.HeightFieldMaxHeight, TerrainActorDesc.HeightFieldCenterOrigin, TerrainActorDesc.HeightFieldValues) };
             Binding.mTerrainActorDesc = TerrainActorDesc;
+            if (IsTerrainActorDescChanged == true) {
+                Binding.mIsTerrainActorDescApplied = false;
+            }
+
             return;
         }
 

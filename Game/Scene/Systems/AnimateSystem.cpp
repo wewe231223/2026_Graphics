@@ -47,11 +47,7 @@ namespace {
         std::int32_t mSourceClipIndex{ -1 };
         std::int32_t mDestinationClipIndex{ -1 };
 
-        bool operator==(const PoseApplyCacheKey& O) const {
-            return mAnimatorEntityId == O.mAnimatorEntityId && mModel == O.mModel &&
-                mBoneRootEntityId == O.mBoneRootEntityId && mSourceClipIndex == O.mSourceClipIndex &&
-                mDestinationClipIndex == O.mDestinationClipIndex;
-        }
+        bool operator==(const PoseApplyCacheKey& O) const = default;
     };
 
     struct PoseApplyCacheKeyHasher final {
@@ -70,9 +66,7 @@ namespace {
         const Game::Model* mModel{};
         const asset::AnimationClip* mClip{};
 
-        bool operator==(const AnimationChannelLookupCacheKey& O) const {
-            return mModel == O.mModel && mClip == O.mClip;
-        }
+        bool operator==(const AnimationChannelLookupCacheKey& O) const = default;
     };
 
     struct AnimationChannelLookupCacheKeyHasher final {

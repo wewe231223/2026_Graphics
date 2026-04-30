@@ -56,4 +56,5 @@ private:
 private:
     std::vector<PhysicsKinematicActorSweepState> mSweepStates;
     std::vector<const PhysicsKinematicActor*> mTeleportedActors;
+    std::vector<PhysicsKinematicActor*> mKinematicActorScratch;
 };

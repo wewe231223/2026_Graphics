@@ -5,6 +5,7 @@
 #include <fstream>
 #include <functional>
 #include <mutex>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 #include "Utility/ErrorHandler.h"
@@ -1121,7 +1122,7 @@ namespace Game {
 		}
 
 		bool Pipeline::operator==(const Pipeline& other) const {
-			return GetRootSignature() == other.GetRootSignature() && Get() == other.Get();
+			return std::make_tuple(GetRootSignature(), Get()) == std::make_tuple(other.GetRootSignature(), other.Get());
 		}
 
 		bool Pipeline::operator!=(const Pipeline& other) const {

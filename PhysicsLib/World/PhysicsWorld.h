@@ -132,4 +132,8 @@ private:
     std::unique_ptr<IPhysicsActorRepository> mActorRepository;
     std::unique_ptr<IPhysicsSpatialQuery> mSpatialQuery;
     std::vector<PhysicsSimulationEvent> mPublishedEvents;
+    std::vector<PhysicsDynamicActor*> mDynamicActorScratch;
+    std::vector<PhysicsDynamicActor*> mIntegrateDynamicActorScratch;
+    std::vector<const PhysicsStaticActor*> mStaticActorScratch;
+    std::vector<PhysicsKinematicActor*> mKinematicActorScratch;
 };

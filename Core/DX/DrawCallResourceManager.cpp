@@ -1,6 +1,7 @@
 #include "DrawCallResourceManager.h"
 #include <algorithm>
 #include <array>
+#include <tuple>
 #include <vector>
 #include "Core/DX/GraphicsAllocator.h"
 #include "Utility/ErrorHandler.h"
@@ -353,23 +354,7 @@ namespace Core {
 		}
 
 		bool DrawCallResourceManager::CompareDrawRecordByPso(const Game::RFD::DrawRecord& Left, const Game::RFD::DrawRecord& Right) {
-			if (Left.pass != Right.pass) {
-				return Left.pass < Right.pass;
-			}
-
-			if (Left.pso != Right.pso) {
-				return Left.pso < Right.pso;
-			}
-
-			if (Left.mesh != Right.mesh) {
-				return Left.mesh < Right.mesh;
-			}
-
-			if (Left.submesh != Right.submesh) {
-				return Left.submesh < Right.submesh;
-			}
-
-			return false;
+			return std::tie(Left.pass, Left.pso, Left.mesh, Left.submesh) < std::tie(Right.pass, Right.pso, Right.mesh, Right.submesh);
 		}
 
 		void DrawCallResourceManager::SortShadowDrawRecords(std::vector<Game::RFD::DrawRecord>& DrawRecords) {

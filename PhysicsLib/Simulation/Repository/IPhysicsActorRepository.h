@@ -54,4 +54,12 @@ public:
     virtual std::vector<const PhysicsStaticActor*> CollectStaticActors() const = 0;
     virtual std::vector<PhysicsTerrainActor*> CollectTerrainActors() = 0;
     virtual std::vector<const PhysicsTerrainActor*> CollectTerrainActors() const = 0;
+
+    virtual void CollectDynamicActors(std::vector<PhysicsDynamicActor*>& OutActors) = 0;
+    virtual void CollectDynamicActors(std::vector<const PhysicsDynamicActor*>& OutActors) const = 0;
+    virtual void CollectKinematicActors(std::vector<PhysicsKinematicActor*>& OutActors) = 0;
+    virtual void CollectKinematicActors(std::vector<const PhysicsKinematicActor*>& OutActors) const = 0;
+    virtual void CollectStaticActors(std::vector<const PhysicsStaticActor*>& OutActors) const = 0;
+    virtual void CollectTerrainActors(std::vector<PhysicsTerrainActor*>& OutActors) = 0;
+    virtual void CollectTerrainActors(std::vector<const PhysicsTerrainActor*>& OutActors) const = 0;
 };
