@@ -45,6 +45,9 @@ namespace {
             NodeByName[Node->GetName()] = Node;
         }
 
+        std::unordered_map<const ModelNode*, std::vector<DirectX::XMFLOAT3>> BoneNodePositionMap{};
+        BoneNodePositionMap.reserve(Nodes.size());
+
         for (const ModelNode* Node : Nodes) {
             if (Node->IsSkinnedMesh() == false) {
                 DirectX::BoundingOrientedBox BoundingBox{};
@@ -62,9 +65,6 @@ namespace {
             if (Positions.empty() == true || BoneIndices.size() != Positions.size() || BoneWeights.size() != Positions.size() || BoneInfos.empty() == true) {
                 continue;
             }
-
-            std::unordered_map<std::string, std::vector<DirectX::XMFLOAT3>> BonePositionMap{};
-            BonePositionMap.reserve(BoneInfos.size());
 
             for (std::size_t VertexIndex{ 0 }; VertexIndex < Positions.size(); ++VertexIndex) {
                 const UVec4& VertexBoneIndices{ BoneIndices[VertexIndex] };
@@ -88,26 +88,26 @@ namespace {
                     continue;
                 }
 
-                const Vec3& Position{ Positions[VertexIndex] };
-                const SimpleMath::Vector3 PositionVector{ Position.x, Position.y, Position.z };
-                const SimpleMath::Vector3 BoneLocalPosition{ SimpleMath::Vector3::Transform(PositionVector, BoneInfoIter->InverseBindMatrix) };
-                BonePositionMap[BoneInfoIter->BoneName].push_back(DirectX::XMFLOAT3{ BoneLocalPosition.x, BoneLocalPosition.y, BoneLocalPosition.z });
-            }
-
-            for (const auto& [BoneName, BonePositions] : BonePositionMap) {
-                const auto NodeIter{ NodeByName.find(BoneName) };
+                const auto NodeIter{ NodeByName.find(BoneInfoIter->BoneName) };
                 if (NodeIter == NodeByName.end()) {
                     continue;
                 }
 
-                DirectX::BoundingOrientedBox BoneBoundingBox{};
-                const bool IsBuilt{ TryBuildObbFromPoints(BonePositions, BoneBoundingBox) };
-                if (IsBuilt == false) {
-                    continue;
-                }
-
-                NodeBoundingBoxes[NodeIter->second] = BoneBoundingBox;
+                const Vec3& Position{ Positions[VertexIndex] };
+                const SimpleMath::Vector3 PositionVector{ Position.x, Position.y, Position.z };
+                const SimpleMath::Vector3 BoneLocalPosition{ SimpleMath::Vector3::Transform(PositionVector, BoneInfoIter->InverseBindMatrix) };
+                BoneNodePositionMap[NodeIter->second].push_back(DirectX::XMFLOAT3{ BoneLocalPosition.x, BoneLocalPosition.y, BoneLocalPosition.z });
             }
+        }
+
+        for (const auto& [BoneNode, BonePositions] : BoneNodePositionMap) {
+            DirectX::BoundingOrientedBox BoneBoundingBox{};
+            const bool IsBuilt{ TryBuildObbFromPoints(BonePositions, BoneBoundingBox) };
+            if (IsBuilt == false) {
+                continue;
+            }
+
+            NodeBoundingBoxes[BoneNode] = BoneBoundingBox;
         }
 
         return NodeBoundingBoxes;
