@@ -196,6 +196,7 @@ add_library(Game STATIC
     Game/Scene/IK/FootIKAlgorithms.cpp
     Game/Scene/Systems/FootIKSystem.cpp
     Game/Scene/Systems/PhysicsActorUpdateSystem.cpp
+    Game/Scene/Systems/TransformWorldSystem.cpp
     Game/Scene/Systems/SkinnedMeshPrepareSystem.cpp
     Game/Scene/Systems/ShadowMappingParameterSystem.cpp
     Game/Scene/Systems/StaticRenderSystem.cpp
@@ -316,6 +317,11 @@ add_executable(AssetZIP
 target_include_directories(AssetZIP PRIVATE
     ${GraphicsRoot}
     ${ExternalIncludeDir}
+)
+
+target_link_directories(AssetZIP PRIVATE
+    $<$<CONFIG:Debug>:${ExternalLibDirDebug}>
+    $<$<CONFIG:Release>:${ExternalLibDirRelease}>
 )
 
 target_link_libraries(AssetZIP PRIVATE

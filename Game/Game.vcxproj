@@ -83,6 +83,7 @@
     <ClInclude Include="Scene\Systems\PhysicsActorUpdateSystem.h" />
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
     <ClInclude Include="Scene\Systems\ShadowMappingParameterSystem.h" />
+    <ClInclude Include="Scene\Systems\TransformWorldSystem.h" />
     <ClInclude Include="Scene\Systems\SkinnedMeshPrepareSystem.h" />
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
     <ClInclude Include="Scene\Systems\TerrainRenderSystem.h" />
@@ -149,6 +150,7 @@
     <ClCompile Include="Scene\Systems\PhysicsActorUpdateSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\ShadowMappingParameterSystem.cpp" />
+    <ClCompile Include="Scene\Systems\TransformWorldSystem.cpp" />
     <ClCompile Include="Scene\Systems\SkinnedMeshPrepareSystem.cpp" />
     <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\TerrainRenderSystem.cpp" />

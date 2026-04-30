@@ -5,6 +5,7 @@ Systems:
   - Type: AnimateSystem
   - Type: FootIKSystem
   - Type: PhysicsActorUpdateSystem
+  - Type: TransformWorldSystem
   - Type: SkinnedMeshPrepareSystem
   - Type: StaticRenderSystem
   - Type: TerrainRenderSystem

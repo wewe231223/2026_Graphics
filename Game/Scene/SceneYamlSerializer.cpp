@@ -42,6 +42,7 @@
 #include "Game/Scene/Systems/SkinnedMeshRenderSystem.h"
 #include "Game/Scene/Systems/StaticRenderSystem.h"
 #include "Game/Scene/Systems/TerrainRenderSystem.h"
+#include "Game/Scene/Systems/TransformWorldSystem.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
 #include "Game/Scene/Systems/ShadowMappingParameterSystem.h"
 #include "Game/Scene/SceneEntityFactory.h"
@@ -222,6 +223,7 @@ namespace {
             { "SkinnedMeshPrepareSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshPrepareSystem>(); } },
             { "StaticRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::StaticRenderSystem>(); } },
             { "TerrainRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TerrainRenderSystem>(); } },
+            { "TransformWorldSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TransformWorldSystem>(); } },
             { "SkinnedMeshRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshRenderSystem>(); } },
             { "AnimationGraphSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimationGraphSystem>(); } },
             { "AnimateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimateSystem>(); } },
