@@ -200,6 +200,7 @@ add_library(Game STATIC
     Game/Scene/Systems/SkinnedMeshPrepareSystem.cpp
     Game/Scene/Systems/ShadowMappingParameterSystem.cpp
     Game/Scene/Systems/StaticRenderSystem.cpp
+    Game/Scene/Systems/TerrainStreamingSystem.cpp
     Game/Scene/Systems/TerrainRenderSystem.cpp
     Game/Scene/Systems/SkinnedMeshRenderSystem.cpp
     Script/Core/LuaScriptFramework.cpp

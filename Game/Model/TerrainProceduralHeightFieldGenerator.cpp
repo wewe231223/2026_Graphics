@@ -207,7 +207,7 @@ namespace {
         }
     }
 
-    float CalculateFractalHeight01(const Game::TerrainProceduralHeightFieldDesc& Desc, std::uint32_t X, std::uint32_t Z) {
+    float CalculateFractalHeight01(const Game::TerrainProceduralHeightFieldDesc& Desc, std::int32_t X, std::int32_t Z) {
         float Frequency{ Desc.mInitialFrequency / Desc.mNoiseScale };
         float Amplitude{ Desc.mInitialAmplitude };
         float NoiseSum{ 0.0f };
@@ -265,6 +265,45 @@ namespace {
             ApplySmoothingPass(Field, TemporaryValues, RowIndices, Desc);
         }
     }
+
+    Game::HeightFieldData GenerateRawHeightField(const Game::TerrainProceduralHeightFieldDesc& Desc, std::uint32_t Width, std::uint32_t Height, std::int32_t SampleOffsetX, std::int32_t SampleOffsetZ) {
+        Game::HeightFieldData Field{};
+        Field.Width = Width;
+        Field.Height = Height;
+        const std::size_t PixelCount{ static_cast<std::size_t>(Field.Width) * static_cast<std::size_t>(Field.Height) };
+        Field.HeightValues.resize(PixelCount);
+
+        const std::vector<std::uint32_t> RowIndices{ CreateRowIndices(Field.Height) };
+        std::for_each(std::execution::par, RowIndices.cbegin(), RowIndices.cend(), [&](std::uint32_t Z) {
+            for (std::uint32_t X{ 0u }; X < Field.Width; ++X) {
+                const std::int32_t SampleX{ SampleOffsetX + static_cast<std::int32_t>(X) };
+                const std::int32_t SampleZ{ SampleOffsetZ + static_cast<std::int32_t>(Z) };
+                const std::size_t Index{ CalculateHeightIndex(Field.Width, X, Z) };
+                Field.HeightValues[Index] = CalculateFractalHeight01(Desc, SampleX, SampleZ);
+            }
+        });
+
+        return Field;
+    }
+
+    Game::HeightFieldData CropHeightField(const Game::HeightFieldData& SourceField, std::uint32_t Width, std::uint32_t Height, std::uint32_t StartX, std::uint32_t StartZ) {
+        Game::HeightFieldData Field{};
+        Field.Width = Width;
+        Field.Height = Height;
+        const std::size_t PixelCount{ static_cast<std::size_t>(Field.Width) * static_cast<std::size_t>(Field.Height) };
+        Field.HeightValues.resize(PixelCount);
+
+        const std::vector<std::uint32_t> RowIndices{ CreateRowIndices(Field.Height) };
+        std::for_each(std::execution::par, RowIndices.cbegin(), RowIndices.cend(), [&](std::uint32_t Z) {
+            for (std::uint32_t X{ 0u }; X < Field.Width; ++X) {
+                const std::size_t SourceIndex{ CalculateHeightIndex(SourceField.Width, StartX + X, StartZ + Z) };
+                const std::size_t TargetIndex{ CalculateHeightIndex(Field.Width, X, Z) };
+                Field.HeightValues[TargetIndex] = SourceField.HeightValues[SourceIndex];
+            }
+        });
+
+        return Field;
+    }
 }
 
 namespace Game {
@@ -309,21 +348,17 @@ namespace Game {
     HeightFieldData TerrainProceduralHeightFieldGenerator::Generate(const TerrainProceduralHeightFieldDesc& Desc) const {
         ValidateProceduralHeightFieldDesc(Desc);
 
-        HeightFieldData Field{};
-        Field.Width = Desc.mWidth;
-        Field.Height = Desc.mHeight;
-        const std::size_t PixelCount{ static_cast<std::size_t>(Field.Width) * static_cast<std::size_t>(Field.Height) };
-        Field.HeightValues.resize(PixelCount);
+        const std::uint32_t Padding{ Desc.mSmoothingPassCount };
+        if (Padding == 0u) {
+            return GenerateRawHeightField(Desc, Desc.mWidth, Desc.mHeight, Desc.mSampleOffsetX, Desc.mSampleOffsetZ);
+        }
 
-        const std::vector<std::uint32_t> RowIndices{ CreateRowIndices(Field.Height) };
-        std::for_each(std::execution::par, RowIndices.cbegin(), RowIndices.cend(), [&](std::uint32_t Z) {
-            for (std::uint32_t X{ 0u }; X < Field.Width; ++X) {
-                const std::size_t Index{ CalculateHeightIndex(Field.Width, X, Z) };
-                Field.HeightValues[Index] = CalculateFractalHeight01(Desc, X, Z);
-            }
-        });
-
-        SmoothHeightField(Field, Desc);
-        return Field;
+        const std::uint32_t ExpandedWidth{ Desc.mWidth + (Padding * 2u) };
+        const std::uint32_t ExpandedHeight{ Desc.mHeight + (Padding * 2u) };
+        const std::int32_t ExpandedSampleOffsetX{ Desc.mSampleOffsetX - static_cast<std::int32_t>(Padding) };
+        const std::int32_t ExpandedSampleOffsetZ{ Desc.mSampleOffsetZ - static_cast<std::int32_t>(Padding) };
+        HeightFieldData ExpandedField{ GenerateRawHeightField(Desc, ExpandedWidth, ExpandedHeight, ExpandedSampleOffsetX, ExpandedSampleOffsetZ) };
+        SmoothHeightField(ExpandedField, Desc);
+        return CropHeightField(ExpandedField, Desc.mWidth, Desc.mHeight, Padding, Padding);
     }
 }

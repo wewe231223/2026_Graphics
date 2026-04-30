@@ -35,10 +35,13 @@ namespace Game {
         TerrainRenderResource& operator=(TerrainRenderResource&& Other) noexcept;
 
     public:
-        void Initialize(std::shared_ptr<Model> ModelValue, std::vector<TerrainTileMetadata> TileMetadataValue, std::uint32_t TileQuadCountValue, std::uint32_t TileCountXValue, std::uint32_t TileCountZValue, std::uint32_t LodCountValue, std::vector<float> LodDistancesValue, const DirectX::BoundingOrientedBox& LocalBoundingBoxValue);
+        void Initialize(std::shared_ptr<Model> ModelValue, std::vector<TerrainTileMetadata> TileMetadataValue, std::uint32_t TileQuadCountValue, std::uint32_t TileCountXValue, std::uint32_t TileCountZValue, std::uint32_t LodCountValue, std::vector<float> LodDistancesValue, const DirectX::BoundingOrientedBox& LocalBoundingBoxValue, const TerrainBuildDesc& BuildDescValue);
         bool InitializeHeightField(const HeightFieldData& Field, const TerrainBuildDesc& Desc, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        bool UpdateStreaming(const SimpleMath::Vector3& FocusPosition, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
         const std::shared_ptr<Model>& GetModel() const;
         const std::vector<TerrainTileMetadata>& GetTileMetadata() const;
+        const TerrainBuildDesc& GetBuildDesc() const;
+        const HeightFieldData& GetHeightFieldData() const;
         std::uint32_t GetTileQuadCount() const;
         std::uint32_t GetTileCountX() const;
         std::uint32_t GetTileCountZ() const;
@@ -54,10 +57,20 @@ namespace Game {
         float GetOriginOffsetX() const;
         float GetOriginOffsetZ() const;
         bool IsHeightFieldFlipV() const;
+        bool IsStreamingEnabled() const;
+        std::int32_t GetStreamOriginGridX() const;
+        std::int32_t GetStreamOriginGridZ() const;
+        float GetStreamWorldOriginX() const;
+        float GetStreamWorldOriginZ() const;
+
+    private:
+        bool UploadHeightFieldData(const HeightFieldData& Field, const TerrainBuildDesc& Desc, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
 
     private:
         std::shared_ptr<Model> mModel{};
         std::vector<TerrainTileMetadata> mTileMetadata{};
+        TerrainBuildDesc mBuildDesc{};
+        HeightFieldData mHeightFieldData{};
         std::uint32_t mTileQuadCount{ 0 };
         std::uint32_t mTileCountX{ 0 };
         std::uint32_t mTileCountZ{ 0 };
@@ -76,5 +89,10 @@ namespace Game {
         float mOriginOffsetX{ 0.0f };
         float mOriginOffsetZ{ 0.0f };
         bool mHeightFieldFlipV{ false };
+        std::int32_t mStreamOriginGridX{ 0 };
+        std::int32_t mStreamOriginGridZ{ 0 };
+        float mStreamWorldOriginX{ 0.0f };
+        float mStreamWorldOriginZ{ 0.0f };
+        bool mHasStreamOrigin{ false };
     };
 }

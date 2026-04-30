@@ -1,4 +1,4 @@
-local WalkMoveSpeed = 4.0
+local WalkMoveSpeed = 20.0
 local RunMoveSpeed = 9.0
 local WalkMoveForce = 24.0
 local RunMoveForce = 52.0

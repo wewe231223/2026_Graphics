@@ -42,6 +42,14 @@ namespace {
         Node[Key] >> OutValue;
     }
 
+    void ReadInt32Child(c4::yml::ConstNodeRef Node, const char* Key, std::int32_t& OutValue) {
+        if (Node.has_child(Key) == false) {
+            return;
+        }
+
+        Node[Key] >> OutValue;
+    }
+
     void ReadFloatChild(c4::yml::ConstNodeRef Node, const char* Key, float& OutValue) {
         if (Node.has_child(Key) == false) {
             return;
@@ -70,6 +78,8 @@ namespace {
         ReadFloatChild(ConfigNode, "MaximumHeightValue", Desc.mMaximumHeightValue);
         ReadFloatChild(ConfigNode, "SampleScaleX", Desc.mSampleScaleX);
         ReadFloatChild(ConfigNode, "SampleScaleZ", Desc.mSampleScaleZ);
+        ReadInt32Child(ConfigNode, "SampleOffsetX", Desc.mSampleOffsetX);
+        ReadInt32Child(ConfigNode, "SampleOffsetZ", Desc.mSampleOffsetZ);
         ReadFloatChild(ConfigNode, "InitialFrequency", Desc.mInitialFrequency);
         ReadFloatChild(ConfigNode, "InitialAmplitude", Desc.mInitialAmplitude);
         ReadUInt32Child(ConfigNode, "OctaveSeedStep", Desc.mOctaveSeedStep);

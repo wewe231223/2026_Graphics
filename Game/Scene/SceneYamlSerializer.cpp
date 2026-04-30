@@ -42,6 +42,7 @@
 #include "Game/Scene/Systems/SkinnedMeshRenderSystem.h"
 #include "Game/Scene/Systems/StaticRenderSystem.h"
 #include "Game/Scene/Systems/TerrainRenderSystem.h"
+#include "Game/Scene/Systems/TerrainStreamingSystem.h"
 #include "Game/Scene/Systems/TransformWorldSystem.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
 #include "Game/Scene/Systems/ShadowMappingParameterSystem.h"
@@ -222,6 +223,7 @@ namespace {
         static const std::unordered_map<std::string_view, SystemFactory> SystemFactories{
             { "SkinnedMeshPrepareSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshPrepareSystem>(); } },
             { "StaticRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::StaticRenderSystem>(); } },
+            { "TerrainStreamingSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TerrainStreamingSystem>(); } },
             { "TerrainRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TerrainRenderSystem>(); } },
             { "TransformWorldSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::TransformWorldSystem>(); } },
             { "SkinnedMeshRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::SkinnedMeshRenderSystem>(); } },
@@ -1033,6 +1035,14 @@ namespace {
             ProceduralNode["SampleScaleZ"] >> OutDesc.mSampleScaleZ;
         }
 
+        if (ProceduralNode.has_child("SampleOffsetX")) {
+            ProceduralNode["SampleOffsetX"] >> OutDesc.mSampleOffsetX;
+        }
+
+        if (ProceduralNode.has_child("SampleOffsetZ")) {
+            ProceduralNode["SampleOffsetZ"] >> OutDesc.mSampleOffsetZ;
+        }
+
         if (ProceduralNode.has_child("InitialFrequency")) {
             ProceduralNode["InitialFrequency"] >> OutDesc.mInitialFrequency;
         }
@@ -1232,6 +1242,21 @@ namespace {
             }
         }
 
+        if (TerrainNode.has_child("StreamingEnabled")) {
+            std::string ValueText{};
+            TerrainNode["StreamingEnabled"] >> ValueText;
+            bool Value{};
+            if (TryParseYamlBoolText(ValueText, Value) == false) {
+                return false;
+            }
+
+            OutDesc.mStreamingEnabled = Value;
+        }
+
+        if (TerrainNode.has_child("StreamingGridStep")) {
+            TerrainNode["StreamingGridStep"] >> OutDesc.mStreamingGridStep;
+        }
+
         return true;
     }
 
@@ -1340,6 +1365,14 @@ namespace {
                 }
                 else if (Key == "ProceduralSampleScaleZ") {
                     OutDesc.mProceduralHeightFieldDesc.mSampleScaleZ = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralSampleOffsetX") {
+                    OutDesc.mProceduralHeightFieldDesc.mSampleOffsetX = static_cast<std::int32_t>(std::stol(Value));
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
+                else if (Key == "ProceduralSampleOffsetZ") {
+                    OutDesc.mProceduralHeightFieldDesc.mSampleOffsetZ = static_cast<std::int32_t>(std::stol(Value));
                     OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralInitialFrequency") {
@@ -1465,6 +1498,17 @@ namespace {
 
                     OutDesc.LodDistances = std::move(LodDistances);
                 }
+                else if (Key == "StreamingEnabled") {
+                    bool BoolValue{};
+                    if (TryParseYamlBoolText(Value, BoolValue) == false) {
+                        return false;
+                    }
+
+                    OutDesc.mStreamingEnabled = BoolValue;
+                }
+                else if (Key == "StreamingGridStep") {
+                    OutDesc.mStreamingGridStep = static_cast<std::uint32_t>(std::stoul(Value));
+                }
                 else {
                     return false;
                 }
@@ -1507,6 +1551,8 @@ namespace {
         AppendLine(Stream, IndentLevel + 1, std::string{ "MaximumHeightValue: " } + std::to_string(Desc.mMaximumHeightValue));
         AppendLine(Stream, IndentLevel + 1, std::string{ "SampleScaleX: " } + std::to_string(Desc.mSampleScaleX));
         AppendLine(Stream, IndentLevel + 1, std::string{ "SampleScaleZ: " } + std::to_string(Desc.mSampleScaleZ));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "SampleOffsetX: " } + std::to_string(Desc.mSampleOffsetX));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "SampleOffsetZ: " } + std::to_string(Desc.mSampleOffsetZ));
         AppendLine(Stream, IndentLevel + 1, std::string{ "InitialFrequency: " } + std::to_string(Desc.mInitialFrequency));
         AppendLine(Stream, IndentLevel + 1, std::string{ "InitialAmplitude: " } + std::to_string(Desc.mInitialAmplitude));
         AppendLine(Stream, IndentLevel + 1, std::string{ "OctaveSeedStep: " } + std::to_string(Desc.mOctaveSeedStep));
@@ -1551,6 +1597,8 @@ namespace {
         AppendLine(Stream, IndentLevel + 1, std::string{ "TileQuadCount: " } + std::to_string(Desc.TileQuadCount));
         AppendLine(Stream, IndentLevel + 1, std::string{ "LodCount: " } + std::to_string(Desc.LodCount));
         AppendLine(Stream, IndentLevel + 1, std::string{ "LodDistances: [" } + BuildFloatListText(Desc.LodDistances) + std::string{ "]" });
+        AppendLine(Stream, IndentLevel + 1, std::string{ "StreamingEnabled: " } + ToYamlBooleanText(Desc.mStreamingEnabled));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "StreamingGridStep: " } + std::to_string(Desc.mStreamingGridStep));
     }
 
     void AppendVector3(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& Key, const SimpleMath::Vector3& Value) {

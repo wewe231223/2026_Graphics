@@ -123,6 +123,8 @@ namespace {
         AppendTerrainKeyHashFloat(Hash, Desc.mMaximumHeightValue);
         AppendTerrainKeyHashFloat(Hash, Desc.mSampleScaleX);
         AppendTerrainKeyHashFloat(Hash, Desc.mSampleScaleZ);
+        AppendTerrainKeyHashUInt32(Hash, static_cast<std::uint32_t>(Desc.mSampleOffsetX));
+        AppendTerrainKeyHashUInt32(Hash, static_cast<std::uint32_t>(Desc.mSampleOffsetZ));
         AppendTerrainKeyHashFloat(Hash, Desc.mInitialFrequency);
         AppendTerrainKeyHashFloat(Hash, Desc.mInitialAmplitude);
         AppendTerrainKeyHashUInt32(Hash, Desc.mOctaveSeedStep);
@@ -157,6 +159,8 @@ namespace {
         AppendTerrainKeyHashUInt32(Hash, Desc.TileQuadCount);
         AppendTerrainKeyHashUInt32(Hash, Desc.LodCount);
         AppendTerrainKeyHashFloatVector(Hash, Desc.LodDistances);
+        AppendTerrainKeyHashBool(Hash, Desc.mStreamingEnabled);
+        AppendTerrainKeyHashUInt32(Hash, Desc.mStreamingGridStep);
         return Hash;
     }
 
@@ -329,7 +333,7 @@ namespace Game {
         }
 
         std::shared_ptr<TerrainRenderResource> NewResource{ std::make_shared<TerrainRenderResource>() };
-        NewResource->Initialize(NewModel, std::move(TiledMeshData.mTileMetadata), TiledMeshData.mTileQuadCount, TiledMeshData.mTileCountX, TiledMeshData.mTileCountZ, TiledMeshData.mLodCount, std::move(TiledMeshData.mLodDistances), TiledMeshData.mLocalBoundingBox);
+        NewResource->Initialize(NewModel, std::move(TiledMeshData.mTileMetadata), TiledMeshData.mTileQuadCount, TiledMeshData.mTileCountX, TiledMeshData.mTileCountZ, TiledMeshData.mLodCount, std::move(TiledMeshData.mLodDistances), TiledMeshData.mLocalBoundingBox, Desc);
         if (mDevice != nullptr && mCopyQueue != nullptr && mAllocator != nullptr && mSrvHeap != nullptr) {
             const bool IsHeightFieldInitialized{ NewResource->InitializeHeightField(HeightField, Desc, mDevice, mCopyQueue, mAllocator, mSrvHeap) };
             if (IsHeightFieldInitialized == false) {
@@ -342,6 +346,14 @@ namespace Game {
         TerrainBucket.mAssets.push_back(NewResource);
         TerrainBucket.mNameLookup.insert_or_assign(TerrainKey, NewIndex);
         return NewResource;
+    }
+
+    bool AssetRegistry::UpdateTerrainStreaming(TerrainRenderResource& Resource, const SimpleMath::Vector3& FocusPosition) {
+        if (mDevice == nullptr || mCopyQueue == nullptr || mAllocator == nullptr || mSrvHeap == nullptr) {
+            return false;
+        }
+
+        return Resource.UpdateStreaming(FocusPosition, mDevice, mCopyQueue, mAllocator, mSrvHeap);
     }
 
     std::shared_ptr<asset::Animation> AssetRegistry::GetAnimation(const std::string& AnimationBinaryPath) {

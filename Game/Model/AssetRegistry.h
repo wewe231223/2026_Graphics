@@ -54,6 +54,7 @@ namespace Game {
 
         std::shared_ptr<Model> GetModel(const std::string& ModelBinaryPath);
         std::shared_ptr<TerrainRenderResource> GetTerrainRenderResource(const TerrainBuildDesc& Desc);
+        bool UpdateTerrainStreaming(TerrainRenderResource& Resource, const SimpleMath::Vector3& FocusPosition);
         std::shared_ptr<asset::Animation> GetAnimation(const std::string& AnimationBinaryPath);
         std::shared_ptr<AnimationGraphAsset> GetAnimationGraph(const std::string& AnimationGraphPath);
         bool LoadMaterialGroups(const std::string& MaterialJsonPath);

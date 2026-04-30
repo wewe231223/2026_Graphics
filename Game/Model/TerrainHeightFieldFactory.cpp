@@ -1,6 +1,7 @@
 #include "TerrainHeightFieldFactory.h"
 
 #include "Game/Model/HeightMapLoader.h"
+#include "Game/Model/TerrainProceduralHeightFieldConfigLoader.h"
 #include "Game/Model/TerrainProceduralHeightFieldGenerator.h"
 
 namespace Game {
@@ -32,7 +33,14 @@ namespace Game {
         if (Desc.mHeightSourceType == TerrainHeightSourceType::Procedural) {
             TerrainProceduralHeightFieldGenerator Generator{};
             if (Desc.mProceduralHeightFieldPath.empty() == false) {
-                return Generator.GenerateFromConfig(Desc.mProceduralHeightFieldPath);
+                TerrainProceduralHeightFieldConfigLoader ConfigLoader{};
+                TerrainProceduralHeightFieldDesc ProceduralDesc{ ConfigLoader.Load(Desc.mProceduralHeightFieldPath) };
+                if (Desc.mStreamingEnabled == true || Desc.mProceduralHeightFieldDesc.mSampleOffsetX != 0 || Desc.mProceduralHeightFieldDesc.mSampleOffsetZ != 0) {
+                    ProceduralDesc.mSampleOffsetX = Desc.mProceduralHeightFieldDesc.mSampleOffsetX;
+                    ProceduralDesc.mSampleOffsetZ = Desc.mProceduralHeightFieldDesc.mSampleOffsetZ;
+                }
+
+                return Generator.Generate(ProceduralDesc);
             }
 
             return Generator.Generate(Desc.mProceduralHeightFieldDesc);

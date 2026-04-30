@@ -5,6 +5,7 @@ Systems:
   - Type: AnimateSystem
   - Type: FootIKSystem
   - Type: PhysicsActorUpdateSystem
+  - Type: TerrainStreamingSystem
   - Type: TransformWorldSystem
   - Type: SkinnedMeshPrepareSystem
   - Type: StaticRenderSystem
@@ -240,6 +241,8 @@ Entities:
         TileQuadCount: 56
         LodCount: 8
         LodDistances: [45.0, 75.0, 110.0, 155.0, 220.0, 310.0, 430.0]
+        StreamingEnabled: true
+        StreamingGridStep: 56
         active: true
   - EntityId: 43
     ParentEntityId: -1

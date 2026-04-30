@@ -31,6 +31,8 @@ namespace Game {
         float mMaximumHeightValue{ 1.0f };
         float mSampleScaleX{ 1.0f };
         float mSampleScaleZ{ 1.0f };
+        std::int32_t mSampleOffsetX{ 0 };
+        std::int32_t mSampleOffsetZ{ 0 };
         float mInitialFrequency{ 1.0f };
         float mInitialAmplitude{ 1.0f };
         std::uint32_t mOctaveSeedStep{ 1013 };
@@ -67,6 +69,8 @@ namespace Game {
         std::uint32_t TileQuadCount{ 56 };
         std::uint32_t LodCount{ 8 };
         std::vector<float> LodDistances{ 45.0f, 75.0f, 110.0f, 155.0f, 220.0f, 310.0f, 430.0f };
+        bool mStreamingEnabled{ false };
+        std::uint32_t mStreamingGridStep{ 0 };
     };
 
     struct HeightFieldData final {

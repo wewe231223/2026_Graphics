@@ -86,6 +86,7 @@
     <ClInclude Include="Scene\Systems\TransformWorldSystem.h" />
     <ClInclude Include="Scene\Systems\SkinnedMeshPrepareSystem.h" />
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
+    <ClInclude Include="Scene\Systems\TerrainStreamingSystem.h" />
     <ClInclude Include="Scene\Systems\TerrainRenderSystem.h" />
     <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h" />
   </ItemGroup>
@@ -153,6 +154,7 @@
     <ClCompile Include="Scene\Systems\TransformWorldSystem.cpp" />
     <ClCompile Include="Scene\Systems\SkinnedMeshPrepareSystem.cpp" />
     <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />
+    <ClCompile Include="Scene\Systems\TerrainStreamingSystem.cpp" />
     <ClCompile Include="Scene\Systems\TerrainRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\SkinnedMeshRenderSystem.cpp" />
   </ItemGroup>
