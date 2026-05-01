@@ -13,8 +13,8 @@ namespace Game {
     };
 
     struct TerrainProceduralHeightFieldDesc final {
-        std::uint32_t mWidth{ 257 };
-        std::uint32_t mHeight{ 257 };
+        std::uint32_t mWidth{ 1025 };
+        std::uint32_t mHeight{ 1025 };
         std::uint32_t mSeed{ 2026 };
         std::uint32_t mOctaveCount{ 3 };
         float mNoiseScale{ 220.0f };
@@ -22,6 +22,7 @@ namespace Game {
         float mLacunarity{ 1.7f };
         float mBaseHeight{ 0.2f };
         float mHeightAmplitude{ 0.45f };
+        float mLodExponent{ 1.5f };
         std::uint32_t mSmoothingPassCount{ 2 };
         std::uint32_t mMinimumWidth{ 2 };
         std::uint32_t mMinimumHeight{ 2 };
@@ -68,7 +69,7 @@ namespace Game {
         bool CenterOrigin{ false };
         std::uint32_t TileQuadCount{ 56 };
         std::uint32_t LodCount{ 8 };
-        std::vector<float> LodDistances{ 45.0f, 75.0f, 110.0f, 155.0f, 220.0f, 310.0f, 430.0f };
+        std::vector<float> LodDistances{ 80.0f, 140.0f, 230.0f, 340.0f, 470.0f, 600.0f, 720.0f };
         bool mStreamingEnabled{ false };
         std::uint32_t mStreamingGridStep{ 0 };
     };

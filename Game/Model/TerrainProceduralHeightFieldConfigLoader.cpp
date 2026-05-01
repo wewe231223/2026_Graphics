@@ -69,6 +69,7 @@ namespace {
         ReadFloatChild(ConfigNode, "Lacunarity", Desc.mLacunarity);
         ReadFloatChild(ConfigNode, "BaseHeight", Desc.mBaseHeight);
         ReadFloatChild(ConfigNode, "HeightAmplitude", Desc.mHeightAmplitude);
+        ReadFloatChild(ConfigNode, "LodExponent", Desc.mLodExponent);
         ReadUInt32Child(ConfigNode, "SmoothingPassCount", Desc.mSmoothingPassCount);
         ReadUInt32Child(ConfigNode, "MinimumWidth", Desc.mMinimumWidth);
         ReadUInt32Child(ConfigNode, "MinimumHeight", Desc.mMinimumHeight);

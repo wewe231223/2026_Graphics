@@ -999,6 +999,10 @@ namespace {
             ProceduralNode["HeightAmplitude"] >> OutDesc.mHeightAmplitude;
         }
 
+        if (ProceduralNode.has_child("LodExponent")) {
+            ProceduralNode["LodExponent"] >> OutDesc.mLodExponent;
+        }
+
         if (ProceduralNode.has_child("SmoothingPassCount")) {
             ProceduralNode["SmoothingPassCount"] >> OutDesc.mSmoothingPassCount;
         }
@@ -1331,6 +1335,10 @@ namespace {
                     OutDesc.mProceduralHeightFieldDesc.mHeightAmplitude = std::stof(Value);
                     OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
                 }
+                else if (Key == "ProceduralLodExponent") {
+                    OutDesc.mProceduralHeightFieldDesc.mLodExponent = std::stof(Value);
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
                 else if (Key == "ProceduralSmoothingPassCount") {
                     OutDesc.mProceduralHeightFieldDesc.mSmoothingPassCount = static_cast<std::uint32_t>(std::stoul(Value));
                     OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
@@ -1542,6 +1550,7 @@ namespace {
         AppendLine(Stream, IndentLevel + 1, std::string{ "Lacunarity: " } + std::to_string(Desc.mLacunarity));
         AppendLine(Stream, IndentLevel + 1, std::string{ "BaseHeight: " } + std::to_string(Desc.mBaseHeight));
         AppendLine(Stream, IndentLevel + 1, std::string{ "HeightAmplitude: " } + std::to_string(Desc.mHeightAmplitude));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "LodExponent: " } + std::to_string(Desc.mLodExponent));
         AppendLine(Stream, IndentLevel + 1, std::string{ "SmoothingPassCount: " } + std::to_string(Desc.mSmoothingPassCount));
         AppendLine(Stream, IndentLevel + 1, std::string{ "MinimumWidth: " } + std::to_string(Desc.mMinimumWidth));
         AppendLine(Stream, IndentLevel + 1, std::string{ "MinimumHeight: " } + std::to_string(Desc.mMinimumHeight));

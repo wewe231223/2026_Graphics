@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cmath>
 #include <vector>
 #include <utility>
 #include "Game/Model/AssetRegistry.h"
@@ -42,6 +43,35 @@ namespace {
         const std::uint32_t Factor{ (std::max)(BaseFactor / TerrainTessFactorDivisors[DivisorIndex], 1u) };
 
         return static_cast<float>(Factor);
+    }
+
+    float ResolveTerrainMaxLodDistance(const std::vector<float>& LodDistances) {
+        float MaxLodDistance{ 0.0f };
+        for (const float LodDistance : LodDistances) {
+            MaxLodDistance = (std::max)(MaxLodDistance, LodDistance);
+        }
+
+        return MaxLodDistance;
+    }
+
+    float CalculateTerrainExponentialLodRatio(float Distance, float MaxDistance, float LodExponent) {
+        if (MaxDistance <= 0.0f) {
+            return 0.0f;
+        }
+
+        if (LodExponent <= 0.0f) {
+            return std::clamp(Distance / MaxDistance, 0.0f, 1.0f);
+        }
+
+        const float NormalizedDistance{ std::clamp(Distance / MaxDistance, 0.0f, 1.0f) };
+        const float ExponentDenominator{ static_cast<float>(std::exp(static_cast<double>(LodExponent)) - 1.0) };
+        if (ExponentDenominator <= 0.0f) {
+            return NormalizedDistance;
+        }
+
+        const double ExponentValue{ static_cast<double>(LodExponent) * static_cast<double>(NormalizedDistance) };
+        const float ExponentNumerator{ static_cast<float>(std::exp(ExponentValue) - 1.0) };
+        return std::clamp(ExponentNumerator / ExponentDenominator, 0.0f, 1.0f);
     }
 
     void SetTerrainInsideTessFactors(TerrainTileTessellationData& TessellationData) {
@@ -397,19 +427,16 @@ namespace Game {
         const SimpleMath::Vector3 WorldCenter{ SimpleMath::Vector3::Transform(TileMetadata.mCenter, WorldMatrix) };
         const SimpleMath::Vector3 CenterToCamera{ WorldCenter - CameraPosition };
         const float DistanceSquared{ CenterToCamera.LengthSquared() };
-        std::uint32_t SelectedLodIndex{ 0 };
-        const std::size_t ThresholdCount{ (std::min)(LodDistances.size(), AvailableLodCount - 1ULL) };
-
-        for (std::size_t ThresholdIndex{ 0 }; ThresholdIndex < ThresholdCount; ++ThresholdIndex) {
-            const float ThresholdDistance{ LodDistances[ThresholdIndex] };
-            if (ThresholdDistance > 0.0f && DistanceSquared < ThresholdDistance * ThresholdDistance) {
-                return static_cast<std::uint32_t>(ThresholdIndex);
-            }
-
-            SelectedLodIndex = static_cast<std::uint32_t>(ThresholdIndex + 1ULL);
+        const float MaxLodDistance{ ResolveTerrainMaxLodDistance(LodDistances) };
+        if (MaxLodDistance <= 0.0f) {
+            return 0u;
         }
 
-        return SelectedLodIndex;
+        const float Distance{ std::sqrt(DistanceSquared) };
+        const float LodRatio{ CalculateTerrainExponentialLodRatio(Distance, MaxLodDistance, Resource.GetLodExponent()) };
+        const float MaxLodIndex{ static_cast<float>(AvailableLodCount - 1ULL) };
+        const float SelectedLodValue{ std::clamp(LodRatio * MaxLodIndex, 0.0f, MaxLodIndex) };
+        return static_cast<std::uint32_t>(SelectedLodValue);
     }
 
     bool TerrainRenderSystem::IsTileVisibleByFrustum(const DirectX::BoundingOrientedBox& LocalBoundingBox, const SimpleMath::Matrix& WorldMatrix, const Frustum* CullingFrustumComponent, bool IsFrustumCullingEnabled, DirectX::BoundingOrientedBox& OutWorldBoundingBox) const {

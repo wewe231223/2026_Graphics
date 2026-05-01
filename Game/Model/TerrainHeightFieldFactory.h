@@ -13,6 +13,7 @@ namespace Game {
         TerrainHeightFieldFactory& operator=(TerrainHeightFieldFactory&& Other) noexcept;
 
     public:
+        TerrainProceduralHeightFieldDesc ResolveProceduralHeightFieldDesc(const TerrainBuildDesc& Desc) const;
         HeightFieldData Build(const TerrainBuildDesc& Desc) const;
     };
 }

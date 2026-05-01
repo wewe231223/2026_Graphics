@@ -47,6 +47,7 @@ namespace Game {
         std::uint32_t GetTileCountZ() const;
         std::uint32_t GetLodCount() const;
         const std::vector<float>& GetLodDistances() const;
+        float GetLodExponent() const;
         const DirectX::BoundingOrientedBox& GetLocalBoundingBox() const;
         std::uint32_t GetHeightFieldSrvDescriptorIndex() const;
         std::uint32_t GetHeightFieldWidth() const;

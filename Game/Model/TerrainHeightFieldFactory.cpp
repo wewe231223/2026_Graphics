@@ -29,21 +29,25 @@ namespace Game {
         return *this;
     }
 
+    TerrainProceduralHeightFieldDesc TerrainHeightFieldFactory::ResolveProceduralHeightFieldDesc(const TerrainBuildDesc& Desc) const {
+        TerrainProceduralHeightFieldDesc ProceduralDesc{ Desc.mProceduralHeightFieldDesc };
+        if (Desc.mProceduralHeightFieldPath.empty() == false) {
+            TerrainProceduralHeightFieldConfigLoader ConfigLoader{};
+            ProceduralDesc = ConfigLoader.Load(Desc.mProceduralHeightFieldPath);
+            if (Desc.mStreamingEnabled == true || Desc.mProceduralHeightFieldDesc.mSampleOffsetX != 0 || Desc.mProceduralHeightFieldDesc.mSampleOffsetZ != 0) {
+                ProceduralDesc.mSampleOffsetX = Desc.mProceduralHeightFieldDesc.mSampleOffsetX;
+                ProceduralDesc.mSampleOffsetZ = Desc.mProceduralHeightFieldDesc.mSampleOffsetZ;
+            }
+        }
+
+        return ProceduralDesc;
+    }
+
     HeightFieldData TerrainHeightFieldFactory::Build(const TerrainBuildDesc& Desc) const {
         if (Desc.mHeightSourceType == TerrainHeightSourceType::Procedural) {
             TerrainProceduralHeightFieldGenerator Generator{};
-            if (Desc.mProceduralHeightFieldPath.empty() == false) {
-                TerrainProceduralHeightFieldConfigLoader ConfigLoader{};
-                TerrainProceduralHeightFieldDesc ProceduralDesc{ ConfigLoader.Load(Desc.mProceduralHeightFieldPath) };
-                if (Desc.mStreamingEnabled == true || Desc.mProceduralHeightFieldDesc.mSampleOffsetX != 0 || Desc.mProceduralHeightFieldDesc.mSampleOffsetZ != 0) {
-                    ProceduralDesc.mSampleOffsetX = Desc.mProceduralHeightFieldDesc.mSampleOffsetX;
-                    ProceduralDesc.mSampleOffsetZ = Desc.mProceduralHeightFieldDesc.mSampleOffsetZ;
-                }
-
-                return Generator.Generate(ProceduralDesc);
-            }
-
-            return Generator.Generate(Desc.mProceduralHeightFieldDesc);
+            const TerrainProceduralHeightFieldDesc ProceduralDesc{ ResolveProceduralHeightFieldDesc(Desc) };
+            return Generator.Generate(ProceduralDesc);
         }
 
         HeightMapLoader Loader{};

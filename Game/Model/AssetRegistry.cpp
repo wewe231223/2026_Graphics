@@ -114,6 +114,7 @@ namespace {
         AppendTerrainKeyHashFloat(Hash, Desc.mLacunarity);
         AppendTerrainKeyHashFloat(Hash, Desc.mBaseHeight);
         AppendTerrainKeyHashFloat(Hash, Desc.mHeightAmplitude);
+        AppendTerrainKeyHashFloat(Hash, Desc.mLodExponent);
         AppendTerrainKeyHashUInt32(Hash, Desc.mSmoothingPassCount);
         AppendTerrainKeyHashUInt32(Hash, Desc.mMinimumWidth);
         AppendTerrainKeyHashUInt32(Hash, Desc.mMinimumHeight);
@@ -313,11 +314,16 @@ namespace Game {
 
         TerrainTiledMeshData TiledMeshData{};
         HeightFieldData HeightField{};
+        TerrainBuildDesc ResolvedDesc{ Desc };
         try {
             TerrainHeightFieldFactory HeightFieldFactory{};
             TerrainTiledMeshBuilder Builder{};
-            HeightField = HeightFieldFactory.Build(Desc);
-            TiledMeshData = Builder.Build(HeightField, Desc);
+            if (ResolvedDesc.mHeightSourceType == TerrainHeightSourceType::Procedural) {
+                ResolvedDesc.mProceduralHeightFieldDesc = HeightFieldFactory.ResolveProceduralHeightFieldDesc(ResolvedDesc);
+            }
+
+            HeightField = HeightFieldFactory.Build(ResolvedDesc);
+            TiledMeshData = Builder.Build(HeightField, ResolvedDesc);
         }
         catch (const std::exception& Exception) {
             ErrorHandler::report("TerrainRenderResource", Exception.what(), ErrorHandler::Level::Warning);
@@ -333,9 +339,9 @@ namespace Game {
         }
 
         std::shared_ptr<TerrainRenderResource> NewResource{ std::make_shared<TerrainRenderResource>() };
-        NewResource->Initialize(NewModel, std::move(TiledMeshData.mTileMetadata), TiledMeshData.mTileQuadCount, TiledMeshData.mTileCountX, TiledMeshData.mTileCountZ, TiledMeshData.mLodCount, std::move(TiledMeshData.mLodDistances), TiledMeshData.mLocalBoundingBox, Desc);
+        NewResource->Initialize(NewModel, std::move(TiledMeshData.mTileMetadata), TiledMeshData.mTileQuadCount, TiledMeshData.mTileCountX, TiledMeshData.mTileCountZ, TiledMeshData.mLodCount, std::move(TiledMeshData.mLodDistances), TiledMeshData.mLocalBoundingBox, ResolvedDesc);
         if (mDevice != nullptr && mCopyQueue != nullptr && mAllocator != nullptr && mSrvHeap != nullptr) {
-            const bool IsHeightFieldInitialized{ NewResource->InitializeHeightField(HeightField, Desc, mDevice, mCopyQueue, mAllocator, mSrvHeap) };
+            const bool IsHeightFieldInitialized{ NewResource->InitializeHeightField(HeightField, ResolvedDesc, mDevice, mCopyQueue, mAllocator, mSrvHeap) };
             if (IsHeightFieldInitialized == false) {
                 ErrorHandler::report("TerrainRenderResource", "Failed to initialize terrain height field GPU resource.", ErrorHandler::Level::Warning);
                 return nullptr;

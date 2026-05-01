@@ -557,6 +557,13 @@ namespace {
 
                 OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
             }
+            else if (Key == "ProceduralLodExponent") {
+                if (TryParseFloat(Value, OutData.Desc.mProceduralHeightFieldDesc.mLodExponent) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
             else if (Key == "ProceduralSmoothingPassCount") {
                 if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mSmoothingPassCount) == false) {
                     return false;

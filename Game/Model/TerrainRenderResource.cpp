@@ -295,6 +295,7 @@ namespace Game {
         try {
             TerrainHeightFieldFactory HeightFieldFactory{};
             TerrainTiledMeshBuilder Builder{};
+            StreamingDesc.mProceduralHeightFieldDesc = HeightFieldFactory.ResolveProceduralHeightFieldDesc(StreamingDesc);
             HeightField = HeightFieldFactory.Build(StreamingDesc);
             TiledMeshData = Builder.Build(HeightField, StreamingDesc);
         }
@@ -393,6 +394,10 @@ namespace Game {
 
     const std::vector<float>& TerrainRenderResource::GetLodDistances() const {
         return mLodDistances;
+    }
+
+    float TerrainRenderResource::GetLodExponent() const {
+        return mBuildDesc.mProceduralHeightFieldDesc.mLodExponent;
     }
 
     const DirectX::BoundingOrientedBox& TerrainRenderResource::GetLocalBoundingBox() const {
