@@ -8,13 +8,73 @@
                     "TerrainMaterialData": {
                         "Name": "Terrain",
                         "PBR": false,
-                        "LayerCount": 1,
+                        "LayerCount": 4,
                         "Layers": [
+                            {
+                                "DiffuseColor": [
+                                    0.45,
+                                    0.36,
+                                    0.22,
+                                    1.0
+                                ],
+                                "NormalColor": [
+                                    0.5,
+                                    0.5,
+                                    1.0,
+                                    1.0
+                                ],
+                                "UvTransform": [
+                                    64.0,
+                                    64.0,
+                                    0.0,
+                                    0.0
+                                ]
+                            },
                             {
                                 "DiffuseColor": [
                                     0.18,
                                     0.42,
                                     0.16,
+                                    1.0
+                                ],
+                                "NormalColor": [
+                                    0.5,
+                                    0.5,
+                                    1.0,
+                                    1.0
+                                ],
+                                "UvTransform": [
+                                    64.0,
+                                    64.0,
+                                    0.0,
+                                    0.0
+                                ]
+                            },
+                            {
+                                "DiffuseColor": [
+                                    0.42,
+                                    0.41,
+                                    0.38,
+                                    1.0
+                                ],
+                                "NormalColor": [
+                                    0.5,
+                                    0.5,
+                                    1.0,
+                                    1.0
+                                ],
+                                "UvTransform": [
+                                    64.0,
+                                    64.0,
+                                    0.0,
+                                    0.0
+                                ]
+                            },
+                            {
+                                "DiffuseColor": [
+                                    0.82,
+                                    0.86,
+                                    0.88,
                                     1.0
                                 ],
                                 "NormalColor": [

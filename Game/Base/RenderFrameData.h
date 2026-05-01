@@ -148,9 +148,9 @@ namespace Game {
             SimpleMath::Vector4 HeightFieldParameters{};
             SimpleMath::Vector4 TerrainParameters{};
             std::uint32_t HeightFieldSrvDescriptorIndex{ 0xffffffffu };
-            std::uint32_t Padding0{ 0u };
-            std::uint32_t Padding1{ 0u };
-            std::uint32_t Padding2{ 0u };
+            std::uint32_t SplatMapSrvDescriptorIndex{ 0xffffffffu };
+            std::uint32_t SplatMapWidth{ 0u };
+            std::uint32_t SplatMapHeight{ 0u };
         };
 
         struct DrawRecord {

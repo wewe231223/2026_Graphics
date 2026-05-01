@@ -80,6 +80,12 @@ namespace Game {
         std::vector<float> HeightValues{};
     };
 
+    struct SplatMapData final {
+        std::uint32_t Width{ 0 };
+        std::uint32_t Height{ 0 };
+        std::vector<asset::Vec4> WeightValues{};
+    };
+
     struct TerrainMeshData final {
         asset::VertexAttributes Vertices{};
         std::vector<std::uint32_t> Indices{};

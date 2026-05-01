@@ -34,6 +34,7 @@ struct TerrainVertexOutput {
     float4 Color : COLOR0;
     uint MaterialIndex : MATERIAL_INDEX;
     uint Flags : FLAGS;
+    nointerpolation uint DrawIndex : DRAW_INDEX;
 };
 
 struct TerrainDepthVertexOutput {
@@ -171,6 +172,7 @@ TerrainVertexOutput DsMain(TerrainPatchConstantOutput PatchConstants, float2 Dom
     Output.Color = Patch[0].Color;
     Output.MaterialIndex = DrawRecord.MaterialIndex;
     Output.Flags = DrawRecord.Flags;
+    Output.DrawIndex = DrawIndex;
     return Output;
 }
 
@@ -242,17 +244,52 @@ bool HasTerrainSplatMap(MaterialGpu MaterialData) {
     return false;
 }
 
-uint ResolveTerrainLayerCount(MaterialGpu MaterialData, bool HasSplatMapValue) {
+bool HasGeneratedTerrainSplatMap(TerrainPatchContextGpu PatchContext) {
+    return PatchContext.SplatMapSrvDescriptorIndex != InvalidSrvDescriptorIndex && PatchContext.SplatMapWidth > 0u && PatchContext.SplatMapHeight > 0u;
+}
+
+uint ResolveTerrainLayerCount(MaterialGpu MaterialData, bool HasSplatMapValue, bool HasGeneratedSplatMapValue) {
     const int64_t LayerCountValue = MaterialData.Fields[MATERIAL_TYPE_TERRAIN_LAYER_COUNT].IntValue;
     if (LayerCountValue > 0) {
         return min((uint)LayerCountValue, TERRAIN_MAX_LAYER_COUNT);
     }
 
-    return HasSplatMapValue ? TERRAIN_MAX_LAYER_COUNT : 1u;
+    return HasSplatMapValue || HasGeneratedSplatMapValue ? TERRAIN_MAX_LAYER_COUNT : 1u;
 }
 
-float ResolveTerrainLayerWeight(MaterialGpu MaterialData, StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer, float2 BaseUv, uint LayerIndex, bool HasSplatMapValue) {
+float4 SampleGeneratedTerrainSplatMap(TerrainPatchContextGpu PatchContext, float2 BaseUv) {
+    StructuredBuffer<float4> SplatMapBuffer = ResourceDescriptorHeap[NonUniformResourceIndex(PatchContext.SplatMapSrvDescriptorIndex)];
+    const uint Width = max(PatchContext.SplatMapWidth, 1u);
+    const uint Height = max(PatchContext.SplatMapHeight, 1u);
+    const float MaxGridX = (float)(Width - 1u);
+    const float MaxGridZ = (float)(Height - 1u);
+    const float2 ClampedUv = saturate(BaseUv);
+    const float2 SplatPosition = float2(ClampedUv.x * MaxGridX, ClampedUv.y * MaxGridZ);
+    const uint X0 = min((uint)floor(SplatPosition.x), Width - 1u);
+    const uint Z0 = min((uint)floor(SplatPosition.y), Height - 1u);
+    const uint X1 = min(X0 + 1u, Width - 1u);
+    const uint Z1 = min(Z0 + 1u, Height - 1u);
+    const float2 Blend = saturate(SplatPosition - float2((float)X0, (float)Z0));
+    const float4 Splat00 = SplatMapBuffer[(Z0 * Width) + X0];
+    const float4 Splat10 = SplatMapBuffer[(Z0 * Width) + X1];
+    const float4 Splat01 = SplatMapBuffer[(Z1 * Width) + X0];
+    const float4 Splat11 = SplatMapBuffer[(Z1 * Width) + X1];
+    const float4 SplatX0 = lerp(Splat00, Splat10, Blend.x);
+    const float4 SplatX1 = lerp(Splat01, Splat11, Blend.x);
+    return saturate(lerp(SplatX0, SplatX1, Blend.y));
+}
+
+float ResolveTerrainLayerWeight(MaterialGpu MaterialData, StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer, TerrainPatchContextGpu PatchContext, float2 BaseUv, uint LayerIndex, bool HasSplatMapValue, bool HasGeneratedSplatMapValue) {
     if (HasSplatMapValue == false) {
+        if (HasGeneratedSplatMapValue == true) {
+            if (LayerIndex >= 4u) {
+                return 0.0f;
+            }
+
+            const float4 GeneratedSplatValue = SampleGeneratedTerrainSplatMap(PatchContext, BaseUv);
+            return saturate(GeneratedSplatValue[LayerIndex]);
+        }
+
         return LayerIndex == 0u ? 1.0f : 0.0f;
     }
 
@@ -323,9 +360,10 @@ float3 ResolveTerrainWorldNormal(float3 VertexNormal, float3 NormalTangent) {
     return normalize((Tangent * NormalTangent.x) + (Bitangent * NormalTangent.y) + (Normal * NormalTangent.z));
 }
 
-void ResolveTerrainMaterial(MaterialGpu MaterialData, StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer, float2 BaseUv, out float4 OutColor, out float3 OutNormalTangent) {
+void ResolveTerrainMaterial(MaterialGpu MaterialData, StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer, TerrainPatchContextGpu PatchContext, float2 BaseUv, out float4 OutColor, out float3 OutNormalTangent) {
     const bool HasSplatMapValue = HasTerrainSplatMap(MaterialData);
-    const uint LayerCount = ResolveTerrainLayerCount(MaterialData, HasSplatMapValue);
+    const bool HasGeneratedSplatMapValue = HasGeneratedTerrainSplatMap(PatchContext);
+    const uint LayerCount = ResolveTerrainLayerCount(MaterialData, HasSplatMapValue, HasGeneratedSplatMapValue);
     const float4 FallbackColor = ResolveTerrainFallbackColor(MaterialData);
 
     float4 AccumulatedColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
@@ -338,7 +376,7 @@ void ResolveTerrainMaterial(MaterialGpu MaterialData, StructuredBuffer<MaterialT
             break;
         }
 
-        const float LayerWeight = ResolveTerrainLayerWeight(MaterialData, MaterialTextureTableBuffer, BaseUv, LayerIndex, HasSplatMapValue);
+        const float LayerWeight = ResolveTerrainLayerWeight(MaterialData, MaterialTextureTableBuffer, PatchContext, BaseUv, LayerIndex, HasSplatMapValue, HasGeneratedSplatMapValue);
         if (LayerWeight <= 0.0f) {
             continue;
         }
@@ -362,10 +400,11 @@ GBufferOutput PsMain(TerrainVertexOutput Input) {
     StructuredBuffer<MaterialGpu> MaterialBuffer = ResourceDescriptorHeap[RootConstants.MaterialSrvIndex];
     StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer = ResourceDescriptorHeap[RootConstants.MaterialTextureTableSrvIndex];
     const MaterialGpu MaterialData = MaterialBuffer[Input.MaterialIndex];
+    const TerrainPatchContextGpu PatchContext = ResolveTerrainPatchContext(Input.DrawIndex);
 
     float4 TerrainColor = float4(1.0f, 1.0f, 1.0f, 1.0f);
     float3 TerrainNormalTangent = float3(0.0f, 0.0f, 1.0f);
-    ResolveTerrainMaterial(MaterialData, MaterialTextureTableBuffer, Input.TexCoord0, TerrainColor, TerrainNormalTangent);
+    ResolveTerrainMaterial(MaterialData, MaterialTextureTableBuffer, PatchContext, Input.TexCoord0, TerrainColor, TerrainNormalTangent);
     const float3 TerrainNormal = ResolveTerrainWorldNormal(Input.Normal, TerrainNormalTangent);
     const float4 BaseColor = ApplyBaseColor(TerrainColor);
     const float4 ScalarAppliedColor = ApplyMaterialScalarColor(BaseColor, MaterialData);

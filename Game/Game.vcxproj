@@ -39,6 +39,7 @@
     <ClInclude Include="Model\TerrainProceduralHeightFieldConfigLoader.h" />
     <ClInclude Include="Model\TerrainProceduralHeightFieldGenerator.h" />
     <ClInclude Include="Model\TerrainRenderResource.h" />
+    <ClInclude Include="Model\TerrainSplatMapGenerator.h" />
     <ClInclude Include="Model\TerrainTiledMeshBuilder.h" />
     <ClInclude Include="Scene\Components\BoundingBox.h" />
     <ClInclude Include="Scene\Components\Bone.h" />
@@ -107,6 +108,7 @@
     <ClCompile Include="Model\TerrainProceduralHeightFieldConfigLoader.cpp" />
     <ClCompile Include="Model\TerrainProceduralHeightFieldGenerator.cpp" />
     <ClCompile Include="Model\TerrainRenderResource.cpp" />
+    <ClCompile Include="Model\TerrainSplatMapGenerator.cpp" />
     <ClCompile Include="Model\TerrainTiledMeshBuilder.cpp" />
     <ClCompile Include="Asset\AnimationGraphAsset.cpp" />
     <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp" />

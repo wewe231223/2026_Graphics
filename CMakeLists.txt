@@ -149,6 +149,7 @@ add_library(Game STATIC
     Game/Model/TerrainHeightFieldFactory.cpp
     Game/Model/TerrainProceduralHeightFieldConfigLoader.cpp
     Game/Model/TerrainProceduralHeightFieldGenerator.cpp
+    Game/Model/TerrainSplatMapGenerator.cpp
     Game/Model/AssetRegistry.cpp
     Game/Model/AssetRegistryBackEnd.cpp
     Game/Model/Model.cpp

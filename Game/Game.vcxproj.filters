@@ -84,6 +84,9 @@
     <ClInclude Include="Model\TerrainRenderResource.h">
       <Filter>Model</Filter>
     </ClInclude>
+    <ClInclude Include="Model\TerrainSplatMapGenerator.h">
+      <Filter>Model</Filter>
+    </ClInclude>
     <ClInclude Include="Model\TerrainTiledMeshBuilder.h">
       <Filter>Model</Filter>
     </ClInclude>
@@ -438,6 +441,9 @@
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Model\TerrainRenderResource.cpp">
+      <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Model\TerrainSplatMapGenerator.cpp">
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Model\TerrainTiledMeshBuilder.cpp">

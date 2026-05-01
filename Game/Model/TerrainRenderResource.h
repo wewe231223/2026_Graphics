@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <future>
 #include <memory>
 #include <vector>
 
@@ -23,6 +24,25 @@ namespace Game {
         SimpleMath::Vector3 mCenter{};
         std::uint32_t mSubMeshIndex{ 0 };
         std::vector<std::uint32_t> mSubMeshIndexByLod{};
+    };
+
+    struct TerrainStreamingBuildResult final {
+    public:
+        TerrainBuildDesc mBuildDesc{};
+        HeightFieldData mHeightField{};
+        SplatMapData mSplatMap{};
+        std::vector<TerrainTileMetadata> mTileMetadata{};
+        std::uint32_t mTileQuadCount{ 0 };
+        std::uint32_t mTileCountX{ 0 };
+        std::uint32_t mTileCountZ{ 0 };
+        std::uint32_t mLodCount{ 1 };
+        std::vector<float> mLodDistances{};
+        DirectX::BoundingOrientedBox mLocalBoundingBox{};
+        std::int32_t mTargetOriginGridX{ 0 };
+        std::int32_t mTargetOriginGridZ{ 0 };
+        float mStreamWorldOriginX{ 0.0f };
+        float mStreamWorldOriginZ{ 0.0f };
+        bool mSucceeded{ false };
     };
 
     class TerrainRenderResource final {
@@ -50,8 +70,11 @@ namespace Game {
         float GetLodExponent() const;
         const DirectX::BoundingOrientedBox& GetLocalBoundingBox() const;
         std::uint32_t GetHeightFieldSrvDescriptorIndex() const;
+        std::uint32_t GetSplatMapSrvDescriptorIndex() const;
         std::uint32_t GetHeightFieldWidth() const;
         std::uint32_t GetHeightFieldHeight() const;
+        std::uint32_t GetSplatMapWidth() const;
+        std::uint32_t GetSplatMapHeight() const;
         float GetMaxHeight() const;
         float GetCellSizeX() const;
         float GetCellSizeZ() const;
@@ -66,6 +89,9 @@ namespace Game {
 
     private:
         bool UploadHeightFieldData(const HeightFieldData& Field, const TerrainBuildDesc& Desc, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        bool UploadSplatMapData(const SplatMapData& SplatMap, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        bool TryCommitStreamingBuild(TerrainStreamingBuildResult&& Result, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        void StartStreamingBuild(const TerrainBuildDesc& StreamingDesc, std::int32_t TargetOriginGridX, std::int32_t TargetOriginGridZ);
 
     private:
         std::shared_ptr<Model> mModel{};
@@ -81,9 +107,15 @@ namespace Game {
         std::unique_ptr<Interface::IAllocationHandle> mHeightFieldAllocation{};
         Interface::Future mHeightFieldCopyFuture{};
         Core::DX::DescriptorHandle mHeightFieldSrvHandle{};
+        std::unique_ptr<Interface::IAllocationHandle> mSplatMapAllocation{};
+        Interface::Future mSplatMapCopyFuture{};
+        Core::DX::DescriptorHandle mSplatMapSrvHandle{};
         std::uint32_t mHeightFieldSrvDescriptorIndex{ 0xffffffffu };
+        std::uint32_t mSplatMapSrvDescriptorIndex{ 0xffffffffu };
         std::uint32_t mHeightFieldWidth{ 0 };
         std::uint32_t mHeightFieldHeight{ 0 };
+        std::uint32_t mSplatMapWidth{ 0 };
+        std::uint32_t mSplatMapHeight{ 0 };
         float mMaxHeight{ 1.0f };
         float mCellSizeX{ 1.0f };
         float mCellSizeZ{ 1.0f };
@@ -94,6 +126,10 @@ namespace Game {
         std::int32_t mStreamOriginGridZ{ 0 };
         float mStreamWorldOriginX{ 0.0f };
         float mStreamWorldOriginZ{ 0.0f };
+        std::future<TerrainStreamingBuildResult> mStreamingBuildFuture{};
+        std::int32_t mPendingStreamingOriginGridX{ 0 };
+        std::int32_t mPendingStreamingOriginGridZ{ 0 };
+        bool mHasPendingStreamingBuild{ false };
         bool mHasStreamOrigin{ false };
     };
 }

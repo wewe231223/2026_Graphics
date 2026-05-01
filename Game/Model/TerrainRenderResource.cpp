@@ -1,12 +1,15 @@
 #include "TerrainRenderResource.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstring>
+#include <future>
 #include <stdexcept>
 #include <utility>
 
 #include "Game/Model/TerrainHeightFieldFactory.h"
+#include "Game/Model/TerrainSplatMapGenerator.h"
 #include "Game/Model/TerrainTiledMeshBuilder.h"
 
 namespace {
@@ -43,6 +46,39 @@ namespace {
 
         return static_cast<float>(OriginGrid) * CellSize;
     }
+
+    Game::TerrainStreamingBuildResult BuildTerrainStreamingResult(Game::TerrainBuildDesc StreamingDesc, std::int32_t TargetOriginGridX, std::int32_t TargetOriginGridZ) {
+        Game::TerrainStreamingBuildResult Result{};
+        Result.mTargetOriginGridX = TargetOriginGridX;
+        Result.mTargetOriginGridZ = TargetOriginGridZ;
+
+        try {
+            Game::TerrainHeightFieldFactory HeightFieldFactory{};
+            Game::TerrainTiledMeshBuilder Builder{};
+            Game::TerrainSplatMapGenerator SplatMapGenerator{};
+            StreamingDesc.mProceduralHeightFieldDesc = HeightFieldFactory.ResolveProceduralHeightFieldDesc(StreamingDesc);
+            Result.mHeightField = HeightFieldFactory.Build(StreamingDesc);
+            Result.mSplatMap = SplatMapGenerator.Generate(Result.mHeightField, StreamingDesc);
+
+            Game::TerrainTiledMeshData TiledMeshData{ Builder.Build(Result.mHeightField, StreamingDesc) };
+            Result.mBuildDesc = std::move(StreamingDesc);
+            Result.mTileMetadata = std::move(TiledMeshData.mTileMetadata);
+            Result.mTileQuadCount = TiledMeshData.mTileQuadCount;
+            Result.mTileCountX = TiledMeshData.mTileCountX;
+            Result.mTileCountZ = TiledMeshData.mTileCountZ;
+            Result.mLodCount = TiledMeshData.mLodCount;
+            Result.mLodDistances = std::move(TiledMeshData.mLodDistances);
+            Result.mLocalBoundingBox = TiledMeshData.mLocalBoundingBox;
+            Result.mStreamWorldOriginX = CalculateStreamingWorldOrigin(TargetOriginGridX, Result.mHeightField.Width, Result.mBuildDesc.CellSizeX, Result.mBuildDesc.CenterOrigin);
+            Result.mStreamWorldOriginZ = CalculateStreamingWorldOrigin(TargetOriginGridZ, Result.mHeightField.Height, Result.mBuildDesc.CellSizeZ, Result.mBuildDesc.CenterOrigin);
+            Result.mSucceeded = true;
+        }
+        catch (const std::exception&) {
+            Result.mSucceeded = false;
+        }
+
+        return Result;
+    }
 }
 
 namespace Game {
@@ -60,9 +96,15 @@ namespace Game {
         mHeightFieldAllocation{},
         mHeightFieldCopyFuture{},
         mHeightFieldSrvHandle{},
+        mSplatMapAllocation{},
+        mSplatMapCopyFuture{},
+        mSplatMapSrvHandle{},
         mHeightFieldSrvDescriptorIndex{ 0xffffffffu },
+        mSplatMapSrvDescriptorIndex{ 0xffffffffu },
         mHeightFieldWidth{ 0 },
         mHeightFieldHeight{ 0 },
+        mSplatMapWidth{ 0 },
+        mSplatMapHeight{ 0 },
         mMaxHeight{ 1.0f },
         mCellSizeX{ 1.0f },
         mCellSizeZ{ 1.0f },
@@ -73,6 +115,10 @@ namespace Game {
         mStreamOriginGridZ{ 0 },
         mStreamWorldOriginX{ 0.0f },
         mStreamWorldOriginZ{ 0.0f },
+        mStreamingBuildFuture{},
+        mPendingStreamingOriginGridX{ 0 },
+        mPendingStreamingOriginGridZ{ 0 },
+        mHasPendingStreamingBuild{ false },
         mHasStreamOrigin{ false } {
     }
 
@@ -93,9 +139,15 @@ namespace Game {
         mHeightFieldAllocation{ std::move(Other.mHeightFieldAllocation) },
         mHeightFieldCopyFuture{ std::move(Other.mHeightFieldCopyFuture) },
         mHeightFieldSrvHandle{ std::move(Other.mHeightFieldSrvHandle) },
+        mSplatMapAllocation{ std::move(Other.mSplatMapAllocation) },
+        mSplatMapCopyFuture{ std::move(Other.mSplatMapCopyFuture) },
+        mSplatMapSrvHandle{ std::move(Other.mSplatMapSrvHandle) },
         mHeightFieldSrvDescriptorIndex{ Other.mHeightFieldSrvDescriptorIndex },
+        mSplatMapSrvDescriptorIndex{ Other.mSplatMapSrvDescriptorIndex },
         mHeightFieldWidth{ Other.mHeightFieldWidth },
         mHeightFieldHeight{ Other.mHeightFieldHeight },
+        mSplatMapWidth{ Other.mSplatMapWidth },
+        mSplatMapHeight{ Other.mSplatMapHeight },
         mMaxHeight{ Other.mMaxHeight },
         mCellSizeX{ Other.mCellSizeX },
         mCellSizeZ{ Other.mCellSizeZ },
@@ -106,6 +158,10 @@ namespace Game {
         mStreamOriginGridZ{ Other.mStreamOriginGridZ },
         mStreamWorldOriginX{ Other.mStreamWorldOriginX },
         mStreamWorldOriginZ{ Other.mStreamWorldOriginZ },
+        mStreamingBuildFuture{ std::move(Other.mStreamingBuildFuture) },
+        mPendingStreamingOriginGridX{ Other.mPendingStreamingOriginGridX },
+        mPendingStreamingOriginGridZ{ Other.mPendingStreamingOriginGridZ },
+        mHasPendingStreamingBuild{ Other.mHasPendingStreamingBuild },
         mHasStreamOrigin{ Other.mHasStreamOrigin } {
         Other.mTileQuadCount = 0;
         Other.mTileCountX = 0;
@@ -113,8 +169,11 @@ namespace Game {
         Other.mLodCount = 1;
         Other.mLocalBoundingBox = DirectX::BoundingOrientedBox{};
         Other.mHeightFieldSrvDescriptorIndex = 0xffffffffu;
+        Other.mSplatMapSrvDescriptorIndex = 0xffffffffu;
         Other.mHeightFieldWidth = 0;
         Other.mHeightFieldHeight = 0;
+        Other.mSplatMapWidth = 0;
+        Other.mSplatMapHeight = 0;
         Other.mMaxHeight = 1.0f;
         Other.mCellSizeX = 1.0f;
         Other.mCellSizeZ = 1.0f;
@@ -125,6 +184,9 @@ namespace Game {
         Other.mStreamOriginGridZ = 0;
         Other.mStreamWorldOriginX = 0.0f;
         Other.mStreamWorldOriginZ = 0.0f;
+        Other.mPendingStreamingOriginGridX = 0;
+        Other.mPendingStreamingOriginGridZ = 0;
+        Other.mHasPendingStreamingBuild = false;
         Other.mHasStreamOrigin = false;
     }
 
@@ -146,9 +208,15 @@ namespace Game {
         mHeightFieldAllocation = std::move(Other.mHeightFieldAllocation);
         mHeightFieldCopyFuture = std::move(Other.mHeightFieldCopyFuture);
         mHeightFieldSrvHandle = std::move(Other.mHeightFieldSrvHandle);
+        mSplatMapAllocation = std::move(Other.mSplatMapAllocation);
+        mSplatMapCopyFuture = std::move(Other.mSplatMapCopyFuture);
+        mSplatMapSrvHandle = std::move(Other.mSplatMapSrvHandle);
         mHeightFieldSrvDescriptorIndex = Other.mHeightFieldSrvDescriptorIndex;
+        mSplatMapSrvDescriptorIndex = Other.mSplatMapSrvDescriptorIndex;
         mHeightFieldWidth = Other.mHeightFieldWidth;
         mHeightFieldHeight = Other.mHeightFieldHeight;
+        mSplatMapWidth = Other.mSplatMapWidth;
+        mSplatMapHeight = Other.mSplatMapHeight;
         mMaxHeight = Other.mMaxHeight;
         mCellSizeX = Other.mCellSizeX;
         mCellSizeZ = Other.mCellSizeZ;
@@ -159,6 +227,10 @@ namespace Game {
         mStreamOriginGridZ = Other.mStreamOriginGridZ;
         mStreamWorldOriginX = Other.mStreamWorldOriginX;
         mStreamWorldOriginZ = Other.mStreamWorldOriginZ;
+        mStreamingBuildFuture = std::move(Other.mStreamingBuildFuture);
+        mPendingStreamingOriginGridX = Other.mPendingStreamingOriginGridX;
+        mPendingStreamingOriginGridZ = Other.mPendingStreamingOriginGridZ;
+        mHasPendingStreamingBuild = Other.mHasPendingStreamingBuild;
         mHasStreamOrigin = Other.mHasStreamOrigin;
 
         Other.mTileQuadCount = 0;
@@ -167,8 +239,11 @@ namespace Game {
         Other.mLodCount = 1;
         Other.mLocalBoundingBox = DirectX::BoundingOrientedBox{};
         Other.mHeightFieldSrvDescriptorIndex = 0xffffffffu;
+        Other.mSplatMapSrvDescriptorIndex = 0xffffffffu;
         Other.mHeightFieldWidth = 0;
         Other.mHeightFieldHeight = 0;
+        Other.mSplatMapWidth = 0;
+        Other.mSplatMapHeight = 0;
         Other.mMaxHeight = 1.0f;
         Other.mCellSizeX = 1.0f;
         Other.mCellSizeZ = 1.0f;
@@ -179,6 +254,9 @@ namespace Game {
         Other.mStreamOriginGridZ = 0;
         Other.mStreamWorldOriginX = 0.0f;
         Other.mStreamWorldOriginZ = 0.0f;
+        Other.mPendingStreamingOriginGridX = 0;
+        Other.mPendingStreamingOriginGridZ = 0;
+        Other.mHasPendingStreamingBuild = false;
         Other.mHasStreamOrigin = false;
         return *this;
     }
@@ -205,65 +283,23 @@ namespace Game {
             return false;
         }
 
-        const std::size_t HeightFieldSizeInBytes{ Field.HeightValues.size() * sizeof(float) };
-        D3D12_RESOURCE_DESC ResourceDescription{};
-        ResourceDescription.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-        ResourceDescription.Alignment = 0;
-        ResourceDescription.Width = static_cast<UINT64>(HeightFieldSizeInBytes);
-        ResourceDescription.Height = 1;
-        ResourceDescription.DepthOrArraySize = 1;
-        ResourceDescription.MipLevels = 1;
-        ResourceDescription.Format = DXGI_FORMAT_UNKNOWN;
-        ResourceDescription.SampleDesc.Count = 1;
-        ResourceDescription.SampleDesc.Quality = 0;
-        ResourceDescription.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-        ResourceDescription.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-        if (Allocator->CanAllocate(ResourceDescription) == false) {
+        if (mHeightFieldCopyFuture.IsInFlight() == true || mSplatMapCopyFuture.IsInFlight() == true) {
             return false;
         }
 
-        Interface::AllocatePlacedResourceParameters AllocationParameters{ ResourceDescription, D3D12_RESOURCE_STATE_COMMON, nullptr, L"Terrain.HeightFieldBuffer" };
-        mHeightFieldAllocation = Allocator->AllocatePlacedResource(AllocationParameters);
-        if (mHeightFieldAllocation == nullptr || mHeightFieldAllocation->IsValid() == false) {
-            mHeightFieldAllocation.reset();
+        const bool IsHeightFieldUploaded{ UploadHeightFieldData(Field, Desc, Device, CopyQueue, Allocator, SrvHeap) };
+        if (IsHeightFieldUploaded == false) {
             return false;
         }
 
-        Interface::CopyQueueCopyRequest CopyRequest{};
-        CopyRequest.DestinationDefaultResource = mHeightFieldAllocation->GetResource();
-        CopyRequest.DestinationOffset = 0;
-        CopyRequest.SourceData.resize(HeightFieldSizeInBytes);
-        std::memcpy(CopyRequest.SourceData.data(), Field.HeightValues.data(), HeightFieldSizeInBytes);
-        mHeightFieldCopyFuture = CopyQueue->EnqueueCopyFuture(CopyRequest);
-        if (mHeightFieldCopyFuture.IsValid() == false) {
-            mHeightFieldAllocation.reset();
+        TerrainSplatMapGenerator SplatMapGenerator{};
+        const SplatMapData SplatMap{ SplatMapGenerator.Generate(Field, Desc) };
+        const bool IsSplatMapUploaded{ UploadSplatMapData(SplatMap, Device, CopyQueue, Allocator, SrvHeap) };
+        if (IsSplatMapUploaded == false) {
             return false;
         }
 
-        mHeightFieldSrvHandle = SrvHeap->Allocate();
-
-        D3D12_SHADER_RESOURCE_VIEW_DESC ShaderResourceViewDescription{};
-        ShaderResourceViewDescription.Format = DXGI_FORMAT_UNKNOWN;
-        ShaderResourceViewDescription.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-        ShaderResourceViewDescription.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        ShaderResourceViewDescription.Buffer.FirstElement = 0;
-        ShaderResourceViewDescription.Buffer.NumElements = static_cast<UINT>(Field.HeightValues.size());
-        ShaderResourceViewDescription.Buffer.StructureByteStride = sizeof(float);
-        ShaderResourceViewDescription.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-        Device->CreateShaderResourceView(mHeightFieldAllocation->GetResource(), &ShaderResourceViewDescription, mHeightFieldSrvHandle.GetCPU());
-
-        mHeightFieldSrvDescriptorIndex = mHeightFieldSrvHandle.GetIndex();
-        mHeightFieldWidth = Field.Width;
-        mHeightFieldHeight = Field.Height;
-        mMaxHeight = Desc.MaxHeight;
-        mCellSizeX = Desc.CellSizeX;
-        mCellSizeZ = Desc.CellSizeZ;
-        mOriginOffsetX = Desc.CenterOrigin == true ? (static_cast<float>(Field.Width - 1u) * Desc.CellSizeX * 0.5f) : 0.0f;
-        mOriginOffsetZ = Desc.CenterOrigin == true ? (static_cast<float>(Field.Height - 1u) * Desc.CellSizeZ * 0.5f) : 0.0f;
-        mHeightFieldFlipV = Desc.FlipV;
         mBuildDesc = Desc;
-        mHeightFieldData = Field;
         mStreamOriginGridX = Desc.mProceduralHeightFieldDesc.mSampleOffsetX;
         mStreamOriginGridZ = Desc.mProceduralHeightFieldDesc.mSampleOffsetZ;
         mStreamWorldOriginX = CalculateStreamingWorldOrigin(mStreamOriginGridX, Field.Width, Desc.CellSizeX, Desc.CenterOrigin);
@@ -282,59 +318,132 @@ namespace Game {
         const std::uint32_t HeightFieldHeight{ mHeightFieldHeight > 1u ? mHeightFieldHeight : mBuildDesc.mProceduralHeightFieldDesc.mHeight };
         const std::int32_t TargetOriginGridX{ CalculateStreamingOriginGrid(FocusPosition.x, mBuildDesc.CellSizeX, HeightFieldWidth, StreamingGridStep) };
         const std::int32_t TargetOriginGridZ{ CalculateStreamingOriginGrid(FocusPosition.z, mBuildDesc.CellSizeZ, HeightFieldHeight, StreamingGridStep) };
+
+        if (mHasPendingStreamingBuild == true && mStreamingBuildFuture.valid() == true) {
+            const std::future_status BuildStatus{ mStreamingBuildFuture.wait_for(std::chrono::seconds{ 0 }) };
+            if (BuildStatus == std::future_status::ready) {
+                const bool IsPendingResultCurrent{ mPendingStreamingOriginGridX == TargetOriginGridX && mPendingStreamingOriginGridZ == TargetOriginGridZ };
+                if (IsPendingResultCurrent == true && (mHeightFieldCopyFuture.IsInFlight() == true || mSplatMapCopyFuture.IsInFlight() == true)) {
+                    return false;
+                }
+
+                TerrainStreamingBuildResult Result{ mStreamingBuildFuture.get() };
+                mHasPendingStreamingBuild = false;
+                const bool IsResultCurrent{ Result.mTargetOriginGridX == TargetOriginGridX && Result.mTargetOriginGridZ == TargetOriginGridZ };
+                if (Result.mSucceeded == true && IsResultCurrent == true) {
+                    return TryCommitStreamingBuild(std::move(Result), Device, CopyQueue, Allocator, SrvHeap);
+                }
+            }
+        }
+
         if (mHasStreamOrigin == true && TargetOriginGridX == mStreamOriginGridX && TargetOriginGridZ == mStreamOriginGridZ) {
+            return false;
+        }
+
+        if (mHasPendingStreamingBuild == true) {
             return false;
         }
 
         TerrainBuildDesc StreamingDesc{ mBuildDesc };
         StreamingDesc.mProceduralHeightFieldDesc.mSampleOffsetX = TargetOriginGridX;
         StreamingDesc.mProceduralHeightFieldDesc.mSampleOffsetZ = TargetOriginGridZ;
+        StartStreamingBuild(StreamingDesc, TargetOriginGridX, TargetOriginGridZ);
+        return false;
+    }
 
-        TerrainTiledMeshData TiledMeshData{};
-        HeightFieldData HeightField{};
-        try {
-            TerrainHeightFieldFactory HeightFieldFactory{};
-            TerrainTiledMeshBuilder Builder{};
-            StreamingDesc.mProceduralHeightFieldDesc = HeightFieldFactory.ResolveProceduralHeightFieldDesc(StreamingDesc);
-            HeightField = HeightFieldFactory.Build(StreamingDesc);
-            TiledMeshData = Builder.Build(HeightField, StreamingDesc);
-        }
-        catch (const std::exception&) {
+    bool TerrainRenderResource::TryCommitStreamingBuild(TerrainStreamingBuildResult&& Result, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
+        if (Result.mSucceeded == false || Result.mHeightField.HeightValues.empty() == true || Result.mSplatMap.WeightValues.empty() == true) {
             return false;
         }
 
-        const bool IsHeightFieldUploaded{ UploadHeightFieldData(HeightField, StreamingDesc, Device, CopyQueue, Allocator, SrvHeap) };
+        if (mHeightFieldCopyFuture.IsInFlight() == true || mSplatMapCopyFuture.IsInFlight() == true) {
+            return false;
+        }
+
+        const bool IsHeightFieldUploaded{ UploadHeightFieldData(Result.mHeightField, Result.mBuildDesc, Device, CopyQueue, Allocator, SrvHeap) };
         if (IsHeightFieldUploaded == false) {
             return false;
         }
 
-        mTileMetadata = std::move(TiledMeshData.mTileMetadata);
-        mTileQuadCount = TiledMeshData.mTileQuadCount;
-        mTileCountX = TiledMeshData.mTileCountX;
-        mTileCountZ = TiledMeshData.mTileCountZ;
-        mLodCount = TiledMeshData.mLodCount;
-        mLodDistances = std::move(TiledMeshData.mLodDistances);
-        mLocalBoundingBox = TiledMeshData.mLocalBoundingBox;
-        mBuildDesc = StreamingDesc;
-        mStreamOriginGridX = TargetOriginGridX;
-        mStreamOriginGridZ = TargetOriginGridZ;
-        mStreamWorldOriginX = CalculateStreamingWorldOrigin(mStreamOriginGridX, HeightField.Width, StreamingDesc.CellSizeX, StreamingDesc.CenterOrigin);
-        mStreamWorldOriginZ = CalculateStreamingWorldOrigin(mStreamOriginGridZ, HeightField.Height, StreamingDesc.CellSizeZ, StreamingDesc.CenterOrigin);
+        const bool IsSplatMapUploaded{ UploadSplatMapData(Result.mSplatMap, Device, CopyQueue, Allocator, SrvHeap) };
+        if (IsSplatMapUploaded == false) {
+            return false;
+        }
+
+        mTileMetadata = std::move(Result.mTileMetadata);
+        mTileQuadCount = Result.mTileQuadCount;
+        mTileCountX = Result.mTileCountX;
+        mTileCountZ = Result.mTileCountZ;
+        mLodCount = Result.mLodCount;
+        mLodDistances = std::move(Result.mLodDistances);
+        mLocalBoundingBox = Result.mLocalBoundingBox;
+        mBuildDesc = std::move(Result.mBuildDesc);
+        mStreamOriginGridX = Result.mTargetOriginGridX;
+        mStreamOriginGridZ = Result.mTargetOriginGridZ;
+        mStreamWorldOriginX = Result.mStreamWorldOriginX;
+        mStreamWorldOriginZ = Result.mStreamWorldOriginZ;
         mHasStreamOrigin = true;
         return true;
     }
 
+    void TerrainRenderResource::StartStreamingBuild(const TerrainBuildDesc& StreamingDesc, std::int32_t TargetOriginGridX, std::int32_t TargetOriginGridZ) {
+        try {
+            mStreamingBuildFuture = std::async(std::launch::async, BuildTerrainStreamingResult, StreamingDesc, TargetOriginGridX, TargetOriginGridZ);
+            mPendingStreamingOriginGridX = TargetOriginGridX;
+            mPendingStreamingOriginGridZ = TargetOriginGridZ;
+            mHasPendingStreamingBuild = true;
+        }
+        catch (const std::exception&) {
+            mHasPendingStreamingBuild = false;
+        }
+    }
+
     bool TerrainRenderResource::UploadHeightFieldData(const HeightFieldData& Field, const TerrainBuildDesc& Desc, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
-        if (Field.HeightValues.empty() == true) {
+        if (Device == nullptr || CopyQueue == nullptr || Allocator == nullptr || SrvHeap == nullptr || Field.HeightValues.empty() == true) {
             return false;
         }
 
         const std::size_t HeightFieldSizeInBytes{ Field.HeightValues.size() * sizeof(float) };
         if (mHeightFieldAllocation == nullptr || mHeightFieldAllocation->IsValid() == false || mHeightFieldAllocation->GetSize() < HeightFieldSizeInBytes) {
-            return InitializeHeightField(Field, Desc, Device, CopyQueue, Allocator, SrvHeap);
+            D3D12_RESOURCE_DESC ResourceDescription{};
+            ResourceDescription.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+            ResourceDescription.Alignment = 0;
+            ResourceDescription.Width = static_cast<UINT64>(HeightFieldSizeInBytes);
+            ResourceDescription.Height = 1;
+            ResourceDescription.DepthOrArraySize = 1;
+            ResourceDescription.MipLevels = 1;
+            ResourceDescription.Format = DXGI_FORMAT_UNKNOWN;
+            ResourceDescription.SampleDesc.Count = 1;
+            ResourceDescription.SampleDesc.Quality = 0;
+            ResourceDescription.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+            ResourceDescription.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+            if (Allocator->CanAllocate(ResourceDescription) == false) {
+                return false;
+            }
+
+            Interface::AllocatePlacedResourceParameters AllocationParameters{ ResourceDescription, D3D12_RESOURCE_STATE_COMMON, nullptr, L"Terrain.HeightFieldBuffer" };
+            mHeightFieldAllocation = Allocator->AllocatePlacedResource(AllocationParameters);
+            if (mHeightFieldAllocation == nullptr || mHeightFieldAllocation->IsValid() == false) {
+                mHeightFieldAllocation.reset();
+                return false;
+            }
+
+            mHeightFieldSrvHandle = SrvHeap->Allocate();
+
+            D3D12_SHADER_RESOURCE_VIEW_DESC ShaderResourceViewDescription{};
+            ShaderResourceViewDescription.Format = DXGI_FORMAT_UNKNOWN;
+            ShaderResourceViewDescription.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+            ShaderResourceViewDescription.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            ShaderResourceViewDescription.Buffer.FirstElement = 0;
+            ShaderResourceViewDescription.Buffer.NumElements = static_cast<UINT>(Field.HeightValues.size());
+            ShaderResourceViewDescription.Buffer.StructureByteStride = sizeof(float);
+            ShaderResourceViewDescription.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+            Device->CreateShaderResourceView(mHeightFieldAllocation->GetResource(), &ShaderResourceViewDescription, mHeightFieldSrvHandle.GetCPU());
+            mHeightFieldSrvDescriptorIndex = mHeightFieldSrvHandle.GetIndex();
         }
 
-        if (CopyQueue == nullptr || mHeightFieldCopyFuture.IsInFlight() == true) {
+        if (mHeightFieldCopyFuture.IsInFlight() == true) {
             return false;
         }
 
@@ -357,6 +466,70 @@ namespace Game {
         mOriginOffsetX = Desc.CenterOrigin == true ? (static_cast<float>(Field.Width - 1u) * Desc.CellSizeX * 0.5f) : 0.0f;
         mOriginOffsetZ = Desc.CenterOrigin == true ? (static_cast<float>(Field.Height - 1u) * Desc.CellSizeZ * 0.5f) : 0.0f;
         mHeightFieldFlipV = Desc.FlipV;
+        return true;
+    }
+
+    bool TerrainRenderResource::UploadSplatMapData(const SplatMapData& SplatMap, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
+        if (Device == nullptr || CopyQueue == nullptr || Allocator == nullptr || SrvHeap == nullptr || SplatMap.WeightValues.empty() == true) {
+            return false;
+        }
+
+        const std::size_t SplatMapSizeInBytes{ SplatMap.WeightValues.size() * sizeof(asset::Vec4) };
+        if (mSplatMapAllocation == nullptr || mSplatMapAllocation->IsValid() == false || mSplatMapAllocation->GetSize() < SplatMapSizeInBytes || mSplatMapSrvDescriptorIndex == 0xffffffffu) {
+            D3D12_RESOURCE_DESC ResourceDescription{};
+            ResourceDescription.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+            ResourceDescription.Alignment = 0;
+            ResourceDescription.Width = static_cast<UINT64>(SplatMapSizeInBytes);
+            ResourceDescription.Height = 1;
+            ResourceDescription.DepthOrArraySize = 1;
+            ResourceDescription.MipLevels = 1;
+            ResourceDescription.Format = DXGI_FORMAT_UNKNOWN;
+            ResourceDescription.SampleDesc.Count = 1;
+            ResourceDescription.SampleDesc.Quality = 0;
+            ResourceDescription.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+            ResourceDescription.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+            if (Allocator->CanAllocate(ResourceDescription) == false) {
+                return false;
+            }
+
+            Interface::AllocatePlacedResourceParameters AllocationParameters{ ResourceDescription, D3D12_RESOURCE_STATE_COMMON, nullptr, L"Terrain.SplatMapBuffer" };
+            mSplatMapAllocation = Allocator->AllocatePlacedResource(AllocationParameters);
+            if (mSplatMapAllocation == nullptr || mSplatMapAllocation->IsValid() == false) {
+                mSplatMapAllocation.reset();
+                return false;
+            }
+
+            mSplatMapSrvHandle = SrvHeap->Allocate();
+
+            D3D12_SHADER_RESOURCE_VIEW_DESC ShaderResourceViewDescription{};
+            ShaderResourceViewDescription.Format = DXGI_FORMAT_UNKNOWN;
+            ShaderResourceViewDescription.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+            ShaderResourceViewDescription.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            ShaderResourceViewDescription.Buffer.FirstElement = 0;
+            ShaderResourceViewDescription.Buffer.NumElements = static_cast<UINT>(SplatMap.WeightValues.size());
+            ShaderResourceViewDescription.Buffer.StructureByteStride = sizeof(asset::Vec4);
+            ShaderResourceViewDescription.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+            Device->CreateShaderResourceView(mSplatMapAllocation->GetResource(), &ShaderResourceViewDescription, mSplatMapSrvHandle.GetCPU());
+            mSplatMapSrvDescriptorIndex = mSplatMapSrvHandle.GetIndex();
+        }
+
+        if (mSplatMapCopyFuture.IsInFlight() == true) {
+            return false;
+        }
+
+        Interface::CopyQueueCopyRequest CopyRequest{};
+        CopyRequest.DestinationDefaultResource = mSplatMapAllocation->GetResource();
+        CopyRequest.DestinationOffset = 0;
+        CopyRequest.SourceData.resize(SplatMapSizeInBytes);
+        std::memcpy(CopyRequest.SourceData.data(), SplatMap.WeightValues.data(), SplatMapSizeInBytes);
+        mSplatMapCopyFuture = CopyQueue->EnqueueCopyFuture(CopyRequest);
+        if (mSplatMapCopyFuture.IsValid() == false) {
+            return false;
+        }
+
+        mSplatMapWidth = SplatMap.Width;
+        mSplatMapHeight = SplatMap.Height;
         return true;
     }
 
@@ -408,12 +581,24 @@ namespace Game {
         return mHeightFieldSrvDescriptorIndex;
     }
 
+    std::uint32_t TerrainRenderResource::GetSplatMapSrvDescriptorIndex() const {
+        return mSplatMapSrvDescriptorIndex;
+    }
+
     std::uint32_t TerrainRenderResource::GetHeightFieldWidth() const {
         return mHeightFieldWidth;
     }
 
     std::uint32_t TerrainRenderResource::GetHeightFieldHeight() const {
         return mHeightFieldHeight;
+    }
+
+    std::uint32_t TerrainRenderResource::GetSplatMapWidth() const {
+        return mSplatMapWidth;
+    }
+
+    std::uint32_t TerrainRenderResource::GetSplatMapHeight() const {
+        return mSplatMapHeight;
     }
 
     float TerrainRenderResource::GetMaxHeight() const {

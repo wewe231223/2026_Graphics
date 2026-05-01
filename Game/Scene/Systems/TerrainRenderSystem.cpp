@@ -93,6 +93,9 @@ namespace {
         PatchContext.HeightFieldParameters = SimpleMath::Vector4{ static_cast<float>(Resource.GetHeightFieldWidth()), static_cast<float>(Resource.GetHeightFieldHeight()), Resource.GetMaxHeight(), Resource.IsHeightFieldFlipV() == true ? 1.0f : 0.0f };
         PatchContext.TerrainParameters = SimpleMath::Vector4{ Resource.GetCellSizeX(), Resource.GetCellSizeZ(), Resource.GetOriginOffsetX(), Resource.GetOriginOffsetZ() };
         PatchContext.HeightFieldSrvDescriptorIndex = Resource.GetHeightFieldSrvDescriptorIndex();
+        PatchContext.SplatMapSrvDescriptorIndex = Resource.GetSplatMapSrvDescriptorIndex();
+        PatchContext.SplatMapWidth = Resource.GetSplatMapWidth();
+        PatchContext.SplatMapHeight = Resource.GetSplatMapHeight();
         return PatchContext;
     }
 
