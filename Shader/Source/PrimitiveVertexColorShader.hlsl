@@ -34,9 +34,9 @@ PrimitiveVertexOutput VsMain(PrimitiveVertexInput Input, uint InstanceId : SV_In
 
     PrimitiveVertexOutput Output;
 
-    float4x4 World = transpose(ModelContext.World);
+    float4x4 World = ModelContext.World;
     const float4 WorldPosition = mul(float4(Input.Position, 1.0f), World);
-    Output.Position = mul(WorldPosition, transpose(FrameGlobals.ViewProj));
+    Output.Position = mul(WorldPosition, FrameGlobals.ViewProj);
     Output.Normal = normalize(mul(Input.Normal, (float3x3)World));
     Output.WorldPosition = WorldPosition.xyz;
     Output.Color = Input.Color;

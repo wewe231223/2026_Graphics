@@ -47,6 +47,20 @@ struct TerrainDepthVertexOutput
     float4 Position : SV_POSITION;
 };
 
+struct TerrainDepthControlPoint
+{
+    uint DrawIndex : DRAW_INDEX;
+};
+
+struct TerrainHeightFieldContext
+{
+    uint Width;
+    uint Height;
+    uint WidthMinusOne;
+    uint HeightMinusOne;
+    float2 InvGridSize;
+};
+
 TerrainControlPoint VsMain(TerrainVertexInput Input, uint InstanceId : SV_InstanceID)
 {
     TerrainControlPoint Output;
@@ -54,6 +68,13 @@ TerrainControlPoint VsMain(TerrainVertexInput Input, uint InstanceId : SV_Instan
     Output.Normal = Input.Normal;
     Output.TexCoord0 = Input.TexCoord0;
     Output.Color = Input.Color;
+    Output.DrawIndex = RootConstants.DrawRecordBaseIndex + InstanceId;
+    return Output;
+}
+
+TerrainDepthControlPoint VsMainDepth(TerrainVertexInput Input, uint InstanceId : SV_InstanceID)
+{
+    TerrainDepthControlPoint Output;
     Output.DrawIndex = RootConstants.DrawRecordBaseIndex + InstanceId;
     return Output;
 }
@@ -80,12 +101,37 @@ TerrainPatchConstantOutput HsPatchConstant(InputPatch<TerrainControlPoint, 4> Pa
     return Output;
 }
 
+TerrainPatchConstantOutput HsPatchConstantDepth(InputPatch<TerrainDepthControlPoint, 4> Patch, uint PatchId : SV_PrimitiveID)
+{
+    TerrainPatchConstantOutput Output;
+    const TerrainPatchContextGpu PatchContext = ResolveTerrainPatchContext(Patch[0].DrawIndex);
+    const float4 OuterFactors = max(PatchContext.OuterTessFactors, 1.0f);
+    const float2 InsideFactors = max(PatchContext.InsideTessFactors.xy, 1.0f);
+    Output.EdgeTessFactors[0] = OuterFactors.x;
+    Output.EdgeTessFactors[1] = OuterFactors.y;
+    Output.EdgeTessFactors[2] = OuterFactors.z;
+    Output.EdgeTessFactors[3] = OuterFactors.w;
+    Output.InsideTessFactors[0] = InsideFactors.x;
+    Output.InsideTessFactors[1] = InsideFactors.y;
+    return Output;
+}
+
 [domain("quad")]
 [partitioning("integer")]
 [outputtopology("triangle_ccw")]
 [outputcontrolpoints(4)]
 [patchconstantfunc("HsPatchConstant")]
 TerrainControlPoint HsMain(InputPatch<TerrainControlPoint, 4> Patch, uint ControlPointId : SV_OutputControlPointID, uint PatchId : SV_PrimitiveID)
+{
+    return Patch[ControlPointId];
+}
+
+[domain("quad")]
+[partitioning("integer")]
+[outputtopology("triangle_ccw")]
+[outputcontrolpoints(4)]
+[patchconstantfunc("HsPatchConstantDepth")]
+TerrainDepthControlPoint HsMainDepth(InputPatch<TerrainDepthControlPoint, 4> Patch, uint ControlPointId : SV_OutputControlPointID, uint PatchId : SV_PrimitiveID)
 {
     return Patch[ControlPointId];
 }
@@ -100,23 +146,29 @@ uint ResolveTerrainHeightFieldHeight(TerrainPatchContextGpu PatchContext)
     return max((uint) PatchContext.HeightFieldParameters.y, 1u);
 }
 
-float SampleTerrainHeight01(TerrainPatchContextGpu PatchContext, float2 GridPosition)
+TerrainHeightFieldContext BuildTerrainHeightFieldContext(TerrainPatchContextGpu PatchContext)
 {
-    StructuredBuffer<float> HeightFieldBuffer = ResourceDescriptorHeap[NonUniformResourceIndex(PatchContext.HeightFieldSrvDescriptorIndex)];
-    const uint Width = ResolveTerrainHeightFieldWidth(PatchContext);
-    const uint Height = ResolveTerrainHeightFieldHeight(PatchContext);
-    const uint WidthMinusOne = Width - 1u;
-    const uint HeightMinusOne = Height - 1u;
-    const float2 ClampedGridPosition = clamp(GridPosition, 0.0f, float2((float) WidthMinusOne, (float) HeightMinusOne));
+    TerrainHeightFieldContext Context;
+    Context.Width = ResolveTerrainHeightFieldWidth(PatchContext);
+    Context.Height = ResolveTerrainHeightFieldHeight(PatchContext);
+    Context.WidthMinusOne = Context.Width - 1u;
+    Context.HeightMinusOne = Context.Height - 1u;
+    Context.InvGridSize = 1.0f / max(float2((float) Context.WidthMinusOne, (float) Context.HeightMinusOne), 1.0f);
+    return Context;
+}
+
+float SampleTerrainHeight01(StructuredBuffer<float> HeightFieldBuffer, TerrainHeightFieldContext HeightFieldContext, float2 GridPosition)
+{
+    const float2 ClampedGridPosition = clamp(GridPosition, 0.0f, float2((float) HeightFieldContext.WidthMinusOne, (float) HeightFieldContext.HeightMinusOne));
     const float2 FloorPosition = floor(ClampedGridPosition);
-    const uint X0 = min((uint) FloorPosition.x, WidthMinusOne);
-    const uint Z0 = min((uint) FloorPosition.y, HeightMinusOne);
-    const uint X1 = min(X0 + 1u, WidthMinusOne);
-    const uint Z1 = min(Z0 + 1u, HeightMinusOne);
+    const uint X0 = min((uint) FloorPosition.x, HeightFieldContext.WidthMinusOne);
+    const uint Z0 = min((uint) FloorPosition.y, HeightFieldContext.HeightMinusOne);
+    const uint X1 = min(X0 + 1u, HeightFieldContext.WidthMinusOne);
+    const uint Z1 = min(Z0 + 1u, HeightFieldContext.HeightMinusOne);
     const float2 Blend = saturate(ClampedGridPosition - FloorPosition);
 
-    const uint Z0Row = Z0 * Width;
-    const uint Z1Row = Z1 * Width;
+    const uint Z0Row = Z0 * HeightFieldContext.Width;
+    const uint Z1Row = Z1 * HeightFieldContext.Width;
     const float Height00 = saturate(HeightFieldBuffer[Z0Row + X0]);
     const float Height10 = saturate(HeightFieldBuffer[Z0Row + X1]);
     const float Height01 = saturate(HeightFieldBuffer[Z1Row + X0]);
@@ -126,9 +178,9 @@ float SampleTerrainHeight01(TerrainPatchContextGpu PatchContext, float2 GridPosi
     return lerp(HeightX0, HeightX1, Blend.y);
 }
 
-float SampleTerrainHeight(TerrainPatchContextGpu PatchContext, float2 GridPosition)
+float SampleTerrainHeight(StructuredBuffer<float> HeightFieldBuffer, TerrainPatchContextGpu PatchContext, TerrainHeightFieldContext HeightFieldContext, float2 GridPosition)
 {
-    return SampleTerrainHeight01(PatchContext, GridPosition) * PatchContext.HeightFieldParameters.z;
+    return SampleTerrainHeight01(HeightFieldBuffer, HeightFieldContext, GridPosition) * PatchContext.HeightFieldParameters.z;
 }
 
 float2 BuildTerrainGridPosition(TerrainPatchContextGpu PatchContext, float2 DomainUv)
@@ -136,19 +188,16 @@ float2 BuildTerrainGridPosition(TerrainPatchContextGpu PatchContext, float2 Doma
     return PatchContext.TileGrid.xy + (DomainUv * PatchContext.TileGrid.zw);
 }
 
-float3 BuildTerrainLocalPosition(TerrainPatchContextGpu PatchContext, float2 GridPosition)
+float3 BuildTerrainLocalPosition(StructuredBuffer<float> HeightFieldBuffer, TerrainPatchContextGpu PatchContext, TerrainHeightFieldContext HeightFieldContext, float2 GridPosition)
 {
-    const float HeightValue = SampleTerrainHeight(PatchContext, GridPosition);
+    const float HeightValue = SampleTerrainHeight(HeightFieldBuffer, PatchContext, HeightFieldContext, GridPosition);
     const float2 LocalXZ = GridPosition * PatchContext.TerrainParameters.xy - PatchContext.TerrainParameters.zw;
     return float3(LocalXZ.x, HeightValue, LocalXZ.y);
 }
 
-float2 BuildTerrainTexCoord(TerrainPatchContextGpu PatchContext, float2 GridPosition)
+float2 BuildTerrainTexCoord(TerrainPatchContextGpu PatchContext, TerrainHeightFieldContext HeightFieldContext, float2 GridPosition)
 {
-    const uint Width = ResolveTerrainHeightFieldWidth(PatchContext);
-    const uint Height = ResolveTerrainHeightFieldHeight(PatchContext);
-    const float2 InvSize = 1.0f / max(float2((float) (Width - 1u), (float) (Height - 1u)), 1.0f);
-    float2 Uv = GridPosition * InvSize;
+    float2 Uv = GridPosition * HeightFieldContext.InvGridSize;
     if (PatchContext.HeightFieldParameters.w > 0.5f)
     {
         Uv.y = 1.0f - Uv.y;
@@ -169,12 +218,12 @@ float2 BuildTerrainLayerTexCoord(TerrainPatchContextGpu PatchContext, float2 Gri
     return Uv;
 }
 
-float3 BuildTerrainLocalNormal(TerrainPatchContextGpu PatchContext, float2 GridPosition)
+float3 BuildTerrainLocalNormal(StructuredBuffer<float> HeightFieldBuffer, TerrainPatchContextGpu PatchContext, TerrainHeightFieldContext HeightFieldContext, float2 GridPosition)
 {
-    const float HeightNegativeX = SampleTerrainHeight(PatchContext, GridPosition + float2(-1.0f, 0.0f));
-    const float HeightPositiveX = SampleTerrainHeight(PatchContext, GridPosition + float2(1.0f, 0.0f));
-    const float HeightNegativeZ = SampleTerrainHeight(PatchContext, GridPosition + float2(0.0f, -1.0f));
-    const float HeightPositiveZ = SampleTerrainHeight(PatchContext, GridPosition + float2(0.0f, 1.0f));
+    const float HeightNegativeX = SampleTerrainHeight(HeightFieldBuffer, PatchContext, HeightFieldContext, GridPosition + float2(-1.0f, 0.0f));
+    const float HeightPositiveX = SampleTerrainHeight(HeightFieldBuffer, PatchContext, HeightFieldContext, GridPosition + float2(1.0f, 0.0f));
+    const float HeightNegativeZ = SampleTerrainHeight(HeightFieldBuffer, PatchContext, HeightFieldContext, GridPosition + float2(0.0f, -1.0f));
+    const float HeightPositiveZ = SampleTerrainHeight(HeightFieldBuffer, PatchContext, HeightFieldContext, GridPosition + float2(0.0f, 1.0f));
     const float3 DeltaX = float3(PatchContext.TerrainParameters.x * 2.0f, HeightPositiveX - HeightNegativeX, 0.0f);
     const float3 DeltaZ = float3(0.0f, HeightPositiveZ - HeightNegativeZ, PatchContext.TerrainParameters.y * 2.0f);
     return normalize(cross(DeltaZ, DeltaX));
@@ -192,19 +241,21 @@ TerrainVertexOutput DsMain(TerrainPatchConstantOutput PatchConstants, float2 Dom
     const ModelContextGpu ModelContext = ModelContextBuffer[DrawRecord.ObjectIndex];
     const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[RootConstants.FrameGlobalsElementIndex];
     const TerrainPatchContextGpu PatchContext = ResolveTerrainPatchContext(DrawIndex);
+    StructuredBuffer<float> HeightFieldBuffer = ResourceDescriptorHeap[NonUniformResourceIndex(PatchContext.HeightFieldSrvDescriptorIndex)];
+    const TerrainHeightFieldContext HeightFieldContext = BuildTerrainHeightFieldContext(PatchContext);
     const float2 GridPosition = BuildTerrainGridPosition(PatchContext, DomainUv);
-    const float3 LocalPosition = BuildTerrainLocalPosition(PatchContext, GridPosition);
-    const float3 LocalNormal = BuildTerrainLocalNormal(PatchContext, GridPosition);
+    const float3 LocalPosition = BuildTerrainLocalPosition(HeightFieldBuffer, PatchContext, HeightFieldContext, GridPosition);
+    const float3 LocalNormal = BuildTerrainLocalNormal(HeightFieldBuffer, PatchContext, HeightFieldContext, GridPosition);
 
-    const float4x4 World = transpose(ModelContext.World);
-    const float4x4 ViewProj = transpose(FrameGlobals.ViewProj);
+    const float4x4 World = ModelContext.World;
+    const float4x4 ViewProj = FrameGlobals.ViewProj;
     const float4 WorldPosition = mul(float4(LocalPosition, 1.0f), World);
 
     TerrainVertexOutput Output;
     Output.Position = mul(WorldPosition, ViewProj);
     Output.Normal = normalize(mul(LocalNormal, (float3x3) World));
     Output.WorldPosition = WorldPosition.xyz;
-    Output.TexCoord0 = BuildTerrainTexCoord(PatchContext, GridPosition);
+    Output.TexCoord0 = BuildTerrainTexCoord(PatchContext, HeightFieldContext, GridPosition);
     Output.LayerTexCoord = BuildTerrainLayerTexCoord(PatchContext, GridPosition);
     Output.Color = Patch[0].Color;
     Output.MaterialIndex = DrawRecord.MaterialIndex;
@@ -214,7 +265,7 @@ TerrainVertexOutput DsMain(TerrainPatchConstantOutput PatchConstants, float2 Dom
 }
 
 [domain("quad")]
-TerrainDepthVertexOutput DsMainDepth(TerrainPatchConstantOutput PatchConstants, float2 DomainUv : SV_DomainLocation, const OutputPatch<TerrainControlPoint, 4> Patch)
+TerrainDepthVertexOutput DsMainDepth(TerrainPatchConstantOutput PatchConstants, float2 DomainUv : SV_DomainLocation, const OutputPatch<TerrainDepthControlPoint, 4> Patch)
 {
     StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
     StructuredBuffer<ModelContextGpu> ModelContextBuffer = ResourceDescriptorHeap[RootConstants.ModelContextSrvIndex];
@@ -225,9 +276,11 @@ TerrainDepthVertexOutput DsMainDepth(TerrainPatchConstantOutput PatchConstants, 
     const ModelContextGpu ModelContext = ModelContextBuffer[DrawRecord.ObjectIndex];
     const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[RootConstants.FrameGlobalsElementIndex];
     const TerrainPatchContextGpu PatchContext = ResolveTerrainPatchContext(DrawIndex);
+    StructuredBuffer<float> HeightFieldBuffer = ResourceDescriptorHeap[NonUniformResourceIndex(PatchContext.HeightFieldSrvDescriptorIndex)];
+    const TerrainHeightFieldContext HeightFieldContext = BuildTerrainHeightFieldContext(PatchContext);
     const float2 GridPosition = BuildTerrainGridPosition(PatchContext, DomainUv);
-    const float3 LocalPosition = BuildTerrainLocalPosition(PatchContext, GridPosition);
-    const float4x4 WorldViewProj = mul(transpose(ModelContext.World), transpose(FrameGlobals.ViewProj));
+    const float3 LocalPosition = BuildTerrainLocalPosition(HeightFieldBuffer, PatchContext, HeightFieldContext, GridPosition);
+    const float4x4 WorldViewProj = mul(ModelContext.World, FrameGlobals.ViewProj);
 
     TerrainDepthVertexOutput Output;
     Output.Position = mul(float4(LocalPosition, 1.0f), WorldViewProj);
@@ -376,7 +429,7 @@ float4 ResolveTerrainLayerDiffuse(MaterialGpu MaterialData, StructuredBuffer<Mat
     return ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, LayerUv)) * LayerColor;
 }
 
-float3 ResolveTerrainLayerNormalTangent(MaterialGpu MaterialData, StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer, float2 LayerBaseUv, uint LayerIndex)
+float3 ResolveTerrainLayerNormalTangent(MaterialGpu MaterialData, StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer, float2 LayerBaseUv, uint LayerIndex, float NormalScale)
 {
     const float4 LayerUvTransform = MaterialData.Fields[MATERIAL_TYPE_TERRAIN_LAYER_UV_TRANSFORM0 + LayerIndex].FloatValue;
     const float2 LayerUv = ResolveTerrainTransformedUv(LayerBaseUv, LayerUvTransform);
@@ -399,8 +452,6 @@ float3 ResolveTerrainLayerNormalTangent(MaterialGpu MaterialData, StructuredBuff
     }
 
     float3 NormalTangent = NormalColor.xyz * 2.0f - 1.0f;
-    const float NormalScaleRaw = MaterialData.Fields[MATERIAL_TYPE_NORMAL_SCALE].FloatValue.x;
-    const float NormalScale = (NormalScaleRaw <= 0.0f) ? 1.0f : NormalScaleRaw;
     NormalTangent.xy *= NormalScale;
     return normalize(NormalTangent);
 }
@@ -425,17 +476,27 @@ void ResolveTerrainMaterial(MaterialGpu MaterialData, StructuredBuffer<MaterialT
     const bool HasGeneratedSplatMapValue = HasGeneratedTerrainSplatMap(PatchContext);
     const uint LayerCount = ResolveTerrainLayerCount(MaterialData, HasSplatMapValue, HasGeneratedSplatMapValue);
     const float4 FallbackColor = ResolveTerrainFallbackColor(MaterialData);
+    const float NormalScaleRaw = MaterialData.Fields[MATERIAL_TYPE_NORMAL_SCALE].FloatValue.x;
+    const float NormalScale = (NormalScaleRaw <= 0.0f) ? 1.0f : NormalScaleRaw;
+
+    if (HasSplatMapValue == false && HasGeneratedSplatMapValue == false)
+    {
+        OutColor = ResolveTerrainLayerDiffuse(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, 0u, FallbackColor);
+        OutNormalTangent = normalize(ResolveTerrainLayerNormalTangent(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, 0u, NormalScale));
+        return;
+    }
 
     const float4 GeneratedSplatCache = (HasSplatMapValue == false && HasGeneratedSplatMapValue == true)
         ? SampleGeneratedTerrainSplatMap(PatchContext, BaseUv)
         : float4(0.0f, 0.0f, 0.0f, 0.0f);
+    const uint EffectiveLayerCount = (HasSplatMapValue == false && HasGeneratedSplatMapValue == true) ? min(LayerCount, 4u) : LayerCount;
 
     float4 AccumulatedColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
     float3 AccumulatedNormal = float3(0.0f, 0.0f, 0.0f);
     float TotalWeight = 0.0f;
 
     [loop]
-    for (uint LayerIndex = 0u; LayerIndex < LayerCount; LayerIndex += 1u)
+    for (uint LayerIndex = 0u; LayerIndex < EffectiveLayerCount; LayerIndex += 1u)
     {
         const float LayerWeight = ResolveTerrainLayerWeight(MaterialData, MaterialTextureTableBuffer, PatchContext, BaseUv, LayerIndex, HasSplatMapValue, HasGeneratedSplatMapValue, GeneratedSplatCache);
         if (LayerWeight <= 0.0f)
@@ -444,14 +505,14 @@ void ResolveTerrainMaterial(MaterialGpu MaterialData, StructuredBuffer<MaterialT
         }
 
         AccumulatedColor += ResolveTerrainLayerDiffuse(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, LayerIndex, FallbackColor) * LayerWeight;
-        AccumulatedNormal += ResolveTerrainLayerNormalTangent(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, LayerIndex) * LayerWeight;
+        AccumulatedNormal += ResolveTerrainLayerNormalTangent(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, LayerIndex, NormalScale) * LayerWeight;
         TotalWeight += LayerWeight;
     }
 
     if (TotalWeight <= 0.0f)
     {
         OutColor = ResolveTerrainLayerDiffuse(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, 0u, FallbackColor);
-        OutNormalTangent = ResolveTerrainLayerNormalTangent(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, 0u);
+        OutNormalTangent = ResolveTerrainLayerNormalTangent(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, 0u, NormalScale);
         return;
     }
 

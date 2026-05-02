@@ -4,6 +4,11 @@ ConstantBuffer<RootConstantsB1> RootConstants : register(b1);
 SamplerState LinearWrapSampler : register(s0);
 SamplerComparisonState ShadowComparisonSampler : register(s1);
 
+struct DepthVertexOutput
+{
+    float4 Position : SV_POSITION;
+};
+
 VertexOutput VsMain(VertexInput Input, uint InstanceId : SV_InstanceID)
 {
     StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
@@ -17,14 +22,31 @@ VertexOutput VsMain(VertexInput Input, uint InstanceId : SV_InstanceID)
 
     VertexOutput Output;
 
-    float4x4 World = transpose(ModelContext.World);
+    float4x4 World = ModelContext.World;
     const float4 WorldPosition = mul(float4(Input.Position, 1.0f), World);
-    Output.Position = mul(WorldPosition, transpose(FrameGlobals.ViewProj));
+    Output.Position = mul(WorldPosition, FrameGlobals.ViewProj);
     Output.Normal = normalize(mul(Input.Normal, (float3x3)World));
     Output.WorldPosition = WorldPosition.xyz;
     Output.TexCoord0 = Input.TexCoord0;
     Output.MaterialIndex = DrawRecord.MaterialIndex;
     Output.Flags = DrawRecord.Flags;
+    return Output;
+}
+
+DepthVertexOutput VsMainDepth(VertexInput Input, uint InstanceId : SV_InstanceID)
+{
+    StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
+    StructuredBuffer<ModelContextGpu> ModelContextBuffer = ResourceDescriptorHeap[RootConstants.ModelContextSrvIndex];
+    StructuredBuffer<DrawRecordGpu> DrawRecordBuffer = ResourceDescriptorHeap[RootConstants.DrawRecordSrvIndex];
+
+    const uint DrawIndex = RootConstants.DrawRecordBaseIndex + InstanceId;
+    const DrawRecordGpu DrawRecord = DrawRecordBuffer[DrawIndex];
+    const ModelContextGpu ModelContext = ModelContextBuffer[DrawRecord.ObjectIndex];
+    const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[RootConstants.FrameGlobalsElementIndex];
+    const float4 WorldPosition = mul(float4(Input.Position, 1.0f), ModelContext.World);
+
+    DepthVertexOutput Output;
+    Output.Position = mul(WorldPosition, FrameGlobals.ViewProj);
     return Output;
 }
 

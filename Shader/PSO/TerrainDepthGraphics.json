@@ -5,11 +5,11 @@
   "RootSignature": "DefaultRootSignature",
   "VS": {
     "Source": "TerrainShader.hlsl",
-    "Identifier": "vs_6_6:VsMain"
+    "Identifier": "vs_6_6:VsMainDepth"
   },
   "HS": {
     "Source": "TerrainShader.hlsl",
-    "Identifier": "hs_6_6:HsMain"
+    "Identifier": "hs_6_6:HsMainDepth"
   },
   "DS": {
     "Source": "TerrainShader.hlsl",

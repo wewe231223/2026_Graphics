@@ -61,7 +61,7 @@ void GsMain(point BoundingBoxVsOutput Input[1], inout LineStream<BoundingBoxGsOu
         uint2(0, 4), uint2(1, 5), uint2(2, 6), uint2(3, 7)
     };
 
-    float4x4 ViewProj = transpose(FrameGlobals.ViewProj);
+    float4x4 ViewProj = FrameGlobals.ViewProj;
 
     for (uint EdgeIndex = 0; EdgeIndex < 12; ++EdgeIndex)
     {

@@ -8,6 +8,65 @@
 
 namespace Core {
 	namespace DX {
+		namespace {
+			SimpleMath::Matrix BuildGpuMatrix(const SimpleMath::Matrix& SourceMatrix) {
+				return SourceMatrix.Transpose();
+			}
+
+			Game::RFD::FrameGlobals BuildGpuFrameGlobals(const Game::RFD::FrameGlobals& SourceFrameGlobals) {
+				Game::RFD::FrameGlobals GpuFrameGlobals{ SourceFrameGlobals };
+				GpuFrameGlobals.view = BuildGpuMatrix(SourceFrameGlobals.view);
+				GpuFrameGlobals.proj = BuildGpuMatrix(SourceFrameGlobals.proj);
+				GpuFrameGlobals.viewProj = BuildGpuMatrix(SourceFrameGlobals.viewProj);
+				GpuFrameGlobals.prevViewProj = BuildGpuMatrix(SourceFrameGlobals.prevViewProj);
+				return GpuFrameGlobals;
+			}
+
+			Game::RFD::CameraParameter BuildGpuCameraParameter(const Game::RFD::CameraParameter& SourceCameraParameter) {
+				Game::RFD::CameraParameter GpuCameraParameter{ SourceCameraParameter };
+				GpuCameraParameter.view = BuildGpuMatrix(SourceCameraParameter.view);
+				GpuCameraParameter.proj = BuildGpuMatrix(SourceCameraParameter.proj);
+				GpuCameraParameter.viewProj = BuildGpuMatrix(SourceCameraParameter.viewProj);
+				return GpuCameraParameter;
+			}
+
+			Game::RFD::ShadowMappingParameter BuildGpuShadowMappingParameter(const Game::RFD::ShadowMappingParameter& SourceShadowMappingParameter) {
+				Game::RFD::ShadowMappingParameter GpuShadowMappingParameter{ SourceShadowMappingParameter };
+				for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < Game::RFD::ShadowCascadeMaxCount; CascadeIndex += 1) {
+					GpuShadowMappingParameter.shadowCameras[CascadeIndex] = BuildGpuCameraParameter(SourceShadowMappingParameter.shadowCameras[CascadeIndex]);
+				}
+
+				return GpuShadowMappingParameter;
+			}
+
+			Game::RFD::ModelContext BuildGpuModelContext(const Game::RFD::ModelContext& SourceModelContext) {
+				Game::RFD::ModelContext GpuModelContext{ SourceModelContext };
+				GpuModelContext.world = BuildGpuMatrix(SourceModelContext.world);
+				GpuModelContext.prevWorld = BuildGpuMatrix(SourceModelContext.prevWorld);
+				return GpuModelContext;
+			}
+
+			std::vector<Game::RFD::ModelContext> BuildGpuModelContexts(const std::vector<Game::RFD::ModelContext>& SourceModelContexts) {
+				std::vector<Game::RFD::ModelContext> GpuModelContexts{};
+				GpuModelContexts.reserve(SourceModelContexts.size());
+				for (const Game::RFD::ModelContext& SourceModelContext : SourceModelContexts) {
+					GpuModelContexts.push_back(BuildGpuModelContext(SourceModelContext));
+				}
+
+				return GpuModelContexts;
+			}
+
+			std::vector<SimpleMath::Matrix> BuildGpuBonePalette(const std::vector<SimpleMath::Matrix>& SourceBonePalette) {
+				std::vector<SimpleMath::Matrix> GpuBonePalette{};
+				GpuBonePalette.reserve(SourceBonePalette.size());
+				for (const SimpleMath::Matrix& SourceBoneMatrix : SourceBonePalette) {
+					GpuBonePalette.push_back(BuildGpuMatrix(SourceBoneMatrix));
+				}
+
+				return GpuBonePalette;
+			}
+		}
+
 		DrawCallResourceManager::DrawCallResourceManager() {
 		}
 
@@ -60,34 +119,48 @@ namespace Core {
 				ShadowFrameGlobalsArray[CascadeIndex] = ShadowFrameGlobals;
 			}
 
+			Game::RFD::FrameGlobals GpuFrameGlobals{ BuildGpuFrameGlobals(Data.globals) };
+			std::array<Game::RFD::FrameGlobals, Game::RFD::ShadowCascadeMaxCount> GpuShadowFrameGlobalsArray{};
+			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
+				GpuShadowFrameGlobalsArray[CascadeIndex] = BuildGpuFrameGlobals(ShadowFrameGlobalsArray[CascadeIndex]);
+			}
+
+			Game::RFD::ShadowMappingParameter GpuShadowMappingParameter{ BuildGpuShadowMappingParameter(Data.shadowMapping) };
+			std::vector<Game::RFD::ModelContext> GpuModelContexts{ BuildGpuModelContexts(Data.modelContexts) };
+			std::vector<SimpleMath::Matrix> GpuBonePalette{ BuildGpuBonePalette(Data.bonePalette) };
+			std::array<std::vector<Game::RFD::ModelContext>, Game::RFD::ShadowCascadeMaxCount> GpuShadowModelContextsArray{};
+			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
+				GpuShadowModelContextsArray[CascadeIndex] = BuildGpuModelContexts(Data.ShadowRenderContexts[CascadeIndex].ModelContexts);
+			}
+
 			std::size_t FrameGlobalsSizeInBytes{ sizeof(Game::RFD::FrameGlobals) };
 			std::size_t ShadowFrameGlobalsSizeInBytes{ sizeof(Game::RFD::FrameGlobals) * static_cast<std::size_t>(ShadowCascadeCount) };
 			std::size_t ShadowMappingParameterSizeInBytes{ sizeof(Game::RFD::ShadowMappingParameter) };
-			std::size_t ModelContextsSizeInBytes{ sizeof(Game::RFD::ModelContext) * Data.modelContexts.size() };
+			std::size_t ModelContextsSizeInBytes{ sizeof(Game::RFD::ModelContext) * GpuModelContexts.size() };
 			std::size_t BoundingBoxContextsSizeInBytes{ sizeof(Game::RFD::BoundingBoxContext) * Data.boundingBoxContexts.size() };
 			std::size_t DebugGeometryContextsSizeInBytes{ sizeof(Game::RFD::DebugGeometryContext) * Data.debugGeometryContexts.size() };
 			std::size_t TerrainPatchContextsSizeInBytes{ sizeof(Game::RFD::TerrainPatchContext) * Data.TerrainPatchContexts.size() };
-			std::size_t BonePaletteSizeInBytes{ sizeof(SimpleMath::Matrix) * Data.bonePalette.size() };
+			std::size_t BonePaletteSizeInBytes{ sizeof(SimpleMath::Matrix) * GpuBonePalette.size() };
 			std::size_t DrawRecordsGpuSizeInBytes{ sizeof(DrawRecordGPU) * mDrawRecordsGpu.size() };
 			std::array<std::size_t, Game::RFD::ShadowCascadeMaxCount> ShadowModelContextsSizeInBytes{};
 			std::array<std::size_t, Game::RFD::ShadowCascadeMaxCount> ShadowTerrainPatchContextsSizeInBytes{};
 			std::array<std::size_t, Game::RFD::ShadowCascadeMaxCount> ShadowDrawRecordsGpuSizeInBytes{};
 			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
 				const Game::RFD::ShadowRenderContext& ShadowRenderContext{ Data.ShadowRenderContexts[CascadeIndex] };
-				ShadowModelContextsSizeInBytes[CascadeIndex] = sizeof(Game::RFD::ModelContext) * ShadowRenderContext.ModelContexts.size();
+				ShadowModelContextsSizeInBytes[CascadeIndex] = sizeof(Game::RFD::ModelContext) * GpuShadowModelContextsArray[CascadeIndex].size();
 				ShadowTerrainPatchContextsSizeInBytes[CascadeIndex] = sizeof(Game::RFD::TerrainPatchContext) * ShadowRenderContext.TerrainPatchContexts.size();
 				ShadowDrawRecordsGpuSizeInBytes[CascadeIndex] = sizeof(DrawRecordGPU) * mShadowDrawRecordsGpu[CascadeIndex].size();
 			}
 
 			std::byte DummyByte{ 0 };
-			void* FrameGlobalsSourceData{ FrameGlobalsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&Data.globals) };
-			void* ShadowFrameGlobalsSourceData{ ShadowFrameGlobalsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(ShadowFrameGlobalsArray.data()) };
-			void* ShadowMappingParameterSourceData{ ShadowMappingParameterSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&Data.shadowMapping) };
-			void* ModelContextSourceData{ ModelContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.modelContexts.data()) };
+			void* FrameGlobalsSourceData{ FrameGlobalsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&GpuFrameGlobals) };
+			void* ShadowFrameGlobalsSourceData{ ShadowFrameGlobalsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(GpuShadowFrameGlobalsArray.data()) };
+			void* ShadowMappingParameterSourceData{ ShadowMappingParameterSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&GpuShadowMappingParameter) };
+			void* ModelContextSourceData{ ModelContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(GpuModelContexts.data()) };
 			void* BoundingBoxContextSourceData{ BoundingBoxContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.boundingBoxContexts.data()) };
 			void* DebugGeometryContextSourceData{ DebugGeometryContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.debugGeometryContexts.data()) };
 			void* TerrainPatchContextSourceData{ TerrainPatchContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.TerrainPatchContexts.data()) };
-			void* BonePaletteSourceData{ BonePaletteSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.bonePalette.data()) };
+			void* BonePaletteSourceData{ BonePaletteSizeInBytes == 0 ? &DummyByte : static_cast<void*>(GpuBonePalette.data()) };
 			void* DrawRecordSourceData{ DrawRecordsGpuSizeInBytes == 0 ? &DummyByte : static_cast<void*>(mDrawRecordsGpu.data()) };
 
 			bool FrameGlobalsCopyResult{ mFrameGlobalsVector.Copy(GraphicsAllocator, FrameGlobalsSourceData, FrameGlobalsSizeInBytes) };
@@ -119,7 +192,7 @@ namespace Core {
 
 			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
 				Game::RFD::ShadowRenderContext& ShadowRenderContext{ Data.ShadowRenderContexts[CascadeIndex] };
-				void* ShadowModelContextSourceData{ ShadowModelContextsSizeInBytes[CascadeIndex] == 0 ? &DummyByte : static_cast<void*>(ShadowRenderContext.ModelContexts.data()) };
+				void* ShadowModelContextSourceData{ ShadowModelContextsSizeInBytes[CascadeIndex] == 0 ? &DummyByte : static_cast<void*>(GpuShadowModelContextsArray[CascadeIndex].data()) };
 				void* ShadowTerrainPatchContextSourceData{ ShadowTerrainPatchContextsSizeInBytes[CascadeIndex] == 0 ? &DummyByte : static_cast<void*>(ShadowRenderContext.TerrainPatchContexts.data()) };
 				void* ShadowDrawRecordSourceData{ ShadowDrawRecordsGpuSizeInBytes[CascadeIndex] == 0 ? &DummyByte : static_cast<void*>(mShadowDrawRecordsGpu[CascadeIndex].data()) };
 

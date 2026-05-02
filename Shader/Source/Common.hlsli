@@ -202,7 +202,7 @@ float4 ApplyMaterialScalarColor(float4 BaseColor, MaterialGpu MaterialData)
     }
 
     const float EffectiveOpacity = (Opacity > 0.0f) ? Opacity : ScalarColor.a;
-    const float3 ScalarRgb = DecodeSrgbColor(ScalarColor.rgb);
+    const float3 ScalarRgb = all(ScalarColor.rgb == 1.0f) ? float3(1.0f, 1.0f, 1.0f) : DecodeSrgbColor(ScalarColor.rgb);
     float4 ResultColor = BaseColor * float4(ScalarRgb, 1.0f);
     ResultColor.a *= saturate(EffectiveOpacity);
     return saturate(ResultColor);
@@ -258,7 +258,7 @@ float ResolveCascadeShadowStrength(ShadowMappingParameterGpu ShadowMappingParame
 uint ResolveCascadeIndex(ShadowMappingParameterGpu ShadowMappingParameter, FrameGlobalsGpu FrameGlobals, float3 WorldPosition)
 {
     const uint EffectiveCascadeCount = clamp(ShadowMappingParameter.CascadeCount, 1u, SHADOW_CASCADE_MAX_COUNT);
-    const float4 ViewPosition = mul(float4(WorldPosition, 1.0f), transpose(FrameGlobals.View));
+    const float4 ViewPosition = mul(float4(WorldPosition, 1.0f), FrameGlobals.View);
     const float ViewDepth = max(ViewPosition.z, 0.0f);
     uint CascadeIndex = EffectiveCascadeCount - 1u;
 
@@ -283,7 +283,7 @@ uint ResolveCascadeIndex(ShadowMappingParameterGpu ShadowMappingParameter, Frame
 
 float ComputeShadowVisibility(Texture2D<float> ShadowMapTexture, SamplerComparisonState ShadowComparisonSampler, CameraParameterGpu ShadowCamera, float ShadowBias, float ShadowMapSize, float3 WorldPosition)
 {
-    float4x4 ShadowViewProj = transpose(ShadowCamera.ViewProj);
+    float4x4 ShadowViewProj = ShadowCamera.ViewProj;
     float4 ShadowClipPosition = mul(float4(WorldPosition, 1.0f), ShadowViewProj);
     float3 ShadowNdcPosition = ShadowClipPosition.xyz / max(ShadowClipPosition.w, 1.0e-5f);
     float2 ShadowUv = ShadowNdcPosition.xy * float2(0.5f, -0.5f) + float2(0.5f, 0.5f);

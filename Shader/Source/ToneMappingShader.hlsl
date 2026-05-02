@@ -2,14 +2,17 @@
 
 float3 ApplyToneMapping(float3 HdrColor) {
     const float Gamma = max(asfloat(RootConstants.mParameter1), 0.0001f);
+    const float InvGamma = 1.0f / Gamma;
     if (RootConstants.mParameter2 == 0u) {
-        return pow(saturate(max(HdrColor, 0.0f)), 1.0f / Gamma);
+        const float3 LinearColor = saturate(max(HdrColor, 0.0f));
+        return Gamma == 1.0f ? LinearColor : pow(LinearColor, InvGamma);
     }
 
     const float Exposure = max(asfloat(RootConstants.mParameter0), 0.0f);
     const float3 ExposedColor = max(HdrColor * Exposure, 0.0f);
     const float3 MappedColor = (ExposedColor * ((2.51f * ExposedColor) + 0.03f)) / ((ExposedColor * ((2.43f * ExposedColor) + 0.59f)) + 0.14f);
-    return pow(saturate(MappedColor), 1.0f / Gamma);
+    const float3 SaturatedMappedColor = saturate(MappedColor);
+    return Gamma == 1.0f ? SaturatedMappedColor : pow(SaturatedMappedColor, InvGamma);
 }
 
 [numthreads(8, 8, 1)]

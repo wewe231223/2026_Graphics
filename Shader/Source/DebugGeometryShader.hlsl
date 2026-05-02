@@ -159,8 +159,8 @@ void GsMain(point DebugGeometryVsOutput Input[1], inout TriangleStream<DebugGeom
 
     const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[RootConstants.FrameGlobalsElementIndex];
     const DebugGeometryContextGpu DebugGeometryContext = DebugGeometryContextBuffer[Input[0].InstanceId];
-    const float4x4 ViewMatrix = transpose(FrameGlobals.View);
-    const float4x4 ProjectionMatrix = transpose(FrameGlobals.Proj);
+    const float4x4 ViewMatrix = FrameGlobals.View;
+    const float4x4 ProjectionMatrix = FrameGlobals.Proj;
     const float LineThickness = max(DebugGeometryContext.LineThickness, MinimumDebugGeometryLineThickness);
 
     if (DebugGeometryContext.Type == DebugGeometryTypeLineValue)

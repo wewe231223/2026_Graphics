@@ -5,7 +5,7 @@
   "RootSignature": "DefaultRootSignature",
   "VS": {
     "Source": "SkinnedMeshShader.hlsl",
-    "Identifier": "vs_6_6:VsMain"
+    "Identifier": "vs_6_6:VsMainDepth"
   },
   "InputLayout": [
     {

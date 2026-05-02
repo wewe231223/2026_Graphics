@@ -33,8 +33,8 @@ SkyDomeVertexOutput VsMain(SkyDomeVertexInput Input, uint InstanceId : SV_Instan
 
     SkyDomeVertexOutput Output;
 
-    float4x4 View = transpose(FrameGlobals.View);
-    float4x4 Proj = transpose(FrameGlobals.Proj);
+    float4x4 View = FrameGlobals.View;
+    float4x4 Proj = FrameGlobals.Proj;
 
     float3x3 ViewRotation = (float3x3) View;
     float3 RotatedPosition = mul(Input.Position, ViewRotation);
