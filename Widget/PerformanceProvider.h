@@ -49,6 +49,7 @@ namespace Widget {
         [[nodiscard]] double GetZeroPointOnePercentLowFps() const;
 
         [[nodiscard]] std::vector<ProfileEntry> GetCurrentFrameProfiles() const;
+        [[nodiscard]] std::vector<ProfileEntry> GetTimelineAverageProfiles() const;
 
         [[nodiscard]] uint64_t GetVramBudgetBytes() const;
         [[nodiscard]] uint64_t GetVramUsageBytes() const;
@@ -56,6 +57,7 @@ namespace Widget {
 
     private:
         void PruneOldFrameTimeRecords(double NowMicroseconds);
+        void UpdateTimelineAverageProfiles(const std::vector<ProfileEntry>& Entries, double EndMicroseconds);
         void UpdatePercentileCache();
         void UpdateVramInfoIfNeeded();
         double QueryNowMicroseconds() const;
@@ -78,6 +80,10 @@ namespace Widget {
         double mActivePhaseStartMicroseconds{};
         bool mHasActivePhase{};
         std::vector<ProfileEntry> mCurrentFrameProfiles{};
+        std::vector<ProfileEntry> mTimelineAverageProfiles{};
+        std::vector<std::pair<std::string, double>> mTimelineProfileDurationSums{};
+        std::size_t mTimelineProfileFrameCount{};
+        double mTimelineProfileAverageBeginMicroseconds{};
 
         double mLastPercentileUpdateMicroseconds{};
         double mAverageFps{};

@@ -10,6 +10,7 @@
 
 namespace Widget {
     constexpr double FrameTimeHistoryMicroseconds{ 2000000.0 };
+    constexpr double TimelineAverageMicroseconds{ 200000.0 };
 
     PerformanceProvider::PerformanceProvider() {
         QueryPerformanceFrequency(&mFrequency);
@@ -79,6 +80,7 @@ namespace Widget {
             NewFrameProfiles.push_back(Entry);
             CurrentStartMicroseconds = Entry.EndMicroseconds;
         }
+        UpdateTimelineAverageProfiles(NewFrameProfiles, EndMicroseconds);
         mCurrentFrameProfiles = std::move(NewFrameProfiles);
 
         mHasFrameBegin = false;
@@ -170,6 +172,10 @@ namespace Widget {
         return mCurrentFrameProfiles;
     }
 
+    std::vector<ProfileEntry> PerformanceProvider::GetTimelineAverageProfiles() const {
+        return mTimelineAverageProfiles;
+    }
+
     uint64_t PerformanceProvider::GetVramBudgetBytes() const {
         return mVramBudgetBytes;
     }
@@ -191,6 +197,55 @@ namespace Widget {
             return NowMicroseconds - FrameTimeRecord.first <= FrameTimeHistoryMicroseconds;
         }) };
         mFrameTimeRecords.erase(mFrameTimeRecords.begin(), FirstValidIterator);
+    }
+
+    void PerformanceProvider::UpdateTimelineAverageProfiles(const std::vector<ProfileEntry>& Entries, double EndMicroseconds) {
+        if (mTimelineProfileFrameCount == 0) {
+            mTimelineProfileAverageBeginMicroseconds = EndMicroseconds;
+        }
+
+        for (const ProfileEntry& Entry : Entries) {
+            const double DurationMicroseconds{ std::max(0.0, Entry.EndMicroseconds - Entry.StartMicroseconds) };
+            bool IsFound{};
+            for (std::pair<std::string, double>& DurationSum : mTimelineProfileDurationSums) {
+                if (DurationSum.first == Entry.Name) {
+                    DurationSum.second += DurationMicroseconds;
+                    IsFound = true;
+                    break;
+                }
+            }
+
+            if (!IsFound) {
+                mTimelineProfileDurationSums.push_back(std::pair<std::string, double>{ Entry.Name, DurationMicroseconds });
+            }
+        }
+
+        mTimelineProfileFrameCount += 1;
+
+        const double ElapsedMicroseconds{ EndMicroseconds - mTimelineProfileAverageBeginMicroseconds };
+        if (ElapsedMicroseconds < TimelineAverageMicroseconds) {
+            return;
+        }
+
+        std::vector<ProfileEntry> AverageProfiles{};
+        AverageProfiles.reserve(mTimelineProfileDurationSums.size());
+
+        const double FrameCount{ static_cast<double>(mTimelineProfileFrameCount) };
+        double CurrentStartMicroseconds{};
+        for (const std::pair<std::string, double>& DurationSum : mTimelineProfileDurationSums) {
+            ProfileEntry Entry{};
+            Entry.Name = DurationSum.first;
+            Entry.StartMicroseconds = CurrentStartMicroseconds;
+            Entry.EndMicroseconds = CurrentStartMicroseconds + DurationSum.second / FrameCount;
+            Entry.Depth = 0;
+            AverageProfiles.push_back(Entry);
+            CurrentStartMicroseconds = Entry.EndMicroseconds;
+        }
+
+        mTimelineAverageProfiles = std::move(AverageProfiles);
+        mTimelineProfileDurationSums.clear();
+        mTimelineProfileFrameCount = 0;
+        mTimelineProfileAverageBeginMicroseconds = EndMicroseconds;
     }
 
     void PerformanceProvider::UpdatePercentileCache() {

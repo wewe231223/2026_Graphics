@@ -229,7 +229,7 @@ namespace Widget {
             return;
         }
 
-        const std::vector<ProfileEntry> Entries{ PerformanceProvider::Get().GetCurrentFrameProfiles() };
+        const std::vector<ProfileEntry> Entries{ PerformanceProvider::Get().GetTimelineAverageProfiles() };
         std::string PreUpdateLegendText{ "PreUpdate" };
         std::string UpdateLegendText{ "Update" };
         std::string PostUpdateLegendText{ "PostUpdate" };
