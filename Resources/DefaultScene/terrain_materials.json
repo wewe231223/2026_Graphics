@@ -11,6 +11,7 @@
                         "LayerCount": 4,
                         "Layers": [
                             {
+                                "DiffuseTexture" : "LowGround_Diffuse", 
                                 "DiffuseColor": [
                                     0.45,
                                     0.36,
@@ -31,6 +32,7 @@
                                 ]
                             },
                             {
+                                "DiffuseTexture" : "Grass_Diffuse", 
                                 "DiffuseColor": [
                                     0.18,
                                     0.42,
@@ -51,6 +53,7 @@
                                 ]
                             },
                             {
+                                "DiffuseTexture" : "Rock_Diffuse", 
                                 "DiffuseColor": [
                                     0.42,
                                     0.41,
@@ -71,6 +74,7 @@
                                 ]
                             },
                             {
+                                "DiffuseTexture" : "Snow_Diffuse", 
                                 "DiffuseColor": [
                                     0.82,
                                     0.86,
