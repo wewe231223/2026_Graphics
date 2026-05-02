@@ -1,6 +1,7 @@
 #include "PerformanceWidgets.h"
 
 #include <algorithm>
+#include <cmath>
 #include <format>
 #include <string>
 #include <vector>
@@ -12,6 +13,141 @@
 #endif
 
 namespace Widget {
+    static float ResolveFrameTimePlotMaxMilliseconds(const std::vector<FrameTimeSample>& FrameTimeSamples) {
+        float MaxFrameTimeMilliseconds{ 1.0f };
+        for (const FrameTimeSample& Sample : FrameTimeSamples) {
+            MaxFrameTimeMilliseconds = std::max(MaxFrameTimeMilliseconds, Sample.TimeMilliseconds);
+        }
+
+        const float PaddedMaxMilliseconds{ MaxFrameTimeMilliseconds * 1.25f };
+        if (PaddedMaxMilliseconds <= 2.0f) {
+            return 2.0f;
+        }
+
+        if (PaddedMaxMilliseconds <= 4.0f) {
+            return 4.0f;
+        }
+
+        if (PaddedMaxMilliseconds <= 8.0f) {
+            return 8.0f;
+        }
+
+        if (PaddedMaxMilliseconds <= 16.6f) {
+            return 16.6f;
+        }
+
+        if (PaddedMaxMilliseconds <= 33.3f) {
+            return 33.3f;
+        }
+
+        if (PaddedMaxMilliseconds <= 66.6f) {
+            return 66.6f;
+        }
+
+        return std::ceil(PaddedMaxMilliseconds / 50.0f) * 50.0f;
+    }
+
+    static float ResolveFrameTimeScaleWidth(float PlotMinMilliseconds, float PlotMaxMilliseconds) {
+        const std::string MinLabelText{ std::format("{:.1f} ms", PlotMinMilliseconds) };
+        const std::string MaxLabelText{ std::format("{:.1f} ms", PlotMaxMilliseconds) };
+        const float MinLabelWidth{ ImGui::CalcTextSize(MinLabelText.c_str()).x };
+        const float MaxLabelWidth{ ImGui::CalcTextSize(MaxLabelText.c_str()).x };
+        return std::max(MinLabelWidth, MaxLabelWidth) + 8.0f;
+    }
+
+    static void RenderFrameTimeScale(const ImVec2& ScaleMin, const ImVec2& PlotMin, const ImVec2& PlotMax, float PlotMinMilliseconds, float PlotMaxMilliseconds) {
+        constexpr int TickCount{ 4 };
+        ImDrawList* DrawList{ ImGui::GetWindowDrawList() };
+
+        DrawList->PushClipRect(PlotMin, PlotMax, true);
+        for (int TickIndex{ 0 }; TickIndex <= TickCount; TickIndex += 1) {
+            const float Ratio{ static_cast<float>(TickIndex) / static_cast<float>(TickCount) };
+            const float Y{ PlotMax.y - (PlotMax.y - PlotMin.y) * Ratio };
+            DrawList->AddLine(ImVec2(PlotMin.x, Y), ImVec2(PlotMax.x, Y), IM_COL32(255, 255, 255, 45), 1.0f);
+        }
+        DrawList->PopClipRect();
+
+        for (int TickIndex{ 0 }; TickIndex <= TickCount; TickIndex += 1) {
+            const float Ratio{ static_cast<float>(TickIndex) / static_cast<float>(TickCount) };
+            const float Value{ PlotMinMilliseconds + (PlotMaxMilliseconds - PlotMinMilliseconds) * Ratio };
+            const float Y{ PlotMax.y - (PlotMax.y - PlotMin.y) * Ratio };
+            const std::string LabelText{ std::format("{:.1f} ms", Value) };
+            const ImVec2 LabelSize{ ImGui::CalcTextSize(LabelText.c_str()) };
+            const float LabelX{ ScaleMin.x + std::max(0.0f, PlotMin.x - ScaleMin.x - LabelSize.x - 6.0f) };
+            const float LabelY{ std::clamp(Y - LabelSize.y * 0.5f, PlotMin.y, PlotMax.y - LabelSize.y) };
+            DrawList->AddText(ImVec2(LabelX, LabelY), IM_COL32(210, 210, 210, 255), LabelText.c_str());
+        }
+    }
+
+    static void RenderFrameTimeThreshold(const ImVec2& PlotMin, const ImVec2& PlotMax, float PlotMinMilliseconds, float PlotMaxMilliseconds, float ThresholdMilliseconds) {
+        if (ThresholdMilliseconds < PlotMinMilliseconds || ThresholdMilliseconds > PlotMaxMilliseconds) {
+            return;
+        }
+
+        const float ThresholdRatio{ (ThresholdMilliseconds - PlotMinMilliseconds) / (PlotMaxMilliseconds - PlotMinMilliseconds) };
+        const float ThresholdY{ PlotMax.y - (PlotMax.y - PlotMin.y) * ThresholdRatio };
+        ImDrawList* DrawList{ ImGui::GetWindowDrawList() };
+        DrawList->PushClipRect(PlotMin, PlotMax, true);
+        DrawList->AddLine(ImVec2(PlotMin.x, ThresholdY), ImVec2(PlotMax.x, ThresholdY), IM_COL32(255, 64, 64, 255), 2.0f);
+        DrawList->PopClipRect();
+    }
+
+    static void RenderFrameTimeGraph(const std::vector<FrameTimeSample>& FrameTimeSamples, const ImVec2& PlotMin, const ImVec2& PlotMax, float PlotMinMilliseconds, float PlotMaxMilliseconds, float HistorySeconds) {
+        if (FrameTimeSamples.empty()) {
+            return;
+        }
+
+        ImDrawList* DrawList{ ImGui::GetWindowDrawList() };
+        ImVec2 PreviousPoint{};
+        bool HasPreviousPoint{};
+
+        DrawList->AddRect(PlotMin, PlotMax, IM_COL32(255, 255, 255, 75), 0.0f, 0, 1.0f);
+        DrawList->PushClipRect(PlotMin, PlotMax, true);
+        for (const FrameTimeSample& Sample : FrameTimeSamples) {
+            const float ClampedAgeSeconds{ std::clamp(Sample.AgeSeconds, 0.0f, HistorySeconds) };
+            const float XRatio{ HistorySeconds > 0.0f ? (HistorySeconds - ClampedAgeSeconds) / HistorySeconds : 1.0f };
+            const float YRatio{ PlotMaxMilliseconds > PlotMinMilliseconds ? (Sample.TimeMilliseconds - PlotMinMilliseconds) / (PlotMaxMilliseconds - PlotMinMilliseconds) : 0.0f };
+            const float ClampedYRatio{ std::clamp(YRatio, 0.0f, 1.0f) };
+            const ImVec2 Point{ PlotMin.x + (PlotMax.x - PlotMin.x) * XRatio, PlotMax.y - (PlotMax.y - PlotMin.y) * ClampedYRatio };
+
+            if (HasPreviousPoint) {
+                DrawList->AddLine(PreviousPoint, Point, IM_COL32(97, 170, 255, 255), 2.0f);
+            }
+
+            PreviousPoint = Point;
+            HasPreviousPoint = true;
+        }
+
+        if (FrameTimeSamples.size() == 1) {
+            DrawList->AddCircleFilled(PreviousPoint, 2.5f, IM_COL32(97, 170, 255, 255));
+        }
+        DrawList->PopClipRect();
+    }
+
+    static void RenderFrameTimeXAxis(const ImVec2& PlotMin, const ImVec2& PlotMax, const ImVec2& AxisMin, const ImVec2& AxisMax, float HistorySeconds) {
+        constexpr int TickCount{ 4 };
+        ImDrawList* DrawList{ ImGui::GetWindowDrawList() };
+
+        DrawList->PushClipRect(PlotMin, PlotMax, true);
+        for (int TickIndex{ 0 }; TickIndex <= TickCount; TickIndex += 1) {
+            const float Ratio{ static_cast<float>(TickIndex) / static_cast<float>(TickCount) };
+            const float X{ PlotMin.x + (PlotMax.x - PlotMin.x) * Ratio };
+            DrawList->AddLine(ImVec2(X, PlotMin.y), ImVec2(X, PlotMax.y), IM_COL32(255, 255, 255, 35), 1.0f);
+        }
+        DrawList->PopClipRect();
+
+        for (int TickIndex{ 0 }; TickIndex <= TickCount; TickIndex += 1) {
+            const float Ratio{ static_cast<float>(TickIndex) / static_cast<float>(TickCount) };
+            const float SecondsAgo{ HistorySeconds * (1.0f - Ratio) };
+            const std::string LabelText{ SecondsAgo <= 0.0001f ? "0.0s" : std::format("-{:.1f}s", SecondsAgo) };
+            const ImVec2 LabelSize{ ImGui::CalcTextSize(LabelText.c_str()) };
+            const float X{ AxisMin.x + (AxisMax.x - AxisMin.x) * Ratio };
+            const float LabelX{ std::clamp(X - LabelSize.x * 0.5f, AxisMin.x, AxisMax.x - LabelSize.x) };
+            const float LabelY{ AxisMin.y + std::max(0.0f, (AxisMax.y - AxisMin.y - LabelSize.y) * 0.5f) };
+            DrawList->AddText(ImVec2(LabelX, LabelY), IM_COL32(210, 210, 210, 255), LabelText.c_str());
+        }
+    }
+
     FrameTimeWidget::FrameTimeWidget() {
     }
 
@@ -25,59 +161,57 @@ namespace Widget {
             return;
         }
 
-        const std::vector<float> FrameTimes{ PerformanceProvider::Get().GetFrameTimeMilliseconds() };
+        PerformanceProvider& Provider{ PerformanceProvider::Get() };
+        const std::vector<FrameTimeSample> FrameTimeSamples{ Provider.GetFrameTimeSamples() };
+        const float HistorySeconds{ Provider.GetFrameTimeHistorySeconds() };
 
-        if (!FrameTimes.empty()) {
-            ImGui::PushItemWidth(-1.0f);
-            ImGui::PlotLines("##FrameTimePlot", FrameTimes.data(), static_cast<int>(FrameTimes.size()), 0, nullptr, 0.0f, 33.3f, ImVec2(0.0f, 160.0f));
-            ImGui::PopItemWidth(); 
+        ImGui::Columns(3, "PerformanceFrameTimeColumns", false);
+        ImGui::Text("Avg FPS\n%.2f", Provider.GetAverageFps());
+        ImGui::NextColumn();
+        ImGui::Text("1%% Low\n%.2f", Provider.GetOnePercentLowFps());
+        ImGui::NextColumn();
+        ImGui::Text("0.1%% Low\n%.2f", Provider.GetZeroPointOnePercentLowFps());
+        ImGui::Columns(1);
 
-            const ImVec2 PlotMin{ ImGui::GetItemRectMin() };
+        constexpr float ThresholdMilliseconds{ 16.6f };
+        bool IsThresholdVisible{};
+
+        if (!FrameTimeSamples.empty()) {
+            constexpr float PlotMinMilliseconds{ 0.0f };
+            constexpr float PlotHeight{ 160.0f };
+            const float PlotMaxMilliseconds{ ResolveFrameTimePlotMaxMilliseconds(FrameTimeSamples) };
+            const float ScaleWidth{ ResolveFrameTimeScaleWidth(PlotMinMilliseconds, PlotMaxMilliseconds) };
+            const ImVec2 ScaleMin{ ImGui::GetCursorScreenPos() };
+            IsThresholdVisible = ThresholdMilliseconds >= PlotMinMilliseconds && ThresholdMilliseconds <= PlotMaxMilliseconds;
+
+            ImGui::Dummy(ImVec2(ScaleWidth, PlotHeight));
+            ImGui::SameLine();
+            const ImVec2 PlotMin{ ImGui::GetCursorScreenPos() };
+            const float PlotWidth{ std::max(1.0f, ImGui::GetContentRegionAvail().x) };
+            ImGui::Dummy(ImVec2(PlotWidth, PlotHeight));
             const ImVec2 PlotMax{ ImGui::GetItemRectMax() };
-            const float ThresholdMs{ 16.6f };
-            const float ClampedThresholdMs{ std::clamp(ThresholdMs, 0.0f, 33.3f) };
-            const float ThresholdY{ PlotMax.y - (PlotMax.y - PlotMin.y) * (ClampedThresholdMs / 33.3f) };
-            ImDrawList* DrawList{ ImGui::GetWindowDrawList() };
-            DrawList->PushClipRect(PlotMin, PlotMax, true);
-            DrawList->AddLine(ImVec2(PlotMin.x, ThresholdY), ImVec2(PlotMax.x, ThresholdY), IM_COL32(255, 64, 64, 255), 2.0f);
-            DrawList->PopClipRect();
+            RenderFrameTimeScale(ScaleMin, PlotMin, PlotMax, PlotMinMilliseconds, PlotMaxMilliseconds);
+
+            const float XAxisHeight{ ImGui::GetTextLineHeightWithSpacing() };
+            ImGui::Dummy(ImVec2(ScaleWidth, XAxisHeight));
+            ImGui::SameLine();
+            const ImVec2 AxisMin{ ImGui::GetCursorScreenPos() };
+            const float AxisWidth{ ImGui::GetContentRegionAvail().x };
+            ImGui::Dummy(ImVec2(AxisWidth, XAxisHeight));
+            const ImVec2 AxisMax{ ImGui::GetItemRectMax() };
+            RenderFrameTimeXAxis(PlotMin, PlotMax, AxisMin, AxisMax, HistorySeconds);
+            RenderFrameTimeGraph(FrameTimeSamples, PlotMin, PlotMax, PlotMinMilliseconds, PlotMaxMilliseconds, HistorySeconds);
+            RenderFrameTimeThreshold(PlotMin, PlotMax, PlotMinMilliseconds, PlotMaxMilliseconds, ThresholdMilliseconds);
         }
 
         ImGui::TextUnformatted("Frame Time (ms)");
         ImGui::SameLine();
-        ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "Red Line: 16.6ms (60 FPS Threshold)");
-
-        ImGui::End();
-    }
-
-    DistributionWidget::DistributionWidget() {
-    }
-
-    DistributionWidget::~DistributionWidget() {
-    }
-
-    void DistributionWidget::Render(const Game::SceneWorldSnapshot* Snapshot) {
-        (void)Snapshot;
-        if (!ImGui::Begin("Performance Distribution")) {
-            ImGui::End();
-            return;
+        if (IsThresholdVisible) {
+            ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "Red Line: 16.6ms (60 FPS Threshold)");
         }
-
-        const std::vector<float> FrameTimes{ PerformanceProvider::Get().GetFrameTimeMilliseconds() };
-
-        if (!FrameTimes.empty()) {
-            ImGui::PushItemWidth(-1.0f);
-            ImGui::PlotHistogram("##Frame Time Histogram", FrameTimes.data(), static_cast<int>(FrameTimes.size()), 0, nullptr, 0.0f, 33.3f, ImVec2(0.0f, 140.0f));
-            ImGui::PopItemWidth();
+        else {
+            ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "16.6ms Threshold Above Current Scale");
         }
-
-        ImGui::Columns(3, "PerformanceDistributionColumns", false);
-        ImGui::Text("Avg FPS\n%.2f", PerformanceProvider::Get().GetAverageFps());
-        ImGui::NextColumn();
-        ImGui::Text("1%% Low\n%.2f", PerformanceProvider::Get().GetOnePercentLowFps());
-        ImGui::NextColumn();
-        ImGui::Text("0.1%% Low\n%.2f", PerformanceProvider::Get().GetZeroPointOnePercentLowFps());
-        ImGui::Columns(1);
 
         ImGui::End();
     }

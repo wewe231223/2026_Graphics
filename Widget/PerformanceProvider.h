@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Windows.h>
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <utility>
@@ -10,48 +9,9 @@
 #include "Utility/DirectXInclude.h"
 
 namespace Widget {
-    template<typename T, std::size_t Capacity>
-    class RingBuffer {
-    public:
-        RingBuffer() = default;
-        ~RingBuffer() = default;
-        RingBuffer(const RingBuffer& Other) = default;
-        RingBuffer& operator=(const RingBuffer& Other) = default;
-        RingBuffer(RingBuffer&& Other) noexcept = default;
-        RingBuffer& operator=(RingBuffer&& Other) noexcept = default;
-
-    public:
-        void PushBack(const T& Value) {
-            mData[mHead] = Value;
-            mHead = (mHead + 1) % Capacity;
-            if (mSize < Capacity) {
-                mSize += 1;
-            }
-        }
-
-        [[nodiscard]] std::size_t Size() const {
-            return mSize;
-        }
-
-        [[nodiscard]] const T& At(std::size_t Index) const {
-            const std::size_t StartIndex{ (mHead + Capacity - mSize) % Capacity };
-            const std::size_t DataIndex{ (StartIndex + Index) % Capacity };
-            return mData[DataIndex];
-        }
-
-        [[nodiscard]] std::vector<T> ToVector() const {
-            std::vector<T> Values{};
-            Values.reserve(mSize);
-            for (std::size_t Index{ 0 }; Index < mSize; ++Index) {
-                Values.push_back(At(Index));
-            }
-            return Values;
-        }
-
-    private:
-        std::array<T, Capacity> mData{};
-        std::size_t mHead{};
-        std::size_t mSize{};
+    struct FrameTimeSample {
+        float AgeSeconds{};
+        float TimeMilliseconds{};
     };
 
     struct ProfileEntry {
@@ -82,6 +42,8 @@ namespace Widget {
         void EndPhaseProfile();
 
         [[nodiscard]] std::vector<float> GetFrameTimeMilliseconds() const;
+        [[nodiscard]] std::vector<FrameTimeSample> GetFrameTimeSamples() const;
+        [[nodiscard]] float GetFrameTimeHistorySeconds() const;
         [[nodiscard]] double GetAverageFps() const;
         [[nodiscard]] double GetOnePercentLowFps() const;
         [[nodiscard]] double GetZeroPointOnePercentLowFps() const;
@@ -93,6 +55,7 @@ namespace Widget {
         [[nodiscard]] float GetVramUsageRatio() const;
 
     private:
+        void PruneOldFrameTimeRecords(double NowMicroseconds);
         void UpdatePercentileCache();
         void UpdateVramInfoIfNeeded();
         double QueryNowMicroseconds() const;
@@ -103,7 +66,7 @@ namespace Widget {
         bool mHasFrameBegin{};
         double mFrameBeginMicroseconds{};
 
-        RingBuffer<float, 500> mFrameTimeMicroseconds{};
+        std::vector<std::pair<double, float>> mFrameTimeRecords{};
 
         IDXGIAdapter3* mAdapter3{};
         double mLastVramUpdateMicroseconds{};

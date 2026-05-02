@@ -9,6 +9,8 @@
 #endif
 
 namespace Widget {
+    constexpr double FrameTimeHistoryMicroseconds{ 2000000.0 };
+
     PerformanceProvider::PerformanceProvider() {
         QueryPerformanceFrequency(&mFrequency);
     }
@@ -57,8 +59,10 @@ namespace Widget {
         LARGE_INTEGER EndCounter{};
         QueryPerformanceCounter(&EndCounter);
 
+        const double EndMicroseconds{ static_cast<double>(EndCounter.QuadPart) * 1000000.0 / static_cast<double>(mFrequency.QuadPart) };
         const double DeltaMicroseconds{ static_cast<double>(EndCounter.QuadPart - mFrameBeginCounter.QuadPart) * 1000000.0 / static_cast<double>(mFrequency.QuadPart) };
-        mFrameTimeMicroseconds.PushBack(static_cast<float>(DeltaMicroseconds));
+        mFrameTimeRecords.push_back(std::make_pair(EndMicroseconds, static_cast<float>(DeltaMicroseconds)));
+        PruneOldFrameTimeRecords(EndMicroseconds);
 
         UpdateVramInfoIfNeeded();
         UpdatePercentileCache();
@@ -116,14 +120,38 @@ namespace Widget {
 
     std::vector<float> PerformanceProvider::GetFrameTimeMilliseconds() const {
         std::vector<float> Values{};
-        const std::vector<float> Microseconds{ mFrameTimeMicroseconds.ToVector() };
-        Values.reserve(Microseconds.size());
+        const std::vector<FrameTimeSample> Samples{ GetFrameTimeSamples() };
+        Values.reserve(Samples.size());
 
-        for (float Value : Microseconds) {
-            Values.push_back(Value / 1000.0f);
+        for (const FrameTimeSample& Sample : Samples) {
+            Values.push_back(Sample.TimeMilliseconds);
         }
 
         return Values;
+    }
+
+    std::vector<FrameTimeSample> PerformanceProvider::GetFrameTimeSamples() const {
+        std::vector<FrameTimeSample> Samples{};
+        const double NowMicroseconds{ QueryNowMicroseconds() };
+        Samples.reserve(mFrameTimeRecords.size());
+
+        for (const std::pair<double, float>& FrameTimeRecord : mFrameTimeRecords) {
+            const double AgeMicroseconds{ NowMicroseconds - FrameTimeRecord.first };
+            if (AgeMicroseconds > FrameTimeHistoryMicroseconds) {
+                continue;
+            }
+
+            FrameTimeSample Sample{};
+            Sample.AgeSeconds = static_cast<float>(std::max(0.0, AgeMicroseconds) / 1000000.0);
+            Sample.TimeMilliseconds = FrameTimeRecord.second / 1000.0f;
+            Samples.push_back(Sample);
+        }
+
+        return Samples;
+    }
+
+    float PerformanceProvider::GetFrameTimeHistorySeconds() const {
+        return static_cast<float>(FrameTimeHistoryMicroseconds / 1000000.0);
     }
 
     double PerformanceProvider::GetAverageFps() const {
@@ -158,6 +186,13 @@ namespace Widget {
         return static_cast<float>(static_cast<double>(mVramUsageBytes) / static_cast<double>(mVramBudgetBytes));
     }
 
+    void PerformanceProvider::PruneOldFrameTimeRecords(double NowMicroseconds) {
+        const std::vector<std::pair<double, float>>::iterator FirstValidIterator{ std::find_if(mFrameTimeRecords.begin(), mFrameTimeRecords.end(), [NowMicroseconds](const std::pair<double, float>& FrameTimeRecord) {
+            return NowMicroseconds - FrameTimeRecord.first <= FrameTimeHistoryMicroseconds;
+        }) };
+        mFrameTimeRecords.erase(mFrameTimeRecords.begin(), FirstValidIterator);
+    }
+
     void PerformanceProvider::UpdatePercentileCache() {
         const double NowMicroseconds{ QueryNowMicroseconds() };
 
@@ -167,7 +202,13 @@ namespace Widget {
 
         mLastPercentileUpdateMicroseconds = NowMicroseconds;
 
-        std::vector<float> Samples{ mFrameTimeMicroseconds.ToVector() };
+        std::vector<float> Samples{};
+        Samples.reserve(mFrameTimeRecords.size());
+
+        for (const std::pair<double, float>& FrameTimeRecord : mFrameTimeRecords) {
+            Samples.push_back(FrameTimeRecord.second);
+        }
+
         if (Samples.empty()) {
             mAverageFps = 0.0;
             mOnePercentLowFps = 0.0;

@@ -18,19 +18,6 @@ namespace Widget {
         void Render(const Game::SceneWorldSnapshot* Snapshot) override;
     };
 
-    class DistributionWidget : public IWidget {
-    public:
-        DistributionWidget();
-        ~DistributionWidget() override;
-        DistributionWidget(const DistributionWidget& Other) = delete;
-        DistributionWidget& operator=(const DistributionWidget& Other) = delete;
-        DistributionWidget(DistributionWidget&& Other) noexcept = delete;
-        DistributionWidget& operator=(DistributionWidget&& Other) noexcept = delete;
-
-    public:
-        void Render(const Game::SceneWorldSnapshot* Snapshot) override;
-    };
-
     class TimelineWidget : public IWidget {
     public:
         TimelineWidget();

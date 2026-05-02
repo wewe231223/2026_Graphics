@@ -201,7 +201,6 @@ namespace Widget {
 
 	void WidgetCore::BuildWidgets() {
 		MakeWidget<FrameTimeWidget>();
-		MakeWidget<DistributionWidget>();
 		MakeWidget<TimelineWidget>();
 		MakeWidget<VramUsageWidget>();
 		MakeWidget<ImGuiConsole>();
