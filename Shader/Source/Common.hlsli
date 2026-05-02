@@ -106,6 +106,7 @@ struct TerrainPatchContextGpu
     float4 TileGrid;
     float4 HeightFieldParameters;
     float4 TerrainParameters;
+    float4 TerrainUvParameters;
     uint HeightFieldSrvDescriptorIndex;
     uint SplatMapSrvDescriptorIndex;
     uint SplatMapWidth;

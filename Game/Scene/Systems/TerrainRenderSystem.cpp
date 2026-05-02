@@ -92,6 +92,7 @@ namespace {
         PatchContext.TileGrid = SimpleMath::Vector4{ static_cast<float>(TileMetadata.mStartX), static_cast<float>(TileMetadata.mStartZ), static_cast<float>(TileMetadata.mQuadCountX), static_cast<float>(TileMetadata.mQuadCountZ) };
         PatchContext.HeightFieldParameters = SimpleMath::Vector4{ static_cast<float>(Resource.GetHeightFieldWidth()), static_cast<float>(Resource.GetHeightFieldHeight()), Resource.GetMaxHeight(), Resource.IsHeightFieldFlipV() == true ? 1.0f : 0.0f };
         PatchContext.TerrainParameters = SimpleMath::Vector4{ Resource.GetCellSizeX(), Resource.GetCellSizeZ(), Resource.GetOriginOffsetX(), Resource.GetOriginOffsetZ() };
+        PatchContext.mTerrainUvParameters = SimpleMath::Vector4{ static_cast<float>(Resource.GetStreamOriginGridX()), static_cast<float>(Resource.GetStreamOriginGridZ()), 0.0f, 0.0f };
         PatchContext.HeightFieldSrvDescriptorIndex = Resource.GetHeightFieldSrvDescriptorIndex();
         PatchContext.SplatMapSrvDescriptorIndex = Resource.GetSplatMapSrvDescriptorIndex();
         PatchContext.SplatMapWidth = Resource.GetSplatMapWidth();

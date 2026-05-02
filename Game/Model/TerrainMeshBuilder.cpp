@@ -60,18 +60,10 @@ namespace Game {
                 const float PositionY{ CalculateWorldHeight(Field, Desc, GridX, GridY) };
                 Mesh.Vertices.Positions[VertexIndex] = asset::Vec3{ PositionX, PositionY, PositionZ };
 
-                float U{ 0.0f };
-                float V{ 0.0f };
-                if (Field.Width > 1) {
-                    U = static_cast<float>(GridX) / static_cast<float>(Field.Width - 1);
-                }
-
-                if (Field.Height > 1) {
-                    V = static_cast<float>(GridY) / static_cast<float>(Field.Height - 1);
-                }
-
+                const float U{ (static_cast<float>(Desc.mProceduralHeightFieldDesc.mSampleOffsetX) + static_cast<float>(GridX)) * Desc.CellSizeX };
+                float V{ (static_cast<float>(Desc.mProceduralHeightFieldDesc.mSampleOffsetZ) + static_cast<float>(GridY)) * Desc.CellSizeZ };
                 if (Desc.FlipV == true) {
-                    V = 1.0f - V;
+                    V = -V;
                 }
 
                 Mesh.Vertices.TexCoords[0][VertexIndex] = asset::Vec2{ U, V };

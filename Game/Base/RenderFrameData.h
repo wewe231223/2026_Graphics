@@ -147,6 +147,7 @@ namespace Game {
             SimpleMath::Vector4 TileGrid{};
             SimpleMath::Vector4 HeightFieldParameters{};
             SimpleMath::Vector4 TerrainParameters{};
+            SimpleMath::Vector4 mTerrainUvParameters{};
             std::uint32_t HeightFieldSrvDescriptorIndex{ 0xffffffffu };
             std::uint32_t SplatMapSrvDescriptorIndex{ 0xffffffffu };
             std::uint32_t SplatMapWidth{ 0u };

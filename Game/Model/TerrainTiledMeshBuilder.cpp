@@ -169,18 +169,12 @@ namespace Game {
     }
 
     asset::Vec2 TerrainTiledMeshBuilder::CalculateTexCoord(const HeightFieldData& Field, const TerrainBuildDesc& Desc, std::uint32_t X, std::uint32_t Z) const {
-        float U{ 0.0f };
-        float V{ 0.0f };
-        if (Field.Width > 1u) {
-            U = static_cast<float>(X) / static_cast<float>(Field.Width - 1u);
-        }
+        (void)Field;
 
-        if (Field.Height > 1u) {
-            V = static_cast<float>(Z) / static_cast<float>(Field.Height - 1u);
-        }
-
+        const float U{ (static_cast<float>(Desc.mProceduralHeightFieldDesc.mSampleOffsetX) + static_cast<float>(X)) * Desc.CellSizeX };
+        float V{ (static_cast<float>(Desc.mProceduralHeightFieldDesc.mSampleOffsetZ) + static_cast<float>(Z)) * Desc.CellSizeZ };
         if (Desc.FlipV == true) {
-            V = 1.0f - V;
+            V = -V;
         }
 
         return asset::Vec2{ U, V };
