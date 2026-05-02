@@ -103,6 +103,24 @@ namespace {
         return Hash;
     }
 
+    void AppendTerrainKeyHashSplatMapDesc(std::uint64_t& Hash, const Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& Desc) {
+        AppendTerrainKeyHashUInt32(Hash, static_cast<std::uint32_t>(Desc.mVariables.size()));
+        for (const Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapVariableDesc& VariableDesc : Desc.mVariables) {
+            AppendTerrainKeyHashString(Hash, VariableDesc.mName);
+            AppendTerrainKeyHashString(Hash, VariableDesc.mFormula);
+        }
+
+        AppendTerrainKeyHashUInt32(Hash, static_cast<std::uint32_t>(Desc.mLayers.size()));
+        for (const Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc& LayerDesc : Desc.mLayers) {
+            AppendTerrainKeyHashString(Hash, LayerDesc.mName);
+            AppendTerrainKeyHashString(Hash, LayerDesc.mFormula);
+        }
+
+        AppendTerrainKeyHashUInt32(Hash, Desc.mFallbackLayerIndex);
+        AppendTerrainKeyHashBool(Hash, Desc.mNormalizeWeights);
+        AppendTerrainKeyHashFloat(Hash, Desc.mMinimumWeightSum);
+    }
+
     std::uint64_t BuildTerrainProceduralHeightFieldDescHash(const Game::TerrainProceduralHeightFieldDesc& Desc) {
         std::uint64_t Hash{ TerrainKeyHashOffset };
         AppendTerrainKeyHashUInt32(Hash, Desc.mWidth);
@@ -147,6 +165,7 @@ namespace {
         AppendTerrainKeyHashFloat(Hash, Desc.mSmoothingEdgeWeight);
         AppendTerrainKeyHashFloat(Hash, Desc.mSmoothingCenterWeight);
         AppendTerrainKeyHashFloat(Hash, Desc.mSmoothingWeightSum);
+        AppendTerrainKeyHashSplatMapDesc(Hash, Desc.mSplatMapDesc);
         return Hash;
     }
 

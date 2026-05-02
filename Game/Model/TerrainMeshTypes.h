@@ -13,6 +13,24 @@ namespace Game {
     };
 
     struct TerrainProceduralHeightFieldDesc final {
+        struct TerrainSplatMapVariableDesc final {
+            std::string mName{};
+            std::string mFormula{};
+        };
+
+        struct TerrainSplatMapLayerDesc final {
+            std::string mName{};
+            std::string mFormula{};
+        };
+
+        struct TerrainSplatMapDesc final {
+            std::vector<TerrainSplatMapVariableDesc> mVariables{};
+            std::vector<TerrainSplatMapLayerDesc> mLayers{};
+            std::uint32_t mFallbackLayerIndex{ 0 };
+            bool mNormalizeWeights{ true };
+            float mMinimumWeightSum{ 0.0001f };
+        };
+
         std::uint32_t mWidth{ 1025 };
         std::uint32_t mHeight{ 1025 };
         std::uint32_t mSeed{ 2026 };
@@ -55,6 +73,7 @@ namespace Game {
         float mSmoothingEdgeWeight{ 2.0f };
         float mSmoothingCenterWeight{ 4.0f };
         float mSmoothingWeightSum{ 16.0f };
+        TerrainSplatMapDesc mSplatMapDesc{};
     };
 
     struct TerrainBuildDesc final {

@@ -12,6 +12,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <utility>
 #include <ryml.hpp>
 #include <ryml_std.hpp>
 #include "Game/Scene/Components/BoundingBox.h"
@@ -958,6 +959,68 @@ namespace {
         return true;
     }
 
+    bool TryReadTerrainSplatMapExpressionEntry(c4::yml::ConstNodeRef EntryNode, std::string& OutName, std::string& OutFormula) {
+        if (EntryNode.readable() == false || EntryNode.is_map() == false) {
+            return false;
+        }
+
+        TryReadStringChild(EntryNode, { "Name" }, OutName);
+        TryReadStringChild(EntryNode, { "Formula" }, OutFormula);
+        return OutName.empty() == false && OutFormula.empty() == false;
+    }
+
+    bool TryReadTerrainSplatMapDesc(c4::yml::ConstNodeRef SplatMapNode, Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& OutDesc) {
+        if (SplatMapNode.readable() == false || SplatMapNode.is_map() == false) {
+            return false;
+        }
+
+        if (SplatMapNode.has_child("FallbackLayerIndex")) {
+            SplatMapNode["FallbackLayerIndex"] >> OutDesc.mFallbackLayerIndex;
+        }
+
+        TryReadBoolChild(SplatMapNode, { "NormalizeWeights" }, OutDesc.mNormalizeWeights);
+
+        if (SplatMapNode.has_child("MinimumWeightSum")) {
+            SplatMapNode["MinimumWeightSum"] >> OutDesc.mMinimumWeightSum;
+        }
+
+        if (SplatMapNode.has_child("Variables")) {
+            const c4::yml::ConstNodeRef VariablesNode{ SplatMapNode["Variables"] };
+            if (VariablesNode.is_seq() == false) {
+                return false;
+            }
+
+            OutDesc.mVariables.clear();
+            for (const c4::yml::ConstNodeRef VariableNode : VariablesNode.children()) {
+                Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapVariableDesc VariableDesc{};
+                if (TryReadTerrainSplatMapExpressionEntry(VariableNode, VariableDesc.mName, VariableDesc.mFormula) == false) {
+                    return false;
+                }
+
+                OutDesc.mVariables.push_back(std::move(VariableDesc));
+            }
+        }
+
+        if (SplatMapNode.has_child("Layers")) {
+            const c4::yml::ConstNodeRef LayersNode{ SplatMapNode["Layers"] };
+            if (LayersNode.is_seq() == false) {
+                return false;
+            }
+
+            OutDesc.mLayers.clear();
+            for (const c4::yml::ConstNodeRef LayerNode : LayersNode.children()) {
+                Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc LayerDesc{};
+                if (TryReadTerrainSplatMapExpressionEntry(LayerNode, LayerDesc.mName, LayerDesc.mFormula) == false) {
+                    return false;
+                }
+
+                OutDesc.mLayers.push_back(std::move(LayerDesc));
+            }
+        }
+
+        return true;
+    }
+
     bool TryReadTerrainProceduralHeightFieldDesc(c4::yml::ConstNodeRef ProceduralNode, Game::TerrainProceduralHeightFieldDesc& OutDesc) {
         if (ProceduralNode.readable() == false || ProceduralNode.is_map() == false) {
             return false;
@@ -1129,6 +1192,12 @@ namespace {
 
         if (ProceduralNode.has_child("SmoothingWeightSum")) {
             ProceduralNode["SmoothingWeightSum"] >> OutDesc.mSmoothingWeightSum;
+        }
+
+        if (ProceduralNode.has_child("SplatMap")) {
+            if (TryReadTerrainSplatMapDesc(ProceduralNode["SplatMap"], OutDesc.mSplatMapDesc) == false) {
+                return false;
+            }
         }
 
         return true;
@@ -1539,6 +1608,33 @@ namespace {
         return OutDesc.HeightMapPath.empty() == false;
     }
 
+    void AppendTerrainSplatMapDesc(std::ostringstream& Stream, std::size_t IndentLevel, const Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& Desc) {
+        if (Desc.mVariables.empty() == true && Desc.mLayers.empty() == true) {
+            return;
+        }
+
+        AppendLine(Stream, IndentLevel, "SplatMap:");
+        AppendLine(Stream, IndentLevel + 1, std::string{ "NormalizeWeights: " } + ToYamlBooleanText(Desc.mNormalizeWeights));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "FallbackLayerIndex: " } + std::to_string(Desc.mFallbackLayerIndex));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "MinimumWeightSum: " } + std::to_string(Desc.mMinimumWeightSum));
+
+        if (Desc.mVariables.empty() == false) {
+            AppendLine(Stream, IndentLevel + 1, "Variables:");
+            for (const Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapVariableDesc& VariableDesc : Desc.mVariables) {
+                AppendLine(Stream, IndentLevel + 2, "- Name: " + ToYamlText(VariableDesc.mName));
+                AppendLine(Stream, IndentLevel + 3, "Formula: " + ToYamlText(VariableDesc.mFormula));
+            }
+        }
+
+        if (Desc.mLayers.empty() == false) {
+            AppendLine(Stream, IndentLevel + 1, "Layers:");
+            for (const Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc& LayerDesc : Desc.mLayers) {
+                AppendLine(Stream, IndentLevel + 2, "- Name: " + ToYamlText(LayerDesc.mName));
+                AppendLine(Stream, IndentLevel + 3, "Formula: " + ToYamlText(LayerDesc.mFormula));
+            }
+        }
+    }
+
     void AppendTerrainProceduralHeightFieldDesc(std::ostringstream& Stream, std::size_t IndentLevel, const Game::TerrainProceduralHeightFieldDesc& Desc) {
         AppendLine(Stream, IndentLevel, "ProceduralHeightField:");
         AppendLine(Stream, IndentLevel + 1, std::string{ "Width: " } + std::to_string(Desc.mWidth));
@@ -1583,6 +1679,7 @@ namespace {
         AppendLine(Stream, IndentLevel + 1, std::string{ "SmoothingEdgeWeight: " } + std::to_string(Desc.mSmoothingEdgeWeight));
         AppendLine(Stream, IndentLevel + 1, std::string{ "SmoothingCenterWeight: " } + std::to_string(Desc.mSmoothingCenterWeight));
         AppendLine(Stream, IndentLevel + 1, std::string{ "SmoothingWeightSum: " } + std::to_string(Desc.mSmoothingWeightSum));
+        AppendTerrainSplatMapDesc(Stream, IndentLevel + 1, Desc.mSplatMapDesc);
     }
 
     void AppendTerrainBuildDesc(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& SceneName, const Game::TerrainBuildDesc& Desc) {
