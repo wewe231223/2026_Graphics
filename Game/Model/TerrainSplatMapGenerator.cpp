@@ -15,6 +15,8 @@
 #include <utility>
 #include <vector>
 
+#include "Utility/MathValidation.h"
+
 #ifdef min
 #undef min
 #endif
@@ -192,7 +194,7 @@ namespace {
         const char* StartPointer{ Context.mFormula->c_str() + Context.mPosition };
         char* EndPointer{ nullptr };
         const float Value{ std::strtof(StartPointer, &EndPointer) };
-        if (EndPointer == StartPointer || std::isfinite(Value) == false) {
+        if (EndPointer == StartPointer || MathUtility::IsFiniteFloat(Value) == false) {
             throw std::runtime_error{ "Splat map expression number parse failed." };
         }
 
@@ -403,7 +405,7 @@ namespace {
     }
 
     float EnsureFiniteSplatExpressionValue(float Value) {
-        if (std::isfinite(Value) == false) {
+        if (MathUtility::IsFiniteFloat(Value) == false) {
             throw std::runtime_error{ "Splat map expression evaluated to a non-finite value." };
         }
 

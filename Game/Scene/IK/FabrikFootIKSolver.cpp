@@ -4,52 +4,46 @@
 #include <cmath>
 #include <utility>
 
+#include "Utility/MathValidation.h"
+
 namespace {
     constexpr float DirectionLengthEpsilon{ 1.0e-6f };
     constexpr float PiRadians{ 3.1415926536f };
     constexpr DirectX::SimpleMath::Vector3 DefaultDirection{ 0.0f, 1.0f, 0.0f };
 
-    bool IsFiniteFloat(const float Value) {
-        return std::isfinite(Value) != 0;
-    }
-
-    bool IsFiniteVector3(const DirectX::SimpleMath::Vector3& Value) {
-        return IsFiniteFloat(Value.x) && IsFiniteFloat(Value.y) && IsFiniteFloat(Value.z);
-    }
-
     bool TryResolveNormalizedDirection(const DirectX::SimpleMath::Vector3& SourceDirection, DirectX::SimpleMath::Vector3& OutNormalizedDirection) {
-        if (IsFiniteVector3(SourceDirection) == false) {
+        if (MathUtility::IsFiniteVector3(SourceDirection) == false) {
             return false;
         }
 
         const float SourceLengthSquared{ SourceDirection.LengthSquared() };
-        if (IsFiniteFloat(SourceLengthSquared) == false || SourceLengthSquared <= DirectionLengthEpsilon) {
+        if (MathUtility::IsFiniteFloat(SourceLengthSquared) == false || SourceLengthSquared <= DirectionLengthEpsilon) {
             return false;
         }
 
         OutNormalizedDirection = SourceDirection;
         OutNormalizedDirection.Normalize();
-        return IsFiniteVector3(OutNormalizedDirection);
+        return MathUtility::IsFiniteVector3(OutNormalizedDirection);
     }
 
     bool TryResolveDirectionAndLength(const DirectX::SimpleMath::Vector3& SourceDirection, DirectX::SimpleMath::Vector3& OutNormalizedDirection, float& OutDirectionLength) {
-        if (IsFiniteVector3(SourceDirection) == false) {
+        if (MathUtility::IsFiniteVector3(SourceDirection) == false) {
             return false;
         }
 
         const float SourceLength{ SourceDirection.Length() };
-        if (IsFiniteFloat(SourceLength) == false || SourceLength <= DirectionLengthEpsilon) {
+        if (MathUtility::IsFiniteFloat(SourceLength) == false || SourceLength <= DirectionLengthEpsilon) {
             return false;
         }
 
         OutDirectionLength = SourceLength;
         OutNormalizedDirection = SourceDirection;
         OutNormalizedDirection.Normalize();
-        return IsFiniteVector3(OutNormalizedDirection);
+        return MathUtility::IsFiniteVector3(OutNormalizedDirection);
     }
 
     float ResolveClampedAngleRadians(const float AngleRadians) {
-        if (IsFiniteFloat(AngleRadians) == false) {
+        if (MathUtility::IsFiniteFloat(AngleRadians) == false) {
             return 0.0f;
         }
 
@@ -57,7 +51,7 @@ namespace {
     }
 
     float ResolveSegmentDistanceFromJointAngle(const float ParentSegmentLength, const float ChildSegmentLength, const float JointAngleRadians) {
-        if (IsFiniteFloat(ParentSegmentLength) == false || IsFiniteFloat(ChildSegmentLength) == false) {
+        if (MathUtility::IsFiniteFloat(ParentSegmentLength) == false || MathUtility::IsFiniteFloat(ChildSegmentLength) == false) {
             return 0.0f;
         }
 
@@ -65,7 +59,7 @@ namespace {
         const float SafeChildSegmentLength{ (std::max)(ChildSegmentLength, 0.0f) };
         const float SafeJointAngleRadians{ ResolveClampedAngleRadians(JointAngleRadians) };
         const float DistanceSquared{ (SafeParentSegmentLength * SafeParentSegmentLength) + (SafeChildSegmentLength * SafeChildSegmentLength) - (2.0f * SafeParentSegmentLength * SafeChildSegmentLength * std::cos(SafeJointAngleRadians)) };
-        if (IsFiniteFloat(DistanceSquared) == false) {
+        if (MathUtility::IsFiniteFloat(DistanceSquared) == false) {
             return 0.0f;
         }
 
@@ -75,7 +69,7 @@ namespace {
 
     bool TryResolveDirectionOnPlane(const DirectX::SimpleMath::Vector3& SourceDirection, const DirectX::SimpleMath::Vector3& PlaneNormalDirection, DirectX::SimpleMath::Vector3& OutProjectedDirection) {
         DirectX::SimpleMath::Vector3 SafePlaneNormalDirection{};
-        if (TryResolveNormalizedDirection(PlaneNormalDirection, SafePlaneNormalDirection) == false || IsFiniteVector3(SourceDirection) == false) {
+        if (TryResolveNormalizedDirection(PlaneNormalDirection, SafePlaneNormalDirection) == false || MathUtility::IsFiniteVector3(SourceDirection) == false) {
             return false;
         }
 
@@ -97,17 +91,17 @@ namespace {
 
         const float ParentSegmentLength{ SegmentLengths[ParentJointIndex] };
         const float ChildSegmentLength{ SegmentLengths[JointIndex] };
-        if (IsFiniteFloat(ParentSegmentLength) == false || IsFiniteFloat(ChildSegmentLength) == false || ParentSegmentLength <= DirectionLengthEpsilon || ChildSegmentLength <= DirectionLengthEpsilon) {
+        if (MathUtility::IsFiniteFloat(ParentSegmentLength) == false || MathUtility::IsFiniteFloat(ChildSegmentLength) == false || ParentSegmentLength <= DirectionLengthEpsilon || ChildSegmentLength <= DirectionLengthEpsilon) {
             return false;
         }
 
         const DirectX::SimpleMath::Vector3 ParentPosition{ InOutJointPositions[ParentJointIndex] };
-        if (IsFiniteVector3(ParentPosition) == false) {
+        if (MathUtility::IsFiniteVector3(ParentPosition) == false) {
             return false;
         }
 
         DirectX::SimpleMath::Vector3 ChildPosition{ InOutJointPositions[ChildJointIndex] };
-        if (IsFiniteVector3(ChildPosition) == false) {
+        if (MathUtility::IsFiniteVector3(ChildPosition) == false) {
             return false;
         }
 
@@ -132,7 +126,7 @@ namespace {
             DesiredParentToChildDistance = std::clamp(DesiredParentToChildDistance, MinimumParentToChildDistance, MaximumParentToChildDistance);
         }
 
-        if (IsFiniteFloat(DesiredParentToChildDistance) == false || DesiredParentToChildDistance <= DirectionLengthEpsilon) {
+        if (MathUtility::IsFiniteFloat(DesiredParentToChildDistance) == false || DesiredParentToChildDistance <= DirectionLengthEpsilon) {
             return false;
         }
 
@@ -146,23 +140,23 @@ namespace {
         }
 
         const float AlongDistanceRaw{ ((ParentSegmentLength * ParentSegmentLength) - (ChildSegmentLength * ChildSegmentLength) + (ParentToChildDistance * ParentToChildDistance)) / (2.0f * ParentToChildDistance) };
-        if (IsFiniteFloat(AlongDistanceRaw) == false) {
+        if (MathUtility::IsFiniteFloat(AlongDistanceRaw) == false) {
             return false;
         }
 
         const float AlongDistance{ std::clamp(AlongDistanceRaw, 0.0f, ParentSegmentLength) };
         const float HeightSquaredRaw{ (ParentSegmentLength * ParentSegmentLength) - (AlongDistance * AlongDistance) };
-        if (IsFiniteFloat(HeightSquaredRaw) == false) {
+        if (MathUtility::IsFiniteFloat(HeightSquaredRaw) == false) {
             return false;
         }
 
         const float Height{ std::sqrt((std::max)(HeightSquaredRaw, 0.0f)) };
-        if (IsFiniteFloat(Height) == false) {
+        if (MathUtility::IsFiniteFloat(Height) == false) {
             return false;
         }
 
         const DirectX::SimpleMath::Vector3 JointBasePosition{ ParentPosition + (ParentToChildDirection * AlongDistance) };
-        if (IsFiniteVector3(JointBasePosition) == false) {
+        if (MathUtility::IsFiniteVector3(JointBasePosition) == false) {
             return false;
         }
 
@@ -188,7 +182,7 @@ namespace {
             ConstrainedJointPosition = JointBasePosition + (PoleDirection * Height);
         }
 
-        if (IsFiniteVector3(ConstrainedJointPosition) == false) {
+        if (MathUtility::IsFiniteVector3(ConstrainedJointPosition) == false) {
             return false;
         }
 
@@ -220,12 +214,12 @@ namespace Game {
     bool FabrikFootIKSolver::Solve(const FootIKSolveParameters& SolveParameters, FootIKSolveResult& OutSolveResult) const {
         OutSolveResult.mReachedTarget = false;
         OutSolveResult.mJointPositions.clear();
-        if (SolveParameters.mJointPositions.size() < 2 || IsFiniteVector3(SolveParameters.mTargetPosition) == false) {
+        if (SolveParameters.mJointPositions.size() < 2 || MathUtility::IsFiniteVector3(SolveParameters.mTargetPosition) == false) {
             return false;
         }
 
         const int SafeMaxIterationCount{ SolveParameters.mMaxIterationCount > 0 ? SolveParameters.mMaxIterationCount : 1 };
-        const float SafeConvergenceDistance{ IsFiniteFloat(SolveParameters.mConvergenceDistance) && SolveParameters.mConvergenceDistance > 0.0f ? SolveParameters.mConvergenceDistance : 1.0e-3f };
+        const float SafeConvergenceDistance{ MathUtility::IsFiniteFloat(SolveParameters.mConvergenceDistance) && SolveParameters.mConvergenceDistance > 0.0f ? SolveParameters.mConvergenceDistance : 1.0e-3f };
         std::vector<DirectX::SimpleMath::Vector3> SolvedJointPositions{ SolveParameters.mJointPositions.begin(), SolveParameters.mJointPositions.end() };
         std::vector<float> SegmentLengths{};
         std::vector<DirectX::SimpleMath::Vector3> FallbackDirections{};
@@ -241,7 +235,7 @@ namespace Game {
             }
 
             const float SegmentLength{ SegmentVector.Length() };
-            if (IsFiniteFloat(SegmentLength) == false || SegmentLength <= DirectionLengthEpsilon) {
+            if (MathUtility::IsFiniteFloat(SegmentLength) == false || SegmentLength <= DirectionLengthEpsilon) {
                 return false;
             }
 
@@ -250,18 +244,18 @@ namespace Game {
             TotalLength += SegmentLength;
         }
 
-        if (IsFiniteFloat(TotalLength) == false || TotalLength <= DirectionLengthEpsilon) {
+        if (MathUtility::IsFiniteFloat(TotalLength) == false || TotalLength <= DirectionLengthEpsilon) {
             return false;
         }
 
         const DirectX::SimpleMath::Vector3 RootPosition{ SolvedJointPositions.front() };
-        if (IsFiniteVector3(RootPosition) == false) {
+        if (MathUtility::IsFiniteVector3(RootPosition) == false) {
             return false;
         }
 
         const DirectX::SimpleMath::Vector3 RootToTargetVector{ SolveParameters.mTargetPosition - RootPosition };
         const float RootToTargetDistance{ RootToTargetVector.Length() };
-        if (IsFiniteFloat(RootToTargetDistance) == false) {
+        if (MathUtility::IsFiniteFloat(RootToTargetDistance) == false) {
             return false;
         }
 
@@ -304,7 +298,7 @@ namespace Game {
 
                 const DirectX::SimpleMath::Vector3 EndToTargetVector{ SolveParameters.mTargetPosition - SolvedJointPositions[LastJointIndex] };
                 const float EndToTargetDistance{ EndToTargetVector.Length() };
-                if (IsFiniteFloat(EndToTargetDistance) == true && EndToTargetDistance <= SafeConvergenceDistance) {
+                if (MathUtility::IsFiniteFloat(EndToTargetDistance) == true && EndToTargetDistance <= SafeConvergenceDistance) {
                     OutSolveResult.mReachedTarget = true;
                     break;
                 }
@@ -316,7 +310,7 @@ namespace Game {
         if (OutSolveResult.mReachedTarget == false) {
             const DirectX::SimpleMath::Vector3 EndToTargetVector{ SolveParameters.mTargetPosition - SolvedJointPositions.back() };
             const float EndToTargetDistance{ EndToTargetVector.Length() };
-            OutSolveResult.mReachedTarget = IsFiniteFloat(EndToTargetDistance) == true && EndToTargetDistance <= SafeConvergenceDistance;
+            OutSolveResult.mReachedTarget = MathUtility::IsFiniteFloat(EndToTargetDistance) == true && EndToTargetDistance <= SafeConvergenceDistance;
         }
 
         OutSolveResult.mJointPositions = std::move(SolvedJointPositions);

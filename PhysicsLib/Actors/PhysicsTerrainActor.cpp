@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "PhysicsLib/Actors/PhysicsTerrainActor.h"
+#include "Utility/MathValidation.h"
 
 #undef min
 #undef max
@@ -19,28 +20,20 @@ namespace {
     constexpr float TerrainPositionCorrectionFactor{ 1.0F };
     constexpr float TerrainPositionCorrectionSlop{ 0.0005F };
 
-    bool IsFiniteFloat(float Value) {
-        return std::isfinite(Value) != 0;
-    }
-
-    bool IsFiniteVector3(const DirectX::SimpleMath::Vector3& Value) {
-        return IsFiniteFloat(Value.x) && IsFiniteFloat(Value.y) && IsFiniteFloat(Value.z);
-    }
-
     bool TryResolveTerrainRaySample(const PhysicsTerrainActor& TerrainActor, const DirectX::SimpleMath::Ray& Ray, float RayDistance, float& OutTerrainDelta, DirectX::SimpleMath::Vector3& OutSurfacePosition, DirectX::SimpleMath::Vector3& OutSurfaceNormal) {
         const DirectX::SimpleMath::Vector3 RayPosition{ Ray.position + (Ray.direction * RayDistance) };
-        if (IsFiniteVector3(RayPosition) == false) {
+        if (MathUtility::IsFiniteVector3(RayPosition) == false) {
             return false;
         }
 
         float SurfaceHeight{};
         DirectX::SimpleMath::Vector3 SurfaceNormal{ DirectX::SimpleMath::Vector3::Up };
-        if (TerrainActor.TryGetSurfaceAtWorldPosition(RayPosition.x, RayPosition.z, SurfaceHeight, SurfaceNormal) == false || IsFiniteFloat(SurfaceHeight) == false || IsFiniteVector3(SurfaceNormal) == false) {
+        if (TerrainActor.TryGetSurfaceAtWorldPosition(RayPosition.x, RayPosition.z, SurfaceHeight, SurfaceNormal) == false || MathUtility::IsFiniteFloat(SurfaceHeight) == false || MathUtility::IsFiniteVector3(SurfaceNormal) == false) {
             return false;
         }
 
         const float TerrainDelta{ RayPosition.y - SurfaceHeight };
-        if (IsFiniteFloat(TerrainDelta) == false) {
+        if (MathUtility::IsFiniteFloat(TerrainDelta) == false) {
             return false;
         }
 
@@ -337,18 +330,18 @@ bool PhysicsTerrainActor::TryGetSurfaceAtWorldPosition(float WorldX, float World
 }
 
 bool PhysicsTerrainActor::TryRaycast(const DirectX::SimpleMath::Ray& Ray, float MaxDistance, DirectX::SimpleMath::Vector3& OutHitPosition, DirectX::SimpleMath::Vector3& OutHitNormal, float& OutHitDistance) const {
-    if (IsFiniteVector3(Ray.position) == false || IsFiniteVector3(Ray.direction) == false || IsFiniteFloat(MaxDistance) == false) {
+    if (MathUtility::IsFiniteVector3(Ray.position) == false || MathUtility::IsFiniteVector3(Ray.direction) == false || MathUtility::IsFiniteFloat(MaxDistance) == false) {
         return false;
     }
 
     DirectX::SimpleMath::Vector3 SafeRayDirection{ Ray.direction };
     const float RayDirectionLengthSquared{ SafeRayDirection.LengthSquared() };
-    if (IsFiniteFloat(RayDirectionLengthSquared) == false || RayDirectionLengthSquared <= RaycastDistanceEpsilon) {
+    if (MathUtility::IsFiniteFloat(RayDirectionLengthSquared) == false || RayDirectionLengthSquared <= RaycastDistanceEpsilon) {
         return false;
     }
 
     SafeRayDirection.Normalize();
-    if (IsFiniteVector3(SafeRayDirection) == false) {
+    if (MathUtility::IsFiniteVector3(SafeRayDirection) == false) {
         return false;
     }
 
@@ -363,7 +356,7 @@ bool PhysicsTerrainActor::TryRaycast(const DirectX::SimpleMath::Ray& Ray, float 
     const float WorldCellSizeZ{ std::abs(mHeightFieldCellSizeZ * Scale.z) };
     const float MinimumCellSize{ std::min(WorldCellSizeX, WorldCellSizeZ) };
     const float SampleStepDistance{ std::max(MinimumCellSize * 0.5F, 0.05F) };
-    if (IsFiniteFloat(SampleStepDistance) == false || SampleStepDistance <= 0.0F) {
+    if (MathUtility::IsFiniteFloat(SampleStepDistance) == false || SampleStepDistance <= 0.0F) {
         return false;
     }
 

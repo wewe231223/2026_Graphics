@@ -23,20 +23,13 @@
 #include "Game/Scene/IK/FootIKAlgorithms.h"
 #include "Game/Scene/IK/FootIKSolver.h"
 #include "PhysicsLib/Common.h"
+#include "Utility/MathValidation.h"
 
 namespace {
     constexpr std::size_t MinimumRayHitCountForFootSurfaceAlignment{ 3 };
 
-    bool IsFiniteFloat(const float Value) {
-        return std::isfinite(Value) != 0;
-    }
-
-    bool IsFiniteVector3(const SimpleMath::Vector3& Value) {
-        return IsFiniteFloat(Value.x) && IsFiniteFloat(Value.y) && IsFiniteFloat(Value.z);
-    }
-
     bool TryResolveRaycastHitOnTerrain(const IPhysicsWorld& PhysicsWorldInstance, const SimpleMath::Ray& Ray, const float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal) {
-        if (IsFiniteVector3(Ray.position) == false || IsFiniteVector3(Ray.direction) == false || IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
+        if (MathUtility::IsFiniteVector3(Ray.position) == false || MathUtility::IsFiniteVector3(Ray.direction) == false || MathUtility::IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
             return false;
         }
 
@@ -54,7 +47,7 @@ namespace {
             SimpleMath::Vector3 CandidateHitNormal{ SimpleMath::Vector3::Up };
             float CandidateHitDistance{};
             const bool IsCandidateHit{ TerrainActorPointer->TryRaycast(Ray, RayLength, CandidateHitPoint, CandidateHitNormal, CandidateHitDistance) };
-            if (IsCandidateHit == false || IsFiniteVector3(CandidateHitPoint) == false || IsFiniteVector3(CandidateHitNormal) == false || IsFiniteFloat(CandidateHitDistance) == false || CandidateHitDistance < 0.0f || CandidateHitDistance > RayLength) {
+            if (IsCandidateHit == false || MathUtility::IsFiniteVector3(CandidateHitPoint) == false || MathUtility::IsFiniteVector3(CandidateHitNormal) == false || MathUtility::IsFiniteFloat(CandidateHitDistance) == false || CandidateHitDistance < 0.0f || CandidateHitDistance > RayLength) {
                 continue;
             }
 
@@ -95,7 +88,7 @@ namespace {
             const SimpleMath::Vector3& CornerPoint{ CornerPoints[CornerIndex] };
             const SimpleMath::Vector3& RayDirection{ CornerDirections[CornerIndex] };
             const SimpleMath::Vector3 RayStartPoint{ CornerPoint - (RayDirection * RayStartOffset) };
-            if (IsFiniteVector3(RayStartPoint) == false) {
+            if (MathUtility::IsFiniteVector3(RayStartPoint) == false) {
                 continue;
             }
 
@@ -300,12 +293,12 @@ namespace Game {
             const float LeftTargetOffset{ LeftSolveTarget.IsTargetResolved == true ? std::clamp(LeftSolveTarget.RawTargetOffset, -MaxDrop, MaxLift) : 0.0f };
             const float RightTargetOffset{ RightSolveTarget.IsTargetResolved == true ? std::clamp(RightSolveTarget.RawTargetOffset, -MaxDrop, MaxLift) : 0.0f };
 
-            const float PreviousLeftOffset{ IsFiniteFloat(FootIKRuntimeComponent.mLeftCurrentOffset) ? FootIKRuntimeComponent.mLeftCurrentOffset : 0.0f };
-            const float PreviousRightOffset{ IsFiniteFloat(FootIKRuntimeComponent.mRightCurrentOffset) ? FootIKRuntimeComponent.mRightCurrentOffset : 0.0f };
+            const float PreviousLeftOffset{ MathUtility::IsFiniteFloat(FootIKRuntimeComponent.mLeftCurrentOffset) ? FootIKRuntimeComponent.mLeftCurrentOffset : 0.0f };
+            const float PreviousRightOffset{ MathUtility::IsFiniteFloat(FootIKRuntimeComponent.mRightCurrentOffset) ? FootIKRuntimeComponent.mRightCurrentOffset : 0.0f };
             const float SmoothedLeftOffset{ IK::ResolveSmoothedOffset(PreviousLeftOffset, LeftTargetOffset, FootIKRigComponent.mBlendSpeed, Dt) };
             const float SmoothedRightOffset{ IK::ResolveSmoothedOffset(PreviousRightOffset, RightTargetOffset, FootIKRigComponent.mBlendSpeed, Dt) };
-            FootIKRuntimeComponent.mLeftCurrentOffset = IsFiniteFloat(SmoothedLeftOffset) ? SmoothedLeftOffset : 0.0f;
-            FootIKRuntimeComponent.mRightCurrentOffset = IsFiniteFloat(SmoothedRightOffset) ? SmoothedRightOffset : 0.0f;
+            FootIKRuntimeComponent.mLeftCurrentOffset = MathUtility::IsFiniteFloat(SmoothedLeftOffset) ? SmoothedLeftOffset : 0.0f;
+            FootIKRuntimeComponent.mRightCurrentOffset = MathUtility::IsFiniteFloat(SmoothedRightOffset) ? SmoothedRightOffset : 0.0f;
 
             SimpleMath::Vector3 LeftTargetFootWorldPosition{};
             bool IsLeftTargetFootWorldPositionResolved{};
@@ -313,7 +306,7 @@ namespace Game {
                 const float LeftBaseFootWorldPositionY{ LeftSolveTarget.TargetFootWorldPosition.y - LeftSolveTarget.RawTargetOffset };
                 LeftTargetFootWorldPosition = LeftSolveTarget.TargetFootWorldPosition;
                 LeftTargetFootWorldPosition.y = LeftBaseFootWorldPositionY + FootIKRuntimeComponent.mLeftCurrentOffset;
-                IsLeftTargetFootWorldPositionResolved = IsFiniteVector3(LeftTargetFootWorldPosition);
+                IsLeftTargetFootWorldPositionResolved = MathUtility::IsFiniteVector3(LeftTargetFootWorldPosition);
             }
 
             SimpleMath::Vector3 RightTargetFootWorldPosition{};
@@ -322,7 +315,7 @@ namespace Game {
                 const float RightBaseFootWorldPositionY{ RightSolveTarget.TargetFootWorldPosition.y - RightSolveTarget.RawTargetOffset };
                 RightTargetFootWorldPosition = RightSolveTarget.TargetFootWorldPosition;
                 RightTargetFootWorldPosition.y = RightBaseFootWorldPositionY + FootIKRuntimeComponent.mRightCurrentOffset;
-                IsRightTargetFootWorldPositionResolved = IsFiniteVector3(RightTargetFootWorldPosition);
+                IsRightTargetFootWorldPositionResolved = MathUtility::IsFiniteVector3(RightTargetFootWorldPosition);
             }
 
             const float LeftCurrentOffsetForPelvis{ LeftSolveTarget.IsTargetResolved == true ? FootIKRuntimeComponent.mLeftCurrentOffset : 0.0f };
@@ -346,7 +339,7 @@ namespace Game {
                 }
 
                 const float MaximumReachOverflowDistance{ (std::max)(LeftReachOverflowDistance, RightReachOverflowDistance) };
-                if (IsFiniteFloat(MaximumReachOverflowDistance) == true && MaximumReachOverflowDistance > 0.0f) {
+                if (MathUtility::IsFiniteFloat(MaximumReachOverflowDistance) == true && MaximumReachOverflowDistance > 0.0f) {
                     PelvisOffset -= MaximumReachOverflowDistance;
                 }
 

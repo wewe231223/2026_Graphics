@@ -5,10 +5,17 @@ local RunMoveForce = 52.0
 local BrakingForce = 48.0
 local StopSpeed = 0.08
 local JumpImpulse = 8.0
+local GroundRayLength = 1.35
+local GroundedDistance = 0.98
+local LandingDistance = 1.25
+local LandingVelocityThreshold = -0.15
+local AirborneVelocityThreshold = 0.25
 local MaxRotationDegreesPerSecond = 720.0
 local IsMovingParameterIndex = 0
 local CurrentSpeedParameterIndex = 1
 local DirectionDeltaDegreesParameterIndex = 2
+local JumpParameterIndex = 3
+local IsLandingParameterIndex = 4
 local Pi = math.pi
 local TwoPi = Pi * 2.0
 
@@ -141,17 +148,45 @@ local function ApplyMovementForce(Context, TransformComponent, MoveInput)
     return HorizontalSpeed
 end
 
-local function ApplyJumpImpulse(Context)
+local function GetPhysicsVelocity(PhysicsActorComponent)
+    if PhysicsActorComponent == nil or PhysicsActorComponent:HasActor() == false then
+        return Vector3.new(0.0, 0.0, 0.0)
+    end
+
+    return PhysicsActorComponent:GetVelocity()
+end
+
+local function GetGroundDistance(TransformComponent)
+    if TransformComponent == nil then
+        return -1.0
+    end
+
+    return RaycastTerrainDistance(TransformComponent.position, Vector3.new(0.0, -1.0, 0.0), GroundRayLength)
+end
+
+local function ResolveAirState(GroundDistance, Velocity)
+    local IsGrounded = GroundDistance >= 0.0 and GroundDistance <= GroundedDistance and Velocity.y <= AirborneVelocityThreshold
+    local IsLanding = GroundDistance >= 0.0 and GroundDistance <= LandingDistance and Velocity.y < LandingVelocityThreshold
+
+    return IsGrounded, IsLanding
+end
+
+local function ApplyJumpImpulse(Context, IsGrounded)
     if IsInputKeyPressed(Space) == false then
-        return
+        return false
+    end
+
+    if IsGrounded == false then
+        return false
     end
 
     local PhysicsActorComponent = Context:GetComponent("PhysicsActor")
     if PhysicsActorComponent == nil or PhysicsActorComponent:HasActor() == false then
-        return
+        return false
     end
 
     PhysicsActorComponent:AddImpulse(Vector3.new(0.0, JumpImpulse, 0.0))
+    return true
 end
 
 local function SetMovingState(RuntimeVariableTableComponent, IsMoving)
@@ -169,6 +204,33 @@ local function SetMotionParameters(RuntimeVariableTableComponent, CurrentSpeed, 
 
     RuntimeVariableTableComponent.FloatValues:Set(CurrentSpeedParameterIndex, CurrentSpeed)
     RuntimeVariableTableComponent.FloatValues:Set(DirectionDeltaDegreesParameterIndex, DirectionDeltaDegrees)
+end
+
+local function SetJumpTrigger(RuntimeVariableTableComponent)
+    if RuntimeVariableTableComponent == nil then
+        return
+    end
+
+    RuntimeVariableTableComponent.BoolValues:Set(JumpParameterIndex, true)
+    RuntimeVariableTableComponent.TriggerConsumed:Set(JumpParameterIndex, false)
+end
+
+local function SetLandingTrigger(RuntimeVariableTableComponent)
+    if RuntimeVariableTableComponent == nil then
+        return
+    end
+
+    RuntimeVariableTableComponent.BoolValues:Set(IsLandingParameterIndex, true)
+    RuntimeVariableTableComponent.TriggerConsumed:Set(IsLandingParameterIndex, false)
+end
+
+local function ClearLandingTrigger(RuntimeVariableTableComponent)
+    if RuntimeVariableTableComponent == nil then
+        return
+    end
+
+    RuntimeVariableTableComponent.BoolValues:Set(IsLandingParameterIndex, false)
+    RuntimeVariableTableComponent.TriggerConsumed:Set(IsLandingParameterIndex, false)
 end
 
 function Awake(Context)
@@ -190,6 +252,7 @@ function Update(Context, DeltaSeconds)
     if IsActiveCameraFreeLookMode() then
         SetMovingState(RuntimeVariableTableComponent, false)
         SetMotionParameters(RuntimeVariableTableComponent, 0.0, 0.0)
+        ClearLandingTrigger(RuntimeVariableTableComponent)
         return
     end
 
@@ -198,8 +261,21 @@ function Update(Context, DeltaSeconds)
     local RemainingDirectionDeltaRadians = ApplySmoothedYawRotation(TransformComponent, FinalTargetDirection, DeltaSeconds)
     local CurrentSpeed = ApplyMovementForce(Context, TransformComponent, MoveInput)
     local IsMoving = CurrentSpeed > 0.0
+    local PhysicsActorComponent = Context:GetComponent("PhysicsActor")
+    local CurrentVelocity = GetPhysicsVelocity(PhysicsActorComponent)
+    local GroundDistance = GetGroundDistance(TransformComponent)
+    local IsGrounded, IsLandingDetected = ResolveAirState(GroundDistance, CurrentVelocity)
+    local IsJumpStarted = ApplyJumpImpulse(Context, IsGrounded)
 
-    ApplyJumpImpulse(Context)
+    if IsJumpStarted == true then
+        SetJumpTrigger(RuntimeVariableTableComponent)
+        ClearLandingTrigger(RuntimeVariableTableComponent)
+    elseif IsLandingDetected == true then
+        SetLandingTrigger(RuntimeVariableTableComponent)
+    else
+        ClearLandingTrigger(RuntimeVariableTableComponent)
+    end
+
     SetMovingState(RuntimeVariableTableComponent, IsMoving)
     SetMotionParameters(RuntimeVariableTableComponent, CurrentSpeed, math.deg(RemainingDirectionDeltaRadians))
 end

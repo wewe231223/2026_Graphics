@@ -15,12 +15,14 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(MSBuildThisFileDirectory)ErrorHandler.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)MathValidation.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)StdOutput.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)CompileTimeConstants.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)ComponentRestraint.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)DirectXInclude.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)MathValidation.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)SimpleMathWrapper.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)ErrorHandler.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)ExternalLinkers.h" />

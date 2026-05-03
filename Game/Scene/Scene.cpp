@@ -4,10 +4,12 @@
 #include <array>
 #include <cctype>
 #include <cstdint>
+#include <cmath>
 #include <memory>
 #include <string_view>
 #include <tuple>
 #include <unordered_set>
+#include <vector>
 #include "Imgui/imgui.h"
 #include "Core/Config.h"
 #include "Asset/Common.h"
@@ -37,10 +39,12 @@
 #include "Game/Scene/Components/Tags.h"
 #include "Game/Base/Input.h"
 #include "PhysicsLib/Actors/PhysicsStaticActor.h"
+#include "PhysicsLib/Actors/PhysicsTerrainActor.h"
 
 #include "Game/Scene/Events/SelectionEvent.h"
 #include "Core/Event/EventQueue.h"
 #include "Core/Event/FileDropEvent.h"
+#include "Utility/MathValidation.h"
 #include "Utility/StringUtils.h"
 #include "SceneEntityFactory.h"
 
@@ -158,6 +162,37 @@ namespace {
         if (TerrainActor.GetScale() != TransformComponent.scale) {
             TerrainActor.SetScale(TransformComponent.scale);
         }
+    }
+
+    float ResolveTerrainRaycastDistance(const IPhysicsWorld& PhysicsWorldInstance, const DirectX::SimpleMath::Vector3& RayStartPoint, const DirectX::SimpleMath::Vector3& RayDirection, const float RayLength) {
+        if (MathUtility::IsFiniteVector3(RayStartPoint) == false || MathUtility::IsFiniteVector3(RayDirection) == false || MathUtility::IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
+            return -1.0f;
+        }
+
+        bool IsHit{};
+        float NearestHitDistance{ RayLength };
+        std::vector<const PhysicsTerrainActor*> TerrainActors{ PhysicsWorldInstance.CollectTerrainActors() };
+        const DirectX::SimpleMath::Ray Ray{ RayStartPoint, RayDirection };
+        for (const PhysicsTerrainActor* TerrainActorPointer : TerrainActors) {
+            if (TerrainActorPointer == nullptr) {
+                continue;
+            }
+
+            DirectX::SimpleMath::Vector3 HitPosition{};
+            DirectX::SimpleMath::Vector3 HitNormal{ DirectX::SimpleMath::Vector3::Up };
+            float HitDistance{};
+            const bool IsTerrainHit{ TerrainActorPointer->TryRaycast(Ray, RayLength, HitPosition, HitNormal, HitDistance) };
+            if (IsTerrainHit == false || MathUtility::IsFiniteFloat(HitDistance) == false || HitDistance < 0.0f || HitDistance > RayLength) {
+                continue;
+            }
+
+            if (IsHit == false || HitDistance < NearestHitDistance) {
+                IsHit = true;
+                NearestHitDistance = HitDistance;
+            }
+        }
+
+        return IsHit == true ? NearestHitDistance : -1.0f;
     }
 
     void AttachPhysicsActorComponent(Arche::World& World, const PendingPhysicsActorBinding& Binding) {
@@ -583,6 +618,9 @@ namespace Game {
             }
 
             return CameraFlagNone;
+        });
+        mLuaScriptFramework.RegisterGlobalFunction("RaycastTerrainDistance", [this](const DirectX::SimpleMath::Vector3& RayStartPoint, const DirectX::SimpleMath::Vector3& RayDirection, const float RayLength) -> float {
+            return ResolveTerrainRaycastDistance(mPhysicsWorld, RayStartPoint, RayDirection, RayLength);
         });
 
         mLuaScriptFramework.RegisterTypeByDefinition<Arche::EntityID>();

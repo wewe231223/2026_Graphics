@@ -1,4 +1,4 @@
-GraphName: KnightIdleRun
+GraphName: KnightMainCharacter
 ParameterDefinitions:
   - ParameterName: IsMoving
     ParameterType: Bool
@@ -9,28 +9,68 @@ ParameterDefinitions:
   - ParameterName: DirectionDeltaDegrees
     ParameterType: Float
     DefaultValue: 0.0
+  - ParameterName: Jump
+    ParameterType: Trigger
+    DefaultValue: false
+  - ParameterName: IsLanding
+    ParameterType: Trigger
+    DefaultValue: false
 
 Nodes:
   - NodeName: Idle
-    AnimationFile: Mannequinn_Idle_Run.animbin
+    AnimationFile: knight.animbin
     ClipIndex: 0
     IsLoop: true
     PlaySpeed: 1.0
     IsDefault: true
   - NodeName: Run
-    AnimationFile: Mannequinn_Idle_Run.animbin
+    AnimationFile: knight.animbin
     ClipIndex: 1
     IsLoop: true
+    PlaySpeed: 1.0
+    IsDefault: false
+  - NodeName: Jump
+    AnimationFile: knight.animbin
+    ClipIndex: 2
+    IsLoop: false
+    PlaySpeed: 1.5
+    IsDefault: false
+  - NodeName: Land
+    AnimationFile: knight.animbin
+    ClipIndex: 4
+    IsLoop: false
     PlaySpeed: 1.0
     IsDefault: false
 
 Transitions:
   - FromNode: Idle
-    ToNode: Run
+    ToNode: Jump
     HasExitTime: false
     ExitTimeNormalized: 0.0
     CanInterrupt: true
     Priority: 0
+    BlendDuration: 0.05
+    Conditions:
+      - Parameter: Jump
+        Operator: Equals
+        BoolValue: true
+  - FromNode: Run
+    ToNode: Jump
+    HasExitTime: false
+    ExitTimeNormalized: 0.0
+    CanInterrupt: true
+    Priority: 0
+    BlendDuration: 0.05
+    Conditions:
+      - Parameter: Jump
+        Operator: Equals
+        BoolValue: true
+  - FromNode: Idle
+    ToNode: Run
+    HasExitTime: false
+    ExitTimeNormalized: 0.0
+    CanInterrupt: true
+    Priority: 20
     BlendDuration: 0.09
     Conditions:
       - Parameter: IsMoving
@@ -41,9 +81,28 @@ Transitions:
     HasExitTime: false
     ExitTimeNormalized: 0.0
     CanInterrupt: true
-    Priority: 0
+    Priority: 20
     BlendDuration: 0.09
     Conditions:
       - Parameter: IsMoving
         Operator: Equals
         BoolValue: false
+  - FromNode: Jump
+    ToNode: Land
+    HasExitTime: false
+    ExitTimeNormalized: 0.0
+    CanInterrupt: true
+    Priority: 0
+    BlendDuration: 0.04
+    Conditions:
+      - Parameter: IsLanding
+        Operator: Equals
+        BoolValue: true
+  - FromNode: Land
+    ToNode: Idle
+    HasExitTime: true
+    ExitTimeNormalized: 1.0
+    CanInterrupt: false
+    Priority: 0
+    BlendDuration: 0.2
+    Conditions: []
