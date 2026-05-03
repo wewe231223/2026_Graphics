@@ -1,9 +1,9 @@
-# My2026Graphics
+# 2026Graphics
 
 DirectX 12 기반 실시간 3D 그래픽스 샌드박스입니다.  
 렌더링, ECS, 에셋 변환, Lua 스크립팅, 물리, ImGui 디버그 도구를 직접 구현해 하나의 Win32 런타임으로 묶은 프로젝트입니다.
 
-## 한눈에 보기
+## 개요 
 
 | 구분 | 내용 |
 | --- | --- |
@@ -290,6 +290,19 @@ AssetZIP animation Knight.fbx
 | 핵심 차별성 | 코드 수정 없이 씬과 렌더 리소스 구성을 데이터 파일로 바꿀 수 있습니다. |
 
 </details>
+
+flowchart LR
+    AssetZIP["AssetZIP"] --> Asset["Asset"]
+    Asset --> Resources["Resources"]
+    Resources --> Game["Game"]
+    Script["Script"] --> Game
+    Arche["Arche"] --> Game
+    PhysicsLib["PhysicsLib"] --> Game
+    Game --> Core["Core"]
+    Shader["Shader"] --> Core
+    Widget["Widget"] --> Core
+    Core --> App["2026_Graphics"]
+
 
 ## 런타임 흐름
 
