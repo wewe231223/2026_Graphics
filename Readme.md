@@ -62,13 +62,13 @@ External/      외부 헤더와 라이브러리
 D3D/           D3D12 Agility SDK DLL
 ```
 
-```text
-AssetZIP -> Asset -> Resources -> Game -> Core -> 2026_Graphics
-                         ^          ^       ^
-                         |          |       |
-                      Script     Shader   Widget
-                         |
-               Arche + PhysicsLib
+```mermaid
+flowchart LR
+    AssetZIP["AssetZIP"] --> Asset["Asset"] --> Resources["Resources"] --> Game["Game"] --> Core["Core"] --> App["2026_Graphics"]
+    Script["Script"] --> Game
+    ArchePhysicsLib["Arche + PhysicsLib"] --> Game
+    Shader["Shader"] --> Core
+    Widget["Widget"] --> Core
 ```
 
 | 흐름 | 설명 |
@@ -290,19 +290,6 @@ AssetZIP animation Knight.fbx
 | 핵심 차별성 | 코드 수정 없이 씬과 렌더 리소스 구성을 데이터 파일로 바꿀 수 있습니다. |
 
 </details>
-
-flowchart LR
-    AssetZIP["AssetZIP"] --> Asset["Asset"]
-    Asset --> Resources["Resources"]
-    Resources --> Game["Game"]
-    Script["Script"] --> Game
-    Arche["Arche"] --> Game
-    PhysicsLib["PhysicsLib"] --> Game
-    Game --> Core["Core"]
-    Shader["Shader"] --> Core
-    Widget["Widget"] --> Core
-    Core --> App["2026_Graphics"]
-
 
 ## 런타임 흐름
 
