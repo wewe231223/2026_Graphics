@@ -17,10 +17,10 @@ ProceduralFoliage:
       MinimumScale: 0.85
       MaximumScale: 1.35
       ClusterStrength: 1.0
-      ClusterScale: 145.0
-      ClusterContrast: 2.25
-      ClusterCoverage: 0.30
-      ClusterEdgeSoftness: 0.10
+      ClusterScale: 105.0
+      ClusterContrast: 3.10
+      ClusterCoverage: 0.20
+      ClusterEdgeSoftness: 0.055
       ClusterOutsideDensity: 0.0
       OffsetY: 0.0
     - Name: Foliage2Grass
@@ -34,10 +34,10 @@ ProceduralFoliage:
       MinimumScale: 0.75
       MaximumScale: 1.15
       ClusterStrength: 1.0
-      ClusterScale: 145.0
-      ClusterContrast: 2.25
-      ClusterCoverage: 0.30
-      ClusterEdgeSoftness: 0.10
+      ClusterScale: 105.0
+      ClusterContrast: 3.10
+      ClusterCoverage: 0.20
+      ClusterEdgeSoftness: 0.055
       ClusterOutsideDensity: 0.0
       OffsetY: 0.0
     - Name: Foliage3Grass
@@ -51,10 +51,10 @@ ProceduralFoliage:
       MinimumScale: 0.90
       MaximumScale: 1.45
       ClusterStrength: 1.0
-      ClusterScale: 145.0
-      ClusterContrast: 2.25
-      ClusterCoverage: 0.30
-      ClusterEdgeSoftness: 0.10
+      ClusterScale: 105.0
+      ClusterContrast: 3.10
+      ClusterCoverage: 0.20
+      ClusterEdgeSoftness: 0.055
       ClusterOutsideDensity: 0.0
       OffsetY: 0.0
     - Name: Foliage1LowGround
@@ -68,10 +68,10 @@ ProceduralFoliage:
       MinimumScale: 0.85
       MaximumScale: 1.35
       ClusterStrength: 1.0
-      ClusterScale: 170.0
-      ClusterContrast: 2.15
-      ClusterCoverage: 0.34
-      ClusterEdgeSoftness: 0.11
+      ClusterScale: 125.0
+      ClusterContrast: 2.95
+      ClusterCoverage: 0.22
+      ClusterEdgeSoftness: 0.065
       ClusterOutsideDensity: 0.0
       OffsetY: 0.0
     - Name: Foliage2LowGround
@@ -85,10 +85,10 @@ ProceduralFoliage:
       MinimumScale: 0.75
       MaximumScale: 1.15
       ClusterStrength: 1.0
-      ClusterScale: 170.0
-      ClusterContrast: 2.15
-      ClusterCoverage: 0.34
-      ClusterEdgeSoftness: 0.11
+      ClusterScale: 125.0
+      ClusterContrast: 2.95
+      ClusterCoverage: 0.22
+      ClusterEdgeSoftness: 0.065
       ClusterOutsideDensity: 0.0
       OffsetY: 0.0
     - Name: Foliage3LowGround
@@ -102,9 +102,61 @@ ProceduralFoliage:
       MinimumScale: 0.90
       MaximumScale: 1.45
       ClusterStrength: 1.0
-      ClusterScale: 170.0
-      ClusterContrast: 2.15
-      ClusterCoverage: 0.34
-      ClusterEdgeSoftness: 0.11
+      ClusterScale: 125.0
+      ClusterContrast: 2.95
+      ClusterCoverage: 0.22
+      ClusterEdgeSoftness: 0.065
       ClusterOutsideDensity: 0.0
       OffsetY: 0.0
+    - Name: Tree1
+      ExcludedLayers:
+        - Snow
+        - Rock
+      ModelPath: Tree1_LOD0.bin
+      MaterialPath: Tree1_materials.json
+      InstancesPerCell: 1
+      DensityMultiplier: 0.28
+      SpawnChance: 0.22
+      MinimumWeight: 0.42
+      MinimumScale: 1.2
+      MaximumScale: 1.75
+      ClusterStrength: 1.0
+      ClusterScale: 205.0
+      ClusterContrast: 2.55
+      ClusterCoverage: 0.24
+      ClusterEdgeSoftness: 0.08
+      ClusterOutsideDensity: 0.0
+      OffsetY: 0.0
+      Lods:
+        - ModelPath: Tree1_LOD0.bin
+          MaximumDistance: 80.0
+        - ModelPath: Tree1_LOD1.bin
+          MaximumDistance: 160.0
+        - ModelPath: Tree1_LOD2.bin
+          MaximumDistance: 240.0
+    - Name: Tree2
+      ExcludedLayers:
+        - Snow
+        - Rock
+      ModelPath: Tree2_LOD0.bin
+      MaterialPath: Tree2_materials.json
+      InstancesPerCell: 1
+      DensityMultiplier: 0.24
+      SpawnChance: 0.20
+      MinimumWeight: 0.42
+      MinimumScale: 1.1
+      MaximumScale: 1.55
+      ClusterStrength: 1.0
+      ClusterScale: 225.0
+      ClusterContrast: 2.45
+      ClusterCoverage: 0.21
+      ClusterEdgeSoftness: 0.085
+      ClusterOutsideDensity: 0.0
+      OffsetY: 0.0
+      Lods:
+        - ModelPath: Tree2_LOD0.bin
+          MaximumDistance: 80.0
+        - ModelPath: Tree2_LOD1.bin
+          MaximumDistance: 160.0
+        - ModelPath: Tree2_LOD2.bin
+          MaximumDistance: 240.0

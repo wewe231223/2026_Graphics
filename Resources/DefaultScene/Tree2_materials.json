@@ -1,0 +1,215 @@
+{
+    "MaterialGroups": [
+        {
+            "Name": "D:\\2026_Graphics\\out\\release\\AssetZIP\\Asset\\Tree2_LOD0.glb",
+            "Items": [
+                {
+                    "PipelineName": "FoliageGraphics",
+                    "MaterialData": {
+                        "Name": "M_beech_bark_02.001",
+                        "PBR": true,
+                        "Properties": {
+                            "Shading Model": {
+                                "Kind": "Int",
+                                "Int": 11
+                            },
+                            "Two Sided": {
+                                "Kind": "Bool",
+                                "Bool": true
+                            },
+                            "Opacity": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Alpha Mode": {
+                                "Kind": "String",
+                                "String": "OPAQUE"
+                            },
+                            "Alpha Cutoff": {
+                                "Kind": "Real",
+                                "Real": 0.5
+                            },
+                            "Base Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    1.0,
+                                    1.0,
+                                    1.0,
+                                    1.0
+                                ]
+                            },
+                            "Diffuse Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    1.0,
+                                    1.0,
+                                    1.0,
+                                    1.0
+                                ]
+                            },
+                            "Emissive Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.0,
+                                    0.0,
+                                    0.0,
+                                    1.0
+                                ]
+                            },
+                            "Metallic Factor": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Roughness Factor": {
+                                "Kind": "Real",
+                                "Real": 0.858578622341156
+                            },
+                            "Diffuse Texture": {
+                                "Kind": "String",
+                                "String" : "Tree2_bark"
+                            },
+                            "Specular Texture": {
+                                "Kind": "None"
+                            },
+                            "Ambient Texture": {
+                                "Kind": "None"
+                            },
+                            "Emissive Texture": {
+                                "Kind": "None"
+                            },
+                            "Opacity Texture": {
+                                "Kind": "None"
+                            },
+                            "Shininess Texture": {
+                                "Kind": "None"
+                            },
+                            "Height / Bump Texture": {
+                                "Kind": "None"
+                            },
+                            "Normal Texture": {
+                                "Kind": "String",
+                                "String" : "Tree2_bark_Norm"
+                            },
+                            "Displacement Texture": {
+                                "Kind": "None"
+                            },
+                            "Reflection Texture": {
+                                "Kind": "None"
+                            },
+                            "Lightmap Texture": {
+                                "Kind": "None"
+                            },
+                            "Normal Scale": {
+                                "Kind": "Real",
+                                "Real": 3.0
+                            }
+                        }
+                    }
+                },
+                {
+                    "PipelineName": "FoliageGraphics",
+                    "MaterialData": {
+                        "Name": "M_beech_leaves.001",
+                        "PBR": true,
+                        "Properties": {
+                            "Shading Model": {
+                                "Kind": "Int",
+                                "Int": 11
+                            },
+                            "Two Sided": {
+                                "Kind": "Bool",
+                                "Bool": true
+                            },
+                            "Opacity": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Alpha Mode": {
+                                "Kind": "String",
+                                "String": "BLEND"
+                            },
+                            "Alpha Cutoff": {
+                                "Kind": "Real",
+                                "Real": 0.5
+                            },
+                            "Base Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    1.0,
+                                    1.0,
+                                    1.0,
+                                    1.0
+                                ]
+                            },
+                            "Diffuse Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    1.0,
+                                    1.0,
+                                    1.0,
+                                    1.0
+                                ]
+                            },
+                            "Emissive Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    0.0,
+                                    0.0,
+                                    0.0,
+                                    1.0
+                                ]
+                            },
+                            "Metallic Factor": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Roughness Factor": {
+                                "Kind": "Real",
+                                "Real": 0.858578622341156
+                            },
+                            "Diffuse Texture": {
+                                "Kind": "String",
+                                "String" : "Tree2_atlas"
+                            },
+                            "Specular Texture": {
+                                "Kind": "None"
+                            },
+                            "Ambient Texture": {
+                                "Kind": "None"
+                            },
+                            "Emissive Texture": {
+                                "Kind": "None"
+                            },
+                            "Opacity Texture": {
+                                "Kind": "None"
+                            },
+                            "Shininess Texture": {
+                                "Kind": "None"
+                            },
+                            "Height / Bump Texture": {
+                                "Kind": "None"
+                            },
+                            "Normal Texture": {
+                                "Kind": "String",
+                                "String" : "Tree2_atlas_Norm"
+                            },
+                            "Displacement Texture": {
+                                "Kind": "None"
+                            },
+                            "Reflection Texture": {
+                                "Kind": "None"
+                            },
+                            "Lightmap Texture": {
+                                "Kind": "None"
+                            },
+                            "Normal Scale": {
+                                "Kind": "Real",
+                                "Real": 3.0
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

@@ -801,6 +801,19 @@ namespace Game {
         return TextureIndices;
     }
 
+    void AppendUsedTextureTableIndices(const std::vector<std::vector<std::uint32_t>>& MaterialToTextureTableIndices, const std::vector<RFD::DrawRecord>& DrawRecords, std::unordered_set<std::uint32_t>& InOutUsedTextureTableIndices) {
+        for (const RFD::DrawRecord& DrawRecordData : DrawRecords) {
+            if (DrawRecordData.materialIndex >= MaterialToTextureTableIndices.size()) {
+                continue;
+            }
+
+            const std::vector<std::uint32_t>& MaterialTextureIndices{ MaterialToTextureTableIndices[DrawRecordData.materialIndex] };
+            for (const std::uint32_t TextureIndex : MaterialTextureIndices) {
+                InOutUsedTextureTableIndices.insert(TextureIndex);
+            }
+        }
+    }
+
     void AssetRegistry::PrepareRenderTextures(const RFD::RenderFrameData& RenderData) {
         if (mDevice == nullptr || mCopyQueue == nullptr || mAllocator == nullptr || mSrvHeap == nullptr) {
             return;
@@ -813,15 +826,9 @@ namespace Game {
         auto& TextureTableBucket{ Storage.GetBucket<TextureTableBucketTag>() };
 
         std::unordered_set<std::uint32_t> UsedTextureTableIndices{};
-        for (const RFD::DrawRecord& DrawRecordData : RenderData.drawRecords) {
-            if (DrawRecordData.materialIndex >= MaterialToTextureTableIndices.size()) {
-                continue;
-            }
-
-            const std::vector<std::uint32_t>& MaterialTextureIndices{ MaterialToTextureTableIndices[DrawRecordData.materialIndex] };
-            for (const std::uint32_t TextureIndex : MaterialTextureIndices) {
-                UsedTextureTableIndices.insert(TextureIndex);
-            }
+        AppendUsedTextureTableIndices(MaterialToTextureTableIndices, RenderData.drawRecords, UsedTextureTableIndices);
+        for (const RFD::ShadowRenderContext& ShadowRenderContext : RenderData.ShadowRenderContexts) {
+            AppendUsedTextureTableIndices(MaterialToTextureTableIndices, ShadowRenderContext.DrawRecords, UsedTextureTableIndices);
         }
 
         for (AssetRegistryTextureRecord& TextureData : TextureRecords) {

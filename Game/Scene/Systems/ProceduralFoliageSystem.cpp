@@ -41,8 +41,15 @@
 namespace {
     constexpr float FoliageInactiveHeight{ -100000.0f };
     constexpr float FoliageEpsilon{ 0.0001f };
+    constexpr float FoliageTwoPi{ 6.28318530717958647692f };
     constexpr std::uint32_t FoliageHashOffset{ 2166136261u };
     constexpr std::uint32_t FoliageHashPrime{ 16777619u };
+
+    struct FoliagePlacementLodDesc final {
+    public:
+        std::string mModelPath{};
+        float mMaximumDistance{ std::numeric_limits<float>::max() };
+    };
 
     struct FoliagePlacementRule final {
     public:
@@ -50,6 +57,8 @@ namespace {
         std::string mLayerName{};
         std::string mModelPath{};
         std::string mMaterialPath{};
+        std::vector<FoliagePlacementLodDesc> mLods{};
+        std::vector<std::string> mExcludedLayerNames{};
         std::uint32_t mLayerIndex{ 0u };
         std::uint32_t mInstancesPerCell{ 1u };
         float mDensityMultiplier{ 1.0f };
@@ -79,10 +88,16 @@ namespace {
         std::uint32_t mSeedSalt{ 64123u };
     };
 
+    struct FoliageRuntimeLod final {
+    public:
+        std::shared_ptr<Game::Model> mModel{};
+        float mMaximumDistance{ std::numeric_limits<float>::max() };
+    };
+
     struct FoliageRuntimeRule final {
     public:
         FoliagePlacementRule mDesc{};
-        std::shared_ptr<Game::Model> mModel{};
+        std::vector<FoliageRuntimeLod> mLods{};
         std::uint32_t mMaterialGroupIndex{ 0u };
     };
 
@@ -116,14 +131,16 @@ namespace {
         SimpleMath::Vector3 mPosition{ SimpleMath::Vector3::Zero };
         float mYawRadians{ 0.0f };
         float mScale{ 1.0f };
+        std::uint32_t mLodIndex{ 0u };
     };
 
     struct FoliageSlot final {
     public:
         FoliageCandidateKey mKey{};
         Arche::EntityID mRootEntityId{ Arche::NullEntityID };
-        std::vector<Arche::EntityID> mRenderEntityIds{};
+        std::vector<std::vector<Arche::EntityID>> mRenderEntityIdsByLod{};
         std::uint32_t mRuleIndex{ 0u };
+        std::uint32_t mActiveLodIndex{ std::numeric_limits<std::uint32_t>::max() };
         bool mActive{ false };
         bool mAssignedThisFrame{ false };
     };
@@ -219,6 +236,27 @@ namespace {
         return std::clamp(Lerp(1.0f, ClusterDensity, Rule.mClusterStrength), 0.0f, 2.5f);
     }
 
+    void ApplyFoliageClumpPosition(std::uint32_t TerrainSeed, std::uint32_t Salt, const FoliagePlacementRule& Rule, const FoliageCandidateKey& Key, std::uint32_t ClusterIndex, float CellSize, float& WorldX, float& WorldZ) {
+        if (Rule.mClusterStrength <= 0.0f) {
+            return;
+        }
+
+        const float ClusterScale{ (std::max)(Rule.mClusterScale, CellSize * 2.0f) };
+        const float ClumpGridScale{ (std::max)(ClusterScale * 0.35f, CellSize * 2.0f) };
+        const std::int32_t ClumpGridX{ static_cast<std::int32_t>(std::floor(WorldX / ClumpGridScale)) };
+        const std::int32_t ClumpGridZ{ static_cast<std::int32_t>(std::floor(WorldZ / ClumpGridScale)) };
+        const float CenterX{ (static_cast<float>(ClumpGridX) + 0.2f + (HashToUnitFloat(BuildClusterHash(TerrainSeed, Salt, ClumpGridX, ClumpGridZ, ClusterIndex, 113u)) * 0.6f)) * ClumpGridScale };
+        const float CenterZ{ (static_cast<float>(ClumpGridZ) + 0.2f + (HashToUnitFloat(BuildClusterHash(TerrainSeed, Salt, ClumpGridX, ClumpGridZ, ClusterIndex, 127u)) * 0.6f)) * ClumpGridScale };
+        const float Angle{ HashToUnitFloat(BuildCandidateHash(TerrainSeed, Salt, Key, 139u)) * FoliageTwoPi };
+        const float DistanceAlpha{ std::sqrt(HashToUnitFloat(BuildCandidateHash(TerrainSeed, Salt, Key, 149u))) };
+        const float ClumpRadius{ ClumpGridScale * 0.22f };
+        const float TargetX{ CenterX + (std::cos(Angle) * DistanceAlpha * ClumpRadius) };
+        const float TargetZ{ CenterZ + (std::sin(Angle) * DistanceAlpha * ClumpRadius) };
+        const float PullStrength{ std::clamp(Rule.mClusterStrength * 0.72f, 0.0f, 0.86f) };
+        WorldX = Lerp(WorldX, TargetX, PullStrength);
+        WorldZ = Lerp(WorldZ, TargetZ, PullStrength);
+    }
+
     bool StartsWithPathPrefix(const std::string& Text, const std::string& Prefix) {
         if (Text.size() < Prefix.size()) {
             return false;
@@ -294,6 +332,70 @@ namespace {
         Node[Key] >> OutValue;
     }
 
+    void ReadStringListChild(c4::yml::ConstNodeRef Node, const char* Key, std::vector<std::string>& OutValues) {
+        if (Node.has_child(Key) == false) {
+            return;
+        }
+
+        const c4::yml::ConstNodeRef ListNode{ Node[Key] };
+        if (ListNode.is_seq() == false) {
+            throw std::runtime_error{ "Procedural foliage string list must be a sequence." };
+        }
+
+        OutValues.clear();
+        for (const c4::yml::ConstNodeRef ItemNode : ListNode.children()) {
+            std::string Value{};
+            ItemNode >> Value;
+            if (Value.empty() == false) {
+                OutValues.push_back(std::move(Value));
+            }
+        }
+    }
+
+    FoliagePlacementLodDesc ReadFoliageLodDesc(c4::yml::ConstNodeRef LodNode, const std::string& ConfigPath) {
+        if (LodNode.readable() == false || LodNode.is_map() == false) {
+            throw std::runtime_error{ "Procedural foliage lod must be a map." };
+        }
+
+        FoliagePlacementLodDesc LodDesc{};
+        ReadStringChild(LodNode, "ModelPath", LodDesc.mModelPath);
+        ReadFloatChild(LodNode, "Distance", LodDesc.mMaximumDistance);
+        ReadFloatChild(LodNode, "MaximumDistance", LodDesc.mMaximumDistance);
+        LodDesc.mModelPath = ResolveFoliageResourcePath(ConfigPath, LodDesc.mModelPath);
+        LodDesc.mMaximumDistance = (std::max)(LodDesc.mMaximumDistance, 0.0f);
+
+        if (LodDesc.mModelPath.empty() == true) {
+            throw std::runtime_error{ "Procedural foliage lod model path is empty." };
+        }
+
+        return LodDesc;
+    }
+
+    void ReadFoliageLods(c4::yml::ConstNodeRef RuleNode, const std::string& ConfigPath, FoliagePlacementRule& Rule) {
+        Rule.mLods.clear();
+        if (RuleNode.has_child("Lods") == true) {
+            const c4::yml::ConstNodeRef LodsNode{ RuleNode["Lods"] };
+            if (LodsNode.is_seq() == false) {
+                throw std::runtime_error{ "Procedural foliage lods must be a sequence." };
+            }
+
+            for (const c4::yml::ConstNodeRef LodNode : LodsNode.children()) {
+                Rule.mLods.push_back(ReadFoliageLodDesc(LodNode, ConfigPath));
+            }
+        }
+
+        if (Rule.mLods.empty() == true && Rule.mModelPath.empty() == false) {
+            FoliagePlacementLodDesc LodDesc{};
+            LodDesc.mModelPath = Rule.mModelPath;
+            LodDesc.mMaximumDistance = std::numeric_limits<float>::max();
+            Rule.mLods.push_back(std::move(LodDesc));
+        }
+
+        std::sort(Rule.mLods.begin(), Rule.mLods.end(), [](const FoliagePlacementLodDesc& Left, const FoliagePlacementLodDesc& Right) {
+            return Left.mMaximumDistance < Right.mMaximumDistance;
+        });
+    }
+
     FoliagePlacementRule ReadFoliageRule(c4::yml::ConstNodeRef RuleNode, const std::string& ConfigPath) {
         if (RuleNode.readable() == false || RuleNode.is_map() == false) {
             throw std::runtime_error{ "Procedural foliage rule must be a map." };
@@ -304,6 +406,8 @@ namespace {
         ReadStringChild(RuleNode, "Layer", Rule.mLayerName);
         ReadStringChild(RuleNode, "LayerName", Rule.mLayerName);
         ReadUInt32Child(RuleNode, "LayerIndex", Rule.mLayerIndex);
+        ReadStringListChild(RuleNode, "ExcludedLayers", Rule.mExcludedLayerNames);
+        ReadStringListChild(RuleNode, "BlockedLayers", Rule.mExcludedLayerNames);
         ReadStringChild(RuleNode, "ModelPath", Rule.mModelPath);
         ReadStringChild(RuleNode, "MaterialPath", Rule.mMaterialPath);
         ReadUInt32Child(RuleNode, "InstancesPerCell", Rule.mInstancesPerCell);
@@ -324,13 +428,14 @@ namespace {
         ReadFloatChild(RuleNode, "OffsetY", Rule.mOffsetY);
         Rule.mModelPath = ResolveFoliageResourcePath(ConfigPath, Rule.mModelPath);
         Rule.mMaterialPath = ResolveFoliageResourcePath(ConfigPath, Rule.mMaterialPath);
+        ReadFoliageLods(RuleNode, ConfigPath, Rule);
 
-        if (Rule.mModelPath.empty() == true) {
+        if (Rule.mLods.empty() == true) {
             throw std::runtime_error{ "Procedural foliage rule model path is empty." };
         }
 
         if (Rule.mName.empty() == true) {
-            Rule.mName = Rule.mModelPath;
+            Rule.mName = Rule.mLods.front().mModelPath;
         }
 
         Rule.mInstancesPerCell = (std::max)(Rule.mInstancesPerCell, 1u);
@@ -497,17 +602,54 @@ namespace {
         return 0.0f;
     }
 
+    bool TryResolveLayerIndexByName(const Game::TerrainBuildDesc& BuildDesc, const std::string& LayerName, std::uint32_t& OutLayerIndex) {
+        const std::vector<Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc>& Layers{ BuildDesc.mProceduralHeightFieldDesc.mSplatMapDesc.mLayers };
+        for (std::size_t LayerIndex{ 0ULL }; LayerIndex < Layers.size(); ++LayerIndex) {
+            if (Layers[LayerIndex].mName == LayerName) {
+                OutLayerIndex = static_cast<std::uint32_t>(LayerIndex);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     std::uint32_t ResolveLayerIndex(const FoliagePlacementRule& Rule, const Game::TerrainBuildDesc& BuildDesc) {
         if (Rule.mLayerName.empty() == false) {
-            const std::vector<Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc>& Layers{ BuildDesc.mProceduralHeightFieldDesc.mSplatMapDesc.mLayers };
-            for (std::size_t LayerIndex{ 0ULL }; LayerIndex < Layers.size(); ++LayerIndex) {
-                if (Layers[LayerIndex].mName == Rule.mLayerName) {
-                    return static_cast<std::uint32_t>(LayerIndex);
-                }
+            std::uint32_t LayerIndex{};
+            const bool IsLayerIndexResolved{ TryResolveLayerIndexByName(BuildDesc, Rule.mLayerName, LayerIndex) };
+            if (IsLayerIndexResolved == true) {
+                return LayerIndex;
             }
         }
 
         return Rule.mLayerIndex;
+    }
+
+    bool TryResolveExcludedLayerWeight(const FoliagePlacementRule& Rule, const Game::TerrainBuildDesc& BuildDesc, const asset::Vec4& SplatWeights, float& OutLayerWeight) {
+        if (Rule.mExcludedLayerNames.empty() == true) {
+            return false;
+        }
+
+        float ExcludedWeight{};
+        std::uint32_t ResolvedLayerCount{};
+        for (const std::string& LayerName : Rule.mExcludedLayerNames) {
+            std::uint32_t LayerIndex{};
+            const bool IsLayerIndexResolved{ TryResolveLayerIndexByName(BuildDesc, LayerName, LayerIndex) };
+            if (IsLayerIndexResolved == false || LayerIndex >= 4u) {
+                continue;
+            }
+
+            ExcludedWeight += GetSplatLayerWeight(SplatWeights, LayerIndex);
+            ResolvedLayerCount += 1u;
+        }
+
+        if (ResolvedLayerCount == 0u) {
+            return false;
+        }
+
+        OutLayerWeight = std::clamp(1.0f - ExcludedWeight, 0.0f, 1.0f);
+        return true;
     }
 
     bool TrySampleTerrain(const TerrainSamplingContext& TerrainContext, const FoliagePlacementRule& Rule, float WorldX, float WorldZ, float& OutWorldY, float& OutLayerWeight) {
@@ -532,14 +674,20 @@ namespace {
             return false;
         }
 
-        const std::uint32_t LayerIndex{ ResolveLayerIndex(Rule, TerrainContext.mResource->GetBuildDesc()) };
+        const Game::TerrainBuildDesc& BuildDesc{ TerrainContext.mResource->GetBuildDesc() };
+        const float Height01{ SampleHeight01(HeightField, GridX, GridZ) };
+        const asset::Vec4 SplatWeights{ SampleSplatWeight(SplatMap, GridX, GridZ, HeightField) };
+        OutWorldY = TerrainContext.mTransform.position.y + (Height01 * TerrainContext.mResource->GetMaxHeight() * ScaleY);
+        const bool HasExcludedLayerWeight{ TryResolveExcludedLayerWeight(Rule, BuildDesc, SplatWeights, OutLayerWeight) };
+        if (HasExcludedLayerWeight == true) {
+            return true;
+        }
+
+        const std::uint32_t LayerIndex{ ResolveLayerIndex(Rule, BuildDesc) };
         if (LayerIndex >= 4u) {
             return false;
         }
 
-        const float Height01{ SampleHeight01(HeightField, GridX, GridZ) };
-        const asset::Vec4 SplatWeights{ SampleSplatWeight(SplatMap, GridX, GridZ, HeightField) };
-        OutWorldY = TerrainContext.mTransform.position.y + (Height01 * TerrainContext.mResource->GetMaxHeight() * ScaleY);
         OutLayerWeight = std::clamp(GetSplatLayerWeight(SplatWeights, LayerIndex), 0.0f, 1.0f);
         return true;
     }
@@ -548,6 +696,23 @@ namespace {
         const float DistanceX{ WorldX - FocusPosition.x };
         const float DistanceZ{ WorldZ - FocusPosition.z };
         return ((DistanceX * DistanceX) + (DistanceZ * DistanceZ)) <= RadiusSquared;
+    }
+
+    std::uint32_t ResolveFoliageLodIndex(const FoliagePlacementRule& Rule, const SimpleMath::Vector3& FocusPosition, float WorldX, float WorldZ) {
+        if (Rule.mLods.size() <= 1ULL) {
+            return 0u;
+        }
+
+        const float DistanceX{ WorldX - FocusPosition.x };
+        const float DistanceZ{ WorldZ - FocusPosition.z };
+        const float Distance{ std::sqrt((DistanceX * DistanceX) + (DistanceZ * DistanceZ)) };
+        for (std::size_t LodIndex{ 0ULL }; LodIndex < Rule.mLods.size(); ++LodIndex) {
+            if (Distance <= Rule.mLods[LodIndex].mMaximumDistance) {
+                return static_cast<std::uint32_t>(LodIndex);
+            }
+        }
+
+        return static_cast<std::uint32_t>(Rule.mLods.size() - 1ULL);
     }
 
     Arche::EntityID CreateDerivedEntity(Arche::World& World) {
@@ -589,13 +754,13 @@ namespace {
         }
     }
 
-    bool CreateFoliageSlotEntities(Arche::World& World, const FoliageRuntimeRule& Rule, std::uint32_t RuleIndex, FoliageSlot& OutSlot) {
-        if (Rule.mModel == nullptr) {
+    bool CreateFoliageLodEntities(Arche::World& World, const FoliageRuntimeLod& Lod, std::uint32_t MaterialGroupIndex, Arche::EntityID ParentEntityId, std::vector<Arche::EntityID>& OutRenderEntityIds) {
+        if (Lod.mModel == nullptr || ParentEntityId == Arche::NullEntityID) {
             return false;
         }
 
-        const std::vector<Game::ModelNode>& ModelNodes{ Rule.mModel->GetNodes() };
-        const Game::ModelNode* RootNode{ Rule.mModel->GetRootNode() };
+        const std::vector<Game::ModelNode>& ModelNodes{ Lod.mModel->GetNodes() };
+        const Game::ModelNode* RootNode{ Lod.mModel->GetRootNode() };
         if (RootNode == nullptr || ModelNodes.empty() == true) {
             return false;
         }
@@ -609,19 +774,19 @@ namespace {
         for (std::size_t NodeIndex{ 0ULL }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
             const Game::ModelNode& Node{ ModelNodes[NodeIndex] };
             Game::Transform TransformComponent{};
-            TransformComponent.position = NodeIndex == RootNodeIndex ? SimpleMath::Vector3{ 0.0f, FoliageInactiveHeight, 0.0f } : SimpleMath::Vector3::Zero;
+            TransformComponent.position = SimpleMath::Vector3::Zero;
             TransformComponent.nodeToParent = Node.GetNodeToParent();
             World.AddComponent(NodeEntities[NodeIndex], TransformComponent);
 
             if (Node.GetSubMeshes().empty() == false && Node.IsSkinnedMesh() == false) {
                 Game::StaticMeshRenderer Renderer{};
-                Renderer.model = Rule.mModel.get();
+                Renderer.model = Lod.mModel.get();
                 Renderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
                 Renderer.active = false;
                 World.AddComponent(NodeEntities[NodeIndex], Renderer);
 
                 Game::Material MaterialComponent{};
-                MaterialComponent.MaterialGroupIndex = Rule.mMaterialGroupIndex;
+                MaterialComponent.MaterialGroupIndex = MaterialGroupIndex;
                 World.AddComponent(NodeEntities[NodeIndex], MaterialComponent);
 
                 Game::Culling CullingComponent{};
@@ -629,9 +794,9 @@ namespace {
                 World.AddComponent(NodeEntities[NodeIndex], CullingComponent);
 
                 Game::BoundingBox BoundingBoxComponent{};
-                BoundingBoxComponent.UpdateFromModel(Rule.mModel.get(), static_cast<std::uint32_t>(NodeIndex));
+                BoundingBoxComponent.UpdateFromModel(Lod.mModel.get(), static_cast<std::uint32_t>(NodeIndex));
                 World.AddComponent(NodeEntities[NodeIndex], BoundingBoxComponent);
-                OutSlot.mRenderEntityIds.push_back(NodeEntities[NodeIndex]);
+                OutRenderEntityIds.push_back(NodeEntities[NodeIndex]);
             }
         }
 
@@ -646,13 +811,40 @@ namespace {
             }
         }
 
-        OutSlot.mRootEntityId = NodeEntities[RootNodeIndex];
-        OutSlot.mRuleIndex = RuleIndex;
-        return OutSlot.mRootEntityId != Arche::NullEntityID && OutSlot.mRenderEntityIds.empty() == false;
+        AttachChildEntity(World, ParentEntityId, NodeEntities[RootNodeIndex]);
+        return OutRenderEntityIds.empty() == false;
     }
 
-    void SetFoliageSlotActive(Arche::World& World, FoliageSlot& Slot, bool IsActive) {
-        for (Arche::EntityID RenderEntityId : Slot.mRenderEntityIds) {
+    bool CreateFoliageSlotEntities(Arche::World& World, const FoliageRuntimeRule& Rule, std::uint32_t RuleIndex, FoliageSlot& OutSlot) {
+        if (Rule.mLods.empty() == true) {
+            return false;
+        }
+
+        const Arche::EntityID RootEntityId{ CreateDerivedEntity(World) };
+        Game::Transform RootTransform{};
+        RootTransform.position = SimpleMath::Vector3{ 0.0f, FoliageInactiveHeight, 0.0f };
+        World.AddComponent(RootEntityId, RootTransform);
+
+        OutSlot.mRootEntityId = RootEntityId;
+        OutSlot.mRuleIndex = RuleIndex;
+        OutSlot.mRenderEntityIdsByLod.clear();
+        OutSlot.mRenderEntityIdsByLod.reserve(Rule.mLods.size());
+
+        for (const FoliageRuntimeLod& Lod : Rule.mLods) {
+            std::vector<Arche::EntityID> LodRenderEntityIds{};
+            const bool IsCreated{ CreateFoliageLodEntities(World, Lod, Rule.mMaterialGroupIndex, RootEntityId, LodRenderEntityIds) };
+            if (IsCreated == false) {
+                return false;
+            }
+
+            OutSlot.mRenderEntityIdsByLod.push_back(std::move(LodRenderEntityIds));
+        }
+
+        return OutSlot.mRootEntityId != Arche::NullEntityID && OutSlot.mRenderEntityIdsByLod.empty() == false;
+    }
+
+    void SetFoliageRenderEntitiesActive(Arche::World& World, const std::vector<Arche::EntityID>& RenderEntityIds, bool IsActive) {
+        for (Arche::EntityID RenderEntityId : RenderEntityIds) {
             Game::StaticMeshRenderer* Renderer{ World.GetComponent<Game::StaticMeshRenderer>(RenderEntityId) };
             if (Renderer == nullptr) {
                 continue;
@@ -660,8 +852,17 @@ namespace {
 
             Renderer->active = IsActive;
         }
+    }
+
+    void SetFoliageSlotActive(Arche::World& World, FoliageSlot& Slot, bool IsActive, std::uint32_t LodIndex) {
+        const std::uint32_t ResolvedLodIndex{ Slot.mRenderEntityIdsByLod.empty() == true ? 0u : (std::min)(LodIndex, static_cast<std::uint32_t>(Slot.mRenderEntityIdsByLod.size() - 1ULL)) };
+        for (std::size_t CurrentLodIndex{ 0ULL }; CurrentLodIndex < Slot.mRenderEntityIdsByLod.size(); ++CurrentLodIndex) {
+            const bool ShouldActivate{ IsActive == true && CurrentLodIndex == static_cast<std::size_t>(ResolvedLodIndex) };
+            SetFoliageRenderEntitiesActive(World, Slot.mRenderEntityIdsByLod[CurrentLodIndex], ShouldActivate);
+        }
 
         Slot.mActive = IsActive;
+        Slot.mActiveLodIndex = IsActive == true ? ResolvedLodIndex : std::numeric_limits<std::uint32_t>::max();
     }
 
     void ApplyFoliageCandidateToSlot(Arche::World& World, FoliageSlot& Slot, const FoliageCandidate& Candidate) {
@@ -676,7 +877,7 @@ namespace {
         TransformComponent->scale = SimpleMath::Vector3{ Candidate.mScale, Candidate.mScale, Candidate.mScale };
         Slot.mKey = Candidate.mKey;
         Slot.mAssignedThisFrame = true;
-        SetFoliageSlotActive(World, Slot, true);
+        SetFoliageSlotActive(World, Slot, true, Candidate.mLodIndex);
     }
 
     void DeactivateFoliageSlot(Arche::World& World, FoliageSlot& Slot) {
@@ -689,7 +890,7 @@ namespace {
             TransformComponent->position.y = FoliageInactiveHeight;
         }
 
-        SetFoliageSlotActive(World, Slot, false);
+        SetFoliageSlotActive(World, Slot, false, 0u);
     }
 }
 
@@ -832,8 +1033,19 @@ namespace Game {
         for (const FoliagePlacementRule& RuleDesc : mConfig.mRules) {
             FoliageRuntimeRule RuntimeRule{};
             RuntimeRule.mDesc = RuleDesc;
-            RuntimeRule.mModel = Ctx.AssetRegistryResource->GetModel(RuleDesc.mModelPath);
-            if (RuntimeRule.mModel == nullptr) {
+            RuntimeRule.mLods.reserve(RuleDesc.mLods.size());
+            for (const FoliagePlacementLodDesc& LodDesc : RuleDesc.mLods) {
+                FoliageRuntimeLod RuntimeLod{};
+                RuntimeLod.mModel = Ctx.AssetRegistryResource->GetModel(LodDesc.mModelPath);
+                RuntimeLod.mMaximumDistance = LodDesc.mMaximumDistance;
+                if (RuntimeLod.mModel == nullptr) {
+                    continue;
+                }
+
+                RuntimeRule.mLods.push_back(std::move(RuntimeLod));
+            }
+
+            if (RuntimeRule.mLods.empty() == true) {
                 continue;
             }
 
@@ -938,7 +1150,6 @@ namespace Game {
     }
 
     bool ProceduralFoliageRuntime::TryCreateCandidate(const TerrainSamplingContext& TerrainContext, const SimpleMath::Vector3& FocusPosition, std::uint32_t RuleIndex, std::int32_t CellX, std::int32_t CellZ, std::uint32_t InstanceIndex, FoliageCandidate& OutCandidate) const {
-        (void)FocusPosition;
         if (RuleIndex >= mRules.size() || TerrainContext.mResource == nullptr) {
             return false;
         }
@@ -954,9 +1165,10 @@ namespace Game {
         const float RandomX{ HashToUnitFloat(BuildCandidateHash(TerrainSeed, mConfig.mSeedSalt, Key, 11u)) };
         const float RandomZ{ HashToUnitFloat(BuildCandidateHash(TerrainSeed, mConfig.mSeedSalt, Key, 23u)) };
         const float RandomChance{ HashToUnitFloat(BuildCandidateHash(TerrainSeed, mConfig.mSeedSalt, Key, 37u)) };
-        const float WorldX{ (static_cast<float>(CellX) + RandomX) * mConfig.mCellSize };
-        const float WorldZ{ (static_cast<float>(CellZ) + RandomZ) * mConfig.mCellSize };
+        float WorldX{ (static_cast<float>(CellX) + RandomX) * mConfig.mCellSize };
+        float WorldZ{ (static_cast<float>(CellZ) + RandomZ) * mConfig.mCellSize };
         const std::uint32_t ClusterIndex{ ResolveLayerIndex(Rule, TerrainContext.mResource->GetBuildDesc()) };
+        ApplyFoliageClumpPosition(TerrainSeed, mConfig.mSeedSalt, Rule, Key, ClusterIndex, mConfig.mCellSize, WorldX, WorldZ);
         float WorldY{};
         float LayerWeight{};
         const bool HasTerrainSample{ TrySampleTerrain(TerrainContext, Rule, WorldX, WorldZ, WorldY, LayerWeight) };
@@ -972,6 +1184,7 @@ namespace Game {
         OutCandidate.mPosition = SimpleMath::Vector3{ WorldX, WorldY + Rule.mOffsetY, WorldZ };
         OutCandidate.mYawRadians = DirectX::XMConvertToRadians(Lerp(Rule.mMinimumYawDegrees, Rule.mMaximumYawDegrees, RandomYaw));
         OutCandidate.mScale = Lerp(Rule.mMinimumScale, Rule.mMaximumScale, RandomScale);
+        OutCandidate.mLodIndex = ResolveFoliageLodIndex(Rule, FocusPosition, WorldX, WorldZ);
         return true;
     }
 
