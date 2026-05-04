@@ -269,12 +269,12 @@ namespace {
             return 1.0f;
         }
 
-        const float ClusterScale{ (std::max)(Rule.mClusterScale, 1.0f) };
+        const float ClusterScale{ std::max(Rule.mClusterScale, 1.0f) };
         const float NoiseValue{ SampleValueNoise01(TerrainSeed, Config.mSeedSalt, WorldX / ClusterScale, WorldZ / ClusterScale, ClusterIndex, Config.mClusterCornerStream) };
         const float ContrastedValue{ std::clamp(((NoiseValue - 0.5f) * Rule.mClusterContrast) + 0.5f, 0.0f, 1.0f) };
         const float Coverage{ std::clamp(Rule.mClusterCoverage, 0.01f, 1.0f) };
         const float Threshold{ 1.0f - Coverage };
-        const float EdgeSoftness{ (std::max)(Rule.mClusterEdgeSoftness, 0.0f) };
+        const float EdgeSoftness{ std::max(Rule.mClusterEdgeSoftness, 0.0f) };
         const float ClusterMask{ SmoothStepRange(Threshold - EdgeSoftness, Threshold + EdgeSoftness, ContrastedValue) };
         const float ClusterBoost{ std::min(1.0f / Coverage, Config.mClusterDensityMaximum) };
         const float ClusterDensity{ Lerp(Rule.mClusterOutsideDensity, ClusterBoost, ClusterMask) };
@@ -286,12 +286,12 @@ namespace {
             return 1.0f;
         }
 
-        const float PatchScale{ (std::max)(Config.mForestPatchScale, 1.0f) };
+        const float PatchScale{ std::max(Config.mForestPatchScale, 1.0f) };
         const float NoiseValue{ SampleValueNoise01(TerrainSeed, Config.mSeedSalt, WorldX / PatchScale, WorldZ / PatchScale, Config.mForestPatchNoiseIndex, Config.mForestPatchCornerStream) };
         const float ContrastedValue{ std::clamp(((NoiseValue - 0.5f) * Config.mForestPatchContrast) + 0.5f, 0.0f, 1.0f) };
         const float Coverage{ std::clamp(Config.mForestPatchCoverage, 0.01f, 1.0f) };
         const float Threshold{ 1.0f - Coverage };
-        const float EdgeSoftness{ (std::max)(Config.mForestPatchEdgeSoftness, 0.0f) };
+        const float EdgeSoftness{ std::max(Config.mForestPatchEdgeSoftness, 0.0f) };
         const float ForestMask{ SmoothStepRange(Threshold - EdgeSoftness, Threshold + EdgeSoftness, ContrastedValue) };
         return std::clamp(Lerp(Config.mForestOutsideDensity, 1.0f, ForestMask), 0.0f, 1.0f);
     }
@@ -301,8 +301,8 @@ namespace {
             return;
         }
 
-        const float ClusterScale{ (std::max)(Rule.mClusterScale, CellSize * Config.mClusterScaleMinimumCellMultiplier) };
-        const float ClumpGridScale{ (std::max)(ClusterScale * Config.mClumpGridScaleMultiplier, CellSize * Config.mClumpGridScaleMinimumCellMultiplier) };
+        const float ClusterScale{ std::max(Rule.mClusterScale, CellSize * Config.mClusterScaleMinimumCellMultiplier) };
+        const float ClumpGridScale{ std::max(ClusterScale * Config.mClumpGridScaleMultiplier, CellSize * Config.mClumpGridScaleMinimumCellMultiplier) };
         const std::int32_t ClumpGridX{ static_cast<std::int32_t>(std::floor(WorldX / ClumpGridScale)) };
         const std::int32_t ClumpGridZ{ static_cast<std::int32_t>(std::floor(WorldZ / ClumpGridScale)) };
         const float CenterX{ (static_cast<float>(ClumpGridX) + Config.mClumpCenterOffset + (HashToUnitFloat(BuildClusterHash(TerrainSeed, Config.mSeedSalt, ClumpGridX, ClumpGridZ, ClusterIndex, Config.mClumpCenterXStream)) * Config.mClumpCenterJitter)) * ClumpGridScale };
@@ -450,7 +450,7 @@ namespace {
         ReadFloatChild(LodNode, "Distance", LodDesc.mMaximumDistance);
         ReadFloatChild(LodNode, "MaximumDistance", LodDesc.mMaximumDistance);
         LodDesc.mModelPath = ResolveFoliageResourcePath(ConfigPath, LodDesc.mModelPath);
-        LodDesc.mMaximumDistance = (std::max)(LodDesc.mMaximumDistance, 0.0f);
+        LodDesc.mMaximumDistance = std::max(LodDesc.mMaximumDistance, 0.0f);
 
         if (LodDesc.mModelPath.empty() == true) {
             throw std::runtime_error{ "Procedural foliage lod model path is empty." };
@@ -533,22 +533,22 @@ namespace {
             Rule.mName = Rule.mLods.front().mModelPath;
         }
 
-        Rule.mInstancesPerCell = (std::max)(Rule.mInstancesPerCell, 1u);
-        Rule.mDensityMultiplier = (std::max)(Rule.mDensityMultiplier, 0.0f);
+        Rule.mInstancesPerCell = std::max(Rule.mInstancesPerCell, 1u);
+        Rule.mDensityMultiplier = std::max(Rule.mDensityMultiplier, 0.0f);
         Rule.mSpawnChance = std::clamp(Rule.mSpawnChance, 0.0f, 1.0f);
         Rule.mMinimumWeight = std::clamp(Rule.mMinimumWeight, 0.0f, 1.0f);
         Rule.mClusterStrength = std::clamp(Rule.mClusterStrength, 0.0f, 1.0f);
-        Rule.mClusterScale = (std::max)(Rule.mClusterScale, 1.0f);
-        Rule.mClusterContrast = (std::max)(Rule.mClusterContrast, 0.0f);
+        Rule.mClusterScale = std::max(Rule.mClusterScale, 1.0f);
+        Rule.mClusterContrast = std::max(Rule.mClusterContrast, 0.0f);
         Rule.mClusterCoverage = std::clamp(Rule.mClusterCoverage, 0.01f, 1.0f);
-        Rule.mClusterEdgeSoftness = (std::max)(Rule.mClusterEdgeSoftness, 0.0f);
+        Rule.mClusterEdgeSoftness = std::max(Rule.mClusterEdgeSoftness, 0.0f);
         Rule.mClusterOutsideDensity = std::clamp(Rule.mClusterOutsideDensity, 0.0f, 1.0f);
-        Rule.mMinimumSpacing = (std::max)(Rule.mMinimumSpacing, 0.0f);
-        Rule.mCollisionExtents.x = (std::max)(Rule.mCollisionExtents.x, FoliageEpsilon);
-        Rule.mCollisionExtents.y = (std::max)(Rule.mCollisionExtents.y, FoliageEpsilon);
-        Rule.mCollisionExtents.z = (std::max)(Rule.mCollisionExtents.z, FoliageEpsilon);
-        Rule.mCollisionFriction = (std::max)(Rule.mCollisionFriction, 0.0f);
-        Rule.mCollisionRestitution = (std::max)(Rule.mCollisionRestitution, 0.0f);
+        Rule.mMinimumSpacing = std::max(Rule.mMinimumSpacing, 0.0f);
+        Rule.mCollisionExtents.x = std::max(Rule.mCollisionExtents.x, FoliageEpsilon);
+        Rule.mCollisionExtents.y = std::max(Rule.mCollisionExtents.y, FoliageEpsilon);
+        Rule.mCollisionExtents.z = std::max(Rule.mCollisionExtents.z, FoliageEpsilon);
+        Rule.mCollisionFriction = std::max(Rule.mCollisionFriction, 0.0f);
+        Rule.mCollisionRestitution = std::max(Rule.mCollisionRestitution, 0.0f);
         if (Rule.mMaximumScale < Rule.mMinimumScale) {
             std::swap(Rule.mMinimumScale, Rule.mMaximumScale);
         }
@@ -618,28 +618,28 @@ namespace {
         ReadFloatChild(ConfigNode, "ForestWidthRequiredSampleRatio", Config.mForestWidthRequiredSampleRatio);
         ReadUInt32Child(ConfigNode, "MinimumSpacingPriorityStream", Config.mMinimumSpacingPriorityStream);
         ReadUInt32Child(ConfigNode, "SeedSalt", Config.mSeedSalt);
-        Config.mPlacementRadius = (std::max)(Config.mPlacementRadius, 1.0f);
-        Config.mCellSize = (std::max)(Config.mCellSize, 1.0f);
-        Config.mUpdateInterval = (std::max)(Config.mUpdateInterval, 0.0f);
-        Config.mDensityMultiplier = (std::max)(Config.mDensityMultiplier, 0.0f);
-        Config.mClusterDensityMaximum = (std::max)(Config.mClusterDensityMaximum, 1.0f);
-        Config.mClusterScaleMinimumCellMultiplier = (std::max)(Config.mClusterScaleMinimumCellMultiplier, 0.0f);
-        Config.mClumpGridScaleMultiplier = (std::max)(Config.mClumpGridScaleMultiplier, 0.0f);
-        Config.mClumpGridScaleMinimumCellMultiplier = (std::max)(Config.mClumpGridScaleMinimumCellMultiplier, 0.0f);
+        Config.mPlacementRadius = std::max(Config.mPlacementRadius, 1.0f);
+        Config.mCellSize = std::max(Config.mCellSize, 1.0f);
+        Config.mUpdateInterval = std::max(Config.mUpdateInterval, 0.0f);
+        Config.mDensityMultiplier = std::max(Config.mDensityMultiplier, 0.0f);
+        Config.mClusterDensityMaximum = std::max(Config.mClusterDensityMaximum, 1.0f);
+        Config.mClusterScaleMinimumCellMultiplier = std::max(Config.mClusterScaleMinimumCellMultiplier, 0.0f);
+        Config.mClumpGridScaleMultiplier = std::max(Config.mClumpGridScaleMultiplier, 0.0f);
+        Config.mClumpGridScaleMinimumCellMultiplier = std::max(Config.mClumpGridScaleMinimumCellMultiplier, 0.0f);
         Config.mClumpCenterOffset = std::clamp(Config.mClumpCenterOffset, 0.0f, 1.0f);
         Config.mClumpCenterJitter = std::clamp(Config.mClumpCenterJitter, 0.0f, 1.0f);
-        Config.mClumpRadiusScale = (std::max)(Config.mClumpRadiusScale, 0.0f);
-        Config.mClumpPullStrengthScale = (std::max)(Config.mClumpPullStrengthScale, 0.0f);
+        Config.mClumpRadiusScale = std::max(Config.mClumpRadiusScale, 0.0f);
+        Config.mClumpPullStrengthScale = std::max(Config.mClumpPullStrengthScale, 0.0f);
         Config.mClumpPullStrengthMaximum = std::clamp(Config.mClumpPullStrengthMaximum, 0.0f, 1.0f);
-        Config.mForestMinimumWidth = (std::max)(Config.mForestMinimumWidth, 0.0f);
-        Config.mForestPatchScale = (std::max)(Config.mForestPatchScale, 1.0f);
+        Config.mForestMinimumWidth = std::max(Config.mForestMinimumWidth, 0.0f);
+        Config.mForestPatchScale = std::max(Config.mForestPatchScale, 1.0f);
         Config.mForestPatchCoverage = std::clamp(Config.mForestPatchCoverage, 0.01f, 1.0f);
-        Config.mForestPatchContrast = (std::max)(Config.mForestPatchContrast, 0.0f);
-        Config.mForestPatchEdgeSoftness = (std::max)(Config.mForestPatchEdgeSoftness, 0.0f);
+        Config.mForestPatchContrast = std::max(Config.mForestPatchContrast, 0.0f);
+        Config.mForestPatchEdgeSoftness = std::max(Config.mForestPatchEdgeSoftness, 0.0f);
         Config.mForestOutsideDensity = std::clamp(Config.mForestOutsideDensity, 0.0f, 1.0f);
         Config.mForestMinimumAreaFactor = std::clamp(Config.mForestMinimumAreaFactor, 0.0f, 1.0f);
-        Config.mForestWidthSampleRadiusScale = (std::max)(Config.mForestWidthSampleRadiusScale, 0.0f);
-        Config.mForestWidthDiagonalSampleScale = (std::max)(Config.mForestWidthDiagonalSampleScale, 0.0f);
+        Config.mForestWidthSampleRadiusScale = std::max(Config.mForestWidthSampleRadiusScale, 0.0f);
+        Config.mForestWidthDiagonalSampleScale = std::max(Config.mForestWidthDiagonalSampleScale, 0.0f);
         Config.mForestWidthRequiredSampleRatio = std::clamp(Config.mForestWidthRequiredSampleRatio, 0.0f, 1.0f);
 
         if (ConfigNode.has_child("Rules") == true) {
@@ -697,8 +697,8 @@ namespace {
         const float ClampedGridZ{ std::clamp(GridZ, 0.0f, static_cast<float>(Field.Height - 1u)) };
         const std::uint32_t X0{ static_cast<std::uint32_t>(std::floor(ClampedGridX)) };
         const std::uint32_t Z0{ static_cast<std::uint32_t>(std::floor(ClampedGridZ)) };
-        const std::uint32_t X1{ (std::min)(X0 + 1u, Field.Width - 1u) };
-        const std::uint32_t Z1{ (std::min)(Z0 + 1u, Field.Height - 1u) };
+        const std::uint32_t X1{ std::min(X0 + 1u, Field.Width - 1u) };
+        const std::uint32_t Z1{ std::min(Z0 + 1u, Field.Height - 1u) };
         const float BlendX{ ClampedGridX - static_cast<float>(X0) };
         const float BlendZ{ ClampedGridZ - static_cast<float>(Z0) };
         const float Height00{ Field.HeightValues[CalculateIndex(Field.Width, X0, Z0)] };
@@ -723,8 +723,8 @@ namespace {
         const float ClampedGridZ{ std::clamp(SplatGridZ, 0.0f, static_cast<float>(SplatMap.Height - 1u)) };
         const std::uint32_t X0{ static_cast<std::uint32_t>(std::floor(ClampedGridX)) };
         const std::uint32_t Z0{ static_cast<std::uint32_t>(std::floor(ClampedGridZ)) };
-        const std::uint32_t X1{ (std::min)(X0 + 1u, SplatMap.Width - 1u) };
-        const std::uint32_t Z1{ (std::min)(Z0 + 1u, SplatMap.Height - 1u) };
+        const std::uint32_t X1{ std::min(X0 + 1u, SplatMap.Width - 1u) };
+        const std::uint32_t Z1{ std::min(Z0 + 1u, SplatMap.Height - 1u) };
         const float BlendX{ ClampedGridX - static_cast<float>(X0) };
         const float BlendZ{ ClampedGridZ - static_cast<float>(Z0) };
         const asset::Vec4 Weight00{ SplatMap.WeightValues[CalculateIndex(SplatMap.Width, X0, Z0)] };
@@ -910,7 +910,7 @@ namespace {
 
         for (const FoliageCandidate& AcceptedCandidate : AcceptedCandidates) {
             const float AcceptedMinimumSpacing{ ResolveCandidateMinimumSpacing(Rules, AcceptedCandidate) };
-            const float ResolvedMinimumSpacing{ (std::max)(MinimumSpacing, AcceptedMinimumSpacing) };
+            const float ResolvedMinimumSpacing{ std::max(MinimumSpacing, AcceptedMinimumSpacing) };
             const float DistanceX{ Candidate.mPosition.x - AcceptedCandidate.mPosition.x };
             const float DistanceZ{ Candidate.mPosition.z - AcceptedCandidate.mPosition.z };
             if (((DistanceX * DistanceX) + (DistanceZ * DistanceZ)) < (ResolvedMinimumSpacing * ResolvedMinimumSpacing)) {
@@ -1185,7 +1185,7 @@ namespace {
     }
 
     void SetFoliageSlotActive(Arche::World& World, FoliageSlot& Slot, bool IsActive, std::uint32_t LodIndex) {
-        const std::uint32_t ResolvedLodIndex{ Slot.mRenderEntityIdsByLod.empty() == true ? 0u : (std::min)(LodIndex, static_cast<std::uint32_t>(Slot.mRenderEntityIdsByLod.size() - 1ULL)) };
+        const std::uint32_t ResolvedLodIndex{ Slot.mRenderEntityIdsByLod.empty() == true ? 0u : std::min(LodIndex, static_cast<std::uint32_t>(Slot.mRenderEntityIdsByLod.size() - 1ULL)) };
         for (std::size_t CurrentLodIndex{ 0ULL }; CurrentLodIndex < Slot.mRenderEntityIdsByLod.size(); ++CurrentLodIndex) {
             const bool ShouldActivate{ IsActive == true && CurrentLodIndex == static_cast<std::size_t>(ResolvedLodIndex) };
             SetFoliageRenderEntitiesActive(World, Slot.mRenderEntityIdsByLod[CurrentLodIndex], ShouldActivate);

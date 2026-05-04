@@ -185,7 +185,7 @@ namespace {
 				return true;
 			}
 
-			if (std::filesystem::last_write_time(dependencyPath) > binaryTime) {
+			if (std::filesystem::last_write_time(dependencyPath) >= binaryTime) {
 				return true;
 			}
 		}

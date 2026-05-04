@@ -1,5 +1,5 @@
 ShadowMapping:
-  CascadeCount: 4
+  CascadeCount: 3
   Cascades:
     - ShadowMapSize: 4096
       ShadowBias: 0.001
@@ -11,12 +11,7 @@ ShadowMapping:
       ShadowStrength: 0.85
       RasterDepthBias: 1
       RasterSlopeScaledDepthBias: 1.25
-    - ShadowMapSize: 2048
-      ShadowBias: 0.001
-      ShadowStrength: 0.85
-      RasterDepthBias: 1
-      RasterSlopeScaledDepthBias: 1.25
-    - ShadowMapSize: 2048
+    - ShadowMapSize: 3072
       ShadowBias: 0.001
       ShadowStrength: 0.85
       RasterDepthBias: 1

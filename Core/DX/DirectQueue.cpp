@@ -220,13 +220,13 @@ namespace Core {
 			ExecutePostProcessFinalPass();
 
 			ErrorHandler::report(mSwapChain->Present(Constants::AllowTearing ? 0 : 1, Constants::AllowTearing ? DXGI_PRESENT_ALLOW_TEARING : 0), "DirectQueue", "Failed to present SwapChain.", ErrorHandler::Level::Critical);
-			if (!Config::Query()->Get<bool>("Block_ImGui")) {
-				Widget::PerformanceProvider::Get().EndFrame();
-			}
 
 			DirectQueue::DrainDebugMessages();
 
 			mFrameSync.Sync(mDirectCommandQueue.Get());
+			if (!Config::Query()->Get<bool>("Block_ImGui")) {
+				Widget::PerformanceProvider::Get().EndFrame();
+			}
         }
 
         void DirectQueue::InitBasements() {
