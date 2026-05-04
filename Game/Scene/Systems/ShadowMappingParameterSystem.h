@@ -38,7 +38,7 @@ namespace Game {
         const std::filesystem::path mShadowMappingParameterFilePath{ "Resources/ShadowMappingParameter.yaml" };
         std::array<float, RFD::ShadowCascadeMaxCount> mShadowMapSizes{ 4096.0f, 2048.0f, 2048.0f, 2048.0f };
         std::array<float, RFD::ShadowCascadeMaxCount> mShadowBiases{ 0.0010f, 0.0010f, 0.0010f, 0.0010f };
-        std::array<float, RFD::ShadowCascadeMaxCount> mShadowStrengths{ 0.6f, 0.6f, 0.6f, 0.6f };
+        std::array<float, RFD::ShadowCascadeMaxCount> mShadowStrengths{ 0.85f, 0.85f, 0.85f, 0.85f };
         std::array<float, RFD::ShadowCascadeMaxCount> mRasterDepthBiases{ 1.0f, 1.0f, 1.0f, 1.0f };
         std::array<float, RFD::ShadowCascadeMaxCount> mRasterSlopeScaledDepthBiases{ 1.25f, 1.25f, 1.25f, 1.25f };
         float mCascadeMaximumDistance{ 200.0f };

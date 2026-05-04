@@ -1,10 +1,10 @@
 {
     "MaterialGroups": [
         {
-            "Name": "D:\\2026_Graphics\\out\\debug\\AssetZIP\\Asset\\knight.glb",
+            "Name": "D:\\2026_Graphics\\out\\debug\\AssetZIP\\Asset\\knight.glb1",
             "Items": [
                 {
-                    "PipelineName": "SkinnedNormalMappedGraphics",
+                    "PipelineName": "SkinnedGraphics",
                     "MaterialData": {
                         "Name": "M_DKM_Armor",
                         "PBR": true,
@@ -89,8 +89,7 @@
                                 "Real": 0.858578622341156
                             },
                             "Normal Scale": {
-                                "Kind": "Real",
-                                "Real": 3.0
+                                "Kind": "None"
                             },
                             "Occlusion Strength": {
                                 "Kind": "None"
@@ -121,8 +120,7 @@
                                 "Kind": "None"
                             },
                             "Normal Texture": {
-                                "Kind": "String", 
-                                "String": "DKM_Armor_Norm"
+                                "Kind": "None"
                             },
                             "Displacement Texture": {
                                 "Kind": "None"
@@ -137,7 +135,7 @@
                     }
                 },
                 {
-                    "PipelineName": "SkinnedNormalMappedGraphics",
+                    "PipelineName": "SkinnedGraphics",
                     "MaterialData": {
                         "Name": "M_DKM_Boots",
                         "PBR": true,
@@ -222,8 +220,7 @@
                                 "Real": 0.858578622341156
                             },
                             "Normal Scale": {
-                                "Kind": "Real",
-                                "Real": 3.0
+                                "Kind": "None"
                             },
                             "Occlusion Strength": {
                                 "Kind": "None"
@@ -254,8 +251,7 @@
                                 "Kind": "None"
                             },
                             "Normal Texture": {
-                                "Kind": "String",
-                                "String": "DKM_Boots_Norm"
+                                "Kind": "None"
                             },
                             "Displacement Texture": {
                                 "Kind": "None"
@@ -270,7 +266,7 @@
                     }
                 },
                 {
-                    "PipelineName": "SkinnedNormalMappedGraphics",
+                    "PipelineName": "SkinnedGraphics",
                     "MaterialData": {
                         "Name": "M_DKM_Cloak",
                         "PBR": true,
@@ -355,8 +351,7 @@
                                 "Real": 0.858578622341156
                             },
                             "Normal Scale": {
-                                "Kind": "Real",
-                                "Real": 3.0
+                                "Kind": "None"
                             },
                             "Occlusion Strength": {
                                 "Kind": "None"
@@ -387,8 +382,7 @@
                                 "Kind": "None"
                             },
                             "Normal Texture": {
-                                "Kind": "String",
-                                "String": "DKM_Armor_Norm"
+                                "Kind": "None"
                             },
                             "Displacement Texture": {
                                 "Kind": "None"
@@ -403,7 +397,7 @@
                     }
                 },
                 {
-                    "PipelineName": "SkinnedNormalMappedGraphics",
+                    "PipelineName": "SkinnedGraphics",
                     "MaterialData": {
                         "Name": "M_DKM_Gauntlets",
                         "PBR": true,
@@ -488,8 +482,7 @@
                                 "Real": 0.858578622341156
                             },
                             "Normal Scale": {
-                                "Kind": "Real",
-                                "Real": 3.0
+                                "Kind": "None"
                             },
                             "Occlusion Strength": {
                                 "Kind": "None"
@@ -520,8 +513,7 @@
                                 "Kind": "None"
                             },
                             "Normal Texture": {
-                                "Kind": "String",
-                                "String": "DKM_Gauntlets_Norm"
+                                "Kind": "None"
                             },
                             "Displacement Texture": {
                                 "Kind": "None"
@@ -536,7 +528,7 @@
                     }
                 },
                 {
-                    "PipelineName": "SkinnedNormalMappedGraphics",
+                    "PipelineName": "SkinnedGraphics",
                     "MaterialData": {
                         "Name": "M_DKM_Helmet",
                         "PBR": true,
@@ -621,8 +613,7 @@
                                 "Real": 0.858578622341156
                             },
                             "Normal Scale": {
-                                "Kind": "Real",
-                                "Real": 3.0
+                                "Kind": "None"
                             },
                             "Occlusion Strength": {
                                 "Kind": "None"
@@ -653,8 +644,7 @@
                                 "Kind": "None"
                             },
                             "Normal Texture": {
-                                "Kind": "String",
-                                "String": "DKM_Helmet_Norm"
+                                "Kind": "None"
                             },
                             "Displacement Texture": {
                                 "Kind": "None"
@@ -669,7 +659,7 @@
                     }
                 },
                 {
-                    "PipelineName": "SkinnedNormalMappedGraphics",
+                    "PipelineName": "SkinnedGraphics",
                     "MaterialData": {
                         "Name": "M_DKM_Pants",
                         "PBR": true,
@@ -754,8 +744,7 @@
                                 "Real": 0.858578622341156
                             },
                             "Normal Scale": {
-                                "Kind": "Real",
-                                "Real": 3.0
+                                "Kind": "None"
                             },
                             "Occlusion Strength": {
                                 "Kind": "None"
@@ -786,8 +775,7 @@
                                 "Kind": "None"
                             },
                             "Normal Texture": {
-                                "Kind": "String",
-                                "String": "DKM_Pants_Norm"
+                                "Kind": "None"
                             },
                             "Displacement Texture": {
                                 "Kind": "None"

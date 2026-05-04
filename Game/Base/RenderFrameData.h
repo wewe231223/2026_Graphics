@@ -70,7 +70,7 @@ namespace Game {
             SimpleMath::Vector4 lightDirection{};
             SimpleMath::Vector4 cascadeSplitDistances{};
             float shadowBiases[ShadowCascadeMaxCount]{ 0.0010f, 0.0010f, 0.0010f, 0.0010f };
-            float shadowStrengths[ShadowCascadeMaxCount]{ 0.6f, 0.6f, 0.6f, 0.6f };
+            float shadowStrengths[ShadowCascadeMaxCount]{ 0.85f, 0.85f, 0.85f, 0.85f };
             float shadowMapSizes[ShadowCascadeMaxCount]{ 4096.0f, 2048.0f, 2048.0f, 2048.0f };
             float rasterDepthBiases[ShadowCascadeMaxCount]{ 1.0f, 1.0f, 1.0f, 1.0f };
             float rasterSlopeScaledDepthBiases[ShadowCascadeMaxCount]{ 1.25f, 1.25f, 1.25f, 1.25f };

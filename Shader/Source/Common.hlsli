@@ -2,6 +2,10 @@
 
 static const uint SHADOW_CASCADE_MAX_COUNT = 4u;
 static const bool ENABLE_CASCADE_MAP_SHADOW_COLOR = false;
+static const float3 GlobalLightColor = float3(1.0f, 0.97f, 0.92f);
+static const float GlobalLightIntensity = 1.2f;
+static const float AmbientLightIntensity = 0.25f;
+static const float3 ShadowColor = float3(0.34f, 0.32f, 0.30f);
 
 struct VertexInput
 {
@@ -284,8 +288,8 @@ float3 ApplyDirectionalLight(float3 BaseRgb, float3 WorldNormal)
 {
     const float3 NormalizedNormal = normalize(WorldNormal);
     const float3 LightDirection = normalize(float3(0.4f, -1.0f, 0.35f));
-    const float3 LightColor = float3(1.0f, 0.97f, 0.92f);
-    const float AmbientIntensity = 0.6f;
+    const float3 LightColor = GlobalLightColor * GlobalLightIntensity;
+    const float AmbientIntensity = AmbientLightIntensity;
     const float DiffuseIntensity = saturate(dot(NormalizedNormal, -LightDirection));
 
     const float3 LitColor = BaseRgb * (AmbientIntensity + (DiffuseIntensity * LightColor));
@@ -407,8 +411,8 @@ float3 ApplyDirectionalLightWithShadow(float3 BaseRgb, float3 WorldNormal, float
 {
     const float3 NormalizedNormal = normalize(WorldNormal);
     const float3 NormalizedLightDirection = normalize(LightDirection);
-    const float3 LightColor = float3(1.0f, 0.97f, 0.92f);
-    const float AmbientIntensity = 0.6f;
+    const float3 LightColor = GlobalLightColor * GlobalLightIntensity;
+    const float AmbientIntensity = AmbientLightIntensity;
     const float DiffuseIntensity = saturate(dot(NormalizedNormal, -NormalizedLightDirection));
     if (ENABLE_CASCADE_MAP_SHADOW_COLOR)
     {
@@ -420,9 +424,10 @@ float3 ApplyDirectionalLightWithShadow(float3 BaseRgb, float3 WorldNormal, float
         return LitColor;
     }
 
+    const float ShadowBlendFactor = saturate((1.0f - ShadowVisibility) * saturate(ShadowStrength));
     const float DiffuseShadowFactor = lerp(1.0f - saturate(ShadowStrength), 1.0f, ShadowVisibility);
     const float3 LitColor = BaseRgb * (AmbientIntensity + (DiffuseIntensity * DiffuseShadowFactor * LightColor));
-    return LitColor;
+    return lerp(LitColor, LitColor * ShadowColor, ShadowBlendFactor);
 }
 
 float4 ApplyMaterialLighting(float4 BaseColor, float3 WorldNormal)

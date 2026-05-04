@@ -126,7 +126,7 @@ GBufferOutput PsMain(NormalMappedVertexOutput Input) {
         Texture2D<float4> NormalTexture = ResourceDescriptorHeap[NonUniformResourceIndex(NormalTextureSrvIndex)];
         const float NormalScale = ResolveMaterialNormalScale(MaterialData);
         const float3 NormalTangent = DecodeNormalMapColor(NormalTexture.Sample(LinearWrapSampler, Input.TexCoord0), NormalScale);
-        WorldNormal = ResolveTbnNormalMappedWorldNormal(Input.Normal, Input.Tangent, Input.Bitangent, NormalTangent);        
+        WorldNormal = ResolveTbnNormalMappedWorldNormal(Input.Normal, Input.Tangent, Input.Bitangent, NormalTangent);   
     }
 
     BaseColor = ApplyMaterialOpacity(BaseColor, MaterialData);
