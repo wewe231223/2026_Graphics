@@ -15,6 +15,9 @@ ParameterDefinitions:
   - ParameterName: IsLanding
     ParameterType: Trigger
     DefaultValue: false
+  - ParameterName: IsRunning
+    ParameterType: Bool
+    DefaultValue: false
 
 Nodes:
   - NodeName: Idle
@@ -23,11 +26,17 @@ Nodes:
     IsLoop: true
     PlaySpeed: 1.0
     IsDefault: true
-  - NodeName: Run
+  - NodeName: Walk
     AnimationFile: knight.animbin
     ClipIndex: 1
     IsLoop: true
     PlaySpeed: 1.0
+    IsDefault: false
+  - NodeName: Run
+    AnimationFile: knight.animbin
+    ClipIndex: 4
+    IsLoop: true
+    PlaySpeed: 2.0
     IsDefault: false
   - NodeName: Jump
     AnimationFile: knight.animbin
@@ -37,13 +46,24 @@ Nodes:
     IsDefault: false
   - NodeName: Land
     AnimationFile: knight.animbin
-    ClipIndex: 4
+    ClipIndex: 3
     IsLoop: false
     PlaySpeed: 1.0
     IsDefault: false
 
 Transitions:
   - FromNode: Idle
+    ToNode: Jump
+    HasExitTime: false
+    ExitTimeNormalized: 0.0
+    CanInterrupt: true
+    Priority: 0
+    BlendDuration: 0.05
+    Conditions:
+      - Parameter: Jump
+        Operator: Equals
+        BoolValue: true
+  - FromNode: Walk
     ToNode: Jump
     HasExitTime: false
     ExitTimeNormalized: 0.0
@@ -66,6 +86,20 @@ Transitions:
         Operator: Equals
         BoolValue: true
   - FromNode: Idle
+    ToNode: Walk
+    HasExitTime: false
+    ExitTimeNormalized: 0.0
+    CanInterrupt: true
+    Priority: 20
+    BlendDuration: 0.09
+    Conditions:
+      - Parameter: IsMoving
+        Operator: Equals
+        BoolValue: true
+      - Parameter: IsRunning
+        Operator: Equals
+        BoolValue: false
+  - FromNode: Idle
     ToNode: Run
     HasExitTime: false
     ExitTimeNormalized: 0.0
@@ -76,6 +110,48 @@ Transitions:
       - Parameter: IsMoving
         Operator: Equals
         BoolValue: true
+      - Parameter: IsRunning
+        Operator: Equals
+        BoolValue: true
+  - FromNode: Walk
+    ToNode: Run
+    HasExitTime: false
+    ExitTimeNormalized: 0.0
+    CanInterrupt: true
+    Priority: 20
+    BlendDuration: 0.09
+    Conditions:
+      - Parameter: IsMoving
+        Operator: Equals
+        BoolValue: true
+      - Parameter: IsRunning
+        Operator: Equals
+        BoolValue: true
+  - FromNode: Walk
+    ToNode: Idle
+    HasExitTime: false
+    ExitTimeNormalized: 0.0
+    CanInterrupt: true
+    Priority: 20
+    BlendDuration: 0.09
+    Conditions:
+      - Parameter: IsMoving
+        Operator: Equals
+        BoolValue: false
+  - FromNode: Run
+    ToNode: Walk
+    HasExitTime: false
+    ExitTimeNormalized: 0.0
+    CanInterrupt: true
+    Priority: 20
+    BlendDuration: 0.09
+    Conditions:
+      - Parameter: IsMoving
+        Operator: Equals
+        BoolValue: true
+      - Parameter: IsRunning
+        Operator: Equals
+        BoolValue: false
   - FromNode: Run
     ToNode: Idle
     HasExitTime: false

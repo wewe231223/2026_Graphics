@@ -16,6 +16,7 @@ local CurrentSpeedParameterIndex = 1
 local DirectionDeltaDegreesParameterIndex = 2
 local JumpParameterIndex = 3
 local IsLandingParameterIndex = 4
+local IsRunningParameterIndex = 5
 local Pi = math.pi
 local TwoPi = Pi * 2.0
 
@@ -103,7 +104,7 @@ local function ApplyHorizontalVelocityLimit(PhysicsActorComponent, CurrentVeloci
     return MaxSpeed
 end
 
-local function ApplyMovementForce(Context, TransformComponent, MoveInput)
+local function ApplyMovementForce(Context, TransformComponent, MoveInput, IsRunningInput)
     local PhysicsActorComponent = Context:GetComponent("PhysicsActor")
     if PhysicsActorComponent == nil or PhysicsActorComponent:HasActor() == false then
         return 0.0
@@ -127,10 +128,9 @@ local function ApplyMovementForce(Context, TransformComponent, MoveInput)
         return HorizontalSpeed
     end
 
-    local IsRunning = IsRunInputDown()
     local TargetSpeed = WalkMoveSpeed
     local MoveForce = WalkMoveForce
-    if IsRunning then
+    if IsRunningInput then
         TargetSpeed = RunMoveSpeed
         MoveForce = RunMoveForce
     end
@@ -197,6 +197,14 @@ local function SetMovingState(RuntimeVariableTableComponent, IsMoving)
     RuntimeVariableTableComponent.BoolValues:Set(IsMovingParameterIndex, IsMoving)
 end
 
+local function SetRunningState(RuntimeVariableTableComponent, IsRunning)
+    if RuntimeVariableTableComponent == nil then
+        return
+    end
+
+    RuntimeVariableTableComponent.BoolValues:Set(IsRunningParameterIndex, IsRunning)
+end
+
 local function SetMotionParameters(RuntimeVariableTableComponent, CurrentSpeed, DirectionDeltaDegrees)
     if RuntimeVariableTableComponent == nil then
         return
@@ -251,16 +259,19 @@ function Update(Context, DeltaSeconds)
     local RuntimeVariableTableComponent = Context:GetComponent("RuntimeVariableTable")
     if IsActiveCameraFreeLookMode() then
         SetMovingState(RuntimeVariableTableComponent, false)
+        SetRunningState(RuntimeVariableTableComponent, false)
         SetMotionParameters(RuntimeVariableTableComponent, 0.0, 0.0)
         ClearLandingTrigger(RuntimeVariableTableComponent)
         return
     end
 
+    local IsRunningInput = IsRunInputDown()
     local MoveInput = BuildMoveInput()
     local FinalTargetDirection = BuildFinalTargetDirection(MoveInput)
     local RemainingDirectionDeltaRadians = ApplySmoothedYawRotation(TransformComponent, FinalTargetDirection, DeltaSeconds)
-    local CurrentSpeed = ApplyMovementForce(Context, TransformComponent, MoveInput)
+    local CurrentSpeed = ApplyMovementForce(Context, TransformComponent, MoveInput, IsRunningInput)
     local IsMoving = CurrentSpeed > 0.0
+    local IsRunning = IsMoving and IsRunningInput
     local PhysicsActorComponent = Context:GetComponent("PhysicsActor")
     local CurrentVelocity = GetPhysicsVelocity(PhysicsActorComponent)
     local GroundDistance = GetGroundDistance(TransformComponent)
@@ -277,6 +288,7 @@ function Update(Context, DeltaSeconds)
     end
 
     SetMovingState(RuntimeVariableTableComponent, IsMoving)
+    SetRunningState(RuntimeVariableTableComponent, IsRunning)
     SetMotionParameters(RuntimeVariableTableComponent, CurrentSpeed, math.deg(RemainingDirectionDeltaRadians))
 end
 
