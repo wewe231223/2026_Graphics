@@ -142,6 +142,7 @@ namespace Game::SceneYaml {
             { "AnimateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimateSystem>(); } },
             { "FootIKSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::FootIKSystem>(); } },
             { "PhysicsActorUpdateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::PhysicsActorUpdateSystem>(); } },
+            { "ProceduralFoliageSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::ProceduralFoliageSystem>(); } },
             { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },
             { "ShadowMappingParameterSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::ShadowMappingParameterSystem>(); } },
         };

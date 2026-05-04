@@ -203,6 +203,7 @@ add_library(Game STATIC
     Game/Scene/IK/FootIKAlgorithms.cpp
     Game/Scene/Systems/FootIKSystem.cpp
     Game/Scene/Systems/PhysicsActorUpdateSystem.cpp
+    Game/Scene/Systems/ProceduralFoliageSystem.cpp
     Game/Scene/Systems/TransformWorldSystem.cpp
     Game/Scene/Systems/SkinnedMeshPrepareSystem.cpp
     Game/Scene/Systems/ShadowMappingParameterSystem.cpp

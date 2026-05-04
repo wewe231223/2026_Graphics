@@ -87,6 +87,7 @@ namespace Game {
         mTileMetadata{},
         mBuildDesc{},
         mHeightFieldData{},
+        mSplatMapData{},
         mTileQuadCount{ 0 },
         mTileCountX{ 0 },
         mTileCountZ{ 0 },
@@ -130,6 +131,7 @@ namespace Game {
         mTileMetadata{ std::move(Other.mTileMetadata) },
         mBuildDesc{ std::move(Other.mBuildDesc) },
         mHeightFieldData{ std::move(Other.mHeightFieldData) },
+        mSplatMapData{ std::move(Other.mSplatMapData) },
         mTileQuadCount{ Other.mTileQuadCount },
         mTileCountX{ Other.mTileCountX },
         mTileCountZ{ Other.mTileCountZ },
@@ -164,6 +166,7 @@ namespace Game {
         mHasPendingStreamingBuild{ Other.mHasPendingStreamingBuild },
         mHasStreamOrigin{ Other.mHasStreamOrigin } {
         Other.mTileQuadCount = 0;
+        Other.mSplatMapData = SplatMapData{};
         Other.mTileCountX = 0;
         Other.mTileCountZ = 0;
         Other.mLodCount = 1;
@@ -199,6 +202,7 @@ namespace Game {
         mTileMetadata = std::move(Other.mTileMetadata);
         mBuildDesc = std::move(Other.mBuildDesc);
         mHeightFieldData = std::move(Other.mHeightFieldData);
+        mSplatMapData = std::move(Other.mSplatMapData);
         mTileQuadCount = Other.mTileQuadCount;
         mTileCountX = Other.mTileCountX;
         mTileCountZ = Other.mTileCountZ;
@@ -234,6 +238,7 @@ namespace Game {
         mHasStreamOrigin = Other.mHasStreamOrigin;
 
         Other.mTileQuadCount = 0;
+        Other.mSplatMapData = SplatMapData{};
         Other.mTileCountX = 0;
         Other.mTileCountZ = 0;
         Other.mLodCount = 1;
@@ -528,6 +533,7 @@ namespace Game {
             return false;
         }
 
+        mSplatMapData = SplatMap;
         mSplatMapWidth = SplatMap.Width;
         mSplatMapHeight = SplatMap.Height;
         return true;
@@ -547,6 +553,10 @@ namespace Game {
 
     const HeightFieldData& TerrainRenderResource::GetHeightFieldData() const {
         return mHeightFieldData;
+    }
+
+    const SplatMapData& TerrainRenderResource::GetSplatMapData() const {
+        return mSplatMapData;
     }
 
     std::uint32_t TerrainRenderResource::GetTileQuadCount() const {

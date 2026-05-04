@@ -84,6 +84,7 @@
     <ClInclude Include="Scene\IK\FootIKAlgorithms.h" />
     <ClInclude Include="Scene\Systems\FootIKSystem.h" />
     <ClInclude Include="Scene\Systems\PhysicsActorUpdateSystem.h" />
+    <ClInclude Include="Scene\Systems\ProceduralFoliageSystem.h" />
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
     <ClInclude Include="Scene\Systems\ShadowMappingParameterSystem.h" />
     <ClInclude Include="Scene\Systems\TransformWorldSystem.h" />
@@ -158,6 +159,7 @@
     <ClCompile Include="Scene\IK\FootIKAlgorithms.cpp" />
     <ClCompile Include="Scene\Systems\FootIKSystem.cpp" />
     <ClCompile Include="Scene\Systems\PhysicsActorUpdateSystem.cpp" />
+    <ClCompile Include="Scene\Systems\ProceduralFoliageSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\ShadowMappingParameterSystem.cpp" />
     <ClCompile Include="Scene\Systems\TransformWorldSystem.cpp" />
@@ -215,6 +217,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Resources\DefaultScene.yaml" />
+    <None Include="..\Resources\DefaultScene\FoliagePlacement.yaml" />
     <None Include="..\Resources\DefaultScene\TerrainProceduralHeightField.yaml" />
     <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml" />
     <None Include="..\Resources\ShadowMappingParameter.yaml" />

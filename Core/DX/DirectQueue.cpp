@@ -350,8 +350,10 @@ namespace Core {
 
 			const std::uint32_t Width{ Config::Query()->Get<uint32_t>("Window_Width") };
 			const std::uint32_t Height{ Config::Query()->Get<uint32_t>("Window_Height") };
+			const float LightingClearColor[4]{ 0.0f, 0.0f, 1.0f, 1.0f };
+			CD3DX12_CLEAR_VALUE LightingOptimizedClearValue{ DXGI_FORMAT_R16G16B16A16_FLOAT, LightingClearColor };
 			for (TexPtr& LightingTarget : mLightingTargets) {
-				LightingTarget = Texture::CreateTarget(mDevice.Get(), Width, Height, DXGI_FORMAT_R16G16B16A16_FLOAT, TextureUsage::RenderTarget);
+				LightingTarget = Texture::CreateTarget(mDevice.Get(), Width, Height, DXGI_FORMAT_R16G16B16A16_FLOAT, TextureUsage::RenderTarget, &LightingOptimizedClearValue);
 				LightingTarget->CreateRTV(mDevice.Get(), &mRTVHeap);
 				LightingTarget->CreateSRV(mDevice.Get(), &mSrvHeap);
 			}

@@ -189,6 +189,9 @@
     <ClInclude Include="Scene\Systems\PhysicsActorUpdateSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Systems\ProceduralFoliageSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Components\Tags.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -419,6 +422,9 @@
     <ClCompile Include="Scene\Systems\PhysicsActorUpdateSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Systems\ProceduralFoliageSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
     <ClCompile Include="Base\Input.cpp">
       <Filter>Base</Filter>
     </ClCompile>
@@ -503,6 +509,9 @@
       <Filter>PSO</Filter>
     </None>
     <None Include="..\Resources\DefaultScene.yaml">
+      <Filter>Scene\Scene YAML</Filter>
+    </None>
+    <None Include="..\Resources\DefaultScene\FoliagePlacement.yaml">
       <Filter>Scene\Scene YAML</Filter>
     </None>
     <None Include="..\Resources\DefaultScene\TerrainProceduralHeightField.yaml">

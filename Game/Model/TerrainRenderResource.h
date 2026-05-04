@@ -62,6 +62,7 @@ namespace Game {
         const std::vector<TerrainTileMetadata>& GetTileMetadata() const;
         const TerrainBuildDesc& GetBuildDesc() const;
         const HeightFieldData& GetHeightFieldData() const;
+        const SplatMapData& GetSplatMapData() const;
         std::uint32_t GetTileQuadCount() const;
         std::uint32_t GetTileCountX() const;
         std::uint32_t GetTileCountZ() const;
@@ -98,6 +99,7 @@ namespace Game {
         std::vector<TerrainTileMetadata> mTileMetadata{};
         TerrainBuildDesc mBuildDesc{};
         HeightFieldData mHeightFieldData{};
+        SplatMapData mSplatMapData{};
         std::uint32_t mTileQuadCount{ 0 };
         std::uint32_t mTileCountX{ 0 };
         std::uint32_t mTileCountZ{ 0 };

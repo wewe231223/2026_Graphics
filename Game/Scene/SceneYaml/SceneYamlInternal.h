@@ -44,6 +44,7 @@
 #include "Game/Scene/Systems/AnimateSystem.h"
 #include "Game/Scene/Systems/FootIKSystem.h"
 #include "Game/Scene/Systems/PhysicsActorUpdateSystem.h"
+#include "Game/Scene/Systems/ProceduralFoliageSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshPrepareSystem.h"
 #include "Game/Scene/Systems/SkinnedMeshRenderSystem.h"
 #include "Game/Scene/Systems/StaticRenderSystem.h"

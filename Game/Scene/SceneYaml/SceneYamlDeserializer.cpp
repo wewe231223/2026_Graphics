@@ -31,6 +31,16 @@ namespace Game::SceneYaml {
                     continue;
                 }
 
+                if (SystemName == "ProceduralFoliageSystem" && SystemNode.is_map() == true) {
+                    std::string ConfigPath{};
+                    if (TryReadStringChild(SystemNode, { "ConfigPath", "configPath" }, ConfigPath) == true) {
+                        ProceduralFoliageSystem* FoliageSystem{ dynamic_cast<ProceduralFoliageSystem*>(NewSystem.get()) };
+                        if (FoliageSystem != nullptr) {
+                            FoliageSystem->SetConfigPath(ResolveSceneResourcePath(SceneName, ConfigPath));
+                        }
+                    }
+                }
+
                 OutScene.AddSystem(std::move(NewSystem));
             }
         }
