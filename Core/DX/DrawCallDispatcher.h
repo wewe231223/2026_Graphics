@@ -36,6 +36,8 @@ namespace Core {
 			bool mIsSkyDomePipelineInitialized{};
 			Game::Base::Pipeline mDefaultDepthPipeline{};
 			bool mIsDefaultDepthPipelineInitialized{};
+			Game::Base::Pipeline mDepthAlphaCutoffPipeline{};
+			bool mIsDepthAlphaCutoffPipelineInitialized{};
 			Game::Base::Pipeline mSkinnedDepthPipeline{};
 			bool mIsSkinnedDepthPipelineInitialized{};
 			Game::Base::Pipeline mBoundingBoxLinePipeline{};

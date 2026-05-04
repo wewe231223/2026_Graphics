@@ -28,6 +28,15 @@
     "RootSignature": {
       "type": "string"
     },
+    "Options": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "DepthAlphaCutoff"
+        ]
+      },
+      "uniqueItems": true
+    },
     "VS": {
       "$ref": "#/definitions/ShaderStage"
     },

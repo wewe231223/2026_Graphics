@@ -9,6 +9,13 @@ struct DepthVertexOutput
     float4 Position : SV_POSITION;
 };
 
+struct DepthAlphaCutoffVertexOutput
+{
+    float4 Position : SV_POSITION;
+    float2 TexCoord0 : TEXCOORD0;
+    uint MaterialIndex : MATERIAL_INDEX;
+};
+
 VertexOutput VsMain(VertexInput Input, uint InstanceId : SV_InstanceID)
 {
     StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
@@ -50,6 +57,24 @@ DepthVertexOutput VsMainDepth(VertexInput Input, uint InstanceId : SV_InstanceID
     return Output;
 }
 
+DepthAlphaCutoffVertexOutput VsMainDepthAlphaCutoff(VertexInput Input, uint InstanceId : SV_InstanceID) {
+    StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
+    StructuredBuffer<ModelContextGpu> ModelContextBuffer = ResourceDescriptorHeap[RootConstants.ModelContextSrvIndex];
+    StructuredBuffer<DrawRecordGpu> DrawRecordBuffer = ResourceDescriptorHeap[RootConstants.DrawRecordSrvIndex];
+
+    const uint DrawIndex = RootConstants.DrawRecordBaseIndex + InstanceId;
+    const DrawRecordGpu DrawRecord = DrawRecordBuffer[DrawIndex];
+    const ModelContextGpu ModelContext = ModelContextBuffer[DrawRecord.ObjectIndex];
+    const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[RootConstants.FrameGlobalsElementIndex];
+    const float4 WorldPosition = mul(float4(Input.Position, 1.0f), ModelContext.World);
+
+    DepthAlphaCutoffVertexOutput Output;
+    Output.Position = mul(WorldPosition, FrameGlobals.ViewProj);
+    Output.TexCoord0 = Input.TexCoord0;
+    Output.MaterialIndex = DrawRecord.MaterialIndex;
+    return Output;
+}
+
 GBufferOutput PsMain(VertexOutput Input) {
     StructuredBuffer<MaterialGpu> MaterialBuffer = ResourceDescriptorHeap[RootConstants.MaterialSrvIndex];
     StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer = ResourceDescriptorHeap[RootConstants.MaterialTextureTableSrvIndex];
@@ -71,4 +96,21 @@ GBufferOutput PsMain(VertexOutput Input) {
     Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[TextureSrvIndex];
     const float4 SampledColor = ApplyMaterialOpacity(ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0)), MaterialData);
     return BuildGBufferOutput(SampledColor, Input.Normal, Input.WorldPosition, Input.Flags);
+}
+
+void PsMainDepthAlphaCutoff(DepthAlphaCutoffVertexOutput Input) {
+    StructuredBuffer<MaterialGpu> MaterialBuffer = ResourceDescriptorHeap[RootConstants.MaterialSrvIndex];
+    StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer = ResourceDescriptorHeap[RootConstants.MaterialTextureTableSrvIndex];
+
+    const MaterialGpu MaterialData = MaterialBuffer[Input.MaterialIndex];
+    const int64_t DiffuseColorTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_TEXTURE].IntValue;
+    float Alpha = ApplyMaterialOpacity(ResolveMaterialColorFallback(MaterialData), MaterialData).a;
+
+    const uint DiffuseTextureSrvIndex = ResolveMaterialTextureSrvDescriptorIndex(MaterialTextureTableBuffer, DiffuseColorTextureTableIndex);
+    if (DiffuseTextureSrvIndex != 0xffffffffu) {
+        Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[NonUniformResourceIndex(DiffuseTextureSrvIndex)];
+        Alpha = ApplyMaterialOpacity(ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0)), MaterialData).a;
+    }
+
+    ApplyMaterialAlphaCut(Alpha, MaterialData);
 }

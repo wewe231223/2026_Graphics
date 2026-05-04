@@ -68,6 +68,7 @@ namespace {
 		UINT NodeMask{};
 		D3D12_CACHED_PIPELINE_STATE CachedPso{};
 		D3D12_PIPELINE_STATE_FLAGS Flags{};
+		std::uint32_t OptionMask{};
 	};
 
 	struct CompiledPipelineData {
@@ -75,6 +76,7 @@ namespace {
 		ComPtr<ID3D12PipelineState> PipelineState{};
 		D3D_PRIMITIVE_TOPOLOGY PrimitiveTopology{ D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST };
 		std::vector<Game::VertexInputBinding> VertexInputBindings{};
+		std::uint32_t OptionMask{};
 	};
 
 	std::unordered_map<std::string, CompiledPipelineData>& GetCompiledPipelinesStorage() {
@@ -670,6 +672,30 @@ namespace {
 		return flags;
 	}
 
+	std::uint32_t ToPipelineOptionMask(Game::PipelineOption Option) {
+		return static_cast<std::uint32_t>(Option);
+	}
+
+	std::uint32_t ParsePipelineOptions(const rapidjson::Value& Value) {
+		std::uint32_t OptionMask{};
+		if (Value.IsArray() == false) {
+			return OptionMask;
+		}
+
+		for (const rapidjson::Value& Entry : Value.GetArray()) {
+			if (Entry.IsString() == false) {
+				continue;
+			}
+
+			const std::string OptionName{ Entry.GetString(), Entry.GetStringLength() };
+			if (OptionName == "DepthAlphaCutoff") {
+				OptionMask |= ToPipelineOptionMask(Game::PipelineOption::DepthAlphaCutoff);
+			}
+		}
+
+		return OptionMask;
+	}
+
 	bool ParseShaderData(const rapidjson::Value& objectValue, const char* key, PipelineShaderData& shaderData) {
 		if (objectValue.HasMember(key) == false || objectValue[key].IsObject() == false) {
 			shaderData.Source = {};
@@ -705,6 +731,7 @@ namespace {
 		pipelineData.CachedPso.pCachedBlob = nullptr;
 		pipelineData.CachedPso.CachedBlobSizeInBytes = 0;
 		pipelineData.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+		pipelineData.OptionMask = 0u;
 	}
 
 	bool ParsePipelineDescription(const rapidjson::Document& document, const std::filesystem::path& path, PipelineDescriptionData& pipelineData) {
@@ -875,6 +902,7 @@ namespace {
 
 		pipelineData.NodeMask = ReadOptionalUint(document, "NodeMask", 0);
 		pipelineData.Flags = document.HasMember("Flags") == true ? ParsePipelineStateFlags(document["Flags"]) : D3D12_PIPELINE_STATE_FLAG_NONE;
+		pipelineData.OptionMask = document.HasMember("Options") == true ? ParsePipelineOptions(document["Options"]) : 0u;
 		return true;
 	}
 
@@ -1058,6 +1086,7 @@ namespace {
 		compiledPipelineData.PipelineState = pipelineState;
 		compiledPipelineData.PrimitiveTopology = pipelineData.PrimitiveTopology;
 		compiledPipelineData.VertexInputBindings = BuildVertexInputBindings(pipelineData.InputLayout);
+		compiledPipelineData.OptionMask = pipelineData.OptionMask;
 		pipelines[pipelineData.Name] = compiledPipelineData;
 		return true;
 	}
@@ -1086,6 +1115,7 @@ namespace Game {
 			mPipelineState = iterator->second.PipelineState;
 			mPrimitiveTopology = iterator->second.PrimitiveTopology;
 			mVertexInputBindings = iterator->second.VertexInputBindings;
+			mOptionMask = iterator->second.OptionMask;
 			return true;
 		}
 
@@ -1119,6 +1149,11 @@ namespace Game {
 
 		std::span<const VertexInputBinding> Pipeline::GetVertexInputBindings() const {
 			return mVertexInputBindings;
+		}
+
+		bool Pipeline::HasOption(PipelineOption Option) const {
+			const std::uint32_t OptionValue{ ToPipelineOptionMask(Option) };
+			return OptionValue != 0u && (mOptionMask & OptionValue) == OptionValue;
 		}
 
 		bool Pipeline::operator==(const Pipeline& other) const {

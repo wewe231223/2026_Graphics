@@ -65,7 +65,8 @@
                                 "Real": 0.858578622341156
                             },
                             "Diffuse Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String" : "Foilage1_Diff"
                             },
                             "Specular Texture": {
                                 "Kind": "None"
@@ -86,7 +87,8 @@
                                 "Kind": "None"
                             },
                             "Normal Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String" : "Foilage1_Norm"
                             },
                             "Displacement Texture": {
                                 "Kind": "None"

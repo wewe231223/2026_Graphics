@@ -67,6 +67,8 @@ namespace Core {
 			mIsSkyDomePipelineInitialized{},
 			mDefaultDepthPipeline{},
 			mIsDefaultDepthPipelineInitialized{},
+			mDepthAlphaCutoffPipeline{},
+			mIsDepthAlphaCutoffPipelineInitialized{},
 			mSkinnedDepthPipeline{},
 			mIsSkinnedDepthPipelineInitialized{},
 			mBoundingBoxLinePipeline{},
@@ -273,6 +275,14 @@ namespace Core {
 			}
 
 			const bool HasSkinningInput{ HasVertexInputBinding(*DrawRecord.pso, Game::VertexAttributeKind::BoneIndices) || HasVertexInputBinding(*DrawRecord.pso, Game::VertexAttributeKind::BoneWeights) };
+			if (DrawRecord.pso->HasOption(Game::PipelineOption::DepthAlphaCutoff) == true && HasSkinningInput == false) {
+				if (mIsDepthAlphaCutoffPipelineInitialized == false) {
+					mIsDepthAlphaCutoffPipelineInitialized = mDepthAlphaCutoffPipeline.Initialize("AlphaCutoffDepthGraphics");
+				}
+
+				return mIsDepthAlphaCutoffPipelineInitialized == true ? &mDepthAlphaCutoffPipeline : nullptr;
+			}
+
 			if (HasSkinningInput == true) {
 				if (mIsSkinnedDepthPipelineInitialized == false) {
 					mIsSkinnedDepthPipelineInitialized = mSkinnedDepthPipeline.Initialize("SkinnedDepthGraphics");

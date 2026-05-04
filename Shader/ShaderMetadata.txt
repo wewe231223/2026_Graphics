@@ -1,6 +1,8 @@
 Source=BasicShader.hlsl|Entry=VsMain|Profile=vs_6_6|Arguments=-O3
 Source=BasicShader.hlsl|Entry=VsMainDepth|Profile=vs_6_6|Arguments=-O3
+Source=BasicShader.hlsl|Entry=VsMainDepthAlphaCutoff|Profile=vs_6_6|Arguments=-O3
 Source=BasicShader.hlsl|Entry=PsMain|Profile=ps_6_6|Arguments=-O3
+Source=BasicShader.hlsl|Entry=PsMainDepthAlphaCutoff|Profile=ps_6_6|Arguments=-O3
 
 Source=FoliageShader.hlsl|Entry=VsMain|Profile=vs_6_6|Arguments=-O3
 Source=FoliageShader.hlsl|Entry=VsMainDepth|Profile=vs_6_6|Arguments=-O3

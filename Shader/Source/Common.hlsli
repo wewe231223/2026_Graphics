@@ -9,6 +9,7 @@ static const float3 DefaultDirectionalLightColor = float3(1.0f, 0.97f, 0.92f);
 static const float DefaultDirectionalLightIntensity = 1.2f;
 static const float DefaultAmbientLightIntensity = 0.25f;
 static const float3 ShadowColor = float3(0.34f, 0.32f, 0.30f);
+static const float DefaultAlphaCutoff = 0.5f;
 
 struct VertexInput
 {
@@ -247,6 +248,15 @@ float4 ApplyMaterialOpacity(float4 BaseColor, MaterialGpu MaterialData)
     }
 
     return saturate(ResultColor);
+}
+
+float ResolveMaterialAlphaCutoff(MaterialGpu MaterialData) {
+    const float AlphaCutoff = MaterialData.Fields[MATERIAL_TYPE_ALPHA_CUTOFF].FloatValue.x;
+    return AlphaCutoff > 0.0f ? saturate(AlphaCutoff) : DefaultAlphaCutoff;
+}
+
+void ApplyMaterialAlphaCut(float Alpha, MaterialGpu MaterialData) {
+    clip(Alpha - ResolveMaterialAlphaCutoff(MaterialData));
 }
 
 float4 ResolveMaterialColorFallbackWithDefault(MaterialGpu MaterialData, float4 DefaultColor)

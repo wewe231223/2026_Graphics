@@ -59,16 +59,19 @@ GBufferOutput PsMain(VertexOutput Input) {
     const float4 FallbackColor = ApplyMaterialOpacity(ResolveMaterialColorFallback(MaterialData), MaterialData);
 
     if (DiffuseColorTextureTableIndex < 0) {
+        ApplyMaterialAlphaCut(FallbackColor.a, MaterialData);
         return BuildGBufferOutput(FallbackColor, Input.Normal, Input.WorldPosition, Input.Flags);
     }
 
     const uint TextureTableIndex = (uint)DiffuseColorTextureTableIndex;
     const uint TextureSrvIndex = MaterialTextureTableBuffer[TextureTableIndex].TextureSrvDescriptorIndex;
     if (TextureSrvIndex == 0xffffffffu) {
+        ApplyMaterialAlphaCut(FallbackColor.a, MaterialData);
         return BuildGBufferOutput(FallbackColor, Input.Normal, Input.WorldPosition, Input.Flags);
     }
 
-    Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[TextureSrvIndex];
+    Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[NonUniformResourceIndex(TextureSrvIndex)];
     const float4 SampledColor = ApplyMaterialOpacity(ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0)), MaterialData);
+    ApplyMaterialAlphaCut(SampledColor.a, MaterialData);
     return BuildGBufferOutput(SampledColor, Input.Normal, Input.WorldPosition, Input.Flags);
 }

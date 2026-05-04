@@ -23,6 +23,7 @@ namespace Game {
 			ID3D12RootSignature* GetRootSignature() const;
 			D3D_PRIMITIVE_TOPOLOGY GetPrimitiveTopology() const;
 			std::span<const VertexInputBinding> GetVertexInputBindings() const;
+			bool HasOption(PipelineOption Option) const;
 
 			bool operator==(const Pipeline& other) const;
 			bool operator!=(const Pipeline& other) const;
@@ -35,6 +36,7 @@ namespace Game {
 			ComPtr<ID3D12PipelineState> mPipelineState{};
 			D3D_PRIMITIVE_TOPOLOGY mPrimitiveTopology{ D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST };
 			std::vector<VertexInputBinding> mVertexInputBindings{};
+			std::uint32_t mOptionMask{};
 		};
 
 		bool PreCompilePipelines(ID3D12Device* device);

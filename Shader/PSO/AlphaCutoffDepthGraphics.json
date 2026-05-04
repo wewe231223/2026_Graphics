@@ -1,18 +1,15 @@
 {
   "$schema": "./Schema.Pipeline.json",
-  "Name": "FoliageGraphics",
+  "Name": "AlphaCutoffDepthGraphics",
   "Type": "Graphics",
-  "Options": [
-    "DepthAlphaCutoff"
-  ],
   "RootSignature": "DefaultRootSignature",
   "VS": {
-    "Source": "FoliageShader.hlsl",
-    "Identifier": "vs_6_6:VsMain"
+    "Source": "BasicShader.hlsl",
+    "Identifier": "vs_6_6:VsMainDepthAlphaCutoff"
   },
   "PS": {
-    "Source": "FoliageShader.hlsl",
-    "Identifier": "ps_6_6:PsMain"
+    "Source": "BasicShader.hlsl",
+    "Identifier": "ps_6_6:PsMainDepthAlphaCutoff"
   },
   "InputLayout": [
     {
@@ -43,24 +40,6 @@
       "InstanceDataStepRate": 0
     }
   ],
-  "BlendState": {
-    "AlphaToCoverageEnable": false,
-    "IndependentBlendEnable": false,
-    "RenderTargets": [
-      {
-        "BlendEnable": false,
-        "BlendOp": "Add",
-        "BlendOpAlpha": "Add",
-        "DestBlend": "Zero",
-        "DestBlendAlpha": "Zero",
-        "LogicOp": "Noop",
-        "LogicOpEnable": false,
-        "RenderTargetWriteMask": 15,
-        "SrcBlend": "One",
-        "SrcBlendAlpha": "One"
-      }
-    ]
-  },
   "SampleMask": 4294967295,
   "RasterizerState": {
     "FillMode": "Solid",
@@ -97,11 +76,7 @@
   },
   "IBStripCutValue": "Disabled",
   "PrimitiveTopologyType": "Triangle",
-  "RTVFormats": [
-    "R8G8B8A8_UNORM",
-    "R16G16B16A16_FLOAT",
-    "R32G32B32A32_FLOAT"
-  ],
+  "PrimitiveTopology": "TriangleList",
   "DSVFormat": "D24_UNORM_S8_UINT",
   "SampleDesc": {
     "Count": 1,

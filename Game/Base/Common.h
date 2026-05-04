@@ -15,6 +15,11 @@
 namespace SimpleMath = DirectX::SimpleMath;
 
 namespace Game {
+    enum class PipelineOption : std::uint32_t {
+        None = 0,
+        DepthAlphaCutoff = 1u << 0
+    };
+
     struct VertexInputBinding;
 }
 
@@ -29,6 +34,7 @@ namespace Interface {
         virtual ID3D12RootSignature* GetRootSignature() const                                                       PURE;
         virtual D3D_PRIMITIVE_TOPOLOGY GetPrimitiveTopology() const                                                 PURE;
         virtual std::span<const Game::VertexInputBinding> GetVertexInputBindings() const                           PURE;
+        virtual bool HasOption(Game::PipelineOption Option) const                                                   PURE;
     };
 }
 
