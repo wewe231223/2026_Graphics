@@ -76,9 +76,9 @@ struct ShadowMappingParameterGpu
     float RasterDepthBiases[SHADOW_CASCADE_MAX_COUNT];
     float RasterSlopeScaledDepthBiases[SHADOW_CASCADE_MAX_COUNT];
     uint CascadeCount;
-    float Padding0;
-    float Padding1;
-    float Padding2;
+    float MinimumShadowMapSize;
+    float MinimumProjectionDivisor;
+    float MinimumProjectionDepthSpan;
 };
 
 struct ModelContextGpu
@@ -373,7 +373,7 @@ float ResolveCascadeSplitDistance(ShadowMappingParameterGpu ShadowMappingParamet
 
 float ResolveCascadeShadowMapSize(ShadowMappingParameterGpu ShadowMappingParameter, uint CascadeIndex)
 {
-    return max(ShadowMappingParameter.ShadowMapSizes[CascadeIndex], 1.0f);
+    return max(ShadowMappingParameter.ShadowMapSizes[CascadeIndex], ShadowMappingParameter.MinimumShadowMapSize);
 }
 
 float ResolveCascadeShadowBias(ShadowMappingParameterGpu ShadowMappingParameter, uint CascadeIndex)

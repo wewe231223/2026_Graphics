@@ -24,26 +24,74 @@ namespace {
         float farPlane{ 0.0f };
     };
 
-    constexpr DirectX::SimpleMath::Vector3 ShadowLightDirection{ 0.4f, -1.0f, 0.35f };
-    constexpr float ShadowMinimumNearPlane{ 0.1f };
-    constexpr float ShadowMinimumExtent{ 1.0f };
-    constexpr float ShadowMinimumViewDistance{ 2.0f };
-    constexpr float ShadowMinimumFarOffset{ 0.25f };
-    constexpr float ShadowNearPlaneOffset{ 0.25f };
-    constexpr float ShadowFarPlaneOffset{ 0.35f };
-    constexpr float ShadowProjectionSizeOffset{ 0.35f };
-    constexpr float ShadowCameraBackOffset{ 4.0f };
-    constexpr float ShadowCasterDepthExpansionScale{ 1.0f };
-    constexpr float ShadowCascadeProjectionCoverageScale{ 1.10f };
-    constexpr float ParallelDirectionThreshold{ 0.98f };
-    constexpr bool ShadowViewProjectionStabilizationEnabled{ false };
-
     float DotProduct(const DirectX::SimpleMath::Vector3& Left, const DirectX::SimpleMath::Vector3& Right) {
         return (Left.x * Right.x) + (Left.y * Right.y) + (Left.z * Right.z);
     }
 
-    float SnapToGrid(float Value, float GridSize) {
-        const float SafeGridSize{ std::max(GridSize, 0.000001f) };
+    void LoadFloatParameter(const c4::yml::ConstNodeRef& Node, const char* Key, float& OutValue) {
+        if (Node.has_child(Key)) {
+            Node[Key] >> OutValue;
+        }
+    }
+
+    void LoadUintParameter(const c4::yml::ConstNodeRef& Node, const char* Key, std::uint32_t& OutValue) {
+        if (Node.has_child(Key)) {
+            Node[Key] >> OutValue;
+        }
+    }
+
+    void LoadIntParameter(const c4::yml::ConstNodeRef& Node, const char* Key, std::int32_t& OutValue) {
+        if (Node.has_child(Key)) {
+            Node[Key] >> OutValue;
+        }
+    }
+
+    void LoadBoolParameter(const c4::yml::ConstNodeRef& Node, const char* Key, bool& OutValue) {
+        if (Node.has_child(Key)) {
+            Node[Key] >> OutValue;
+        }
+    }
+
+    void LoadVector3Parameter(const c4::yml::ConstNodeRef& Node, const char* Key, DirectX::SimpleMath::Vector3& OutValue) {
+        if (Node.has_child(Key) == false) {
+            return;
+        }
+
+        const c4::yml::ConstNodeRef VectorNode{ Node[Key] };
+        LoadFloatParameter(VectorNode, "X", OutValue.x);
+        LoadFloatParameter(VectorNode, "Y", OutValue.y);
+        LoadFloatParameter(VectorNode, "Z", OutValue.z);
+    }
+
+    void LoadVector4Parameter(const c4::yml::ConstNodeRef& Node, const char* Key, DirectX::SimpleMath::Vector4& OutValue) {
+        if (Node.has_child(Key) == false) {
+            return;
+        }
+
+        const c4::yml::ConstNodeRef VectorNode{ Node[Key] };
+        LoadFloatParameter(VectorNode, "X", OutValue.x);
+        LoadFloatParameter(VectorNode, "Y", OutValue.y);
+        LoadFloatParameter(VectorNode, "Z", OutValue.z);
+        LoadFloatParameter(VectorNode, "W", OutValue.w);
+    }
+
+    void SaveVector3Parameter(std::ofstream& OutputStream, const char* Name, const DirectX::SimpleMath::Vector3& Value) {
+        OutputStream << "    " << Name << ":\n";
+        OutputStream << "      X: " << Value.x << "\n";
+        OutputStream << "      Y: " << Value.y << "\n";
+        OutputStream << "      Z: " << Value.z << "\n";
+    }
+
+    void SaveVector4Parameter(std::ofstream& OutputStream, const char* Name, const DirectX::SimpleMath::Vector4& Value) {
+        OutputStream << "    " << Name << ":\n";
+        OutputStream << "      X: " << Value.x << "\n";
+        OutputStream << "      Y: " << Value.y << "\n";
+        OutputStream << "      Z: " << Value.z << "\n";
+        OutputStream << "      W: " << Value.w << "\n";
+    }
+
+    float SnapToGrid(float Value, float GridSize, float MinimumGridSize) {
+        const float SafeGridSize{ std::max(GridSize, MinimumGridSize) };
         return std::roundf(Value / SafeGridSize) * SafeGridSize;
     }
 
@@ -58,14 +106,18 @@ namespace {
         return NormalizedDirection;
     }
 
-    Game::RFD::DirectionalLightParameter BuildDefaultDirectionalLightParameter() {
-        const DirectX::SimpleMath::Vector3 NormalizedLightDirection{ NormalizeDirection(ShadowLightDirection) };
+    Game::RFD::DirectionalLightParameter BuildDefaultDirectionalLightParameter(const DirectX::SimpleMath::Vector3& DefaultLightDirection, const DirectX::SimpleMath::Vector4& DefaultLightColor, float DefaultLightIntensity, float DefaultAmbientLightIntensity, bool DefaultLightCastsShadow) {
+        const DirectX::SimpleMath::Vector3 NormalizedLightDirection{ NormalizeDirection(DefaultLightDirection) };
         Game::RFD::DirectionalLightParameter Parameter{};
         Parameter.direction = DirectX::SimpleMath::Vector4{ NormalizedLightDirection.x, NormalizedLightDirection.y, NormalizedLightDirection.z, 0.0f };
-        Parameter.color = DirectX::SimpleMath::Vector4{ 1.0f, 0.97f, 0.92f, 1.0f };
-        Parameter.intensity = 1.2f;
-        Parameter.ambientIntensity = 0.25f;
-        Parameter.flags = Game::RFD::DirectionalLightParameterFlagActive | Game::RFD::DirectionalLightParameterFlagCastShadow;
+        Parameter.color = DefaultLightColor;
+        Parameter.intensity = std::max(DefaultLightIntensity, 0.0f);
+        Parameter.ambientIntensity = std::max(DefaultAmbientLightIntensity, 0.0f);
+        Parameter.flags = Game::RFD::DirectionalLightParameterFlagActive;
+        if (DefaultLightCastsShadow == true) {
+            Parameter.flags |= Game::RFD::DirectionalLightParameterFlagCastShadow;
+        }
+
         Parameter.padding0 = 0.0f;
         return Parameter;
     }
@@ -98,10 +150,24 @@ namespace {
         return Parameter;
     }
 
-    float ComputeCascadeSplitDistance(float CameraNearPlane, float CameraFarPlane, int CascadeIndex, int CascadeCount, float CascadeSplitLambda) {
-        const float EffectiveNearPlane{ std::max(CameraNearPlane, ShadowMinimumNearPlane) };
-        const float EffectiveFarPlane{ std::max(CameraFarPlane, EffectiveNearPlane + ShadowMinimumViewDistance) };
+    float ComputeCascadeSplitDistance(float CameraNearPlane, float CameraFarPlane, int CascadeIndex, int CascadeCount, float CascadeSplitLambda, float MinimumNearPlane, float MinimumViewDistance, float FirstCascadeCoverageDistance, float SecondCascadeCoverageScale) {
+        const float EffectiveNearPlane{ std::max(CameraNearPlane, MinimumNearPlane) };
+        const float EffectiveFarPlane{ std::max(CameraFarPlane, EffectiveNearPlane + MinimumViewDistance) };
         const int EffectiveCascadeCount{ std::max(CascadeCount, 1) };
+        if (EffectiveCascadeCount == 2) {
+            if (CascadeIndex <= 0) {
+                return EffectiveNearPlane;
+            }
+
+            if (CascadeIndex >= EffectiveCascadeCount) {
+                const float SecondCascadeFarPlane{ EffectiveNearPlane + (FirstCascadeCoverageDistance * SecondCascadeCoverageScale) };
+                return std::min(SecondCascadeFarPlane, EffectiveFarPlane);
+            }
+
+            const float FirstCascadeFarPlane{ std::min(EffectiveNearPlane + FirstCascadeCoverageDistance, EffectiveFarPlane) };
+            return FirstCascadeFarPlane;
+        }
+
         const float SplitRatio{ static_cast<float>(CascadeIndex) / static_cast<float>(EffectiveCascadeCount) };
         const float UniformSplitDistance{ EffectiveNearPlane + ((EffectiveFarPlane - EffectiveNearPlane) * SplitRatio) };
         const float LogarithmicSplitDistance{ EffectiveNearPlane * std::pow(EffectiveFarPlane / EffectiveNearPlane, SplitRatio) };
@@ -109,41 +175,41 @@ namespace {
         return std::lerp(UniformSplitDistance, LogarithmicSplitDistance, EffectiveCascadeSplitLambda);
     }
 
-    ShadowCascadeRange ComputeCascadeRange(const Game::Camera& CameraComponent, int CascadeIndex, int CascadeCount, float CascadeSplitLambda, float CascadeMaximumDistance, float CascadeNearRangeExpansionDistance, int CascadeExpandedBoundaryCount) {
-        const float EffectiveNearPlane{ std::max(CameraComponent.nearPlane, ShadowMinimumNearPlane) };
-        const float MinimumFarPlane{ EffectiveNearPlane + ShadowMinimumViewDistance };
+    ShadowCascadeRange ComputeCascadeRange(const Game::Camera& CameraComponent, int CascadeIndex, int CascadeCount, float CascadeSplitLambda, float CascadeMaximumDistance, float CascadeNearRangeExpansionDistance, int CascadeExpandedBoundaryCount, float MinimumNearPlane, float MinimumViewDistance, float FirstCascadeCoverageDistance, float SecondCascadeCoverageScale) {
+        const float EffectiveNearPlane{ std::max(CameraComponent.nearPlane, MinimumNearPlane) };
+        const float MinimumFarPlane{ EffectiveNearPlane + MinimumViewDistance };
         const float MaximumFarPlane{ std::max(CascadeMaximumDistance, MinimumFarPlane) };
         const float EffectiveFarPlane{ std::clamp(CameraComponent.farPlane, MinimumFarPlane, MaximumFarPlane) };
         const int EffectiveCascadeIndex{ std::clamp(CascadeIndex, 0, std::max(CascadeCount - 1, 0)) };
-        const float CascadeNearPlaneBase{ ComputeCascadeSplitDistance(EffectiveNearPlane, EffectiveFarPlane, EffectiveCascadeIndex, CascadeCount, CascadeSplitLambda) };
-        const float CascadeFarPlaneBase{ ComputeCascadeSplitDistance(EffectiveNearPlane, EffectiveFarPlane, EffectiveCascadeIndex + 1, CascadeCount, CascadeSplitLambda) };
+        const float CascadeNearPlaneBase{ ComputeCascadeSplitDistance(EffectiveNearPlane, EffectiveFarPlane, EffectiveCascadeIndex, CascadeCount, CascadeSplitLambda, MinimumNearPlane, MinimumViewDistance, FirstCascadeCoverageDistance, SecondCascadeCoverageScale) };
+        const float CascadeFarPlaneBase{ ComputeCascadeSplitDistance(EffectiveNearPlane, EffectiveFarPlane, EffectiveCascadeIndex + 1, CascadeCount, CascadeSplitLambda, MinimumNearPlane, MinimumViewDistance, FirstCascadeCoverageDistance, SecondCascadeCoverageScale) };
         const int CascadeNearBoundaryExpansionStepCount{ std::clamp(EffectiveCascadeIndex, 0, CascadeExpandedBoundaryCount) };
         const int CascadeFarBoundaryExpansionStepCount{ std::clamp(EffectiveCascadeIndex + 1, 0, CascadeExpandedBoundaryCount) };
         const float CascadeNearPlane{ std::clamp(CascadeNearPlaneBase + (static_cast<float>(CascadeNearBoundaryExpansionStepCount) * CascadeNearRangeExpansionDistance), EffectiveNearPlane, EffectiveFarPlane) };
         const float CascadeFarPlane{ std::clamp(CascadeFarPlaneBase + (static_cast<float>(CascadeFarBoundaryExpansionStepCount) * CascadeNearRangeExpansionDistance), CascadeNearPlane, EffectiveFarPlane) };
         ShadowCascadeRange CascadeRange{};
         CascadeRange.nearPlane = CascadeNearPlane;
-        CascadeRange.farPlane = std::max(CascadeFarPlane, CascadeNearPlane + ShadowMinimumViewDistance);
+        CascadeRange.farPlane = std::max(CascadeFarPlane, CascadeNearPlane + MinimumViewDistance);
         return CascadeRange;
     }
 
-    std::array<DirectX::SimpleMath::Vector3, 8> BuildCameraFrustumCorners(const Game::Camera& CameraComponent, const Game::Transform& TransformComponent, const ShadowCascadeRange& CascadeRange) {
+    std::array<DirectX::SimpleMath::Vector3, 8> BuildCameraFrustumCorners(const Game::Camera& CameraComponent, const Game::Transform& TransformComponent, const ShadowCascadeRange& CascadeRange, float MinimumNearPlane, float MinimumExtent, float MinimumViewDistance, float MinimumAspectRatio, float MinimumFovDegrees, float MaximumFovDegrees, float ClipWMinimum) {
         (void)TransformComponent;
 
-        const float EffectiveAspectRatio{ std::max(CameraComponent.aspectRatio, 0.01f) };
-        const float EffectiveNearPlane{ std::max(CascadeRange.nearPlane, ShadowMinimumNearPlane) };
-        const float EffectiveFarPlane{ std::max(CascadeRange.farPlane, EffectiveNearPlane + ShadowMinimumViewDistance) };
+        const float EffectiveAspectRatio{ std::max(CameraComponent.aspectRatio, MinimumAspectRatio) };
+        const float EffectiveNearPlane{ std::max(CascadeRange.nearPlane, MinimumNearPlane) };
+        const float EffectiveFarPlane{ std::max(CascadeRange.farPlane, EffectiveNearPlane + MinimumViewDistance) };
 
         DirectX::SimpleMath::Matrix EffectiveProjection{};
         if (CameraComponent.isOrthographic) {
-            const float OrthographicHeight{ std::max(CameraComponent.orthoSize * 2.0f, ShadowMinimumExtent) };
-            const float OrthographicWidth{ std::max(OrthographicHeight * EffectiveAspectRatio, ShadowMinimumExtent) };
+            const float OrthographicHeight{ std::max(CameraComponent.orthoSize * 2.0f, MinimumExtent) };
+            const float OrthographicWidth{ std::max(OrthographicHeight * EffectiveAspectRatio, MinimumExtent) };
             EffectiveProjection = DirectX::SimpleMath::Matrix::CreateOrthographic(OrthographicWidth, OrthographicHeight, EffectiveNearPlane, EffectiveFarPlane);
         }
         else {
             float FovRadians{ DirectX::XMConvertToRadians(CameraComponent.fov) };
-            const float MinimumFovRadians{ DirectX::XMConvertToRadians(1.0f) };
-            const float MaximumFovRadians{ DirectX::XMConvertToRadians(179.0f) };
+            const float MinimumFovRadians{ DirectX::XMConvertToRadians(MinimumFovDegrees) };
+            const float MaximumFovRadians{ DirectX::XMConvertToRadians(MaximumFovDegrees) };
             FovRadians = std::clamp(FovRadians, MinimumFovRadians, MaximumFovRadians);
             EffectiveProjection = DirectX::SimpleMath::Matrix::CreatePerspectiveFieldOfView(FovRadians, EffectiveAspectRatio, EffectiveNearPlane, EffectiveFarPlane);
         }
@@ -163,15 +229,15 @@ namespace {
         std::array<DirectX::SimpleMath::Vector3, 8> FrustumCorners{};
         for (std::size_t Index{ 0 }; Index < NdcCorners.size(); Index += 1) {
             const DirectX::SimpleMath::Vector4 WorldCorner{ DirectX::SimpleMath::Vector4::Transform(NdcCorners[Index], ViewProjectionInverse) };
-            const float WorldW{ std::abs(WorldCorner.w) <= 0.000001f ? 1.0f : WorldCorner.w };
+            const float WorldW{ std::abs(WorldCorner.w) <= ClipWMinimum ? 1.0f : WorldCorner.w };
             FrustumCorners[Index] = DirectX::SimpleMath::Vector3{ WorldCorner.x / WorldW, WorldCorner.y / WorldW, WorldCorner.z / WorldW };
         }
 
         return FrustumCorners;
     }
 
-    void StabilizeShadowViewProjection(DirectX::SimpleMath::Matrix& InOutShadowViewProjection, float ShadowMapSize) {
-        const float EffectiveShadowMapSize{ std::max(ShadowMapSize, 1.0f) };
+    void StabilizeShadowViewProjection(DirectX::SimpleMath::Matrix& InOutShadowViewProjection, float ShadowMapSize, float MinimumShadowMapSize) {
+        const float EffectiveShadowMapSize{ std::max(ShadowMapSize, MinimumShadowMapSize) };
         const float InverseShadowMapSize{ 1.0f / EffectiveShadowMapSize };
         InOutShadowViewProjection = DirectX::SimpleMath::Matrix::CreateScale(InverseShadowMapSize, InverseShadowMapSize, 1.0f) * InOutShadowViewProjection;
 
@@ -182,7 +248,7 @@ namespace {
         InOutShadowViewProjection = DirectX::SimpleMath::Matrix::CreateScale(EffectiveShadowMapSize, EffectiveShadowMapSize, 1.0f) * InOutShadowViewProjection;
     }
 
-    void BuildShadowCameraFromFrustumCorners(const std::array<DirectX::SimpleMath::Vector3, 8>& FrustumCorners, const DirectX::SimpleMath::Vector3& LightDirection, float ShadowMapSize, float ProjectionCoverageScale, DirectX::SimpleMath::Matrix& OutShadowView, DirectX::SimpleMath::Matrix& OutShadowProjection, DirectX::SimpleMath::Matrix& OutShadowViewProjection, DirectX::SimpleMath::Vector3& OutShadowCameraPosition, float& OutShadowNearPlane, float& OutShadowFarPlane, float& OutShadowAspectRatio) {
+    void BuildShadowCameraFromFrustumCorners(const std::array<DirectX::SimpleMath::Vector3, 8>& FrustumCorners, const DirectX::SimpleMath::Vector3& LightDirection, float ShadowMapSize, float ProjectionCoverageScale, float MinimumExtent, float MinimumNearPlane, float MinimumFarOffset, float NearPlaneOffset, float FarPlaneOffset, float ProjectionSizeOffset, float CameraBackOffset, float CasterDepthExpansionScale, float ParallelDirectionThreshold, float MinimumGridSize, float MinimumShadowMapSize, bool ViewProjectionStabilizationEnabled, DirectX::SimpleMath::Matrix& OutShadowView, DirectX::SimpleMath::Matrix& OutShadowProjection, DirectX::SimpleMath::Matrix& OutShadowViewProjection, DirectX::SimpleMath::Vector3& OutShadowCameraPosition, float& OutShadowNearPlane, float& OutShadowFarPlane, float& OutShadowAspectRatio) {
         DirectX::SimpleMath::Vector3 FrustumCenter{};
         for (const DirectX::SimpleMath::Vector3& FrustumCorner : FrustumCorners) {
             FrustumCenter += FrustumCorner;
@@ -202,8 +268,8 @@ namespace {
             FrustumRadius = std::max(FrustumRadius, std::sqrtf(std::max(DistanceSquared, 0.0f)));
         }
 
-        const float ShadowCasterDepthExpansionDistance{ std::max(FrustumRadius * ShadowCasterDepthExpansionScale, ShadowCameraBackOffset) };
-        const float ShadowLightDistance{ std::max(FrustumRadius + ShadowCasterDepthExpansionDistance, ShadowMinimumNearPlane + ShadowFarPlaneOffset + ShadowMinimumFarOffset) };
+        const float ShadowCasterDepthExpansionDistance{ std::max(FrustumRadius * CasterDepthExpansionScale, CameraBackOffset) };
+        const float ShadowLightDistance{ std::max(FrustumRadius + ShadowCasterDepthExpansionDistance, MinimumNearPlane + FarPlaneOffset + MinimumFarOffset) };
         OutShadowCameraPosition = FrustumCenter - (NormalizedLightDirection * ShadowLightDistance);
         OutShadowView = DirectX::SimpleMath::Matrix::CreateLookAt(OutShadowCameraPosition, FrustumCenter, UpDirection);
 
@@ -226,30 +292,30 @@ namespace {
         }
 
         const float EffectiveProjectionCoverageScale{ std::max(ProjectionCoverageScale, 1.0f) };
-        const float MinimumProjectionSpan{ std::max((FrustumRadius * 2.0f) * EffectiveProjectionCoverageScale, ShadowMinimumExtent) };
-        const float ShadowProjectionWidth{ std::max(MaximumX - MinimumX, MinimumProjectionSpan) + ShadowProjectionSizeOffset };
-        const float ShadowProjectionHeight{ std::max(MaximumY - MinimumY, MinimumProjectionSpan) + ShadowProjectionSizeOffset };
+        const float MinimumProjectionSpan{ std::max((FrustumRadius * 2.0f) * EffectiveProjectionCoverageScale, MinimumExtent) };
+        const float ShadowProjectionWidth{ std::max(MaximumX - MinimumX, MinimumProjectionSpan) + ProjectionSizeOffset };
+        const float ShadowProjectionHeight{ std::max(MaximumY - MinimumY, MinimumProjectionSpan) + ProjectionSizeOffset };
         const float ShadowProjectionHalfWidth{ ShadowProjectionWidth * 0.5f };
         const float ShadowProjectionHalfHeight{ ShadowProjectionHeight * 0.5f };
         float ProjectionCenterX{ (MinimumX + MaximumX) * 0.5f };
         float ProjectionCenterY{ (MinimumY + MaximumY) * 0.5f };
-        const float ShadowMapResolution{ std::max(ShadowMapSize, 1.0f) };
+        const float ShadowMapResolution{ std::max(ShadowMapSize, MinimumShadowMapSize) };
         const float TexelSizeX{ ShadowProjectionWidth / ShadowMapResolution };
         const float TexelSizeY{ ShadowProjectionHeight / ShadowMapResolution };
-        ProjectionCenterX = SnapToGrid(ProjectionCenterX, TexelSizeX);
-        ProjectionCenterY = SnapToGrid(ProjectionCenterY, TexelSizeY);
+        ProjectionCenterX = SnapToGrid(ProjectionCenterX, TexelSizeX, MinimumGridSize);
+        ProjectionCenterY = SnapToGrid(ProjectionCenterY, TexelSizeY, MinimumGridSize);
 
         const float ProjectionLeft{ ProjectionCenterX - ShadowProjectionHalfWidth };
         const float ProjectionRight{ ProjectionCenterX + ShadowProjectionHalfWidth };
         const float ProjectionBottom{ ProjectionCenterY - ShadowProjectionHalfHeight };
         const float ProjectionTop{ ProjectionCenterY + ShadowProjectionHalfHeight };
-        OutShadowNearPlane = std::max(ShadowMinimumNearPlane, MinimumDepth - ShadowCasterDepthExpansionDistance - ShadowNearPlaneOffset);
-        OutShadowFarPlane = std::max(OutShadowNearPlane + ShadowMinimumFarOffset, MaximumDepth + ShadowFarPlaneOffset);
-        OutShadowAspectRatio = ShadowProjectionWidth / std::max(ShadowProjectionHeight, ShadowMinimumExtent);
+        OutShadowNearPlane = std::max(MinimumNearPlane, MinimumDepth - ShadowCasterDepthExpansionDistance - NearPlaneOffset);
+        OutShadowFarPlane = std::max(OutShadowNearPlane + MinimumFarOffset, MaximumDepth + FarPlaneOffset);
+        OutShadowAspectRatio = ShadowProjectionWidth / std::max(ShadowProjectionHeight, MinimumExtent);
         OutShadowProjection = DirectX::SimpleMath::Matrix::CreateOrthographicOffCenter(ProjectionLeft, ProjectionRight, ProjectionBottom, ProjectionTop, OutShadowNearPlane, OutShadowFarPlane);
         OutShadowViewProjection = OutShadowView * OutShadowProjection;
-        if (ShadowViewProjectionStabilizationEnabled == true) {
-            StabilizeShadowViewProjection(OutShadowViewProjection, ShadowMapSize);
+        if (ViewProjectionStabilizationEnabled == true) {
+            StabilizeShadowViewProjection(OutShadowViewProjection, ShadowMapSize, MinimumShadowMapSize);
         }
     }
 
@@ -298,6 +364,42 @@ namespace Game {
             const c4::yml::ConstNodeRef ShadowMappingNode{ RootNode.has_child("ShadowMapping") ? RootNode["ShadowMapping"] : RootNode };
 
             if (ShadowMappingNode.invalid() == false) {
+                LoadUintParameter(ShadowMappingNode, "CascadeCount", mCascadeCount);
+                LoadFloatParameter(ShadowMappingNode, "CascadeMaximumDistance", mCascadeMaximumDistance);
+                LoadFloatParameter(ShadowMappingNode, "CascadeSplitLambda", mCascadeSplitLambda);
+                LoadFloatParameter(ShadowMappingNode, "CascadeNearRangeExpansionDistance", mCascadeNearRangeExpansionDistance);
+                LoadIntParameter(ShadowMappingNode, "CascadeExpandedBoundaryCount", mCascadeExpandedBoundaryCount);
+                LoadFloatParameter(ShadowMappingNode, "FirstCascadeCoverageDistance", mFirstCascadeCoverageDistance);
+                LoadFloatParameter(ShadowMappingNode, "SecondCascadeCoverageScale", mSecondCascadeCoverageScale);
+                LoadFloatParameter(ShadowMappingNode, "MinimumNearPlane", mMinimumNearPlane);
+                LoadFloatParameter(ShadowMappingNode, "MinimumExtent", mMinimumExtent);
+                LoadFloatParameter(ShadowMappingNode, "MinimumViewDistance", mMinimumViewDistance);
+                LoadFloatParameter(ShadowMappingNode, "MinimumFarOffset", mMinimumFarOffset);
+                LoadFloatParameter(ShadowMappingNode, "NearPlaneOffset", mNearPlaneOffset);
+                LoadFloatParameter(ShadowMappingNode, "FarPlaneOffset", mFarPlaneOffset);
+                LoadFloatParameter(ShadowMappingNode, "ProjectionSizeOffset", mProjectionSizeOffset);
+                LoadFloatParameter(ShadowMappingNode, "CameraBackOffset", mCameraBackOffset);
+                LoadFloatParameter(ShadowMappingNode, "CasterDepthExpansionScale", mCasterDepthExpansionScale);
+                LoadFloatParameter(ShadowMappingNode, "ProjectionCoverageScale", mProjectionCoverageScale);
+                LoadFloatParameter(ShadowMappingNode, "ParallelDirectionThreshold", mParallelDirectionThreshold);
+                LoadFloatParameter(ShadowMappingNode, "MinimumGridSize", mMinimumGridSize);
+                LoadFloatParameter(ShadowMappingNode, "MinimumAspectRatio", mMinimumAspectRatio);
+                LoadFloatParameter(ShadowMappingNode, "MinimumFovDegrees", mMinimumFovDegrees);
+                LoadFloatParameter(ShadowMappingNode, "MaximumFovDegrees", mMaximumFovDegrees);
+                LoadFloatParameter(ShadowMappingNode, "ClipWMinimum", mClipWMinimum);
+                LoadFloatParameter(ShadowMappingNode, "MinimumShadowMapSize", mMinimumShadowMapSize);
+                LoadFloatParameter(ShadowMappingNode, "MinimumProjectionDivisor", mMinimumProjectionDivisor);
+                LoadFloatParameter(ShadowMappingNode, "MinimumProjectionDepthSpan", mMinimumProjectionDepthSpan);
+                LoadBoolParameter(ShadowMappingNode, "ViewProjectionStabilizationEnabled", mViewProjectionStabilizationEnabled);
+                if (ShadowMappingNode.has_child("DefaultDirectionalLight")) {
+                    const c4::yml::ConstNodeRef DefaultLightNode{ ShadowMappingNode["DefaultDirectionalLight"] };
+                    LoadVector3Parameter(DefaultLightNode, "Direction", mDefaultDirectionalLightDirection);
+                    LoadVector4Parameter(DefaultLightNode, "Color", mDefaultDirectionalLightColor);
+                    LoadFloatParameter(DefaultLightNode, "Intensity", mDefaultDirectionalLightIntensity);
+                    LoadFloatParameter(DefaultLightNode, "AmbientIntensity", mDefaultAmbientLightIntensity);
+                    LoadBoolParameter(DefaultLightNode, "CastsShadow", mDefaultDirectionalLightCastsShadow);
+                }
+
                 bool IsCascadeParameterLoaded{ false };
                 if (ShadowMappingNode.has_child("Cascades")) {
                     const c4::yml::ConstNodeRef CascadeNodes{ ShadowMappingNode["Cascades"] };
@@ -368,29 +470,8 @@ namespace Game {
                         mRasterDepthBiases[CascadeIndex] = LegacyRasterDepthBias;
                         mRasterSlopeScaledDepthBiases[CascadeIndex] = LegacyRasterSlopeScaledDepthBias;
                     }
-
-                    if (RFD::ShadowCascadeMaxCount > 0u) {
-                        mShadowMapSizes[0] = LegacyShadowMapSize * 2.0f;
-                    }
                 }
 
-                if (ShadowMappingNode.has_child("CascadeMaximumDistance")) {
-                    ShadowMappingNode["CascadeMaximumDistance"] >> mCascadeMaximumDistance;
-                }
-
-                if (ShadowMappingNode.has_child("CascadeSplitLambda")) {
-                    ShadowMappingNode["CascadeSplitLambda"] >> mCascadeSplitLambda;
-                }
-
-                if (ShadowMappingNode.has_child("CascadeNearRangeExpansionDistance")) {
-                    ShadowMappingNode["CascadeNearRangeExpansionDistance"] >> mCascadeNearRangeExpansionDistance;
-                }
-
-                if (ShadowMappingNode.has_child("CascadeExpandedBoundaryCount")) {
-                    std::int32_t CascadeExpandedBoundaryCountValue{ mCascadeExpandedBoundaryCount };
-                    ShadowMappingNode["CascadeExpandedBoundaryCount"] >> CascadeExpandedBoundaryCountValue;
-                    mCascadeExpandedBoundaryCount = CascadeExpandedBoundaryCountValue;
-                }
             }
         }
         catch (...) {
@@ -413,8 +494,10 @@ namespace Game {
         }
 
         OutputStream << "ShadowMapping:\n";
+        OutputStream << "  CascadeCount: " << mCascadeCount << "\n";
         OutputStream << "  Cascades:\n";
-        for (std::size_t CascadeIndex{ 0 }; CascadeIndex < RFD::ShadowCascadeMaxCount; CascadeIndex += 1) {
+        const std::size_t ActiveCascadeCount{ static_cast<std::size_t>(std::min(mCascadeCount, RFD::ShadowCascadeMaxCount)) };
+        for (std::size_t CascadeIndex{ 0 }; CascadeIndex < ActiveCascadeCount; CascadeIndex += 1) {
             OutputStream << "    - ShadowMapSize: " << mShadowMapSizes[CascadeIndex] << "\n";
             OutputStream << "      ShadowBias: " << mShadowBiases[CascadeIndex] << "\n";
             OutputStream << "      ShadowStrength: " << mShadowStrengths[CascadeIndex] << "\n";
@@ -426,21 +509,74 @@ namespace Game {
         OutputStream << "  CascadeSplitLambda: " << mCascadeSplitLambda << "\n";
         OutputStream << "  CascadeNearRangeExpansionDistance: " << mCascadeNearRangeExpansionDistance << "\n";
         OutputStream << "  CascadeExpandedBoundaryCount: " << mCascadeExpandedBoundaryCount << "\n";
+        OutputStream << "  FirstCascadeCoverageDistance: " << mFirstCascadeCoverageDistance << "\n";
+        OutputStream << "  SecondCascadeCoverageScale: " << mSecondCascadeCoverageScale << "\n";
+        OutputStream << "  MinimumNearPlane: " << mMinimumNearPlane << "\n";
+        OutputStream << "  MinimumExtent: " << mMinimumExtent << "\n";
+        OutputStream << "  MinimumViewDistance: " << mMinimumViewDistance << "\n";
+        OutputStream << "  MinimumFarOffset: " << mMinimumFarOffset << "\n";
+        OutputStream << "  NearPlaneOffset: " << mNearPlaneOffset << "\n";
+        OutputStream << "  FarPlaneOffset: " << mFarPlaneOffset << "\n";
+        OutputStream << "  ProjectionSizeOffset: " << mProjectionSizeOffset << "\n";
+        OutputStream << "  CameraBackOffset: " << mCameraBackOffset << "\n";
+        OutputStream << "  CasterDepthExpansionScale: " << mCasterDepthExpansionScale << "\n";
+        OutputStream << "  ProjectionCoverageScale: " << mProjectionCoverageScale << "\n";
+        OutputStream << "  ParallelDirectionThreshold: " << mParallelDirectionThreshold << "\n";
+        OutputStream << "  MinimumGridSize: " << mMinimumGridSize << "\n";
+        OutputStream << "  MinimumAspectRatio: " << mMinimumAspectRatio << "\n";
+        OutputStream << "  MinimumFovDegrees: " << mMinimumFovDegrees << "\n";
+        OutputStream << "  MaximumFovDegrees: " << mMaximumFovDegrees << "\n";
+        OutputStream << "  ClipWMinimum: " << mClipWMinimum << "\n";
+        OutputStream << "  MinimumShadowMapSize: " << mMinimumShadowMapSize << "\n";
+        OutputStream << "  MinimumProjectionDivisor: " << mMinimumProjectionDivisor << "\n";
+        OutputStream << "  MinimumProjectionDepthSpan: " << mMinimumProjectionDepthSpan << "\n";
+        OutputStream << "  ViewProjectionStabilizationEnabled: " << (mViewProjectionStabilizationEnabled == true ? "true" : "false") << "\n";
+        OutputStream << "  DefaultDirectionalLight:\n";
+        SaveVector3Parameter(OutputStream, "Direction", mDefaultDirectionalLightDirection);
+        SaveVector4Parameter(OutputStream, "Color", mDefaultDirectionalLightColor);
+        OutputStream << "    Intensity: " << mDefaultDirectionalLightIntensity << "\n";
+        OutputStream << "    AmbientIntensity: " << mDefaultAmbientLightIntensity << "\n";
+        OutputStream << "    CastsShadow: " << (mDefaultDirectionalLightCastsShadow == true ? "true" : "false") << "\n";
     }
 
     void ShadowMappingParameterSystem::SanitizeShadowMappingParameters() {
-        for (std::size_t CascadeIndex{ 0 }; CascadeIndex < RFD::ShadowCascadeMaxCount; CascadeIndex += 1) {
-            mShadowMapSizes[CascadeIndex] = std::max(mShadowMapSizes[CascadeIndex], 1.0f);
+        mCascadeCount = std::max<std::uint32_t>(1u, std::min<std::uint32_t>(mCascadeCount, RFD::ShadowCascadeMaxCount));
+        mMinimumShadowMapSize = std::max(mMinimumShadowMapSize, 1.0f);
+        const std::size_t ActiveCascadeCount{ static_cast<std::size_t>(mCascadeCount) };
+        for (std::size_t CascadeIndex{ 0 }; CascadeIndex < ActiveCascadeCount; CascadeIndex += 1) {
+            mShadowMapSizes[CascadeIndex] = std::max(mShadowMapSizes[CascadeIndex], mMinimumShadowMapSize);
             mShadowBiases[CascadeIndex] = std::max(mShadowBiases[CascadeIndex], 0.0f);
             mShadowStrengths[CascadeIndex] = std::clamp(mShadowStrengths[CascadeIndex], 0.0f, 1.0f);
             mRasterDepthBiases[CascadeIndex] = std::max(mRasterDepthBiases[CascadeIndex], 0.0f);
             mRasterSlopeScaledDepthBiases[CascadeIndex] = std::max(mRasterSlopeScaledDepthBiases[CascadeIndex], 0.0f);
         }
 
-        mCascadeMaximumDistance = std::max(mCascadeMaximumDistance, ShadowMinimumNearPlane + ShadowMinimumViewDistance);
+        mMinimumNearPlane = std::max(mMinimumNearPlane, 0.0f);
+        mMinimumExtent = std::max(mMinimumExtent, 0.0f);
+        mMinimumViewDistance = std::max(mMinimumViewDistance, 0.0f);
+        mMinimumFarOffset = std::max(mMinimumFarOffset, 0.0f);
+        mNearPlaneOffset = std::max(mNearPlaneOffset, 0.0f);
+        mFarPlaneOffset = std::max(mFarPlaneOffset, 0.0f);
+        mProjectionSizeOffset = std::max(mProjectionSizeOffset, 0.0f);
+        mCameraBackOffset = std::max(mCameraBackOffset, 0.0f);
+        mCasterDepthExpansionScale = std::max(mCasterDepthExpansionScale, 0.0f);
+        mProjectionCoverageScale = std::max(mProjectionCoverageScale, 1.0f);
+        mFirstCascadeCoverageDistance = std::max(mFirstCascadeCoverageDistance, mMinimumViewDistance);
+        mSecondCascadeCoverageScale = std::max(mSecondCascadeCoverageScale, 1.0f);
+        mParallelDirectionThreshold = std::clamp(mParallelDirectionThreshold, 0.0f, 1.0f);
+        mMinimumGridSize = std::max(mMinimumGridSize, 0.0f);
+        mMinimumAspectRatio = std::max(mMinimumAspectRatio, 0.0f);
+        mMinimumFovDegrees = std::max(mMinimumFovDegrees, 0.0f);
+        mMaximumFovDegrees = std::max(mMaximumFovDegrees, mMinimumFovDegrees);
+        mClipWMinimum = std::max(mClipWMinimum, 0.0f);
+        mMinimumProjectionDivisor = std::max(mMinimumProjectionDivisor, 0.0f);
+        mMinimumProjectionDepthSpan = std::max(mMinimumProjectionDepthSpan, 0.0f);
+        mDefaultDirectionalLightIntensity = std::max(mDefaultDirectionalLightIntensity, 0.0f);
+        mDefaultAmbientLightIntensity = std::max(mDefaultAmbientLightIntensity, 0.0f);
+        mCascadeMaximumDistance = std::max(mCascadeMaximumDistance, mMinimumNearPlane + mMinimumViewDistance);
         mCascadeSplitLambda = std::clamp(mCascadeSplitLambda, 0.0f, 1.0f);
         mCascadeNearRangeExpansionDistance = std::max(mCascadeNearRangeExpansionDistance, 0.0f);
-        mCascadeExpandedBoundaryCount = std::clamp(mCascadeExpandedBoundaryCount, 0, static_cast<std::int32_t>(RFD::ShadowCascadeMaxCount));
+        mCascadeExpandedBoundaryCount = std::clamp(mCascadeExpandedBoundaryCount, 0, static_cast<std::int32_t>(mCascadeCount));
     }
 
     const std::string& ShadowMappingParameterSystem::Name() const {
@@ -499,15 +635,18 @@ namespace Game {
             return FirstDirectionalLightParameter;
         }
 
-        return BuildDefaultDirectionalLightParameter();
+        return BuildDefaultDirectionalLightParameter(mDefaultDirectionalLightDirection, mDefaultDirectionalLightColor, mDefaultDirectionalLightIntensity, mDefaultAmbientLightIntensity, mDefaultDirectionalLightCastsShadow);
     }
 
     RFD::ShadowMappingParameter ShadowMappingParameterSystem::BuildShadowMappingParameter(const Camera& CameraComponent, const Transform& TransformComponent, const RFD::DirectionalLightParameter& DirectionalLightParameter) const {
         RFD::ShadowMappingParameter Parameter{};
         const DirectX::SimpleMath::Vector3 NormalizedLightDirection{ NormalizeDirection(DirectX::SimpleMath::Vector3{ DirectionalLightParameter.direction.x, DirectionalLightParameter.direction.y, DirectionalLightParameter.direction.z }) };
-        const int CascadeCount{ static_cast<int>(std::max<std::uint32_t>(1u, RFD::ShadowCascadeMaxCount)) };
+        const int CascadeCount{ static_cast<int>(std::max<std::uint32_t>(1u, std::min(mCascadeCount, RFD::ShadowCascadeMaxCount))) };
         Parameter.directionalLight = DirectionalLightParameter;
         Parameter.cascadeCount = static_cast<std::uint32_t>(CascadeCount);
+        Parameter.minimumShadowMapSize = mMinimumShadowMapSize;
+        Parameter.minimumProjectionDivisor = mMinimumProjectionDivisor;
+        Parameter.minimumProjectionDepthSpan = mMinimumProjectionDepthSpan;
 
         for (int CascadeIndex{ 0 }; CascadeIndex < CascadeCount; CascadeIndex += 1) {
             const std::size_t ShadowCascadeIndex{ static_cast<std::size_t>(CascadeIndex) };
@@ -517,8 +656,8 @@ namespace Game {
             Parameter.rasterDepthBiases[ShadowCascadeIndex] = mRasterDepthBiases[ShadowCascadeIndex];
             Parameter.rasterSlopeScaledDepthBiases[ShadowCascadeIndex] = mRasterSlopeScaledDepthBiases[ShadowCascadeIndex];
 
-            const ShadowCascadeRange CascadeRange{ ComputeCascadeRange(CameraComponent, CascadeIndex, CascadeCount, mCascadeSplitLambda, mCascadeMaximumDistance, mCascadeNearRangeExpansionDistance, mCascadeExpandedBoundaryCount) };
-            const std::array<DirectX::SimpleMath::Vector3, 8> FrustumCorners{ BuildCameraFrustumCorners(CameraComponent, TransformComponent, CascadeRange) };
+            const ShadowCascadeRange CascadeRange{ ComputeCascadeRange(CameraComponent, CascadeIndex, CascadeCount, mCascadeSplitLambda, mCascadeMaximumDistance, mCascadeNearRangeExpansionDistance, mCascadeExpandedBoundaryCount, mMinimumNearPlane, mMinimumViewDistance, mFirstCascadeCoverageDistance, mSecondCascadeCoverageScale) };
+            const std::array<DirectX::SimpleMath::Vector3, 8> FrustumCorners{ BuildCameraFrustumCorners(CameraComponent, TransformComponent, CascadeRange, mMinimumNearPlane, mMinimumExtent, mMinimumViewDistance, mMinimumAspectRatio, mMinimumFovDegrees, mMaximumFovDegrees, mClipWMinimum) };
             DirectX::SimpleMath::Matrix ShadowView{};
             DirectX::SimpleMath::Matrix ShadowProjection{};
             DirectX::SimpleMath::Matrix ShadowViewProjection{};
@@ -526,7 +665,7 @@ namespace Game {
             float ShadowNearPlane{ 0.0f };
             float ShadowFarPlane{ 0.0f };
             float ShadowAspectRatio{ 1.0f };
-            BuildShadowCameraFromFrustumCorners(FrustumCorners, NormalizedLightDirection, Parameter.shadowMapSizes[ShadowCascadeIndex], ShadowCascadeProjectionCoverageScale, ShadowView, ShadowProjection, ShadowViewProjection, ShadowCameraPosition, ShadowNearPlane, ShadowFarPlane, ShadowAspectRatio);
+            BuildShadowCameraFromFrustumCorners(FrustumCorners, NormalizedLightDirection, Parameter.shadowMapSizes[ShadowCascadeIndex], mProjectionCoverageScale, mMinimumExtent, mMinimumNearPlane, mMinimumFarOffset, mNearPlaneOffset, mFarPlaneOffset, mProjectionSizeOffset, mCameraBackOffset, mCasterDepthExpansionScale, mParallelDirectionThreshold, mMinimumGridSize, mMinimumShadowMapSize, mViewProjectionStabilizationEnabled, ShadowView, ShadowProjection, ShadowViewProjection, ShadowCameraPosition, ShadowNearPlane, ShadowFarPlane, ShadowAspectRatio);
 
             Parameter.shadowCameras[CascadeIndex].view = ShadowView;
             Parameter.shadowCameras[CascadeIndex].proj = ShadowProjection;

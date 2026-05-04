@@ -1,4 +1,5 @@
 ShadowMapping:
+  CascadeCount: 4
   Cascades:
     - ShadowMapSize: 4096
       ShadowBias: 0.001
@@ -24,3 +25,38 @@ ShadowMapping:
   CascadeSplitLambda: 0.85
   CascadeNearRangeExpansionDistance: 9.4
   CascadeExpandedBoundaryCount: 3
+  FirstCascadeCoverageDistance: 48
+  SecondCascadeCoverageScale: 2
+  MinimumNearPlane: 0.1
+  MinimumExtent: 1
+  MinimumViewDistance: 2
+  MinimumFarOffset: 0.25
+  NearPlaneOffset: 0.25
+  FarPlaneOffset: 0.35
+  ProjectionSizeOffset: 0.35
+  CameraBackOffset: 4
+  CasterDepthExpansionScale: 1
+  ProjectionCoverageScale: 1.1
+  ParallelDirectionThreshold: 0.98
+  MinimumGridSize: 1e-06
+  MinimumAspectRatio: 0.01
+  MinimumFovDegrees: 1
+  MaximumFovDegrees: 179
+  ClipWMinimum: 1e-06
+  MinimumShadowMapSize: 1
+  MinimumProjectionDivisor: 1e-06
+  MinimumProjectionDepthSpan: 0.001
+  ViewProjectionStabilizationEnabled: false
+  DefaultDirectionalLight:
+    Direction:
+      X: 0.4
+      Y: -1
+      Z: 0.35
+    Color:
+      X: 1
+      Y: 0.97
+      Z: 0.92
+      W: 1
+    Intensity: 1.2
+    AmbientIntensity: 0.25
+    CastsShadow: true

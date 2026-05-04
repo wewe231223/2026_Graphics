@@ -84,15 +84,15 @@ namespace Game {
             CameraParameter shadowCameras[ShadowCascadeMaxCount]{};
             DirectionalLightParameter directionalLight{};
             SimpleMath::Vector4 cascadeSplitDistances{};
-            float shadowBiases[ShadowCascadeMaxCount]{ 0.0010f, 0.0010f, 0.0010f, 0.0010f };
-            float shadowStrengths[ShadowCascadeMaxCount]{ 0.85f, 0.85f, 0.85f, 0.85f };
-            float shadowMapSizes[ShadowCascadeMaxCount]{ 4096.0f, 2048.0f, 2048.0f, 2048.0f };
-            float rasterDepthBiases[ShadowCascadeMaxCount]{ 1.0f, 1.0f, 1.0f, 1.0f };
-            float rasterSlopeScaledDepthBiases[ShadowCascadeMaxCount]{ 1.25f, 1.25f, 1.25f, 1.25f };
-            std::uint32_t cascadeCount{ ShadowCascadeMaxCount };
-            float padding0{ 0.0f };
-            float padding1{ 0.0f };
-            float padding2{ 0.0f };
+            float shadowBiases[ShadowCascadeMaxCount]{};
+            float shadowStrengths[ShadowCascadeMaxCount]{};
+            float shadowMapSizes[ShadowCascadeMaxCount]{};
+            float rasterDepthBiases[ShadowCascadeMaxCount]{};
+            float rasterSlopeScaledDepthBiases[ShadowCascadeMaxCount]{};
+            std::uint32_t cascadeCount{};
+            float minimumShadowMapSize{};
+            float minimumProjectionDivisor{};
+            float minimumProjectionDepthSpan{};
         };
 
         static_assert(sizeof(ShadowMappingParameter) == 1056);

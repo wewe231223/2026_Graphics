@@ -406,7 +406,7 @@ namespace Core {
 			const uint32_t RequiredShadowCascadeCount{ std::max<uint32_t>(1u, std::min<uint32_t>(ShadowMappingParameter.cascadeCount, Game::RFD::ShadowCascadeMaxCount)) };
 			std::array<uint32_t, Game::RFD::ShadowCascadeMaxCount> RequiredShadowMapSizes{};
 			for (uint32_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < RequiredShadowCascadeCount; ShadowCascadeIndex += 1) {
-				const float ShadowMapSizeFloat{ std::max(1.0f, ShadowMappingParameter.shadowMapSizes[ShadowCascadeIndex]) };
+				const float ShadowMapSizeFloat{ std::max(ShadowMappingParameter.minimumShadowMapSize, ShadowMappingParameter.shadowMapSizes[ShadowCascadeIndex]) };
 				const uint64_t ShadowMapSize{ static_cast<uint64_t>(ShadowMapSizeFloat) };
 				const uint64_t ClampedShadowMapSize{ std::min<uint64_t>(ShadowMapSize, static_cast<uint64_t>(D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION)) };
 				RequiredShadowMapSizes[ShadowCascadeIndex] = static_cast<uint32_t>(ClampedShadowMapSize);
