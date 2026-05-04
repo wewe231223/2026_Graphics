@@ -437,7 +437,10 @@ Entities:
         name: "Foliage1Actor"
         active: true
         actorType: Kinematic
-        mass: 0.0
+        mass: 100000.0
         flags: [IgnoreGravity, IgnoreTerrainCollide]
         friction: 0.6
         restitution: 0.1
+        BB:
+          Center: [0.158, 0.836, 0.160]
+          Extents: [0.5, 0.5, 0.5]

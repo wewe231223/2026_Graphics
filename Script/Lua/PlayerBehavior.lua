@@ -17,6 +17,7 @@ local DirectionDeltaDegreesParameterIndex = 2
 local JumpParameterIndex = 3
 local IsLandingParameterIndex = 4
 local IsRunningParameterIndex = 5
+local LandAnimationClipIndex = 3
 local Pi = math.pi
 local TwoPi = Pi * 2.0
 
@@ -85,6 +86,15 @@ end
 
 local function IsActiveCameraFreeLookMode()
     return IsFlagEnabled(GetActiveCameraFlags(), CameraFlagFreeLook)
+end
+
+local function IsLandClipPlaying(Context)
+    local AnimatorGraphPlayerComponent = Context:GetComponent("AnimatorGraphPlayer")
+    if AnimatorGraphPlayerComponent == nil then
+        return false
+    end
+
+    return AnimatorGraphPlayerComponent.SampleSourceClipIndex == LandAnimationClipIndex or AnimatorGraphPlayerComponent.SampleDestinationClipIndex == LandAnimationClipIndex
 end
 
 local function GetHorizontalVelocity(Velocity)
@@ -171,7 +181,11 @@ local function ResolveAirState(GroundDistance, Velocity)
     return IsGrounded, IsLanding
 end
 
-local function ApplyJumpImpulse(Context, IsGrounded)
+local function ApplyJumpImpulse(Context, IsGrounded, IsJumpInputLocked)
+    if IsJumpInputLocked == true then
+        return false
+    end
+
     if IsInputKeyPressed(Space) == false then
         return false
     end
@@ -265,18 +279,24 @@ function Update(Context, DeltaSeconds)
         return
     end
 
-    local IsRunningInput = IsRunInputDown()
+    local IsLandClipActive = IsLandClipPlaying(Context)
+    local PhysicsActorComponent = Context:GetComponent("PhysicsActor")
+    local CurrentVelocity = GetPhysicsVelocity(PhysicsActorComponent)
+    local GroundDistance = GetGroundDistance(TransformComponent)
+    local IsGrounded, IsLandingDetected = ResolveAirState(GroundDistance, CurrentVelocity)
+    local IsInputLocked = IsLandClipActive
+    local IsRunningInput = IsInputLocked == false and IsRunInputDown()
     local MoveInput = BuildMoveInput()
+    if IsInputLocked == true then
+        MoveInput = Vector2.new(0.0, 0.0)
+    end
+
     local FinalTargetDirection = BuildFinalTargetDirection(MoveInput)
     local RemainingDirectionDeltaRadians = ApplySmoothedYawRotation(TransformComponent, FinalTargetDirection, DeltaSeconds)
     local CurrentSpeed = ApplyMovementForce(Context, TransformComponent, MoveInput, IsRunningInput)
     local IsMoving = CurrentSpeed > 0.0
     local IsRunning = IsMoving and IsRunningInput
-    local PhysicsActorComponent = Context:GetComponent("PhysicsActor")
-    local CurrentVelocity = GetPhysicsVelocity(PhysicsActorComponent)
-    local GroundDistance = GetGroundDistance(TransformComponent)
-    local IsGrounded, IsLandingDetected = ResolveAirState(GroundDistance, CurrentVelocity)
-    local IsJumpStarted = ApplyJumpImpulse(Context, IsGrounded)
+    local IsJumpStarted = ApplyJumpImpulse(Context, IsGrounded, IsInputLocked)
 
     if IsJumpStarted == true then
         SetJumpTrigger(RuntimeVariableTableComponent)
