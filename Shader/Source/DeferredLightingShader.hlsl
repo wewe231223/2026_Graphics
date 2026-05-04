@@ -52,7 +52,7 @@ float4 PsMain(DeferredLightingVertexOutput Input) : SV_TARGET {
     const uint Flags = NormalFlags.w > 0.5f ? 0x1u : 0u;
     
     
-    //return ResolveFlags(LitColor, Flags);
+    return ResolveFlags(LitColor, Flags);
     
     return float4(WorldNormal, 1.f);
     

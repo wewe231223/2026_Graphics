@@ -87,7 +87,7 @@
                                 "Kind": "None"
                             },
                             "Normal Texture": {
-                                "Kind": "String",
+                                "Kind": "None",
                                 "String" : "Foilage1_Norm"
                             },
                             "Displacement Texture": {
@@ -98,6 +98,10 @@
                             },
                             "Lightmap Texture": {
                                 "Kind": "None"
+                            },
+                            "Normal Scale": {
+                                "Kind": "Real",
+                                "Real": 3.0
                             }
                         }
                     }

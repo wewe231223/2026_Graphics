@@ -174,7 +174,7 @@ Entities:
         direction: [0.4, -1.0, 0.35]
         color: [1.0, 0.97, 0.92]
         intensity: 1.7
-        ambientIntensity: 0.25
+        ambientIntensity: 0.35
       Script:
         text: Script/Lua/SunCycle.lua
   - EntityId: 9
