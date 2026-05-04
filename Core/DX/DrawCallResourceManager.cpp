@@ -1,6 +1,7 @@
 #include "DrawCallResourceManager.h"
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <tuple>
 #include <vector>
 #include "Core/DX/GraphicsAllocator.h"
@@ -11,6 +12,18 @@ namespace Core {
 		namespace {
 			SimpleMath::Matrix BuildGpuMatrix(const SimpleMath::Matrix& SourceMatrix) {
 				return SourceMatrix.Transpose();
+			}
+
+			SimpleMath::Vector3 ResolveDirectionalLightDirection(const SimpleMath::Vector4& Direction) {
+				const float DirectionLengthSquared{ (Direction.x * Direction.x) + (Direction.y * Direction.y) + (Direction.z * Direction.z) };
+				if (DirectionLengthSquared <= 0.0f) {
+					const SimpleMath::Vector3 DefaultDirection{ 0.4f, -1.0f, 0.35f };
+					const float DefaultDirectionLengthInverse{ 1.0f / std::sqrt((DefaultDirection.x * DefaultDirection.x) + (DefaultDirection.y * DefaultDirection.y) + (DefaultDirection.z * DefaultDirection.z)) };
+					return SimpleMath::Vector3{ DefaultDirection.x * DefaultDirectionLengthInverse, DefaultDirection.y * DefaultDirectionLengthInverse, DefaultDirection.z * DefaultDirectionLengthInverse };
+				}
+
+				const float DirectionLengthInverse{ 1.0f / std::sqrt(DirectionLengthSquared) };
+				return SimpleMath::Vector3{ Direction.x * DirectionLengthInverse, Direction.y * DirectionLengthInverse, Direction.z * DirectionLengthInverse };
 			}
 
 			Game::RFD::FrameGlobals BuildGpuFrameGlobals(const Game::RFD::FrameGlobals& SourceFrameGlobals) {
@@ -30,8 +43,16 @@ namespace Core {
 				return GpuCameraParameter;
 			}
 
+			Game::RFD::DirectionalLightParameter BuildGpuDirectionalLightParameter(const Game::RFD::DirectionalLightParameter& SourceDirectionalLightParameter) {
+				Game::RFD::DirectionalLightParameter GpuDirectionalLightParameter{ SourceDirectionalLightParameter };
+				const SimpleMath::Vector3 Direction{ ResolveDirectionalLightDirection(SourceDirectionalLightParameter.direction) };
+				GpuDirectionalLightParameter.direction = SimpleMath::Vector4{ Direction.x, Direction.y, Direction.z, SourceDirectionalLightParameter.direction.w };
+				return GpuDirectionalLightParameter;
+			}
+
 			Game::RFD::ShadowMappingParameter BuildGpuShadowMappingParameter(const Game::RFD::ShadowMappingParameter& SourceShadowMappingParameter) {
 				Game::RFD::ShadowMappingParameter GpuShadowMappingParameter{ SourceShadowMappingParameter };
+				GpuShadowMappingParameter.directionalLight = BuildGpuDirectionalLightParameter(SourceShadowMappingParameter.directionalLight);
 				for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < Game::RFD::ShadowCascadeMaxCount; CascadeIndex += 1) {
 					GpuShadowMappingParameter.shadowCameras[CascadeIndex] = BuildGpuCameraParameter(SourceShadowMappingParameter.shadowCameras[CascadeIndex]);
 				}

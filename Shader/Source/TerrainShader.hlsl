@@ -5,6 +5,7 @@ SamplerState LinearWrapSampler : register(s0);
 SamplerComparisonState ShadowComparisonSampler : register(s1);
 
 static const uint InvalidSrvDescriptorIndex = 0xffffffffu;
+static const float TerrainSplatWeightSaturationThreshold = 0.999f;
 
 struct TerrainVertexInput
 {
@@ -389,36 +390,19 @@ float4 SampleGeneratedTerrainSplatMap(TerrainPatchContextGpu PatchContext, float
     return saturate(lerp(SplatX0, SplatX1, Blend.y));
 }
 
-float ResolveTerrainLayerWeight(MaterialGpu MaterialData, StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer, TerrainPatchContextGpu PatchContext, float2 BaseUv, uint LayerIndex, bool HasSplatMapValue, bool HasGeneratedSplatMapValue, float4 GeneratedSplatCache)
+float4 ResolveTerrainSplatMapWeights(MaterialGpu MaterialData, StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer, float2 BaseUv, uint SplatMapIndex)
 {
-    if (HasSplatMapValue == false)
-    {
-        if (HasGeneratedSplatMapValue == true)
-        {
-            if (LayerIndex >= 4u)
-            {
-                return 0.0f;
-            }
-
-            return saturate(GeneratedSplatCache[LayerIndex]);
-        }
-
-        return LayerIndex == 0u ? 1.0f : 0.0f;
-    }
-
-    const uint SplatMapIndex = LayerIndex / 4u;
-    const uint SplatChannelIndex = LayerIndex & 3u;
     const int64_t TextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_TERRAIN_SPLAT_TEXTURE0 + SplatMapIndex].IntValue;
     const uint TextureSrvIndex = ResolveMaterialTextureSrvIndex(MaterialTextureTableBuffer, TextureTableIndex);
     if (TextureSrvIndex == InvalidSrvDescriptorIndex)
     {
-        return 0.0f;
+        return float4(0.0f, 0.0f, 0.0f, 0.0f);
     }
 
     const float4 SplatUvTransform = MaterialData.Fields[MATERIAL_TYPE_TERRAIN_SPLAT_UV_TRANSFORM0 + SplatMapIndex].FloatValue;
     const float2 SplatUv = ResolveTerrainTransformedUv(BaseUv, SplatUvTransform);
     Texture2D<float4> SplatTexture = ResourceDescriptorHeap[NonUniformResourceIndex(TextureSrvIndex)];
-    return saturate(SplatTexture.Sample(LinearWrapSampler, SplatUv)[SplatChannelIndex]);
+    return saturate(SplatTexture.Sample(LinearWrapSampler, SplatUv));
 }
 
 float4 ResolveTerrainLayerDiffuse(MaterialGpu MaterialData, StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer, float2 LayerBaseUv, uint LayerIndex, float4 FallbackColor)
@@ -479,27 +463,78 @@ void ResolveTerrainMaterial(MaterialGpu MaterialData, StructuredBuffer<MaterialT
         return;
     }
 
-    const float4 GeneratedSplatCache = (HasSplatMapValue == false && HasGeneratedSplatMapValue == true)
-        ? SampleGeneratedTerrainSplatMap(PatchContext, BaseUv)
-        : float4(0.0f, 0.0f, 0.0f, 0.0f);
     const uint EffectiveLayerCount = (HasSplatMapValue == false && HasGeneratedSplatMapValue == true) ? min(LayerCount, 4u) : LayerCount;
 
     float4 AccumulatedColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
     float3 AccumulatedNormal = float3(0.0f, 0.0f, 0.0f);
     float TotalWeight = 0.0f;
 
-    [loop]
-    for (uint LayerIndex = 0u; LayerIndex < EffectiveLayerCount; LayerIndex += 1u)
+    if (HasSplatMapValue)
     {
-        const float LayerWeight = ResolveTerrainLayerWeight(MaterialData, MaterialTextureTableBuffer, PatchContext, BaseUv, LayerIndex, HasSplatMapValue, HasGeneratedSplatMapValue, GeneratedSplatCache);
-        if (LayerWeight <= 0.0f)
+        bool IsWeightSaturated = false;
+        [loop]
+        for (uint SplatMapIndex = 0u; SplatMapIndex < TERRAIN_MAX_SPLAT_MAP_COUNT; SplatMapIndex += 1u)
         {
-            continue;
-        }
+            const uint LayerBaseIndex = SplatMapIndex * 4u;
+            if (LayerBaseIndex >= EffectiveLayerCount)
+            {
+                break;
+            }
 
-        AccumulatedColor += ResolveTerrainLayerDiffuse(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, LayerIndex, FallbackColor) * LayerWeight;
-        AccumulatedNormal += ResolveTerrainLayerNormalTangent(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, LayerIndex, NormalScale) * LayerWeight;
-        TotalWeight += LayerWeight;
+            const float4 SplatWeights = ResolveTerrainSplatMapWeights(MaterialData, MaterialTextureTableBuffer, BaseUv, SplatMapIndex);
+            [unroll]
+            for (uint SplatChannelIndex = 0u; SplatChannelIndex < 4u; SplatChannelIndex += 1u)
+            {
+                const uint LayerIndex = LayerBaseIndex + SplatChannelIndex;
+                if (LayerIndex >= EffectiveLayerCount)
+                {
+                    break;
+                }
+
+                const float LayerWeight = SplatWeights[SplatChannelIndex];
+                if (LayerWeight <= 0.0f)
+                {
+                    continue;
+                }
+
+                AccumulatedColor += ResolveTerrainLayerDiffuse(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, LayerIndex, FallbackColor) * LayerWeight;
+                AccumulatedNormal += ResolveTerrainLayerNormalTangent(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, LayerIndex, NormalScale) * LayerWeight;
+                TotalWeight += LayerWeight;
+
+                if (TotalWeight >= TerrainSplatWeightSaturationThreshold)
+                {
+                    IsWeightSaturated = true;
+                    break;
+                }
+            }
+
+            if (IsWeightSaturated)
+            {
+                break;
+            }
+        }
+    }
+    else
+    {
+        const float4 GeneratedSplatCache = SampleGeneratedTerrainSplatMap(PatchContext, BaseUv);
+        [loop]
+        for (uint LayerIndex = 0u; LayerIndex < EffectiveLayerCount; LayerIndex += 1u)
+        {
+            const float LayerWeight = saturate(GeneratedSplatCache[LayerIndex]);
+            if (LayerWeight <= 0.0f)
+            {
+                continue;
+            }
+
+            AccumulatedColor += ResolveTerrainLayerDiffuse(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, LayerIndex, FallbackColor) * LayerWeight;
+            AccumulatedNormal += ResolveTerrainLayerNormalTangent(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, LayerIndex, NormalScale) * LayerWeight;
+            TotalWeight += LayerWeight;
+
+            if (TotalWeight >= TerrainSplatWeightSaturationThreshold)
+            {
+                break;
+            }
+        }
     }
 
     if (TotalWeight <= 0.0f)

@@ -81,21 +81,15 @@ GBufferOutput PsMain(VertexOutput Input) {
 
     const MaterialGpu MaterialData = MaterialBuffer[Input.MaterialIndex];
     const int64_t DiffuseColorTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_TEXTURE].IntValue;
+    const uint DiffuseTextureSrvIndex = ResolveMaterialTextureSrvDescriptorIndex(MaterialTextureTableBuffer, DiffuseColorTextureTableIndex);
+    if (DiffuseTextureSrvIndex != 0xffffffffu) {
+        Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[NonUniformResourceIndex(DiffuseTextureSrvIndex)];
+        const float4 SampledColor = ApplyMaterialOpacity(ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0)), MaterialData);
+        return BuildGBufferOutput(SampledColor, Input.Normal, Input.WorldPosition, Input.Flags);
+    }
+
     const float4 FallbackColor = ApplyMaterialOpacity(ResolveMaterialColorFallback(MaterialData), MaterialData);
-
-    if (DiffuseColorTextureTableIndex < 0) {
-        return BuildGBufferOutput(FallbackColor, Input.Normal, Input.WorldPosition, Input.Flags);
-    }
-
-    const uint TextureTableIndex = (uint)DiffuseColorTextureTableIndex;
-    const uint TextureSrvIndex = MaterialTextureTableBuffer[TextureTableIndex].TextureSrvDescriptorIndex;
-    if (TextureSrvIndex == 0xffffffffu) {
-        return BuildGBufferOutput(FallbackColor, Input.Normal, Input.WorldPosition, Input.Flags);
-    }
-    
-    Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[TextureSrvIndex];
-    const float4 SampledColor = ApplyMaterialOpacity(ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0)), MaterialData);
-    return BuildGBufferOutput(SampledColor, Input.Normal, Input.WorldPosition, Input.Flags);
+    return BuildGBufferOutput(FallbackColor, Input.Normal, Input.WorldPosition, Input.Flags);
 }
 
 void PsMainDepthAlphaCutoff(DepthAlphaCutoffVertexOutput Input) {
@@ -104,12 +98,14 @@ void PsMainDepthAlphaCutoff(DepthAlphaCutoffVertexOutput Input) {
 
     const MaterialGpu MaterialData = MaterialBuffer[Input.MaterialIndex];
     const int64_t DiffuseColorTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_TEXTURE].IntValue;
-    float Alpha = ApplyMaterialOpacity(ResolveMaterialColorFallback(MaterialData), MaterialData).a;
-
     const uint DiffuseTextureSrvIndex = ResolveMaterialTextureSrvDescriptorIndex(MaterialTextureTableBuffer, DiffuseColorTextureTableIndex);
+    float Alpha = 0.0f;
     if (DiffuseTextureSrvIndex != 0xffffffffu) {
         Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[NonUniformResourceIndex(DiffuseTextureSrvIndex)];
-        Alpha = ApplyMaterialOpacity(ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0)), MaterialData).a;
+        Alpha = ApplyMaterialOpacity(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0), MaterialData).a;
+    }
+    else {
+        Alpha = ApplyMaterialOpacity(ResolveMaterialColorFallback(MaterialData), MaterialData).a;
     }
 
     ApplyMaterialAlphaCut(Alpha, MaterialData);

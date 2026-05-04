@@ -76,13 +76,16 @@ GBufferOutput PsMain(FoliageVertexOutput Input) {
     const MaterialGpu MaterialData = MaterialBuffer[Input.MaterialIndex];
     const int64_t DiffuseColorTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_TEXTURE].IntValue;
     const int64_t NormalTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_NORMAL_TEXTURE].IntValue;
-    float4 BaseColor = ResolveMaterialColorFallback(MaterialData);
+    float4 BaseColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
     float3 WorldNormal = Input.Normal;
 
     const uint DiffuseTextureSrvIndex = ResolveMaterialTextureSrvDescriptorIndex(MaterialTextureTableBuffer, DiffuseColorTextureTableIndex);
     if (DiffuseTextureSrvIndex != 0xffffffffu) {
         Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[NonUniformResourceIndex(DiffuseTextureSrvIndex)];
         BaseColor = ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
+    }
+    else {
+        BaseColor = ResolveMaterialColorFallback(MaterialData);
     }
 
     BaseColor = ApplyMaterialOpacity(BaseColor, MaterialData);

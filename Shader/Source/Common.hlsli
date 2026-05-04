@@ -227,7 +227,8 @@ float3 ResolveTbnNormalMappedWorldNormal(float3 WorldNormal, float3 WorldTangent
 
 float3 DecodeSrgbColor(float3 Color)
 {
-    return pow(saturate(Color), 2.2f);
+    const float3 SaturatedColor = saturate(Color);
+    return SaturatedColor * ((SaturatedColor * ((SaturatedColor * 0.305306011f) + 0.682171111f)) + 0.012522878f);
 }
 
 float4 ApplyBaseColor(float4 Color)
@@ -330,13 +331,7 @@ bool DoesDirectionalLightCastShadow(DirectionalLightParameterGpu LightParameter)
 }
 
 float3 ResolveDirectionalLightDirection(DirectionalLightParameterGpu LightParameter) {
-    const float DirectionLengthSquared = dot(LightParameter.Direction.xyz, LightParameter.Direction.xyz);
-    if (DirectionLengthSquared <= 0.0f)
-    {
-        return DefaultDirectionalLightDirection;
-    }
-
-    return normalize(LightParameter.Direction.xyz);
+    return LightParameter.Direction.xyz;
 }
 
 float3 ApplyDirectionalLight(float3 BaseRgb, float3 WorldNormal, DirectionalLightParameterGpu LightParameter)
@@ -432,19 +427,13 @@ float ComputeShadowVisibility(Texture2D<float> ShadowMapTexture, SamplerComparis
     const float ReceiverDepth = ShadowNdcPosition.z - ShadowBias;
     const float TexelSize = ShadowMapSize > 0.0f ? (1.0f / ShadowMapSize) : 0.0f;
 
+    const float2 HalfTexelOffset = float2(TexelSize * 0.5f, TexelSize * 0.5f);
     float Visibility = 0.0f;
-    [unroll]
-    for (int SampleY = -1; SampleY <= 1; ++SampleY)
-    {
-        [unroll]
-        for (int SampleX = -1; SampleX <= 1; ++SampleX)
-        {
-            float2 SampleOffset = float2((float) SampleX, (float) SampleY) * TexelSize;
-            Visibility += ShadowMapTexture.SampleCmpLevelZero(ShadowComparisonSampler, ShadowUv + SampleOffset, ReceiverDepth);
-        }
-    }
-
-    return saturate(Visibility / 9.0f);
+    Visibility += ShadowMapTexture.SampleCmpLevelZero(ShadowComparisonSampler, ShadowUv + float2(-HalfTexelOffset.x, -HalfTexelOffset.y), ReceiverDepth);
+    Visibility += ShadowMapTexture.SampleCmpLevelZero(ShadowComparisonSampler, ShadowUv + float2(HalfTexelOffset.x, -HalfTexelOffset.y), ReceiverDepth);
+    Visibility += ShadowMapTexture.SampleCmpLevelZero(ShadowComparisonSampler, ShadowUv + float2(-HalfTexelOffset.x, HalfTexelOffset.y), ReceiverDepth);
+    Visibility += ShadowMapTexture.SampleCmpLevelZero(ShadowComparisonSampler, ShadowUv + float2(HalfTexelOffset.x, HalfTexelOffset.y), ReceiverDepth);
+    return saturate(Visibility * 0.25f);
 }
 
 float3 ResolveCascadeShadowColor(uint CascadeIndex)
