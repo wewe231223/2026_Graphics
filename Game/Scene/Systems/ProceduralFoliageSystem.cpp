@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <limits>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <unordered_map>
@@ -33,13 +34,14 @@
 #include "Game/Scene/Components/Culling.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Material.h"
+#include "Game/Scene/Components/PhysicsActor.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/TerrainRenderer.h"
 #include "Game/Scene/Components/Transform.h"
+#include "PhysicsLib/Actors/PhysicsStaticActor.h"
 #include "Utility/ErrorHandler.h"
 
 namespace {
-    constexpr float FoliageInactiveHeight{ -100000.0f };
     constexpr float FoliageEpsilon{ 0.0001f };
     constexpr float FoliageTwoPi{ 6.28318530717958647692f };
     constexpr std::uint32_t FoliageHashOffset{ 2166136261u };
@@ -63,29 +65,69 @@ namespace {
         std::uint32_t mInstancesPerCell{ 1u };
         float mDensityMultiplier{ 1.0f };
         float mSpawnChance{ 1.0f };
-        float mMinimumWeight{ 0.35f };
-        float mMinimumScale{ 0.85f };
-        float mMaximumScale{ 1.25f };
-        float mMinimumYawDegrees{ 0.0f };
-        float mMaximumYawDegrees{ 360.0f };
-        float mClusterStrength{ 0.0f };
-        float mClusterScale{ 96.0f };
+        float mMinimumWeight{};
+        float mMinimumScale{ 1.0f };
+        float mMaximumScale{ 1.0f };
+        float mMinimumYawDegrees{};
+        float mMaximumYawDegrees{};
+        float mClusterStrength{};
+        float mClusterScale{};
         float mClusterContrast{ 1.0f };
         float mClusterCoverage{ 1.0f };
-        float mClusterEdgeSoftness{ 0.12f };
-        float mClusterOutsideDensity{ 0.0f };
-        float mOffsetY{ 0.0f };
+        float mClusterEdgeSoftness{};
+        float mClusterOutsideDensity{};
+        float mOffsetY{};
+        float mMinimumSpacing{};
+        bool mCollisionActorEnabled{ false };
+        SimpleMath::Vector3 mCollisionCenter{};
+        SimpleMath::Vector3 mCollisionExtents{};
+        float mCollisionFriction{};
+        float mCollisionRestitution{};
     };
 
     struct FoliagePlacementConfig final {
     public:
         std::vector<FoliagePlacementRule> mRules{};
         bool mEnabled{ true };
-        float mPlacementRadius{ 220.0f };
-        float mCellSize{ 28.0f };
-        float mUpdateInterval{ 0.15f };
+        float mInactiveHeight{};
+        float mPlacementRadius{};
+        float mCellSize{ 1.0f };
+        float mUpdateInterval{};
         float mDensityMultiplier{ 1.0f };
-        std::uint32_t mSeedSalt{ 64123u };
+        std::uint32_t mCandidateRandomXStream{};
+        std::uint32_t mCandidateRandomZStream{};
+        std::uint32_t mCandidateRandomChanceStream{};
+        std::uint32_t mCandidateRandomYawStream{};
+        std::uint32_t mCandidateRandomScaleStream{};
+        std::uint32_t mClusterCornerStream{};
+        float mClusterDensityMaximum{ 1.0f };
+        float mClusterScaleMinimumCellMultiplier{};
+        float mClumpGridScaleMultiplier{};
+        float mClumpGridScaleMinimumCellMultiplier{};
+        float mClumpCenterOffset{};
+        float mClumpCenterJitter{};
+        std::uint32_t mClumpCenterXStream{};
+        std::uint32_t mClumpCenterZStream{};
+        std::uint32_t mClumpAngleStream{};
+        std::uint32_t mClumpDistanceStream{};
+        float mClumpRadiusScale{};
+        float mClumpPullStrengthScale{};
+        float mClumpPullStrengthMaximum{};
+        bool mForestEnabled{ false };
+        float mForestMinimumWidth{};
+        float mForestPatchScale{ 1.0f };
+        float mForestPatchCoverage{ 1.0f };
+        float mForestPatchContrast{ 1.0f };
+        float mForestPatchEdgeSoftness{};
+        float mForestOutsideDensity{};
+        std::uint32_t mForestPatchNoiseIndex{};
+        std::uint32_t mForestPatchCornerStream{};
+        float mForestMinimumAreaFactor{};
+        float mForestWidthSampleRadiusScale{};
+        float mForestWidthDiagonalSampleScale{};
+        float mForestWidthRequiredSampleRatio{};
+        std::uint32_t mMinimumSpacingPriorityStream{};
+        std::uint32_t mSeedSalt{};
     };
 
     struct FoliageRuntimeLod final {
@@ -139,6 +181,9 @@ namespace {
         FoliageCandidateKey mKey{};
         Arche::EntityID mRootEntityId{ Arche::NullEntityID };
         std::vector<std::vector<Arche::EntityID>> mRenderEntityIdsByLod{};
+        PhysicsActorBase* mCollisionActorPointer{ nullptr };
+        std::uint32_t mCollisionActorIndex{ 0u };
+        float mInactiveHeight{};
         std::uint32_t mRuleIndex{ 0u };
         std::uint32_t mActiveLodIndex{ std::numeric_limits<std::uint32_t>::max() };
         bool mActive{ false };
@@ -199,60 +244,75 @@ namespace {
         return SmoothStep01((Value - Start) / (End - Start));
     }
 
-    float SampleClusterCorner(std::uint32_t TerrainSeed, std::uint32_t Salt, std::int32_t GridX, std::int32_t GridZ, std::uint32_t ClusterIndex) {
-        return HashToUnitFloat(BuildClusterHash(TerrainSeed, Salt, GridX, GridZ, ClusterIndex, 71u));
+    float SampleClusterCorner(std::uint32_t TerrainSeed, std::uint32_t Salt, std::int32_t GridX, std::int32_t GridZ, std::uint32_t ClusterIndex, std::uint32_t Stream) {
+        return HashToUnitFloat(BuildClusterHash(TerrainSeed, Salt, GridX, GridZ, ClusterIndex, Stream));
     }
 
-    float SampleValueNoise01(std::uint32_t TerrainSeed, std::uint32_t Salt, float X, float Z, std::uint32_t ClusterIndex) {
+    float SampleValueNoise01(std::uint32_t TerrainSeed, std::uint32_t Salt, float X, float Z, std::uint32_t ClusterIndex, std::uint32_t Stream) {
         const std::int32_t X0{ static_cast<std::int32_t>(std::floor(X)) };
         const std::int32_t Z0{ static_cast<std::int32_t>(std::floor(Z)) };
         const std::int32_t X1{ X0 + 1 };
         const std::int32_t Z1{ Z0 + 1 };
         const float BlendX{ SmoothStep01(X - static_cast<float>(X0)) };
         const float BlendZ{ SmoothStep01(Z - static_cast<float>(Z0)) };
-        const float Value00{ SampleClusterCorner(TerrainSeed, Salt, X0, Z0, ClusterIndex) };
-        const float Value10{ SampleClusterCorner(TerrainSeed, Salt, X1, Z0, ClusterIndex) };
-        const float Value01{ SampleClusterCorner(TerrainSeed, Salt, X0, Z1, ClusterIndex) };
-        const float Value11{ SampleClusterCorner(TerrainSeed, Salt, X1, Z1, ClusterIndex) };
+        const float Value00{ SampleClusterCorner(TerrainSeed, Salt, X0, Z0, ClusterIndex, Stream) };
+        const float Value10{ SampleClusterCorner(TerrainSeed, Salt, X1, Z0, ClusterIndex, Stream) };
+        const float Value01{ SampleClusterCorner(TerrainSeed, Salt, X0, Z1, ClusterIndex, Stream) };
+        const float Value11{ SampleClusterCorner(TerrainSeed, Salt, X1, Z1, ClusterIndex, Stream) };
         const float ValueX0{ Lerp(Value00, Value10, BlendX) };
         const float ValueX1{ Lerp(Value01, Value11, BlendX) };
         return Lerp(ValueX0, ValueX1, BlendZ);
     }
 
-    float SampleFoliageClusterFactor(std::uint32_t TerrainSeed, std::uint32_t Salt, const FoliagePlacementRule& Rule, std::uint32_t ClusterIndex, float WorldX, float WorldZ) {
+    float SampleFoliageClusterFactor(std::uint32_t TerrainSeed, const FoliagePlacementConfig& Config, const FoliagePlacementRule& Rule, std::uint32_t ClusterIndex, float WorldX, float WorldZ) {
         if (Rule.mClusterStrength <= 0.0f) {
             return 1.0f;
         }
 
         const float ClusterScale{ (std::max)(Rule.mClusterScale, 1.0f) };
-        const float NoiseValue{ SampleValueNoise01(TerrainSeed, Salt, WorldX / ClusterScale, WorldZ / ClusterScale, ClusterIndex) };
+        const float NoiseValue{ SampleValueNoise01(TerrainSeed, Config.mSeedSalt, WorldX / ClusterScale, WorldZ / ClusterScale, ClusterIndex, Config.mClusterCornerStream) };
         const float ContrastedValue{ std::clamp(((NoiseValue - 0.5f) * Rule.mClusterContrast) + 0.5f, 0.0f, 1.0f) };
         const float Coverage{ std::clamp(Rule.mClusterCoverage, 0.01f, 1.0f) };
         const float Threshold{ 1.0f - Coverage };
         const float EdgeSoftness{ (std::max)(Rule.mClusterEdgeSoftness, 0.0f) };
         const float ClusterMask{ SmoothStepRange(Threshold - EdgeSoftness, Threshold + EdgeSoftness, ContrastedValue) };
-        const float ClusterBoost{ std::min(1.0f / Coverage, 2.5f) };
+        const float ClusterBoost{ std::min(1.0f / Coverage, Config.mClusterDensityMaximum) };
         const float ClusterDensity{ Lerp(Rule.mClusterOutsideDensity, ClusterBoost, ClusterMask) };
-        return std::clamp(Lerp(1.0f, ClusterDensity, Rule.mClusterStrength), 0.0f, 2.5f);
+        return std::clamp(Lerp(1.0f, ClusterDensity, Rule.mClusterStrength), 0.0f, Config.mClusterDensityMaximum);
     }
 
-    void ApplyFoliageClumpPosition(std::uint32_t TerrainSeed, std::uint32_t Salt, const FoliagePlacementRule& Rule, const FoliageCandidateKey& Key, std::uint32_t ClusterIndex, float CellSize, float& WorldX, float& WorldZ) {
+    float SampleForestAreaFactor(std::uint32_t TerrainSeed, const FoliagePlacementConfig& Config, float WorldX, float WorldZ) {
+        if (Config.mForestEnabled == false) {
+            return 1.0f;
+        }
+
+        const float PatchScale{ (std::max)(Config.mForestPatchScale, 1.0f) };
+        const float NoiseValue{ SampleValueNoise01(TerrainSeed, Config.mSeedSalt, WorldX / PatchScale, WorldZ / PatchScale, Config.mForestPatchNoiseIndex, Config.mForestPatchCornerStream) };
+        const float ContrastedValue{ std::clamp(((NoiseValue - 0.5f) * Config.mForestPatchContrast) + 0.5f, 0.0f, 1.0f) };
+        const float Coverage{ std::clamp(Config.mForestPatchCoverage, 0.01f, 1.0f) };
+        const float Threshold{ 1.0f - Coverage };
+        const float EdgeSoftness{ (std::max)(Config.mForestPatchEdgeSoftness, 0.0f) };
+        const float ForestMask{ SmoothStepRange(Threshold - EdgeSoftness, Threshold + EdgeSoftness, ContrastedValue) };
+        return std::clamp(Lerp(Config.mForestOutsideDensity, 1.0f, ForestMask), 0.0f, 1.0f);
+    }
+
+    void ApplyFoliageClumpPosition(std::uint32_t TerrainSeed, const FoliagePlacementConfig& Config, const FoliagePlacementRule& Rule, const FoliageCandidateKey& Key, std::uint32_t ClusterIndex, float CellSize, float& WorldX, float& WorldZ) {
         if (Rule.mClusterStrength <= 0.0f) {
             return;
         }
 
-        const float ClusterScale{ (std::max)(Rule.mClusterScale, CellSize * 2.0f) };
-        const float ClumpGridScale{ (std::max)(ClusterScale * 0.35f, CellSize * 2.0f) };
+        const float ClusterScale{ (std::max)(Rule.mClusterScale, CellSize * Config.mClusterScaleMinimumCellMultiplier) };
+        const float ClumpGridScale{ (std::max)(ClusterScale * Config.mClumpGridScaleMultiplier, CellSize * Config.mClumpGridScaleMinimumCellMultiplier) };
         const std::int32_t ClumpGridX{ static_cast<std::int32_t>(std::floor(WorldX / ClumpGridScale)) };
         const std::int32_t ClumpGridZ{ static_cast<std::int32_t>(std::floor(WorldZ / ClumpGridScale)) };
-        const float CenterX{ (static_cast<float>(ClumpGridX) + 0.2f + (HashToUnitFloat(BuildClusterHash(TerrainSeed, Salt, ClumpGridX, ClumpGridZ, ClusterIndex, 113u)) * 0.6f)) * ClumpGridScale };
-        const float CenterZ{ (static_cast<float>(ClumpGridZ) + 0.2f + (HashToUnitFloat(BuildClusterHash(TerrainSeed, Salt, ClumpGridX, ClumpGridZ, ClusterIndex, 127u)) * 0.6f)) * ClumpGridScale };
-        const float Angle{ HashToUnitFloat(BuildCandidateHash(TerrainSeed, Salt, Key, 139u)) * FoliageTwoPi };
-        const float DistanceAlpha{ std::sqrt(HashToUnitFloat(BuildCandidateHash(TerrainSeed, Salt, Key, 149u))) };
-        const float ClumpRadius{ ClumpGridScale * 0.22f };
+        const float CenterX{ (static_cast<float>(ClumpGridX) + Config.mClumpCenterOffset + (HashToUnitFloat(BuildClusterHash(TerrainSeed, Config.mSeedSalt, ClumpGridX, ClumpGridZ, ClusterIndex, Config.mClumpCenterXStream)) * Config.mClumpCenterJitter)) * ClumpGridScale };
+        const float CenterZ{ (static_cast<float>(ClumpGridZ) + Config.mClumpCenterOffset + (HashToUnitFloat(BuildClusterHash(TerrainSeed, Config.mSeedSalt, ClumpGridX, ClumpGridZ, ClusterIndex, Config.mClumpCenterZStream)) * Config.mClumpCenterJitter)) * ClumpGridScale };
+        const float Angle{ HashToUnitFloat(BuildCandidateHash(TerrainSeed, Config.mSeedSalt, Key, Config.mClumpAngleStream)) * FoliageTwoPi };
+        const float DistanceAlpha{ std::sqrt(HashToUnitFloat(BuildCandidateHash(TerrainSeed, Config.mSeedSalt, Key, Config.mClumpDistanceStream))) };
+        const float ClumpRadius{ ClumpGridScale * Config.mClumpRadiusScale };
         const float TargetX{ CenterX + (std::cos(Angle) * DistanceAlpha * ClumpRadius) };
         const float TargetZ{ CenterZ + (std::sin(Angle) * DistanceAlpha * ClumpRadius) };
-        const float PullStrength{ std::clamp(Rule.mClusterStrength * 0.72f, 0.0f, 0.86f) };
+        const float PullStrength{ std::clamp(Rule.mClusterStrength * Config.mClumpPullStrengthScale, 0.0f, Config.mClumpPullStrengthMaximum) };
         WorldX = Lerp(WorldX, TargetX, PullStrength);
         WorldZ = Lerp(WorldZ, TargetZ, PullStrength);
     }
@@ -330,6 +390,34 @@ namespace {
         }
 
         Node[Key] >> OutValue;
+    }
+
+    void ReadVector3Child(c4::yml::ConstNodeRef Node, const char* Key, SimpleMath::Vector3& OutValue) {
+        if (Node.has_child(Key) == false) {
+            return;
+        }
+
+        const c4::yml::ConstNodeRef VectorNode{ Node[Key] };
+        if (VectorNode.is_seq() == false) {
+            throw std::runtime_error{ "Procedural foliage vector value must be a sequence." };
+        }
+
+        std::array<float, 3ULL> Values{};
+        std::size_t ValueIndex{};
+        for (const c4::yml::ConstNodeRef ValueNode : VectorNode.children()) {
+            if (ValueIndex >= Values.size()) {
+                throw std::runtime_error{ "Procedural foliage vector value must have exactly three elements." };
+            }
+
+            ValueNode >> Values[ValueIndex];
+            ValueIndex += 1ULL;
+        }
+
+        if (ValueIndex != Values.size()) {
+            throw std::runtime_error{ "Procedural foliage vector value must have exactly three elements." };
+        }
+
+        OutValue = SimpleMath::Vector3{ Values[0], Values[1], Values[2] };
     }
 
     void ReadStringListChild(c4::yml::ConstNodeRef Node, const char* Key, std::vector<std::string>& OutValues) {
@@ -426,6 +514,13 @@ namespace {
         ReadFloatChild(RuleNode, "ClusterEdgeSoftness", Rule.mClusterEdgeSoftness);
         ReadFloatChild(RuleNode, "ClusterOutsideDensity", Rule.mClusterOutsideDensity);
         ReadFloatChild(RuleNode, "OffsetY", Rule.mOffsetY);
+        ReadFloatChild(RuleNode, "MinimumSpacing", Rule.mMinimumSpacing);
+        ReadFloatChild(RuleNode, "TreeMinimumSpacing", Rule.mMinimumSpacing);
+        ReadBoolChild(RuleNode, "CollisionActor", Rule.mCollisionActorEnabled);
+        ReadVector3Child(RuleNode, "CollisionCenter", Rule.mCollisionCenter);
+        ReadVector3Child(RuleNode, "CollisionExtents", Rule.mCollisionExtents);
+        ReadFloatChild(RuleNode, "CollisionFriction", Rule.mCollisionFriction);
+        ReadFloatChild(RuleNode, "CollisionRestitution", Rule.mCollisionRestitution);
         Rule.mModelPath = ResolveFoliageResourcePath(ConfigPath, Rule.mModelPath);
         Rule.mMaterialPath = ResolveFoliageResourcePath(ConfigPath, Rule.mMaterialPath);
         ReadFoliageLods(RuleNode, ConfigPath, Rule);
@@ -448,6 +543,12 @@ namespace {
         Rule.mClusterCoverage = std::clamp(Rule.mClusterCoverage, 0.01f, 1.0f);
         Rule.mClusterEdgeSoftness = (std::max)(Rule.mClusterEdgeSoftness, 0.0f);
         Rule.mClusterOutsideDensity = std::clamp(Rule.mClusterOutsideDensity, 0.0f, 1.0f);
+        Rule.mMinimumSpacing = (std::max)(Rule.mMinimumSpacing, 0.0f);
+        Rule.mCollisionExtents.x = (std::max)(Rule.mCollisionExtents.x, FoliageEpsilon);
+        Rule.mCollisionExtents.y = (std::max)(Rule.mCollisionExtents.y, FoliageEpsilon);
+        Rule.mCollisionExtents.z = (std::max)(Rule.mCollisionExtents.z, FoliageEpsilon);
+        Rule.mCollisionFriction = (std::max)(Rule.mCollisionFriction, 0.0f);
+        Rule.mCollisionRestitution = (std::max)(Rule.mCollisionRestitution, 0.0f);
         if (Rule.mMaximumScale < Rule.mMinimumScale) {
             std::swap(Rule.mMinimumScale, Rule.mMaximumScale);
         }
@@ -477,16 +578,69 @@ namespace {
         const c4::yml::ConstNodeRef ConfigNode{ ResolveConfigNode(Tree.rootref()) };
         FoliagePlacementConfig Config{};
         ReadBoolChild(ConfigNode, "Enabled", Config.mEnabled);
+        ReadFloatChild(ConfigNode, "InactiveHeight", Config.mInactiveHeight);
         ReadFloatChild(ConfigNode, "PlacementRadius", Config.mPlacementRadius);
         ReadFloatChild(ConfigNode, "CellSize", Config.mCellSize);
         ReadFloatChild(ConfigNode, "UpdateInterval", Config.mUpdateInterval);
         ReadFloatChild(ConfigNode, "Density", Config.mDensityMultiplier);
         ReadFloatChild(ConfigNode, "DensityMultiplier", Config.mDensityMultiplier);
+        ReadUInt32Child(ConfigNode, "CandidateRandomXStream", Config.mCandidateRandomXStream);
+        ReadUInt32Child(ConfigNode, "CandidateRandomZStream", Config.mCandidateRandomZStream);
+        ReadUInt32Child(ConfigNode, "CandidateRandomChanceStream", Config.mCandidateRandomChanceStream);
+        ReadUInt32Child(ConfigNode, "CandidateRandomYawStream", Config.mCandidateRandomYawStream);
+        ReadUInt32Child(ConfigNode, "CandidateRandomScaleStream", Config.mCandidateRandomScaleStream);
+        ReadUInt32Child(ConfigNode, "ClusterCornerStream", Config.mClusterCornerStream);
+        ReadFloatChild(ConfigNode, "ClusterDensityMaximum", Config.mClusterDensityMaximum);
+        ReadFloatChild(ConfigNode, "ClusterScaleMinimumCellMultiplier", Config.mClusterScaleMinimumCellMultiplier);
+        ReadFloatChild(ConfigNode, "ClumpGridScaleMultiplier", Config.mClumpGridScaleMultiplier);
+        ReadFloatChild(ConfigNode, "ClumpGridScaleMinimumCellMultiplier", Config.mClumpGridScaleMinimumCellMultiplier);
+        ReadFloatChild(ConfigNode, "ClumpCenterOffset", Config.mClumpCenterOffset);
+        ReadFloatChild(ConfigNode, "ClumpCenterJitter", Config.mClumpCenterJitter);
+        ReadUInt32Child(ConfigNode, "ClumpCenterXStream", Config.mClumpCenterXStream);
+        ReadUInt32Child(ConfigNode, "ClumpCenterZStream", Config.mClumpCenterZStream);
+        ReadUInt32Child(ConfigNode, "ClumpAngleStream", Config.mClumpAngleStream);
+        ReadUInt32Child(ConfigNode, "ClumpDistanceStream", Config.mClumpDistanceStream);
+        ReadFloatChild(ConfigNode, "ClumpRadiusScale", Config.mClumpRadiusScale);
+        ReadFloatChild(ConfigNode, "ClumpPullStrengthScale", Config.mClumpPullStrengthScale);
+        ReadFloatChild(ConfigNode, "ClumpPullStrengthMaximum", Config.mClumpPullStrengthMaximum);
+        ReadBoolChild(ConfigNode, "ForestEnabled", Config.mForestEnabled);
+        ReadFloatChild(ConfigNode, "ForestMinimumWidth", Config.mForestMinimumWidth);
+        ReadFloatChild(ConfigNode, "ForestPatchScale", Config.mForestPatchScale);
+        ReadFloatChild(ConfigNode, "ForestPatchCoverage", Config.mForestPatchCoverage);
+        ReadFloatChild(ConfigNode, "ForestPatchContrast", Config.mForestPatchContrast);
+        ReadFloatChild(ConfigNode, "ForestPatchEdgeSoftness", Config.mForestPatchEdgeSoftness);
+        ReadFloatChild(ConfigNode, "ForestOutsideDensity", Config.mForestOutsideDensity);
+        ReadUInt32Child(ConfigNode, "ForestPatchNoiseIndex", Config.mForestPatchNoiseIndex);
+        ReadUInt32Child(ConfigNode, "ForestPatchCornerStream", Config.mForestPatchCornerStream);
+        ReadFloatChild(ConfigNode, "ForestMinimumAreaFactor", Config.mForestMinimumAreaFactor);
+        ReadFloatChild(ConfigNode, "ForestWidthSampleRadiusScale", Config.mForestWidthSampleRadiusScale);
+        ReadFloatChild(ConfigNode, "ForestWidthDiagonalSampleScale", Config.mForestWidthDiagonalSampleScale);
+        ReadFloatChild(ConfigNode, "ForestWidthRequiredSampleRatio", Config.mForestWidthRequiredSampleRatio);
+        ReadUInt32Child(ConfigNode, "MinimumSpacingPriorityStream", Config.mMinimumSpacingPriorityStream);
         ReadUInt32Child(ConfigNode, "SeedSalt", Config.mSeedSalt);
         Config.mPlacementRadius = (std::max)(Config.mPlacementRadius, 1.0f);
         Config.mCellSize = (std::max)(Config.mCellSize, 1.0f);
         Config.mUpdateInterval = (std::max)(Config.mUpdateInterval, 0.0f);
         Config.mDensityMultiplier = (std::max)(Config.mDensityMultiplier, 0.0f);
+        Config.mClusterDensityMaximum = (std::max)(Config.mClusterDensityMaximum, 1.0f);
+        Config.mClusterScaleMinimumCellMultiplier = (std::max)(Config.mClusterScaleMinimumCellMultiplier, 0.0f);
+        Config.mClumpGridScaleMultiplier = (std::max)(Config.mClumpGridScaleMultiplier, 0.0f);
+        Config.mClumpGridScaleMinimumCellMultiplier = (std::max)(Config.mClumpGridScaleMinimumCellMultiplier, 0.0f);
+        Config.mClumpCenterOffset = std::clamp(Config.mClumpCenterOffset, 0.0f, 1.0f);
+        Config.mClumpCenterJitter = std::clamp(Config.mClumpCenterJitter, 0.0f, 1.0f);
+        Config.mClumpRadiusScale = (std::max)(Config.mClumpRadiusScale, 0.0f);
+        Config.mClumpPullStrengthScale = (std::max)(Config.mClumpPullStrengthScale, 0.0f);
+        Config.mClumpPullStrengthMaximum = std::clamp(Config.mClumpPullStrengthMaximum, 0.0f, 1.0f);
+        Config.mForestMinimumWidth = (std::max)(Config.mForestMinimumWidth, 0.0f);
+        Config.mForestPatchScale = (std::max)(Config.mForestPatchScale, 1.0f);
+        Config.mForestPatchCoverage = std::clamp(Config.mForestPatchCoverage, 0.01f, 1.0f);
+        Config.mForestPatchContrast = (std::max)(Config.mForestPatchContrast, 0.0f);
+        Config.mForestPatchEdgeSoftness = (std::max)(Config.mForestPatchEdgeSoftness, 0.0f);
+        Config.mForestOutsideDensity = std::clamp(Config.mForestOutsideDensity, 0.0f, 1.0f);
+        Config.mForestMinimumAreaFactor = std::clamp(Config.mForestMinimumAreaFactor, 0.0f, 1.0f);
+        Config.mForestWidthSampleRadiusScale = (std::max)(Config.mForestWidthSampleRadiusScale, 0.0f);
+        Config.mForestWidthDiagonalSampleScale = (std::max)(Config.mForestWidthDiagonalSampleScale, 0.0f);
+        Config.mForestWidthRequiredSampleRatio = std::clamp(Config.mForestWidthRequiredSampleRatio, 0.0f, 1.0f);
 
         if (ConfigNode.has_child("Rules") == true) {
             const c4::yml::ConstNodeRef RulesNode{ ConfigNode["Rules"] };
@@ -692,10 +846,124 @@ namespace {
         return true;
     }
 
+    bool IsForestAreaWideEnough(const TerrainSamplingContext& TerrainContext, const FoliagePlacementConfig& Config, const FoliagePlacementRule& Rule, std::uint32_t TerrainSeed, float WorldX, float WorldZ) {
+        if (Config.mForestEnabled == false || Config.mForestMinimumWidth <= FoliageEpsilon) {
+            return true;
+        }
+
+        const float CenterForestFactor{ SampleForestAreaFactor(TerrainSeed, Config, WorldX, WorldZ) };
+        if (CenterForestFactor < Config.mForestMinimumAreaFactor) {
+            return false;
+        }
+
+        const float SampleDistance{ Config.mForestMinimumWidth * Config.mForestWidthSampleRadiusScale };
+        if (SampleDistance <= FoliageEpsilon) {
+            return true;
+        }
+
+        const float DiagonalDistance{ SampleDistance * Config.mForestWidthDiagonalSampleScale };
+        const std::array<SimpleMath::Vector2, 8ULL> SampleOffsets{ { SimpleMath::Vector2{ SampleDistance, 0.0f }, SimpleMath::Vector2{ -SampleDistance, 0.0f }, SimpleMath::Vector2{ 0.0f, SampleDistance }, SimpleMath::Vector2{ 0.0f, -SampleDistance }, SimpleMath::Vector2{ DiagonalDistance, DiagonalDistance }, SimpleMath::Vector2{ -DiagonalDistance, DiagonalDistance }, SimpleMath::Vector2{ DiagonalDistance, -DiagonalDistance }, SimpleMath::Vector2{ -DiagonalDistance, -DiagonalDistance } } };
+        const std::uint32_t RequiredSampleCount{ static_cast<std::uint32_t>(std::ceil(static_cast<float>(SampleOffsets.size()) * Config.mForestWidthRequiredSampleRatio)) };
+        std::uint32_t AcceptedSampleCount{};
+        for (const SimpleMath::Vector2& SampleOffset : SampleOffsets) {
+            float SampleWorldY{};
+            float SampleLayerWeight{};
+            const bool HasSample{ TrySampleTerrain(TerrainContext, Rule, WorldX + SampleOffset.x, WorldZ + SampleOffset.y, SampleWorldY, SampleLayerWeight) };
+            const float SampleForestFactor{ SampleForestAreaFactor(TerrainSeed, Config, WorldX + SampleOffset.x, WorldZ + SampleOffset.y) };
+            if (HasSample == true && SampleLayerWeight >= Rule.mMinimumWeight && SampleForestFactor >= Config.mForestMinimumAreaFactor) {
+                AcceptedSampleCount += 1u;
+            }
+        }
+
+        return AcceptedSampleCount >= RequiredSampleCount;
+    }
+
     bool IsCandidateInPlacementRadius(const SimpleMath::Vector3& FocusPosition, float WorldX, float WorldZ, float RadiusSquared) {
         const float DistanceX{ WorldX - FocusPosition.x };
         const float DistanceZ{ WorldZ - FocusPosition.z };
         return ((DistanceX * DistanceX) + (DistanceZ * DistanceZ)) <= RadiusSquared;
+    }
+
+    float ResolveCandidateMinimumSpacing(const std::vector<FoliageRuntimeRule>& Rules, const FoliageCandidate& Candidate) {
+        if (Candidate.mKey.mRuleIndex >= Rules.size()) {
+            return 0.0f;
+        }
+
+        return Rules[Candidate.mKey.mRuleIndex].mDesc.mMinimumSpacing;
+    }
+
+    bool IsCandidateKeyInList(const std::vector<FoliageCandidateKey>& Keys, const FoliageCandidateKey& TargetKey) {
+        for (const FoliageCandidateKey& Key : Keys) {
+            if (Key == TargetKey) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool CanAcceptMinimumSpacingCandidate(const std::vector<FoliageRuntimeRule>& Rules, const std::vector<FoliageCandidate>& AcceptedCandidates, const FoliageCandidate& Candidate) {
+        const float MinimumSpacing{ ResolveCandidateMinimumSpacing(Rules, Candidate) };
+        if (MinimumSpacing <= FoliageEpsilon) {
+            return true;
+        }
+
+        for (const FoliageCandidate& AcceptedCandidate : AcceptedCandidates) {
+            const float AcceptedMinimumSpacing{ ResolveCandidateMinimumSpacing(Rules, AcceptedCandidate) };
+            const float ResolvedMinimumSpacing{ (std::max)(MinimumSpacing, AcceptedMinimumSpacing) };
+            const float DistanceX{ Candidate.mPosition.x - AcceptedCandidate.mPosition.x };
+            const float DistanceZ{ Candidate.mPosition.z - AcceptedCandidate.mPosition.z };
+            if (((DistanceX * DistanceX) + (DistanceZ * DistanceZ)) < (ResolvedMinimumSpacing * ResolvedMinimumSpacing)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    std::vector<FoliageCandidate> FilterCandidatesByMinimumSpacing(std::vector<FoliageCandidate> Candidates, const std::vector<FoliageRuntimeRule>& Rules, const FoliagePlacementConfig& Config, std::uint32_t TerrainSeed) {
+        std::vector<FoliageCandidate> SpacingCandidates{};
+        for (const FoliageCandidate& Candidate : Candidates) {
+            if (ResolveCandidateMinimumSpacing(Rules, Candidate) > FoliageEpsilon) {
+                SpacingCandidates.push_back(Candidate);
+            }
+        }
+
+        if (SpacingCandidates.empty() == true) {
+            return Candidates;
+        }
+
+        std::stable_sort(SpacingCandidates.begin(), SpacingCandidates.end(), [&](const FoliageCandidate& Left, const FoliageCandidate& Right) {
+            const std::uint32_t LeftPriority{ BuildCandidateHash(TerrainSeed, Config.mSeedSalt, Left.mKey, Config.mMinimumSpacingPriorityStream) };
+            const std::uint32_t RightPriority{ BuildCandidateHash(TerrainSeed, Config.mSeedSalt, Right.mKey, Config.mMinimumSpacingPriorityStream) };
+            return LeftPriority < RightPriority;
+        });
+
+        std::vector<FoliageCandidate> AcceptedSpacingCandidates{};
+        std::vector<FoliageCandidateKey> AcceptedSpacingKeys{};
+        AcceptedSpacingCandidates.reserve(SpacingCandidates.size());
+        AcceptedSpacingKeys.reserve(SpacingCandidates.size());
+        for (const FoliageCandidate& Candidate : SpacingCandidates) {
+            const bool IsAccepted{ CanAcceptMinimumSpacingCandidate(Rules, AcceptedSpacingCandidates, Candidate) };
+            if (IsAccepted == false) {
+                continue;
+            }
+
+            AcceptedSpacingCandidates.push_back(Candidate);
+            AcceptedSpacingKeys.push_back(Candidate.mKey);
+        }
+
+        std::vector<FoliageCandidate> FilteredCandidates{};
+        FilteredCandidates.reserve(Candidates.size());
+        for (const FoliageCandidate& Candidate : Candidates) {
+            if (ResolveCandidateMinimumSpacing(Rules, Candidate) > FoliageEpsilon && IsCandidateKeyInList(AcceptedSpacingKeys, Candidate.mKey) == false) {
+                continue;
+            }
+
+            FilteredCandidates.push_back(Candidate);
+        }
+
+        return FilteredCandidates;
     }
 
     std::uint32_t ResolveFoliageLodIndex(const FoliagePlacementRule& Rule, const SimpleMath::Vector3& FocusPosition, float WorldX, float WorldZ) {
@@ -752,6 +1020,63 @@ namespace {
 
             SiblingEntityId = SiblingHierarchy->nextSibling;
         }
+    }
+
+    DirectX::BoundingOrientedBox BuildFoliageCollisionLocalBoundingBox(const FoliagePlacementRule& Rule) {
+        DirectX::BoundingOrientedBox BoundingBox{};
+        BoundingBox.Center = DirectX::XMFLOAT3{ Rule.mCollisionCenter.x, Rule.mCollisionCenter.y, Rule.mCollisionCenter.z };
+        BoundingBox.Extents = DirectX::XMFLOAT3{ Rule.mCollisionExtents.x, Rule.mCollisionExtents.y, Rule.mCollisionExtents.z };
+        BoundingBox.Orientation = DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 1.0f };
+        return BoundingBox;
+    }
+
+    PhysicsActorBase::ActorDesc BuildFoliageCollisionActorDesc(const FoliagePlacementConfig& Config, const FoliagePlacementRule& Rule) {
+        PhysicsActorBase::ActorDesc Desc{};
+        Desc.Name = Rule.mName.empty() == true ? "FoliageStaticActor" : Rule.mName + std::string{ "CollisionActor" };
+        Desc.IsActive = false;
+        Desc.Mass = 0.0f;
+        Desc.ActorType = PhysicsActorBase::PhysicsActorType::Static;
+        Desc.LocalBoundingBox = BuildFoliageCollisionLocalBoundingBox(Rule);
+        Desc.Position = SimpleMath::Vector3{ 0.0f, Config.mInactiveHeight, 0.0f };
+        Desc.Rotation = SimpleMath::Vector3{};
+        Desc.Scale = SimpleMath::Vector3{ 1.0f, 1.0f, 1.0f };
+        Desc.Friction = Rule.mCollisionFriction;
+        Desc.Restitution = Rule.mCollisionRestitution;
+        return Desc;
+    }
+
+    bool CreateFoliageCollisionActor(Arche::World& World, IPhysicsWorld* PhysicsWorldResource, const FoliagePlacementConfig& Config, const FoliageRuntimeRule& Rule, Arche::EntityID RootEntityId, FoliageSlot& OutSlot) {
+        if (Rule.mDesc.mCollisionActorEnabled == false) {
+            return true;
+        }
+
+        if (RootEntityId == Arche::NullEntityID) {
+            return false;
+        }
+
+        if (PhysicsWorldResource == nullptr) {
+            return true;
+        }
+
+        const PhysicsActorBase::ActorDesc Desc{ BuildFoliageCollisionActorDesc(Config, Rule.mDesc) };
+        const std::uint32_t ActorIndex{ static_cast<std::uint32_t>(PhysicsWorldResource->GetActorCount()) };
+        std::unique_ptr<PhysicsActorBase> NewActor{ std::make_unique<PhysicsStaticActor>(Desc) };
+        PhysicsActorBase* ActorPointer{ NewActor.get() };
+        PhysicsWorldResource->AddActor(std::move(NewActor));
+
+        Game::PhysicsActor PhysicsActorComponent{};
+        PhysicsActorComponent.mActorPointer = ActorPointer;
+        PhysicsActorComponent.mActorIndex = ActorIndex;
+        PhysicsActorComponent.mActorType = PhysicsActorBase::PhysicsActorType::Static;
+        World.AddComponent(RootEntityId, PhysicsActorComponent);
+
+        Game::BoundingBox BoundingBoxComponent{};
+        BoundingBoxComponent.SetObb(Desc.LocalBoundingBox);
+        World.AddComponent(RootEntityId, BoundingBoxComponent);
+
+        OutSlot.mCollisionActorPointer = ActorPointer;
+        OutSlot.mCollisionActorIndex = ActorIndex;
+        return true;
     }
 
     bool CreateFoliageLodEntities(Arche::World& World, const FoliageRuntimeLod& Lod, std::uint32_t MaterialGroupIndex, Arche::EntityID ParentEntityId, std::vector<Arche::EntityID>& OutRenderEntityIds) {
@@ -815,20 +1140,25 @@ namespace {
         return OutRenderEntityIds.empty() == false;
     }
 
-    bool CreateFoliageSlotEntities(Arche::World& World, const FoliageRuntimeRule& Rule, std::uint32_t RuleIndex, FoliageSlot& OutSlot) {
+    bool CreateFoliageSlotEntities(Arche::World& World, IPhysicsWorld* PhysicsWorldResource, const FoliagePlacementConfig& Config, const FoliageRuntimeRule& Rule, std::uint32_t RuleIndex, FoliageSlot& OutSlot) {
         if (Rule.mLods.empty() == true) {
             return false;
         }
 
         const Arche::EntityID RootEntityId{ CreateDerivedEntity(World) };
         Game::Transform RootTransform{};
-        RootTransform.position = SimpleMath::Vector3{ 0.0f, FoliageInactiveHeight, 0.0f };
+        RootTransform.position = SimpleMath::Vector3{ 0.0f, Config.mInactiveHeight, 0.0f };
         World.AddComponent(RootEntityId, RootTransform);
 
         OutSlot.mRootEntityId = RootEntityId;
+        OutSlot.mInactiveHeight = Config.mInactiveHeight;
         OutSlot.mRuleIndex = RuleIndex;
         OutSlot.mRenderEntityIdsByLod.clear();
         OutSlot.mRenderEntityIdsByLod.reserve(Rule.mLods.size());
+        const bool IsCollisionActorCreated{ CreateFoliageCollisionActor(World, PhysicsWorldResource, Config, Rule, RootEntityId, OutSlot) };
+        if (IsCollisionActorCreated == false) {
+            return false;
+        }
 
         for (const FoliageRuntimeLod& Lod : Rule.mLods) {
             std::vector<Arche::EntityID> LodRenderEntityIds{};
@@ -865,6 +1195,22 @@ namespace {
         Slot.mActiveLodIndex = IsActive == true ? ResolvedLodIndex : std::numeric_limits<std::uint32_t>::max();
     }
 
+    void ApplyFoliageCollisionActorToSlot(Arche::World& World, FoliageSlot& Slot, const Game::Transform& TransformComponent, bool IsActive) {
+        if (Slot.mCollisionActorPointer == nullptr) {
+            return;
+        }
+
+        Slot.mCollisionActorPointer->SetPosition(TransformComponent.position);
+        Slot.mCollisionActorPointer->SetOrientation(TransformComponent.rotation);
+        Slot.mCollisionActorPointer->SetScale(TransformComponent.scale);
+        Slot.mCollisionActorPointer->SetIsActive(IsActive);
+
+        Game::BoundingBox* BoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(Slot.mRootEntityId) };
+        if (BoundingBoxComponent != nullptr) {
+            BoundingBoxComponent->SetWorldObb(Slot.mCollisionActorPointer->GetWorldBoundingBox());
+        }
+    }
+
     void ApplyFoliageCandidateToSlot(Arche::World& World, FoliageSlot& Slot, const FoliageCandidate& Candidate) {
         Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(Slot.mRootEntityId) };
         if (TransformComponent == nullptr) {
@@ -875,6 +1221,7 @@ namespace {
         TransformComponent->rotationEuler = SimpleMath::Vector3{ 0.0f, Candidate.mYawRadians, 0.0f };
         TransformComponent->UpdateRotationFromEulerRadians();
         TransformComponent->scale = SimpleMath::Vector3{ Candidate.mScale, Candidate.mScale, Candidate.mScale };
+        ApplyFoliageCollisionActorToSlot(World, Slot, *TransformComponent, true);
         Slot.mKey = Candidate.mKey;
         Slot.mAssignedThisFrame = true;
         SetFoliageSlotActive(World, Slot, true, Candidate.mLodIndex);
@@ -887,7 +1234,11 @@ namespace {
 
         Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(Slot.mRootEntityId) };
         if (TransformComponent != nullptr) {
-            TransformComponent->position.y = FoliageInactiveHeight;
+            TransformComponent->position.y = Slot.mInactiveHeight;
+            ApplyFoliageCollisionActorToSlot(World, Slot, *TransformComponent, false);
+        }
+        else if (Slot.mCollisionActorPointer != nullptr) {
+            Slot.mCollisionActorPointer->SetIsActive(false);
         }
 
         SetFoliageSlotActive(World, Slot, false, 0u);
@@ -912,7 +1263,7 @@ namespace Game {
         std::vector<FoliageCandidate> BuildCandidates(const TerrainSamplingContext& TerrainContext, const SimpleMath::Vector3& FocusPosition) const;
         bool TryCreateCandidate(const TerrainSamplingContext& TerrainContext, const SimpleMath::Vector3& FocusPosition, std::uint32_t RuleIndex, std::int32_t CellX, std::int32_t CellZ, std::uint32_t InstanceIndex, FoliageCandidate& OutCandidate) const;
         std::size_t FindReusableSlot(std::uint32_t RuleIndex) const;
-        bool CreateSlot(Arche::World& World, std::uint32_t RuleIndex, std::size_t& OutSlotIndex);
+        bool CreateSlot(Arche::World& World, FrameContext& Ctx, std::uint32_t RuleIndex, std::size_t& OutSlotIndex);
         void RebuildSlotLookup(Arche::World& World);
 
     private:
@@ -1107,7 +1458,7 @@ namespace Game {
 
             std::size_t SlotIndex{ FindReusableSlot(Candidate.mKey.mRuleIndex) };
             if (SlotIndex == std::numeric_limits<std::size_t>::max()) {
-                const bool IsCreated{ CreateSlot(World, Candidate.mKey.mRuleIndex, SlotIndex) };
+                const bool IsCreated{ CreateSlot(World, Ctx, Candidate.mKey.mRuleIndex, SlotIndex) };
                 if (IsCreated == false) {
                     continue;
                 }
@@ -1146,7 +1497,8 @@ namespace Game {
             }
         }
 
-        return Candidates;
+        const std::uint32_t TerrainSeed{ TerrainContext.mResource == nullptr ? 0u : TerrainContext.mResource->GetBuildDesc().mProceduralHeightFieldDesc.mSeed };
+        return FilterCandidatesByMinimumSpacing(std::move(Candidates), mRules, mConfig, TerrainSeed);
     }
 
     bool ProceduralFoliageRuntime::TryCreateCandidate(const TerrainSamplingContext& TerrainContext, const SimpleMath::Vector3& FocusPosition, std::uint32_t RuleIndex, std::int32_t CellX, std::int32_t CellZ, std::uint32_t InstanceIndex, FoliageCandidate& OutCandidate) const {
@@ -1162,24 +1514,29 @@ namespace Game {
         Key.mInstanceIndex = InstanceIndex;
 
         const std::uint32_t TerrainSeed{ TerrainContext.mResource->GetBuildDesc().mProceduralHeightFieldDesc.mSeed };
-        const float RandomX{ HashToUnitFloat(BuildCandidateHash(TerrainSeed, mConfig.mSeedSalt, Key, 11u)) };
-        const float RandomZ{ HashToUnitFloat(BuildCandidateHash(TerrainSeed, mConfig.mSeedSalt, Key, 23u)) };
-        const float RandomChance{ HashToUnitFloat(BuildCandidateHash(TerrainSeed, mConfig.mSeedSalt, Key, 37u)) };
+        const float RandomX{ HashToUnitFloat(BuildCandidateHash(TerrainSeed, mConfig.mSeedSalt, Key, mConfig.mCandidateRandomXStream)) };
+        const float RandomZ{ HashToUnitFloat(BuildCandidateHash(TerrainSeed, mConfig.mSeedSalt, Key, mConfig.mCandidateRandomZStream)) };
+        const float RandomChance{ HashToUnitFloat(BuildCandidateHash(TerrainSeed, mConfig.mSeedSalt, Key, mConfig.mCandidateRandomChanceStream)) };
         float WorldX{ (static_cast<float>(CellX) + RandomX) * mConfig.mCellSize };
         float WorldZ{ (static_cast<float>(CellZ) + RandomZ) * mConfig.mCellSize };
         const std::uint32_t ClusterIndex{ ResolveLayerIndex(Rule, TerrainContext.mResource->GetBuildDesc()) };
-        ApplyFoliageClumpPosition(TerrainSeed, mConfig.mSeedSalt, Rule, Key, ClusterIndex, mConfig.mCellSize, WorldX, WorldZ);
+        ApplyFoliageClumpPosition(TerrainSeed, mConfig, Rule, Key, ClusterIndex, mConfig.mCellSize, WorldX, WorldZ);
         float WorldY{};
         float LayerWeight{};
         const bool HasTerrainSample{ TrySampleTerrain(TerrainContext, Rule, WorldX, WorldZ, WorldY, LayerWeight) };
-        const float ClusterFactor{ SampleFoliageClusterFactor(TerrainSeed, mConfig.mSeedSalt, Rule, ClusterIndex, WorldX, WorldZ) };
-        const float EffectiveSpawnChance{ std::clamp(Rule.mSpawnChance * Rule.mDensityMultiplier * mConfig.mDensityMultiplier * LayerWeight * ClusterFactor, 0.0f, 1.0f) };
-        if (HasTerrainSample == false || LayerWeight < Rule.mMinimumWeight || RandomChance > EffectiveSpawnChance) {
+        const float ClusterFactor{ SampleFoliageClusterFactor(TerrainSeed, mConfig, Rule, ClusterIndex, WorldX, WorldZ) };
+        const float ForestFactor{ SampleForestAreaFactor(TerrainSeed, mConfig, WorldX, WorldZ) };
+        const float EffectiveSpawnChance{ std::clamp(Rule.mSpawnChance * Rule.mDensityMultiplier * mConfig.mDensityMultiplier * LayerWeight * ClusterFactor * ForestFactor, 0.0f, 1.0f) };
+        if (HasTerrainSample == false || LayerWeight < Rule.mMinimumWeight || EffectiveSpawnChance <= 0.0f || RandomChance > EffectiveSpawnChance) {
             return false;
         }
 
-        const float RandomYaw{ HashToUnitFloat(BuildCandidateHash(TerrainSeed, mConfig.mSeedSalt, Key, 41u)) };
-        const float RandomScale{ HashToUnitFloat(BuildCandidateHash(TerrainSeed, mConfig.mSeedSalt, Key, 53u)) };
+        if (IsForestAreaWideEnough(TerrainContext, mConfig, Rule, TerrainSeed, WorldX, WorldZ) == false) {
+            return false;
+        }
+
+        const float RandomYaw{ HashToUnitFloat(BuildCandidateHash(TerrainSeed, mConfig.mSeedSalt, Key, mConfig.mCandidateRandomYawStream)) };
+        const float RandomScale{ HashToUnitFloat(BuildCandidateHash(TerrainSeed, mConfig.mSeedSalt, Key, mConfig.mCandidateRandomScaleStream)) };
         OutCandidate.mKey = Key;
         OutCandidate.mPosition = SimpleMath::Vector3{ WorldX, WorldY + Rule.mOffsetY, WorldZ };
         OutCandidate.mYawRadians = DirectX::XMConvertToRadians(Lerp(Rule.mMinimumYawDegrees, Rule.mMaximumYawDegrees, RandomYaw));
@@ -1199,13 +1556,13 @@ namespace Game {
         return std::numeric_limits<std::size_t>::max();
     }
 
-    bool ProceduralFoliageRuntime::CreateSlot(Arche::World& World, std::uint32_t RuleIndex, std::size_t& OutSlotIndex) {
+    bool ProceduralFoliageRuntime::CreateSlot(Arche::World& World, FrameContext& Ctx, std::uint32_t RuleIndex, std::size_t& OutSlotIndex) {
         if (RuleIndex >= mRules.size()) {
             return false;
         }
 
         FoliageSlot Slot{};
-        const bool IsCreated{ CreateFoliageSlotEntities(World, mRules[RuleIndex], RuleIndex, Slot) };
+        const bool IsCreated{ CreateFoliageSlotEntities(World, Ctx.PhysicsWorldResource, mConfig, mRules[RuleIndex], RuleIndex, Slot) };
         if (IsCreated == false) {
             return false;
         }
@@ -1285,12 +1642,12 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> ProceduralFoliageSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 8> Accesses{ { { typeid(Game::Transform), Access::Write }, { typeid(Game::TerrainRenderer), Access::Read }, { typeid(Game::Camera), Access::Read }, { typeid(Game::EntityHierarchy), Access::Write }, { typeid(Game::StaticMeshRenderer), Access::Write }, { typeid(Game::Material), Access::Write }, { typeid(Game::Culling), Access::Write }, { typeid(Game::BoundingBox), Access::Write } } };
+        static std::array<ComponentAccess, 9> Accesses{ { { typeid(Game::Transform), Access::Write }, { typeid(Game::TerrainRenderer), Access::Read }, { typeid(Game::Camera), Access::Read }, { typeid(Game::EntityHierarchy), Access::Write }, { typeid(Game::StaticMeshRenderer), Access::Write }, { typeid(Game::Material), Access::Write }, { typeid(Game::Culling), Access::Write }, { typeid(Game::BoundingBox), Access::Write }, { typeid(Game::PhysicsActor), Access::Write } } };
         return Accesses;
     }
 
     std::span<const ResourceAccess> ProceduralFoliageSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 1> Accesses{ { { typeid(AssetRegistry), Access::Write } } };
+        static std::array<ResourceAccess, 2> Accesses{ { { typeid(AssetRegistry), Access::Write }, { typeid(IPhysicsWorld), Access::Write } } };
         return Accesses;
     }
 

@@ -1,112 +1,158 @@
 ProceduralFoliage:
   Enabled: true
+  InactiveHeight: -100000.0
   PlacementRadius: 240.0
   CellSize: 14.0
   UpdateInterval: 0.1
   DensityMultiplier: 5.0
+  CandidateRandomXStream: 11
+  CandidateRandomZStream: 23
+  CandidateRandomChanceStream: 37
+  CandidateRandomYawStream: 41
+  CandidateRandomScaleStream: 53
+  ClusterCornerStream: 71
+  ClusterDensityMaximum: 2.5
+  ClusterScaleMinimumCellMultiplier: 2.0
+  ClumpGridScaleMultiplier: 0.35
+  ClumpGridScaleMinimumCellMultiplier: 2.0
+  ClumpCenterOffset: 0.2
+  ClumpCenterJitter: 0.6
+  ClumpCenterXStream: 113
+  ClumpCenterZStream: 127
+  ClumpAngleStream: 139
+  ClumpDistanceStream: 149
+  ClumpRadiusScale: 0.22
+  ClumpPullStrengthScale: 0.72
+  ClumpPullStrengthMaximum: 0.86
+  ForestEnabled: true
+  ForestMinimumWidth: 36.0
+  ForestPatchScale: 220.0
+  ForestPatchCoverage: 0.82
+  ForestPatchContrast: 1.35
+  ForestPatchEdgeSoftness: 0.24
+  ForestOutsideDensity: 0.10
+  ForestPatchNoiseIndex: 311
+  ForestPatchCornerStream: 71
+  ForestMinimumAreaFactor: 0.08
+  ForestWidthSampleRadiusScale: 0.5
+  ForestWidthDiagonalSampleScale: 0.70710678118
+  ForestWidthRequiredSampleRatio: 0.375
+  MinimumSpacingPriorityStream: 719
   SeedSalt: 9103
   Rules:
     - Name: Foliage1Grass
       Layer: Grass
       ModelPath: Foilage1.bin
       MaterialPath: Foilage1_materials.json
-      InstancesPerCell: 4
-      DensityMultiplier: 1.0
-      SpawnChance: 0.78
+      InstancesPerCell: 5
+      DensityMultiplier: 1.18
+      SpawnChance: 0.86
       MinimumWeight: 0.30
       MinimumScale: 0.85
       MaximumScale: 1.35
+      MinimumYawDegrees: 0.0
+      MaximumYawDegrees: 360.0
       ClusterStrength: 1.0
       ClusterScale: 105.0
       ClusterContrast: 3.10
-      ClusterCoverage: 0.20
-      ClusterEdgeSoftness: 0.055
-      ClusterOutsideDensity: 0.0
+      ClusterCoverage: 0.36
+      ClusterEdgeSoftness: 0.10
+      ClusterOutsideDensity: 0.12
       OffsetY: 0.0
     - Name: Foliage2Grass
       Layer: Grass
       ModelPath: Foilage2.bin
       MaterialPath: Foilage2_materials.json
-      InstancesPerCell: 3
-      DensityMultiplier: 0.95
-      SpawnChance: 0.70
+      InstancesPerCell: 4
+      DensityMultiplier: 1.08
+      SpawnChance: 0.80
       MinimumWeight: 0.30
       MinimumScale: 0.75
       MaximumScale: 1.15
+      MinimumYawDegrees: 0.0
+      MaximumYawDegrees: 360.0
       ClusterStrength: 1.0
       ClusterScale: 105.0
       ClusterContrast: 3.10
-      ClusterCoverage: 0.20
-      ClusterEdgeSoftness: 0.055
-      ClusterOutsideDensity: 0.0
+      ClusterCoverage: 0.34
+      ClusterEdgeSoftness: 0.10
+      ClusterOutsideDensity: 0.10
       OffsetY: 0.0
     - Name: Foliage3Grass
       Layer: Grass
       ModelPath: Foilage3.bin
       MaterialPath: Foilage3_materials.json
-      InstancesPerCell: 3
-      DensityMultiplier: 0.9
-      SpawnChance: 0.66
+      InstancesPerCell: 4
+      DensityMultiplier: 1.02
+      SpawnChance: 0.76
       MinimumWeight: 0.30
       MinimumScale: 0.90
       MaximumScale: 1.45
+      MinimumYawDegrees: 0.0
+      MaximumYawDegrees: 360.0
       ClusterStrength: 1.0
       ClusterScale: 105.0
       ClusterContrast: 3.10
-      ClusterCoverage: 0.20
-      ClusterEdgeSoftness: 0.055
-      ClusterOutsideDensity: 0.0
+      ClusterCoverage: 0.32
+      ClusterEdgeSoftness: 0.095
+      ClusterOutsideDensity: 0.10
       OffsetY: 0.0
     - Name: Foliage1LowGround
       Layer: LowGround
       ModelPath: Foilage1.bin
       MaterialPath: Foilage1_materials.json
-      InstancesPerCell: 4
-      DensityMultiplier: 0.95
-      SpawnChance: 0.76
+      InstancesPerCell: 5
+      DensityMultiplier: 1.12
+      SpawnChance: 0.84
       MinimumWeight: 0.28
       MinimumScale: 0.85
       MaximumScale: 1.35
+      MinimumYawDegrees: 0.0
+      MaximumYawDegrees: 360.0
       ClusterStrength: 1.0
       ClusterScale: 125.0
       ClusterContrast: 2.95
-      ClusterCoverage: 0.22
-      ClusterEdgeSoftness: 0.065
-      ClusterOutsideDensity: 0.0
+      ClusterCoverage: 0.38
+      ClusterEdgeSoftness: 0.11
+      ClusterOutsideDensity: 0.12
       OffsetY: 0.0
     - Name: Foliage2LowGround
       Layer: LowGround
       ModelPath: Foilage2.bin
       MaterialPath: Foilage2_materials.json
-      InstancesPerCell: 3
-      DensityMultiplier: 0.9
-      SpawnChance: 0.68
+      InstancesPerCell: 4
+      DensityMultiplier: 1.04
+      SpawnChance: 0.78
       MinimumWeight: 0.28
       MinimumScale: 0.75
       MaximumScale: 1.15
+      MinimumYawDegrees: 0.0
+      MaximumYawDegrees: 360.0
       ClusterStrength: 1.0
       ClusterScale: 125.0
       ClusterContrast: 2.95
-      ClusterCoverage: 0.22
-      ClusterEdgeSoftness: 0.065
-      ClusterOutsideDensity: 0.0
+      ClusterCoverage: 0.36
+      ClusterEdgeSoftness: 0.105
+      ClusterOutsideDensity: 0.10
       OffsetY: 0.0
     - Name: Foliage3LowGround
       Layer: LowGround
       ModelPath: Foilage3.bin
       MaterialPath: Foilage3_materials.json
-      InstancesPerCell: 3
-      DensityMultiplier: 1.0
-      SpawnChance: 0.72
+      InstancesPerCell: 4
+      DensityMultiplier: 1.14
+      SpawnChance: 0.82
       MinimumWeight: 0.28
       MinimumScale: 0.90
       MaximumScale: 1.45
+      MinimumYawDegrees: 0.0
+      MaximumYawDegrees: 360.0
       ClusterStrength: 1.0
       ClusterScale: 125.0
       ClusterContrast: 2.95
-      ClusterCoverage: 0.22
-      ClusterEdgeSoftness: 0.065
-      ClusterOutsideDensity: 0.0
+      ClusterCoverage: 0.34
+      ClusterEdgeSoftness: 0.10
+      ClusterOutsideDensity: 0.10
       OffsetY: 0.0
     - Name: Tree1
       ExcludedLayers:
@@ -115,23 +161,31 @@ ProceduralFoliage:
       ModelPath: Tree1_LOD0.bin
       MaterialPath: Tree1_materials.json
       InstancesPerCell: 1
-      DensityMultiplier: 0.28
-      SpawnChance: 0.22
+      DensityMultiplier: 0.34
+      SpawnChance: 0.26
       MinimumWeight: 0.42
       MinimumScale: 1.2
       MaximumScale: 1.75
+      MinimumYawDegrees: 0.0
+      MaximumYawDegrees: 360.0
       ClusterStrength: 1.0
-      ClusterScale: 205.0
-      ClusterContrast: 2.55
-      ClusterCoverage: 0.24
-      ClusterEdgeSoftness: 0.08
-      ClusterOutsideDensity: 0.0
+      ClusterScale: 185.0
+      ClusterContrast: 1.85
+      ClusterCoverage: 0.48
+      ClusterEdgeSoftness: 0.14
+      ClusterOutsideDensity: 0.18
       OffsetY: 0.0
+      MinimumSpacing: 8.0
+      CollisionActor: true
+      CollisionCenter: [0.0, 2.8, 0.0]
+      CollisionExtents: [0.35, 2.8, 0.35]
+      CollisionFriction: 0.8
+      CollisionRestitution: 0.0
       Lods:
         - ModelPath: Tree1_LOD0.bin
-          MaximumDistance: 80.0
+          MaximumDistance: 15.0
         - ModelPath: Tree1_LOD1.bin
-          MaximumDistance: 160.0
+          MaximumDistance: 30.0
         - ModelPath: Tree1_LOD2.bin
           MaximumDistance: 240.0
     - Name: Tree2
@@ -141,22 +195,30 @@ ProceduralFoliage:
       ModelPath: Tree2_LOD0.bin
       MaterialPath: Tree2_materials.json
       InstancesPerCell: 1
-      DensityMultiplier: 0.24
-      SpawnChance: 0.20
+      DensityMultiplier: 0.30
+      SpawnChance: 0.24
       MinimumWeight: 0.42
       MinimumScale: 1.1
       MaximumScale: 1.55
+      MinimumYawDegrees: 0.0
+      MaximumYawDegrees: 360.0
       ClusterStrength: 1.0
-      ClusterScale: 225.0
-      ClusterContrast: 2.45
-      ClusterCoverage: 0.21
-      ClusterEdgeSoftness: 0.085
-      ClusterOutsideDensity: 0.0
+      ClusterScale: 205.0
+      ClusterContrast: 1.75
+      ClusterCoverage: 0.44
+      ClusterEdgeSoftness: 0.15
+      ClusterOutsideDensity: 0.16
       OffsetY: 0.0
+      MinimumSpacing: 8.0
+      CollisionActor: true
+      CollisionCenter: [0.0, 2.6, 0.0]
+      CollisionExtents: [0.32, 2.6, 0.32]
+      CollisionFriction: 0.8
+      CollisionRestitution: 0.0
       Lods:
         - ModelPath: Tree2_LOD0.bin
-          MaximumDistance: 80.0
+          MaximumDistance: 15.0
         - ModelPath: Tree2_LOD1.bin
-          MaximumDistance: 160.0
+          MaximumDistance: 30.0
         - ModelPath: Tree2_LOD2.bin
           MaximumDistance: 240.0
