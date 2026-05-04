@@ -184,6 +184,43 @@ float4 ApplyBaseColorToLinear(float4 Color)
     return float4(DecodeSrgbColor(Color.rgb), saturate(Color.a));
 }
 
+float4 ApplyMaterialOpacity(float4 BaseColor, MaterialGpu MaterialData)
+{
+    const float Opacity = MaterialData.Fields[MATERIAL_TYPE_OPACITY].FloatValue.x;
+    float4 ResultColor = saturate(BaseColor);
+
+    if (Opacity > 0.0f)
+    {
+        ResultColor.a *= saturate(Opacity);
+    }
+
+    return saturate(ResultColor);
+}
+
+float4 ResolveMaterialColorFallbackWithDefault(MaterialGpu MaterialData, float4 DefaultColor)
+{
+    const float4 MaterialBaseColor = MaterialData.Fields[MATERIAL_TYPE_BASE_COLOR].FloatValue;
+    const float4 MaterialDiffuseColor = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_COLOR].FloatValue;
+
+    float4 Color = MaterialBaseColor;
+    if (dot(Color, Color) <= 0.0f)
+    {
+        Color = MaterialDiffuseColor;
+    }
+
+    if (dot(Color, Color) <= 0.0f)
+    {
+        Color = DefaultColor;
+    }
+
+    return ApplyBaseColorToLinear(Color);
+}
+
+float4 ResolveMaterialColorFallback(MaterialGpu MaterialData)
+{
+    return ResolveMaterialColorFallbackWithDefault(MaterialData, float4(1.0f, 1.0f, 1.0f, 1.0f));
+}
+
 float4 ApplyMaterialScalarColor(float4 BaseColor, MaterialGpu MaterialData)
 {
     const float4 MaterialBaseColor = MaterialData.Fields[MATERIAL_TYPE_BASE_COLOR].FloatValue;

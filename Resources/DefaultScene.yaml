@@ -33,7 +33,7 @@ Prefabs:
   - &Prefab1003
     prefabId: 1003
     modelPath: knight.bin
-    materialPath: ManneQuinn_Idle_Run_materials.json
+    materialPath: knight_materials.json
     active: true
   - &Prefab1004
     prefabId: 1004

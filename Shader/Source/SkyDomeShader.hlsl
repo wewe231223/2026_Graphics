@@ -59,7 +59,7 @@ float4 PsMain(SkyDomeVertexOutput Input) : SV_TARGET
     const MaterialGpu MaterialData = MaterialBuffer[Input.MaterialIndex];
     const int64_t DiffuseColorTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_TEXTURE].IntValue;
 
-    float4 SampledColor = ApplyBaseColorToLinear(Input.Color);
+    float4 BaseColor = ResolveMaterialColorFallbackWithDefault(MaterialData, Input.Color);
 
     if (DiffuseColorTextureTableIndex >= 0)
     {
@@ -69,9 +69,9 @@ float4 PsMain(SkyDomeVertexOutput Input) : SV_TARGET
         if (TextureSrvIndex != 0xffffffffu)
         {
             Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[TextureSrvIndex];
-            SampledColor = ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
+            BaseColor = ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
         }
     }
     
-    return SampledColor;
+    return ApplyMaterialOpacity(BaseColor, MaterialData);
 }

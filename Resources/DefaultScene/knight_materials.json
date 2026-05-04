@@ -38,18 +38,18 @@
                             "Base Color": {
                                 "Kind": "Vec4",
                                 "Vec4": [
-                                    0.15000000596046448,
-                                    0.15000000596046448,
-                                    0.15000000596046448,
+                                    1.0,
+                                    1.0,
+                                    1.0,
                                     1.0
                                 ]
                             },
                             "Diffuse Color": {
                                 "Kind": "Vec4",
                                 "Vec4": [
-                                    0.15000000596046448,
-                                    0.15000000596046448,
-                                    0.15000000596046448,
+                                    1.0,
+                                    1.0,
+                                    1.0,
                                     1.0
                                 ]
                             },
@@ -98,7 +98,8 @@
                                 "Kind": "None"
                             },
                             "Diffuse Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String": "DKM_Armor_Diff"
                             },
                             "Specular Texture": {
                                 "Kind": "None"
@@ -119,7 +120,8 @@
                                 "Kind": "None"
                             },
                             "Normal Texture": {
-                                "Kind": "None"
+                                "Kind": "String", 
+                                "String": "DKM_Armor_Norm"
                             },
                             "Displacement Texture": {
                                 "Kind": "None"
@@ -228,7 +230,8 @@
                                 "Kind": "None"
                             },
                             "Diffuse Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String": "DKM_Boots_Diff"
                             },
                             "Specular Texture": {
                                 "Kind": "None"
@@ -249,7 +252,8 @@
                                 "Kind": "None"
                             },
                             "Normal Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String": "DKM_Boots_Norm"
                             },
                             "Displacement Texture": {
                                 "Kind": "None"
@@ -358,7 +362,8 @@
                                 "Kind": "None"
                             },
                             "Diffuse Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String": "DKM_Armor_Diff"
                             },
                             "Specular Texture": {
                                 "Kind": "None"
@@ -379,7 +384,8 @@
                                 "Kind": "None"
                             },
                             "Normal Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String": "DKM_Armor_Norm"
                             },
                             "Displacement Texture": {
                                 "Kind": "None"
@@ -488,7 +494,8 @@
                                 "Kind": "None"
                             },
                             "Diffuse Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String": "DKM_Gauntlets_Diff"
                             },
                             "Specular Texture": {
                                 "Kind": "None"
@@ -509,7 +516,8 @@
                                 "Kind": "None"
                             },
                             "Normal Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String": "DKM_Gauntlets_Norm"
                             },
                             "Displacement Texture": {
                                 "Kind": "None"
@@ -618,7 +626,8 @@
                                 "Kind": "None"
                             },
                             "Diffuse Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String": "DKM_Helmet_Diff"
                             },
                             "Specular Texture": {
                                 "Kind": "None"
@@ -639,7 +648,8 @@
                                 "Kind": "None"
                             },
                             "Normal Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String": "DKM_Helmet_Norm"
                             },
                             "Displacement Texture": {
                                 "Kind": "None"
@@ -748,7 +758,8 @@
                                 "Kind": "None"
                             },
                             "Diffuse Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String": "DKM_Pants_Diff"
                             },
                             "Specular Texture": {
                                 "Kind": "None"
@@ -769,7 +780,8 @@
                                 "Kind": "None"
                             },
                             "Normal Texture": {
-                                "Kind": "None"
+                                "Kind": "String",
+                                "String": "DKM_Pants_Norm"
                             },
                             "Displacement Texture": {
                                 "Kind": "None"

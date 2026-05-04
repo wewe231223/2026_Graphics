@@ -56,19 +56,19 @@ GBufferOutput PsMain(VertexOutput Input) {
 
     const MaterialGpu MaterialData = MaterialBuffer[Input.MaterialIndex];
     const int64_t DiffuseColorTextureTableIndex = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_TEXTURE].IntValue;
+    const float4 FallbackColor = ApplyMaterialOpacity(ResolveMaterialColorFallback(MaterialData), MaterialData);
 
     if (DiffuseColorTextureTableIndex < 0) {
-        return BuildGBufferOutput(float4(1.0f, 0.0f, 1.0f, 1.0f), Input.Normal, Input.WorldPosition, Input.Flags);
+        return BuildGBufferOutput(FallbackColor, Input.Normal, Input.WorldPosition, Input.Flags);
     }
 
     const uint TextureTableIndex = (uint)DiffuseColorTextureTableIndex;
     const uint TextureSrvIndex = MaterialTextureTableBuffer[TextureTableIndex].TextureSrvDescriptorIndex;
     if (TextureSrvIndex == 0xffffffffu) {
-        return BuildGBufferOutput(float4(1.0f, 0.0f, 1.0f, 1.0f), Input.Normal, Input.WorldPosition, Input.Flags);
+        return BuildGBufferOutput(FallbackColor, Input.Normal, Input.WorldPosition, Input.Flags);
     }
     
     Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[TextureSrvIndex];
-    const float4 SampledColor = ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0));
-    const float4 ScalarAppliedColor = ApplyMaterialScalarColor(SampledColor, MaterialData);
-    return BuildGBufferOutput(ScalarAppliedColor, Input.Normal, Input.WorldPosition, Input.Flags);
+    const float4 SampledColor = ApplyMaterialOpacity(ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0)), MaterialData);
+    return BuildGBufferOutput(SampledColor, Input.Normal, Input.WorldPosition, Input.Flags);
 }

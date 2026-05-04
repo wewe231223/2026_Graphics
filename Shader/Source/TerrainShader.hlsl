@@ -310,19 +310,7 @@ bool IsMaterialColorValid(float4 ColorValue)
 
 float4 ResolveTerrainFallbackColor(MaterialGpu MaterialData)
 {
-    const float4 BaseColor = MaterialData.Fields[MATERIAL_TYPE_BASE_COLOR].FloatValue;
-    if (IsMaterialColorValid(BaseColor))
-    {
-        return ApplyBaseColorToLinear(BaseColor);
-    }
-
-    const float4 DiffuseColor = MaterialData.Fields[MATERIAL_TYPE_DIFFUSE_COLOR].FloatValue;
-    if (IsMaterialColorValid(DiffuseColor))
-    {
-        return ApplyBaseColorToLinear(DiffuseColor);
-    }
-
-    return float4(1.0f, 1.0f, 1.0f, 1.0f);
+    return ResolveMaterialColorFallback(MaterialData);
 }
 
 bool HasTerrainSplatMap(MaterialGpu MaterialData)
@@ -426,7 +414,7 @@ float4 ResolveTerrainLayerDiffuse(MaterialGpu MaterialData, StructuredBuffer<Mat
     }
 
     Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[NonUniformResourceIndex(TextureSrvIndex)];
-    return ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, LayerUv)) * LayerColor;
+    return ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, LayerUv));
 }
 
 float3 ResolveTerrainLayerNormalTangent(MaterialGpu MaterialData, StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer, float2 LayerBaseUv, uint LayerIndex, float NormalScale)
@@ -532,7 +520,6 @@ GBufferOutput PsMain(TerrainVertexOutput Input)
     float3 TerrainNormalTangent;
     ResolveTerrainMaterial(MaterialData, MaterialTextureTableBuffer, PatchContext, Input.TexCoord0, Input.LayerTexCoord, TerrainColor, TerrainNormalTangent);
     const float3 TerrainNormal = ResolveTerrainWorldNormal(Input.Normal, TerrainNormalTangent);
-    const float4 BaseColor = ApplyBaseColor(TerrainColor);
-    const float4 ScalarAppliedColor = ApplyMaterialScalarColor(BaseColor, MaterialData);
-    return BuildGBufferOutput(ScalarAppliedColor, TerrainNormal, Input.WorldPosition, Input.Flags);
+    const float4 BaseColor = ApplyMaterialOpacity(ApplyBaseColor(TerrainColor), MaterialData);
+    return BuildGBufferOutput(BaseColor, TerrainNormal, Input.WorldPosition, Input.Flags);
 }
