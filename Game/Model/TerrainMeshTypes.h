@@ -34,6 +34,8 @@ namespace Game {
         std::uint32_t mWidth{ 1025 };
         std::uint32_t mHeight{ 1025 };
         std::uint32_t mSeed{ 2026 };
+        bool mUseRandomSeed{ false };
+        bool mHasResolvedRandomSeed{ false };
         std::uint32_t mOctaveCount{ 3 };
         float mNoiseScale{ 220.0f };
         float mPersistence{ 0.3f };

@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <execution>
 #include <numeric>
+#include <random>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -109,6 +111,24 @@ namespace {
         RowIndices.resize(Height);
         std::iota(RowIndices.begin(), RowIndices.end(), 0u);
         return RowIndices;
+    }
+
+    std::uint32_t CreateRandomSeed() {
+        std::random_device RandomDevice{};
+        const std::uint64_t TimeSeed{ static_cast<std::uint64_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count()) };
+        const std::uint32_t RandomValueA{ RandomDevice() };
+        const std::uint32_t RandomValueB{ RandomDevice() };
+        return RandomValueA ^ (RandomValueB << 1u) ^ static_cast<std::uint32_t>(TimeSeed) ^ static_cast<std::uint32_t>(TimeSeed >> 32u);
+    }
+
+    Game::TerrainProceduralHeightFieldDesc ResolveRandomSeed(const Game::TerrainProceduralHeightFieldDesc& Desc) {
+        Game::TerrainProceduralHeightFieldDesc ResolvedDesc{ Desc };
+        if (ResolvedDesc.mUseRandomSeed == true && ResolvedDesc.mHasResolvedRandomSeed == false) {
+            ResolvedDesc.mSeed = CreateRandomSeed();
+            ResolvedDesc.mHasResolvedRandomSeed = true;
+        }
+
+        return ResolvedDesc;
     }
 
     float SampleHeightValue(const Game::HeightFieldData& Field, std::int32_t X, std::int32_t Z) {
@@ -346,19 +366,20 @@ namespace Game {
     }
 
     HeightFieldData TerrainProceduralHeightFieldGenerator::Generate(const TerrainProceduralHeightFieldDesc& Desc) const {
-        ValidateProceduralHeightFieldDesc(Desc);
+        const TerrainProceduralHeightFieldDesc ResolvedDesc{ ResolveRandomSeed(Desc) };
+        ValidateProceduralHeightFieldDesc(ResolvedDesc);
 
-        const std::uint32_t Padding{ Desc.mSmoothingPassCount };
+        const std::uint32_t Padding{ ResolvedDesc.mSmoothingPassCount };
         if (Padding == 0u) {
-            return GenerateRawHeightField(Desc, Desc.mWidth, Desc.mHeight, Desc.mSampleOffsetX, Desc.mSampleOffsetZ);
+            return GenerateRawHeightField(ResolvedDesc, ResolvedDesc.mWidth, ResolvedDesc.mHeight, ResolvedDesc.mSampleOffsetX, ResolvedDesc.mSampleOffsetZ);
         }
 
-        const std::uint32_t ExpandedWidth{ Desc.mWidth + (Padding * 2u) };
-        const std::uint32_t ExpandedHeight{ Desc.mHeight + (Padding * 2u) };
-        const std::int32_t ExpandedSampleOffsetX{ Desc.mSampleOffsetX - static_cast<std::int32_t>(Padding) };
-        const std::int32_t ExpandedSampleOffsetZ{ Desc.mSampleOffsetZ - static_cast<std::int32_t>(Padding) };
-        HeightFieldData ExpandedField{ GenerateRawHeightField(Desc, ExpandedWidth, ExpandedHeight, ExpandedSampleOffsetX, ExpandedSampleOffsetZ) };
-        SmoothHeightField(ExpandedField, Desc);
-        return CropHeightField(ExpandedField, Desc.mWidth, Desc.mHeight, Padding, Padding);
+        const std::uint32_t ExpandedWidth{ ResolvedDesc.mWidth + (Padding * 2u) };
+        const std::uint32_t ExpandedHeight{ ResolvedDesc.mHeight + (Padding * 2u) };
+        const std::int32_t ExpandedSampleOffsetX{ ResolvedDesc.mSampleOffsetX - static_cast<std::int32_t>(Padding) };
+        const std::int32_t ExpandedSampleOffsetZ{ ResolvedDesc.mSampleOffsetZ - static_cast<std::int32_t>(Padding) };
+        HeightFieldData ExpandedField{ GenerateRawHeightField(ResolvedDesc, ExpandedWidth, ExpandedHeight, ExpandedSampleOffsetX, ExpandedSampleOffsetZ) };
+        SmoothHeightField(ExpandedField, ResolvedDesc);
+        return CropHeightField(ExpandedField, ResolvedDesc.mWidth, ResolvedDesc.mHeight, Padding, Padding);
     }
 }

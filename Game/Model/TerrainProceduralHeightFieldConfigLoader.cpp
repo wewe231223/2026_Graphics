@@ -149,6 +149,7 @@ namespace {
         ReadUInt32Child(ConfigNode, "Width", Desc.mWidth);
         ReadUInt32Child(ConfigNode, "Height", Desc.mHeight);
         ReadUInt32Child(ConfigNode, "Seed", Desc.mSeed);
+        ReadBoolChild(ConfigNode, "UseRandomSeed", Desc.mUseRandomSeed);
         ReadUInt32Child(ConfigNode, "OctaveCount", Desc.mOctaveCount);
         ReadFloatChild(ConfigNode, "NoiseScale", Desc.mNoiseScale);
         ReadFloatChild(ConfigNode, "Persistence", Desc.mPersistence);

@@ -1038,6 +1038,8 @@ namespace {
             ProceduralNode["Seed"] >> OutDesc.mSeed;
         }
 
+        TryReadBoolChild(ProceduralNode, { "UseRandomSeed" }, OutDesc.mUseRandomSeed);
+
         if (ProceduralNode.has_child("OctaveCount")) {
             ProceduralNode["OctaveCount"] >> OutDesc.mOctaveCount;
         }
@@ -1380,6 +1382,15 @@ namespace {
                     OutDesc.mProceduralHeightFieldDesc.mSeed = static_cast<std::uint32_t>(std::stoul(Value));
                     OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
                 }
+                else if (Key == "ProceduralUseRandomSeed") {
+                    bool BoolValue{};
+                    if (TryParseYamlBoolText(Value, BoolValue) == false) {
+                        return false;
+                    }
+
+                    OutDesc.mProceduralHeightFieldDesc.mUseRandomSeed = BoolValue;
+                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                }
                 else if (Key == "ProceduralOctaveCount") {
                     OutDesc.mProceduralHeightFieldDesc.mOctaveCount = static_cast<std::uint32_t>(std::stoul(Value));
                     OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
@@ -1640,6 +1651,7 @@ namespace {
         AppendLine(Stream, IndentLevel + 1, std::string{ "Width: " } + std::to_string(Desc.mWidth));
         AppendLine(Stream, IndentLevel + 1, std::string{ "Height: " } + std::to_string(Desc.mHeight));
         AppendLine(Stream, IndentLevel + 1, std::string{ "Seed: " } + std::to_string(Desc.mSeed));
+        AppendLine(Stream, IndentLevel + 1, std::string{ "UseRandomSeed: " } + ToYamlBooleanText(Desc.mUseRandomSeed));
         AppendLine(Stream, IndentLevel + 1, std::string{ "OctaveCount: " } + std::to_string(Desc.mOctaveCount));
         AppendLine(Stream, IndentLevel + 1, std::string{ "NoiseScale: " } + std::to_string(Desc.mNoiseScale));
         AppendLine(Stream, IndentLevel + 1, std::string{ "Persistence: " } + std::to_string(Desc.mPersistence));

@@ -515,6 +515,13 @@ namespace {
 
                 OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
             }
+            else if (Key == "ProceduralUseRandomSeed") {
+                if (TryParseBool(Value, OutData.Desc.mProceduralHeightFieldDesc.mUseRandomSeed) == false) {
+                    return false;
+                }
+
+                OutData.Desc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            }
             else if (Key == "ProceduralOctaveCount") {
                 if (TryParseUInt32(Value, OutData.Desc.mProceduralHeightFieldDesc.mOctaveCount) == false) {
                     return false;

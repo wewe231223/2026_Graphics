@@ -1,6 +1,7 @@
 Width: 1025
 Height: 1025
 Seed: 2026
+UseRandomSeed: true
 OctaveCount: 5
 NoiseScale: 125.0
 Persistence: 0.5

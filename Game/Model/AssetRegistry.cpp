@@ -126,6 +126,8 @@ namespace {
         AppendTerrainKeyHashUInt32(Hash, Desc.mWidth);
         AppendTerrainKeyHashUInt32(Hash, Desc.mHeight);
         AppendTerrainKeyHashUInt32(Hash, Desc.mSeed);
+        AppendTerrainKeyHashBool(Hash, Desc.mUseRandomSeed);
+        AppendTerrainKeyHashBool(Hash, Desc.mHasResolvedRandomSeed);
         AppendTerrainKeyHashUInt32(Hash, Desc.mOctaveCount);
         AppendTerrainKeyHashFloat(Hash, Desc.mNoiseScale);
         AppendTerrainKeyHashFloat(Hash, Desc.mPersistence);
@@ -196,6 +198,7 @@ namespace {
         }
         else if (Desc.mProceduralHeightFieldPath.empty() == false) {
             Key += std::string{ ";ProceduralHeightFieldPathHash=" } + BuildTerrainKeyHashText(BuildTerrainStringHash(Desc.mProceduralHeightFieldPath));
+            Key += std::string{ ";ProceduralDescHash=" } + BuildTerrainKeyHashText(BuildTerrainProceduralHeightFieldDescHash(Desc.mProceduralHeightFieldDesc));
         }
         else {
             Key += std::string{ ";ProceduralDescHash=" } + BuildTerrainKeyHashText(BuildTerrainProceduralHeightFieldDescHash(Desc.mProceduralHeightFieldDesc));
@@ -324,7 +327,19 @@ namespace Game {
         IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
         AssetRegistryStorage& Storage{ BackEnd->GetStorage() };
         auto& TerrainBucket{ Storage.GetBucket<TerrainRenderResourceBucketTag>() };
-        const std::string TerrainKey{ BuildTerrainRenderResourceKey(Desc) };
+        TerrainBuildDesc ResolvedDesc{ Desc };
+        try {
+            TerrainHeightFieldFactory HeightFieldFactory{};
+            if (ResolvedDesc.mHeightSourceType == TerrainHeightSourceType::Procedural) {
+                ResolvedDesc.mProceduralHeightFieldDesc = HeightFieldFactory.ResolveProceduralHeightFieldDesc(ResolvedDesc);
+            }
+        }
+        catch (const std::exception& Exception) {
+            ErrorHandler::report("TerrainRenderResource", Exception.what(), ErrorHandler::Level::Warning);
+            return nullptr;
+        }
+
+        const std::string TerrainKey{ BuildTerrainRenderResourceKey(ResolvedDesc) };
 
         const auto FoundTerrain{ TerrainBucket.mNameLookup.find(TerrainKey) };
         if (FoundTerrain != TerrainBucket.mNameLookup.end() && FoundTerrain->second < TerrainBucket.mAssets.size()) {
@@ -333,14 +348,9 @@ namespace Game {
 
         TerrainTiledMeshData TiledMeshData{};
         HeightFieldData HeightField{};
-        TerrainBuildDesc ResolvedDesc{ Desc };
         try {
             TerrainHeightFieldFactory HeightFieldFactory{};
             TerrainTiledMeshBuilder Builder{};
-            if (ResolvedDesc.mHeightSourceType == TerrainHeightSourceType::Procedural) {
-                ResolvedDesc.mProceduralHeightFieldDesc = HeightFieldFactory.ResolveProceduralHeightFieldDesc(ResolvedDesc);
-            }
-
             HeightField = HeightFieldFactory.Build(ResolvedDesc);
             TiledMeshData = Builder.Build(HeightField, ResolvedDesc);
         }
