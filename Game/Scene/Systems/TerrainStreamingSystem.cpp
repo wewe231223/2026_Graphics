@@ -130,7 +130,7 @@ namespace Game {
             }
 
             TerrainRenderResource& Resource{ *Renderer.mResource };
-            const bool IsStreamUpdated{ Ctx.AssetRegistryResource->UpdateTerrainStreaming(Resource, FocusPosition) };
+            const bool IsStreamUpdated{ Ctx.AssetRegistryResource->UpdateTerrainStreaming(Resource, FocusPosition, Ctx.RenderData.globals.frameIndex) };
             const SimpleMath::Vector3 PreviousPosition{ TransformComponent.position };
             TransformComponent.position.x = Resource.GetStreamWorldOriginX();
             TransformComponent.position.z = Resource.GetStreamWorldOriginZ();

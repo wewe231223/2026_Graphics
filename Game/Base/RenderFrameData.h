@@ -5,6 +5,7 @@
 #include <DirectXCollision.h>
 #include <DirectXTK12/SimpleMath.h>
 #include "Asset/Common.h"
+#include "Core/Future.h"
 #include "Game/Base/Common.h"
 
 namespace SimpleMath = DirectX::SimpleMath;
@@ -209,6 +210,7 @@ namespace Game {
             std::vector<MaterialGpu> materials{};
             std::vector<MaterialTextureTableItemGpu> materialTextureTable{};
             std::vector<SimpleMath::Matrix> bonePalette{};
+            std::vector<Interface::Future> mTerrainUploadFutures{};
             std::array<ShadowRenderContext, ShadowCascadeMaxCount> ShadowRenderContexts{};
 
 

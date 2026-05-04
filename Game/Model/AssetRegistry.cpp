@@ -383,12 +383,12 @@ namespace Game {
         return NewResource;
     }
 
-    bool AssetRegistry::UpdateTerrainStreaming(TerrainRenderResource& Resource, const SimpleMath::Vector3& FocusPosition) {
+    bool AssetRegistry::UpdateTerrainStreaming(TerrainRenderResource& Resource, const SimpleMath::Vector3& FocusPosition, std::uint32_t FrameIndex) {
         if (mDevice == nullptr || mCopyQueue == nullptr || mAllocator == nullptr || mSrvHeap == nullptr) {
             return false;
         }
 
-        return Resource.UpdateStreaming(FocusPosition, mDevice, mCopyQueue, mAllocator, mSrvHeap);
+        return Resource.UpdateStreaming(FocusPosition, FrameIndex, mDevice, mCopyQueue, mAllocator, mSrvHeap);
     }
 
     std::shared_ptr<asset::Animation> AssetRegistry::GetAnimation(const std::string& AnimationBinaryPath) {

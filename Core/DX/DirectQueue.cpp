@@ -49,6 +49,10 @@ namespace Core {
 			return mDirectCommandQueue.Get();
 		}
 
+		std::uint32_t DirectQueue::GetCurrentFrameIndex() const {
+			return mFrameSync.GetCurrentIndex();
+		}
+
 		DescriptorHeap* DirectQueue::GetSrvHeap() {
 			return &mSrvHeap;
 		}
@@ -199,6 +203,9 @@ namespace Core {
 			mCommandList->Close();
 			DrawCallResources.QueueWaitForUpload(mDirectCommandQueue.Get());
 			mMaterialResourceManager.QueueWaitForUpload(mDirectCommandQueue.Get(), static_cast<std::uint32_t>(CurrentIndex));
+			for (const Interface::Future& TerrainUploadFuture : Data.mTerrainUploadFutures) {
+				TerrainUploadFuture.QueueWait(mDirectCommandQueue.Get());
+			}
 
 			ID3D12CommandList* MainCommandLists[]{ mCommandList.Get() };
 			mDirectCommandQueue->ExecuteCommandLists(_countof(MainCommandLists), MainCommandLists);

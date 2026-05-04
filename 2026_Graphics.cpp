@@ -180,6 +180,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             Globals::Time::Get().AdvanceTime();
             Globals::Input::Get().Update();
 
+            SceneInstance.SetRenderFrameIndex(directQueue.GetCurrentFrameIndex());
+
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().BeginPhaseProfile("PreUpdate");
             }

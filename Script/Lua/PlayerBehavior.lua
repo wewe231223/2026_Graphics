@@ -1,5 +1,5 @@
 local WalkMoveSpeed = 5.0
-local RunMoveSpeed = 15.0
+local RunMoveSpeed = 25.0
 local WalkMoveForce = 24.0
 local RunMoveForce = 52.0
 local BrakingForce = 48.0

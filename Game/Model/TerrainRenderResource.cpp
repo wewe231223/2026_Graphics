@@ -13,6 +13,24 @@
 #include "Game/Model/TerrainTiledMeshBuilder.h"
 
 namespace {
+    constexpr std::uint32_t InvalidTerrainSrvDescriptorIndex{ 0xffffffffu };
+
+    std::uint32_t ResolveTerrainFrameIndex(std::uint32_t FrameIndex) {
+        return FrameIndex % Constants::FrameCount<std::uint32_t>;
+    }
+
+    void ResetTerrainFrameBufferResource(Game::TerrainFrameBufferResource& Resource) {
+        Resource.mAllocation.reset();
+        Resource.mSrvHandle = Core::DX::DescriptorHandle{};
+        Resource.mSrvDescriptorIndex = InvalidTerrainSrvDescriptorIndex;
+    }
+
+    void ResetTerrainFrameBufferResources(std::array<Game::TerrainFrameBufferResource, Constants::FrameCount<std::size_t>>& Resources) {
+        for (Game::TerrainFrameBufferResource& Resource : Resources) {
+            ResetTerrainFrameBufferResource(Resource);
+        }
+    }
+
     std::uint32_t ResolveStreamingGridStep(const Game::TerrainBuildDesc& Desc) {
         if (Desc.mStreamingGridStep > 0u) {
             return Desc.mStreamingGridStep;
@@ -94,14 +112,10 @@ namespace Game {
         mLodCount{ 1 },
         mLodDistances{},
         mLocalBoundingBox{},
-        mHeightFieldAllocation{},
-        mHeightFieldCopyFuture{},
-        mHeightFieldSrvHandle{},
-        mSplatMapAllocation{},
-        mSplatMapCopyFuture{},
-        mSplatMapSrvHandle{},
-        mHeightFieldSrvDescriptorIndex{ 0xffffffffu },
-        mSplatMapSrvDescriptorIndex{ 0xffffffffu },
+        mHeightFieldFrameResources{},
+        mSplatMapFrameResources{},
+        mTerrainFrameCopyFutures{},
+        mTerrainFrameDirtyFlags{},
         mHeightFieldWidth{ 0 },
         mHeightFieldHeight{ 0 },
         mSplatMapWidth{ 0 },
@@ -138,14 +152,10 @@ namespace Game {
         mLodCount{ Other.mLodCount },
         mLodDistances{ std::move(Other.mLodDistances) },
         mLocalBoundingBox{ Other.mLocalBoundingBox },
-        mHeightFieldAllocation{ std::move(Other.mHeightFieldAllocation) },
-        mHeightFieldCopyFuture{ std::move(Other.mHeightFieldCopyFuture) },
-        mHeightFieldSrvHandle{ std::move(Other.mHeightFieldSrvHandle) },
-        mSplatMapAllocation{ std::move(Other.mSplatMapAllocation) },
-        mSplatMapCopyFuture{ std::move(Other.mSplatMapCopyFuture) },
-        mSplatMapSrvHandle{ std::move(Other.mSplatMapSrvHandle) },
-        mHeightFieldSrvDescriptorIndex{ Other.mHeightFieldSrvDescriptorIndex },
-        mSplatMapSrvDescriptorIndex{ Other.mSplatMapSrvDescriptorIndex },
+        mHeightFieldFrameResources{ std::move(Other.mHeightFieldFrameResources) },
+        mSplatMapFrameResources{ std::move(Other.mSplatMapFrameResources) },
+        mTerrainFrameCopyFutures{ std::move(Other.mTerrainFrameCopyFutures) },
+        mTerrainFrameDirtyFlags{ Other.mTerrainFrameDirtyFlags },
         mHeightFieldWidth{ Other.mHeightFieldWidth },
         mHeightFieldHeight{ Other.mHeightFieldHeight },
         mSplatMapWidth{ Other.mSplatMapWidth },
@@ -171,8 +181,10 @@ namespace Game {
         Other.mTileCountZ = 0;
         Other.mLodCount = 1;
         Other.mLocalBoundingBox = DirectX::BoundingOrientedBox{};
-        Other.mHeightFieldSrvDescriptorIndex = 0xffffffffu;
-        Other.mSplatMapSrvDescriptorIndex = 0xffffffffu;
+        ResetTerrainFrameBufferResources(Other.mHeightFieldFrameResources);
+        ResetTerrainFrameBufferResources(Other.mSplatMapFrameResources);
+        Other.mTerrainFrameCopyFutures = {};
+        Other.mTerrainFrameDirtyFlags = {};
         Other.mHeightFieldWidth = 0;
         Other.mHeightFieldHeight = 0;
         Other.mSplatMapWidth = 0;
@@ -209,14 +221,10 @@ namespace Game {
         mLodCount = Other.mLodCount;
         mLodDistances = std::move(Other.mLodDistances);
         mLocalBoundingBox = Other.mLocalBoundingBox;
-        mHeightFieldAllocation = std::move(Other.mHeightFieldAllocation);
-        mHeightFieldCopyFuture = std::move(Other.mHeightFieldCopyFuture);
-        mHeightFieldSrvHandle = std::move(Other.mHeightFieldSrvHandle);
-        mSplatMapAllocation = std::move(Other.mSplatMapAllocation);
-        mSplatMapCopyFuture = std::move(Other.mSplatMapCopyFuture);
-        mSplatMapSrvHandle = std::move(Other.mSplatMapSrvHandle);
-        mHeightFieldSrvDescriptorIndex = Other.mHeightFieldSrvDescriptorIndex;
-        mSplatMapSrvDescriptorIndex = Other.mSplatMapSrvDescriptorIndex;
+        mHeightFieldFrameResources = std::move(Other.mHeightFieldFrameResources);
+        mSplatMapFrameResources = std::move(Other.mSplatMapFrameResources);
+        mTerrainFrameCopyFutures = std::move(Other.mTerrainFrameCopyFutures);
+        mTerrainFrameDirtyFlags = Other.mTerrainFrameDirtyFlags;
         mHeightFieldWidth = Other.mHeightFieldWidth;
         mHeightFieldHeight = Other.mHeightFieldHeight;
         mSplatMapWidth = Other.mSplatMapWidth;
@@ -243,8 +251,10 @@ namespace Game {
         Other.mTileCountZ = 0;
         Other.mLodCount = 1;
         Other.mLocalBoundingBox = DirectX::BoundingOrientedBox{};
-        Other.mHeightFieldSrvDescriptorIndex = 0xffffffffu;
-        Other.mSplatMapSrvDescriptorIndex = 0xffffffffu;
+        ResetTerrainFrameBufferResources(Other.mHeightFieldFrameResources);
+        ResetTerrainFrameBufferResources(Other.mSplatMapFrameResources);
+        Other.mTerrainFrameCopyFutures = {};
+        Other.mTerrainFrameDirtyFlags = {};
         Other.mHeightFieldWidth = 0;
         Other.mHeightFieldHeight = 0;
         Other.mSplatMapWidth = 0;
@@ -288,32 +298,42 @@ namespace Game {
             return false;
         }
 
-        if (mHeightFieldCopyFuture.IsInFlight() == true || mSplatMapCopyFuture.IsInFlight() == true) {
-            return false;
-        }
-
-        const bool IsHeightFieldUploaded{ UploadHeightFieldData(Field, Desc, Device, CopyQueue, Allocator, SrvHeap) };
-        if (IsHeightFieldUploaded == false) {
+        if (IsAnyTerrainFrameCopyInFlight() == true) {
             return false;
         }
 
         TerrainSplatMapGenerator SplatMapGenerator{};
         const SplatMapData SplatMap{ SplatMapGenerator.Generate(Field, Desc) };
-        const bool IsSplatMapUploaded{ UploadSplatMapData(SplatMap, Device, CopyQueue, Allocator, SrvHeap) };
-        if (IsSplatMapUploaded == false) {
-            return false;
+        for (std::uint32_t FrameIndex{ 0 }; FrameIndex < Constants::FrameCount<std::uint32_t>; ++FrameIndex) {
+            const bool IsFrameUploaded{ UploadTerrainFrameData(Field, SplatMap, FrameIndex, Device, CopyQueue, Allocator, SrvHeap) };
+            if (IsFrameUploaded == false) {
+                return false;
+            }
         }
 
+        mHeightFieldData = Field;
+        mSplatMapData = SplatMap;
         mBuildDesc = Desc;
+        mHeightFieldWidth = Field.Width;
+        mHeightFieldHeight = Field.Height;
+        mSplatMapWidth = SplatMap.Width;
+        mSplatMapHeight = SplatMap.Height;
+        mMaxHeight = Desc.MaxHeight;
+        mCellSizeX = Desc.CellSizeX;
+        mCellSizeZ = Desc.CellSizeZ;
+        mOriginOffsetX = Desc.CenterOrigin == true ? (static_cast<float>(Field.Width - 1u) * Desc.CellSizeX * 0.5f) : 0.0f;
+        mOriginOffsetZ = Desc.CenterOrigin == true ? (static_cast<float>(Field.Height - 1u) * Desc.CellSizeZ * 0.5f) : 0.0f;
+        mHeightFieldFlipV = Desc.FlipV;
         mStreamOriginGridX = Desc.mProceduralHeightFieldDesc.mSampleOffsetX;
         mStreamOriginGridZ = Desc.mProceduralHeightFieldDesc.mSampleOffsetZ;
         mStreamWorldOriginX = CalculateStreamingWorldOrigin(mStreamOriginGridX, Field.Width, Desc.CellSizeX, Desc.CenterOrigin);
         mStreamWorldOriginZ = CalculateStreamingWorldOrigin(mStreamOriginGridZ, Field.Height, Desc.CellSizeZ, Desc.CenterOrigin);
         mHasStreamOrigin = true;
+        mTerrainFrameDirtyFlags.fill(false);
         return true;
     }
 
-    bool TerrainRenderResource::UpdateStreaming(const SimpleMath::Vector3& FocusPosition, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
+    bool TerrainRenderResource::UpdateStreaming(const SimpleMath::Vector3& FocusPosition, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
         if (IsStreamingEnabled() == false) {
             return false;
         }
@@ -328,7 +348,7 @@ namespace Game {
             const std::future_status BuildStatus{ mStreamingBuildFuture.wait_for(std::chrono::seconds{ 0 }) };
             if (BuildStatus == std::future_status::ready) {
                 const bool IsPendingResultCurrent{ mPendingStreamingOriginGridX == TargetOriginGridX && mPendingStreamingOriginGridZ == TargetOriginGridZ };
-                if (IsPendingResultCurrent == true && (mHeightFieldCopyFuture.IsInFlight() == true || mSplatMapCopyFuture.IsInFlight() == true)) {
+                if (IsPendingResultCurrent == true && IsTerrainFrameCopyInFlight(FrameIndex) == true) {
                     return false;
                 }
 
@@ -336,9 +356,14 @@ namespace Game {
                 mHasPendingStreamingBuild = false;
                 const bool IsResultCurrent{ Result.mTargetOriginGridX == TargetOriginGridX && Result.mTargetOriginGridZ == TargetOriginGridZ };
                 if (Result.mSucceeded == true && IsResultCurrent == true) {
-                    return TryCommitStreamingBuild(std::move(Result), Device, CopyQueue, Allocator, SrvHeap);
+                    return TryCommitStreamingBuild(std::move(Result), FrameIndex, Device, CopyQueue, Allocator, SrvHeap);
                 }
             }
+        }
+
+        const bool IsFrameDataReady{ EnsureTerrainFrameData(FrameIndex, Device, CopyQueue, Allocator, SrvHeap) };
+        if (IsFrameDataReady == false) {
+            return false;
         }
 
         if (mHasStreamOrigin == true && TargetOriginGridX == mStreamOriginGridX && TargetOriginGridZ == mStreamOriginGridZ) {
@@ -356,25 +381,24 @@ namespace Game {
         return false;
     }
 
-    bool TerrainRenderResource::TryCommitStreamingBuild(TerrainStreamingBuildResult&& Result, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
+    bool TerrainRenderResource::TryCommitStreamingBuild(TerrainStreamingBuildResult&& Result, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
         if (Result.mSucceeded == false || Result.mHeightField.HeightValues.empty() == true || Result.mSplatMap.WeightValues.empty() == true) {
             return false;
         }
 
-        if (mHeightFieldCopyFuture.IsInFlight() == true || mSplatMapCopyFuture.IsInFlight() == true) {
+        if (IsTerrainFrameCopyInFlight(FrameIndex) == true) {
             return false;
         }
 
-        const bool IsHeightFieldUploaded{ UploadHeightFieldData(Result.mHeightField, Result.mBuildDesc, Device, CopyQueue, Allocator, SrvHeap) };
-        if (IsHeightFieldUploaded == false) {
+        const bool IsFrameUploaded{ UploadTerrainFrameData(Result.mHeightField, Result.mSplatMap, FrameIndex, Device, CopyQueue, Allocator, SrvHeap) };
+        if (IsFrameUploaded == false) {
             return false;
         }
 
-        const bool IsSplatMapUploaded{ UploadSplatMapData(Result.mSplatMap, Device, CopyQueue, Allocator, SrvHeap) };
-        if (IsSplatMapUploaded == false) {
-            return false;
-        }
-
+        MarkTerrainFrameResourcesDirty();
+        mTerrainFrameDirtyFlags[ResolveTerrainFrameIndex(FrameIndex)] = false;
+        mHeightFieldData = Result.mHeightField;
+        mSplatMapData = Result.mSplatMap;
         mTileMetadata = std::move(Result.mTileMetadata);
         mTileQuadCount = Result.mTileQuadCount;
         mTileCountX = Result.mTileCountX;
@@ -383,6 +407,16 @@ namespace Game {
         mLodDistances = std::move(Result.mLodDistances);
         mLocalBoundingBox = Result.mLocalBoundingBox;
         mBuildDesc = std::move(Result.mBuildDesc);
+        mHeightFieldWidth = mHeightFieldData.Width;
+        mHeightFieldHeight = mHeightFieldData.Height;
+        mSplatMapWidth = mSplatMapData.Width;
+        mSplatMapHeight = mSplatMapData.Height;
+        mMaxHeight = mBuildDesc.MaxHeight;
+        mCellSizeX = mBuildDesc.CellSizeX;
+        mCellSizeZ = mBuildDesc.CellSizeZ;
+        mOriginOffsetX = mBuildDesc.CenterOrigin == true ? (static_cast<float>(mHeightFieldData.Width - 1u) * mBuildDesc.CellSizeX * 0.5f) : 0.0f;
+        mOriginOffsetZ = mBuildDesc.CenterOrigin == true ? (static_cast<float>(mHeightFieldData.Height - 1u) * mBuildDesc.CellSizeZ * 0.5f) : 0.0f;
+        mHeightFieldFlipV = mBuildDesc.FlipV;
         mStreamOriginGridX = Result.mTargetOriginGridX;
         mStreamOriginGridZ = Result.mTargetOriginGridZ;
         mStreamWorldOriginX = Result.mStreamWorldOriginX;
@@ -403,13 +437,14 @@ namespace Game {
         }
     }
 
-    bool TerrainRenderResource::UploadHeightFieldData(const HeightFieldData& Field, const TerrainBuildDesc& Desc, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
-        if (Device == nullptr || CopyQueue == nullptr || Allocator == nullptr || SrvHeap == nullptr || Field.HeightValues.empty() == true) {
+    bool TerrainRenderResource::EnsureHeightFieldFrameResource(const HeightFieldData& Field, std::uint32_t FrameIndex, std::size_t HeightFieldSizeInBytes, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
+        if (Device == nullptr || Allocator == nullptr || SrvHeap == nullptr || Field.HeightValues.empty() == true || HeightFieldSizeInBytes == 0) {
             return false;
         }
 
-        const std::size_t HeightFieldSizeInBytes{ Field.HeightValues.size() * sizeof(float) };
-        if (mHeightFieldAllocation == nullptr || mHeightFieldAllocation->IsValid() == false || mHeightFieldAllocation->GetSize() < HeightFieldSizeInBytes) {
+        TerrainFrameBufferResource& FrameResource{ mHeightFieldFrameResources[ResolveTerrainFrameIndex(FrameIndex)] };
+        const bool IsAllocationRequired{ FrameResource.mAllocation == nullptr || FrameResource.mAllocation->IsValid() == false || FrameResource.mAllocation->GetSize() < HeightFieldSizeInBytes };
+        if (IsAllocationRequired == true) {
             D3D12_RESOURCE_DESC ResourceDescription{};
             ResourceDescription.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
             ResourceDescription.Alignment = 0;
@@ -428,59 +463,38 @@ namespace Game {
             }
 
             Interface::AllocatePlacedResourceParameters AllocationParameters{ ResourceDescription, D3D12_RESOURCE_STATE_COMMON, nullptr, L"Terrain.HeightFieldBuffer" };
-            mHeightFieldAllocation = Allocator->AllocatePlacedResource(AllocationParameters);
-            if (mHeightFieldAllocation == nullptr || mHeightFieldAllocation->IsValid() == false) {
-                mHeightFieldAllocation.reset();
+            FrameResource.mAllocation = Allocator->AllocatePlacedResource(AllocationParameters);
+            if (FrameResource.mAllocation == nullptr || FrameResource.mAllocation->IsValid() == false) {
+                FrameResource.mAllocation.reset();
                 return false;
             }
-
-            mHeightFieldSrvHandle = SrvHeap->Allocate();
-
-            D3D12_SHADER_RESOURCE_VIEW_DESC ShaderResourceViewDescription{};
-            ShaderResourceViewDescription.Format = DXGI_FORMAT_UNKNOWN;
-            ShaderResourceViewDescription.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-            ShaderResourceViewDescription.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-            ShaderResourceViewDescription.Buffer.FirstElement = 0;
-            ShaderResourceViewDescription.Buffer.NumElements = static_cast<UINT>(Field.HeightValues.size());
-            ShaderResourceViewDescription.Buffer.StructureByteStride = sizeof(float);
-            ShaderResourceViewDescription.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-            Device->CreateShaderResourceView(mHeightFieldAllocation->GetResource(), &ShaderResourceViewDescription, mHeightFieldSrvHandle.GetCPU());
-            mHeightFieldSrvDescriptorIndex = mHeightFieldSrvHandle.GetIndex();
         }
 
-        if (mHeightFieldCopyFuture.IsInFlight() == true) {
-            return false;
+        if (FrameResource.mSrvDescriptorIndex == InvalidTerrainSrvDescriptorIndex || FrameResource.mSrvHandle.IsValid() == false) {
+            FrameResource.mSrvHandle = SrvHeap->Allocate();
+            FrameResource.mSrvDescriptorIndex = FrameResource.mSrvHandle.GetIndex();
         }
 
-        Interface::CopyQueueCopyRequest CopyRequest{};
-        CopyRequest.DestinationDefaultResource = mHeightFieldAllocation->GetResource();
-        CopyRequest.DestinationOffset = 0;
-        CopyRequest.SourceData.resize(HeightFieldSizeInBytes);
-        std::memcpy(CopyRequest.SourceData.data(), Field.HeightValues.data(), HeightFieldSizeInBytes);
-        mHeightFieldCopyFuture = CopyQueue->EnqueueCopyFuture(CopyRequest);
-        if (mHeightFieldCopyFuture.IsValid() == false) {
-            return false;
-        }
-
-        mHeightFieldData = Field;
-        mHeightFieldWidth = Field.Width;
-        mHeightFieldHeight = Field.Height;
-        mMaxHeight = Desc.MaxHeight;
-        mCellSizeX = Desc.CellSizeX;
-        mCellSizeZ = Desc.CellSizeZ;
-        mOriginOffsetX = Desc.CenterOrigin == true ? (static_cast<float>(Field.Width - 1u) * Desc.CellSizeX * 0.5f) : 0.0f;
-        mOriginOffsetZ = Desc.CenterOrigin == true ? (static_cast<float>(Field.Height - 1u) * Desc.CellSizeZ * 0.5f) : 0.0f;
-        mHeightFieldFlipV = Desc.FlipV;
+        D3D12_SHADER_RESOURCE_VIEW_DESC ShaderResourceViewDescription{};
+        ShaderResourceViewDescription.Format = DXGI_FORMAT_UNKNOWN;
+        ShaderResourceViewDescription.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+        ShaderResourceViewDescription.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        ShaderResourceViewDescription.Buffer.FirstElement = 0;
+        ShaderResourceViewDescription.Buffer.NumElements = static_cast<UINT>(Field.HeightValues.size());
+        ShaderResourceViewDescription.Buffer.StructureByteStride = sizeof(float);
+        ShaderResourceViewDescription.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+        Device->CreateShaderResourceView(FrameResource.mAllocation->GetResource(), &ShaderResourceViewDescription, FrameResource.mSrvHandle.GetCPU());
         return true;
     }
 
-    bool TerrainRenderResource::UploadSplatMapData(const SplatMapData& SplatMap, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
-        if (Device == nullptr || CopyQueue == nullptr || Allocator == nullptr || SrvHeap == nullptr || SplatMap.WeightValues.empty() == true) {
+    bool TerrainRenderResource::EnsureSplatMapFrameResource(const SplatMapData& SplatMap, std::uint32_t FrameIndex, std::size_t SplatMapSizeInBytes, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
+        if (Device == nullptr || Allocator == nullptr || SrvHeap == nullptr || SplatMap.WeightValues.empty() == true || SplatMapSizeInBytes == 0) {
             return false;
         }
 
-        const std::size_t SplatMapSizeInBytes{ SplatMap.WeightValues.size() * sizeof(asset::Vec4) };
-        if (mSplatMapAllocation == nullptr || mSplatMapAllocation->IsValid() == false || mSplatMapAllocation->GetSize() < SplatMapSizeInBytes || mSplatMapSrvDescriptorIndex == 0xffffffffu) {
+        TerrainFrameBufferResource& FrameResource{ mSplatMapFrameResources[ResolveTerrainFrameIndex(FrameIndex)] };
+        const bool IsAllocationRequired{ FrameResource.mAllocation == nullptr || FrameResource.mAllocation->IsValid() == false || FrameResource.mAllocation->GetSize() < SplatMapSizeInBytes };
+        if (IsAllocationRequired == true) {
             D3D12_RESOURCE_DESC ResourceDescription{};
             ResourceDescription.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
             ResourceDescription.Alignment = 0;
@@ -499,44 +513,109 @@ namespace Game {
             }
 
             Interface::AllocatePlacedResourceParameters AllocationParameters{ ResourceDescription, D3D12_RESOURCE_STATE_COMMON, nullptr, L"Terrain.SplatMapBuffer" };
-            mSplatMapAllocation = Allocator->AllocatePlacedResource(AllocationParameters);
-            if (mSplatMapAllocation == nullptr || mSplatMapAllocation->IsValid() == false) {
-                mSplatMapAllocation.reset();
+            FrameResource.mAllocation = Allocator->AllocatePlacedResource(AllocationParameters);
+            if (FrameResource.mAllocation == nullptr || FrameResource.mAllocation->IsValid() == false) {
+                FrameResource.mAllocation.reset();
                 return false;
             }
-
-            mSplatMapSrvHandle = SrvHeap->Allocate();
-
-            D3D12_SHADER_RESOURCE_VIEW_DESC ShaderResourceViewDescription{};
-            ShaderResourceViewDescription.Format = DXGI_FORMAT_UNKNOWN;
-            ShaderResourceViewDescription.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-            ShaderResourceViewDescription.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-            ShaderResourceViewDescription.Buffer.FirstElement = 0;
-            ShaderResourceViewDescription.Buffer.NumElements = static_cast<UINT>(SplatMap.WeightValues.size());
-            ShaderResourceViewDescription.Buffer.StructureByteStride = sizeof(asset::Vec4);
-            ShaderResourceViewDescription.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-            Device->CreateShaderResourceView(mSplatMapAllocation->GetResource(), &ShaderResourceViewDescription, mSplatMapSrvHandle.GetCPU());
-            mSplatMapSrvDescriptorIndex = mSplatMapSrvHandle.GetIndex();
         }
 
-        if (mSplatMapCopyFuture.IsInFlight() == true) {
-            return false;
+        if (FrameResource.mSrvDescriptorIndex == InvalidTerrainSrvDescriptorIndex || FrameResource.mSrvHandle.IsValid() == false) {
+            FrameResource.mSrvHandle = SrvHeap->Allocate();
+            FrameResource.mSrvDescriptorIndex = FrameResource.mSrvHandle.GetIndex();
         }
 
-        Interface::CopyQueueCopyRequest CopyRequest{};
-        CopyRequest.DestinationDefaultResource = mSplatMapAllocation->GetResource();
-        CopyRequest.DestinationOffset = 0;
-        CopyRequest.SourceData.resize(SplatMapSizeInBytes);
-        std::memcpy(CopyRequest.SourceData.data(), SplatMap.WeightValues.data(), SplatMapSizeInBytes);
-        mSplatMapCopyFuture = CopyQueue->EnqueueCopyFuture(CopyRequest);
-        if (mSplatMapCopyFuture.IsValid() == false) {
-            return false;
-        }
-
-        mSplatMapData = SplatMap;
-        mSplatMapWidth = SplatMap.Width;
-        mSplatMapHeight = SplatMap.Height;
+        D3D12_SHADER_RESOURCE_VIEW_DESC ShaderResourceViewDescription{};
+        ShaderResourceViewDescription.Format = DXGI_FORMAT_UNKNOWN;
+        ShaderResourceViewDescription.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+        ShaderResourceViewDescription.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        ShaderResourceViewDescription.Buffer.FirstElement = 0;
+        ShaderResourceViewDescription.Buffer.NumElements = static_cast<UINT>(SplatMap.WeightValues.size());
+        ShaderResourceViewDescription.Buffer.StructureByteStride = sizeof(asset::Vec4);
+        ShaderResourceViewDescription.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+        Device->CreateShaderResourceView(FrameResource.mAllocation->GetResource(), &ShaderResourceViewDescription, FrameResource.mSrvHandle.GetCPU());
         return true;
+    }
+
+    bool TerrainRenderResource::UploadTerrainFrameData(const HeightFieldData& Field, const SplatMapData& SplatMap, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
+        if (Device == nullptr || CopyQueue == nullptr || Allocator == nullptr || SrvHeap == nullptr || Field.HeightValues.empty() == true || SplatMap.WeightValues.empty() == true) {
+            return false;
+        }
+
+        const std::uint32_t ResolvedFrameIndex{ ResolveTerrainFrameIndex(FrameIndex) };
+        if (mTerrainFrameCopyFutures[ResolvedFrameIndex].IsInFlight() == true) {
+            return false;
+        }
+
+        const std::size_t HeightFieldSizeInBytes{ Field.HeightValues.size() * sizeof(float) };
+        const std::size_t SplatMapSizeInBytes{ SplatMap.WeightValues.size() * sizeof(asset::Vec4) };
+        const bool IsHeightFieldResourceReady{ EnsureHeightFieldFrameResource(Field, ResolvedFrameIndex, HeightFieldSizeInBytes, Device, Allocator, SrvHeap) };
+        if (IsHeightFieldResourceReady == false) {
+            return false;
+        }
+
+        const bool IsSplatMapResourceReady{ EnsureSplatMapFrameResource(SplatMap, ResolvedFrameIndex, SplatMapSizeInBytes, Device, Allocator, SrvHeap) };
+        if (IsSplatMapResourceReady == false) {
+            return false;
+        }
+
+        Interface::CopyQueueCopyRequest HeightFieldCopyRequest{};
+        HeightFieldCopyRequest.DestinationDefaultResource = mHeightFieldFrameResources[ResolvedFrameIndex].mAllocation->GetResource();
+        HeightFieldCopyRequest.DestinationOffset = 0;
+        HeightFieldCopyRequest.SourceData.resize(HeightFieldSizeInBytes);
+        std::memcpy(HeightFieldCopyRequest.SourceData.data(), Field.HeightValues.data(), HeightFieldSizeInBytes);
+
+        Interface::CopyQueueCopyRequest SplatMapCopyRequest{};
+        SplatMapCopyRequest.DestinationDefaultResource = mSplatMapFrameResources[ResolvedFrameIndex].mAllocation->GetResource();
+        SplatMapCopyRequest.DestinationOffset = 0;
+        SplatMapCopyRequest.SourceData.resize(SplatMapSizeInBytes);
+        std::memcpy(SplatMapCopyRequest.SourceData.data(), SplatMap.WeightValues.data(), SplatMapSizeInBytes);
+
+        std::array<Interface::CopyQueueCopyRequest, 2> CopyRequests{ std::move(HeightFieldCopyRequest), std::move(SplatMapCopyRequest) };
+        Interface::Future CopyFuture{ CopyQueue->EnqueueCopyFuture(CopyRequests) };
+        if (CopyFuture.IsValid() == false) {
+            return false;
+        }
+
+        mTerrainFrameCopyFutures[ResolvedFrameIndex] = std::move(CopyFuture);
+        return true;
+    }
+
+    bool TerrainRenderResource::EnsureTerrainFrameData(std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
+        const std::uint32_t ResolvedFrameIndex{ ResolveTerrainFrameIndex(FrameIndex) };
+        if (mTerrainFrameDirtyFlags[ResolvedFrameIndex] == false) {
+            return true;
+        }
+
+        if (mHeightFieldData.HeightValues.empty() == true || mSplatMapData.WeightValues.empty() == true) {
+            return false;
+        }
+
+        const bool IsFrameUploaded{ UploadTerrainFrameData(mHeightFieldData, mSplatMapData, ResolvedFrameIndex, Device, CopyQueue, Allocator, SrvHeap) };
+        if (IsFrameUploaded == false) {
+            return false;
+        }
+
+        mTerrainFrameDirtyFlags[ResolvedFrameIndex] = false;
+        return true;
+    }
+
+    bool TerrainRenderResource::IsTerrainFrameCopyInFlight(std::uint32_t FrameIndex) const {
+        return mTerrainFrameCopyFutures[ResolveTerrainFrameIndex(FrameIndex)].IsInFlight();
+    }
+
+    bool TerrainRenderResource::IsAnyTerrainFrameCopyInFlight() const {
+        for (const Interface::Future& CopyFuture : mTerrainFrameCopyFutures) {
+            if (CopyFuture.IsInFlight() == true) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void TerrainRenderResource::MarkTerrainFrameResourcesDirty() {
+        mTerrainFrameDirtyFlags.fill(true);
     }
 
     const std::shared_ptr<Model>& TerrainRenderResource::GetModel() const {
@@ -587,12 +666,12 @@ namespace Game {
         return mLocalBoundingBox;
     }
 
-    std::uint32_t TerrainRenderResource::GetHeightFieldSrvDescriptorIndex() const {
-        return mHeightFieldSrvDescriptorIndex;
+    std::uint32_t TerrainRenderResource::GetHeightFieldSrvDescriptorIndex(std::uint32_t FrameIndex) const {
+        return mHeightFieldFrameResources[ResolveTerrainFrameIndex(FrameIndex)].mSrvDescriptorIndex;
     }
 
-    std::uint32_t TerrainRenderResource::GetSplatMapSrvDescriptorIndex() const {
-        return mSplatMapSrvDescriptorIndex;
+    std::uint32_t TerrainRenderResource::GetSplatMapSrvDescriptorIndex(std::uint32_t FrameIndex) const {
+        return mSplatMapFrameResources[ResolveTerrainFrameIndex(FrameIndex)].mSrvDescriptorIndex;
     }
 
     std::uint32_t TerrainRenderResource::GetHeightFieldWidth() const {
@@ -653,5 +732,9 @@ namespace Game {
 
     float TerrainRenderResource::GetStreamWorldOriginZ() const {
         return mStreamWorldOriginZ;
+    }
+
+    Interface::Future TerrainRenderResource::GetFrameUploadFuture(std::uint32_t FrameIndex) const {
+        return mTerrainFrameCopyFutures[ResolveTerrainFrameIndex(FrameIndex)];
     }
 }

@@ -307,6 +307,10 @@ namespace Game {
         return mFrameContext.RenderData;
     }
 
+    void Scene::SetRenderFrameIndex(std::uint32_t RenderFrameIndex) {
+        mFrameContext.RenderData.globals.frameIndex = RenderFrameIndex;
+    }
+
     AssetRegistry& Scene::GetAssetRegistry() {
         return mAssetRegistry;
     }
@@ -842,6 +846,7 @@ namespace Game {
                 mFrameContext.RenderData.TerrainPatchContexts.clear();
                 mFrameContext.RenderData.drawRecords.clear();
                 mFrameContext.RenderData.bonePalette.clear();
+                mFrameContext.RenderData.mTerrainUploadFutures.clear();
                 for (RFD::ShadowRenderContext& ShadowRenderContext : mFrameContext.RenderData.ShadowRenderContexts) {
                     ShadowRenderContext.ModelContexts.clear();
                     ShadowRenderContext.TerrainPatchContexts.clear();

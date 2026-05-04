@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <future>
 #include <memory>
@@ -9,6 +10,7 @@
 #include "Core/DX/DesciptorHeap.h"
 #include "Game/Model/Model.h"
 #include "Game/Model/TerrainMeshTypes.h"
+#include "Utility/CompileTimeConstants.h"
 #include "Utility/DirectXInclude.h"
 
 namespace Game {
@@ -45,6 +47,13 @@ namespace Game {
         bool mSucceeded{ false };
     };
 
+    struct TerrainFrameBufferResource final {
+    public:
+        std::unique_ptr<Interface::IAllocationHandle> mAllocation{};
+        Core::DX::DescriptorHandle mSrvHandle{};
+        std::uint32_t mSrvDescriptorIndex{ 0xffffffffu };
+    };
+
     class TerrainRenderResource final {
     public:
         TerrainRenderResource();
@@ -57,7 +66,7 @@ namespace Game {
     public:
         void Initialize(std::shared_ptr<Model> ModelValue, std::vector<TerrainTileMetadata> TileMetadataValue, std::uint32_t TileQuadCountValue, std::uint32_t TileCountXValue, std::uint32_t TileCountZValue, std::uint32_t LodCountValue, std::vector<float> LodDistancesValue, const DirectX::BoundingOrientedBox& LocalBoundingBoxValue, const TerrainBuildDesc& BuildDescValue);
         bool InitializeHeightField(const HeightFieldData& Field, const TerrainBuildDesc& Desc, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
-        bool UpdateStreaming(const SimpleMath::Vector3& FocusPosition, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        bool UpdateStreaming(const SimpleMath::Vector3& FocusPosition, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
         const std::shared_ptr<Model>& GetModel() const;
         const std::vector<TerrainTileMetadata>& GetTileMetadata() const;
         const TerrainBuildDesc& GetBuildDesc() const;
@@ -70,8 +79,8 @@ namespace Game {
         const std::vector<float>& GetLodDistances() const;
         float GetLodExponent() const;
         const DirectX::BoundingOrientedBox& GetLocalBoundingBox() const;
-        std::uint32_t GetHeightFieldSrvDescriptorIndex() const;
-        std::uint32_t GetSplatMapSrvDescriptorIndex() const;
+        std::uint32_t GetHeightFieldSrvDescriptorIndex(std::uint32_t FrameIndex) const;
+        std::uint32_t GetSplatMapSrvDescriptorIndex(std::uint32_t FrameIndex) const;
         std::uint32_t GetHeightFieldWidth() const;
         std::uint32_t GetHeightFieldHeight() const;
         std::uint32_t GetSplatMapWidth() const;
@@ -87,11 +96,17 @@ namespace Game {
         std::int32_t GetStreamOriginGridZ() const;
         float GetStreamWorldOriginX() const;
         float GetStreamWorldOriginZ() const;
+        Interface::Future GetFrameUploadFuture(std::uint32_t FrameIndex) const;
 
     private:
-        bool UploadHeightFieldData(const HeightFieldData& Field, const TerrainBuildDesc& Desc, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
-        bool UploadSplatMapData(const SplatMapData& SplatMap, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
-        bool TryCommitStreamingBuild(TerrainStreamingBuildResult&& Result, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        bool EnsureHeightFieldFrameResource(const HeightFieldData& Field, std::uint32_t FrameIndex, std::size_t HeightFieldSizeInBytes, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        bool EnsureSplatMapFrameResource(const SplatMapData& SplatMap, std::uint32_t FrameIndex, std::size_t SplatMapSizeInBytes, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        bool UploadTerrainFrameData(const HeightFieldData& Field, const SplatMapData& SplatMap, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        bool EnsureTerrainFrameData(std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        bool IsTerrainFrameCopyInFlight(std::uint32_t FrameIndex) const;
+        bool IsAnyTerrainFrameCopyInFlight() const;
+        bool TryCommitStreamingBuild(TerrainStreamingBuildResult&& Result, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        void MarkTerrainFrameResourcesDirty();
         void StartStreamingBuild(const TerrainBuildDesc& StreamingDesc, std::int32_t TargetOriginGridX, std::int32_t TargetOriginGridZ);
 
     private:
@@ -106,14 +121,10 @@ namespace Game {
         std::uint32_t mLodCount{ 1 };
         std::vector<float> mLodDistances{};
         DirectX::BoundingOrientedBox mLocalBoundingBox{};
-        std::unique_ptr<Interface::IAllocationHandle> mHeightFieldAllocation{};
-        Interface::Future mHeightFieldCopyFuture{};
-        Core::DX::DescriptorHandle mHeightFieldSrvHandle{};
-        std::unique_ptr<Interface::IAllocationHandle> mSplatMapAllocation{};
-        Interface::Future mSplatMapCopyFuture{};
-        Core::DX::DescriptorHandle mSplatMapSrvHandle{};
-        std::uint32_t mHeightFieldSrvDescriptorIndex{ 0xffffffffu };
-        std::uint32_t mSplatMapSrvDescriptorIndex{ 0xffffffffu };
+        std::array<TerrainFrameBufferResource, Constants::FrameCount<std::size_t>> mHeightFieldFrameResources{};
+        std::array<TerrainFrameBufferResource, Constants::FrameCount<std::size_t>> mSplatMapFrameResources{};
+        std::array<Interface::Future, Constants::FrameCount<std::size_t>> mTerrainFrameCopyFutures{};
+        std::array<bool, Constants::FrameCount<std::size_t>> mTerrainFrameDirtyFlags{};
         std::uint32_t mHeightFieldWidth{ 0 };
         std::uint32_t mHeightFieldHeight{ 0 };
         std::uint32_t mSplatMapWidth{ 0 };

@@ -66,6 +66,8 @@ namespace Core {
 
 			ID3D12CommandQueue* GetCommandQueue() const;
 
+			std::uint32_t GetCurrentFrameIndex() const;
+
 			DescriptorHeap* GetSrvHeap();
 
 			void QueueWaitFuture(const Interface::Future& Future) const;

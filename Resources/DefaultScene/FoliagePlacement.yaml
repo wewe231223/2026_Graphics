@@ -3,7 +3,7 @@ ProceduralFoliage:
   PlacementRadius: 240.0
   CellSize: 14.0
   UpdateInterval: 0.15
-  DensityMultiplier: 0.5
+  DensityMultiplier: 1.5
   SeedSalt: 9103
   Rules:
     - Name: Foliage1Grass
