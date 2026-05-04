@@ -34,6 +34,7 @@ float4 PsMain(DeferredLightingVertexOutput Input) : SV_TARGET {
         return float4(0.0f, 0.0f, 1.0f, 1.0f);
     }
 
+    const bool IsFoliageSurface = WorldPosition.w >= FoliageGBufferSurfaceMarker;
     const float3 WorldNormal = normalize((NormalFlags.xyz * 2.0f) - 1.0f);
     float4 LitColor = ApplyMaterialLighting(Albedo, WorldNormal);
     if (RootConstants.ShadowMappingParameterSrvIndex != 0xffffffffu) {
@@ -47,6 +48,10 @@ float4 PsMain(DeferredLightingVertexOutput Input) : SV_TARGET {
         else {
             LitColor = ApplyMaterialLighting(Albedo, WorldNormal, ShadowMappingParameter.DirectionalLight);
         }
+    }
+
+    if (IsFoliageSurface) {
+        LitColor.rgb = lerp(LitColor.rgb, Albedo.rgb, FoliageBaseColorBlendFactor);
     }
 
     const uint Flags = NormalFlags.w > 0.5f ? 0x1u : 0u;

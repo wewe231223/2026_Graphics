@@ -10,6 +10,9 @@ static const float DefaultDirectionalLightIntensity = 1.2f;
 static const float DefaultAmbientLightIntensity = 0.25f;
 static const float3 ShadowColor = float3(0.34f, 0.32f, 0.30f);
 static const float DefaultAlphaCutoff = 0.5f;
+static const float DefaultGBufferSurfaceMarker = 1.0f;
+static const float FoliageGBufferSurfaceMarker = 2.0f;
+static const float FoliageBaseColorBlendFactor = 0.7f;
 
 struct VertexInput
 {
@@ -183,7 +186,7 @@ GBufferOutput BuildGBufferOutput(float4 Albedo, float3 WorldNormal, float3 World
     const float PickedFlag = ((Flags & 0x1u) != 0u) ? 1.0f : 0.0f;
     Output.Albedo = saturate(Albedo);
     Output.NormalFlags = float4(EncodedNormal, PickedFlag);
-    Output.WorldPosition = float4(WorldPosition, 1.0f);
+    Output.WorldPosition = float4(WorldPosition, DefaultGBufferSurfaceMarker);
     return Output;
 }
 

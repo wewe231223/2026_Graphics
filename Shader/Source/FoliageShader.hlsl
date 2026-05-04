@@ -96,5 +96,7 @@ GBufferOutput PsMain(FoliageVertexOutput Input) {
         WorldNormal = ResolveTbnNormalMappedWorldNormal(Input.Normal, Input.Tangent, Input.Bitangent, NormalTangent);
     }
 
-    return BuildGBufferOutput(BaseColor, WorldNormal, Input.WorldPosition, Input.Flags);
+    GBufferOutput Output = BuildGBufferOutput(BaseColor, WorldNormal, Input.WorldPosition, Input.Flags);
+    Output.WorldPosition.w = FoliageGBufferSurfaceMarker;
+    return Output;
 }
