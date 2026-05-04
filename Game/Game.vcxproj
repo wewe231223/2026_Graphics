@@ -48,6 +48,7 @@
     <ClInclude Include="Scene\Components\ComponentText.h" />
     <ClInclude Include="Scene\Components\ComponentLuaTypeDefinitions.h" />
     <ClInclude Include="Scene\Components\Culling.h" />
+    <ClInclude Include="Scene\Components\DirectionalLight.h" />
     <ClInclude Include="Scene\Components\EntityHierarchy.h" />
     <ClInclude Include="Scene\Components\Frustum.h" />
     <ClInclude Include="Scene\Components\Material.h" />
@@ -113,6 +114,7 @@
     <ClCompile Include="Asset\AnimationGraphAsset.cpp" />
     <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp" />
     <ClCompile Include="Scene\Components\Culling.cpp" />
+    <ClCompile Include="Scene\Components\DirectionalLight.cpp" />
     <ClCompile Include="Scene\Components\PrefabInstance.cpp" />
     <ClCompile Include="Scene\Components\Bone.cpp" />
     <ClCompile Include="Scene\Components\BoneSkinReference.cpp" />

@@ -7,6 +7,8 @@
 #include <limits>
 #include <sstream>
 #include "Game/Scene/Components/Camera.h"
+#include "Game/Scene/Components/DirectionalLight.h"
+#include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Transform.h"
 
 
@@ -54,6 +56,46 @@ namespace {
 
         NormalizedDirection.Normalize();
         return NormalizedDirection;
+    }
+
+    Game::RFD::DirectionalLightParameter BuildDefaultDirectionalLightParameter() {
+        const DirectX::SimpleMath::Vector3 NormalizedLightDirection{ NormalizeDirection(ShadowLightDirection) };
+        Game::RFD::DirectionalLightParameter Parameter{};
+        Parameter.direction = DirectX::SimpleMath::Vector4{ NormalizedLightDirection.x, NormalizedLightDirection.y, NormalizedLightDirection.z, 0.0f };
+        Parameter.color = DirectX::SimpleMath::Vector4{ 1.0f, 0.97f, 0.92f, 1.0f };
+        Parameter.intensity = 1.2f;
+        Parameter.ambientIntensity = 0.25f;
+        Parameter.flags = Game::RFD::DirectionalLightParameterFlagActive | Game::RFD::DirectionalLightParameterFlagCastShadow;
+        Parameter.padding0 = 0.0f;
+        return Parameter;
+    }
+
+    DirectX::SimpleMath::Vector3 ResolveDirectionalLightDirection(const Game::DirectionalLight& LightComponent, const Game::Transform* TransformComponent) {
+        if (LightComponent.mUseTransformDirection == true && TransformComponent != nullptr) {
+            return TransformComponent->GetForwardDirection();
+        }
+
+        return LightComponent.mDirection;
+    }
+
+    Game::RFD::DirectionalLightParameter BuildDirectionalLightParameterFromComponent(const Game::DirectionalLight& LightComponent, const Game::Transform* TransformComponent) {
+        const DirectX::SimpleMath::Vector3 NormalizedLightDirection{ NormalizeDirection(ResolveDirectionalLightDirection(LightComponent, TransformComponent)) };
+        Game::RFD::DirectionalLightParameter Parameter{};
+        Parameter.direction = DirectX::SimpleMath::Vector4{ NormalizedLightDirection.x, NormalizedLightDirection.y, NormalizedLightDirection.z, 0.0f };
+        Parameter.color = DirectX::SimpleMath::Vector4{ LightComponent.mColor.x, LightComponent.mColor.y, LightComponent.mColor.z, 1.0f };
+        Parameter.intensity = std::max(LightComponent.mIntensity, 0.0f);
+        Parameter.ambientIntensity = std::max(LightComponent.mAmbientIntensity, 0.0f);
+        Parameter.flags = 0u;
+        if (LightComponent.mIsActive == true) {
+            Parameter.flags |= Game::RFD::DirectionalLightParameterFlagActive;
+        }
+
+        if (LightComponent.mIsActive == true && LightComponent.mCastsShadow == true) {
+            Parameter.flags |= Game::RFD::DirectionalLightParameterFlagCastShadow;
+        }
+
+        Parameter.padding0 = 0.0f;
+        return Parameter;
     }
 
     float ComputeCascadeSplitDistance(float CameraNearPlane, float CameraFarPlane, int CascadeIndex, int CascadeCount, float CascadeSplitLambda) {
@@ -410,7 +452,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> ShadowMappingParameterSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 2> Accesses{ { { typeid(Transform), Access::Read }, { typeid(Camera), Access::Read } } };
+        static std::array<ComponentAccess, 4> Accesses{ { { typeid(Transform), Access::Read }, { typeid(Camera), Access::Read }, { typeid(DirectionalLight), Access::Read }, { typeid(EntityHierarchy), Access::Read } } };
         return Accesses;
     }
 
@@ -422,22 +464,49 @@ namespace Game {
     void ShadowMappingParameterSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
         (void)Dt;
 
+        const RFD::DirectionalLightParameter DirectionalLightParameter{ BuildDirectionalLightParameter(World) };
+
         for (auto [TransformComponent, CameraComponent] : World.Query<Transform, Camera>()) {
             if (CameraComponent.isActive == false) {
                 continue;
             }
 
-            const RFD::ShadowMappingParameter ShadowMappingParameter{ BuildShadowMappingParameter(CameraComponent, TransformComponent) };
+            const RFD::ShadowMappingParameter ShadowMappingParameter{ BuildShadowMappingParameter(CameraComponent, TransformComponent, DirectionalLightParameter) };
             Ctx.RenderData.shadowMapping = ShadowMappingParameter;
             break;
         }
     }
 
-    RFD::ShadowMappingParameter ShadowMappingParameterSystem::BuildShadowMappingParameter(const Camera& CameraComponent, const Transform& TransformComponent) const {
+    RFD::DirectionalLightParameter ShadowMappingParameterSystem::BuildDirectionalLightParameter(Arche::World& World) const {
+        bool HasDirectionalLightComponent{ false };
+        RFD::DirectionalLightParameter FirstDirectionalLightParameter{};
+
+        for (auto [LightComponent, HierarchyComponent] : World.Query<DirectionalLight, EntityHierarchy>()) {
+            const Transform* TransformComponent{ World.GetComponent<Transform>(HierarchyComponent.self) };
+            if (HasDirectionalLightComponent == false) {
+                HasDirectionalLightComponent = true;
+                FirstDirectionalLightParameter = BuildDirectionalLightParameterFromComponent(LightComponent, TransformComponent);
+            }
+
+            if (LightComponent.mIsActive == false) {
+                continue;
+            }
+
+            return BuildDirectionalLightParameterFromComponent(LightComponent, TransformComponent);
+        }
+
+        if (HasDirectionalLightComponent == true) {
+            return FirstDirectionalLightParameter;
+        }
+
+        return BuildDefaultDirectionalLightParameter();
+    }
+
+    RFD::ShadowMappingParameter ShadowMappingParameterSystem::BuildShadowMappingParameter(const Camera& CameraComponent, const Transform& TransformComponent, const RFD::DirectionalLightParameter& DirectionalLightParameter) const {
         RFD::ShadowMappingParameter Parameter{};
-        DirectX::SimpleMath::Vector3 NormalizedLightDirection{ ShadowLightDirection };
-        NormalizedLightDirection.Normalize();
+        const DirectX::SimpleMath::Vector3 NormalizedLightDirection{ NormalizeDirection(DirectX::SimpleMath::Vector3{ DirectionalLightParameter.direction.x, DirectionalLightParameter.direction.y, DirectionalLightParameter.direction.z }) };
         const int CascadeCount{ static_cast<int>(std::max<std::uint32_t>(1u, RFD::ShadowCascadeMaxCount)) };
+        Parameter.directionalLight = DirectionalLightParameter;
         Parameter.cascadeCount = static_cast<std::uint32_t>(CascadeCount);
 
         for (int CascadeIndex{ 0 }; CascadeIndex < CascadeCount; CascadeIndex += 1) {
@@ -471,7 +540,7 @@ namespace Game {
             SetCascadeSplitDistance(Parameter.cascadeSplitDistances, CascadeIndex, CascadeRange.farPlane);
         }
 
-        Parameter.lightDirection = DirectX::SimpleMath::Vector4{ NormalizedLightDirection.x, NormalizedLightDirection.y, NormalizedLightDirection.z, 0.0f };
+        Parameter.directionalLight.direction = DirectX::SimpleMath::Vector4{ NormalizedLightDirection.x, NormalizedLightDirection.y, NormalizedLightDirection.z, 0.0f };
 
         return Parameter;
     }

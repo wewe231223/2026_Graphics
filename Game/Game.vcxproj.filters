@@ -249,6 +249,9 @@
     <ClInclude Include="Scene\Components\SkySphere.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\DirectionalLight.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Shader.cpp">
@@ -451,6 +454,9 @@
     </ClCompile>
     <ClCompile Include="Scene\Components\PrefabInstance.cpp">
       <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Components\DirectionalLight.cpp">
+      <Filter>Scene\Components</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

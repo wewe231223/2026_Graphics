@@ -36,12 +36,17 @@ float4 PsMain(DeferredLightingVertexOutput Input) : SV_TARGET {
 
     const float3 WorldNormal = normalize((NormalFlags.xyz * 2.0f) - 1.0f);
     float4 LitColor = ApplyMaterialLighting(Albedo, WorldNormal);
-    if (RootConstants.ShadowMappingParameterSrvIndex != 0xffffffffu && RootConstants.ShadowMapTextureBaseSrvIndex != 0xffffffffu) {
+    if (RootConstants.ShadowMappingParameterSrvIndex != 0xffffffffu) {
         StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
         StructuredBuffer<ShadowMappingParameterGpu> ShadowMappingParameterBuffer = ResourceDescriptorHeap[RootConstants.ShadowMappingParameterSrvIndex];
         const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[0];
         const ShadowMappingParameterGpu ShadowMappingParameter = ShadowMappingParameterBuffer[0];
-        LitColor = ApplyMaterialLightingWithShadow(Albedo, WorldNormal, WorldPosition.xyz, ShadowMappingParameter, FrameGlobals, RootConstants.ShadowMapTextureBaseSrvIndex, ShadowComparisonSampler);
+        if (RootConstants.ShadowMapTextureBaseSrvIndex != 0xffffffffu) {
+            LitColor = ApplyMaterialLightingWithShadow(Albedo, WorldNormal, WorldPosition.xyz, ShadowMappingParameter, FrameGlobals, RootConstants.ShadowMapTextureBaseSrvIndex, ShadowComparisonSampler);
+        }
+        else {
+            LitColor = ApplyMaterialLighting(Albedo, WorldNormal, ShadowMappingParameter.DirectionalLight);
+        }
     }
 
     const uint Flags = NormalFlags.w > 0.5f ? 0x1u : 0u;

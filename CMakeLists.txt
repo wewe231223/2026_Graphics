@@ -179,6 +179,7 @@ add_library(Game STATIC
     Game/Scene/Components/Bone.cpp
     Game/Scene/Components/BoneSkinReference.cpp
     Game/Scene/Components/Camera.cpp
+    Game/Scene/Components/DirectionalLight.cpp
     Game/Scene/Components/SkySphere.cpp
     Game/Scene/Components/Frustum.cpp
     Game/Scene/Components/PrefabInstance.cpp

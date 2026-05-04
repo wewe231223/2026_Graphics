@@ -30,6 +30,7 @@
 #include "Game/Scene/Components/Transform.h"
 #include "Game/Scene/Components/ComponentLuaTypeDefinitions.h"
 #include "Game/Scene/Components/Camera.h"
+#include "Game/Scene/Components/DirectionalLight.h"
 #include "Game/Scene/Components/Frustum.h"
 #include "Game/Scene/Components/SkySphere.h"
 #include "Game/Scene/Components/RuntimeVariableTable.h"
@@ -648,6 +649,7 @@ namespace Game {
         mLuaScriptFramework.RegisterComponentByDefinition<Game::Bone>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BoneSkinReference>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::Camera>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::DirectionalLight>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::Frustum>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::SkySphere>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::RuntimeVariableTable>();

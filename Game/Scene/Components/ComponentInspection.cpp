@@ -12,6 +12,7 @@
 #include "Material.h"
 #include "EntityHierarchy.h"
 #include "Camera.h"
+#include "DirectionalLight.h"
 #include "Frustum.h"
 #include "SkinnedMeshRenderer.h"
 #include "StaticMeshRenderer.h"
@@ -62,6 +63,7 @@ namespace Game {
         AppendComponentInspectionSection<PrefabInstance>(ReadOnlyWorld, EntityId, OutSections);
 
         AppendComponentInspectionSection<Camera>(ReadOnlyWorld, EntityId, OutSections);
+        AppendComponentInspectionSection<DirectionalLight>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<Frustum>(ReadOnlyWorld, EntityId, OutSections);
         AppendComponentInspectionSection<SkySphere>(ReadOnlyWorld, EntityId, OutSections);
     }

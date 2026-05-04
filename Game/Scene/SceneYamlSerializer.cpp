@@ -18,6 +18,7 @@
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/Culling.h"
+#include "Game/Scene/Components/DirectionalLight.h"
 #include "Game/Scene/Components/Frustum.h"
 #include "Game/Scene/Components/SkySphere.h"
 #include "Game/Scene/Components/Material.h"
@@ -61,6 +62,7 @@ namespace {
     constexpr const char* CullingTypeName{ "Culling" };
     constexpr const char* AnimationTypeName{ "Animation" };
     constexpr const char* CameraTypeName{ "Camera" };
+    constexpr const char* DirectionalLightTypeName{ "DirectionalLight" };
     constexpr const char* TagTypeName{ "Tag" };
     constexpr const char* ScriptTypeName{ "Script" };
     constexpr const char* ScriptComponentTypeName{ "ScriptComponent" };
@@ -1998,6 +2000,40 @@ namespace Game {
                 OutScene.GetWorld().AddComponent(Entity, NewTransform);
             }
 
+            if (ComponentsNode.has_child(DirectionalLightTypeName)) {
+                DirectionalLight NewDirectionalLight{};
+                const c4::yml::ConstNodeRef DirectionalLightNode{ ComponentsNode[DirectionalLightTypeName] };
+                if (DirectionalLightNode.has_child("isActive")) {
+                    DirectionalLightNode["isActive"] >> NewDirectionalLight.mIsActive;
+                }
+
+                if (DirectionalLightNode.has_child("castsShadow")) {
+                    DirectionalLightNode["castsShadow"] >> NewDirectionalLight.mCastsShadow;
+                }
+
+                if (DirectionalLightNode.has_child("useTransformDirection")) {
+                    DirectionalLightNode["useTransformDirection"] >> NewDirectionalLight.mUseTransformDirection;
+                }
+
+                if (DirectionalLightNode.has_child("direction")) {
+                    ReadVector3(DirectionalLightNode["direction"], NewDirectionalLight.mDirection);
+                }
+
+                if (DirectionalLightNode.has_child("color")) {
+                    ReadVector3(DirectionalLightNode["color"], NewDirectionalLight.mColor);
+                }
+
+                if (DirectionalLightNode.has_child("intensity")) {
+                    DirectionalLightNode["intensity"] >> NewDirectionalLight.mIntensity;
+                }
+
+                if (DirectionalLightNode.has_child("ambientIntensity")) {
+                    DirectionalLightNode["ambientIntensity"] >> NewDirectionalLight.mAmbientIntensity;
+                }
+
+                OutScene.GetWorld().AddComponent(Entity, NewDirectionalLight);
+            }
+
             if (ComponentsNode.has_child(BoundingBoxTypeName)) {
                 PendingBoundingBoxBinding NewPendingBinding{};
                 if (TryReadBoundingBoxBinding(ComponentsNode[BoundingBoxTypeName], Entity, NewPendingBinding) == true) {
@@ -2944,6 +2980,7 @@ namespace Game {
 
             const Name* NameComponent{ ReadOnlyWorld->GetComponent<Game::Name>(EntityId) };
             const Transform* TransformComponent{ ReadOnlyWorld->GetComponent<Game::Transform>(EntityId) };
+            const DirectionalLight* DirectionalLightComponent{ ReadOnlyWorld->GetComponent<Game::DirectionalLight>(EntityId) };
             const BoneSkinReference* BoneSkinReferenceComponent{ ReadOnlyWorld->GetComponent<BoneSkinReference>(EntityId) };
             const FootIKRig* FootIKRigComponent{ ReadOnlyWorld->GetComponent<FootIKRig>(EntityId) };
             const Material* MaterialComponent{ ReadOnlyWorld->GetComponent<Material>(EntityId) };
@@ -2981,6 +3018,17 @@ namespace Game {
                 AppendVector3(Stream, 4, "rotationEuler", TransformComponent->rotationEuler);
                 AppendQuaternion(Stream, 4, "rotation", TransformComponent->rotation);
                 AppendVector3(Stream, 4, "scale", TransformComponent->scale);
+            }
+
+            if (DirectionalLightComponent != nullptr) {
+                AppendLine(Stream, 3, std::string{ DirectionalLightTypeName } + std::string{ ":" });
+                AppendLine(Stream, 4, std::string{ "isActive: " } + ToYamlBooleanText(DirectionalLightComponent->mIsActive));
+                AppendLine(Stream, 4, std::string{ "castsShadow: " } + ToYamlBooleanText(DirectionalLightComponent->mCastsShadow));
+                AppendLine(Stream, 4, std::string{ "useTransformDirection: " } + ToYamlBooleanText(DirectionalLightComponent->mUseTransformDirection));
+                AppendVector3(Stream, 4, "direction", DirectionalLightComponent->mDirection);
+                AppendVector3(Stream, 4, "color", DirectionalLightComponent->mColor);
+                AppendLine(Stream, 4, std::string{ "intensity: " } + std::to_string(DirectionalLightComponent->mIntensity));
+                AppendLine(Stream, 4, std::string{ "ambientIntensity: " } + std::to_string(DirectionalLightComponent->mAmbientIntensity));
             }
 
             if (BoneSkinReferenceComponent != nullptr) {

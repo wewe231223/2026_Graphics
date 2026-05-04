@@ -1,10 +1,13 @@
 #include "defines.hlsli"
 
 static const uint SHADOW_CASCADE_MAX_COUNT = 4u;
+static const uint DIRECTIONAL_LIGHT_FLAG_ACTIVE = 0x1u;
+static const uint DIRECTIONAL_LIGHT_FLAG_CAST_SHADOW = 0x2u;
 static const bool ENABLE_CASCADE_MAP_SHADOW_COLOR = false;
-static const float3 GlobalLightColor = float3(1.0f, 0.97f, 0.92f);
-static const float GlobalLightIntensity = 1.2f;
-static const float AmbientLightIntensity = 0.25f;
+static const float3 DefaultDirectionalLightDirection = normalize(float3(0.4f, -1.0f, 0.35f));
+static const float3 DefaultDirectionalLightColor = float3(1.0f, 0.97f, 0.92f);
+static const float DefaultDirectionalLightIntensity = 1.2f;
+static const float DefaultAmbientLightIntensity = 0.25f;
 static const float3 ShadowColor = float3(0.34f, 0.32f, 0.30f);
 
 struct VertexInput
@@ -48,10 +51,20 @@ struct CameraParameterGpu
     float FovRadians;
 };
 
+struct DirectionalLightParameterGpu
+{
+    float4 Direction;
+    float4 Color;
+    float Intensity;
+    float AmbientIntensity;
+    uint Flags;
+    float Padding0;
+};
+
 struct ShadowMappingParameterGpu
 {
     CameraParameterGpu ShadowCameras[SHADOW_CASCADE_MAX_COUNT];
-    float4 LightDirection;
+    DirectionalLightParameterGpu DirectionalLight;
     float4 CascadeSplitDistances;
     float ShadowBiases[SHADOW_CASCADE_MAX_COUNT];
     float ShadowStrengths[SHADOW_CASCADE_MAX_COUNT];
@@ -284,12 +297,46 @@ float4 ApplyMaterialScalarColor(float4 BaseColor, MaterialGpu MaterialData)
     return saturate(ResultColor);
 }
 
-float3 ApplyDirectionalLight(float3 BaseRgb, float3 WorldNormal)
+DirectionalLightParameterGpu BuildDefaultDirectionalLightParameter() {
+    DirectionalLightParameterGpu Parameter;
+    Parameter.Direction = float4(DefaultDirectionalLightDirection, 0.0f);
+    Parameter.Color = float4(DefaultDirectionalLightColor, 1.0f);
+    Parameter.Intensity = DefaultDirectionalLightIntensity;
+    Parameter.AmbientIntensity = DefaultAmbientLightIntensity;
+    Parameter.Flags = DIRECTIONAL_LIGHT_FLAG_ACTIVE | DIRECTIONAL_LIGHT_FLAG_CAST_SHADOW;
+    Parameter.Padding0 = 0.0f;
+    return Parameter;
+}
+
+bool IsDirectionalLightActive(DirectionalLightParameterGpu LightParameter) {
+    return (LightParameter.Flags & DIRECTIONAL_LIGHT_FLAG_ACTIVE) != 0u;
+}
+
+bool DoesDirectionalLightCastShadow(DirectionalLightParameterGpu LightParameter) {
+    return (LightParameter.Flags & DIRECTIONAL_LIGHT_FLAG_CAST_SHADOW) != 0u;
+}
+
+float3 ResolveDirectionalLightDirection(DirectionalLightParameterGpu LightParameter) {
+    const float DirectionLengthSquared = dot(LightParameter.Direction.xyz, LightParameter.Direction.xyz);
+    if (DirectionLengthSquared <= 0.0f)
+    {
+        return DefaultDirectionalLightDirection;
+    }
+
+    return normalize(LightParameter.Direction.xyz);
+}
+
+float3 ApplyDirectionalLight(float3 BaseRgb, float3 WorldNormal, DirectionalLightParameterGpu LightParameter)
 {
     const float3 NormalizedNormal = normalize(WorldNormal);
-    const float3 LightDirection = normalize(float3(0.4f, -1.0f, 0.35f));
-    const float3 LightColor = GlobalLightColor * GlobalLightIntensity;
-    const float AmbientIntensity = AmbientLightIntensity;
+    const float3 LightDirection = ResolveDirectionalLightDirection(LightParameter);
+    const float3 LightColor = max(LightParameter.Color.rgb, float3(0.0f, 0.0f, 0.0f)) * max(LightParameter.Intensity, 0.0f);
+    const float AmbientIntensity = max(LightParameter.AmbientIntensity, 0.0f);
+    if (IsDirectionalLightActive(LightParameter) == false)
+    {
+        return BaseRgb * AmbientIntensity;
+    }
+
     const float DiffuseIntensity = saturate(dot(NormalizedNormal, -LightDirection));
 
     const float3 LitColor = BaseRgb * (AmbientIntensity + (DiffuseIntensity * LightColor));
@@ -407,12 +454,17 @@ float3 ResolveCascadeShadowColor(uint CascadeIndex)
     return float3(1.0f, 0.92f, 0.52f);
 }
 
-float3 ApplyDirectionalLightWithShadow(float3 BaseRgb, float3 WorldNormal, float3 LightDirection, float ShadowVisibility, float ShadowStrength, uint CascadeIndex)
+float3 ApplyDirectionalLightWithShadow(float3 BaseRgb, float3 WorldNormal, DirectionalLightParameterGpu LightParameter, float ShadowVisibility, float ShadowStrength, uint CascadeIndex)
 {
     const float3 NormalizedNormal = normalize(WorldNormal);
-    const float3 NormalizedLightDirection = normalize(LightDirection);
-    const float3 LightColor = GlobalLightColor * GlobalLightIntensity;
-    const float AmbientIntensity = AmbientLightIntensity;
+    const float3 NormalizedLightDirection = ResolveDirectionalLightDirection(LightParameter);
+    const float3 LightColor = max(LightParameter.Color.rgb, float3(0.0f, 0.0f, 0.0f)) * max(LightParameter.Intensity, 0.0f);
+    const float AmbientIntensity = max(LightParameter.AmbientIntensity, 0.0f);
+    if (IsDirectionalLightActive(LightParameter) == false)
+    {
+        return BaseRgb * AmbientIntensity;
+    }
+
     const float DiffuseIntensity = saturate(dot(NormalizedNormal, -NormalizedLightDirection));
     if (ENABLE_CASCADE_MAP_SHADOW_COLOR)
     {
@@ -433,12 +485,24 @@ float3 ApplyDirectionalLightWithShadow(float3 BaseRgb, float3 WorldNormal, float
 float4 ApplyMaterialLighting(float4 BaseColor, float3 WorldNormal)
 {
     float4 ResultColor = BaseColor;
-    ResultColor.rgb = ApplyDirectionalLight(ResultColor.rgb, WorldNormal);
+    ResultColor.rgb = ApplyDirectionalLight(ResultColor.rgb, WorldNormal, BuildDefaultDirectionalLightParameter());
+    return ResultColor;
+}
+
+float4 ApplyMaterialLighting(float4 BaseColor, float3 WorldNormal, DirectionalLightParameterGpu LightParameter)
+{
+    float4 ResultColor = BaseColor;
+    ResultColor.rgb = ApplyDirectionalLight(ResultColor.rgb, WorldNormal, LightParameter);
     return ResultColor;
 }
 
 float4 ApplyMaterialLightingWithShadow(float4 BaseColor, float3 WorldNormal, float3 WorldPosition, ShadowMappingParameterGpu ShadowMappingParameter, FrameGlobalsGpu FrameGlobals, uint ShadowMapTextureBaseSrvIndex, SamplerComparisonState ShadowComparisonSampler)
 {
+    if (DoesDirectionalLightCastShadow(ShadowMappingParameter.DirectionalLight) == false)
+    {
+        return ApplyMaterialLighting(BaseColor, WorldNormal, ShadowMappingParameter.DirectionalLight);
+    }
+
     const uint CascadeIndex = ResolveCascadeIndex(ShadowMappingParameter, FrameGlobals, WorldPosition);
     Texture2D<float> ShadowMapTexture = ResourceDescriptorHeap[NonUniformResourceIndex(ShadowMapTextureBaseSrvIndex + CascadeIndex)];
     const CameraParameterGpu ShadowCamera = ShadowMappingParameter.ShadowCameras[CascadeIndex];
@@ -447,7 +511,7 @@ float4 ApplyMaterialLightingWithShadow(float4 BaseColor, float3 WorldNormal, flo
     const float CascadeShadowStrength = ResolveCascadeShadowStrength(ShadowMappingParameter, CascadeIndex);
     const float ShadowVisibility = ComputeShadowVisibility(ShadowMapTexture, ShadowComparisonSampler, ShadowCamera, CascadeShadowBias, CascadeShadowMapSize, WorldPosition);
     float4 ResultColor = BaseColor;
-    ResultColor.rgb = ApplyDirectionalLightWithShadow(ResultColor.rgb, WorldNormal, ShadowMappingParameter.LightDirection.xyz, ShadowVisibility, CascadeShadowStrength, CascadeIndex);
+    ResultColor.rgb = ApplyDirectionalLightWithShadow(ResultColor.rgb, WorldNormal, ShadowMappingParameter.DirectionalLight, ShadowVisibility, CascadeShadowStrength, CascadeIndex);
     return ResultColor;
 }
 

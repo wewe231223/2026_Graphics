@@ -65,9 +65,23 @@ namespace Game {
             float fovRadians{ 0.0f };
         };
 
+        constexpr std::uint32_t DirectionalLightParameterFlagActive{ 0x1u };
+        constexpr std::uint32_t DirectionalLightParameterFlagCastShadow{ 0x2u };
+
+        struct alignas(16) DirectionalLightParameter final {
+            SimpleMath::Vector4 direction{ 0.0f, -1.0f, 0.0f, 0.0f };
+            SimpleMath::Vector4 color{ 1.0f, 0.97f, 0.92f, 1.0f };
+            float intensity{ 1.2f };
+            float ambientIntensity{ 0.25f };
+            std::uint32_t flags{ DirectionalLightParameterFlagActive | DirectionalLightParameterFlagCastShadow };
+            float padding0{ 0.0f };
+        };
+
+        static_assert(sizeof(DirectionalLightParameter) == 48);
+
         struct alignas(16) ShadowMappingParameter final {
             CameraParameter shadowCameras[ShadowCascadeMaxCount]{};
-            SimpleMath::Vector4 lightDirection{};
+            DirectionalLightParameter directionalLight{};
             SimpleMath::Vector4 cascadeSplitDistances{};
             float shadowBiases[ShadowCascadeMaxCount]{ 0.0010f, 0.0010f, 0.0010f, 0.0010f };
             float shadowStrengths[ShadowCascadeMaxCount]{ 0.85f, 0.85f, 0.85f, 0.85f };
@@ -80,7 +94,7 @@ namespace Game {
             float padding2{ 0.0f };
         };
 
-        static_assert(sizeof(ShadowMappingParameter) == 1024);
+        static_assert(sizeof(ShadowMappingParameter) == 1056);
 
         // ------------------------------------------------------------
         // 2) 오브젝트 공통 컨텍스트 (오브젝트당 1개)

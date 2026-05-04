@@ -31,7 +31,8 @@ namespace Game {
         void LoadShadowMappingParameterFile();
         void SaveShadowMappingParameterFile() const;
         void SanitizeShadowMappingParameters();
-        RFD::ShadowMappingParameter BuildShadowMappingParameter(const Camera& CameraComponent, const Transform& TransformComponent) const;
+        RFD::DirectionalLightParameter BuildDirectionalLightParameter(Arche::World& World) const;
+        RFD::ShadowMappingParameter BuildShadowMappingParameter(const Camera& CameraComponent, const Transform& TransformComponent, const RFD::DirectionalLightParameter& DirectionalLightParameter) const;
 
     private:
         const std::string mName{ "ShadowMappingParameterSystem" };

@@ -154,6 +154,24 @@ Entities:
         thirdPersonZoomSpeed: 0.5
         skySphereEntityId: 11
         startMode: ThirdPerson
+  - EntityId: 1
+    ParentEntityId: -1
+    Components:
+      Name:
+        text: MainDirectionalLight
+      Transform:
+        <<: *DefaultTransform
+        position: [0.0, 20.0, 0.0]
+      DirectionalLight:
+        isActive: true
+        castsShadow: true
+        useTransformDirection: false
+        direction: [0.4, -1.0, 0.35]
+        color: [1.0, 0.97, 0.92]
+        intensity: 1.2
+        ambientIntensity: 0.25
+      Script:
+        text: Script/Lua/SunCycle.lua
   - EntityId: 9
     ParentEntityId: -1
     Components:
