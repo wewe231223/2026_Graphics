@@ -130,6 +130,25 @@ namespace asset {
             return std::string_view{ MaterialTypeNames[Index] };
         }
 
+        bool ShouldSerializeEmptyMaterialProperty(MaterialType TypeValue) {
+            switch (TypeValue) {
+            case MaterialType::DiffuseTexture:
+            case MaterialType::SpecularTexture:
+            case MaterialType::AmbientTexture:
+            case MaterialType::EmissiveTexture:
+            case MaterialType::OpacityTexture:
+            case MaterialType::ShininessTexture:
+            case MaterialType::HeightBumpTexture:
+            case MaterialType::NormalTexture:
+            case MaterialType::DisplacementTexture:
+            case MaterialType::ReflectionTexture:
+            case MaterialType::LightmapTexture:
+                return true;
+            default:
+                return false;
+            }
+        }
+
         bool TryParseIndexedMaterialType(const std::string_view TypeName, const std::string_view Prefix, MaterialType BaseType, std::size_t MaxCount, MaterialType& Type) {
             if (TypeName.size() <= Prefix.size() || TypeName.substr(0, Prefix.size()) != Prefix) {
                 return false;
@@ -528,25 +547,32 @@ namespace asset {
                 MaterialObject.AddMember("Name", MaterialNameValue, Allocator);
                 MaterialObject.AddMember("PBR", MaterialData.PBR, Allocator);
 
-                std::array<MaterialMap, LocalMaterialTypeCount> PropertyValues{};
+                std::array<const MaterialProperty*, LocalMaterialTypeCount> PropertyValues{};
                 for (const MaterialProperty& MaterialPropertyData : MaterialData.Properties) {
                     const std::size_t PropertyIndex{ static_cast<std::size_t>(MaterialPropertyData.Type) };
-                    if (PropertyIndex < PropertyValues.size()) {
-                        PropertyValues[PropertyIndex] = MaterialPropertyData.Data;
+                    if (PropertyIndex < PropertyValues.size() && (MaterialPropertyData.Data.GetKind() != MaterialMapKind::None || ShouldSerializeEmptyMaterialProperty(MaterialPropertyData.Type) == true)) {
+                        PropertyValues[PropertyIndex] = &MaterialPropertyData;
                     }
                 }
 
                 rapidjson::Value PropertyObject{ rapidjson::kObjectType };
                 for (std::size_t TypeIndex{ 0 }; TypeIndex < LocalMaterialTypeCount; ++TypeIndex) {
                     const MaterialType TypeValue{ static_cast<MaterialType>(TypeIndex) };
+                    const MaterialProperty* MaterialPropertyData{ PropertyValues[TypeIndex] };
+                    if (MaterialPropertyData == nullptr && ShouldSerializeEmptyMaterialProperty(TypeValue) == false) {
+                        continue;
+                    }
+
                     const std::string_view TypeName{ MaterialTypeToString(TypeValue) };
                     if (TypeName.empty()) {
                         continue;
                     }
 
+                    const MaterialMap EmptyMaterialMap{};
+                    const MaterialMap& MaterialMapData{ MaterialPropertyData == nullptr ? EmptyMaterialMap : MaterialPropertyData->Data };
                     rapidjson::Value TypeNameValue{};
                     TypeNameValue.SetString(TypeName.data(), static_cast<rapidjson::SizeType>(TypeName.size()), Allocator);
-                    PropertyObject.AddMember(TypeNameValue, SerializeMaterialMap(PropertyValues[TypeIndex], Allocator), Allocator);
+                    PropertyObject.AddMember(TypeNameValue, SerializeMaterialMap(MaterialMapData, Allocator), Allocator);
                 }
 
                 MaterialObject.AddMember("Properties", PropertyObject, Allocator);

@@ -1,18 +1,22 @@
 ﻿#include "SceneYamlSerializer.h"
 #include <array>
+#include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <exception>
 #include <fstream>
 #include <format>
 #include <initializer_list>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 #include <ryml.hpp>
 #include <ryml_std.hpp>
 #include "Game/Scene/Components/BoundingBox.h"
@@ -52,6 +56,7 @@
 #include "Game/Model/TerrainRenderResource.h"
 #include "Game/Model/TerrainMeshTypes.h"
 #include "Game/Model/TerrainHeightFieldFactory.h"
+#include "PhysicsLib/Actors/PhysicsTerrainActor.h"
 #include "Utility/StdOutput.h"
 
 namespace {
@@ -115,6 +120,16 @@ namespace {
         Arche::EntityID EntityId{ Arche::NullEntityID };
         SimpleMath::Vector3 Center{ SimpleMath::Vector3::Zero };
         SimpleMath::Vector3 Extents{ SimpleMath::Vector3::One };
+    };
+
+    struct PendingTerrainSnapBinding final {
+        Arche::EntityID EntityId{ Arche::NullEntityID };
+        float OffsetY{};
+    };
+
+    struct TerrainSurfaceBinding final {
+        Arche::EntityID EntityId{ Arche::NullEntityID };
+        PhysicsTerrainActor::ActorDesc TerrainActorDesc{};
     };
 
     bool ReadVector3(c4::yml::ConstNodeRef TargetNode, SimpleMath::Vector3& OutValue) {
@@ -959,6 +974,288 @@ namespace {
         }
 
         return true;
+    }
+
+    SimpleMath::Matrix BuildTransformOnlyWorldMatrix(const Game::Transform& TransformComponent) {
+        const SimpleMath::Matrix TransformOnlyWorldMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
+        return TransformOnlyWorldMatrix;
+    }
+
+    SimpleMath::Matrix BuildTransformOffsetMatrix(const Game::Transform& TransformComponent) {
+        const SimpleMath::Matrix TransformOffsetMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) };
+        return TransformOffsetMatrix;
+    }
+
+    std::vector<SimpleMath::Vector2> BuildTerrainSnapSamplePoints(const Game::BoundingBox* BoundingBoxComponent, const Game::Transform& TransformComponent) {
+        std::vector<SimpleMath::Vector2> SamplePoints{};
+        SamplePoints.reserve(5u);
+        SamplePoints.push_back(SimpleMath::Vector2{ TransformComponent.position.x, TransformComponent.position.z });
+
+        if (BoundingBoxComponent == nullptr) {
+            return SamplePoints;
+        }
+
+        DirectX::XMFLOAT3 Corners[8]{};
+        BoundingBoxComponent->GetObb().GetCorners(Corners);
+
+        const SimpleMath::Matrix TransformOffsetMatrix{ BuildTransformOffsetMatrix(TransformComponent) };
+        std::array<SimpleMath::Vector3, 8> OffsetPositions{};
+        float BottomOffsetY{ std::numeric_limits<float>::max() };
+        for (std::size_t CornerIndex{ 0u }; CornerIndex < OffsetPositions.size(); ++CornerIndex) {
+            const DirectX::XMFLOAT3& Corner{ Corners[CornerIndex] };
+            OffsetPositions[CornerIndex] = SimpleMath::Vector3::Transform(SimpleMath::Vector3{ Corner.x, Corner.y, Corner.z }, TransformOffsetMatrix);
+            BottomOffsetY = (std::min)(BottomOffsetY, OffsetPositions[CornerIndex].y);
+        }
+
+        if (BottomOffsetY == std::numeric_limits<float>::max()) {
+            return SamplePoints;
+        }
+
+        constexpr float BottomSampleEpsilon{ 0.001f };
+        for (const SimpleMath::Vector3& OffsetPosition : OffsetPositions) {
+            if (OffsetPosition.y > BottomOffsetY + BottomSampleEpsilon) {
+                continue;
+            }
+
+            SamplePoints.push_back(SimpleMath::Vector2{ TransformComponent.position.x + OffsetPosition.x, TransformComponent.position.z + OffsetPosition.z });
+        }
+
+        return SamplePoints;
+    }
+
+    float CalculateBottomOffsetY(const Game::BoundingBox* BoundingBoxComponent, const Game::Transform& TransformComponent) {
+        if (BoundingBoxComponent == nullptr) {
+            return 0.0f;
+        }
+
+        DirectX::XMFLOAT3 Corners[8]{};
+        BoundingBoxComponent->GetObb().GetCorners(Corners);
+
+        const SimpleMath::Matrix TransformOffsetMatrix{ BuildTransformOffsetMatrix(TransformComponent) };
+        float BottomOffsetY{ std::numeric_limits<float>::max() };
+        for (const DirectX::XMFLOAT3& Corner : Corners) {
+            const SimpleMath::Vector3 OffsetPosition{ SimpleMath::Vector3::Transform(SimpleMath::Vector3{ Corner.x, Corner.y, Corner.z }, TransformOffsetMatrix) };
+            if (OffsetPosition.y < BottomOffsetY) {
+                BottomOffsetY = OffsetPosition.y;
+            }
+        }
+
+        if (BottomOffsetY == std::numeric_limits<float>::max()) {
+            return 0.0f;
+        }
+
+        return BottomOffsetY;
+    }
+
+    bool TryResolveHighestTerrainSurfaceHeight(const Arche::World& World, const std::vector<TerrainSurfaceBinding>& TerrainSurfaceBindings, float WorldX, float WorldZ, float& OutSurfaceHeight) {
+        bool HasSurfaceHeight{};
+        float HighestSurfaceHeight{};
+
+        for (const TerrainSurfaceBinding& TerrainSurfaceBindingItem : TerrainSurfaceBindings) {
+            if (TerrainSurfaceBindingItem.EntityId == Arche::NullEntityID) {
+                continue;
+            }
+
+            const Game::Transform* TerrainTransformComponent{ World.GetComponent<Game::Transform>(TerrainSurfaceBindingItem.EntityId) };
+            if (TerrainTransformComponent == nullptr) {
+                continue;
+            }
+
+            PhysicsTerrainActor::ActorDesc TerrainActorDesc{ TerrainSurfaceBindingItem.TerrainActorDesc };
+            TerrainActorDesc.Position = TerrainTransformComponent->position;
+            TerrainActorDesc.Rotation = TerrainTransformComponent->rotationEuler;
+            TerrainActorDesc.Scale = TerrainTransformComponent->scale;
+
+            PhysicsTerrainActor TerrainActor{ TerrainActorDesc };
+            TerrainActor.SetOrientation(TerrainTransformComponent->rotation);
+
+            float SurfaceHeight{};
+            const bool HasCurrentSurfaceHeight{ TerrainActor.TryGetSurfaceHeightAtWorldPosition(WorldX, WorldZ, SurfaceHeight) };
+            if (HasCurrentSurfaceHeight == false) {
+                continue;
+            }
+
+            if (HasSurfaceHeight == false || SurfaceHeight > HighestSurfaceHeight) {
+                HighestSurfaceHeight = SurfaceHeight;
+                HasSurfaceHeight = true;
+            }
+        }
+
+        if (HasSurfaceHeight == false) {
+            return false;
+        }
+
+        OutSurfaceHeight = HighestSurfaceHeight;
+        return true;
+    }
+
+    bool TryResolveHighestTerrainSurfaceHeight(const Arche::World& World, const std::vector<TerrainSurfaceBinding>& TerrainSurfaceBindings, const std::vector<SimpleMath::Vector2>& WorldSamplePoints, float& OutSurfaceHeight) {
+        bool HasSurfaceHeight{};
+        float HighestSurfaceHeight{};
+
+        for (const SimpleMath::Vector2& WorldSamplePoint : WorldSamplePoints) {
+            float SurfaceHeight{};
+            const bool HasCurrentSurfaceHeight{ TryResolveHighestTerrainSurfaceHeight(World, TerrainSurfaceBindings, WorldSamplePoint.x, WorldSamplePoint.y, SurfaceHeight) };
+            if (HasCurrentSurfaceHeight == false) {
+                continue;
+            }
+
+            if (HasSurfaceHeight == false || SurfaceHeight > HighestSurfaceHeight) {
+                HighestSurfaceHeight = SurfaceHeight;
+                HasSurfaceHeight = true;
+            }
+        }
+
+        if (HasSurfaceHeight == false) {
+            return false;
+        }
+
+        OutSurfaceHeight = HighestSurfaceHeight;
+        return true;
+    }
+
+    bool TryBuildTerrainActorDescFromHeightField(const Game::HeightFieldData& HeightFieldDataValue, const Game::TerrainBuildDesc& TerrainBuildDescValue, PhysicsTerrainActor::ActorDesc& OutTerrainActorDesc) {
+        if (HeightFieldDataValue.Width == 0u || HeightFieldDataValue.Height == 0u || HeightFieldDataValue.HeightValues.empty() == true) {
+            return false;
+        }
+
+        OutTerrainActorDesc = PhysicsTerrainActor::BuildHeightFieldActorDesc(HeightFieldDataValue.Width, HeightFieldDataValue.Height, HeightFieldDataValue.HeightValues, TerrainBuildDescValue.MaxHeight, TerrainBuildDescValue.CellSizeX, TerrainBuildDescValue.CellSizeZ, TerrainBuildDescValue.CenterOrigin);
+        return true;
+    }
+
+    bool TryBuildTerrainActorDescFromRenderResource(const Game::TerrainRenderResource& TerrainResource, PhysicsTerrainActor::ActorDesc& OutTerrainActorDesc) {
+        const Game::TerrainBuildDesc& TerrainBuildDescValue{ TerrainResource.GetBuildDesc() };
+        const Game::HeightFieldData& ResourceHeightFieldData{ TerrainResource.GetHeightFieldData() };
+        const bool IsResourceHeightFieldResolved{ TryBuildTerrainActorDescFromHeightField(ResourceHeightFieldData, TerrainBuildDescValue, OutTerrainActorDesc) };
+        if (IsResourceHeightFieldResolved == true) {
+            return true;
+        }
+
+        try {
+            Game::TerrainHeightFieldFactory HeightFieldFactory{};
+            const Game::HeightFieldData BuiltHeightFieldData{ HeightFieldFactory.Build(TerrainBuildDescValue) };
+            return TryBuildTerrainActorDescFromHeightField(BuiltHeightFieldData, TerrainBuildDescValue, OutTerrainActorDesc);
+        }
+        catch (const std::exception&) {
+            return false;
+        }
+    }
+
+    std::uint32_t ResolveTerrainStreamingGridStep(const Game::TerrainBuildDesc& TerrainBuildDescValue) {
+        if (TerrainBuildDescValue.mStreamingGridStep > 0u) {
+            return TerrainBuildDescValue.mStreamingGridStep;
+        }
+
+        return (std::max)(TerrainBuildDescValue.TileQuadCount, 1u);
+    }
+
+    std::int32_t FloorTerrainStreamingGridToStep(std::int32_t Value, std::uint32_t Step) {
+        const std::int32_t StepValue{ static_cast<std::int32_t>((std::max)(Step, 1u)) };
+        if (Value >= 0) {
+            return (Value / StepValue) * StepValue;
+        }
+
+        return -(((-Value + StepValue - 1) / StepValue) * StepValue);
+    }
+
+    std::int32_t CalculateTerrainStreamingOriginGrid(float FocusPosition, float CellSize, std::uint32_t HeightFieldVertexCount, std::uint32_t Step) {
+        const float SafeCellSize{ CellSize > 0.0f ? CellSize : 1.0f };
+        const std::uint32_t QuadCount{ HeightFieldVertexCount > 1u ? HeightFieldVertexCount - 1u : 1u };
+        const std::int32_t FocusGrid{ static_cast<std::int32_t>(std::floor(FocusPosition / SafeCellSize)) };
+        const std::int32_t HalfGrid{ static_cast<std::int32_t>(QuadCount / 2u) };
+        return FloorTerrainStreamingGridToStep(FocusGrid - HalfGrid, Step);
+    }
+
+    float CalculateTerrainStreamingWorldOrigin(std::int32_t OriginGrid, std::uint32_t HeightFieldVertexCount, float CellSize, bool CenterOrigin) {
+        if (CenterOrigin == true) {
+            const float HalfGrid{ HeightFieldVertexCount > 1u ? static_cast<float>(HeightFieldVertexCount - 1u) * 0.5f : 0.0f };
+            return (static_cast<float>(OriginGrid) + HalfGrid) * CellSize;
+        }
+
+        return static_cast<float>(OriginGrid) * CellSize;
+    }
+
+    bool TryResolveTerrainStreamingFocusPosition(Arche::World& World, SimpleMath::Vector3& OutFocusPosition) {
+        for (auto [TransformComponent, CameraComponent] : World.Query<Game::Transform, Game::Camera>()) {
+            if (CameraComponent.isActive == false) {
+                continue;
+            }
+
+            OutFocusPosition = TransformComponent.position;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool TryPrepareInitialStreamingTerrainBuildDesc(Arche::World& World, Game::TerrainBuildDesc& InOutTerrainBuildDesc) {
+        if (InOutTerrainBuildDesc.mStreamingEnabled == false || InOutTerrainBuildDesc.mHeightSourceType != Game::TerrainHeightSourceType::Procedural) {
+            return true;
+        }
+
+        try {
+            Game::TerrainHeightFieldFactory HeightFieldFactory{};
+            InOutTerrainBuildDesc.mProceduralHeightFieldDesc = HeightFieldFactory.ResolveProceduralHeightFieldDesc(InOutTerrainBuildDesc);
+        }
+        catch (const std::exception&) {
+            return false;
+        }
+
+        SimpleMath::Vector3 FocusPosition{};
+        const bool HasFocusPosition{ TryResolveTerrainStreamingFocusPosition(World, FocusPosition) };
+        if (HasFocusPosition == false) {
+            return true;
+        }
+
+        const std::uint32_t StreamingGridStep{ ResolveTerrainStreamingGridStep(InOutTerrainBuildDesc) };
+        InOutTerrainBuildDesc.mProceduralHeightFieldDesc.mSampleOffsetX = CalculateTerrainStreamingOriginGrid(FocusPosition.x, InOutTerrainBuildDesc.CellSizeX, InOutTerrainBuildDesc.mProceduralHeightFieldDesc.mWidth, StreamingGridStep);
+        InOutTerrainBuildDesc.mProceduralHeightFieldDesc.mSampleOffsetZ = CalculateTerrainStreamingOriginGrid(FocusPosition.z, InOutTerrainBuildDesc.CellSizeZ, InOutTerrainBuildDesc.mProceduralHeightFieldDesc.mHeight, StreamingGridStep);
+        return true;
+    }
+
+    void ApplyInitialStreamingTerrainTransform(const Game::TerrainRenderResource& TerrainResource, Game::Transform* TransformComponent) {
+        if (TransformComponent == nullptr) {
+            return;
+        }
+
+        const Game::TerrainBuildDesc& TerrainBuildDescValue{ TerrainResource.GetBuildDesc() };
+        if (TerrainBuildDescValue.mStreamingEnabled == false || TerrainBuildDescValue.mHeightSourceType != Game::TerrainHeightSourceType::Procedural) {
+            return;
+        }
+
+        const std::uint32_t HeightFieldWidth{ TerrainResource.GetHeightFieldWidth() > 1u ? TerrainResource.GetHeightFieldWidth() : TerrainBuildDescValue.mProceduralHeightFieldDesc.mWidth };
+        const std::uint32_t HeightFieldHeight{ TerrainResource.GetHeightFieldHeight() > 1u ? TerrainResource.GetHeightFieldHeight() : TerrainBuildDescValue.mProceduralHeightFieldDesc.mHeight };
+        TransformComponent->position.x = CalculateTerrainStreamingWorldOrigin(TerrainBuildDescValue.mProceduralHeightFieldDesc.mSampleOffsetX, HeightFieldWidth, TerrainBuildDescValue.CellSizeX, TerrainBuildDescValue.CenterOrigin);
+        TransformComponent->position.z = CalculateTerrainStreamingWorldOrigin(TerrainBuildDescValue.mProceduralHeightFieldDesc.mSampleOffsetZ, HeightFieldHeight, TerrainBuildDescValue.CellSizeZ, TerrainBuildDescValue.CenterOrigin);
+    }
+
+    void ApplyPendingTerrainSnapBindings(Arche::World& World, const std::vector<TerrainSurfaceBinding>& TerrainSurfaceBindings, const std::vector<PendingTerrainSnapBinding>& PendingTerrainSnapBindings) {
+        for (const PendingTerrainSnapBinding& PendingTerrainSnapBindingItem : PendingTerrainSnapBindings) {
+            if (PendingTerrainSnapBindingItem.EntityId == Arche::NullEntityID) {
+                continue;
+            }
+
+            Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(PendingTerrainSnapBindingItem.EntityId) };
+            if (TransformComponent == nullptr) {
+                continue;
+            }
+
+            Game::BoundingBox* BoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(PendingTerrainSnapBindingItem.EntityId) };
+            const std::vector<SimpleMath::Vector2> SamplePoints{ BuildTerrainSnapSamplePoints(BoundingBoxComponent, *TransformComponent) };
+            float SurfaceHeight{};
+            const bool HasSurfaceHeight{ TryResolveHighestTerrainSurfaceHeight(World, TerrainSurfaceBindings, SamplePoints, SurfaceHeight) };
+            if (HasSurfaceHeight == false) {
+                continue;
+            }
+
+            const float BottomOffsetY{ CalculateBottomOffsetY(BoundingBoxComponent, *TransformComponent) };
+            TransformComponent->position.y = SurfaceHeight - BottomOffsetY + PendingTerrainSnapBindingItem.OffsetY;
+
+            if (BoundingBoxComponent != nullptr) {
+                const SimpleMath::Matrix TransformOnlyWorldMatrix{ BuildTransformOnlyWorldMatrix(*TransformComponent) };
+                BoundingBoxComponent->UpdateWorldObb(TransformOnlyWorldMatrix);
+            }
+        }
     }
 
     bool TryReadTerrainSplatMapExpressionEntry(c4::yml::ConstNodeRef EntryNode, std::string& OutName, std::string& OutFormula) {
@@ -1947,6 +2244,8 @@ namespace Game {
         std::vector<std::pair<Arche::EntityID, std::int64_t>> DeferredSkySphereEntities{};
         std::vector<PendingAnimatorBinding> PendingAnimatorBindings{};
         std::vector<PendingBoundingBoxBinding> PendingBoundingBoxBindings{};
+        std::vector<PendingTerrainSnapBinding> PendingTerrainSnapBindings{};
+        std::vector<TerrainSurfaceBinding> TerrainSurfaceBindings{};
         const c4::yml::ConstNodeRef EntitiesNode{ RootNode["Entities"] };
         for (const c4::yml::ConstNodeRef EntityNode : EntitiesNode.children()) {
             const Arche::EntityID Entity{ EntityFactory.CreateEntity(false) };
@@ -1998,6 +2297,14 @@ namespace Game {
                 }
 
                 OutScene.GetWorld().AddComponent(Entity, NewTransform);
+
+                bool SnapToTerrainOnSpawn{};
+                if (TryReadBoolChild(TransformNode, { "snapToTerrainOnSpawn", "SnapToTerrainOnSpawn" }, SnapToTerrainOnSpawn) == true && SnapToTerrainOnSpawn == true) {
+                    PendingTerrainSnapBinding NewPendingTerrainSnapBinding{};
+                    NewPendingTerrainSnapBinding.EntityId = Entity;
+                    TryReadFloatChild(TransformNode, { "terrainOffsetY", "TerrainOffsetY" }, NewPendingTerrainSnapBinding.OffsetY);
+                    PendingTerrainSnapBindings.push_back(NewPendingTerrainSnapBinding);
+                }
             }
 
             if (ComponentsNode.has_child(DirectionalLightTypeName)) {
@@ -2278,6 +2585,13 @@ namespace Game {
                     LoadResult.UndecidedItems.push_back("Terrain Component 데이터 해석 실패");
                 }
                 else {
+                    const bool IsInitialStreamingTerrainDescPrepared{ TryPrepareInitialStreamingTerrainBuildDesc(OutScene.GetWorld(), Desc) };
+                    if (IsInitialStreamingTerrainDescPrepared == false) {
+                        LoadResult.IsSuccess = false;
+                        LoadResult.UndecidedItems.push_back("Terrain Streaming 초기 데이터 해석 실패");
+                        continue;
+                    }
+
                     const std::shared_ptr<TerrainRenderResource> TerrainResource{ OutScene.GetAssetRegistry().GetTerrainRenderResource(Desc) };
                     if (TerrainResource == nullptr) {
                         LoadResult.IsSuccess = false;
@@ -2289,9 +2603,16 @@ namespace Game {
                             TerrainNode["active"] >> IsActive;
                         }
 
-                        TerrainHeightFieldFactory HeightFieldFactory{};
-                        const HeightFieldData HeightFieldDataValue{ HeightFieldFactory.Build(Desc) };
-                        PhysicsTerrainActor::ActorDesc TerrainActorDesc{ PhysicsTerrainActor::BuildHeightFieldActorDesc(HeightFieldDataValue.Width, HeightFieldDataValue.Height, HeightFieldDataValue.HeightValues, Desc.MaxHeight, Desc.CellSizeX, Desc.CellSizeZ, Desc.CenterOrigin) };
+                        Transform* TerrainTransformComponent{ OutScene.GetWorld().GetComponent<Transform>(Entity) };
+                        ApplyInitialStreamingTerrainTransform(*TerrainResource, TerrainTransformComponent);
+
+                        PhysicsTerrainActor::ActorDesc TerrainActorDesc{};
+                        const bool IsTerrainActorDescBuilt{ TryBuildTerrainActorDescFromRenderResource(*TerrainResource, TerrainActorDesc) };
+                        if (IsTerrainActorDescBuilt == false) {
+                            LoadResult.IsSuccess = false;
+                            LoadResult.UndecidedItems.push_back("Terrain ActorDesc 생성 실패");
+                            continue;
+                        }
 
                         TerrainRenderer TerrainRendererComponent{};
                         TerrainRendererComponent.mResource = TerrainResource.get();
@@ -2355,6 +2676,10 @@ namespace Game {
                         }
 
                         OutScene.AddTerrainActorDesc(Entity, TerrainActorDesc);
+                        TerrainSurfaceBinding NewTerrainSurfaceBinding{};
+                        NewTerrainSurfaceBinding.EntityId = Entity;
+                        NewTerrainSurfaceBinding.TerrainActorDesc = TerrainActorDesc;
+                        TerrainSurfaceBindings.push_back(std::move(NewTerrainSurfaceBinding));
                     }
                 }
             }
@@ -2717,6 +3042,8 @@ namespace Game {
                 }
             }
         }
+
+        ApplyPendingTerrainSnapBindings(OutScene.GetWorld(), TerrainSurfaceBindings, PendingTerrainSnapBindings);
 
         for (const std::pair<Arche::EntityID, std::int64_t>& DeferredBoneSkinReferenceEntity : DeferredBoneSkinReferenceEntities) {
             const std::unordered_map<std::int64_t, Arche::EntityID>::const_iterator BoneRootIter{ EntityBySerializedId.find(DeferredBoneSkinReferenceEntity.second) };

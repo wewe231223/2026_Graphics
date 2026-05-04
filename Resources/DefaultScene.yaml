@@ -40,6 +40,11 @@ Prefabs:
     modelPath: knight.bin
     materialPath: knight_skinned_materials.json
     active: true
+  - &Prefab1005
+    prefabId: 1005
+    modelPath: Foilage1.bin
+    materialPath: Foilage1_materials.json
+    active: true
   - &Prefab2001
     prefabId: 2001
     modelPath: primitive:box;size=1.370000;color=0.910000,0.230000,0.480000,1.000000
@@ -412,3 +417,27 @@ Entities:
         flags: [None]
         friction: 0.45
         restitution: 0.30
+  - EntityId: 57
+    ParentEntityId: -1
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: Foliage1
+      Transform:
+        <<: *DefaultTransform
+        position: [8.00, 25.00, 18.00]
+        snapToTerrainOnSpawn: true
+      PrefabInstance:
+        <<: *Prefab1005
+        prefabId: 1005
+      Physics:
+        name: "Foliage1Actor"
+        active: true
+        actorType: Kinematic
+        mass: 0.0
+        flags: [IgnoreGravity, IgnoreTerrainCollide]
+        friction: 0.6
+        restitution: 0.1

@@ -513,6 +513,9 @@
     <FxCompile Include="..\Shader\Source\BasicShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
+    <FxCompile Include="..\Shader\Source\FoliageShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
     <FxCompile Include="..\Shader\Source\SkinnedMeshShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
