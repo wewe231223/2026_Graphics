@@ -33,6 +33,8 @@ struct TerrainVertexOutput
 {
     float4 Position : SV_POSITION;
     float3 Normal : NORMAL;
+    float3 Tangent : TANGENT;
+    float3 Bitangent : BITANGENT;
     float3 WorldPosition : WORLD_POSITION;
     float2 TexCoord0 : TEXCOORD0;
     float2 LayerTexCoord : TEXCOORD1;
@@ -59,6 +61,13 @@ struct TerrainHeightFieldContext
     uint WidthMinusOne;
     uint HeightMinusOne;
     float2 InvGridSize;
+};
+
+struct TerrainSurfaceFrame
+{
+    float3 Normal;
+    float3 Tangent;
+    float3 Bitangent;
 };
 
 TerrainControlPoint VsMain(TerrainVertexInput Input, uint InstanceId : SV_InstanceID)
@@ -218,7 +227,7 @@ float2 BuildTerrainLayerTexCoord(TerrainPatchContextGpu PatchContext, float2 Gri
     return Uv;
 }
 
-float3 BuildTerrainLocalNormal(StructuredBuffer<float> HeightFieldBuffer, TerrainPatchContextGpu PatchContext, TerrainHeightFieldContext HeightFieldContext, float2 GridPosition)
+TerrainSurfaceFrame BuildTerrainLocalSurfaceFrame(StructuredBuffer<float> HeightFieldBuffer, TerrainPatchContextGpu PatchContext, TerrainHeightFieldContext HeightFieldContext, float2 GridPosition)
 {
     const float HeightNegativeX = SampleTerrainHeight(HeightFieldBuffer, PatchContext, HeightFieldContext, GridPosition + float2(-1.0f, 0.0f));
     const float HeightPositiveX = SampleTerrainHeight(HeightFieldBuffer, PatchContext, HeightFieldContext, GridPosition + float2(1.0f, 0.0f));
@@ -226,7 +235,16 @@ float3 BuildTerrainLocalNormal(StructuredBuffer<float> HeightFieldBuffer, Terrai
     const float HeightPositiveZ = SampleTerrainHeight(HeightFieldBuffer, PatchContext, HeightFieldContext, GridPosition + float2(0.0f, 1.0f));
     const float3 DeltaX = float3(PatchContext.TerrainParameters.x * 2.0f, HeightPositiveX - HeightNegativeX, 0.0f);
     const float3 DeltaZ = float3(0.0f, HeightPositiveZ - HeightNegativeZ, PatchContext.TerrainParameters.y * 2.0f);
-    return normalize(cross(DeltaZ, DeltaX));
+    TerrainSurfaceFrame SurfaceFrame = (TerrainSurfaceFrame) 0;
+    SurfaceFrame.Normal = normalize(cross(DeltaZ, DeltaX));
+    SurfaceFrame.Tangent = normalize(DeltaX);
+    SurfaceFrame.Bitangent = normalize(cross(SurfaceFrame.Tangent, SurfaceFrame.Normal));
+    if (PatchContext.HeightFieldParameters.w > 0.5f)
+    {
+        SurfaceFrame.Bitangent = -SurfaceFrame.Bitangent;
+    }
+
+    return SurfaceFrame;
 }
 
 [domain("quad")]
@@ -245,15 +263,18 @@ TerrainVertexOutput DsMain(TerrainPatchConstantOutput PatchConstants, float2 Dom
     const TerrainHeightFieldContext HeightFieldContext = BuildTerrainHeightFieldContext(PatchContext);
     const float2 GridPosition = BuildTerrainGridPosition(PatchContext, DomainUv);
     const float3 LocalPosition = BuildTerrainLocalPosition(HeightFieldBuffer, PatchContext, HeightFieldContext, GridPosition);
-    const float3 LocalNormal = BuildTerrainLocalNormal(HeightFieldBuffer, PatchContext, HeightFieldContext, GridPosition);
+    const TerrainSurfaceFrame LocalSurfaceFrame = BuildTerrainLocalSurfaceFrame(HeightFieldBuffer, PatchContext, HeightFieldContext, GridPosition);
 
     const float4x4 World = ModelContext.World;
+    const float3x3 WorldRotation = (float3x3) World;
     const float4x4 ViewProj = FrameGlobals.ViewProj;
     const float4 WorldPosition = mul(float4(LocalPosition, 1.0f), World);
 
     TerrainVertexOutput Output;
     Output.Position = mul(WorldPosition, ViewProj);
-    Output.Normal = normalize(mul(LocalNormal, (float3x3) World));
+    Output.Normal = normalize(mul(LocalSurfaceFrame.Normal, WorldRotation));
+    Output.Tangent = normalize(mul(LocalSurfaceFrame.Tangent, WorldRotation));
+    Output.Bitangent = normalize(mul(LocalSurfaceFrame.Bitangent, WorldRotation));
     Output.WorldPosition = WorldPosition.xyz;
     Output.TexCoord0 = BuildTerrainTexCoord(PatchContext, HeightFieldContext, GridPosition);
     Output.LayerTexCoord = BuildTerrainLayerTexCoord(PatchContext, GridPosition);
@@ -439,23 +460,7 @@ float3 ResolveTerrainLayerNormalTangent(MaterialGpu MaterialData, StructuredBuff
         }
     }
 
-    float3 NormalTangent = NormalColor.xyz * 2.0f - 1.0f;
-    NormalTangent.xy *= NormalScale;
-    return normalize(NormalTangent);
-}
-
-float3 ResolveTerrainWorldNormal(float3 VertexNormal, float3 NormalTangent)
-{
-    const float3 Normal = normalize(VertexNormal);
-    float3 Tangent = float3(1.0f, 0.0f, 0.0f) - Normal * Normal.x;
-    if (dot(Tangent, Tangent) <= 0.0001f)
-    {
-        Tangent = float3(0.0f, 0.0f, 1.0f) - Normal * Normal.z;
-    }
-
-    Tangent = normalize(Tangent);
-    const float3 Bitangent = cross(Normal, Tangent);
-    return normalize(Tangent * NormalTangent.x + Bitangent * NormalTangent.y + Normal * NormalTangent.z);
+    return DecodeNormalMapColor(NormalColor, NormalScale);
 }
 
 void ResolveTerrainMaterial(MaterialGpu MaterialData, StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer, TerrainPatchContextGpu PatchContext, float2 BaseUv, float2 LayerBaseUv, out float4 OutColor, out float3 OutNormalTangent)
@@ -519,7 +524,7 @@ GBufferOutput PsMain(TerrainVertexOutput Input)
     float4 TerrainColor;
     float3 TerrainNormalTangent;
     ResolveTerrainMaterial(MaterialData, MaterialTextureTableBuffer, PatchContext, Input.TexCoord0, Input.LayerTexCoord, TerrainColor, TerrainNormalTangent);
-    const float3 TerrainNormal = ResolveTerrainWorldNormal(Input.Normal, TerrainNormalTangent);
+    const float3 TerrainNormal = ResolveTbnNormalMappedWorldNormal(Input.Normal, Input.Tangent, Input.Bitangent, TerrainNormalTangent);
     const float4 BaseColor = ApplyMaterialOpacity(ApplyBaseColor(TerrainColor), MaterialData);
     return BuildGBufferOutput(BaseColor, TerrainNormal, Input.WorldPosition, Input.Flags);
 }
