@@ -162,6 +162,10 @@ add_library(Game STATIC
     Game/Scene/SceneEntityFactory.cpp
     Game/Scene/SceneWorldSnapshot.cpp
     Game/Scene/SceneYamlSerializer.cpp
+    Game/Scene/SceneYaml/SceneYamlCommon.cpp
+    Game/Scene/SceneYaml/SceneYamlDeserializer.cpp
+    Game/Scene/SceneYaml/SceneYamlTerrain.cpp
+    Game/Scene/SceneYaml/SceneYamlWriter.cpp
     Game/Scene/System.cpp
     Game/Scene/SystemSceduler.cpp
     Game/Scene/ParallelSystemBase.cpp

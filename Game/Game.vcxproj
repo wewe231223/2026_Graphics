@@ -73,6 +73,7 @@
     <ClInclude Include="Scene\SceneEntityFactory.h" />
     <ClInclude Include="Scene\SceneWorldSnapshot.h" />
     <ClInclude Include="Scene\SceneYamlSerializer.h" />
+    <ClInclude Include="Scene\SceneYaml\SceneYamlInternal.h" />
     <ClInclude Include="Scene\System.h" />
     <ClInclude Include="Scene\SystemSceduler.h" />
     <ClInclude Include="Scene\ParallelSystemBase.h" />
@@ -122,6 +123,10 @@
     <ClCompile Include="Scene\SceneEntityFactory.cpp" />
     <ClCompile Include="Scene\SceneWorldSnapshot.cpp" />
     <ClCompile Include="Scene\SceneYamlSerializer.cpp" />
+    <ClCompile Include="Scene\SceneYaml\SceneYamlCommon.cpp" />
+    <ClCompile Include="Scene\SceneYaml\SceneYamlDeserializer.cpp" />
+    <ClCompile Include="Scene\SceneYaml\SceneYamlTerrain.cpp" />
+    <ClCompile Include="Scene\SceneYaml\SceneYamlWriter.cpp" />
     <ClCompile Include="Scene\System.cpp" />
     <ClCompile Include="Scene\SystemSceduler.cpp" />
     <ClCompile Include="Scene\ParallelSystemBase.cpp" />
