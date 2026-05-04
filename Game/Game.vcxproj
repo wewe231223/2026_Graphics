@@ -177,6 +177,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
+    <FxCompile Include="..\Shader\Source\NormalMappedShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="..\Shader\Source\SkinnedMeshShader.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -211,6 +215,7 @@
     <None Include="..\Shader\PSO\Schema.Pipeline.json" />
     <None Include="..\Shader\RS\DefaultRootSignature.json" />
     <None Include="..\Shader\RS\Schema.RootSignature.json" />
+    <None Include="..\Shader\Source\.gitkeep" />
     <None Include="..\Shader\Source\Common.hlsli" />
     <None Include="..\Shader\Source\defines.hlsli" />
     <None Include="..\Shader\Source\PostProcessCommon.hlsli" />

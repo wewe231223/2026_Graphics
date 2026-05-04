@@ -4,7 +4,7 @@
             "Name": "D:\\2026_Graphics\\out\\debug\\AssetZIP\\Asset\\knight.glb",
             "Items": [
                 {
-                    "PipelineName": "SkinnedGraphics",
+                    "PipelineName": "SkinnedNormalMappedGraphics",
                     "MaterialData": {
                         "Name": "M_DKM_Armor",
                         "PBR": true,
@@ -38,18 +38,18 @@
                             "Base Color": {
                                 "Kind": "Vec4",
                                 "Vec4": [
-                                    1.0,
-                                    1.0,
-                                    1.0,
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    0.15000000596046448,
                                     1.0
                                 ]
                             },
                             "Diffuse Color": {
                                 "Kind": "Vec4",
                                 "Vec4": [
-                                    1.0,
-                                    1.0,
-                                    1.0,
+                                    0.15000000596046448,
+                                    0.15000000596046448,
+                                    0.15000000596046448,
                                     1.0
                                 ]
                             },
@@ -136,7 +136,7 @@
                     }
                 },
                 {
-                    "PipelineName": "SkinnedGraphics",
+                    "PipelineName": "SkinnedNormalMappedGraphics",
                     "MaterialData": {
                         "Name": "M_DKM_Boots",
                         "PBR": true,
@@ -268,7 +268,7 @@
                     }
                 },
                 {
-                    "PipelineName": "SkinnedGraphics",
+                    "PipelineName": "SkinnedNormalMappedGraphics",
                     "MaterialData": {
                         "Name": "M_DKM_Cloak",
                         "PBR": true,
@@ -400,7 +400,7 @@
                     }
                 },
                 {
-                    "PipelineName": "SkinnedGraphics",
+                    "PipelineName": "SkinnedNormalMappedGraphics",
                     "MaterialData": {
                         "Name": "M_DKM_Gauntlets",
                         "PBR": true,
@@ -532,7 +532,7 @@
                     }
                 },
                 {
-                    "PipelineName": "SkinnedGraphics",
+                    "PipelineName": "SkinnedNormalMappedGraphics",
                     "MaterialData": {
                         "Name": "M_DKM_Helmet",
                         "PBR": true,
@@ -664,7 +664,7 @@
                     }
                 },
                 {
-                    "PipelineName": "SkinnedGraphics",
+                    "PipelineName": "SkinnedNormalMappedGraphics",
                     "MaterialData": {
                         "Name": "M_DKM_Pants",
                         "PBR": true,

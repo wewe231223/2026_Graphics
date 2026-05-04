@@ -499,6 +499,9 @@
     <None Include="..\Shader\Source\PostProcessCommon.hlsli">
       <Filter>Shader</Filter>
     </None>
+    <None Include="..\Shader\Source\.gitkeep">
+      <Filter>Shader</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shader\Source\BasicShader.hlsl">
@@ -526,6 +529,9 @@
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="..\Shader\Source\ToneMappingShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\NormalMappedShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
   </ItemGroup>

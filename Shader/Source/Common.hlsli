@@ -169,6 +169,41 @@ GBufferOutput BuildGBufferOutput(float4 Albedo, float3 WorldNormal, float3 World
     return Output;
 }
 
+uint ResolveMaterialTextureSrvDescriptorIndex(StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer, int64_t TextureTableIndex) {
+    if (TextureTableIndex < 0) {
+        return 0xffffffffu;
+    }
+
+    const uint MaterialTextureTableIndex = (uint)TextureTableIndex;
+    return MaterialTextureTableBuffer[MaterialTextureTableIndex].TextureSrvDescriptorIndex;
+}
+
+float ResolveMaterialNormalScale(MaterialGpu MaterialData) {
+    const float NormalScaleRaw = MaterialData.Fields[MATERIAL_TYPE_NORMAL_SCALE].FloatValue.x;
+    return (NormalScaleRaw <= 0.0f) ? 1.0f : NormalScaleRaw;
+}
+
+float3 DecodeNormalMapColor(float4 NormalColor, float NormalScale) {
+    float3 NormalTangent = NormalColor.xyz * 2.0f - 1.0f;
+    NormalTangent.xy *= NormalScale;
+    return normalize(NormalTangent);
+}
+
+float3 ResolveTbnNormalMappedWorldNormal(float3 WorldNormal, float3 WorldTangent, float3 WorldBitangent, float3 NormalTangent) {
+    const float3 Normal = normalize(WorldNormal);
+    const float TangentLengthSquared = dot(WorldTangent, WorldTangent);
+    const float BitangentLengthSquared = dot(WorldBitangent, WorldBitangent);
+    const float MaxLengthSquared = max(TangentLengthSquared, BitangentLengthSquared);
+
+    if (MaxLengthSquared <= 0.000001f) {
+        return Normal;
+    }
+
+    const float3 Tangent = WorldTangent * rsqrt(max(TangentLengthSquared, 0.000001f));
+    const float3 Bitangent = WorldBitangent * rsqrt(max(BitangentLengthSquared, 0.000001f));
+    return normalize((Tangent * NormalTangent.x) + (Bitangent * NormalTangent.y) + (Normal * NormalTangent.z));
+}
+
 float3 DecodeSrgbColor(float3 Color)
 {
     return pow(saturate(Color), 2.2f);
