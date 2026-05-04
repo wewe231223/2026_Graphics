@@ -978,7 +978,7 @@ namespace Game {
     std::size_t ProceduralFoliageRuntime::FindReusableSlot(std::uint32_t RuleIndex) const {
         for (std::size_t SlotIndex{ 0ULL }; SlotIndex < mSlots.size(); ++SlotIndex) {
             const FoliageSlot& Slot{ mSlots[SlotIndex] };
-            if (Slot.mRuleIndex == RuleIndex && Slot.mAssignedThisFrame == false) {
+            if (Slot.mRuleIndex == RuleIndex && Slot.mActive == false && Slot.mAssignedThisFrame == false) {
                 return SlotIndex;
             }
         }

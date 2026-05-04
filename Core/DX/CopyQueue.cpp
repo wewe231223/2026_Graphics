@@ -362,12 +362,12 @@ bool CopyQueue::PrepareCopyRequests(std::span<const Interface::CopyQueueCopyRequ
     PreparedRequests.reserve(CopyRequests.size());
 
     for (const Interface::CopyQueueCopyRequest& CopyRequest : CopyRequests) {
-        if (CopyRequest.DestinationDefaultResource == nullptr) {
-            return false;
-        }
-
         if (CopyRequest.SourceData.empty() == true) {
             continue;
+        }
+
+        if (CopyRequest.DestinationDefaultResource == nullptr) {
+            return false;
         }
 
         D3D12_RESOURCE_DESC UploadResourceDescription{};

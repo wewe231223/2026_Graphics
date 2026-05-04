@@ -1,9 +1,9 @@
 ProceduralFoliage:
-  Enabled: false
+  Enabled: true
   PlacementRadius: 240.0
   CellSize: 14.0
-  UpdateInterval: 0.15
-  DensityMultiplier: 1.5
+  UpdateInterval: 0.1
+  DensityMultiplier: 5.0
   SeedSalt: 9103
   Rules:
     - Name: Foliage1Grass

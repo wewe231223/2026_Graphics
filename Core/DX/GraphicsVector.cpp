@@ -107,19 +107,20 @@ void GraphicsVector::Reset() {
     mCopyRequestCreationCount = 0;
 }
 
-Interface::CopyQueueCopyRequest GraphicsVector::CreateCopyQueueCopyRequest(GraphicsAllocator& graphicsAllocator, UINT64 destinationOffset) {
-    Interface::CopyQueueCopyRequest copyQueueCopyRequest{};
-    copyQueueCopyRequest.DestinationDefaultResource = mAllocationHandle.GetResourceComPtr();
-    copyQueueCopyRequest.DestinationOffset = destinationOffset;
-    copyQueueCopyRequest.SourceData.resize(mSizeInBytes);
+Interface::CopyQueueCopyRequest GraphicsVector::CreateCopyQueueCopyRequest(GraphicsAllocator& GraphicsAllocator, UINT64 DestinationOffset) {
+    mCopyRequestCreationCount += 1;
+    TryShrink(GraphicsAllocator);
+
+    Interface::CopyQueueCopyRequest CopyQueueCopyRequest{};
+    CopyQueueCopyRequest.DestinationDefaultResource = mAllocationHandle.GetResourceComPtr();
+    CopyQueueCopyRequest.DestinationOffset = DestinationOffset;
+    CopyQueueCopyRequest.SourceData.resize(mSizeInBytes);
 
     if (mSizeInBytes > 0) {
-        std::copy(mUploadData.cbegin(), mUploadData.cbegin() + static_cast<std::ptrdiff_t>(mSizeInBytes), copyQueueCopyRequest.SourceData.begin());
+        std::copy(mUploadData.cbegin(), mUploadData.cbegin() + static_cast<std::ptrdiff_t>(mSizeInBytes), CopyQueueCopyRequest.SourceData.begin());
     }
 
-    mCopyRequestCreationCount += 1;
-    TryShrink(graphicsAllocator);
-    return copyQueueCopyRequest;
+    return CopyQueueCopyRequest;
 }
 
 void GraphicsVector::CreateShaderResourceView(ID3D12Device* device, D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle, DXGI_FORMAT format, UINT firstElement, UINT numElements, UINT structureByteStride, D3D12_BUFFER_SRV_FLAGS bufferFlags) const {
