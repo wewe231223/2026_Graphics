@@ -132,7 +132,8 @@
       "type": "array",
       "items": {
         "enum": [
-          "ToolDebug"
+          "ToolDebug",
+          "DynamicDepthBias"
         ]
       },
       "uniqueItems": true

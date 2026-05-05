@@ -129,6 +129,7 @@ namespace Core {
 			ComPtr<IDXGISwapChain1> mSwapChain{ nullptr };
 
 			ComPtr<ID3D12GraphicsCommandList> mCommandList{ nullptr };
+			ComPtr<ID3D12GraphicsCommandList9> mCommandList9{ nullptr };
 			std::array<ComPtr<ID3D12CommandAllocator>, Constants::FrameCount<size_t>> mMainCommandAllocators{};
 			ComPtr<ID3D12GraphicsCommandList> mPostProcessCommandList{ nullptr };
 			std::array<ComPtr<ID3D12CommandAllocator>, Constants::FrameCount<size_t>> mPostProcessCommandAllocators{};
@@ -159,6 +160,7 @@ namespace Core {
 			GraphicsAllocator* mGraphicsAllocator{ nullptr };
 			Interface::ICopyQueue* mCopyQueue{ nullptr };
 			Interface::IComputeQueue* mComputeQueue{ nullptr };
+			bool mIsDynamicDepthBiasSupported{};
 
 
 			D3D12_VIEWPORT mViewport{ 0, 0, Config::Query()->Get<float>("Window_Width"), Config::Query()->Get<float>("Window_Height"), 0.f, 1.f };

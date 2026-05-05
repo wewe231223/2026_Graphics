@@ -16,6 +16,28 @@ namespace {
 	std::uint32_t DivideRoundUp(std::uint32_t Value, std::uint32_t Divisor) {
 		return (Value + Divisor - 1u) / Divisor;
 	}
+
+	struct ShadowDepthBiasParameter final {
+		float DepthBias{};
+		float DepthBiasClamp{};
+		float SlopeScaledDepthBias{};
+	};
+
+	ShadowDepthBiasParameter BuildShadowDepthBiasParameter(const Game::RFD::ShadowMappingParameter& ShadowMappingParameter, std::uint32_t ShadowCascadeIndex) {
+		const std::uint32_t ClampedShadowCascadeIndex{ std::min<std::uint32_t>(ShadowCascadeIndex, Game::RFD::ShadowCascadeMaxCount - 1u) };
+		const float EffectiveShadowMapSize{ std::max(ShadowMappingParameter.shadowMapSizes[ClampedShadowCascadeIndex], ShadowMappingParameter.minimumShadowMapSize) };
+		ShadowDepthBiasParameter Parameter{};
+		Parameter.DepthBias = std::max(ShadowMappingParameter.rasterDepthBiases[ClampedShadowCascadeIndex], 0.0f);
+		Parameter.SlopeScaledDepthBias = std::max(ShadowMappingParameter.rasterSlopeScaledDepthBiases[ClampedShadowCascadeIndex], 0.0f);
+		if (EffectiveShadowMapSize > 0.0f) {
+			const float MinimumDepthBiasClamp{ 1.0f / EffectiveShadowMapSize };
+			const float MaximumDepthBiasClamp{ 2.0f / EffectiveShadowMapSize };
+			const float RequestedDepthBiasClamp{ std::max(ShadowMappingParameter.shadowBiases[ClampedShadowCascadeIndex], 0.0f) };
+			Parameter.DepthBiasClamp = std::clamp(RequestedDepthBiasClamp, MinimumDepthBiasClamp, MaximumDepthBiasClamp);
+		}
+
+		return Parameter;
+	}
 }
 
 
@@ -153,7 +175,9 @@ namespace Core {
 				mCommandList->OMSetRenderTargets(0, nullptr, FALSE, &ShadowDsv);
 				mCommandList->RSSetViewports(1, &mShadowViewports[CascadeIndex]);
 				mCommandList->RSSetScissorRects(1, &mShadowScissorRects[CascadeIndex]);
-				mDrawCallDispatcher.DrawDepthOnly(mCommandList.Get(), Data.ShadowRenderContexts[CascadeIndex], CascadeIndex, DrawCallResources.GetShadowFrameGlobalsSrvHandle(), DrawCallResources.GetShadowModelContextSrvHandle(CascadeIndex), DrawCallResources.GetShadowTerrainPatchContextSrvHandle(CascadeIndex), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetShadowDrawRecordSrvHandle(CascadeIndex), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
+				const ShadowDepthBiasParameter ShadowDepthBias{ BuildShadowDepthBiasParameter(Data.shadowMapping, CascadeIndex) };
+				ID3D12GraphicsCommandList9* DynamicDepthBiasCommandList{ mIsDynamicDepthBiasSupported == true ? mCommandList9.Get() : nullptr };
+				mDrawCallDispatcher.DrawDepthOnly(mCommandList.Get(), DynamicDepthBiasCommandList, ShadowDepthBias.DepthBias, ShadowDepthBias.DepthBiasClamp, ShadowDepthBias.SlopeScaledDepthBias, Data.ShadowRenderContexts[CascadeIndex], CascadeIndex, DrawCallResources.GetShadowFrameGlobalsSrvHandle(), DrawCallResources.GetShadowModelContextSrvHandle(CascadeIndex), DrawCallResources.GetShadowTerrainPatchContextSrvHandle(CascadeIndex), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetShadowDrawRecordSrvHandle(CascadeIndex), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
 
 				ShadowDepthMap->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 			}
@@ -287,6 +311,11 @@ namespace Core {
 				StdOutput::PrintLine("[Render] Shader Model 6.6 is supported.");
 			}
 
+			D3D12_FEATURE_DATA_D3D12_OPTIONS16 Options16{};
+			if (SUCCEEDED(mDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS16, &Options16, sizeof(Options16)))) {
+				mIsDynamicDepthBiasSupported = Options16.DynamicDepthBiasSupported == TRUE;
+			}
+
 			// Direct Command Queue
 			D3D12_COMMAND_QUEUE_DESC queueDesc{};
 			queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
@@ -326,6 +355,10 @@ namespace Core {
 				ErrorHandler::report(mDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(allocator.GetAddressOf())), "DirectQueue", "Failed to create Main Command Allocator.", ErrorHandler::Level::Critical);
 			}
 			ErrorHandler::report(mDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mMainCommandAllocators[0].Get(), nullptr, IID_PPV_ARGS(mCommandList.GetAddressOf())), "DirectQueue", "Failed to create Main Command List.", ErrorHandler::Level::Critical);
+			if (mIsDynamicDepthBiasSupported == true) {
+				mCommandList->QueryInterface(IID_PPV_ARGS(mCommandList9.GetAddressOf()));
+				mIsDynamicDepthBiasSupported = mCommandList9 != nullptr;
+			}
 
 			mCommandList->Close();
 

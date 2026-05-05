@@ -45,9 +45,9 @@
     "FillMode": "Solid",
     "CullMode": "None",
     "FrontCounterClockwise": false,
-    "DepthBias": 0,
-    "DepthBiasClamp": 0,
-    "SlopeScaledDepthBias": 0,
+    "DepthBias": 1,
+    "DepthBiasClamp": 0.0005,
+    "SlopeScaledDepthBias": 1.25,
     "DepthClipEnable": true,
     "MultisampleEnable": false,
     "AntialiasedLineEnable": false,
@@ -83,5 +83,7 @@
     "Quality": 0
   },
   "NodeMask": 0,
-  "Flags": []
+  "Flags": [
+    "DynamicDepthBias"
+  ]
 }

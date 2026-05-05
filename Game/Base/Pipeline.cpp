@@ -667,9 +667,42 @@ namespace {
 			if (text == "ToolDebug") {
 				flags = static_cast<D3D12_PIPELINE_STATE_FLAGS>(flags | D3D12_PIPELINE_STATE_FLAG_TOOL_DEBUG);
 			}
+
+			if (text == "DynamicDepthBias") {
+				flags = static_cast<D3D12_PIPELINE_STATE_FLAGS>(flags | D3D12_PIPELINE_STATE_FLAG_DYNAMIC_DEPTH_BIAS);
+			}
 		}
 
 		return flags;
+	}
+
+	bool HasPipelineStateFlag(D3D12_PIPELINE_STATE_FLAGS Flags, D3D12_PIPELINE_STATE_FLAGS Flag) {
+		return (static_cast<std::uint32_t>(Flags) & static_cast<std::uint32_t>(Flag)) != 0u;
+	}
+
+	D3D12_PIPELINE_STATE_FLAGS RemovePipelineStateFlag(D3D12_PIPELINE_STATE_FLAGS Flags, D3D12_PIPELINE_STATE_FLAGS Flag) {
+		return static_cast<D3D12_PIPELINE_STATE_FLAGS>(static_cast<std::uint32_t>(Flags) & ~static_cast<std::uint32_t>(Flag));
+	}
+
+	bool IsDynamicDepthBiasSupported(ID3D12Device* Device) {
+		if (Device == nullptr) {
+			return false;
+		}
+
+		D3D12_FEATURE_DATA_D3D12_OPTIONS16 Options16{};
+		if (FAILED(Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS16, &Options16, sizeof(Options16)))) {
+			return false;
+		}
+
+		return Options16.DynamicDepthBiasSupported == TRUE;
+	}
+
+	D3D12_PIPELINE_STATE_FLAGS ResolvePipelineStateFlags(ID3D12Device* Device, D3D12_PIPELINE_STATE_FLAGS Flags) {
+		if (HasPipelineStateFlag(Flags, D3D12_PIPELINE_STATE_FLAG_DYNAMIC_DEPTH_BIAS) == true && IsDynamicDepthBiasSupported(Device) == false) {
+			Flags = RemovePipelineStateFlag(Flags, D3D12_PIPELINE_STATE_FLAG_DYNAMIC_DEPTH_BIAS);
+		}
+
+		return Flags;
 	}
 
 	std::uint32_t ToPipelineOptionMask(Game::PipelineOption Option) {
@@ -960,6 +993,7 @@ namespace {
 			ErrorHandler::report("Failed to parse pipeline description data.", "Path: " + path.string(), ErrorHandler::Level::Critical);
 			return false;
 		}
+		pipelineData.Flags = ResolvePipelineStateFlags(device, pipelineData.Flags);
 
 		if (Game::Base::RootSignature::HasCompiledRootSignature(pipelineData.RootSignatureName) == false) {
 			ErrorHandler::report("Root signature specified in pipeline description does not exist.", "Pipeline: " + pipelineData.Name + ", Root Signature: " + pipelineData.RootSignatureName, ErrorHandler::Level::Critical);

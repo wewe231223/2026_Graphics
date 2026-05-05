@@ -180,7 +180,7 @@ namespace Core {
 			DrawDebugGeometries(CommandList, Data, FrameGlobalsSrvHandle, DebugGeometryContextSrvHandle);
 		}
 
-		void DrawCallDispatcher::DrawDepthOnly(ID3D12GraphicsCommandList* CommandList, const Game::RFD::ShadowRenderContext& ShadowRenderContext, std::uint32_t ShadowFrameGlobalsIndex, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+		void DrawCallDispatcher::DrawDepthOnly(ID3D12GraphicsCommandList* CommandList, ID3D12GraphicsCommandList9* DynamicDepthBiasCommandList, float RasterDepthBias, float RasterDepthBiasClamp, float RasterSlopeScaledDepthBias, const Game::RFD::ShadowRenderContext& ShadowRenderContext, std::uint32_t ShadowFrameGlobalsIndex, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			const Interface::IPipeline* ActivePipeline{ nullptr };
 			size_t DrawRecordIndex{ 0 };
 
@@ -208,6 +208,9 @@ namespace Core {
 				}
 
 				ActivePipeline = DepthPipeline->Set(ActivePipeline, CommandList);
+				if (DynamicDepthBiasCommandList != nullptr) {
+					DynamicDepthBiasCommandList->RSSetDepthBias(RasterDepthBias, RasterDepthBiasClamp, RasterSlopeScaledDepthBias);
+				}
 
 				DrawRootConstantsB1 RootConstants{};
 				RootConstants.FrameGlobalsSrvIndex = FrameGlobalsSrvHandle.GetIndex();
