@@ -429,3 +429,291 @@ Entities:
         flags: [None]
         friction: 0.45
         restitution: 0.30
+  - EntityId: 57
+    ParentEntityId: -1
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: PhysicsStackCrate01
+      Transform:
+        <<: *DefaultTransform
+        position: [13.80, 20.20, 22.00]
+        scale: [0.85, 0.85, 0.85]
+      PrefabInstance:
+        <<: *Prefab3002
+        prefabId: 3002
+      Physics:
+        name: "PhysicsStackCrate01"
+        active: true
+        actorType: Dynamic
+        mass: 0.90
+        flags: [None]
+        friction: 0.82
+        restitution: 0.12
+  - EntityId: 58
+    ParentEntityId: -1
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: PhysicsStackCrate02
+      Transform:
+        <<: *DefaultTransform
+        position: [14.90, 20.20, 22.00]
+        scale: [0.85, 0.85, 0.85]
+      PrefabInstance:
+        <<: *Prefab3008
+        prefabId: 3008
+      Physics:
+        name: "PhysicsStackCrate02"
+        active: true
+        actorType: Dynamic
+        mass: 1.10
+        flags: [None]
+        friction: 0.78
+        restitution: 0.10
+  - EntityId: 59
+    ParentEntityId: -1
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: PhysicsStackCrate03
+      Transform:
+        <<: *DefaultTransform
+        position: [16.00, 20.20, 22.00]
+        scale: [0.85, 0.85, 0.85]
+      PrefabInstance:
+        <<: *Prefab3001
+        prefabId: 3001
+      Physics:
+        name: "PhysicsStackCrate03"
+        active: true
+        actorType: Dynamic
+        mass: 1.35
+        flags: [None]
+        friction: 0.70
+        restitution: 0.16
+  - EntityId: 60
+    ParentEntityId: -1
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: PhysicsStackCrate04
+      Transform:
+        <<: *DefaultTransform
+        position: [14.35, 21.30, 22.00]
+        scale: [0.85, 0.85, 0.85]
+      PrefabInstance:
+        <<: *Prefab3002
+        prefabId: 3002
+      Physics:
+        name: "PhysicsStackCrate04"
+        active: true
+        actorType: Dynamic
+        mass: 0.95
+        flags: [None]
+        friction: 0.80
+        restitution: 0.14
+  - EntityId: 61
+    ParentEntityId: -1
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: PhysicsStackCrate05
+      Transform:
+        <<: *DefaultTransform
+        position: [15.45, 21.30, 22.00]
+        scale: [0.85, 0.85, 0.85]
+      PrefabInstance:
+        <<: *Prefab3008
+        prefabId: 3008
+      Physics:
+        name: "PhysicsStackCrate05"
+        active: true
+        actorType: Dynamic
+        mass: 1.20
+        flags: [None]
+        friction: 0.72
+        restitution: 0.18
+  - EntityId: 62
+    ParentEntityId: -1
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: PhysicsStackCrate06
+      Transform:
+        <<: *DefaultTransform
+        position: [14.90, 22.40, 22.00]
+        scale: [0.85, 0.85, 0.85]
+      PrefabInstance:
+        <<: *Prefab3001
+        prefabId: 3001
+      Physics:
+        name: "PhysicsStackCrate06"
+        active: true
+        actorType: Dynamic
+        mass: 0.85
+        flags: [None]
+        friction: 0.68
+        restitution: 0.22
+  - EntityId: 63
+    ParentEntityId: -1
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: PhysicsBounceSphere01
+      Transform:
+        <<: *DefaultTransform
+        position: [21.00, 26.00, 17.00]
+        scale: [0.70, 0.70, 0.70]
+      PrefabInstance:
+        <<: *Prefab3003
+        prefabId: 3003
+      Physics:
+        name: "PhysicsBounceSphere01"
+        active: true
+        actorType: Dynamic
+        mass: 0.45
+        flags: [None]
+        friction: 0.05
+        restitution: 0.92
+  - EntityId: 64
+    ParentEntityId: -1
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: PhysicsBounceSphere02
+      Transform:
+        <<: *DefaultTransform
+        position: [22.10, 28.00, 17.50]
+        scale: [1.00, 1.00, 1.00]
+      PrefabInstance:
+        <<: *Prefab3009
+        prefabId: 3009
+      Physics:
+        name: "PhysicsBounceSphere02"
+        active: true
+        actorType: Dynamic
+        mass: 1.60
+        flags: [None]
+        friction: 0.08
+        restitution: 0.76
+  - EntityId: 65
+    ParentEntityId: -1
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: PhysicsDropCylinder01
+      Transform:
+        <<: *DefaultTransform
+        position: [20.50, 24.50, 23.00]
+        scale: [0.70, 1.20, 0.70]
+      PrefabInstance:
+        <<: *Prefab3004
+        prefabId: 3004
+      Physics:
+        name: "PhysicsDropCylinder01"
+        active: true
+        actorType: Dynamic
+        mass: 2.20
+        flags: [None]
+        friction: 0.35
+        restitution: 0.24
+  - EntityId: 66
+    ParentEntityId: -1
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: PhysicsDropCone01
+      Transform:
+        <<: *DefaultTransform
+        position: [22.00, 25.20, 22.20]
+        scale: [0.90, 0.90, 0.90]
+      PrefabInstance:
+        <<: *Prefab3005
+        prefabId: 3005
+      Physics:
+        name: "PhysicsDropCone01"
+        active: true
+        actorType: Dynamic
+        mass: 0.80
+        flags: [None]
+        friction: 0.20
+        restitution: 0.50
+  - EntityId: 67
+    ParentEntityId: -1
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: PhysicsDropTriPyramid01
+      Transform:
+        <<: *DefaultTransform
+        position: [18.00, 27.00, 24.00]
+        scale: [0.90, 0.90, 0.90]
+      PrefabInstance:
+        <<: *Prefab3006
+        prefabId: 3006
+      Physics:
+        name: "PhysicsDropTriPyramid01"
+        active: true
+        actorType: Dynamic
+        mass: 1.05
+        flags: [None]
+        friction: 0.45
+        restitution: 0.38
+  - EntityId: 68
+    ParentEntityId: -1
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: PhysicsDropSquarePyramid01
+      Transform:
+        <<: *DefaultTransform
+        position: [24.00, 26.00, 20.00]
+        scale: [1.05, 1.05, 1.05]
+      PrefabInstance:
+        <<: *Prefab3007
+        prefabId: 3007
+      Physics:
+        name: "PhysicsDropSquarePyramid01"
+        active: true
+        actorType: Dynamic
+        mass: 1.30
+        flags: [None]
+        friction: 0.55
+        restitution: 0.32
