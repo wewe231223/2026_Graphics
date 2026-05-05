@@ -1,7 +1,16 @@
 ﻿# 2026Graphics
-
+<p>
+<img width="1922" height="1114" alt="image" src="https://github.com/user-attachments/assets/14762276-b963-4ab4-9fa8-a515fc3cd8e3" />
+</p>
+<p>
 DirectX 12 기반 실시간 3D 그래픽스 샌드박스입니다.  
 렌더링, ECS, 에셋 변환, Lua 스크립팅, 물리, ImGui 디버그 도구를 직접 구현해 하나의 Win32 런타임으로 묶은 프로젝트입니다.
+</p>
+
+
+### 프로젝트 데모 영상
+<video src="https://github.com/user-attachments/assets/d48061dc-37cd-4427-899d-8eda80314f27" controls="controls" style="max-width: 100%;">
+</video>
 
 ## 개요 
 
