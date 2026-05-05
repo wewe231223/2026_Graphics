@@ -1,4 +1,4 @@
-#include "SceneYamlSerializer.h"
+﻿#include "SceneYamlSerializer.h"
 #include <fstream>
 #include <sstream>
 #include "Game/Scene/SceneYaml/SceneYamlInternal.h"

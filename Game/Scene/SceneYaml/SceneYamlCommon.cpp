@@ -1,4 +1,4 @@
-#include "SceneYamlInternal.h"
+﻿#include "SceneYamlInternal.h"
 
 namespace Game::SceneYaml {
     const char* const TransformTypeName{ "Transform" };

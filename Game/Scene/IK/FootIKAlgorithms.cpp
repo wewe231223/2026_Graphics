@@ -768,7 +768,7 @@ namespace Game::IK {
             return false;
         }
 
-        OutReachOverflowDistance = (std::max)(0.0f, RootToTargetDistance - ChainReachDistance);
+        OutReachOverflowDistance = std::max(0.0f, RootToTargetDistance - ChainReachDistance);
         return MathUtility::IsFiniteFloat(OutReachOverflowDistance);
     }
 
@@ -1032,8 +1032,8 @@ namespace Game::IK {
     float ResolveSmoothedOffset(const float CurrentOffset, const float TargetOffset, const float BlendSpeed, const float Dt) {
         const float SafeCurrentOffset{ MathUtility::IsFiniteFloat(CurrentOffset) ? CurrentOffset : 0.0f };
         const float SafeTargetOffset{ MathUtility::IsFiniteFloat(TargetOffset) ? TargetOffset : 0.0f };
-        const float SafeBlendSpeed{ (std::max)(BlendSpeed, 0.0f) };
-        const float SafeDt{ (std::max)(Dt, 0.0f) };
+        const float SafeBlendSpeed{ std::max(BlendSpeed, 0.0f) };
+        const float SafeDt{ std::max(Dt, 0.0f) };
         if (SafeBlendSpeed <= 0.0f || SafeDt <= 0.0f) {
             return SafeTargetOffset;
         }

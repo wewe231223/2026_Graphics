@@ -230,6 +230,7 @@ target_link_libraries(Game PUBLIC Utility PhysicsLib lua54 DirectXTK12)
 
 target_compile_definitions(Game PRIVATE
     _LIB
+    NOMINMAX
     UNICODE
     _UNICODE
     $<$<CONFIG:Debug>:_DEBUG>

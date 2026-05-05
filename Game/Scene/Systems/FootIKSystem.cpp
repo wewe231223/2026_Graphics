@@ -288,8 +288,8 @@ namespace Game {
                 }
             }
 
-            const float MaxLift{ (std::max)(FootIKRigComponent.mMaxLift, 0.0f) };
-            const float MaxDrop{ (std::max)(FootIKRigComponent.mMaxDrop, 0.0f) };
+            const float MaxLift{ std::max(FootIKRigComponent.mMaxLift, 0.0f) };
+            const float MaxDrop{ std::max(FootIKRigComponent.mMaxDrop, 0.0f) };
             const float LeftTargetOffset{ LeftSolveTarget.IsTargetResolved == true ? std::clamp(LeftSolveTarget.RawTargetOffset, -MaxDrop, MaxLift) : 0.0f };
             const float RightTargetOffset{ RightSolveTarget.IsTargetResolved == true ? std::clamp(RightSolveTarget.RawTargetOffset, -MaxDrop, MaxLift) : 0.0f };
 
@@ -338,7 +338,7 @@ namespace Game {
                     }
                 }
 
-                const float MaximumReachOverflowDistance{ (std::max)(LeftReachOverflowDistance, RightReachOverflowDistance) };
+                const float MaximumReachOverflowDistance{ std::max(LeftReachOverflowDistance, RightReachOverflowDistance) };
                 if (MathUtility::IsFiniteFloat(MaximumReachOverflowDistance) == true && MaximumReachOverflowDistance > 0.0f) {
                     PelvisOffset -= MaximumReachOverflowDistance;
                 }

@@ -67,8 +67,8 @@ namespace Game {
             for (std::uint32_t TileX{ 0 }; TileX < TiledData.mTileCountX; ++TileX) {
                 const std::uint32_t StartX{ TileX * Desc.TileQuadCount };
                 const std::uint32_t StartZ{ TileZ * Desc.TileQuadCount };
-                const std::uint32_t EndX{ (std::min)(StartX + Desc.TileQuadCount, QuadCountX) };
-                const std::uint32_t EndZ{ (std::min)(StartZ + Desc.TileQuadCount, QuadCountZ) };
+                const std::uint32_t EndX{ std::min(StartX + Desc.TileQuadCount, QuadCountX) };
+                const std::uint32_t EndZ{ std::min(StartZ + Desc.TileQuadCount, QuadCountZ) };
                 const std::uint32_t QuadCountInTileX{ EndX - StartX };
                 const std::uint32_t QuadCountInTileZ{ EndZ - StartZ };
 
@@ -194,12 +194,12 @@ namespace Game {
         for (std::uint32_t GridZ{ StartZ }; GridZ <= EndZ; ++GridZ) {
             for (std::uint32_t GridX{ StartX }; GridX <= EndX; ++GridX) {
                 const asset::Vec3 Position{ CalculatePosition(Field, Desc, GridX, GridZ) };
-                MinValue.x = (std::min)(MinValue.x, Position.x);
-                MinValue.y = (std::min)(MinValue.y, Position.y);
-                MinValue.z = (std::min)(MinValue.z, Position.z);
-                MaxValue.x = (std::max)(MaxValue.x, Position.x);
-                MaxValue.y = (std::max)(MaxValue.y, Position.y);
-                MaxValue.z = (std::max)(MaxValue.z, Position.z);
+                MinValue.x = std::min(MinValue.x, Position.x);
+                MinValue.y = std::min(MinValue.y, Position.y);
+                MinValue.z = std::min(MinValue.z, Position.z);
+                MaxValue.x = std::max(MaxValue.x, Position.x);
+                MaxValue.y = std::max(MaxValue.y, Position.y);
+                MaxValue.z = std::max(MaxValue.z, Position.z);
             }
         }
 

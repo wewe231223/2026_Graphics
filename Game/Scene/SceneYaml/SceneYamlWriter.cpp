@@ -1,4 +1,4 @@
-#include "SceneYamlInternal.h"
+﻿#include "SceneYamlInternal.h"
 
 namespace Game::SceneYaml {
     SceneYamlSaveResult SceneYamlWriter::Serialize(const SceneWorldSnapshot& TargetSnapshot, std::string& OutYamlText) const {

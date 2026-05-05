@@ -8,7 +8,7 @@ namespace {
     constexpr float MinimumDebugGeometryExtent{ 0.0001f };
 
     float ResolveMinimumPositiveValue(float Value, float MinimumValue) {
-        return (std::max)(Value, MinimumValue);
+        return std::max(Value, MinimumValue);
     }
 
     DirectX::SimpleMath::Vector3 ResolveDirectionUnitVector(const DirectX::SimpleMath::Vector3& Direction) {
@@ -47,8 +47,8 @@ namespace {
         const float ProjectionCenterY{ -ProjectionMatrix._42 / ProjectionScaleY };
         const float ProjectionHalfWidth{ std::abs(1.0f / ProjectionScaleX) };
         const float ProjectionHalfHeight{ std::abs(1.0f / ProjectionScaleY) };
-        const float EffectiveNearPlane{ (std::max)(ShadowCameraParameter.nearPlane, 0.0f) };
-        const float EffectiveFarPlane{ (std::max)(ShadowCameraParameter.farPlane, EffectiveNearPlane + MinimumProjectionDepthSpan) };
+        const float EffectiveNearPlane{ std::max(ShadowCameraParameter.nearPlane, 0.0f) };
+        const float EffectiveFarPlane{ std::max(ShadowCameraParameter.farPlane, EffectiveNearPlane + MinimumProjectionDepthSpan) };
         const float ProjectionHalfDepth{ (EffectiveFarPlane - EffectiveNearPlane) * 0.5f };
         const float ProjectionCenterZ{ EffectiveNearPlane + ProjectionHalfDepth };
 
@@ -120,7 +120,7 @@ namespace Game {
         }
 
         std::uint32_t ResolveShadowCascadeCount(const ShadowMappingParameter& ShadowMappingParameter) {
-            return (std::max)(1u, (std::min)(ShadowMappingParameter.cascadeCount, ShadowCascadeMaxCount));
+            return std::max(1u, std::min(ShadowMappingParameter.cascadeCount, ShadowCascadeMaxCount));
         }
 
         std::array<DirectX::BoundingOrientedBox, ShadowCascadeMaxCount> BuildShadowCullingBoxes(const ShadowMappingParameter& ShadowMappingParameter) {

@@ -38,9 +38,9 @@ namespace {
     }
 
     float CalculateTerrainTessFactor(std::uint32_t TileQuadCount, std::uint32_t LodIndex) {
-        const std::uint32_t BaseFactor{ (std::max)(TileQuadCount, 1u) };
-        const std::uint32_t DivisorIndex{ (std::min)(LodIndex, static_cast<std::uint32_t>(TerrainTessFactorDivisors.size() - 1ULL)) };
-        const std::uint32_t Factor{ (std::max)(BaseFactor / TerrainTessFactorDivisors[DivisorIndex], 1u) };
+        const std::uint32_t BaseFactor{ std::max(TileQuadCount, 1u) };
+        const std::uint32_t DivisorIndex{ std::min(LodIndex, static_cast<std::uint32_t>(TerrainTessFactorDivisors.size() - 1ULL)) };
+        const std::uint32_t Factor{ std::max(BaseFactor / TerrainTessFactorDivisors[DivisorIndex], 1u) };
 
         return static_cast<float>(Factor);
     }
@@ -48,7 +48,7 @@ namespace {
     float ResolveTerrainMaxLodDistance(const std::vector<float>& LodDistances) {
         float MaxLodDistance{ 0.0f };
         for (const float LodDistance : LodDistances) {
-            MaxLodDistance = (std::max)(MaxLodDistance, LodDistance);
+            MaxLodDistance = std::max(MaxLodDistance, LodDistance);
         }
 
         return MaxLodDistance;
@@ -80,7 +80,7 @@ namespace {
     }
 
     void MatchTerrainSharedEdge(TerrainTileTessellationData& FirstTessellationData, std::uint32_t FirstEdgeIndex, TerrainTileTessellationData& SecondTessellationData, std::uint32_t SecondEdgeIndex) {
-        const float SharedFactor{ (std::max)(FirstTessellationData.OuterTessFactors[FirstEdgeIndex], SecondTessellationData.OuterTessFactors[SecondEdgeIndex]) };
+        const float SharedFactor{ std::max(FirstTessellationData.OuterTessFactors[FirstEdgeIndex], SecondTessellationData.OuterTessFactors[SecondEdgeIndex]) };
         FirstTessellationData.OuterTessFactors[FirstEdgeIndex] = SharedFactor;
         SecondTessellationData.OuterTessFactors[SecondEdgeIndex] = SharedFactor;
     }

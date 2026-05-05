@@ -1,4 +1,4 @@
-#include "SceneYamlInternal.h"
+﻿#include "SceneYamlInternal.h"
 
 namespace Game::SceneYaml {
     SceneYamlLoadResult SceneYamlDeserializer::Deserialize(const std::string& YamlText, Scene& OutScene) const {

@@ -36,11 +36,11 @@ namespace {
             return Desc.mStreamingGridStep;
         }
 
-        return (std::max)(Desc.TileQuadCount, 1u);
+        return std::max(Desc.TileQuadCount, 1u);
     }
 
     std::int32_t FloorToStep(std::int32_t Value, std::uint32_t Step) {
-        const std::int32_t StepValue{ static_cast<std::int32_t>((std::max)(Step, 1u)) };
+        const std::int32_t StepValue{ static_cast<std::int32_t>(std::max(Step, 1u)) };
         if (Value >= 0) {
             return (Value / StepValue) * StepValue;
         }

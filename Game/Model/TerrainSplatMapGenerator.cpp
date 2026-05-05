@@ -142,8 +142,8 @@ namespace {
         const float HeightPositiveX{ CalculateWorldHeight(Field, Desc, SampleX + 1, SampleZ) };
         const float HeightNegativeZ{ CalculateWorldHeight(Field, Desc, SampleX, SampleZ - 1) };
         const float HeightPositiveZ{ CalculateWorldHeight(Field, Desc, SampleX, SampleZ + 1) };
-        const float CellSpanX{ (std::max)(Desc.CellSizeX * 2.0f, 0.0001f) };
-        const float CellSpanZ{ (std::max)(Desc.CellSizeZ * 2.0f, 0.0001f) };
+        const float CellSpanX{ std::max(Desc.CellSizeX * 2.0f, 0.0001f) };
+        const float CellSpanZ{ std::max(Desc.CellSizeZ * 2.0f, 0.0001f) };
         const float GradientX{ (HeightPositiveX - HeightNegativeX) / CellSpanX };
         const float GradientZ{ (HeightPositiveZ - HeightNegativeZ) / CellSpanZ };
         const float NormalY{ 1.0f / std::sqrt((GradientX * GradientX) + 1.0f + (GradientZ * GradientZ)) };
@@ -523,13 +523,13 @@ namespace {
         if (Node.mFunctionType == SplatExpressionFunctionType::Min) {
             const float Left{ EvaluateSplatExpressionChild(Expression, Node, 0ULL, Variables) };
             const float Right{ EvaluateSplatExpressionChild(Expression, Node, 1ULL, Variables) };
-            return (std::min)(Left, Right);
+            return std::min(Left, Right);
         }
 
         if (Node.mFunctionType == SplatExpressionFunctionType::Max) {
             const float Left{ EvaluateSplatExpressionChild(Expression, Node, 0ULL, Variables) };
             const float Right{ EvaluateSplatExpressionChild(Expression, Node, 1ULL, Variables) };
-            return (std::max)(Left, Right);
+            return std::max(Left, Right);
         }
 
         if (Node.mFunctionType == SplatExpressionFunctionType::Abs) {

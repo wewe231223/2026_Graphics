@@ -29,7 +29,7 @@ namespace Game::SceneYaml {
         for (std::size_t CornerIndex{ 0u }; CornerIndex < OffsetPositions.size(); ++CornerIndex) {
             const DirectX::XMFLOAT3& Corner{ Corners[CornerIndex] };
             OffsetPositions[CornerIndex] = SimpleMath::Vector3::Transform(SimpleMath::Vector3{ Corner.x, Corner.y, Corner.z }, TransformOffsetMatrix);
-            BottomOffsetY = (std::min)(BottomOffsetY, OffsetPositions[CornerIndex].y);
+            BottomOffsetY = std::min(BottomOffsetY, OffsetPositions[CornerIndex].y);
         }
 
         if (BottomOffsetY == std::numeric_limits<float>::max()) {
@@ -171,11 +171,11 @@ namespace Game::SceneYaml {
             return TerrainBuildDescValue.mStreamingGridStep;
         }
 
-        return (std::max)(TerrainBuildDescValue.TileQuadCount, 1u);
+        return std::max(TerrainBuildDescValue.TileQuadCount, 1u);
     }
 
     std::int32_t FloorTerrainStreamingGridToStep(std::int32_t Value, std::uint32_t Step) {
-        const std::int32_t StepValue{ static_cast<std::int32_t>((std::max)(Step, 1u)) };
+        const std::int32_t StepValue{ static_cast<std::int32_t>(std::max(Step, 1u)) };
         if (Value >= 0) {
             return (Value / StepValue) * StepValue;
         }

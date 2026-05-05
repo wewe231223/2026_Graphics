@@ -155,7 +155,7 @@ Entities:
         fov: 60.0
         aspectRatio: 1.777777
         nearPlane: 0.1
-        farPlane: 1000.0
+        farPlane: 2000.0
         isActive: true
         isOrthographic: false
         orthoSize: 5.0

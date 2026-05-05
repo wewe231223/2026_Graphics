@@ -55,15 +55,15 @@ namespace {
             return 0.0f;
         }
 
-        const float SafeParentSegmentLength{ (std::max)(ParentSegmentLength, 0.0f) };
-        const float SafeChildSegmentLength{ (std::max)(ChildSegmentLength, 0.0f) };
+        const float SafeParentSegmentLength{ std::max(ParentSegmentLength, 0.0f) };
+        const float SafeChildSegmentLength{ std::max(ChildSegmentLength, 0.0f) };
         const float SafeJointAngleRadians{ ResolveClampedAngleRadians(JointAngleRadians) };
         const float DistanceSquared{ (SafeParentSegmentLength * SafeParentSegmentLength) + (SafeChildSegmentLength * SafeChildSegmentLength) - (2.0f * SafeParentSegmentLength * SafeChildSegmentLength * std::cos(SafeJointAngleRadians)) };
         if (MathUtility::IsFiniteFloat(DistanceSquared) == false) {
             return 0.0f;
         }
 
-        const float SafeDistanceSquared{ (std::max)(DistanceSquared, 0.0f) };
+        const float SafeDistanceSquared{ std::max(DistanceSquared, 0.0f) };
         return std::sqrt(SafeDistanceSquared);
     }
 
@@ -150,7 +150,7 @@ namespace {
             return false;
         }
 
-        const float Height{ std::sqrt((std::max)(HeightSquaredRaw, 0.0f)) };
+        const float Height{ std::sqrt(std::max(HeightSquaredRaw, 0.0f)) };
         if (MathUtility::IsFiniteFloat(Height) == false) {
             return false;
         }
