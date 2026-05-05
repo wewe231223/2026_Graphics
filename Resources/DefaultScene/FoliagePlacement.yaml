@@ -3,8 +3,8 @@ ProceduralFoliage:
   InactiveHeight: -100000.0
   PlacementRadius: 240.0
   CellSize: 14.0
-  UpdateInterval: 0.1
-  DensityMultiplier: 5.0
+  UpdateInterval: 1.0
+  DensityMultiplier: 10.0
   CandidateRandomXStream: 11
   CandidateRandomZStream: 23
   CandidateRandomChanceStream: 37

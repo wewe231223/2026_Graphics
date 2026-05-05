@@ -47,6 +47,13 @@ namespace {
     constexpr std::uint32_t FoliageHashOffset{ 2166136261u };
     constexpr std::uint32_t FoliageHashPrime{ 16777619u };
 
+    enum class FoliageUpdatePhase {
+        Idle,
+        BuildCandidates,
+        ApplyCandidates,
+        RebuildSlotLookup
+    };
+
     struct FoliagePlacementLodDesc final {
     public:
         std::string mModelPath{};
@@ -93,6 +100,9 @@ namespace {
         float mPlacementRadius{};
         float mCellSize{ 1.0f };
         float mUpdateInterval{};
+        std::uint32_t mUpdateCellBatchSize{ 96u };
+        std::uint32_t mUpdateCandidateBatchSize{ 512u };
+        std::uint32_t mUpdateSlotBatchSize{ 512u };
         float mDensityMultiplier{ 1.0f };
         std::uint32_t mCandidateRandomXStream{};
         std::uint32_t mCandidateRandomZStream{};
@@ -582,6 +592,9 @@ namespace {
         ReadFloatChild(ConfigNode, "PlacementRadius", Config.mPlacementRadius);
         ReadFloatChild(ConfigNode, "CellSize", Config.mCellSize);
         ReadFloatChild(ConfigNode, "UpdateInterval", Config.mUpdateInterval);
+        ReadUInt32Child(ConfigNode, "UpdateCellBatchSize", Config.mUpdateCellBatchSize);
+        ReadUInt32Child(ConfigNode, "UpdateCandidateBatchSize", Config.mUpdateCandidateBatchSize);
+        ReadUInt32Child(ConfigNode, "UpdateSlotBatchSize", Config.mUpdateSlotBatchSize);
         ReadFloatChild(ConfigNode, "Density", Config.mDensityMultiplier);
         ReadFloatChild(ConfigNode, "DensityMultiplier", Config.mDensityMultiplier);
         ReadUInt32Child(ConfigNode, "CandidateRandomXStream", Config.mCandidateRandomXStream);
@@ -621,6 +634,9 @@ namespace {
         Config.mPlacementRadius = std::max(Config.mPlacementRadius, 1.0f);
         Config.mCellSize = std::max(Config.mCellSize, 1.0f);
         Config.mUpdateInterval = std::max(Config.mUpdateInterval, 0.0f);
+        Config.mUpdateCellBatchSize = std::max(Config.mUpdateCellBatchSize, 1u);
+        Config.mUpdateCandidateBatchSize = std::max(Config.mUpdateCandidateBatchSize, 1u);
+        Config.mUpdateSlotBatchSize = std::max(Config.mUpdateSlotBatchSize, 1u);
         Config.mDensityMultiplier = std::max(Config.mDensityMultiplier, 0.0f);
         Config.mClusterDensityMaximum = std::max(Config.mClusterDensityMaximum, 1.0f);
         Config.mClusterScaleMinimumCellMultiplier = std::max(Config.mClusterScaleMinimumCellMultiplier, 0.0f);
@@ -1212,6 +1228,15 @@ namespace {
     }
 
     void ApplyFoliageCandidateToSlot(Arche::World& World, FoliageSlot& Slot, const FoliageCandidate& Candidate) {
+        if (Slot.mActive == true && Slot.mKey == Candidate.mKey) {
+            Slot.mAssignedThisFrame = true;
+            if (Slot.mActiveLodIndex != Candidate.mLodIndex) {
+                SetFoliageSlotActive(World, Slot, true, Candidate.mLodIndex);
+            }
+
+            return;
+        }
+
         Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(Slot.mRootEntityId) };
         if (TransformComponent == nullptr) {
             return;
@@ -1260,11 +1285,14 @@ namespace Game {
 
     private:
         bool Initialize(FrameContext& Ctx);
-        std::vector<FoliageCandidate> BuildCandidates(const TerrainSamplingContext& TerrainContext, const SimpleMath::Vector3& FocusPosition) const;
+        void BeginFoliageUpdate(const SimpleMath::Vector3& FocusPosition);
+        void ProcessFoliageUpdateBatch(Arche::World& World, FrameContext& Ctx, const TerrainSamplingContext& TerrainContext);
+        void BuildCandidateBatch(const TerrainSamplingContext& TerrainContext);
+        void ApplyCandidateBatch(Arche::World& World, FrameContext& Ctx);
+        void RebuildSlotLookupBatch(Arche::World& World);
         bool TryCreateCandidate(const TerrainSamplingContext& TerrainContext, const SimpleMath::Vector3& FocusPosition, std::uint32_t RuleIndex, std::int32_t CellX, std::int32_t CellZ, std::uint32_t InstanceIndex, FoliageCandidate& OutCandidate) const;
         std::size_t FindReusableSlot(std::uint32_t RuleIndex) const;
         bool CreateSlot(Arche::World& World, FrameContext& Ctx, std::uint32_t RuleIndex, std::size_t& OutSlotIndex);
-        void RebuildSlotLookup(Arche::World& World);
 
     private:
         std::string mConfigPath{};
@@ -1272,6 +1300,18 @@ namespace Game {
         std::vector<FoliageRuntimeRule> mRules{};
         std::vector<FoliageSlot> mSlots{};
         std::unordered_map<FoliageCandidateKey, std::size_t, FoliageCandidateKeyHasher> mSlotByKey{};
+        std::vector<FoliageCandidate> mUpdateCandidates{};
+        std::unordered_map<FoliageCandidateKey, std::size_t, FoliageCandidateKeyHasher> mUpdateSlotByKey{};
+        SimpleMath::Vector3 mUpdateFocusPosition{ SimpleMath::Vector3::Zero };
+        FoliageUpdatePhase mUpdatePhase{ FoliageUpdatePhase::Idle };
+        std::int32_t mUpdateMinCellX{};
+        std::int32_t mUpdateMaxCellX{};
+        std::int32_t mUpdateMinCellZ{};
+        std::int32_t mUpdateMaxCellZ{};
+        std::int32_t mUpdateCurrentCellX{};
+        std::int32_t mUpdateCurrentCellZ{};
+        std::size_t mUpdateCandidateIndex{};
+        std::size_t mUpdateSlotIndex{};
         bool mInitialized{ false };
         bool mValid{ false };
         bool mHasUpdatedOnce{ false };
@@ -1284,6 +1324,18 @@ namespace Game {
         mRules{},
         mSlots{},
         mSlotByKey{},
+        mUpdateCandidates{},
+        mUpdateSlotByKey{},
+        mUpdateFocusPosition{ SimpleMath::Vector3::Zero },
+        mUpdatePhase{ FoliageUpdatePhase::Idle },
+        mUpdateMinCellX{},
+        mUpdateMaxCellX{},
+        mUpdateMinCellZ{},
+        mUpdateMaxCellZ{},
+        mUpdateCurrentCellX{},
+        mUpdateCurrentCellZ{},
+        mUpdateCandidateIndex{},
+        mUpdateSlotIndex{},
         mInitialized{ false },
         mValid{ false },
         mHasUpdatedOnce{ false },
@@ -1299,6 +1351,18 @@ namespace Game {
         mRules{},
         mSlots{},
         mSlotByKey{},
+        mUpdateCandidates{},
+        mUpdateSlotByKey{},
+        mUpdateFocusPosition{ SimpleMath::Vector3::Zero },
+        mUpdatePhase{ FoliageUpdatePhase::Idle },
+        mUpdateMinCellX{},
+        mUpdateMaxCellX{},
+        mUpdateMinCellZ{},
+        mUpdateMaxCellZ{},
+        mUpdateCurrentCellX{},
+        mUpdateCurrentCellZ{},
+        mUpdateCandidateIndex{},
+        mUpdateSlotIndex{},
         mInitialized{ false },
         mValid{ false },
         mHasUpdatedOnce{ false },
@@ -1315,6 +1379,18 @@ namespace Game {
         mRules.clear();
         mSlots.clear();
         mSlotByKey.clear();
+        mUpdateCandidates.clear();
+        mUpdateSlotByKey.clear();
+        mUpdateFocusPosition = SimpleMath::Vector3::Zero;
+        mUpdatePhase = FoliageUpdatePhase::Idle;
+        mUpdateMinCellX = 0;
+        mUpdateMaxCellX = 0;
+        mUpdateMinCellZ = 0;
+        mUpdateMaxCellZ = 0;
+        mUpdateCurrentCellX = 0;
+        mUpdateCurrentCellZ = 0;
+        mUpdateCandidateIndex = 0ULL;
+        mUpdateSlotIndex = 0ULL;
         mInitialized = false;
         mValid = false;
         mHasUpdatedOnce = false;
@@ -1328,10 +1404,31 @@ namespace Game {
         mRules{ std::move(Other.mRules) },
         mSlots{ std::move(Other.mSlots) },
         mSlotByKey{ std::move(Other.mSlotByKey) },
+        mUpdateCandidates{ std::move(Other.mUpdateCandidates) },
+        mUpdateSlotByKey{ std::move(Other.mUpdateSlotByKey) },
+        mUpdateFocusPosition{ Other.mUpdateFocusPosition },
+        mUpdatePhase{ Other.mUpdatePhase },
+        mUpdateMinCellX{ Other.mUpdateMinCellX },
+        mUpdateMaxCellX{ Other.mUpdateMaxCellX },
+        mUpdateMinCellZ{ Other.mUpdateMinCellZ },
+        mUpdateMaxCellZ{ Other.mUpdateMaxCellZ },
+        mUpdateCurrentCellX{ Other.mUpdateCurrentCellX },
+        mUpdateCurrentCellZ{ Other.mUpdateCurrentCellZ },
+        mUpdateCandidateIndex{ Other.mUpdateCandidateIndex },
+        mUpdateSlotIndex{ Other.mUpdateSlotIndex },
         mInitialized{ Other.mInitialized },
         mValid{ Other.mValid },
         mHasUpdatedOnce{ Other.mHasUpdatedOnce },
         mUpdateTimer{ Other.mUpdateTimer } {
+        Other.mUpdatePhase = FoliageUpdatePhase::Idle;
+        Other.mUpdateMinCellX = 0;
+        Other.mUpdateMaxCellX = 0;
+        Other.mUpdateMinCellZ = 0;
+        Other.mUpdateMaxCellZ = 0;
+        Other.mUpdateCurrentCellX = 0;
+        Other.mUpdateCurrentCellZ = 0;
+        Other.mUpdateCandidateIndex = 0ULL;
+        Other.mUpdateSlotIndex = 0ULL;
         Other.mInitialized = false;
         Other.mValid = false;
         Other.mHasUpdatedOnce = false;
@@ -1348,10 +1445,31 @@ namespace Game {
         mRules = std::move(Other.mRules);
         mSlots = std::move(Other.mSlots);
         mSlotByKey = std::move(Other.mSlotByKey);
+        mUpdateCandidates = std::move(Other.mUpdateCandidates);
+        mUpdateSlotByKey = std::move(Other.mUpdateSlotByKey);
+        mUpdateFocusPosition = Other.mUpdateFocusPosition;
+        mUpdatePhase = Other.mUpdatePhase;
+        mUpdateMinCellX = Other.mUpdateMinCellX;
+        mUpdateMaxCellX = Other.mUpdateMaxCellX;
+        mUpdateMinCellZ = Other.mUpdateMinCellZ;
+        mUpdateMaxCellZ = Other.mUpdateMaxCellZ;
+        mUpdateCurrentCellX = Other.mUpdateCurrentCellX;
+        mUpdateCurrentCellZ = Other.mUpdateCurrentCellZ;
+        mUpdateCandidateIndex = Other.mUpdateCandidateIndex;
+        mUpdateSlotIndex = Other.mUpdateSlotIndex;
         mInitialized = Other.mInitialized;
         mValid = Other.mValid;
         mHasUpdatedOnce = Other.mHasUpdatedOnce;
         mUpdateTimer = Other.mUpdateTimer;
+        Other.mUpdatePhase = FoliageUpdatePhase::Idle;
+        Other.mUpdateMinCellX = 0;
+        Other.mUpdateMaxCellX = 0;
+        Other.mUpdateMinCellZ = 0;
+        Other.mUpdateMaxCellZ = 0;
+        Other.mUpdateCurrentCellX = 0;
+        Other.mUpdateCurrentCellZ = 0;
+        Other.mUpdateCandidateIndex = 0ULL;
+        Other.mUpdateSlotIndex = 0ULL;
         Other.mInitialized = false;
         Other.mValid = false;
         Other.mHasUpdatedOnce = false;
@@ -1420,16 +1538,26 @@ namespace Game {
             return;
         }
 
-        mUpdateTimer += Dt;
-        if (mHasUpdatedOnce == true && mUpdateTimer < mConfig.mUpdateInterval) {
-            return;
-        }
+        if (mUpdatePhase == FoliageUpdatePhase::Idle) {
+            mUpdateTimer += Dt;
+            if (mHasUpdatedOnce == true && mUpdateTimer < mConfig.mUpdateInterval) {
+                return;
+            }
 
-        mUpdateTimer = 0.0f;
-        mHasUpdatedOnce = true;
+            SimpleMath::Vector3 FocusPosition{};
+            if (TryResolveFocusPosition(World, FocusPosition) == false) {
+                return;
+            }
 
-        SimpleMath::Vector3 FocusPosition{};
-        if (TryResolveFocusPosition(World, FocusPosition) == false) {
+            TerrainSamplingContext TerrainContext{};
+            if (TryResolveTerrainSamplingContext(World, TerrainContext) == false) {
+                return;
+            }
+
+            mUpdateTimer = 0.0f;
+            mHasUpdatedOnce = true;
+            BeginFoliageUpdate(FocusPosition);
+            ProcessFoliageUpdateBatch(World, Ctx, TerrainContext);
             return;
         }
 
@@ -1438,21 +1566,90 @@ namespace Game {
             return;
         }
 
+        ProcessFoliageUpdateBatch(World, Ctx, TerrainContext);
+    }
+
+    void ProceduralFoliageRuntime::BeginFoliageUpdate(const SimpleMath::Vector3& FocusPosition) {
         for (FoliageSlot& Slot : mSlots) {
             Slot.mAssignedThisFrame = false;
         }
 
-        const std::vector<FoliageCandidate> Candidates{ BuildCandidates(TerrainContext, FocusPosition) };
-        for (const FoliageCandidate& Candidate : Candidates) {
-            const std::unordered_map<FoliageCandidateKey, std::size_t, FoliageCandidateKeyHasher>::const_iterator SlotIter{ mSlotByKey.find(Candidate.mKey) };
-            if (SlotIter != mSlotByKey.end() && SlotIter->second < mSlots.size() && mSlots[SlotIter->second].mRuleIndex == Candidate.mKey.mRuleIndex) {
-                ApplyFoliageCandidateToSlot(World, mSlots[SlotIter->second], Candidate);
+        const float Radius{ mConfig.mPlacementRadius };
+        const float CellSize{ mConfig.mCellSize };
+        mUpdateCandidates.clear();
+        mUpdateSlotByKey.clear();
+        mUpdateFocusPosition = FocusPosition;
+        mUpdateMinCellX = static_cast<std::int32_t>(std::floor((FocusPosition.x - Radius) / CellSize));
+        mUpdateMaxCellX = static_cast<std::int32_t>(std::floor((FocusPosition.x + Radius) / CellSize));
+        mUpdateMinCellZ = static_cast<std::int32_t>(std::floor((FocusPosition.z - Radius) / CellSize));
+        mUpdateMaxCellZ = static_cast<std::int32_t>(std::floor((FocusPosition.z + Radius) / CellSize));
+        mUpdateCurrentCellX = mUpdateMinCellX;
+        mUpdateCurrentCellZ = mUpdateMinCellZ;
+        mUpdateCandidateIndex = 0ULL;
+        mUpdateSlotIndex = 0ULL;
+        mUpdatePhase = FoliageUpdatePhase::BuildCandidates;
+    }
+
+    void ProceduralFoliageRuntime::ProcessFoliageUpdateBatch(Arche::World& World, FrameContext& Ctx, const TerrainSamplingContext& TerrainContext) {
+        if (mUpdatePhase == FoliageUpdatePhase::BuildCandidates) {
+            BuildCandidateBatch(TerrainContext);
+            return;
+        }
+
+        if (mUpdatePhase == FoliageUpdatePhase::ApplyCandidates) {
+            ApplyCandidateBatch(World, Ctx);
+            return;
+        }
+
+        if (mUpdatePhase == FoliageUpdatePhase::RebuildSlotLookup) {
+            RebuildSlotLookupBatch(World);
+        }
+    }
+
+    void ProceduralFoliageRuntime::BuildCandidateBatch(const TerrainSamplingContext& TerrainContext) {
+        const float RadiusSquared{ mConfig.mPlacementRadius * mConfig.mPlacementRadius };
+        std::uint32_t ProcessedCellCount{};
+        while (mUpdateCurrentCellZ <= mUpdateMaxCellZ && ProcessedCellCount < mConfig.mUpdateCellBatchSize) {
+            for (std::uint32_t RuleIndex{ 0u }; RuleIndex < mRules.size(); ++RuleIndex) {
+                const FoliagePlacementRule& Rule{ mRules[RuleIndex].mDesc };
+                for (std::uint32_t InstanceIndex{ 0u }; InstanceIndex < Rule.mInstancesPerCell; ++InstanceIndex) {
+                    FoliageCandidate Candidate{};
+                    const bool IsCandidateCreated{ TryCreateCandidate(TerrainContext, mUpdateFocusPosition, RuleIndex, mUpdateCurrentCellX, mUpdateCurrentCellZ, InstanceIndex, Candidate) };
+                    if (IsCandidateCreated == false || IsCandidateInPlacementRadius(mUpdateFocusPosition, Candidate.mPosition.x, Candidate.mPosition.z, RadiusSquared) == false) {
+                        continue;
+                    }
+
+                    mUpdateCandidates.push_back(Candidate);
+                }
+            }
+
+            ProcessedCellCount += 1u;
+            mUpdateCurrentCellX += 1;
+            if (mUpdateCurrentCellX > mUpdateMaxCellX) {
+                mUpdateCurrentCellX = mUpdateMinCellX;
+                mUpdateCurrentCellZ += 1;
             }
         }
 
-        for (const FoliageCandidate& Candidate : Candidates) {
+        if (mUpdateCurrentCellZ <= mUpdateMaxCellZ) {
+            return;
+        }
+
+        const std::uint32_t TerrainSeed{ TerrainContext.mResource == nullptr ? 0u : TerrainContext.mResource->GetBuildDesc().mProceduralHeightFieldDesc.mSeed };
+        mUpdateCandidates = FilterCandidatesByMinimumSpacing(std::move(mUpdateCandidates), mRules, mConfig, TerrainSeed);
+        mUpdateCandidateIndex = 0ULL;
+        mUpdatePhase = FoliageUpdatePhase::ApplyCandidates;
+    }
+
+    void ProceduralFoliageRuntime::ApplyCandidateBatch(Arche::World& World, FrameContext& Ctx) {
+        std::uint32_t ProcessedCandidateCount{};
+        while (mUpdateCandidateIndex < mUpdateCandidates.size() && ProcessedCandidateCount < mConfig.mUpdateCandidateBatchSize) {
+            const FoliageCandidate& Candidate{ mUpdateCandidates[mUpdateCandidateIndex] };
             const std::unordered_map<FoliageCandidateKey, std::size_t, FoliageCandidateKeyHasher>::const_iterator SlotIter{ mSlotByKey.find(Candidate.mKey) };
-            if (SlotIter != mSlotByKey.end() && SlotIter->second < mSlots.size() && mSlots[SlotIter->second].mAssignedThisFrame == true) {
+            if (SlotIter != mSlotByKey.end() && SlotIter->second < mSlots.size() && mSlots[SlotIter->second].mRuleIndex == Candidate.mKey.mRuleIndex) {
+                ApplyFoliageCandidateToSlot(World, mSlots[SlotIter->second], Candidate);
+                mUpdateCandidateIndex += 1ULL;
+                ProcessedCandidateCount += 1u;
                 continue;
             }
 
@@ -1460,45 +1657,51 @@ namespace Game {
             if (SlotIndex == std::numeric_limits<std::size_t>::max()) {
                 const bool IsCreated{ CreateSlot(World, Ctx, Candidate.mKey.mRuleIndex, SlotIndex) };
                 if (IsCreated == false) {
+                    mUpdateCandidateIndex += 1ULL;
+                    ProcessedCandidateCount += 1u;
                     continue;
                 }
             }
 
             ApplyFoliageCandidateToSlot(World, mSlots[SlotIndex], Candidate);
+            mUpdateCandidateIndex += 1ULL;
+            ProcessedCandidateCount += 1u;
         }
 
-        RebuildSlotLookup(World);
+        if (mUpdateCandidateIndex < mUpdateCandidates.size()) {
+            return;
+        }
+
+        mUpdateCandidates.clear();
+        mUpdateSlotByKey.clear();
+        mUpdateSlotByKey.reserve(mSlots.size());
+        mUpdateSlotIndex = 0ULL;
+        mUpdatePhase = FoliageUpdatePhase::RebuildSlotLookup;
     }
 
-    std::vector<FoliageCandidate> ProceduralFoliageRuntime::BuildCandidates(const TerrainSamplingContext& TerrainContext, const SimpleMath::Vector3& FocusPosition) const {
-        std::vector<FoliageCandidate> Candidates{};
-        const float Radius{ mConfig.mPlacementRadius };
-        const float RadiusSquared{ Radius * Radius };
-        const float CellSize{ mConfig.mCellSize };
-        const std::int32_t MinCellX{ static_cast<std::int32_t>(std::floor((FocusPosition.x - Radius) / CellSize)) };
-        const std::int32_t MaxCellX{ static_cast<std::int32_t>(std::floor((FocusPosition.x + Radius) / CellSize)) };
-        const std::int32_t MinCellZ{ static_cast<std::int32_t>(std::floor((FocusPosition.z - Radius) / CellSize)) };
-        const std::int32_t MaxCellZ{ static_cast<std::int32_t>(std::floor((FocusPosition.z + Radius) / CellSize)) };
-
-        for (std::int32_t CellZ{ MinCellZ }; CellZ <= MaxCellZ; ++CellZ) {
-            for (std::int32_t CellX{ MinCellX }; CellX <= MaxCellX; ++CellX) {
-                for (std::uint32_t RuleIndex{ 0u }; RuleIndex < mRules.size(); ++RuleIndex) {
-                    const FoliagePlacementRule& Rule{ mRules[RuleIndex].mDesc };
-                    for (std::uint32_t InstanceIndex{ 0u }; InstanceIndex < Rule.mInstancesPerCell; ++InstanceIndex) {
-                        FoliageCandidate Candidate{};
-                        const bool IsCandidateCreated{ TryCreateCandidate(TerrainContext, FocusPosition, RuleIndex, CellX, CellZ, InstanceIndex, Candidate) };
-                        if (IsCandidateCreated == false || IsCandidateInPlacementRadius(FocusPosition, Candidate.mPosition.x, Candidate.mPosition.z, RadiusSquared) == false) {
-                            continue;
-                        }
-
-                        Candidates.push_back(Candidate);
-                    }
-                }
+    void ProceduralFoliageRuntime::RebuildSlotLookupBatch(Arche::World& World) {
+        std::uint32_t ProcessedSlotCount{};
+        while (mUpdateSlotIndex < mSlots.size() && ProcessedSlotCount < mConfig.mUpdateSlotBatchSize) {
+            FoliageSlot& Slot{ mSlots[mUpdateSlotIndex] };
+            if (Slot.mAssignedThisFrame == false) {
+                DeactivateFoliageSlot(World, Slot);
             }
+            else {
+                mUpdateSlotByKey.insert_or_assign(Slot.mKey, mUpdateSlotIndex);
+            }
+
+            mUpdateSlotIndex += 1ULL;
+            ProcessedSlotCount += 1u;
         }
 
-        const std::uint32_t TerrainSeed{ TerrainContext.mResource == nullptr ? 0u : TerrainContext.mResource->GetBuildDesc().mProceduralHeightFieldDesc.mSeed };
-        return FilterCandidatesByMinimumSpacing(std::move(Candidates), mRules, mConfig, TerrainSeed);
+        if (mUpdateSlotIndex < mSlots.size()) {
+            return;
+        }
+
+        mSlotByKey = std::move(mUpdateSlotByKey);
+        mUpdateSlotByKey.clear();
+        mUpdateSlotIndex = 0ULL;
+        mUpdatePhase = FoliageUpdatePhase::Idle;
     }
 
     bool ProceduralFoliageRuntime::TryCreateCandidate(const TerrainSamplingContext& TerrainContext, const SimpleMath::Vector3& FocusPosition, std::uint32_t RuleIndex, std::int32_t CellX, std::int32_t CellZ, std::uint32_t InstanceIndex, FoliageCandidate& OutCandidate) const {
@@ -1570,19 +1773,6 @@ namespace Game {
         OutSlotIndex = mSlots.size();
         mSlots.push_back(std::move(Slot));
         return true;
-    }
-
-    void ProceduralFoliageRuntime::RebuildSlotLookup(Arche::World& World) {
-        mSlotByKey.clear();
-        for (std::size_t SlotIndex{ 0ULL }; SlotIndex < mSlots.size(); ++SlotIndex) {
-            FoliageSlot& Slot{ mSlots[SlotIndex] };
-            if (Slot.mAssignedThisFrame == false) {
-                DeactivateFoliageSlot(World, Slot);
-                continue;
-            }
-
-            mSlotByKey.insert_or_assign(Slot.mKey, SlotIndex);
-        }
     }
 
     ProceduralFoliageSystem::ProceduralFoliageSystem()
