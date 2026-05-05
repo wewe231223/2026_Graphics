@@ -150,6 +150,25 @@ cmake --build --preset build-release
 | 핵심기능 | 설정 로드, 메시지 루프, 큐/할당자 초기화, 셰이더/PSO 사전 컴파일, YAML 씬 로드, 시스템 Phase 실행 |
 | 핵심 차별성 | 모든 서브시스템을 연결하는 통합 지점이며, `Block_ImGui` 설정으로 디버그 UI 포함 여부를 전환할 수 있습니다. |
 
+#### 구성 요소와 상호작용
+
+```mermaid
+flowchart LR
+    Config["Config.prop"] --> Entry["2026_Graphics.cpp"]
+    Entry --> Window["Win32 Window"]
+    Entry --> CoreInit["Core 초기화"]
+    CoreInit --> Queues["Direct/Compute/Copy Queue"]
+    ShaderData["Shader/PSO/RS"] --> CoreInit
+    ResourceData["Resources/DefaultScene.yaml"] --> SceneLoad["Scene Load"]
+    ScriptData["Script/Lua"] --> SceneLoad
+    Entry --> SceneLoad
+    SceneLoad --> Phase["Game System Phase"]
+    Phase --> RenderFrameData["RenderFrameData"]
+    RenderFrameData --> Renderer["Core Renderer"]
+    Widget["Widget ImGui"] --> Renderer
+    Renderer --> Present["SwapChain Present"]
+```
+
 </details>
 
 <details>
@@ -162,6 +181,26 @@ cmake --build --preset build-release
 | 기술스택 | DirectX 12, DXGI, DXC, D3DCompiler, DirectXTK12 |
 | 핵심기능 | Direct/Compute/Copy Queue 분리, Fence/Future 동기화, Descriptor Heap, DrawRecord 배치, Tone Mapping Compute Pass |
 | 핵심 차별성 | Scene이 만든 `RenderFrameData`만 소비해 렌더러와 게임 로직의 결합을 낮춥니다. |
+
+#### 구성 요소와 상호작용
+
+```mermaid
+flowchart LR
+    FrameData["Game RenderFrameData"] --> ResourceManager["DrawCallResourceManager"]
+    ResourceManager --> Upload["GPU Upload"]
+    Upload --> CopyQueue["CopyQueue"]
+    ResourceManager --> Dispatcher["DrawCallDispatcher"]
+    Shader["Shader/PSO/RootSignature"] --> Dispatcher
+    DescriptorHeap["DescriptorHeap"] --> Dispatcher
+    GraphicsAllocator["GraphicsAllocator"] --> Dispatcher
+    Dispatcher --> DirectQueue["DirectQueue"]
+    DirectQueue --> GBuffer["G-Buffer"]
+    GBuffer --> Shadow["Shadow Map"]
+    Shadow --> Lighting["Deferred Lighting"]
+    Lighting --> ToneMapping["Tone Mapping"]
+    ComputeQueue["ComputeQueue"] --> ToneMapping
+    ToneMapping --> BackBuffer["Back Buffer"]
+```
 
 </details>
 
@@ -176,6 +215,23 @@ cmake --build --preset build-release
 | 핵심기능 | Lua 바인딩 메타데이터 생성, Trivial Component 제약, 로그 Sink, 오류 리포팅, 공용 컨테이너 |
 | 핵심 차별성 | C++ 컴포넌트 선언과 Lua 노출 정보를 한 번에 정의해 중복을 줄입니다. |
 
+#### 구성 요소와 상호작용
+
+```mermaid
+flowchart LR
+    DirectXInclude["DirectXInclude.h"] --> CoreInclude["Core/Game include 계층"]
+    ErrorHandler["ErrorHandler"] --> RuntimeError["오류 리포팅"]
+    StdOutput["StdOutput"] --> LogSink["로그 Sink"]
+    ComponentRestraint["ComponentRestraint"] --> ComponentMeta["컴포넌트 제약"]
+    ComponentMeta --> LuaMeta["Lua 바인딩 메타데이터"]
+    FixedArray["FixedArray"] --> SharedContainers["공용 컨테이너"]
+    Views["Views"] --> SharedContainers
+    RuntimeError --> Core["Core"]
+    LogSink --> Widget["Widget Console"]
+    LuaMeta --> Game["Game"]
+    SharedContainers --> Arche["Arche"]
+```
+
 </details>
 
 <details>
@@ -188,6 +244,24 @@ cmake --build --preset build-release
 | 기술스택 | C++ 템플릿, FNV-1a TypeHash, std::shared_mutex, std::atomic |
 | 핵심기능 | Entity 생성/삭제, Component 추가/조회, Query Cache, Deferred Structural Change, WorldReadOnlyView |
 | 핵심 차별성 | 같은 컴포넌트 조합을 Chunk에 연속 배치해 시스템 순회에 유리합니다. |
+
+#### 구성 요소와 상호작용
+
+```mermaid
+flowchart LR
+    World["World"] --> Entity["Entity"]
+    World --> TypeSystem["TypeSystem"]
+    TypeSystem --> ArcheType["ArcheType"]
+    ArcheType --> Chunk["Chunk Memory"]
+    Entity --> Component["Component Storage"]
+    Component --> Chunk
+    World --> QueryCache["Query Cache"]
+    QueryCache --> SystemRead["System Iteration"]
+    World --> DeferredChange["Deferred Structural Change"]
+    DeferredChange --> ArcheType
+    World --> ReadOnlyView["WorldReadOnlyView"]
+    ReadOnlyView --> SnapshotConsumer["Game/Widget Snapshot"]
+```
 
 </details>
 
@@ -202,6 +276,26 @@ cmake --build --preset build-release
 | 핵심기능 | FBX/glTF/GLB 임포트, Vertex/Bone/SubMesh 저장, Animation Clip 저장, Material Group JSON 직렬화 |
 | 핵심 차별성 | Skinned Mesh, Animation, Terrain Material까지 같은 에셋 파이프라인에서 다룹니다. |
 
+#### 구성 요소와 상호작용
+
+```mermaid
+flowchart LR
+    SourceAsset["FBX/glTF/GLB"] --> AssimpImporter["Assimp Importer"]
+    AssimpImporter --> ModelResult["ModelResult"]
+    AssimpImporter --> AnimationResult["AnimationClipResult"]
+    ModelResult --> BinaryWriter["AssetBinaryWriter"]
+    AnimationResult --> AnimationWriter["AnimationClipBinaryWriter"]
+    ModelResult --> MaterialSerializer["MaterialGroupJsonSerializer"]
+    BinaryWriter --> ModelBin["Model .bin"]
+    AnimationWriter --> AnimBin["Animation .animbin"]
+    MaterialSerializer --> MaterialJson["Material JSON"]
+    ModelBin --> BinaryReader["AssetBinaryReader"]
+    AnimBin --> AnimationReader["AnimationBinaryReader"]
+    BinaryReader --> RuntimeModel["Game Model"]
+    AnimationReader --> RuntimeAnimation["Game Animation"]
+    MaterialJson --> RuntimeMaterial["Game Material"]
+```
+
 </details>
 
 <details>
@@ -214,6 +308,26 @@ cmake --build --preset build-release
 | 기술스택 | C++ 콘솔 앱, Assimp, `Asset` 라이브러리, std::filesystem |
 | 핵심기능 | `model`, `animation`, `help`, `--flip-uv=true|false`, 변환 결과 통계 출력 |
 | 핵심 차별성 | 런타임에서 Assimp를 직접 쓰지 않도록 오프라인 변환 흐름을 제공합니다. |
+
+#### 구성 요소와 상호작용
+
+```mermaid
+flowchart LR
+    Command["CLI Command"] --> Parser["Argument Parser"]
+    Parser --> ModelMode["model"]
+    Parser --> AnimationMode["animation"]
+    Parser --> HelpMode["help"]
+    ModelMode --> AssetImporter["Asset Importer"]
+    AnimationMode --> AnimationImporter["Animation Importer"]
+    SourceFile["FBX/glTF/GLB"] --> AssetImporter
+    SourceFile --> AnimationImporter
+    AssetImporter --> ModelOutput["Model .bin"]
+    AssetImporter --> MaterialOutput["Material JSON"]
+    AnimationImporter --> AnimationOutput["Animation .animbin"]
+    ModelOutput --> Resources["Resources"]
+    MaterialOutput --> Resources
+    AnimationOutput --> Resources
+```
 
 ```powershell
 AssetZIP model Knight.fbx --flip-uv=true
@@ -233,6 +347,29 @@ AssetZIP animation Knight.fbx
 | 핵심기능 | YAML Scene, System Scheduler, AssetRegistry, Terrain, Animation Graph, Skinned Mesh, Camera, Foot IK, PhysicsActor 동기화 |
 | 핵심 차별성 | Component/Resource 접근 충돌을 고려한 시스템 배치와 렌더 프레임 패킷 분리가 핵심 구조입니다. |
 
+#### 구성 요소와 상호작용
+
+```mermaid
+flowchart LR
+    SceneYaml["Scene YAML"] --> Serializer["SceneYamlSerializer"]
+    Serializer --> Scene["Scene"]
+    Scene --> World["Arche World"]
+    AssetRegistry["AssetRegistry"] --> Scene
+    ScriptFramework["LuaScriptFramework"] --> ScriptSystem["Script Components"]
+    PhysicsWorld["PhysicsLib"] --> PhysicsSystem["PhysicsActorUpdateSystem"]
+    World --> Scheduler["System Scheduler"]
+    Scheduler --> TransformSystem["TransformWorldSystem"]
+    Scheduler --> AnimationSystem["Animation/IK Systems"]
+    Scheduler --> PhysicsSystem
+    Scheduler --> RenderSystems["Static/Skinned/Terrain Render Systems"]
+    ScriptSystem --> World
+    PhysicsSystem --> World
+    RenderSystems --> RenderFrameData["RenderFrameData"]
+    RenderFrameData --> Core["Core Renderer"]
+    Scene --> Snapshot["SceneWorldSnapshot"]
+    Snapshot --> Widget["Widget"]
+```
+
 </details>
 
 <details>
@@ -245,6 +382,27 @@ AssetZIP animation Knight.fbx
 | 기술스택 | C++20, DirectXCollision, DirectX SimpleMath, std::thread, std::atomic |
 | 핵심기능 | Dynamic/Kinematic/Static Actor, HeightField Terrain, 충돌 이벤트, Spatial Query, Triple Buffered Snapshot |
 | 핵심 차별성 | 충돌/적분/제약 Solver를 정책 기반 Actor 템플릿으로 조합합니다. |
+
+#### 구성 요소와 상호작용
+
+```mermaid
+flowchart LR
+    PhysicsWorld["PhysicsWorld"] --> Repository["PhysicsActorRepository"]
+    Repository --> DynamicActor["Dynamic Actor"]
+    Repository --> KinematicActor["Kinematic Actor"]
+    Repository --> StaticActor["Static Actor"]
+    Repository --> TerrainActor["HeightField Terrain"]
+    DynamicActor --> Integrater["Integrater"]
+    KinematicActor --> Integrater
+    DynamicActor --> CollisionSolver["Collision Solver"]
+    StaticActor --> CollisionSolver
+    TerrainActor --> CollisionSolver
+    CollisionSolver --> ConstraintSolver["Constraint Solver"]
+    ConstraintSolver --> Simulation["Fixed Step Simulation"]
+    SpatialQuery["Spatial Query"] --> Simulation
+    Simulation --> Snapshot["Triple Buffered Snapshot"]
+    Snapshot --> Game["Game PhysicsActor Sync"]
+```
 
 </details>
 
@@ -259,6 +417,23 @@ AssetZIP animation Knight.fbx
 | 핵심기능 | Awake/Start/Update/FixedUpdate/LateUpdate, Hot Reload, Behavior Instance, 기본 입력/수학 함수 |
 | 핵심 차별성 | Behavior별 독립 Lua 환경과 C++ 컴포넌트 메타 기반 바인딩을 사용합니다. |
 
+#### 구성 요소와 상호작용
+
+```mermaid
+flowchart LR
+    LuaFiles["Lua Behavior Files"] --> Framework["LuaScriptFramework"]
+    Framework --> Environment["Behavior Environment"]
+    Framework --> Binding["C++ Component Binding"]
+    Binding --> EntityApi["Entity/Component API"]
+    Environment --> Awake["Awake/Start"]
+    Environment --> Update["Update/FixedUpdate/LateUpdate"]
+    ScriptComponent["ScriptComponent"] --> Framework
+    GameInput["Input/Time/Math"] --> Environment
+    EntityApi --> ArcheWorld["Arche World"]
+    Update --> ArcheWorld
+    HotReload["Hot Reload"] --> Framework
+```
+
 </details>
 
 <details>
@@ -271,6 +446,22 @@ AssetZIP animation Knight.fbx
 | 기술스택 | Dear ImGui, ImGui Win32/DX12 Backend, DXGI VRAM Query, SceneWorldSnapshot |
 | 핵심기능 | DockSpace, Console, Frame Time, FPS Percentile, Timeline, VRAM, Scene Hierarchy, Shadow Map Preview |
 | 핵심 차별성 | ECS World를 직접 잠그지 않고 Snapshot 기반으로 UI를 구성합니다. |
+
+#### 구성 요소와 상호작용
+
+```mermaid
+flowchart LR
+    WidgetCore["WidgetCore"] --> DockSpace["ImGui DockSpace"]
+    Console["Console"] --> WidgetCore
+    PerformanceProvider["PerformanceProvider"] --> PerformanceWidgets["PerformanceWidgets"]
+    PerformanceWidgets --> WidgetCore
+    SceneSnapshot["SceneWorldSnapshot"] --> SceneHierarchy["SceneHierarchyWidget"]
+    SceneHierarchy --> WidgetCore
+    VramQuery["DXGI VRAM Query"] --> PerformanceProvider
+    ShadowMap["Shadow Map SRV"] --> WidgetCore
+    WidgetCore --> ImGuiBackend["ImGui Win32/DX12 Backend"]
+    ImGuiBackend --> CorePass["Core Final Pass"]
+```
 
 </details>
 
@@ -285,6 +476,22 @@ AssetZIP animation Knight.fbx
 | 핵심기능 | Basic, Skinned, Terrain, Sky Dome, Debug Geometry, Deferred Lighting, Tone Mapping |
 | 핵심 차별성 | PSO와 Root Signature를 코드가 아니라 JSON 리소스로 관리합니다. |
 
+#### 구성 요소와 상호작용
+
+```mermaid
+flowchart LR
+    HlslSource["Shader/Source"] --> Compiler["DXC/D3DCompiler"]
+    Compiler --> ShaderBinary["Shader/Binarys"]
+    RootSignatureJson["Shader/RS"] --> RootSignature["Root Signature"]
+    PsoJson["Shader/PSO"] --> PipelineState["Pipeline State"]
+    Metadata["ShaderMetadata.txt"] --> Loader["Shader Loader"]
+    ShaderBinary --> Loader
+    RootSignature --> Loader
+    PipelineState --> Loader
+    Loader --> CoreRenderer["Core Renderer"]
+    CoreRenderer --> RenderPass["Basic/Skinned/Terrain/Deferred/Tone Mapping"]
+```
+
 </details>
 
 <details>
@@ -297,6 +504,23 @@ AssetZIP animation Knight.fbx
 | 기술스택 | YAML, DDS, PNG, JSON, 자체 `.bin`/`.animbin` |
 | 핵심기능 | 기본 카메라, Primitive Prefab, Skinned Mesh, Animation Graph, Terrain, Sky Dome, Shadow 설정 |
 | 핵심 차별성 | 코드 수정 없이 씬과 렌더 리소스 구성을 데이터 파일로 바꿀 수 있습니다. |
+
+#### 구성 요소와 상호작용
+
+```mermaid
+flowchart LR
+    DefaultScene["DefaultScene.yaml"] --> SceneLoader["Game Scene Loader"]
+    ShadowConfig["ShadowMappingParameter.yaml"] --> ShadowSystem["ShadowMappingParameterSystem"]
+    DefaultResource["DefaultResource"] --> AssetRegistry["AssetRegistry"]
+    DefaultSceneFolder["DefaultScene"] --> SceneLoader
+    Font["Font"] --> Widget["Widget Font Atlas"]
+    AssetRegistry --> Model["Model/Animation/Material"]
+    Model --> SceneLoader
+    SceneLoader --> World["ECS World"]
+    ShadowSystem --> RenderFrameData["RenderFrameData"]
+    World --> RenderFrameData
+    RenderFrameData --> Core["Core Renderer"]
+```
 
 </details>
 
