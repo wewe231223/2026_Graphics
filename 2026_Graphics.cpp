@@ -4,14 +4,58 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 
 #include "framework.h"
 #include "2026_Graphics.h"
+#include <algorithm>
+#include <filesystem>
+#include <shellapi.h>
+#include <fstream>
+#include <cwctype>
+#include <string>
 
 #define MAX_LOADSTRING 100
-
 
 #include "Core/Config.h"
 #include "DirectXTK12/Keyboard.h"
 #include "DirectXTK12/Mouse.h"
-#include "Core/DirectQueue.h"
+#include "Core/DX/DirectQueue.h"
+#include "Core/DX/ComputeQueue.h"
+#include "Core/DX/CopyQueue.h"
+#include "Core/DX/GraphicsAllocator.h"
+#include "Utility/ErrorHandler.h"
+#include "Utility/StdOutput.h"
+#include "Game/Base/Shader.h"
+#include "Game/Base/RootSignature.h"
+#include "Game/Base/Pipeline.h"
+#include "Game/Base/Input.h"
+#include "Game/Base/Time.h"
+#include "Game/Scene/Scene.h"
+#include "Game/Scene/SceneYamlSerializer.h"
+#include "Game/Scene/Components/Name.h"
+#include "External/Include/ImGui/imgui.h"
+#include "Widget/PerformanceProvider.h"
+#include "Widget/WidgetCore.h"
+#include "Core/Event/EventQueue.h"
+#include "Core/Event/FileDropEvent.h"
+
+#if defined(_MSC_VER) && !defined(GRAPHICS_CMAKE_BUILD)
+    #ifdef _DEBUG
+        #pragma comment(lib, "out/debug/Arche.lib")
+        #pragma comment(lib, "out/debug/Game.lib")  
+        #pragma comment(lib, "out/debug/Asset.lib")
+        #pragma comment(lib, "out/debug/Widget.lib")
+        #pragma comment(lib, "out/debug/Script.lib")
+        #pragma comment(lib, "out/debug/PhysicsLib.lib")
+    #else 
+        #pragma comment(lib, "out/release/Arche.lib")
+        #pragma comment(lib, "out/release/Game.lib")
+        #pragma comment(lib, "out/release/Asset.lib")
+        #pragma comment(lib, "out/release/Widget.lib")
+        #pragma comment(lib, "out/release/Script.lib")
+        #pragma comment(lib, "out/release/PhysicsLib.lib")
+    #endif 
+#endif 
+
+#pragma comment(lib, "lua54.lib")
+
 
 // 전역 변수:
 HINSTANCE hInst;                                // 현재 인스턴스입니다.
@@ -19,27 +63,25 @@ WCHAR szTitle[MAX_LOADSTRING];                  // 제목 표시줄 텍스트입
 WCHAR szWindowClass[MAX_LOADSTRING];            // 기본 창 클래스 이름입니다.
 HWND hWnd; 
 
-// 01-15 TODO
-// RenderQueue, ComputeQueue 따로 분리할 생각 해보기 -> Renderer 이런거 만들지 않기. 
-// ComputeTask 같은건 좀 복잡할 거 같은데? Compute Shader 를 위한 파이프라인 생각해보기. 
-
 // 이 코드 모듈에 포함된 함수의 선언을 전달합니다:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
-                     _In_opt_ HINSTANCE hPrevInstance,
-                     _In_ LPWSTR    lpCmdLine,
-                     _In_ int       nCmdShow)
+    _In_opt_ HINSTANCE hPrevInstance,
+    _In_ LPWSTR    lpCmdLine,
+    _In_ int       nCmdShow)
 {
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
     // TODO: 여기에 코드를 입력합니다.
 
-	FileConfig config("Core/config.prop");
-	Config::Init(&config);
+    FileConfig config("Config.prop");
+    Config::Init(&config);
 
     // 전역 문자열을 초기화합니다.
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -47,7 +89,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     MyRegisterClass(hInstance);
 
     // 애플리케이션 초기화를 수행합니다:
-    if (!InitInstance (hInstance, nCmdShow))
+    if (!InitInstance(hInstance, nCmdShow))
     {
         return FALSE;
     }
@@ -56,7 +98,68 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     MSG msg;
 
-	Core::DX::DirectQueue directQueue(hWnd);
+    Core::DX::DirectQueue directQueue(hWnd);
+    Core::DX::ComputeQueue computeQueue{ directQueue.GetDevice() };
+    directQueue.SetComputeQueue(&computeQueue);
+    const bool IsImGuiBlocked{ Config::Query()->Get<bool>("Block_ImGui") };
+    Widget::WidgetCore WidgetCoreInstance{};
+    if (!IsImGuiBlocked) {
+        WidgetCoreInstance.Initialize(hWnd, directQueue.GetDevice(), directQueue.GetPrimaryAdapter());
+    }
+
+    D3D12_HEAP_PROPERTIES defaultHeapProperties{};
+    defaultHeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+    defaultHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+    defaultHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+    defaultHeapProperties.CreationNodeMask = 1;
+    defaultHeapProperties.VisibleNodeMask = 1;
+
+
+    constexpr uint64_t DefaultHeapAllocatorSize{ 4ull * 1024ull * 1024ull * 1024ull };
+    Core::DX::GraphicsAllocator defaultHeapAllocator{};
+    bool defaultHeapAllocatorInitializeResult{ defaultHeapAllocator.Initialize(directQueue.GetDevice(), DefaultHeapAllocatorSize, defaultHeapProperties, D3D12_HEAP_FLAG_NONE) };
+    ErrorHandler::report(defaultHeapAllocatorInitializeResult == false, "WinMain", "Failed to initialize default heap allocator.", ErrorHandler::Level::Critical);
+
+    Core::DX::CopyQueue copyQueue{ directQueue.GetDevice() };
+    directQueue.SetUploadInfrastructure(&defaultHeapAllocator, &copyQueue);
+
+
+
+    Game::Base::PreCompileShaders();
+    if(not Game::Base::PreCompileRootSignatures(directQueue.GetDevice())) {
+		ErrorHandler::report(true, "WinMain", "Failed to pre-compile root signatures.", ErrorHandler::Level::Critical);
+    }
+    if (not Game::Base::PreCompilePipelines(directQueue.GetDevice())) {
+		ErrorHandler::report(true, "WinMain", "Failed to pre-compile pipelines.", ErrorHandler::Level::Critical);
+    }
+
+
+    Globals::Input::Get().Initialize(hWnd); 
+
+
+    size_t frameCount = 0;
+    Globals::Time::Get().AddEvent(1s, [&frameCount]() {
+        std::string title = "FPS [ " + std::to_string(frameCount)+" ] ( Toggle Mouse : F7 )";
+        SetWindowTextA(hWnd, title.c_str());
+        frameCount = 0;
+        return true;
+    });
+
+
+
+    Game::Scene SceneInstance{};
+    SceneInstance.InitializeAssetRegistry(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator, directQueue.GetSrvHeap());
+
+    Game::SceneYamlSerializer SceneYamlSerializer{};
+    const Game::SceneYamlLoadResult SceneYamlLoadResult{ SceneYamlSerializer.DeserializeFromFile("Resources/DefaultScene.yaml", SceneInstance) };
+    ErrorHandler::report(SceneYamlLoadResult.IsSuccess == false, "WinMain", "Failed to load scene yaml.", ErrorHandler::Level::Warning);
+
+    SceneInstance.InitializeWorldSnapshot();
+
+
+    copyQueue.DispatchCopies();
+    copyQueue.Flush();
+
 
     // 기본 메시지 루프입니다:
     while (true) {
@@ -69,10 +172,106 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                 DispatchMessage(&msg);
             }
         }
+        else {
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginFrame();
+            }
 
+            Globals::Time::Get().AdvanceTime();
+            Globals::Input::Get().Update();
 
-        directQueue.Update(); 
+            SceneInstance.SetRenderFrameIndex(directQueue.GetCurrentFrameIndex());
 
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("PreUpdate");
+            }
+            SceneInstance.ExecutePhase(Game::Phase::PreUpdate, Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("Update");
+            }
+            SceneInstance.ExecutePhase(Game::Phase::Update, Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("PostUpdate");
+            }
+            SceneInstance.ExecutePhase(Game::Phase::PostUpdate, Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("PhysicsActorUpdate");
+            }
+            SceneInstance.ExecutePhase(Game::Phase::PhysicsActorUpdate, Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("IK");
+            }
+            SceneInstance.ExecutePhase(Game::Phase::IK, Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("TransformWorld");
+            }
+            SceneInstance.ExecutePhase(Game::Phase::TransformWorld, Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("RenderPrepare");
+            }
+            SceneInstance.ExecutePhase(Game::Phase::RenderPrepare, Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("Render");
+            }
+            SceneInstance.ExecutePhase(Game::Phase::Render, Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("PostRender");
+            }
+            SceneInstance.ExecutePhase(Game::Phase::PostRender, Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            Core::Event::Flush(); 
+
+            if (!IsImGuiBlocked) {
+                SceneInstance.UpdateWorldSnapshotIfNeeded();
+                WidgetCoreInstance.SetSceneWorldSnapshot(&SceneInstance.GetWorldSnapshot());
+            }
+
+            SceneInstance.PrepareRender();
+            directQueue.PreRender(SceneInstance.GetRenderFrameData(), Globals::Time::Get().GetDeltaTime<float>());
+            if (!IsImGuiBlocked) {
+                directQueue.Render(SceneInstance.GetRenderFrameData(), &WidgetCoreInstance);
+            }
+            else {
+                directQueue.Render(SceneInstance.GetRenderFrameData(), nullptr);
+            }
+
+            frameCount++; 
+        }
     }
 
     
@@ -121,14 +320,14 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     hInst = hInstance; // 인스턴스 핸들을 전역 변수에 저장합니다.
 
 
-    if (Config::Query().Get<bool>("Windowed")) {
+    if (Config::Query()->Get<bool>("Windowed")) {
         DWORD style = WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME;
         DWORD exStyle = WS_EX_OVERLAPPEDWINDOW;
 
-        int posX = (GetSystemMetrics(SM_CXSCREEN) / 2) - (Config::Query().Get<int>("Window_Width") / 2);
-        int posY = (GetSystemMetrics(SM_CYSCREEN) / 2) - (Config::Query().Get<int>("Window_Height") / 2);
+        int posX = (GetSystemMetrics(SM_CXSCREEN) / 2) - (Config::Query()->Get<int>("Window_Width") / 2);
+        int posY = (GetSystemMetrics(SM_CYSCREEN) / 2) - (Config::Query()->Get<int>("Window_Height") / 2);
 
-        RECT adjustedRect{ 0, 0, Config::Query().Get<long>("Window_Width"), Config::Query().Get<long>("Window_Height")};
+        RECT adjustedRect{ 0, 0, Config::Query()->Get<long>("Window_Width"), Config::Query()->Get<long>("Window_Height")};
         ::AdjustWindowRectEx(std::addressof(adjustedRect), style, FALSE, exStyle);
 
         hWnd = CreateWindowEx(
@@ -149,8 +348,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
         DWORD style = WS_POPUP;
         DWORD exStyle = NULL;
 
-        int posX = (GetSystemMetrics(SM_CXSCREEN) / 2) - (Config::Query().Get<int>("Window_Width") / 2);
-        int posY = (GetSystemMetrics(SM_CYSCREEN) / 2) - (Config::Query().Get<int>("Window_Height") / 2);
+        int posX = (GetSystemMetrics(SM_CXSCREEN) / 2) - (Config::Query()->Get<int>("Window_Width") / 2);
+        int posY = (GetSystemMetrics(SM_CYSCREEN) / 2) - (Config::Query()->Get<int>("Window_Height") / 2);
 
         hWnd = CreateWindowEx(
             exStyle,                                // 확장 스타일
@@ -158,7 +357,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
             szTitle,                                // 윈도우 타이틀 
             style,                                  // 윈도우 스타일
             posX, posY,                             // 위치 
-            Config::Query().Get<long>("Window_Width"), Config::Query().Get<long>("Window_Height"), // 크기
+            Config::Query()->Get<long>("Window_Width"), Config::Query()->Get<long>("Window_Height"), // 크기
             nullptr,                                // 부모 윈도우
             nullptr,                                // 메뉴
             hInstance,                              // 인스턴스 핸들
@@ -172,6 +371,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
     ShowWindow(hWnd, nCmdShow);
     UpdateWindow(hWnd);
+    DragAcceptFiles(hWnd, TRUE);
 
     return TRUE;
 }
@@ -186,8 +386,11 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //  WM_DESTROY  - 종료 메시지를 게시하고 반환합니다.
 //
 //
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
+LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    if (!Config::Query()->Get<bool>("Block_ImGui")) {
+        ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam);
+    }
+
     constexpr UINT keyPressedCheckBitMask = 0x60000000;
     constexpr UINT keyPressedAtTime = 0x20000000;
 
@@ -232,12 +435,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_KILLFOCUS:
-    case WM_SETFOCUS:
-        // Input.UpdateFocus(message);
+        Globals::Input::Get().SetWindowFocused(false);
         break;
-
+    case WM_SETFOCUS:
+        Globals::Input::Get().SetWindowFocused(true);
+        break;
         // 아래는 모든 입력을 Keyboard 에게 넘기는 부분입니다. 
     case WM_ACTIVATEAPP:
+        Globals::Input::Get().SetWindowFocused(wParam == TRUE);
+        DirectX::Keyboard::ProcessMessage(message, wParam, lParam);
+        DirectX::Mouse::ProcessMessage(message, wParam, lParam);
+        break;
     case WM_KEYDOWN:
     case WM_KEYUP:
     case WM_SYSKEYUP:
@@ -260,7 +468,37 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_MOUSEHOVER:
         DirectX::Mouse::ProcessMessage(message, wParam, lParam);
         break;
+    case WM_DROPFILES:
+    {
+        HDROP DropHandle{ reinterpret_cast<HDROP>(wParam) };
+        const UINT DroppedFileCount{ DragQueryFileW(DropHandle, 0xFFFFFFFF, nullptr, 0) };
+
+        for (UINT FileIndex{ 0 }; FileIndex < DroppedFileCount; ++FileIndex) {
+            const UINT FilePathLength{ DragQueryFileW(DropHandle, FileIndex, nullptr, 0) };
+            if (FilePathLength == 0) {
+                continue;
+            }
+
+            std::wstring FilePathBuffer{};
+            FilePathBuffer.resize(static_cast<std::size_t>(FilePathLength) + 1);
+            const UINT WrittenLength{ DragQueryFileW(DropHandle, FileIndex, FilePathBuffer.data(), FilePathLength + 1) };
+            if (WrittenLength == 0) {
+                continue;
+            }
+
+            FilePathBuffer.resize(static_cast<std::size_t>(WrittenLength));
+            const std::filesystem::path DroppedFilePath{ FilePathBuffer };
+
+            Core::Event::FbxBinFileDroppedPayload Payload{};
+            Payload.FilePath = DroppedFilePath;
+            Core::Event::Enqueue<Core::Event::FbxBinFileDroppedEventTag>(std::move(Payload));
+        }
+
+        DragFinish(DropHandle);
+    }
+        break;
     case WM_DESTROY:
+        DragAcceptFiles(hWnd, FALSE);
         PostQuitMessage(0);
         break;
     default:

@@ -1,0 +1,79 @@
+{
+  "$schema": "./Schema.Pipeline.json",
+  "Name": "DeferredLightingGraphics",
+  "Type": "Graphics",
+  "RootSignature": "DefaultRootSignature",
+  "VS": {
+    "Source": "DeferredLightingShader.hlsl",
+    "Identifier": "vs_6_6:VsMain"
+  },
+  "PS": {
+    "Source": "DeferredLightingShader.hlsl",
+    "Identifier": "ps_6_6:PsMain"
+  },
+  "BlendState": {
+    "AlphaToCoverageEnable": false,
+    "IndependentBlendEnable": false,
+    "RenderTargets": [
+      {
+        "BlendEnable": false,
+        "BlendOp": "Add",
+        "BlendOpAlpha": "Add",
+        "DestBlend": "Zero",
+        "DestBlendAlpha": "Zero",
+        "LogicOp": "Noop",
+        "LogicOpEnable": false,
+        "RenderTargetWriteMask": 15,
+        "SrcBlend": "One",
+        "SrcBlendAlpha": "One"
+      }
+    ]
+  },
+  "SampleMask": 4294967295,
+  "RasterizerState": {
+    "FillMode": "Solid",
+    "CullMode": "None",
+    "FrontCounterClockwise": false,
+    "DepthBias": 0,
+    "DepthBiasClamp": 0,
+    "SlopeScaledDepthBias": 0,
+    "DepthClipEnable": true,
+    "MultisampleEnable": false,
+    "AntialiasedLineEnable": false,
+    "ForcedSampleCount": 0,
+    "ConservativeRaster": "Off"
+  },
+  "DepthStencilState": {
+    "DepthEnable": false,
+    "DepthWriteMask": "Zero",
+    "DepthFunc": "Always",
+    "StencilEnable": false,
+    "StencilReadMask": 255,
+    "StencilWriteMask": 255,
+    "FrontFace": {
+      "StencilFailOp": "Keep",
+      "StencilDepthFailOp": "Keep",
+      "StencilPassOp": "Keep",
+      "StencilFunc": "Always"
+    },
+    "BackFace": {
+      "StencilFailOp": "Keep",
+      "StencilDepthFailOp": "Keep",
+      "StencilPassOp": "Keep",
+      "StencilFunc": "Always"
+    }
+  },
+  "IBStripCutValue": "Disabled",
+  "PrimitiveTopologyType": "Triangle",
+  "PrimitiveTopology": "TriangleList",
+  "RTVFormats": [
+    "R16G16B16A16_FLOAT"
+  ],
+  "DSVFormat": "UNKNOWN",
+  "SampleDesc": {
+    "Count": 1,
+    "Quality": 0
+  },
+  "NodeMask": 0,
+  "Flags": []
+}

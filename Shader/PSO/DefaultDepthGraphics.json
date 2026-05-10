@@ -1,0 +1,85 @@
+{
+  "$schema": "./Schema.Pipeline.json",
+  "Name": "DefaultDepthGraphics",
+  "Type": "Graphics",
+  "RootSignature": "DefaultRootSignature",
+  "VS": {
+    "Source": "BasicShader.hlsl",
+    "Identifier": "vs_6_6:VsMainDepth"
+  },
+  "InputLayout": [
+    {
+      "SemanticName": "POSITION",
+      "SemanticIndex": 0,
+      "Format": "R32G32B32_FLOAT",
+      "InputSlot": 0,
+      "AlignedByteOffset": 0,
+      "InputSlotClass": "PerVertexData",
+      "InstanceDataStepRate": 0
+    },
+    {
+      "SemanticName": "NORMAL",
+      "SemanticIndex": 0,
+      "Format": "R32G32B32_FLOAT",
+      "InputSlot": 1,
+      "AlignedByteOffset": 0,
+      "InputSlotClass": "PerVertexData",
+      "InstanceDataStepRate": 0
+    },
+    {
+      "SemanticName": "TEXCOORD",
+      "SemanticIndex": 0,
+      "Format": "R32G32_FLOAT",
+      "InputSlot": 2,
+      "AlignedByteOffset": 0,
+      "InputSlotClass": "PerVertexData",
+      "InstanceDataStepRate": 0
+    }
+  ],
+  "SampleMask": 4294967295,
+  "RasterizerState": {
+    "FillMode": "Solid",
+    "CullMode": "Back",
+    "FrontCounterClockwise": false,
+    "DepthBias": 1,
+    "DepthBiasClamp": 0.0005,
+    "SlopeScaledDepthBias": 1.25,
+    "DepthClipEnable": true,
+    "MultisampleEnable": false,
+    "AntialiasedLineEnable": false,
+    "ForcedSampleCount": 0,
+    "ConservativeRaster": "Off"
+  },
+  "DepthStencilState": {
+    "DepthEnable": true,
+    "DepthWriteMask": "All",
+    "DepthFunc": "Less",
+    "StencilEnable": false,
+    "StencilReadMask": 255,
+    "StencilWriteMask": 255,
+    "FrontFace": {
+      "StencilFailOp": "Keep",
+      "StencilDepthFailOp": "Keep",
+      "StencilPassOp": "Keep",
+      "StencilFunc": "Always"
+    },
+    "BackFace": {
+      "StencilFailOp": "Keep",
+      "StencilDepthFailOp": "Keep",
+      "StencilPassOp": "Keep",
+      "StencilFunc": "Always"
+    }
+  },
+  "IBStripCutValue": "Disabled",
+  "PrimitiveTopologyType": "Triangle",
+  "PrimitiveTopology": "TriangleList",
+  "DSVFormat": "D24_UNORM_S8_UINT",
+  "SampleDesc": {
+    "Count": 1,
+    "Quality": 0
+  },
+  "NodeMask": 0,
+  "Flags": [
+    "DynamicDepthBias"
+  ]
+}

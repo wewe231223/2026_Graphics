@@ -1,0 +1,12 @@
+{
+  "$schema": "./Schema.Pipeline.json",
+  "Name": "ToneMappingCompute",
+  "Type": "Compute",
+  "RootSignature": "ComputeRootSignature",
+  "CS": {
+    "Source": "ToneMappingShader.hlsl",
+    "Identifier": "cs_6_6:CsMain"
+  },
+  "NodeMask": 0,
+  "Flags": []
+}

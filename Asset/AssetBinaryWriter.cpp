@@ -1,86 +1,134 @@
 #include "AssetBinaryWriter.h"
 
+#include <algorithm>
+#include <array>
 #include <cstring>
+#include <unordered_map>
+#include <vector>
 
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 2 };
+    constexpr std::uint32_t FormatVersion{ 10 };
     constexpr char FormatMagic[4]{ 'F', 'B', 'X', 'B' };
+
+    bool TryBuildObbFromPoints(const std::vector<DirectX::XMFLOAT3>& PositionPoints, DirectX::BoundingOrientedBox& OutBoundingBox) {
+        if (PositionPoints.empty()) {
+            return false;
+        }
+
+        DirectX::BoundingBox AxisAlignedBoundingBox{};
+        DirectX::BoundingBox::CreateFromPoints(AxisAlignedBoundingBox, PositionPoints.size(), PositionPoints.data(), sizeof(DirectX::XMFLOAT3));
+        DirectX::BoundingOrientedBox::CreateFromBoundingBox(OutBoundingBox, AxisAlignedBoundingBox);
+        return true;
+    }
+
+    bool TryBuildStaticNodeBoundingBox(const ModelNode& Node, DirectX::BoundingOrientedBox& OutBoundingBox) {
+        const std::vector<Vec3>& Positions{ Node.Vertices().Positions };
+        std::vector<DirectX::XMFLOAT3> PositionPoints{};
+        PositionPoints.reserve(Positions.size());
+
+        for (const Vec3& Position : Positions) {
+            PositionPoints.push_back(DirectX::XMFLOAT3{ Position.x, Position.y, Position.z });
+        }
+
+        return TryBuildObbFromPoints(PositionPoints, OutBoundingBox);
+    }
+
+    std::unordered_map<const ModelNode*, DirectX::BoundingOrientedBox> BuildNodeBoundingBoxes(const std::vector<const ModelNode*>& Nodes) {
+        std::unordered_map<const ModelNode*, DirectX::BoundingOrientedBox> NodeBoundingBoxes{};
+        NodeBoundingBoxes.reserve(Nodes.size());
+        std::unordered_map<std::string, const ModelNode*> NodeByName{};
+        NodeByName.reserve(Nodes.size());
+
+        for (const ModelNode* Node : Nodes) {
+            NodeByName[Node->GetName()] = Node;
+        }
+
+        std::unordered_map<const ModelNode*, std::vector<DirectX::XMFLOAT3>> BoneNodePositionMap{};
+        BoneNodePositionMap.reserve(Nodes.size());
+
+        for (const ModelNode* Node : Nodes) {
+            if (Node->IsSkinnedMesh() == false) {
+                DirectX::BoundingOrientedBox BoundingBox{};
+                const bool IsBuilt{ TryBuildStaticNodeBoundingBox(*Node, BoundingBox) };
+                if (IsBuilt == true) {
+                    NodeBoundingBoxes[Node] = BoundingBox;
+                }
+                continue;
+            }
+
+            const std::vector<Vec3>& Positions{ Node->Vertices().Positions };
+            const std::vector<UVec4>& BoneIndices{ Node->Vertices().BoneIndices };
+            const std::vector<Vec4>& BoneWeights{ Node->Vertices().BoneWeights };
+            const std::vector<ModelBoneInfo>& BoneInfos{ Node->BoneInfos() };
+            if (Positions.empty() == true || BoneIndices.size() != Positions.size() || BoneWeights.size() != Positions.size() || BoneInfos.empty() == true) {
+                continue;
+            }
+
+            for (std::size_t VertexIndex{ 0 }; VertexIndex < Positions.size(); ++VertexIndex) {
+                const UVec4& VertexBoneIndices{ BoneIndices[VertexIndex] };
+                const Vec4& VertexBoneWeights{ BoneWeights[VertexIndex] };
+                const std::array<float, 4> WeightValues{ VertexBoneWeights.x, VertexBoneWeights.y, VertexBoneWeights.z, VertexBoneWeights.w };
+                std::size_t DominantWeightIndex{ 0 };
+                float DominantWeightValue{ WeightValues[0] };
+
+                for (std::size_t WeightIndex{ 1 }; WeightIndex < WeightValues.size(); ++WeightIndex) {
+                    if (WeightValues[WeightIndex] > DominantWeightValue) {
+                        DominantWeightValue = WeightValues[WeightIndex];
+                        DominantWeightIndex = WeightIndex;
+                    }
+                }
+
+                const std::uint32_t JointArrayIndex{ VertexBoneIndices[DominantWeightIndex] };
+                const auto BoneInfoIter{ std::find_if(BoneInfos.begin(), BoneInfos.end(), [JointArrayIndex](const ModelBoneInfo& BoneInfo) {
+                    return BoneInfo.JointArrayIndex == JointArrayIndex;
+                }) };
+                if (BoneInfoIter == BoneInfos.end()) {
+                    continue;
+                }
+
+                const auto NodeIter{ NodeByName.find(BoneInfoIter->BoneName) };
+                if (NodeIter == NodeByName.end()) {
+                    continue;
+                }
+
+                const Vec3& Position{ Positions[VertexIndex] };
+                const SimpleMath::Vector3 PositionVector{ Position.x, Position.y, Position.z };
+                const SimpleMath::Vector3 BoneLocalPosition{ SimpleMath::Vector3::Transform(PositionVector, BoneInfoIter->InverseBindMatrix) };
+                BoneNodePositionMap[NodeIter->second].push_back(DirectX::XMFLOAT3{ BoneLocalPosition.x, BoneLocalPosition.y, BoneLocalPosition.z });
+            }
+        }
+
+        for (const auto& [BoneNode, BonePositions] : BoneNodePositionMap) {
+            DirectX::BoundingOrientedBox BoneBoundingBox{};
+            const bool IsBuilt{ TryBuildObbFromPoints(BonePositions, BoneBoundingBox) };
+            if (IsBuilt == false) {
+                continue;
+            }
+
+            NodeBoundingBoxes[BoneNode] = BoneBoundingBox;
+        }
+
+        return NodeBoundingBoxes;
+    }
 }
 
 AssetBinaryWriter::AssetBinaryWriter() = default;
 
-bool AssetBinaryWriter::WriteToFile(const std::string& Path, const AssetBundle& Bundle) {
+bool AssetBinaryWriter::WriteToFile(const std::string& Path, const ModelResult& ModelData) {
     mStream = std::ofstream{ Path, std::ios::binary };
     if (!mStream.is_open()) {
         return false;
     }
     WriteHeader();
-    WriteMaterials(Bundle.GetMaterials());
-    WriteModelResult(Bundle.GetModelResult());
+    WriteModelResult(ModelData);
     return static_cast<bool>(mStream);
 }
 
 void AssetBinaryWriter::WriteHeader() {
     WriteBytes(FormatMagic, sizeof(FormatMagic));
     WriteUint32(FormatVersion);
-}
-
-void AssetBinaryWriter::WriteMaterials(const std::vector<Material>& Materials) {
-    WriteUint64(static_cast<std::uint64_t>(Materials.size()));
-    for (const Material& MaterialData : Materials) {
-        WriteMaterial(MaterialData);
-    }
-}
-
-void AssetBinaryWriter::WriteMaterial(const Material& MaterialData) {
-    WriteBool(MaterialData.PBR);
-    WriteUint64(static_cast<std::uint64_t>(MaterialData.Properties.size()));
-    for (const MaterialProperty& Property : MaterialData.Properties) {
-        WriteMaterialProperty(Property);
-    }
-}
-
-void AssetBinaryWriter::WriteMaterialProperty(const MaterialProperty& Property) {
-    WriteUint16(static_cast<std::uint16_t>(Property.Type));
-    WriteUint8(static_cast<std::uint8_t>(Property.Data.GetKind()));
-    WriteMaterialMap(Property.Data);
-}
-
-void AssetBinaryWriter::WriteMaterialMap(const MaterialMap& Map) {
-    const MaterialMapKind Kind{ Map.GetKind() };
-    if (Kind == MaterialMapKind::None) {
-        return;
-    }
-    if (Kind == MaterialMapKind::Real) {
-        WriteFloat(Map.GetReal());
-        return;
-    }
-    if (Kind == MaterialMapKind::Int) {
-        WriteInt64(Map.GetInt());
-        return;
-    }
-    if (Kind == MaterialMapKind::Bool) {
-        WriteBool(Map.GetBool());
-        return;
-    }
-    if (Kind == MaterialMapKind::Vec2) {
-        WriteVec2(Map.GetVec2());
-        return;
-    }
-    if (Kind == MaterialMapKind::Vec3) {
-        WriteVec3(Map.GetVec3());
-        return;
-    }
-    if (Kind == MaterialMapKind::Vec4) {
-        WriteVec4(Map.GetVec4());
-        return;
-    }
-    if (Kind == MaterialMapKind::String) {
-        WriteString(Map.GetString());
-        return;
-    }
 }
 
 void AssetBinaryWriter::WriteModelResult(const ModelResult& Result) {
@@ -106,17 +154,20 @@ void AssetBinaryWriter::WriteModelResult(const ModelResult& Result) {
         NodeIndices.emplace(Nodes[Index], Index);
     }
 
+    const std::string UnifiedSkinBoneRootNodeName{ ResolveUnifiedSkinBoneRootNodeName(Nodes) };
+    const std::unordered_map<const ModelNode*, DirectX::BoundingOrientedBox> NodeBoundingBoxes{ BuildNodeBoundingBoxes(Nodes) };
     WriteUint64(static_cast<std::uint64_t>(Nodes.size()));
-    WriteNodes(Nodes, NodeIndices);
+    WriteString(UnifiedSkinBoneRootNodeName);
+    WriteNodes(Nodes, NodeIndices, NodeBoundingBoxes);
 }
 
-void AssetBinaryWriter::WriteNodes(const std::vector<const ModelNode*>& Nodes, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices) {
+void AssetBinaryWriter::WriteNodes(const std::vector<const ModelNode*>& Nodes, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices, const std::unordered_map<const ModelNode*, DirectX::BoundingOrientedBox>& NodeBoundingBoxes) {
     for (const ModelNode* Node : Nodes) {
-        WriteNode(*Node, NodeIndices);
+        WriteNode(*Node, NodeIndices, NodeBoundingBoxes);
     }
 }
 
-void AssetBinaryWriter::WriteNode(const ModelNode& Node, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices) {
+void AssetBinaryWriter::WriteNode(const ModelNode& Node, const std::unordered_map<const ModelNode*, std::uint32_t>& NodeIndices, const std::unordered_map<const ModelNode*, DirectX::BoundingOrientedBox>& NodeBoundingBoxes) {
     WriteString(Node.GetName());
     const ModelNode* Parent{ Node.GetParent() };
     if (Parent == nullptr) {
@@ -127,10 +178,50 @@ void AssetBinaryWriter::WriteNode(const ModelNode& Node, const std::unordered_ma
         WriteInt32(Found == NodeIndices.end() ? -1 : static_cast<std::int32_t>(Found->second));
     }
     WriteMat4(Node.GetNodeToParent());
-    WriteMat4(Node.GetGeometryToNode());
+    static_cast<void>(NodeIndices);
+    WriteBoneInfos(Node.BoneInfos());
+    WriteSkinnedMeshFlag(Node);
+    WriteBoundingBox(Node, NodeBoundingBoxes);
     WriteVertexAttributes(Node.Vertices());
     WriteUint32Array(Node.Indices());
     WriteSubMeshes(Node.GetSubMeshes());
+}
+
+std::string AssetBinaryWriter::ResolveUnifiedSkinBoneRootNodeName(const std::vector<const ModelNode*>& Nodes) const {
+    std::string UnifiedSkinBoneRootNodeName{};
+    for (const ModelNode* Node : Nodes) {
+        if (Node->IsSkinnedMesh() == false) {
+            continue;
+        }
+
+        UnifiedSkinBoneRootNodeName = Node->GetSkinBoneRootNodeName();
+        break;
+    }
+
+    return UnifiedSkinBoneRootNodeName;
+}
+
+void AssetBinaryWriter::WriteBoneInfos(const std::vector<ModelBoneInfo>& BoneInfos) {
+    WriteUint64(static_cast<std::uint64_t>(BoneInfos.size()));
+    for (const ModelBoneInfo& BoneInfo : BoneInfos) {
+        WriteUint32(BoneInfo.SkinArrayIndex);
+        WriteUint32(BoneInfo.JointArrayIndex);
+        WriteString(BoneInfo.BoneName);
+        WriteMat4(BoneInfo.InverseBindMatrix);
+    }
+}
+
+void AssetBinaryWriter::WriteSkinnedMeshFlag(const ModelNode& Node) {
+    WriteBool(Node.IsSkinnedMesh());
+}
+
+void AssetBinaryWriter::WriteBoundingBox(const ModelNode& Node, const std::unordered_map<const ModelNode*, DirectX::BoundingOrientedBox>& NodeBoundingBoxes) {
+    const auto BoundingBoxIter{ NodeBoundingBoxes.find(&Node) };
+    const bool IsBuilt{ BoundingBoxIter != NodeBoundingBoxes.end() };
+    WriteBool(IsBuilt);
+    if (IsBuilt == true) {
+        WriteBoundingOrientedBox(BoundingBoxIter->second);
+    }
 }
 
 void AssetBinaryWriter::WriteVertexAttributes(const VertexAttributes& Attributes) {
@@ -151,7 +242,7 @@ void AssetBinaryWriter::WriteSubMeshes(const std::vector<ModelNode::SubMesh>& Su
     for (const ModelNode::SubMesh& SubMesh : SubMeshes) {
         WriteUint64(static_cast<std::uint64_t>(SubMesh.IndexOffset));
         WriteUint64(static_cast<std::uint64_t>(SubMesh.IndexCount));
-        WriteUint64(static_cast<std::uint64_t>(SubMesh.MaterialIndex));
+        WriteUint64(static_cast<std::uint64_t>(SubMesh.MaterialGroupItemIndex));
     }
 }
 
@@ -221,6 +312,10 @@ void AssetBinaryWriter::WriteFloat(float Value) {
 void AssetBinaryWriter::WriteBool(bool Value) {
     const std::uint8_t Stored{ static_cast<std::uint8_t>(Value ? 1 : 0) };
     WriteUint8(Stored);
+}
+
+void AssetBinaryWriter::WriteBoundingOrientedBox(const DirectX::BoundingOrientedBox& Value) {
+    WriteBytes(&Value, sizeof(Value));
 }
 
 void AssetBinaryWriter::WriteVec2(const Vec2& Value) {

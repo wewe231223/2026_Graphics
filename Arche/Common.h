@@ -1,22 +1,63 @@
-#pragma once
+ï»¿#pragma once
 #include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <limits>
+#include <tuple>
 #include "TypeSystem.h" 
 
+#ifdef max 
+#undef max 
+#endif 
+
 namespace Arche {
+
+    struct NullEntityIDTag {};
+
+    inline constexpr NullEntityIDTag NullEntityID{};
 
     struct EntityID {
         std::uint32_t index;
         std::uint32_t generation;
+        std::uint64_t flags;
 
-        bool operator==(const EntityID& other) const {
-            return index == other.index && generation == other.generation;
+        static constexpr std::uint64_t DerivedEntityFlagMask{ 1ull << 63ull };
+
+        EntityID() = default;
+        EntityID(std::uint32_t Index, std::uint32_t Generation, std::uint64_t Flags = 0ull)
+            : index{ Index },
+            generation{ Generation },
+            flags{ Flags } {
         }
 
-        bool operator!=(const EntityID& other) const {
-            return !(*this == other);
+        EntityID(NullEntityIDTag)
+            : index{ std::numeric_limits<std::uint32_t>::max() },
+            generation{ std::numeric_limits<std::uint32_t>::max() },
+            flags{ std::numeric_limits<std::uint64_t>::max() } {
+        }
+
+        bool operator==(const EntityID& Other) const {
+            return std::tie(index, generation) == std::tie(Other.index, Other.generation);
+        }
+
+        bool operator!=(const EntityID& Other) const {
+            return !(*this == Other);
+        }
+
+        bool IsDerivedEntity() const {
+            return (flags & DerivedEntityFlagMask) != 0ull;
+        }
+
+        void SetDerivedEntity(bool IsDerivedEntityFlag) {
+            if (IsDerivedEntityFlag == true) {
+                flags |= DerivedEntityFlagMask;
+                return;
+            }
+
+            flags &= ~DerivedEntityFlagMask;
         }
     };
+
 
     struct EntityRecord {
         class Archetype* archetype = nullptr;
@@ -30,10 +71,21 @@ namespace Arche {
 
     struct Chunk {
         std::uint32_t count = 0;
-        // alignas 64 ¸¦ »ç¿ëÇÏ¿´±â ¶§¹®¿¡, sizeof(uint32_t) ÀÎ 4 °¡ ¾Æ´Ñ 64 ¹ÙÀÌÆ®°¡ Â÷ÁöµÊ
+        // alignas 64 ë¥¼ ì‚¬ìš©í•˜ì˜€ê¸° ë•Œë¬¸ì—, sizeof(uint32_t) ì¸ 4 ê°€ ì•„ë‹Œ 64 ë°”ì´íŠ¸ê°€ ì°¨ì§€ë¨
         alignas(64) std::byte data[CHUNK_SIZE - 64];
     };
 
     static_assert(sizeof(Chunk) <= CHUNK_SIZE, "Chunk size exceeds allocated memory!");
 
 } // namespace Arche
+
+namespace std {
+    template<>
+    struct hash<Arche::EntityID> {
+        std::size_t operator()(const Arche::EntityID& Value) const noexcept {
+            const std::size_t IndexHash{ std::hash<std::uint32_t>{}(Value.index) };
+            const std::size_t GenerationHash{ std::hash<std::uint32_t>{}(Value.generation) };
+            return IndexHash ^ (GenerationHash + 0x9e3779b97f4a7c15ull + (IndexHash << 6) + (IndexHash >> 2));
+        }
+    };
+}

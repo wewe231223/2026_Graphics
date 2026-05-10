@@ -1,0 +1,375 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Base\Common.h" />
+    <ClInclude Include="Base\RuntimeParameterDefinition.h" />
+    <ClInclude Include="Base\Input.h" />
+    <ClInclude Include="Base\RenderFrameData.h" />
+    <ClInclude Include="Base\Shader.h" />
+    <ClInclude Include="Base\RootSignature.h" />
+    <ClInclude Include="Base\Pipeline.h" />
+    <ClInclude Include="Base\Time.h" />
+    <ClInclude Include="Model\AssetRegistry.h" />
+    <ClInclude Include="Asset\AnimationGraphAsset.h" />
+    <ClInclude Include="Model\AssetRegistryBackEnd.h" />
+    <ClInclude Include="Model\HeightMapLoader.h" />
+    <ClInclude Include="Model\Model.h" />
+    <ClInclude Include="Model\PrimitiveModelFactory.h" />
+    <ClInclude Include="Model\TerrainHeightFieldFactory.h" />
+    <ClInclude Include="Model\TerrainMeshBuilder.h" />
+    <ClInclude Include="Model\TerrainMeshTypes.h" />
+    <ClInclude Include="Model\TerrainProceduralHeightFieldConfigLoader.h" />
+    <ClInclude Include="Model\TerrainProceduralHeightFieldGenerator.h" />
+    <ClInclude Include="Model\TerrainRenderResource.h" />
+    <ClInclude Include="Model\TerrainSplatMapGenerator.h" />
+    <ClInclude Include="Model\TerrainTiledMeshBuilder.h" />
+    <ClInclude Include="Scene\Components\BoundingBox.h" />
+    <ClInclude Include="Scene\Components\Bone.h" />
+    <ClInclude Include="Scene\Components\BoneSkinReference.h" />
+    <ClInclude Include="Scene\Components\Camera.h" />
+    <ClInclude Include="Scene\Components\ComponentText.h" />
+    <ClInclude Include="Scene\Components\ComponentLuaTypeDefinitions.h" />
+    <ClInclude Include="Scene\Components\Culling.h" />
+    <ClInclude Include="Scene\Components\DirectionalLight.h" />
+    <ClInclude Include="Scene\Components\EntityHierarchy.h" />
+    <ClInclude Include="Scene\Components\Frustum.h" />
+    <ClInclude Include="Scene\Components\Material.h" />
+    <ClInclude Include="Scene\Components\Animator.h" />
+    <ClInclude Include="Scene\Components\AnimatorGraphPlayer.h" />
+    <ClInclude Include="Scene\Components\RuntimeVariableTable.h" />
+    <ClInclude Include="Scene\Components\FootIKRig.h" />
+    <ClInclude Include="Scene\Components\FootIKRuntime.h" />
+    <ClInclude Include="Scene\Components\Name.h" />
+    <ClInclude Include="Scene\Components\ComponentInspection.h" />
+    <ClInclude Include="Scene\Components\PickingGizmo.h" />
+    <ClInclude Include="Scene\Components\PrefabInstance.h" />
+    <ClInclude Include="Scene\Components\PhysicsActor.h" />
+    <ClInclude Include="Scene\Components\ScriptComponent.h" />
+    <ClInclude Include="Scene\Components\SkySphere.h" />
+    <ClInclude Include="Scene\Components\StaticMeshRenderer.h" />
+    <ClInclude Include="Scene\Components\TerrainRenderer.h" />
+    <ClInclude Include="Scene\Components\SkinnedMeshRenderer.h" />
+    <ClInclude Include="Scene\Components\Tags.h" />
+    <ClInclude Include="Scene\Components\Transform.h" />
+    <ClInclude Include="Scene\Scene.h" />
+    <ClInclude Include="Scene\SceneEntityFactory.h" />
+    <ClInclude Include="Scene\SceneWorldSnapshot.h" />
+    <ClInclude Include="Scene\SceneYamlSerializer.h" />
+    <ClInclude Include="Scene\SceneYaml\SceneYamlInternal.h" />
+    <ClInclude Include="Scene\System.h" />
+    <ClInclude Include="Scene\SystemSceduler.h" />
+    <ClInclude Include="Scene\ParallelSystemBase.h" />
+    <ClInclude Include="Scene\Systems\AnimationGraphSystem.h" />
+    <ClInclude Include="Scene\Systems\AnimateSystem.h" />
+    <ClInclude Include="Scene\IK\FootIKSolver.h" />
+    <ClInclude Include="Scene\IK\FabrikFootIKSolver.h" />
+    <ClInclude Include="Scene\IK\FootIKAlgorithms.h" />
+    <ClInclude Include="Scene\Systems\FootIKSystem.h" />
+    <ClInclude Include="Scene\Systems\PhysicsActorUpdateSystem.h" />
+    <ClInclude Include="Scene\Systems\ProceduralFoliageSystem.h" />
+    <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
+    <ClInclude Include="Scene\Systems\ShadowMappingParameterSystem.h" />
+    <ClInclude Include="Scene\Systems\TransformWorldSystem.h" />
+    <ClInclude Include="Scene\Systems\SkinnedMeshPrepareSystem.h" />
+    <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
+    <ClInclude Include="Scene\Systems\TerrainStreamingSystem.h" />
+    <ClInclude Include="Scene\Systems\TerrainRenderSystem.h" />
+    <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Base\Input.cpp" />
+    <ClCompile Include="Base\RenderFrameData.cpp" />
+    <ClCompile Include="Base\Shader.cpp" />
+    <ClCompile Include="Base\RootSignature.cpp" />
+    <ClCompile Include="Base\Pipeline.cpp" />
+    <ClCompile Include="Base\Time.cpp" />
+    <ClCompile Include="Model\AssetRegistry.cpp" />
+    <ClCompile Include="Model\AssetRegistryBackEnd.cpp" />
+    <ClCompile Include="Model\HeightMapLoader.cpp" />
+    <ClCompile Include="Model\TerrainHeightFieldFactory.cpp" />
+    <ClCompile Include="Model\Model.cpp" />
+    <ClCompile Include="Model\PrimitiveModelFactory.cpp" />
+    <ClCompile Include="Model\TerrainMeshBuilder.cpp" />
+    <ClCompile Include="Model\TerrainProceduralHeightFieldConfigLoader.cpp" />
+    <ClCompile Include="Model\TerrainProceduralHeightFieldGenerator.cpp" />
+    <ClCompile Include="Model\TerrainRenderResource.cpp" />
+    <ClCompile Include="Model\TerrainSplatMapGenerator.cpp" />
+    <ClCompile Include="Model\TerrainTiledMeshBuilder.cpp" />
+    <ClCompile Include="Asset\AnimationGraphAsset.cpp" />
+    <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp" />
+    <ClCompile Include="Scene\Components\Culling.cpp" />
+    <ClCompile Include="Scene\Components\DirectionalLight.cpp" />
+    <ClCompile Include="Scene\Components\PrefabInstance.cpp" />
+    <ClCompile Include="Scene\Components\Bone.cpp" />
+    <ClCompile Include="Scene\Components\BoneSkinReference.cpp" />
+    <ClCompile Include="Scene\Scene.cpp" />
+    <ClCompile Include="Scene\SceneEntityFactory.cpp" />
+    <ClCompile Include="Scene\SceneWorldSnapshot.cpp" />
+    <ClCompile Include="Scene\SceneYamlSerializer.cpp" />
+    <ClCompile Include="Scene\SceneYaml\SceneYamlCommon.cpp" />
+    <ClCompile Include="Scene\SceneYaml\SceneYamlDeserializer.cpp" />
+    <ClCompile Include="Scene\SceneYaml\SceneYamlTerrain.cpp" />
+    <ClCompile Include="Scene\SceneYaml\SceneYamlWriter.cpp" />
+    <ClCompile Include="Scene\System.cpp" />
+    <ClCompile Include="Scene\SystemSceduler.cpp" />
+    <ClCompile Include="Scene\ParallelSystemBase.cpp" />
+    <ClCompile Include="Scene\Components\Transform.cpp" />
+    <ClCompile Include="Scene\Components\ComponentText.cpp" />
+    <ClCompile Include="Scene\Components\Name.cpp" />
+    <ClCompile Include="Scene\Components\Material.cpp" />
+    <ClCompile Include="Scene\Components\Animator.cpp" />
+    <ClCompile Include="Scene\Components\AnimatorGraphPlayer.cpp" />
+    <ClCompile Include="Scene\Components\RuntimeVariableTable.cpp" />
+    <ClCompile Include="Scene\Components\FootIKRig.cpp" />
+    <ClCompile Include="Scene\Components\FootIKRuntime.cpp" />
+    <ClCompile Include="Scene\Components\ScriptComponent.cpp" />
+    <ClCompile Include="Scene\Components\SkySphere.cpp" />
+    <ClCompile Include="Scene\Components\EntityHierarchy.cpp" />
+    <ClCompile Include="Scene\Components\Tags.cpp" />
+    <ClCompile Include="Scene\Components\BoundingBox.cpp" />
+    <ClCompile Include="Scene\Components\PhysicsActor.cpp" />
+    <ClCompile Include="Scene\Components\Camera.cpp" />
+    <ClCompile Include="Scene\Components\Frustum.cpp" />
+    <ClCompile Include="Scene\Components\StaticMeshRenderer.cpp" />
+    <ClCompile Include="Scene\Components\TerrainRenderer.cpp" />
+    <ClCompile Include="Scene\Components\SkinnedMeshRenderer.cpp" />
+    <ClCompile Include="Scene\Components\ComponentInspection.cpp" />
+    <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp" />
+    <ClCompile Include="Scene\Systems\AnimateSystem.cpp" />
+    <ClCompile Include="Scene\IK\FootIKSolver.cpp" />
+    <ClCompile Include="Scene\IK\FabrikFootIKSolver.cpp" />
+    <ClCompile Include="Scene\IK\FootIKAlgorithms.cpp" />
+    <ClCompile Include="Scene\Systems\FootIKSystem.cpp" />
+    <ClCompile Include="Scene\Systems\PhysicsActorUpdateSystem.cpp" />
+    <ClCompile Include="Scene\Systems\ProceduralFoliageSystem.cpp" />
+    <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
+    <ClCompile Include="Scene\Systems\ShadowMappingParameterSystem.cpp" />
+    <ClCompile Include="Scene\Systems\TransformWorldSystem.cpp" />
+    <ClCompile Include="Scene\Systems\SkinnedMeshPrepareSystem.cpp" />
+    <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />
+    <ClCompile Include="Scene\Systems\TerrainStreamingSystem.cpp" />
+    <ClCompile Include="Scene\Systems\TerrainRenderSystem.cpp" />
+    <ClCompile Include="Scene\Systems\SkinnedMeshRenderSystem.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="..\Shader\Source\BasicShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\FoliageShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\BoundingBoxLineShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\DebugGeometryShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\DeferredLightingShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\NormalMappedShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\SkinnedMeshShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\PrimitiveVertexColorShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\SkyDomeShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\TerrainShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\ToneMappingShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Resources\DefaultScene.yaml" />
+    <None Include="..\Resources\DefaultScene\FoliagePlacement.yaml" />
+    <None Include="..\Resources\DefaultScene\TerrainProceduralHeightField.yaml" />
+    <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml" />
+    <None Include="..\Resources\ShadowMappingParameter.yaml" />
+    <None Include="..\Shader\PSO\DefaultGraphics.json" />
+    <None Include="..\Shader\PSO\DebugGeometryGraphics.json" />
+    <None Include="..\Shader\PSO\TerrainGraphics.json" />
+    <None Include="..\Shader\PSO\SkinnedGraphics.json" />
+    <None Include="..\Shader\PSO\SkyDomeGraphics.json" />
+    <None Include="..\Shader\PSO\Schema.Pipeline.json" />
+    <None Include="..\Shader\RS\DefaultRootSignature.json" />
+    <None Include="..\Shader\RS\Schema.RootSignature.json" />
+    <None Include="..\Shader\Source\.gitkeep" />
+    <None Include="..\Shader\Source\Common.hlsli" />
+    <None Include="..\Shader\Source\defines.hlsli" />
+    <None Include="..\Shader\Source\PostProcessCommon.hlsli" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{be25e620-7914-415b-b62d-865e31371758}</ProjectGuid>
+    <RootNamespace>Game</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+    <Import Project="..\Utility\Utility.vcxitems" Label="Shared" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(SolutionDir)\out\debug\</OutDir>
+    <IncludePath>$(SolutionDir)\External\Include;$(SolutionDir)\External\Include\rapidyml;$(SolutionDir);$(SolutionDir)\External\Include\lua;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)\External\lib\debug;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(SolutionDir)\out\release\</OutDir>
+    <IncludePath>$(SolutionDir)\External\Include;$(SolutionDir)\External\Include\rapidyml;$(SolutionDir);$(SolutionDir)\External\Include\lua;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)\External\lib\release;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <Link>
+      <SubSystem>
+      </SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <Link>
+      <SubSystem>
+      </SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_LIB;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <LanguageStandard>stdcpp23</LanguageStandard>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>
+      </SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_LIB;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <LanguageStandard>stdcpp23</LanguageStandard>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>
+      </SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

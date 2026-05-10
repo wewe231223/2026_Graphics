@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -19,33 +19,34 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AnimationBinaryReader.cpp" />
+    <ClCompile Include="AnimationClipBinaryWriter.cpp" />
+    <ClCompile Include="AnimationClipResult.cpp" />
+    <ClCompile Include="AssimpAnimationClipImporter.cpp" />
     <ClCompile Include="AssetBinaryReader.cpp" />
     <ClCompile Include="AssetBinaryWriter.cpp" />
-    <ClCompile Include="AssetBundle.cpp" />
+    <ClCompile Include="AssimpAssetImporter.cpp" />
     <ClCompile Include="Common.cpp" />
     <ClCompile Include="DataList.cpp" />
     <ClCompile Include="FbxAssetImporter.cpp" />
-    <ClCompile Include="MaterialVisitor.cpp" />
-    <ClCompile Include="MeshHierarchyBuilder.cpp" />
+    <ClCompile Include="GltfAssetImporter.cpp" />
+    <ClCompile Include="MaterialGroupJsonSerializer.cpp" />
     <ClCompile Include="ModelResult.cpp" />
-    <ClCompile Include="NumericTypes.cpp" />
-    <ClCompile Include="ufbx.c" />
-    <ClCompile Include="UfbxAssetLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AnimationBinaryReader.h" />
+    <ClInclude Include="AnimationClipBinaryWriter.h" />
+    <ClInclude Include="AnimationClipResult.h" />
+    <ClInclude Include="AssimpAnimationClipImporter.h" />
     <ClInclude Include="AssetBinaryReader.h" />
     <ClInclude Include="AssetBinaryWriter.h" />
-    <ClInclude Include="AssetBundle.h" />
+    <ClInclude Include="AssimpAssetImporter.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="DataList.h" />
     <ClInclude Include="FbxAssetImporter.h" />
-    <ClInclude Include="MaterialVisitor.h" />
-    <ClInclude Include="MeshHierarchyBuilder.h" />
+    <ClInclude Include="GltfAssetImporter.h" />
+    <ClInclude Include="MaterialGroupJsonSerializer.h" />
     <ClInclude Include="ModelResult.h" />
-    <ClInclude Include="NumericTypes.h" />
-    <ClInclude Include="SceneVisitor.h" />
-    <ClInclude Include="ufbx.h" />
-    <ClInclude Include="UfbxAssetLoader.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -58,26 +59,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -99,6 +100,14 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(SolutionDir)out\debug\</OutDir>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\External\Include;$(SolutionDir);</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(SolutionDir)out\release\</OutDir>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(SolutionDir)\External\Include;$(SolutionDir);</IncludePath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -141,7 +150,8 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard>stdcpp23</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -159,7 +169,8 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard>stdcpp23</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>

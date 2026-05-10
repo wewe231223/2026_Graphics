@@ -1,0 +1,2 @@
+[19:12:33.3618458.361] Log     > [Render] Console Test
+[19:12:33.3619796.361] Log     > [Render] Shader Model 6.6 is supported.

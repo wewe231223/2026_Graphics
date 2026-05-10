@@ -10,20 +10,30 @@
 #include "Common.h"
 
 namespace asset {
+    class ModelNode;
+
+    struct ModelBoneInfo final {
+    public:
+        std::uint32_t SkinArrayIndex{ 0 };
+        std::uint32_t JointArrayIndex{ 0 };
+        std::string BoneName{};
+        Mat4 InverseBindMatrix{ DirectX::SimpleMath::Matrix::Identity };
+    };
+
     class ModelNode final {
     public:
         using Id = std::uint32_t;
+
         struct SubMesh final {
         public:
             std::size_t IndexOffset{ 0 };
             std::size_t IndexCount{ 0 };
-            std::size_t MaterialIndex{ 0 };
+            std::size_t MaterialGroupItemIndex{ 0 };
         };
 
     public:
         ModelNode(Id IdValue, std::string Name);
         ~ModelNode() = default;
-
         ModelNode(const ModelNode& Other) = delete;
         ModelNode& operator=(const ModelNode& Other) = delete;
         ModelNode(ModelNode&& Other) = default;
@@ -35,9 +45,6 @@ namespace asset {
 
         const Mat4& GetNodeToParent() const;
         void SetNodeToParent(const Mat4& NodeToParent);
-
-        const Mat4& GetGeometryToNode() const;
-        void SetGeometryToNode(const Mat4& GeometryToNode);
 
         ModelNode* GetParent() const;
         const std::vector<ModelNode*>& GetChildren() const;
@@ -52,30 +59,42 @@ namespace asset {
         std::vector<SubMesh>& SubMeshes();
         const std::vector<SubMesh>& SubMeshes() const;
 
+        std::vector<ModelBoneInfo>& BoneInfos();
+        const std::vector<ModelBoneInfo>& BoneInfos() const;
+        bool HasBoneInfo() const;
+
+        void SetIsSkinnedMesh(bool IsSkinnedMesh);
+        bool IsSkinnedMesh() const;
+        void SetSkinBoneRootNodeName(std::string SkinBoneRootNodeName);
+        const std::string& GetSkinBoneRootNodeName() const;
+        void SetBoundingBox(const DirectX::BoundingOrientedBox& BoundingBoxValue);
+        bool HasBoundingBox() const;
+        const DirectX::BoundingOrientedBox& GetBoundingBox() const;
+
         std::vector<const ModelNode*> GetChildChain() const;
         void SetSubMeshes(std::vector<SubMesh> SubMeshes);
         const std::vector<SubMesh>& GetSubMeshes() const;
 
     private:
         Id mId{ 0 };
-
         std::string mName{};
-        Mat4 mNodeToParent{ 1.0f };
-        Mat4 mGeometryToNode{ 1.0f };
-
+        Mat4 mNodeToParent{ DirectX::SimpleMath::Matrix::Identity };
         ModelNode* mParent{ nullptr };
         std::vector<ModelNode*> mChildren{};
-
         VertexAttributes mVertices{};
         std::vector<std::uint32_t> mIndices{};
         std::vector<SubMesh> mSubMeshes{};
+        std::vector<ModelBoneInfo> mBoneInfos{};
+        bool mIsSkinnedMesh{ false };
+        std::string mSkinBoneRootNodeName{};
+        DirectX::BoundingOrientedBox mBoundingBox{};
+        bool mHasBoundingBox{ false };
     };
 
     class ModelResult final {
     public:
         ModelResult();
         ~ModelResult() = default;
-
         ModelResult(const ModelResult& Other) = delete;
         ModelResult& operator=(const ModelResult& Other) = delete;
         ModelResult(ModelResult&& Other) = default;

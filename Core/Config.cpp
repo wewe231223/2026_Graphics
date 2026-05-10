@@ -1,4 +1,4 @@
-#include "Config.h"
+ï»¿#include "Config.h"
 #include "Utility/ErrorHandler.h"
 #include <fstream>
 #include <sstream>
@@ -11,7 +11,7 @@ FileConfig::FileConfig(const std::string& filePath) : mPath(filePath) {
 void FileConfig::LoadContents() {
     std::ifstream file(mPath);
 
-    // 1. ÆÄÀÏ ¿ÀÇÂ ½ÇÆĞ ÇÚµé¸µ
+    // 1. íŒŒì¼ ì˜¤í”ˆ ì‹¤íŒ¨ í•¸ë“¤ë§
     if (!file.is_open()) {
         ErrorHandler::report("File Load Error",
             "Could not open config file: " + mPath,
@@ -26,11 +26,11 @@ void FileConfig::LoadContents() {
     while (std::getline(file, line)) {
         lineCount++;
 
-        // °ø¹é Á¦°Å ¹× ÁÖ¼®(#) Ã³¸®
+        // ê³µë°± ì œê±° ë° ì£¼ì„(#) ì²˜ë¦¬
         line.erase(0, line.find_first_not_of(" \t\r\n"));
         if (line.empty() || line[0] == '#') continue;
 
-        // '=' ±¸ºĞÀÚ·Î Å°¿Í °ª ºĞ¸®
+        // '=' êµ¬ë¶„ìë¡œ í‚¤ì™€ ê°’ ë¶„ë¦¬
         size_t delimiterPos = line.find('=');
         if (delimiterPos == std::string::npos) {
             ErrorHandler::report("Config Syntax Warning",

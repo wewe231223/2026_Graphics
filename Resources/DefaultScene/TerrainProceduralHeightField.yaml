@@ -1,0 +1,59 @@
+Width: 1281
+Height: 1281
+Seed: 2026
+UseRandomSeed: true
+OctaveCount: 5
+NoiseScale: 125.0
+Persistence: 0.5
+Lacunarity: 1.95
+BaseHeight: 0.06
+HeightAmplitude: 0.72
+LodExponent: 0.8
+SmoothingPassCount: 1
+MinimumWidth: 2
+MinimumHeight: 2
+MaximumOctaveCount: 16
+MaximumSmoothingPassCount: 64
+MinimumHeightValue: 0.0
+MaximumHeightValue: 1.0
+SampleScaleX: 1.0
+SampleScaleZ: 1.0
+InitialFrequency: 1.05
+InitialAmplitude: 1.0
+OctaveSeedStep: 1013
+NoiseNormalizationScale: 0.68
+NoiseNormalizationBias: 0.5
+GradientDirectionCount: 16
+FadeCoefficientA: 6.0
+FadeCoefficientB: -15.0
+FadeCoefficientC: 10.0
+SmoothingCornerWeight: 0.75
+SmoothingEdgeWeight: 1.5
+SmoothingCenterWeight: 6.0
+SmoothingWeightSum: 15.0
+SplatMap:
+  NormalizeWeights: true
+  FallbackLayerIndex: 1
+  MinimumWeightSum: 0.0001
+  Variables:
+    - Name: LowBand
+      Formula: "1.0 - SmoothStep(0.34, 0.39, Height)"
+    - Name: MidLowBand
+      Formula: "SmoothStep(0.34, 0.39, Height) * (1.0 - SmoothStep(0.39, 0.44, Height))"
+    - Name: MidHighBand
+      Formula: "SmoothStep(0.39, 0.44, Height) * (1.0 - SmoothStep(0.44, 0.49, Height))"
+    - Name: HighBand
+      Formula: "SmoothStep(0.44, 0.49, Height)"
+    - Name: SteepBand
+      Formula: "SmoothStep(0.05, 0.22, Slope)"
+    - Name: FlatBand
+      Formula: "1.0 - SmoothStep(0.06, 0.20, Slope)"
+  Layers:
+    - Name: LowGround
+      Formula: "Saturate((LowBand * 0.90) + (MidLowBand * SteepBand * 0.08))"
+    - Name: Grass
+      Formula: "Saturate((MidLowBand * 0.94 * FlatBand) + (LowBand * 0.10))"
+    - Name: Rock
+      Formula: "Saturate((MidHighBand * 0.62) + (SteepBand * 0.12))"
+    - Name: Snow
+      Formula: "Saturate((HighBand * 0.92 * (1.0 - (SteepBand * 0.12))) + (MidHighBand * FlatBand * 0.08))"

@@ -1,0 +1,17 @@
+{
+  "MaterialGroups": [
+    {
+      "Name": "primitive_vertex_color",
+      "Items": [
+        {
+          "PipelineName": "PrimitiveVertexColorGraphics",
+          "MaterialData": {
+            "Name": "PrimitiveVertexColor",
+            "PBR": false,
+            "Properties": {}
+          }
+        }
+      ]
+    }
+  ]
+}

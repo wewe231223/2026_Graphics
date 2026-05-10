@@ -1,0 +1,24 @@
+{
+  "MaterialGroups": [
+    {
+      "Name": "skydome",
+      "Items": [
+        {
+          "PipelineName": "SkyDomeGraphics",
+          "MaterialData": {
+            "Name": "SkyDome",
+            "PBR": false,
+            "Properties": {
+                "Diffuse Texture": {
+                    "Kind": "String",
+                    "String": "Epic_BlueSunset_EquiRect_flat"
+                }
+
+
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

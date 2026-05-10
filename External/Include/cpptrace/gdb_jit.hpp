@@ -1,4 +1,4 @@
-#ifndef CPPTRACE_GDB_JIT_HPP
+﻿#ifndef CPPTRACE_GDB_JIT_HPP
 #define CPPTRACE_GDB_JIT_HPP
 
 #include <cpptrace/basic.hpp>

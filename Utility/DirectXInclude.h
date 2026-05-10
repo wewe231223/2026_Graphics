@@ -1,4 +1,4 @@
-#pragma once 
+癤�#pragma once 
 #include <wrl/client.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
@@ -17,9 +17,7 @@
 #include "External/Include/DirectXTK12/d3dx12.h"
 #include "External/Include/DirectXTK12/SimpleMath.h"
 #include "External/Include/DirectXTK12/SimpleMath.inl"
-// DirectXTex (NuGet 혹은 라이브러리 경로 설정 필요)
 #include "External/Include/DirectXTEX/DirectXTex.h"
-
 
 // DirectX12 Library
 #pragma comment(lib, "d3d12.lib")
@@ -32,8 +30,11 @@
 
 #pragma comment(lib, "DirectXTex.lib")
 
+#pragma comment(lib, "DirectXTK12.lib")
 
 using namespace Microsoft::WRL;
 namespace SimpleMath = DirectX::SimpleMath;
 
 using ID3D12Blob = ID3D10Blob;
+
+

@@ -1,0 +1,126 @@
+{
+    "MaterialGroups": [
+        {
+            "Name": "terrain_material",
+            "Items": [
+                {
+                    "PipelineName": "TerrainGraphics",
+                    "TerrainMaterialData": {
+                        "Name": "Terrain",
+                        "PBR": false,
+                        "LayerCount": 4,
+                        "Layers": [
+                            {
+                                "DiffuseTexture" : "LowGround_Diffuse", 
+                                "NormalTexture": "LowGround_Normal",
+                                "DiffuseColor": [
+                                    0.45,
+                                    0.36,
+                                    0.22,
+                                    1.0
+                                ],
+                                "NormalColor": [
+                                    0.5,
+                                    0.5,
+                                    1.0,
+                                    1.0
+                                ],
+                                "UvTransform": [
+                                    0.5,
+                                    0.5,
+                                    0.0,
+                                    0.0
+                                ]
+                            },
+                            {
+                                "DiffuseTexture" : "Grass_Diffuse", 
+                                "NormalTexture": "Grass_Normal",
+                                "DiffuseColor": [
+                                    0.18,
+                                    0.42,
+                                    0.16,
+                                    1.0
+                                ],
+                                "NormalColor": [
+                                    0.5,
+                                    0.5,
+                                    1.0,
+                                    1.0
+                                ],
+                                "UvTransform": [
+                                    0.5,
+                                    0.5,
+                                    0.0,
+                                    0.0
+                                ]
+                            },
+                            {
+                                "DiffuseTexture" : "Rock_Diffuse", 
+                                "NormalTexture": "Rock_Normal",
+                                "DiffuseColor": [
+                                    0.42,
+                                    0.41,
+                                    0.38,
+                                    1.0
+                                ],
+                                "NormalColor": [
+                                    0.5,
+                                    0.5,
+                                    1.0,
+                                    1.0
+                                ],
+                                "UvTransform": [
+                                    0.5,
+                                    0.5,
+                                    0.0,
+                                    0.0
+                                ]
+                            },
+                            {
+                                "DiffuseTexture" : "Snow_Diffuse", 
+                                "NormalTexture": "Snow_Normal",
+                                "DiffuseColor": [
+                                    0.82,
+                                    0.86,
+                                    0.88,
+                                    1.0
+                                ],
+                                "NormalColor": [
+                                    0.5,
+                                    0.5,
+                                    1.0,
+                                    1.0
+                                ],
+                                "UvTransform": [
+                                    0.5,
+                                    0.5,
+                                    0.0,
+                                    0.0
+                                ]
+                            }
+                        ],
+                        "Properties": {
+                            "Opacity": {
+                                "Kind": "Real",
+                                "Real": 1.0
+                            },
+                            "Base Color": {
+                                "Kind": "Vec4",
+                                "Vec4": [
+                                    1.0,
+                                    1.0,
+                                    1.0,
+                                    1.0
+                                ]
+                            },
+                            "Normal Scale": {
+                                "Kind": "Real",
+                                "Real": 5.0
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

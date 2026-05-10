@@ -1,6 +1,7 @@
-#pragma once
+﻿#pragma once
 #include "Utility/DirectXInclude.h"
 #include "Utility/ErrorHandler.h"
+#include "Core/Common.h"
 
 namespace Core {
     namespace DX {
@@ -11,8 +12,8 @@ namespace Core {
 
             ~DescriptorHandle() = default;
 
-            DescriptorHandle(const DescriptorHandle&) = delete;
-            DescriptorHandle& operator=(const DescriptorHandle&) = delete;
+            DescriptorHandle(const DescriptorHandle&) = default;
+            DescriptorHandle& operator=(const DescriptorHandle&) = default;
 
             DescriptorHandle(DescriptorHandle&& other) noexcept;
             DescriptorHandle& operator=(DescriptorHandle&& other) noexcept;
@@ -30,7 +31,7 @@ namespace Core {
             uint32_t mIndex{ 0 };
         };
 
-        class DescriptorHeap {
+        class DescriptorHeap final : public Interface::IDescriptorHeap {
         public:
             DescriptorHeap() = default; 
             DescriptorHeap(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, bool shaderVisible);
@@ -44,8 +45,8 @@ namespace Core {
 	        DescriptorHeap& operator=(DescriptorHeap&&) noexcept;
 
         public:
-            DescriptorHandle Allocate();
-            ID3D12DescriptorHeap* GetHeap() const;
+            DescriptorHandle Allocate() override;
+            ID3D12DescriptorHeap* GetHeap() const override;
 
         private:
             ComPtr<ID3D12DescriptorHeap> mHeap{ nullptr };

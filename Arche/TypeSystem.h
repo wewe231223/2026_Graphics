@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <cstddef>
 #include <string_view>
 
@@ -29,7 +29,7 @@ namespace Arche {
     template <typename T>
     struct TypeHash {
         static constexpr std::string_view Name = Internal::GetTypeName<T>();
-        // Value ±îÁö constexpr. ÀÌÈÄ RT ¿¡¼­ ID °áÁ¤ 
+        // Value ê¹Œì§€ constexpr. ì´í›„ RT ì—ì„œ ID ê²°ì • 
         static constexpr std::size_t Value = Internal::FNV1a_64(Name);
     };
 

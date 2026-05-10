@@ -1,19 +1,19 @@
-#pragma once
+ï»¿#pragma once
 #include <vector>
 #include <shared_mutex>
 #include <atomic>
 #include "Common.h"
 
 namespace Arche {
-    class ArcheContainer; 
+    class World; 
 
     class Archetype {
-        friend class ArcheContainer;
+        friend class World;
     public:
         struct Column {
             TypeID id;
             size_t size;
-            size_t align; // °¢ Column ÀÇ Á¤·Ä Å©±â ¿ä±¸»çÇ×. 
+            size_t align; // ê° Column ì˜ ì •ë ¬ í¬ê¸° ìš”êµ¬ì‚¬í•­. 
             size_t offset;
         };
 

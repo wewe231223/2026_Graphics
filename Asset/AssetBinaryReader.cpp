@@ -1,4 +1,4 @@
-#include "AssetBinaryReader.h"
+﻿#include "AssetBinaryReader.h"
 
 #include <array>
 #include <cstring>
@@ -6,23 +6,22 @@
 using namespace asset;
 
 namespace {
-    constexpr std::uint32_t FormatVersion{ 2 };
+    constexpr std::uint32_t FormatVersion{ 10 };
     constexpr std::array<char, 4> FormatMagic{ 'F', 'B', 'X', 'B' };
 }
 
 AssetBinaryReader::AssetBinaryReader() = default;
 
-bool AssetBinaryReader::ReadFromFile(const std::string& Path, AssetBundle& Bundle) {
+bool AssetBinaryReader::ReadFromFile(const std::string& Path, ModelResult& ModelData) {
     mStream = std::ifstream{ Path, std::ios::binary };
     if (!mStream.is_open()) {
         return false;
     }
-    Bundle.Clear();
+    ModelData = ModelResult{};
     if (!ReadHeader()) {
         return false;
     }
-    ReadMaterials(Bundle.GetMaterials());
-    ReadModelResult(Bundle.GetModelResult());
+    ReadModelResult(ModelData);
     return static_cast<bool>(mStream);
 }
 
@@ -33,77 +32,26 @@ bool AssetBinaryReader::ReadHeader() {
         return false;
     }
     const std::uint32_t Version{ ReadUint32() };
-    if (Version != 1 && Version != FormatVersion) {
+    if (Version != 1 && Version != 2 && Version != 3 && Version != 4 && Version != 5 && Version != 6 && Version != 7 && Version != 8 && Version != 9 && Version != FormatVersion) {
         return false;
     }
     mFormatVersion = Version;
     return true;
 }
 
-void AssetBinaryReader::ReadMaterials(std::vector<Material>& Materials) {
-    const std::uint64_t Count{ ReadUint64() };
-    Materials.clear();
-    Materials.reserve(static_cast<std::size_t>(Count));
-    for (std::uint64_t Index{ 0 }; Index < Count; ++Index) {
-        Materials.push_back(ReadMaterial());
-    }
-}
-
-Material AssetBinaryReader::ReadMaterial() {
-    Material MaterialData{};
-    MaterialData.PBR = ReadBool();
-    const std::uint64_t PropertyCount{ ReadUint64() };
-    MaterialData.Properties.reserve(static_cast<std::size_t>(PropertyCount));
-    for (std::uint64_t Index{ 0 }; Index < PropertyCount; ++Index) {
-        MaterialData.Properties.push_back(ReadMaterialProperty());
-    }
-    return MaterialData;
-}
-
-MaterialProperty AssetBinaryReader::ReadMaterialProperty() {
-    MaterialProperty Property{};
-    Property.Type = static_cast<MaterialType>(ReadUint16());
-    const MaterialMapKind Kind{ static_cast<MaterialMapKind>(ReadUint8()) };
-    Property.Data = ReadMaterialMap(Kind);
-    return Property;
-}
-
-MaterialMap AssetBinaryReader::ReadMaterialMap(MaterialMapKind Kind) {
-    if (Kind == MaterialMapKind::None) {
-        return MaterialMap{};
-    }
-    if (Kind == MaterialMapKind::Real) {
-        return MaterialMap{ ReadFloat() };
-    }
-    if (Kind == MaterialMapKind::Int) {
-        return MaterialMap{ ReadInt64() };
-    }
-    if (Kind == MaterialMapKind::Bool) {
-        return MaterialMap{ ReadBool() };
-    }
-    if (Kind == MaterialMapKind::Vec2) {
-        return MaterialMap{ ReadVec2() };
-    }
-    if (Kind == MaterialMapKind::Vec3) {
-        return MaterialMap{ ReadVec3() };
-    }
-    if (Kind == MaterialMapKind::Vec4) {
-        return MaterialMap{ ReadVec4() };
-    }
-    if (Kind == MaterialMapKind::String) {
-        return MaterialMap{ ReadString() };
-    }
-    return MaterialMap{};
-}
-
 void AssetBinaryReader::ReadModelResult(ModelResult& Result) {
     const std::uint64_t NodeCount{ ReadUint64() };
+    std::string UnifiedSkinBoneRootNodeName{};
+    if (mFormatVersion >= 9) {
+        UnifiedSkinBoneRootNodeName = ReadString();
+    }
+
     std::vector<ModelNode*> Nodes{};
     Nodes.reserve(static_cast<std::size_t>(NodeCount));
-    ReadNodes(Result, NodeCount, Nodes);
+    ReadNodes(Result, NodeCount, UnifiedSkinBoneRootNodeName, Nodes);
 }
 
-void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, std::vector<ModelNode*>& Nodes) {
+void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, const std::string& UnifiedSkinBoneRootNodeName, std::vector<ModelNode*>& Nodes) {
     for (std::uint64_t Index{ 0 }; Index < NodeCount; ++Index) {
         const std::string Name{ ReadString() };
         const std::int32_t ParentIndex{ ReadInt32() };
@@ -113,7 +61,38 @@ void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, 
         }
         ModelNode& Node{ Result.CreateNode(Name, Parent) };
         Node.SetNodeToParent(ReadMat4());
-        Node.SetGeometryToNode(ReadMat4());
+        if (mFormatVersion <= 4) {
+            ReadMat4();
+        }
+        if (mFormatVersion >= 6) {
+            for (const ModelBoneInfo& BoneInfo : ReadBoneInfos()) {
+                Node.BoneInfos().push_back(BoneInfo);
+            }
+
+            Nodes.push_back(&Node);
+            if (mFormatVersion >= 7) {
+                ReadSkinnedMeshFlag(Node);
+            }
+            else {
+                Node.SetIsSkinnedMesh(ReadBool());
+            }
+
+            if (mFormatVersion >= 9) {
+                if (Node.IsSkinnedMesh() == true) {
+                    Node.SetSkinBoneRootNodeName(UnifiedSkinBoneRootNodeName);
+                }
+            }
+            else if (mFormatVersion >= 8) {
+                ReadSkinBoneRootNodeName(Node);
+            }
+
+            if (mFormatVersion >= 10) {
+                ReadBoundingBox(Node);
+            }
+        }
+        else {
+            Nodes.push_back(&Node);
+        }
         ReadVertexAttributes(Node.Vertices());
         Node.Indices() = ReadUint32Array();
         if (mFormatVersion == 1) {
@@ -127,7 +106,7 @@ void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, 
                 ModelNode::SubMesh SubMesh{};
                 SubMesh.IndexOffset = 0;
                 SubMesh.IndexCount = Node.Indices().size();
-                SubMesh.MaterialIndex = MaterialIndex;
+                SubMesh.MaterialGroupItemIndex = MaterialIndex;
                 SubMeshes.push_back(SubMesh);
                 Node.SetSubMeshes(std::move(SubMeshes));
             }
@@ -135,8 +114,41 @@ void AssetBinaryReader::ReadNodes(ModelResult& Result, std::uint64_t NodeCount, 
         else {
             Node.SetSubMeshes(ReadSubMeshes());
         }
-        Nodes.push_back(&Node);
     }
+}
+
+std::vector<ModelBoneInfo> AssetBinaryReader::ReadBoneInfos() {
+    const std::uint64_t Count{ ReadUint64() };
+    std::vector<ModelBoneInfo> BoneInfos{};
+    BoneInfos.reserve(static_cast<std::size_t>(Count));
+    for (std::uint64_t Index{ 0 }; Index < Count; ++Index) {
+        ModelBoneInfo BoneInfo{};
+        BoneInfo.SkinArrayIndex = ReadUint32();
+        BoneInfo.JointArrayIndex = ReadUint32();
+        BoneInfo.BoneName = ReadString();
+        BoneInfo.InverseBindMatrix = ReadMat4();
+        BoneInfos.push_back(BoneInfo);
+    }
+
+    return BoneInfos;
+}
+
+
+void AssetBinaryReader::ReadSkinnedMeshFlag(ModelNode& Node) {
+    Node.SetIsSkinnedMesh(ReadBool());
+}
+
+void AssetBinaryReader::ReadSkinBoneRootNodeName(ModelNode& Node) {
+    Node.SetSkinBoneRootNodeName(ReadString());
+}
+
+void AssetBinaryReader::ReadBoundingBox(ModelNode& Node) {
+    const bool HasBoundingBox{ ReadBool() };
+    if (HasBoundingBox == false) {
+        return;
+    }
+
+    Node.SetBoundingBox(ReadBoundingOrientedBox());
 }
 
 void AssetBinaryReader::ReadVertexAttributes(VertexAttributes& Attributes) {
@@ -160,7 +172,7 @@ std::vector<ModelNode::SubMesh> AssetBinaryReader::ReadSubMeshes() {
         ModelNode::SubMesh SubMesh{};
         SubMesh.IndexOffset = static_cast<std::size_t>(ReadUint64());
         SubMesh.IndexCount = static_cast<std::size_t>(ReadUint64());
-        SubMesh.MaterialIndex = static_cast<std::size_t>(ReadUint64());
+        SubMesh.MaterialGroupItemIndex = static_cast<std::size_t>(ReadUint64());
         SubMeshes.push_back(SubMesh);
     }
     return SubMeshes;
@@ -271,20 +283,8 @@ bool AssetBinaryReader::ReadBool() {
     return Value != 0;
 }
 
-Vec2 AssetBinaryReader::ReadVec2() {
-    Vec2 Value{};
-    ReadBytes(&Value, sizeof(Value));
-    return Value;
-}
-
-Vec3 AssetBinaryReader::ReadVec3() {
-    Vec3 Value{};
-    ReadBytes(&Value, sizeof(Value));
-    return Value;
-}
-
-Vec4 AssetBinaryReader::ReadVec4() {
-    Vec4 Value{};
+DirectX::BoundingOrientedBox AssetBinaryReader::ReadBoundingOrientedBox() {
+    DirectX::BoundingOrientedBox Value{};
     ReadBytes(&Value, sizeof(Value));
     return Value;
 }
