@@ -1,4 +1,4 @@
-name: MSBuild
+name: MSBuild_Master
 
 on:
   push:
