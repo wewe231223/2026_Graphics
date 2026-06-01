@@ -113,6 +113,7 @@ add_library(PhysicsLib STATIC
     PhysicsLib/Simulation/Repository/PhysicsActorRepository.cpp
     PhysicsLib/Simulation/SpatialQuery/BruteForcePhysicsSpatialQuery.cpp
     PhysicsLib/Simulation/SpatialQuery/IPhysicsSpatialQuery.cpp
+    PhysicsLib/Runtime/PhysicsRuntime.cpp
     PhysicsLib/World/PhysicsWorld.cpp
 )
 

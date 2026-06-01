@@ -18,6 +18,7 @@ Notes:
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -37,6 +38,7 @@ struct PhysicsActorSpawnInfo final {
     std::string mName{};
     bool mIsActive{ true };
     PhysicsActorBase::PhysicsActorType mActorType{ PhysicsActorBase::PhysicsActorType::Dynamic };
+    bool mIsTerrainActor{};
     PhysicsDynamicActor::ActorDesc mDynamicActorDesc{};
     PhysicsTerrainActor::ActorDesc mTerrainActorDesc{};
     bool mHasInitialImpulse{};
@@ -50,7 +52,13 @@ struct PhysicsRuntimeScene final {
 enum class PhysicsCommandType : std::uint32_t {
     ResetScene = 0U,
     AddImpulse = 1U,
-    SetKinematicVelocity = 2U
+    SetKinematicVelocity = 2U,
+    AddForce = 3U,
+    SetVelocity = 4U,
+    SetKinematicTransform = 5U,
+    SetLocalBoundingBox = 6U,
+    SetTerrainActorDesc = 7U,
+    SetActorActive = 8U
 };
 
 struct PhysicsResetSceneCommand final {
@@ -68,11 +76,49 @@ struct PhysicsSetKinematicVelocityCommand final {
     DirectX::SimpleMath::Vector3 mVelocity{};
 };
 
+struct PhysicsAddForceCommand final {
+    ActorId mActorId{ InvalidActorId };
+    DirectX::SimpleMath::Vector3 mForce{};
+};
+
+struct PhysicsSetVelocityCommand final {
+    ActorId mActorId{ InvalidActorId };
+    DirectX::SimpleMath::Vector3 mVelocity{};
+};
+
+struct PhysicsSetKinematicTransformCommand final {
+    ActorId mActorId{ InvalidActorId };
+    DirectX::SimpleMath::Vector3 mPosition{};
+    DirectX::SimpleMath::Quaternion mOrientation{ 0.0F, 0.0F, 0.0F, 1.0F };
+    DirectX::SimpleMath::Vector3 mScale{ 1.0F, 1.0F, 1.0F };
+};
+
+struct PhysicsSetLocalBoundingBoxCommand final {
+    ActorId mActorId{ InvalidActorId };
+    DirectX::BoundingOrientedBox mLocalBoundingBox{};
+};
+
+struct PhysicsSetTerrainActorDescCommand final {
+    ActorId mActorId{ InvalidActorId };
+    std::shared_ptr<const PhysicsTerrainActor::ActorDesc> mTerrainActorDesc{};
+};
+
+struct PhysicsSetActorActiveCommand final {
+    ActorId mActorId{ InvalidActorId };
+    bool mIsActive{};
+};
+
 struct PhysicsCommand final {
     PhysicsCommandType mType{ PhysicsCommandType::ResetScene };
     PhysicsResetSceneCommand mResetScene{};
     PhysicsAddImpulseCommand mAddImpulse{};
     PhysicsSetKinematicVelocityCommand mSetKinematicVelocity{};
+    PhysicsAddForceCommand mAddForce{};
+    PhysicsSetVelocityCommand mSetVelocity{};
+    PhysicsSetKinematicTransformCommand mSetKinematicTransform{};
+    PhysicsSetLocalBoundingBoxCommand mSetLocalBoundingBox{};
+    PhysicsSetTerrainActorDescCommand mSetTerrainActorDesc{};
+    PhysicsSetActorActiveCommand mSetActorActive{};
 };
 
 struct PhysicsActorSnapshot final {
@@ -82,6 +128,7 @@ struct PhysicsActorSnapshot final {
     DirectX::SimpleMath::Vector3 mPosition{};
     DirectX::SimpleMath::Quaternion mOrientation{ 0.0F, 0.0F, 0.0F, 1.0F };
     DirectX::SimpleMath::Vector3 mScale{ 1.0F, 1.0F, 1.0F };
+    DirectX::SimpleMath::Vector3 mVelocity{};
     DirectX::BoundingOrientedBox mWorldBoundingBox{};
 };
 

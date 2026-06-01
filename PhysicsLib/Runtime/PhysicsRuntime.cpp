@@ -2,6 +2,7 @@
 
 #include "PhysicsLib/Actors/PhysicsDynamicActor.h"
 #include "PhysicsLib/Actors/PhysicsKinematicActor.h"
+#include "PhysicsLib/Actors/PhysicsStaticActor.h"
 #include "PhysicsLib/Actors/PhysicsTerrainActor.h"
 
 #include <DirectXTK12/SimpleMath.h>
@@ -10,7 +11,9 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <memory>
 #include <thread>
+#include <utility>
 
 PhysicsRuntime::PhysicsRuntime()
     : mSettings{},
@@ -139,6 +142,72 @@ bool PhysicsRuntime::EnqueueSetKinematicVelocity(ActorId ActorIdValue, const Dir
     return Enqueued;
 }
 
+bool PhysicsRuntime::EnqueueAddForce(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Force) {
+    PhysicsCommand NewCommand{};
+    NewCommand.mType = PhysicsCommandType::AddForce;
+    NewCommand.mAddForce.mActorId = ActorIdValue;
+    NewCommand.mAddForce.mForce = Force;
+
+    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
+    return Enqueued;
+}
+
+bool PhysicsRuntime::EnqueueSetVelocity(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Velocity) {
+    PhysicsCommand NewCommand{};
+    NewCommand.mType = PhysicsCommandType::SetVelocity;
+    NewCommand.mSetVelocity.mActorId = ActorIdValue;
+    NewCommand.mSetVelocity.mVelocity = Velocity;
+
+    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
+    return Enqueued;
+}
+
+bool PhysicsRuntime::EnqueueSetKinematicTransform(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Position, const DirectX::SimpleMath::Quaternion& Orientation, const DirectX::SimpleMath::Vector3& Scale) {
+    PhysicsCommand NewCommand{};
+    NewCommand.mType = PhysicsCommandType::SetKinematicTransform;
+    NewCommand.mSetKinematicTransform.mActorId = ActorIdValue;
+    NewCommand.mSetKinematicTransform.mPosition = Position;
+    NewCommand.mSetKinematicTransform.mOrientation = Orientation;
+    NewCommand.mSetKinematicTransform.mScale = Scale;
+
+    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
+    return Enqueued;
+}
+
+bool PhysicsRuntime::EnqueueSetLocalBoundingBox(ActorId ActorIdValue, const DirectX::BoundingOrientedBox& LocalBoundingBox) {
+    PhysicsCommand NewCommand{};
+    NewCommand.mType = PhysicsCommandType::SetLocalBoundingBox;
+    NewCommand.mSetLocalBoundingBox.mActorId = ActorIdValue;
+    NewCommand.mSetLocalBoundingBox.mLocalBoundingBox = LocalBoundingBox;
+
+    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
+    return Enqueued;
+}
+
+bool PhysicsRuntime::EnqueueSetTerrainActorDesc(ActorId ActorIdValue, const std::shared_ptr<const PhysicsTerrainActor::ActorDesc>& TerrainActorDesc) {
+    if (TerrainActorDesc == nullptr) {
+        return false;
+    }
+
+    PhysicsCommand NewCommand{};
+    NewCommand.mType = PhysicsCommandType::SetTerrainActorDesc;
+    NewCommand.mSetTerrainActorDesc.mActorId = ActorIdValue;
+    NewCommand.mSetTerrainActorDesc.mTerrainActorDesc = TerrainActorDesc;
+
+    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
+    return Enqueued;
+}
+
+bool PhysicsRuntime::EnqueueSetActorActive(ActorId ActorIdValue, bool IsActive) {
+    PhysicsCommand NewCommand{};
+    NewCommand.mType = PhysicsCommandType::SetActorActive;
+    NewCommand.mSetActorActive.mActorId = ActorIdValue;
+    NewCommand.mSetActorActive.mIsActive = IsActive;
+
+    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
+    return Enqueued;
+}
+
 std::uint32_t PhysicsRuntime::GetReadableSnapshotIndex() const {
     std::uint32_t ReadableSnapshotIndex{ mReadableSnapshotIndex.load(std::memory_order_acquire) };
     return ReadableSnapshotIndex;
@@ -257,6 +326,36 @@ void PhysicsRuntime::ProcessCommand(const PhysicsCommand& Command, double& OutTi
 
     if (Command.mType == PhysicsCommandType::SetKinematicVelocity) {
         ApplySetKinematicVelocityCommand(Command.mSetKinematicVelocity);
+        return;
+    }
+
+    if (Command.mType == PhysicsCommandType::AddForce) {
+        ApplyAddForceCommand(Command.mAddForce);
+        return;
+    }
+
+    if (Command.mType == PhysicsCommandType::SetVelocity) {
+        ApplySetVelocityCommand(Command.mSetVelocity);
+        return;
+    }
+
+    if (Command.mType == PhysicsCommandType::SetKinematicTransform) {
+        ApplySetKinematicTransformCommand(Command.mSetKinematicTransform);
+        return;
+    }
+
+    if (Command.mType == PhysicsCommandType::SetLocalBoundingBox) {
+        ApplySetLocalBoundingBoxCommand(Command.mSetLocalBoundingBox);
+        return;
+    }
+
+    if (Command.mType == PhysicsCommandType::SetTerrainActorDesc) {
+        ApplySetTerrainActorDescCommand(Command.mSetTerrainActorDesc);
+        return;
+    }
+
+    if (Command.mType == PhysicsCommandType::SetActorActive) {
+        ApplySetActorActiveCommand(Command.mSetActorActive);
     }
 }
 
@@ -309,6 +408,104 @@ void PhysicsRuntime::ApplySetKinematicVelocityCommand(const PhysicsSetKinematicV
     KinematicActor->SetVelocity(Command.mVelocity);
 }
 
+void PhysicsRuntime::ApplyAddForceCommand(const PhysicsAddForceCommand& Command) {
+    if (Command.mActorId == InvalidActorId) {
+        return;
+    }
+
+    std::size_t ActorIndex{ static_cast<std::size_t>(Command.mActorId) };
+    PhysicsActorBase* TargetActor{ mPhysicsWorld.GetActor(ActorIndex) };
+    if (TargetActor == nullptr) {
+        return;
+    }
+
+    PhysicsActorBase::PhysicsActorType ActorType{ TargetActor->GetActorType() };
+    if (ActorType != PhysicsActorBase::PhysicsActorType::Dynamic && ActorType != PhysicsActorBase::PhysicsActorType::Kinematic) {
+        return;
+    }
+
+    TargetActor->AddForce(Command.mForce);
+}
+
+void PhysicsRuntime::ApplySetVelocityCommand(const PhysicsSetVelocityCommand& Command) {
+    if (Command.mActorId == InvalidActorId) {
+        return;
+    }
+
+    std::size_t ActorIndex{ static_cast<std::size_t>(Command.mActorId) };
+    PhysicsActorBase* TargetActor{ mPhysicsWorld.GetActor(ActorIndex) };
+    if (TargetActor == nullptr) {
+        return;
+    }
+
+    PhysicsActorBase::PhysicsActorType ActorType{ TargetActor->GetActorType() };
+    if (ActorType != PhysicsActorBase::PhysicsActorType::Dynamic && ActorType != PhysicsActorBase::PhysicsActorType::Kinematic) {
+        return;
+    }
+
+    TargetActor->SetVelocity(Command.mVelocity);
+}
+
+void PhysicsRuntime::ApplySetKinematicTransformCommand(const PhysicsSetKinematicTransformCommand& Command) {
+    if (Command.mActorId == InvalidActorId) {
+        return;
+    }
+
+    std::size_t ActorIndex{ static_cast<std::size_t>(Command.mActorId) };
+    PhysicsActorBase* TargetActor{ mPhysicsWorld.GetActor(ActorIndex) };
+    if (TargetActor == nullptr || TargetActor->GetActorType() != PhysicsActorBase::PhysicsActorType::Kinematic) {
+        return;
+    }
+
+    PhysicsKinematicActor* KinematicActor{ static_cast<PhysicsKinematicActor*>(TargetActor) };
+    KinematicActor->SetScale(Command.mScale);
+    KinematicActor->SetOrientation(Command.mOrientation);
+    KinematicActor->SetPosition(Command.mPosition);
+    mPhysicsWorld.MarkKinematicActorTeleported(*KinematicActor);
+}
+
+void PhysicsRuntime::ApplySetLocalBoundingBoxCommand(const PhysicsSetLocalBoundingBoxCommand& Command) {
+    if (Command.mActorId == InvalidActorId) {
+        return;
+    }
+
+    std::size_t ActorIndex{ static_cast<std::size_t>(Command.mActorId) };
+    PhysicsActorBase* TargetActor{ mPhysicsWorld.GetActor(ActorIndex) };
+    if (TargetActor == nullptr) {
+        return;
+    }
+
+    TargetActor->SetLocalBoundingBox(Command.mLocalBoundingBox);
+}
+
+void PhysicsRuntime::ApplySetTerrainActorDescCommand(const PhysicsSetTerrainActorDescCommand& Command) {
+    if (Command.mActorId == InvalidActorId || Command.mTerrainActorDesc == nullptr) {
+        return;
+    }
+
+    std::size_t ActorIndex{ static_cast<std::size_t>(Command.mActorId) };
+    PhysicsTerrainActor* TerrainActor{ mPhysicsWorld.GetTerrainActor(ActorIndex) };
+    if (TerrainActor == nullptr) {
+        return;
+    }
+
+    TerrainActor->SetActorDesc(*Command.mTerrainActorDesc);
+}
+
+void PhysicsRuntime::ApplySetActorActiveCommand(const PhysicsSetActorActiveCommand& Command) {
+    if (Command.mActorId == InvalidActorId) {
+        return;
+    }
+
+    std::size_t ActorIndex{ static_cast<std::size_t>(Command.mActorId) };
+    PhysicsActorBase* TargetActor{ mPhysicsWorld.GetActor(ActorIndex) };
+    if (TargetActor == nullptr) {
+        return;
+    }
+
+    TargetActor->SetIsActive(Command.mIsActive);
+}
+
 void PhysicsRuntime::BuildWorldFromScene(std::size_t SceneIndex) {
     mPhysicsWorld.Initialize(mSettings.mWorldSettings);
 
@@ -325,11 +522,22 @@ void PhysicsRuntime::BuildWorldFromScene(std::size_t SceneIndex) {
     std::size_t SpawnCount{ SpawnInfos.size() };
     for (std::size_t SpawnIndex{ 0U }; SpawnIndex < SpawnCount; ++SpawnIndex) {
         const PhysicsActorSpawnInfo& CurrentSpawnInfo{ SpawnInfos[SpawnIndex] };
-        if (CurrentSpawnInfo.mActorType == PhysicsActorBase::PhysicsActorType::Static) {
+        if (CurrentSpawnInfo.mIsTerrainActor == true) {
             PhysicsTerrainActor* CreatedTerrainActor{ mPhysicsWorld.CreateTerrainActor(CurrentSpawnInfo.mTerrainActorDesc) };
             if (CreatedTerrainActor != nullptr) {
                 CreatedTerrainActor->SetName(CurrentSpawnInfo.mName);
                 CreatedTerrainActor->SetIsActive(CurrentSpawnInfo.mIsActive);
+            }
+            continue;
+        }
+
+        if (CurrentSpawnInfo.mActorType == PhysicsActorBase::PhysicsActorType::Static) {
+            std::unique_ptr<PhysicsActorBase> NewActor{ std::make_unique<PhysicsStaticActor>(CurrentSpawnInfo.mDynamicActorDesc) };
+            PhysicsActorBase* CreatedStaticActor{ NewActor.get() };
+            mPhysicsWorld.AddActor(std::move(NewActor));
+            if (CreatedStaticActor != nullptr) {
+                CreatedStaticActor->SetName(CurrentSpawnInfo.mName);
+                CreatedStaticActor->SetIsActive(CurrentSpawnInfo.mIsActive);
             }
             continue;
         }
@@ -380,12 +588,14 @@ void PhysicsRuntime::PublishSnapshot(std::size_t LastUpdateStepCount, double Las
         SnapshotActor.mActorId = static_cast<ActorId>(ActorIndex);
         SnapshotActor.mActorType = CurrentActor->GetActorType();
         SnapshotActor.mIsActive = CurrentActor->GetIsActive();
+        SnapshotActor.mVelocity = DirectX::SimpleMath::Vector3{};
 
         if (CurrentActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Dynamic) {
             const PhysicsDynamicActor* DynamicActor{ static_cast<const PhysicsDynamicActor*>(CurrentActor) };
             SnapshotActor.mPosition = DynamicActor->GetPosition();
             SnapshotActor.mOrientation = DynamicActor->GetOrientation();
             SnapshotActor.mScale = DynamicActor->GetScale();
+            SnapshotActor.mVelocity = DynamicActor->GetVelocity();
             SnapshotActor.mWorldBoundingBox = DynamicActor->GetWorldBoundingBox();
             continue;
         }
@@ -395,6 +605,7 @@ void PhysicsRuntime::PublishSnapshot(std::size_t LastUpdateStepCount, double Las
             SnapshotActor.mPosition = KinematicActor->GetPosition();
             SnapshotActor.mOrientation = KinematicActor->GetOrientation();
             SnapshotActor.mScale = KinematicActor->GetScale();
+            SnapshotActor.mVelocity = KinematicActor->GetVelocity();
             SnapshotActor.mWorldBoundingBox = KinematicActor->GetWorldBoundingBox();
             continue;
         }
@@ -417,9 +628,18 @@ void PhysicsRuntime::PublishSnapshot(std::size_t LastUpdateStepCount, double Las
             continue;
         }
 
+        if (CurrentActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Static) {
+            SnapshotActor.mPosition = CurrentActor->GetPosition();
+            SnapshotActor.mOrientation = CurrentActor->GetOrientation();
+            SnapshotActor.mScale = CurrentActor->GetScale();
+            SnapshotActor.mWorldBoundingBox = CurrentActor->GetWorldBoundingBox();
+            continue;
+        }
+
         SnapshotActor.mPosition = DirectX::SimpleMath::Vector3{};
         SnapshotActor.mOrientation = DirectX::SimpleMath::Quaternion{ 0.0F, 0.0F, 0.0F, 1.0F };
         SnapshotActor.mScale = DirectX::SimpleMath::Vector3{ 1.0F, 1.0F, 1.0F };
+        SnapshotActor.mVelocity = DirectX::SimpleMath::Vector3{};
         SnapshotActor.mWorldBoundingBox = DirectX::BoundingOrientedBox{};
     }
 

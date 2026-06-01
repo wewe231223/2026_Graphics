@@ -16,7 +16,7 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> PhysicsActorUpdateSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 4> Accesses{ { { typeid(PhysicsActor), Access::Read }, { typeid(Transform), Access::Write }, { typeid(EntityHierarchy), Access::Read }, { typeid(BoundingBox), Access::Write } } };
+        static std::array<ComponentAccess, 4> Accesses{ { { typeid(PhysicsActor), Access::Write }, { typeid(Transform), Access::Write }, { typeid(EntityHierarchy), Access::Read }, { typeid(BoundingBox), Access::Write } } };
         return Accesses;
     }
 
@@ -29,22 +29,36 @@ namespace Game {
         (void)Dt;
 
         const IPhysicsWorld* PhysicsWorldResource{ Ctx.PhysicsWorldResource };
-        if (PhysicsWorldResource == nullptr) {
-            return;
-        }
 
         for (auto [PhysicsActorComponent, TransformComponent, EntityHierarchyComponent] : World.Query<PhysicsActor, Transform, EntityHierarchy>()) {
             PhysicsActorBase* ActorPointer{ PhysicsActorComponent.mActorPointer };
             if (ActorPointer == nullptr) {
+                if (PhysicsActorComponent.mHasCachedSnapshot == false) {
+                    continue;
+                }
+
+                TransformComponent.position = PhysicsActorComponent.mCachedPosition;
+                TransformComponent.rotation = PhysicsActorComponent.mCachedOrientation;
+                TransformComponent.scale = PhysicsActorComponent.mCachedScale;
+                TransformComponent.UpdateEulerRadiansFromRotation();
+
+                BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityHierarchyComponent.self) };
+                if (BoundingBoxComponent != nullptr) {
+                    BoundingBoxComponent->SetWorldObb(PhysicsActorComponent.mCachedWorldBoundingBox);
+                }
+
                 continue;
             }
 
             DirectX::SimpleMath::Vector3 PhysicsPosition{ ActorPointer->GetPosition() };
             DirectX::SimpleMath::Quaternion PhysicsOrientation{ ActorPointer->GetOrientation() };
             DirectX::SimpleMath::Vector3 PhysicsScale{ ActorPointer->GetScale() };
-            if (ActorPointer->GetActorType() == PhysicsActorBase::PhysicsActorType::Dynamic) {
+            if (ActorPointer->GetActorType() == PhysicsActorBase::PhysicsActorType::Dynamic && PhysicsWorldResource != nullptr) {
                 static_cast<void>(PhysicsWorldResource->TryGetInterpolatedActorTransform(*ActorPointer, PhysicsPosition, PhysicsOrientation, PhysicsScale));
             }
+
+            const DirectX::BoundingOrientedBox& PhysicsWorldBoundingBox{ ActorPointer->GetWorldBoundingBox() };
+            UpdatePhysicsActorCachedSnapshot(PhysicsActorComponent, PhysicsPosition, PhysicsOrientation, PhysicsScale, ActorPointer->GetVelocity(), PhysicsWorldBoundingBox);
 
             TransformComponent.position = PhysicsPosition;
             TransformComponent.rotation = PhysicsOrientation;
@@ -53,7 +67,7 @@ namespace Game {
 
             BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityHierarchyComponent.self) };
             if (BoundingBoxComponent != nullptr) {
-                BoundingBoxComponent->SetWorldObb(ActorPointer->GetWorldBoundingBox());
+                BoundingBoxComponent->SetWorldObb(PhysicsWorldBoundingBox);
             }
         }
     }

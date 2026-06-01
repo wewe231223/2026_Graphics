@@ -1083,7 +1083,9 @@ namespace {
         Game::PhysicsActor PhysicsActorComponent{};
         PhysicsActorComponent.mActorPointer = ActorPointer;
         PhysicsActorComponent.mActorIndex = ActorIndex;
+        PhysicsActorComponent.mActorId = ActorIndex;
         PhysicsActorComponent.mActorType = PhysicsActorBase::PhysicsActorType::Static;
+        Game::UpdatePhysicsActorCachedSnapshot(PhysicsActorComponent, ActorPointer->GetPosition(), ActorPointer->GetOrientation(), ActorPointer->GetScale(), ActorPointer->GetVelocity(), ActorPointer->GetWorldBoundingBox());
         World.AddComponent(RootEntityId, PhysicsActorComponent);
 
         Game::BoundingBox BoundingBoxComponent{};

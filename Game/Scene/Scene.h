@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -9,6 +10,7 @@
 #include "SceneWorldSnapshot.h"
 #include "Game/Model/AssetRegistry.h"
 #include "Script/Core/LuaScriptFramework.h"
+#include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
 #include "PhysicsLib/World/PhysicsWorld.h"
 
 namespace Game {
@@ -46,6 +48,8 @@ namespace Game {
         const Script::LuaBehaviorFramework& GetLuaScriptFramework() const;
         PhysicsWorld& GetPhysicsWorld();
         const PhysicsWorld& GetPhysicsWorld() const;
+        const PhysicsRuntimeScene& GetPhysicsRuntimeScene() const;
+        std::uint32_t GetPhysicsWorldVersion() const;
 
         void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap);
         void InitializePhysicsWorld();
@@ -80,6 +84,8 @@ namespace Game {
         std::string mName{};
         Arche::World mWorld{};
         PhysicsWorld mPhysicsWorld{};
+        PhysicsRuntimeScene mPhysicsRuntimeScene{};
+        std::uint32_t mPhysicsWorldVersion{ 1U };
         FrameContext mFrameContext{};
         AssetRegistry mAssetRegistry{};
         std::vector<std::unique_ptr<ISystem>> mSystems{};

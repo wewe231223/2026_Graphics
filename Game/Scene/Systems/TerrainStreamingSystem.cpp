@@ -62,7 +62,7 @@ namespace {
             return;
         }
 
-        PhysicsTerrainActor* TerrainActor{ PhysicsWorldResource->GetTerrainActor(PhysicsActorComponent->mActorIndex) };
+        PhysicsTerrainActor* TerrainActor{ PhysicsWorldResource->GetTerrainActor(Game::ResolvePhysicsActorId(*PhysicsActorComponent)) };
         if (TerrainActor == nullptr) {
             return;
         }
