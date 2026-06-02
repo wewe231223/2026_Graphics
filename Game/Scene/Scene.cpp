@@ -52,6 +52,33 @@
 namespace {
     constexpr std::string_view ObjectTagText{ "ObjectTag" };
     constexpr std::string_view PlayerTagText{ "PlayerTag" };
+    constexpr double DefaultRenderPhysicsDelaySeconds{ 1.0 / 60.0 };
+
+    PhysicsWorld::WorldSettings BuildDefaultPhysicsWorldSettings() {
+        PhysicsWorld::WorldSettings Settings{};
+        Settings.FixedTimeStep = 1.0f / 60.0f;
+        Settings.Gravity = DirectX::SimpleMath::Vector3{ 0.0f, -9.8f, 0.0f };
+        return Settings;
+    }
+
+    bool ResolvePhysicsRuntimeModeEnabled() {
+        const IConfig* ConfigInstance{ Config::Query() };
+        if (ConfigInstance == nullptr) {
+            return false;
+        }
+
+        return ConfigInstance->Get<bool>("PhysicsRuntime_Enabled");
+    }
+
+    double ResolveRenderPhysicsDelaySeconds() {
+        const IConfig* ConfigInstance{ Config::Query() };
+        if (ConfigInstance == nullptr) {
+            return DefaultRenderPhysicsDelaySeconds;
+        }
+
+        const double DelaySeconds{ ConfigInstance->Get<double>("RenderPhysicsDelaySeconds") };
+        return std::max(0.0, DelaySeconds);
+    }
 
     struct PendingPhysicsActorBinding final {
         Arche::EntityID mEntityId{ Arche::NullEntityID };
@@ -377,8 +404,8 @@ namespace {
         return IsHit == true ? NearestHitDistance : -1.0f;
     }
 
-    void AssignPhysicsActorBinding(Game::PhysicsActor& PhysicsActorComponent, const PendingPhysicsActorBinding& Binding) {
-        PhysicsActorComponent.mActorPointer = Binding.mActorPointer;
+    void AssignPhysicsActorBinding(Game::PhysicsActor& PhysicsActorComponent, const PendingPhysicsActorBinding& Binding, bool IsPhysicsRuntimeModeEnabled) {
+        PhysicsActorComponent.mActorPointer = IsPhysicsRuntimeModeEnabled == true ? nullptr : Binding.mActorPointer;
         PhysicsActorComponent.mActorIndex = Binding.mActorIndex;
         PhysicsActorComponent.mActorId = Binding.mActorId;
         PhysicsActorComponent.mActorType = Binding.mActorType;
@@ -390,15 +417,15 @@ namespace {
         Game::UpdatePhysicsActorCachedSnapshot(PhysicsActorComponent, Binding.mActorPointer->GetPosition(), Binding.mActorPointer->GetOrientation(), Binding.mActorPointer->GetScale(), Binding.mActorPointer->GetVelocity(), Binding.mActorPointer->GetWorldBoundingBox());
     }
 
-    void AttachPhysicsActorComponent(Arche::World& World, const PendingPhysicsActorBinding& Binding) {
+    void AttachPhysicsActorComponent(Arche::World& World, const PendingPhysicsActorBinding& Binding, bool IsPhysicsRuntimeModeEnabled) {
         Game::PhysicsActor* ExistingPhysicsActorComponent{ World.GetComponent<Game::PhysicsActor>(Binding.mEntityId) };
         if (ExistingPhysicsActorComponent != nullptr) {
-            AssignPhysicsActorBinding(*ExistingPhysicsActorComponent, Binding);
+            AssignPhysicsActorBinding(*ExistingPhysicsActorComponent, Binding, IsPhysicsRuntimeModeEnabled);
             return;
         }
 
         Game::PhysicsActor NewPhysicsActorComponent{};
-        AssignPhysicsActorBinding(NewPhysicsActorComponent, Binding);
+        AssignPhysicsActorBinding(NewPhysicsActorComponent, Binding, IsPhysicsRuntimeModeEnabled);
         World.AddComponent(Binding.mEntityId, NewPhysicsActorComponent);
     }
 
@@ -422,8 +449,12 @@ namespace Game {
         : mName{},
         mWorld{},
         mPhysicsWorld{},
+        mPhysicsRuntime{},
         mPhysicsRuntimeScene{},
+        mPhysicsRuntimeScenes{},
+        mPhysicsRuntimeSnapshot{},
         mPhysicsWorldVersion{ 1U },
+        mRenderPhysicsDelaySeconds{ ResolveRenderPhysicsDelaySeconds() },
         mFrameContext{},
         mAssetRegistry{},
         mSystems{},
@@ -434,7 +465,8 @@ namespace Game {
         mFileDropSubscriptionId{},
         mIsDefaultCameraControlBehaviorAttached{},
         mIsDebugGeometryDrawEnabled{},
-        mIsBoundingBoxDrawEnabled{} {
+        mIsBoundingBoxDrawEnabled{},
+        mIsPhysicsRuntimeModeEnabled{ ResolvePhysicsRuntimeModeEnabled() } {
         InitializePhysicsWorld();
 
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
@@ -473,6 +505,7 @@ namespace Game {
     }
 
     Scene::~Scene() {
+        ShutdownPhysicsRuntime();
     }
 
     Arche::World& Scene::GetWorld() {
@@ -527,12 +560,20 @@ namespace Game {
         return mPhysicsWorld;
     }
 
+    const PhysicsRuntime& Scene::GetPhysicsRuntime() const {
+        return mPhysicsRuntime;
+    }
+
     const PhysicsRuntimeScene& Scene::GetPhysicsRuntimeScene() const {
         return mPhysicsRuntimeScene;
     }
 
     std::uint32_t Scene::GetPhysicsWorldVersion() const {
         return mPhysicsWorldVersion;
+    }
+
+    bool Scene::IsPhysicsRuntimeModeEnabled() const {
+        return mIsPhysicsRuntimeModeEnabled;
     }
 
     void Scene::InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap) {
@@ -546,18 +587,187 @@ namespace Game {
     }
 
     void Scene::InitializePhysicsWorld() {
-        PhysicsWorld::WorldSettings Settings{};
-        Settings.FixedTimeStep = 1.0f / 60.0f;
-        Settings.Gravity = DirectX::SimpleMath::Vector3{ 0.0f, -9.8f, 0.0f };
+        PhysicsWorld::WorldSettings Settings{ BuildDefaultPhysicsWorldSettings() };
         mPhysicsWorld.Initialize(Settings);
-        mFrameContext.PhysicsWorldResource = &mPhysicsWorld;
+        mFrameContext.PhysicsWorldResource = mIsPhysicsRuntimeModeEnabled == true ? nullptr : &mPhysicsWorld;
+        mFrameContext.PhysicsSnapshotResource = nullptr;
+        mFrameContext.IsPhysicsRuntimeModeEnabled = mIsPhysicsRuntimeModeEnabled;
 
         for (TerrainActorDescBinding& Binding : mTerrainActorDescBindings) {
             Binding.mIsTerrainActorDescApplied = false;
         }
     }
 
+    void Scene::InitializePhysicsRuntime() {
+        ShutdownPhysicsRuntime();
+        mFrameContext.IsPhysicsRuntimeModeEnabled = mIsPhysicsRuntimeModeEnabled;
+        mFrameContext.PhysicsSnapshotResource = nullptr;
+
+        if (mIsPhysicsRuntimeModeEnabled == false) {
+            mFrameContext.PhysicsWorldResource = &mPhysicsWorld;
+            PublishPhysicsRuntimeStatus(nullptr);
+            return;
+        }
+
+        mFrameContext.PhysicsWorldResource = nullptr;
+        mPhysicsRuntimeScenes.clear();
+        mPhysicsRuntimeScenes.push_back(mPhysicsRuntimeScene);
+
+        PhysicsRuntime::RuntimeSettings RuntimeSettings{};
+        RuntimeSettings.mWorldSettings = BuildDefaultPhysicsWorldSettings();
+        RuntimeSettings.mMaxSubSteps = 4U;
+
+        const bool IsRuntimeInitialized{ mPhysicsRuntime.Initialize(&mPhysicsRuntimeScenes, RuntimeSettings, 0U, mPhysicsWorldVersion) };
+        if (IsRuntimeInitialized == false) {
+            mIsPhysicsRuntimeModeEnabled = false;
+            mFrameContext.IsPhysicsRuntimeModeEnabled = false;
+            mFrameContext.PhysicsWorldResource = &mPhysicsWorld;
+            PublishPhysicsRuntimeStatus(nullptr);
+            return;
+        }
+
+        PublishPhysicsRuntimeStatus(nullptr);
+    }
+
+    void Scene::ShutdownPhysicsRuntime() {
+        mPhysicsRuntime.Shutdown();
+        mFrameContext.PhysicsSnapshotResource = nullptr;
+    }
+
+    void Scene::SubmitPhysicsRuntimeCommands() {
+        if (mIsPhysicsRuntimeModeEnabled == false || mPhysicsRuntime.IsRunning() == false) {
+            return;
+        }
+
+        for (auto [PhysicsActorComponent] : mWorld.Query<PhysicsActor>()) {
+            PhysicsActorPendingCommands PendingCommands{};
+            const bool HasPendingCommands{ TryConsumePhysicsActorPendingCommands(PhysicsActorComponent, PendingCommands) };
+            if (HasPendingCommands == false || PendingCommands.mActorId == InvalidPhysicsActorId) {
+                continue;
+            }
+
+            const ActorId RuntimeActorId{ static_cast<ActorId>(PendingCommands.mActorId) };
+            if (PendingCommands.mHasSetVelocity == true) {
+                static_cast<void>(mPhysicsRuntime.EnqueueSetVelocity(RuntimeActorId, PendingCommands.mVelocity));
+            }
+
+            if (PendingCommands.mHasForce == true) {
+                static_cast<void>(mPhysicsRuntime.EnqueueAddForce(RuntimeActorId, PendingCommands.mForce));
+            }
+
+            if (PendingCommands.mHasImpulse == true) {
+                static_cast<void>(mPhysicsRuntime.EnqueueAddImpulse(RuntimeActorId, PendingCommands.mImpulse));
+            }
+        }
+
+        for (auto [PhysicsActorComponent, TransformComponent] : mWorld.Query<PhysicsActor, Transform>()) {
+            if (PhysicsActorComponent.mActorType != PhysicsActorBase::PhysicsActorType::Kinematic) {
+                continue;
+            }
+
+            const std::uint32_t PhysicsActorId{ ResolvePhysicsActorId(PhysicsActorComponent) };
+            if (PhysicsActorId == InvalidPhysicsActorId) {
+                continue;
+            }
+
+            if (PhysicsActorComponent.mHasCachedSnapshot == false) {
+                static_cast<void>(mPhysicsRuntime.EnqueueSetKinematicTransform(static_cast<ActorId>(PhysicsActorId), TransformComponent.position, TransformComponent.rotation, TransformComponent.scale));
+                continue;
+            }
+
+            const bool IsPositionChanged{ PhysicsActorComponent.mCachedPosition != TransformComponent.position };
+            const bool IsOrientationChanged{ PhysicsActorComponent.mCachedOrientation != TransformComponent.rotation };
+            const bool IsScaleChanged{ PhysicsActorComponent.mCachedScale != TransformComponent.scale };
+            if (IsPositionChanged == true || IsOrientationChanged == true || IsScaleChanged == true) {
+                static_cast<void>(mPhysicsRuntime.EnqueueSetKinematicTransform(static_cast<ActorId>(PhysicsActorId), TransformComponent.position, TransformComponent.rotation, TransformComponent.scale));
+            }
+        }
+
+        for (TerrainActorDescBinding& BindingSource : mTerrainActorDescBindings) {
+            PhysicsActor* PhysicsActorComponent{ mWorld.GetComponent<PhysicsActor>(BindingSource.mEntityId) };
+            Transform* TransformComponent{ mWorld.GetComponent<Transform>(BindingSource.mEntityId) };
+            if (PhysicsActorComponent == nullptr || TransformComponent == nullptr || IsValidTerrainActorDesc(BindingSource.mTerrainActorDesc) == false) {
+                continue;
+            }
+
+            const std::uint32_t PhysicsActorId{ ResolvePhysicsActorId(*PhysicsActorComponent) };
+            if (PhysicsActorId == InvalidPhysicsActorId) {
+                continue;
+            }
+
+            const bool IsTransformChanged{ PhysicsActorComponent->mHasCachedSnapshot == false || std::make_tuple(PhysicsActorComponent->mCachedPosition, PhysicsActorComponent->mCachedOrientation, PhysicsActorComponent->mCachedScale) != std::make_tuple(TransformComponent->position, TransformComponent->rotation, TransformComponent->scale) };
+            if (BindingSource.mIsTerrainActorDescApplied == true && IsTransformChanged == false) {
+                continue;
+            }
+
+            PhysicsTerrainActor::ActorDesc Desc{ BuildPhysicsTerrainActorDesc(BindingSource.mTerrainActorDesc, *TransformComponent) };
+            const std::shared_ptr<const PhysicsTerrainActor::ActorDesc> RuntimeTerrainActorDesc{ std::make_shared<const PhysicsTerrainActor::ActorDesc>(std::move(Desc)) };
+            const bool IsCommandSubmitted{ mPhysicsRuntime.EnqueueSetTerrainActorDesc(static_cast<ActorId>(PhysicsActorId), RuntimeTerrainActorDesc) };
+            if (IsCommandSubmitted == true) {
+                BindingSource.mIsTerrainActorDescApplied = true;
+            }
+        }
+    }
+
+    void Scene::RefreshPhysicsRuntimeSnapshot() {
+        mFrameContext.PhysicsSnapshotResource = nullptr;
+        if (mIsPhysicsRuntimeModeEnabled == false || mPhysicsRuntime.IsRunning() == false || mPhysicsRuntime.PublishedSnapshotCount() == 0U) {
+            PublishPhysicsRuntimeStatus(nullptr);
+            return;
+        }
+
+        const double LatestSimulationTimeSeconds{ mPhysicsRuntime.LatestSimulationTimeSeconds() };
+        const double RenderPhysicsTimeSeconds{ std::max(0.0, LatestSimulationTimeSeconds - mRenderPhysicsDelaySeconds) };
+
+        PhysicsSnapshot PreviousSnapshot{};
+        PhysicsSnapshot NextSnapshot{};
+        float SnapshotAlpha{};
+        bool HasSnapshot{ mPhysicsRuntime.TryGetSnapshotPairForTime(RenderPhysicsTimeSeconds, PreviousSnapshot, NextSnapshot, SnapshotAlpha) };
+        if (HasSnapshot == true) {
+            (void)NextSnapshot;
+            (void)SnapshotAlpha;
+            mPhysicsRuntimeSnapshot = std::move(PreviousSnapshot);
+        }
+        else {
+            const std::uint32_t SnapshotIndex{ mPhysicsRuntime.GetReadableSnapshotIndex() };
+            mPhysicsRuntimeSnapshot = mPhysicsRuntime.GetSnapshot(SnapshotIndex);
+            HasSnapshot = mPhysicsRuntimeSnapshot.mPublishIndex != 0U;
+        }
+
+        if (HasSnapshot == false || mPhysicsRuntimeSnapshot.mWorldVersion != mPhysicsWorldVersion) {
+            PublishPhysicsRuntimeStatus(nullptr);
+            return;
+        }
+
+        mFrameContext.PhysicsSnapshotResource = &mPhysicsRuntimeSnapshot;
+        PublishPhysicsRuntimeStatus(&mPhysicsRuntimeSnapshot);
+    }
+
+    void Scene::PublishPhysicsRuntimeStatus(const PhysicsSnapshot* Snapshot) {
+        PhysicsRuntimeStatus Status{};
+        Status.mIsRuntimeModeEnabled = mIsPhysicsRuntimeModeEnabled;
+        Status.mIsRunning = mIsPhysicsRuntimeModeEnabled == true && mPhysicsRuntime.IsRunning() == true;
+
+        if (mIsPhysicsRuntimeModeEnabled == true) {
+            Status.mLatestStepIndex = mPhysicsRuntime.LatestStepIndex();
+        }
+
+        if (Snapshot != nullptr) {
+            Status.mSnapshotStepIndex = Snapshot->mStepIndex;
+            Status.mActorCount = Snapshot->mActorCount;
+            const double LatestSimulationTimeSeconds{ mPhysicsRuntime.LatestSimulationTimeSeconds() };
+            Status.mSnapshotAgeMilliseconds = std::max(0.0, LatestSimulationTimeSeconds - Snapshot->mSimulationTimeSeconds) * 1000.0;
+        }
+        else if (mIsPhysicsRuntimeModeEnabled == false) {
+            Status.mActorCount = mPhysicsWorld.GetActorCount();
+        }
+
+        mFrameContext.PhysicsRuntimeStatus = Status;
+        mWorldSnapshot.SetPhysicsRuntimeStatus(Status);
+    }
+
     void Scene::RebuildPhysicsActors() {
+        ShutdownPhysicsRuntime();
         InitializePhysicsWorld();
 
         const std::vector<ScenePhysicsActorDesc> ActorDescs{ CollectScenePhysicsActorDescs(mWorld, mTerrainActorDescBindings) };
@@ -565,13 +775,24 @@ namespace Game {
         std::vector<PendingPhysicsActorBinding> PendingBindings{ CreatePhysicsWorldActors(mPhysicsWorld, ActorDescs) };
 
         for (const PendingPhysicsActorBinding& Binding : PendingBindings) {
-            AttachPhysicsActorComponent(mWorld, Binding);
+            AttachPhysicsActorComponent(mWorld, Binding, mIsPhysicsRuntimeModeEnabled);
         }
 
         mPhysicsWorldVersion = AdvancePhysicsWorldVersion(mPhysicsWorldVersion);
+        InitializePhysicsRuntime();
     }
 
     void Scene::UpdatePhysics(float Dt) {
+        if (mIsPhysicsRuntimeModeEnabled == true) {
+            SubmitPhysicsRuntimeCommands();
+            RefreshPhysicsRuntimeSnapshot();
+            return;
+        }
+
+        mFrameContext.PhysicsWorldResource = &mPhysicsWorld;
+        mFrameContext.PhysicsSnapshotResource = nullptr;
+        mFrameContext.IsPhysicsRuntimeModeEnabled = false;
+
         for (auto [PhysicsActorComponent, TransformComponent, BoundingBoxComponent] : mWorld.Query<PhysicsActor, Transform, BoundingBox>()) {
             PhysicsActorBase* ActorPointer{ PhysicsActorComponent.mActorPointer };
             if (ActorPointer == nullptr) {
@@ -618,8 +839,14 @@ namespace Game {
             ApplyTerrainActorTransformIfChanged(*TerrainActorPointer, *TransformComponent);
         }
 
+        for (auto [PhysicsActorComponent] : mWorld.Query<PhysicsActor>()) {
+            PhysicsActorPendingCommands PendingCommands{};
+            static_cast<void>(TryConsumePhysicsActorPendingCommands(PhysicsActorComponent, PendingCommands));
+        }
+
         mPhysicsWorld.TickKinematicActors(Dt);
         mPhysicsWorld.Update(Dt);
+        PublishPhysicsRuntimeStatus(nullptr);
     }
 
     void Scene::SetName(const std::string& NewName) {
@@ -748,6 +975,10 @@ namespace Game {
             return CameraFlagNone;
         });
         mLuaScriptFramework.RegisterGlobalFunction("RaycastTerrainDistance", [this](const DirectX::SimpleMath::Vector3& RayStartPoint, const DirectX::SimpleMath::Vector3& RayDirection, const float RayLength) -> float {
+            if (mIsPhysicsRuntimeModeEnabled == true) {
+                return -1.0f;
+            }
+
             return ResolveTerrainRaycastDistance(mPhysicsWorld, RayStartPoint, RayDirection, RayLength);
         });
 

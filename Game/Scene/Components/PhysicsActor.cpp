@@ -56,15 +56,11 @@ namespace Game {
     }
 
     bool PhysicsActor::HasActor() const {
-        return mActorPointer != nullptr;
+        return mActorId != InvalidPhysicsActorId || mActorPointer != nullptr;
     }
 
     DirectX::SimpleMath::Vector3 PhysicsActor::GetVelocity() const {
-        if (mActorPointer == nullptr) {
-            return mCachedVelocity;
-        }
-
-        return mActorPointer->GetVelocity();
+        return mCachedVelocity;
     }
 
     void PhysicsActor::SetVelocity(const DirectX::SimpleMath::Vector3& Velocity) {

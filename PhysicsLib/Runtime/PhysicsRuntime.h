@@ -18,6 +18,7 @@ Notes:
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -56,6 +57,12 @@ public:
 
     std::uint32_t GetReadableSnapshotIndex() const;
     const PhysicsSnapshot& GetSnapshot(std::uint32_t SnapshotIndex) const;
+    bool TryGetSnapshotPairForTime(double RenderPhysicsTime, PhysicsSnapshot& OutPrevious, PhysicsSnapshot& OutNext, float& OutAlpha) const;
+
+    bool IsRunning() const;
+    std::uint64_t LatestStepIndex() const;
+    double LatestSimulationTimeSeconds() const;
+    std::uint64_t PublishedSnapshotCount() const;
 
 private:
     static std::uint64_t PackResetSceneCommand(const PhysicsResetSceneCommand& Command);
@@ -63,7 +70,8 @@ private:
 
     bool TryConsumeCoalescedResetCommand(PhysicsResetSceneCommand& OutCommand);
     void RunPhysicsThread();
-    void ProcessCommand(const PhysicsCommand& Command, double& OutTimeAccumulatorSeconds);
+    bool ProcessPendingCommandsAtFixedStepBoundary(double& OutTimeAccumulatorSeconds);
+    bool ProcessCommand(const PhysicsCommand& Command, double& OutTimeAccumulatorSeconds);
     void ApplyResetSceneCommand(const PhysicsResetSceneCommand& Command, double& OutTimeAccumulatorSeconds);
     void ApplyImpulseCommand(const PhysicsAddImpulseCommand& Command);
     void ApplySetKinematicVelocityCommand(const PhysicsSetKinematicVelocityCommand& Command);
@@ -87,11 +95,15 @@ private:
     std::size_t mCurrentSceneIndex;
     std::uint32_t mCurrentWorldVersion;
     std::array<PhysicsSnapshot, SnapshotBufferCount> mSnapshotBuffers;
+    mutable std::mutex mSnapshotMutex;
     std::atomic<std::uint32_t> mReadableSnapshotIndex;
     std::uint32_t mWriteSnapshotIndex;
     SpscRingQueue<PhysicsCommand, CommandQueueCapacity> mCommandQueue;
     std::atomic<std::uint64_t> mCoalescedResetCommand;
     std::atomic<bool> mHasCoalescedResetCommand;
     std::atomic<bool> mIsRunning;
+    std::atomic<std::uint64_t> mLatestStepIndex;
+    std::atomic<double> mLatestSimulationTimeSeconds;
+    std::atomic<std::uint64_t> mPublishedSnapshotCount;
     std::thread mPhysicsThread;
 };

@@ -7,7 +7,9 @@
 #include "Utility/DirectXInclude.h"
 #include "Arche/World.h"
 #include "Game/Base/RenderFrameData.h"
+#include "Game/Scene/SceneWorldSnapshot.h"
 #include "PhysicsLib/Common.h"
+#include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
 #include "Utility/SimpleMathWrapper.h"
 
 namespace Game {
@@ -53,6 +55,9 @@ namespace Game {
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
         AssetRegistry* AssetRegistryResource{ nullptr };
         IPhysicsWorld* PhysicsWorldResource{ nullptr };
+        const PhysicsSnapshot* PhysicsSnapshotResource{ nullptr };
+        bool IsPhysicsRuntimeModeEnabled{};
+        PhysicsRuntimeStatus PhysicsRuntimeStatus{};
         Arche::EntityID PickedEntityId{ Arche::NullEntityID };
         std::vector<SkinnedMeshPreparedData> SkinnedMeshPreparedDataItems{};
     };

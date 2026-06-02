@@ -8,10 +8,12 @@
 #include <DirectXTK12/SimpleMath.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <utility>
 
@@ -22,12 +24,16 @@ PhysicsRuntime::PhysicsRuntime()
       mCurrentSceneIndex{},
       mCurrentWorldVersion{ 1U },
       mSnapshotBuffers{},
+      mSnapshotMutex{},
       mReadableSnapshotIndex{},
       mWriteSnapshotIndex{ 1U },
       mCommandQueue{},
       mCoalescedResetCommand{},
       mHasCoalescedResetCommand{},
       mIsRunning{},
+      mLatestStepIndex{},
+      mLatestSimulationTimeSeconds{},
+      mPublishedSnapshotCount{},
       mPhysicsThread{} {
 }
 
@@ -71,18 +77,27 @@ bool PhysicsRuntime::Initialize(const std::vector<PhysicsRuntimeScene>* SceneTem
         }
     }
 
-    for (std::size_t BufferIndex{ 0U }; BufferIndex < SnapshotBufferCount; ++BufferIndex) {
-        PhysicsSnapshot& CurrentBuffer{ mSnapshotBuffers[BufferIndex] };
-        CurrentBuffer.mWorldVersion = mCurrentWorldVersion;
-        CurrentBuffer.mSceneIndex = mCurrentSceneIndex;
-        CurrentBuffer.mActorCount = 0U;
-        CurrentBuffer.mLastUpdateStepCount = 0U;
-        CurrentBuffer.mLastUpdateStepElapsedMilliseconds = 0.0;
-        CurrentBuffer.mLastStepElapsedMilliseconds = 0.0;
-        CurrentBuffer.mActors.clear();
-        CurrentBuffer.mActors.resize(MaxActorCount);
+    {
+        std::lock_guard<std::mutex> SnapshotLock{ mSnapshotMutex };
+        for (std::size_t BufferIndex{ 0U }; BufferIndex < SnapshotBufferCount; ++BufferIndex) {
+            PhysicsSnapshot& CurrentBuffer{ mSnapshotBuffers[BufferIndex] };
+            CurrentBuffer.mWorldVersion = mCurrentWorldVersion;
+            CurrentBuffer.mStepIndex = 0U;
+            CurrentBuffer.mSimulationTimeSeconds = 0.0;
+            CurrentBuffer.mPublishIndex = 0U;
+            CurrentBuffer.mSceneIndex = mCurrentSceneIndex;
+            CurrentBuffer.mActorCount = 0U;
+            CurrentBuffer.mLastUpdateStepCount = 0U;
+            CurrentBuffer.mLastUpdateStepElapsedMilliseconds = 0.0;
+            CurrentBuffer.mLastStepElapsedMilliseconds = 0.0;
+            CurrentBuffer.mActors.clear();
+            CurrentBuffer.mActors.resize(MaxActorCount);
+        }
     }
 
+    mLatestStepIndex.store(0U, std::memory_order_release);
+    mLatestSimulationTimeSeconds.store(0.0, std::memory_order_release);
+    mPublishedSnapshotCount.store(0U, std::memory_order_release);
     mReadableSnapshotIndex.store(0U, std::memory_order_release);
     mWriteSnapshotIndex = 1U;
     mCoalescedResetCommand.store(0U, std::memory_order_release);
@@ -214,12 +229,116 @@ std::uint32_t PhysicsRuntime::GetReadableSnapshotIndex() const {
 }
 
 const PhysicsSnapshot& PhysicsRuntime::GetSnapshot(std::uint32_t SnapshotIndex) const {
+    static thread_local PhysicsSnapshot SnapshotCopy{};
+    std::lock_guard<std::mutex> SnapshotLock{ mSnapshotMutex };
     if (SnapshotIndex >= SnapshotBufferCount) {
         std::uint32_t ReadableSnapshotIndex{ mReadableSnapshotIndex.load(std::memory_order_acquire) };
-        return mSnapshotBuffers[ReadableSnapshotIndex];
+        SnapshotCopy = mSnapshotBuffers[ReadableSnapshotIndex];
+        return SnapshotCopy;
     }
 
-    return mSnapshotBuffers[SnapshotIndex];
+    SnapshotCopy = mSnapshotBuffers[SnapshotIndex];
+    return SnapshotCopy;
+}
+
+bool PhysicsRuntime::TryGetSnapshotPairForTime(double RenderPhysicsTime, PhysicsSnapshot& OutPrevious, PhysicsSnapshot& OutNext, float& OutAlpha) const {
+    std::array<const PhysicsSnapshot*, SnapshotBufferCount> CandidateSnapshots{};
+    std::size_t CandidateCount{};
+
+    {
+        std::lock_guard<std::mutex> SnapshotLock{ mSnapshotMutex };
+        std::uint32_t ReadableSnapshotIndex{ mReadableSnapshotIndex.load(std::memory_order_acquire) };
+        const PhysicsSnapshot& LatestSnapshot{ mSnapshotBuffers[ReadableSnapshotIndex] };
+        if (LatestSnapshot.mPublishIndex == 0U) {
+            return false;
+        }
+
+        std::uint32_t LatestWorldVersion{ LatestSnapshot.mWorldVersion };
+        for (std::size_t BufferIndex{ 0U }; BufferIndex < SnapshotBufferCount; ++BufferIndex) {
+            const PhysicsSnapshot& CandidateSnapshot{ mSnapshotBuffers[BufferIndex] };
+            if (CandidateSnapshot.mPublishIndex == 0U || CandidateSnapshot.mWorldVersion != LatestWorldVersion) {
+                continue;
+            }
+
+            CandidateSnapshots[CandidateCount] = &CandidateSnapshot;
+            ++CandidateCount;
+        }
+
+        if (CandidateCount == 0U) {
+            return false;
+        }
+
+        std::sort(CandidateSnapshots.begin(), CandidateSnapshots.begin() + CandidateCount, [](const PhysicsSnapshot* Left, const PhysicsSnapshot* Right) {
+            if (Left->mSimulationTimeSeconds == Right->mSimulationTimeSeconds) {
+                return Left->mPublishIndex < Right->mPublishIndex;
+            }
+
+            return Left->mSimulationTimeSeconds < Right->mSimulationTimeSeconds;
+        });
+
+        if (CandidateCount == 1U) {
+            OutPrevious = *CandidateSnapshots[0U];
+            OutNext = *CandidateSnapshots[0U];
+            OutAlpha = 0.0F;
+            return true;
+        }
+
+        const PhysicsSnapshot* PreviousSnapshot{ CandidateSnapshots[0U] };
+        const PhysicsSnapshot* NextSnapshot{ CandidateSnapshots[1U] };
+        if (RenderPhysicsTime <= CandidateSnapshots[0U]->mSimulationTimeSeconds) {
+            PreviousSnapshot = CandidateSnapshots[0U];
+            NextSnapshot = CandidateSnapshots[1U];
+        } else if (RenderPhysicsTime >= CandidateSnapshots[CandidateCount - 1U]->mSimulationTimeSeconds) {
+            PreviousSnapshot = CandidateSnapshots[CandidateCount - 2U];
+            NextSnapshot = CandidateSnapshots[CandidateCount - 1U];
+        } else {
+            for (std::size_t CandidateIndex{ 0U }; CandidateIndex + 1U < CandidateCount; ++CandidateIndex) {
+                const PhysicsSnapshot* CurrentPrevious{ CandidateSnapshots[CandidateIndex] };
+                const PhysicsSnapshot* CurrentNext{ CandidateSnapshots[CandidateIndex + 1U] };
+                if (RenderPhysicsTime < CurrentPrevious->mSimulationTimeSeconds || RenderPhysicsTime > CurrentNext->mSimulationTimeSeconds) {
+                    continue;
+                }
+
+                PreviousSnapshot = CurrentPrevious;
+                NextSnapshot = CurrentNext;
+                break;
+            }
+        }
+
+        OutPrevious = *PreviousSnapshot;
+        OutNext = *NextSnapshot;
+    }
+
+    double TimeRange{ OutNext.mSimulationTimeSeconds - OutPrevious.mSimulationTimeSeconds };
+    if (TimeRange <= 0.0) {
+        OutAlpha = 0.0F;
+        return true;
+    }
+
+    double Alpha{ (RenderPhysicsTime - OutPrevious.mSimulationTimeSeconds) / TimeRange };
+    Alpha = std::clamp(Alpha, 0.0, 1.0);
+    OutAlpha = static_cast<float>(Alpha);
+    return true;
+}
+
+bool PhysicsRuntime::IsRunning() const {
+    bool IsRuntimeRunning{ mIsRunning.load(std::memory_order_acquire) };
+    return IsRuntimeRunning;
+}
+
+std::uint64_t PhysicsRuntime::LatestStepIndex() const {
+    std::uint64_t StepIndex{ mLatestStepIndex.load(std::memory_order_acquire) };
+    return StepIndex;
+}
+
+double PhysicsRuntime::LatestSimulationTimeSeconds() const {
+    double SimulationTimeSeconds{ mLatestSimulationTimeSeconds.load(std::memory_order_acquire) };
+    return SimulationTimeSeconds;
+}
+
+std::uint64_t PhysicsRuntime::PublishedSnapshotCount() const {
+    std::uint64_t SnapshotCount{ mPublishedSnapshotCount.load(std::memory_order_acquire) };
+    return SnapshotCount;
 }
 
 std::uint64_t PhysicsRuntime::PackResetSceneCommand(const PhysicsResetSceneCommand& Command) {
@@ -264,47 +383,38 @@ void PhysicsRuntime::RunPhysicsThread() {
 
         TimeAccumulatorSeconds += TickElapsedSeconds;
 
-        bool ProcessedCommand{};
-        PhysicsCommand CurrentCommand{};
-        while (mCommandQueue.TryDequeue(CurrentCommand)) {
-            ProcessCommand(CurrentCommand, TimeAccumulatorSeconds);
-            ProcessedCommand = true;
-        }
-
-        PhysicsResetSceneCommand CoalescedResetCommand{};
-        bool HasCoalescedResetCommand{ TryConsumeCoalescedResetCommand(CoalescedResetCommand) };
-        if (HasCoalescedResetCommand) {
-            ApplyResetSceneCommand(CoalescedResetCommand, TimeAccumulatorSeconds);
-            ProcessedCommand = true;
-        }
-
         double FixedStepSeconds{ static_cast<double>(mSettings.mWorldSettings.FixedTimeStep) };
         if (FixedStepSeconds <= 0.0) {
             FixedStepSeconds = 1.0 / 60.0;
         }
 
+        bool ProcessedCommand{};
         std::size_t LastUpdateStepCount{};
-        double LastUpdateStepElapsedMilliseconds{};
-        double LastStepElapsedMilliseconds{};
         while (TimeAccumulatorSeconds >= FixedStepSeconds && LastUpdateStepCount < mSettings.mMaxSubSteps) {
+            bool ResetApplied{ ProcessPendingCommandsAtFixedStepBoundary(TimeAccumulatorSeconds) };
+            ProcessedCommand = ProcessedCommand || ResetApplied;
+            if (ResetApplied) {
+                break;
+            }
+
             Clock::time_point StepStartTime{ Clock::now() };
             mPhysicsWorld.TickKinematicActors(mSettings.mWorldSettings.FixedTimeStep);
             mPhysicsWorld.StepSimulation();
             Clock::time_point StepEndTime{ Clock::now() };
 
             std::chrono::duration<double, std::milli> StepElapsedDuration{ StepEndTime - StepStartTime };
-            LastStepElapsedMilliseconds = StepElapsedDuration.count();
-            LastUpdateStepElapsedMilliseconds += LastStepElapsedMilliseconds;
+            double LastStepElapsedMilliseconds{ StepElapsedDuration.count() };
             TimeAccumulatorSeconds -= FixedStepSeconds;
             ++LastUpdateStepCount;
+            std::uint64_t NextStepIndex{ mLatestStepIndex.load(std::memory_order_relaxed) + 1U };
+            double NextSimulationTimeSeconds{ mLatestSimulationTimeSeconds.load(std::memory_order_relaxed) + FixedStepSeconds };
+            mLatestStepIndex.store(NextStepIndex, std::memory_order_release);
+            mLatestSimulationTimeSeconds.store(NextSimulationTimeSeconds, std::memory_order_release);
+            PublishSnapshot(1U, LastStepElapsedMilliseconds, LastStepElapsedMilliseconds);
         }
 
         if (TimeAccumulatorSeconds >= FixedStepSeconds) {
             TimeAccumulatorSeconds = std::fmod(TimeAccumulatorSeconds, FixedStepSeconds);
-        }
-
-        if (LastUpdateStepCount > 0U) {
-            PublishSnapshot(LastUpdateStepCount, LastUpdateStepElapsedMilliseconds, LastStepElapsedMilliseconds);
         }
 
         if (!ProcessedCommand && LastUpdateStepCount == 0U) {
@@ -313,50 +423,70 @@ void PhysicsRuntime::RunPhysicsThread() {
     }
 }
 
-void PhysicsRuntime::ProcessCommand(const PhysicsCommand& Command, double& OutTimeAccumulatorSeconds) {
+bool PhysicsRuntime::ProcessPendingCommandsAtFixedStepBoundary(double& OutTimeAccumulatorSeconds) {
+    bool ResetApplied{};
+    PhysicsCommand CurrentCommand{};
+    while (mCommandQueue.TryDequeue(CurrentCommand)) {
+        bool CurrentResetApplied{ ProcessCommand(CurrentCommand, OutTimeAccumulatorSeconds) };
+        ResetApplied = ResetApplied || CurrentResetApplied;
+    }
+
+    PhysicsResetSceneCommand CoalescedResetCommand{};
+    bool HasCoalescedResetCommand{ TryConsumeCoalescedResetCommand(CoalescedResetCommand) };
+    if (HasCoalescedResetCommand) {
+        ApplyResetSceneCommand(CoalescedResetCommand, OutTimeAccumulatorSeconds);
+        ResetApplied = true;
+    }
+
+    return ResetApplied;
+}
+
+bool PhysicsRuntime::ProcessCommand(const PhysicsCommand& Command, double& OutTimeAccumulatorSeconds) {
     if (Command.mType == PhysicsCommandType::ResetScene) {
         ApplyResetSceneCommand(Command.mResetScene, OutTimeAccumulatorSeconds);
-        return;
+        return true;
     }
 
     if (Command.mType == PhysicsCommandType::AddImpulse) {
         ApplyImpulseCommand(Command.mAddImpulse);
-        return;
+        return false;
     }
 
     if (Command.mType == PhysicsCommandType::SetKinematicVelocity) {
         ApplySetKinematicVelocityCommand(Command.mSetKinematicVelocity);
-        return;
+        return false;
     }
 
     if (Command.mType == PhysicsCommandType::AddForce) {
         ApplyAddForceCommand(Command.mAddForce);
-        return;
+        return false;
     }
 
     if (Command.mType == PhysicsCommandType::SetVelocity) {
         ApplySetVelocityCommand(Command.mSetVelocity);
-        return;
+        return false;
     }
 
     if (Command.mType == PhysicsCommandType::SetKinematicTransform) {
         ApplySetKinematicTransformCommand(Command.mSetKinematicTransform);
-        return;
+        return false;
     }
 
     if (Command.mType == PhysicsCommandType::SetLocalBoundingBox) {
         ApplySetLocalBoundingBoxCommand(Command.mSetLocalBoundingBox);
-        return;
+        return false;
     }
 
     if (Command.mType == PhysicsCommandType::SetTerrainActorDesc) {
         ApplySetTerrainActorDescCommand(Command.mSetTerrainActorDesc);
-        return;
+        return false;
     }
 
     if (Command.mType == PhysicsCommandType::SetActorActive) {
         ApplySetActorActiveCommand(Command.mSetActorActive);
     }
+
+    return false;
 }
 
 void PhysicsRuntime::ApplyResetSceneCommand(const PhysicsResetSceneCommand& Command, double& OutTimeAccumulatorSeconds) {
@@ -371,6 +501,28 @@ void PhysicsRuntime::ApplyResetSceneCommand(const PhysicsResetSceneCommand& Comm
     mCurrentWorldVersion = Command.mWorldVersion;
     BuildWorldFromScene(mCurrentSceneIndex);
     OutTimeAccumulatorSeconds = 0.0;
+    mLatestStepIndex.store(0U, std::memory_order_release);
+    mLatestSimulationTimeSeconds.store(0.0, std::memory_order_release);
+
+    {
+        std::lock_guard<std::mutex> SnapshotLock{ mSnapshotMutex };
+        for (std::size_t BufferIndex{ 0U }; BufferIndex < SnapshotBufferCount; ++BufferIndex) {
+            PhysicsSnapshot& CurrentBuffer{ mSnapshotBuffers[BufferIndex] };
+            CurrentBuffer.mWorldVersion = mCurrentWorldVersion;
+            CurrentBuffer.mStepIndex = 0U;
+            CurrentBuffer.mSimulationTimeSeconds = 0.0;
+            CurrentBuffer.mPublishIndex = 0U;
+            CurrentBuffer.mSceneIndex = mCurrentSceneIndex;
+            CurrentBuffer.mActorCount = 0U;
+            CurrentBuffer.mLastUpdateStepCount = 0U;
+            CurrentBuffer.mLastUpdateStepElapsedMilliseconds = 0.0;
+            CurrentBuffer.mLastStepElapsedMilliseconds = 0.0;
+        }
+
+        mReadableSnapshotIndex.store(0U, std::memory_order_release);
+        mWriteSnapshotIndex = 0U;
+    }
+
     PublishSnapshot(0U, 0.0, 0.0);
 }
 
@@ -564,8 +716,12 @@ void PhysicsRuntime::BuildWorldFromScene(std::size_t SceneIndex) {
 }
 
 void PhysicsRuntime::PublishSnapshot(std::size_t LastUpdateStepCount, double LastUpdateStepElapsedMilliseconds, double LastStepElapsedMilliseconds) {
+    std::lock_guard<std::mutex> SnapshotLock{ mSnapshotMutex };
     PhysicsSnapshot& WriteBuffer{ mSnapshotBuffers[mWriteSnapshotIndex] };
     WriteBuffer.mWorldVersion = mCurrentWorldVersion;
+    WriteBuffer.mStepIndex = mLatestStepIndex.load(std::memory_order_acquire);
+    WriteBuffer.mSimulationTimeSeconds = mLatestSimulationTimeSeconds.load(std::memory_order_acquire);
+    WriteBuffer.mPublishIndex = mPublishedSnapshotCount.fetch_add(1U, std::memory_order_acq_rel) + 1U;
     WriteBuffer.mSceneIndex = mCurrentSceneIndex;
     WriteBuffer.mLastUpdateStepCount = LastUpdateStepCount;
     WriteBuffer.mLastUpdateStepElapsedMilliseconds = LastUpdateStepElapsedMilliseconds;

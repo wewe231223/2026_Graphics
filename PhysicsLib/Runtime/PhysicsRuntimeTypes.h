@@ -134,6 +134,9 @@ struct PhysicsActorSnapshot final {
 
 struct PhysicsSnapshot final {
     std::uint32_t mWorldVersion{};
+    std::uint64_t mStepIndex{};
+    double mSimulationTimeSeconds{};
+    std::uint64_t mPublishIndex{};
     std::size_t mSceneIndex{};
     std::size_t mActorCount{};
     std::size_t mLastUpdateStepCount{};

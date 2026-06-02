@@ -10,6 +10,7 @@
 #include "SceneWorldSnapshot.h"
 #include "Game/Model/AssetRegistry.h"
 #include "Script/Core/LuaScriptFramework.h"
+#include "PhysicsLib/Runtime/PhysicsRuntime.h"
 #include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
 #include "PhysicsLib/World/PhysicsWorld.h"
 
@@ -48,8 +49,10 @@ namespace Game {
         const Script::LuaBehaviorFramework& GetLuaScriptFramework() const;
         PhysicsWorld& GetPhysicsWorld();
         const PhysicsWorld& GetPhysicsWorld() const;
+        const PhysicsRuntime& GetPhysicsRuntime() const;
         const PhysicsRuntimeScene& GetPhysicsRuntimeScene() const;
         std::uint32_t GetPhysicsWorldVersion() const;
+        bool IsPhysicsRuntimeModeEnabled() const;
 
         void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap);
         void InitializePhysicsWorld();
@@ -76,6 +79,12 @@ namespace Game {
         void RebuildWorldSnapshot();
         void SpawnModelAtOrigin(const std::string& ModelSelector, const std::string& RootEntityName, std::uint32_t MaterialGroupIndex, bool IsDerivedEntity);
 
+        void InitializePhysicsRuntime();
+        void ShutdownPhysicsRuntime();
+        void SubmitPhysicsRuntimeCommands();
+        void RefreshPhysicsRuntimeSnapshot();
+        void PublishPhysicsRuntimeStatus(const PhysicsSnapshot* Snapshot);
+
         void RegisterScriptTypes(); 
         void AttachDefaultCameraControlBehavior();
         void UpdateCameraVirtualMouseState();
@@ -84,8 +93,12 @@ namespace Game {
         std::string mName{};
         Arche::World mWorld{};
         PhysicsWorld mPhysicsWorld{};
+        PhysicsRuntime mPhysicsRuntime{};
         PhysicsRuntimeScene mPhysicsRuntimeScene{};
+        std::vector<PhysicsRuntimeScene> mPhysicsRuntimeScenes{};
+        PhysicsSnapshot mPhysicsRuntimeSnapshot{};
         std::uint32_t mPhysicsWorldVersion{ 1U };
+        double mRenderPhysicsDelaySeconds{};
         FrameContext mFrameContext{};
         AssetRegistry mAssetRegistry{};
         std::vector<std::unique_ptr<ISystem>> mSystems{};
@@ -98,6 +111,7 @@ namespace Game {
         bool mIsDefaultCameraControlBehaviorAttached{};
         bool mIsDebugGeometryDrawEnabled{};
         bool mIsBoundingBoxDrawEnabled{};
+        bool mIsPhysicsRuntimeModeEnabled{};
 
 		Script::LuaBehaviorFramework mLuaScriptFramework{};
         std::vector<TerrainActorDescBinding> mTerrainActorDescBindings{};

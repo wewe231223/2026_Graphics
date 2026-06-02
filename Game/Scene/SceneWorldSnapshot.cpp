@@ -11,6 +11,7 @@ namespace Game {
         , mWorld{}
         , mAssetRegistry{}
         , mSceneName{}
+        , mPhysicsRuntimeStatus{}
         , mSystemNames{}
         , mEntities{}
         , mRootIndices{}
@@ -25,6 +26,7 @@ namespace Game {
         , mWorld{ Other.mWorld }
         , mAssetRegistry{ Other.mAssetRegistry }
         , mSceneName{ Other.mSceneName }
+        , mPhysicsRuntimeStatus{ Other.mPhysicsRuntimeStatus }
         , mSystemNames{ Other.mSystemNames }
         , mEntities{ Other.mEntities }
         , mRootIndices{ Other.mRootIndices }
@@ -40,6 +42,7 @@ namespace Game {
         mWorld = Other.mWorld;
         mAssetRegistry = Other.mAssetRegistry;
         mSceneName = Other.mSceneName;
+        mPhysicsRuntimeStatus = Other.mPhysicsRuntimeStatus;
         mSystemNames = Other.mSystemNames;
         mEntities = Other.mEntities;
         mRootIndices = Other.mRootIndices;
@@ -52,6 +55,7 @@ namespace Game {
         , mWorld{ Other.mWorld }
         , mAssetRegistry{ Other.mAssetRegistry }
         , mSceneName{ std::move(Other.mSceneName) }
+        , mPhysicsRuntimeStatus{ Other.mPhysicsRuntimeStatus }
         , mSystemNames{ std::move(Other.mSystemNames) }
         , mEntities{ std::move(Other.mEntities) }
         , mRootIndices{ std::move(Other.mRootIndices) }
@@ -67,6 +71,7 @@ namespace Game {
         mWorld = Other.mWorld;
         mAssetRegistry = Other.mAssetRegistry;
         mSceneName = std::move(Other.mSceneName);
+        mPhysicsRuntimeStatus = Other.mPhysicsRuntimeStatus;
         mSystemNames = std::move(Other.mSystemNames);
         mEntities = std::move(Other.mEntities);
         mRootIndices = std::move(Other.mRootIndices);
@@ -108,6 +113,10 @@ namespace Game {
 
     void SceneWorldSnapshot::SetSceneName(const std::string& SceneName) {
         mSceneName = SceneName;
+    }
+
+    void SceneWorldSnapshot::SetPhysicsRuntimeStatus(const PhysicsRuntimeStatus& Status) {
+        mPhysicsRuntimeStatus = Status;
     }
 
     void SceneWorldSnapshot::BuildHierarchy() {
@@ -153,6 +162,10 @@ namespace Game {
 
     const std::string& SceneWorldSnapshot::GetSceneName() const {
         return mSceneName;
+    }
+
+    const PhysicsRuntimeStatus& SceneWorldSnapshot::GetPhysicsRuntimeStatus() const {
+        return mPhysicsRuntimeStatus;
     }
 
     const std::vector<std::string>& SceneWorldSnapshot::GetSystemNames() const {
