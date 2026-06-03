@@ -34,7 +34,10 @@ PhysicsRuntime::PhysicsRuntime()
       mLatestStepIndex{},
       mLatestSimulationTimeSeconds{},
       mPublishedSnapshotCount{},
-      mPhysicsThread{} {
+      mPhysicsThread{},
+      mKinematicStateMutex{},
+      mPublishedKinematicStates{},
+      mKinematicStateScratch{} {
 }
 
 PhysicsRuntime::~PhysicsRuntime() {
@@ -102,6 +105,12 @@ bool PhysicsRuntime::Initialize(const std::vector<PhysicsRuntimeScene>* SceneTem
     mWriteSnapshotIndex = 1U;
     mCoalescedResetCommand.store(0U, std::memory_order_release);
     mHasCoalescedResetCommand.store(false, std::memory_order_release);
+    {
+        std::lock_guard<std::mutex> KinematicStateLock{ mKinematicStateMutex };
+        mPublishedKinematicStates.clear();
+    }
+
+    mKinematicStateScratch.clear();
 
     mIsRunning.store(true, std::memory_order_release);
     mPhysicsThread = std::thread{ &PhysicsRuntime::RunPhysicsThread, this };
@@ -177,13 +186,17 @@ bool PhysicsRuntime::EnqueueSetVelocity(ActorId ActorIdValue, const DirectX::Sim
     return Enqueued;
 }
 
-bool PhysicsRuntime::EnqueueSetKinematicTransform(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Position, const DirectX::SimpleMath::Quaternion& Orientation, const DirectX::SimpleMath::Vector3& Scale) {
+bool PhysicsRuntime::EnqueueSetKinematicTransform(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Position, const DirectX::SimpleMath::Quaternion& Orientation, const DirectX::SimpleMath::Vector3& Scale, bool IsTeleport, bool SetPosition, bool SetOrientation, bool SetScale) {
     PhysicsCommand NewCommand{};
     NewCommand.mType = PhysicsCommandType::SetKinematicTransform;
     NewCommand.mSetKinematicTransform.mActorId = ActorIdValue;
     NewCommand.mSetKinematicTransform.mPosition = Position;
     NewCommand.mSetKinematicTransform.mOrientation = Orientation;
     NewCommand.mSetKinematicTransform.mScale = Scale;
+    NewCommand.mSetKinematicTransform.mIsTeleport = IsTeleport;
+    NewCommand.mSetKinematicTransform.mSetPosition = SetPosition;
+    NewCommand.mSetKinematicTransform.mSetOrientation = SetOrientation;
+    NewCommand.mSetKinematicTransform.mSetScale = SetScale;
 
     bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
     return Enqueued;
@@ -221,6 +234,11 @@ bool PhysicsRuntime::EnqueueSetActorActive(ActorId ActorIdValue, bool IsActive) 
 
     bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
     return Enqueued;
+}
+
+void PhysicsRuntime::PublishKinematicStates(const std::vector<PhysicsKinematicRuntimeState>& KinematicStates) {
+    std::lock_guard<std::mutex> KinematicStateLock{ mKinematicStateMutex };
+    mPublishedKinematicStates = KinematicStates;
 }
 
 std::uint32_t PhysicsRuntime::GetReadableSnapshotIndex() const {
@@ -398,6 +416,7 @@ void PhysicsRuntime::RunPhysicsThread() {
             }
 
             Clock::time_point StepStartTime{ Clock::now() };
+            ApplyPublishedKinematicStates();
             mPhysicsWorld.TickKinematicActors(mSettings.mWorldSettings.FixedTimeStep);
             mPhysicsWorld.StepSimulation();
             Clock::time_point StepEndTime{ Clock::now() };
@@ -503,6 +522,12 @@ void PhysicsRuntime::ApplyResetSceneCommand(const PhysicsResetSceneCommand& Comm
     OutTimeAccumulatorSeconds = 0.0;
     mLatestStepIndex.store(0U, std::memory_order_release);
     mLatestSimulationTimeSeconds.store(0.0, std::memory_order_release);
+    {
+        std::lock_guard<std::mutex> KinematicStateLock{ mKinematicStateMutex };
+        mPublishedKinematicStates.clear();
+    }
+
+    mKinematicStateScratch.clear();
 
     {
         std::lock_guard<std::mutex> SnapshotLock{ mSnapshotMutex };
@@ -537,8 +562,7 @@ void PhysicsRuntime::ApplyImpulseCommand(const PhysicsAddImpulseCommand& Command
         return;
     }
 
-    PhysicsActorBase::PhysicsActorType ActorType{ TargetActor->GetActorType() };
-    if (ActorType != PhysicsActorBase::PhysicsActorType::Dynamic && ActorType != PhysicsActorBase::PhysicsActorType::Kinematic) {
+    if (TargetActor->GetActorType() != PhysicsActorBase::PhysicsActorType::Dynamic) {
         return;
     }
 
@@ -571,8 +595,7 @@ void PhysicsRuntime::ApplyAddForceCommand(const PhysicsAddForceCommand& Command)
         return;
     }
 
-    PhysicsActorBase::PhysicsActorType ActorType{ TargetActor->GetActorType() };
-    if (ActorType != PhysicsActorBase::PhysicsActorType::Dynamic && ActorType != PhysicsActorBase::PhysicsActorType::Kinematic) {
+    if (TargetActor->GetActorType() != PhysicsActorBase::PhysicsActorType::Dynamic) {
         return;
     }
 
@@ -590,8 +613,7 @@ void PhysicsRuntime::ApplySetVelocityCommand(const PhysicsSetVelocityCommand& Co
         return;
     }
 
-    PhysicsActorBase::PhysicsActorType ActorType{ TargetActor->GetActorType() };
-    if (ActorType != PhysicsActorBase::PhysicsActorType::Dynamic && ActorType != PhysicsActorBase::PhysicsActorType::Kinematic) {
+    if (TargetActor->GetActorType() != PhysicsActorBase::PhysicsActorType::Dynamic) {
         return;
     }
 
@@ -610,10 +632,21 @@ void PhysicsRuntime::ApplySetKinematicTransformCommand(const PhysicsSetKinematic
     }
 
     PhysicsKinematicActor* KinematicActor{ static_cast<PhysicsKinematicActor*>(TargetActor) };
-    KinematicActor->SetScale(Command.mScale);
-    KinematicActor->SetOrientation(Command.mOrientation);
-    KinematicActor->SetPosition(Command.mPosition);
-    mPhysicsWorld.MarkKinematicActorTeleported(*KinematicActor);
+    if (Command.mSetScale == true) {
+        KinematicActor->SetScale(Command.mScale);
+    }
+
+    if (Command.mSetOrientation == true) {
+        KinematicActor->SetOrientation(Command.mOrientation);
+    }
+
+    if (Command.mSetPosition == true) {
+        KinematicActor->SetPosition(Command.mPosition);
+    }
+
+    if (Command.mIsTeleport == true) {
+        mPhysicsWorld.MarkKinematicActorTeleported(*KinematicActor);
+    }
 }
 
 void PhysicsRuntime::ApplySetLocalBoundingBoxCommand(const PhysicsSetLocalBoundingBoxCommand& Command) {
@@ -656,6 +689,33 @@ void PhysicsRuntime::ApplySetActorActiveCommand(const PhysicsSetActorActiveComma
     }
 
     TargetActor->SetIsActive(Command.mIsActive);
+}
+
+void PhysicsRuntime::ApplyPublishedKinematicStates() {
+    {
+        std::lock_guard<std::mutex> KinematicStateLock{ mKinematicStateMutex };
+        mKinematicStateScratch = mPublishedKinematicStates;
+    }
+
+    const std::size_t KinematicStateCount{ mKinematicStateScratch.size() };
+    for (std::size_t StateIndex{ 0U }; StateIndex < KinematicStateCount; ++StateIndex) {
+        const PhysicsKinematicRuntimeState& KinematicState{ mKinematicStateScratch[StateIndex] };
+        if (KinematicState.mActorId == InvalidActorId) {
+            continue;
+        }
+
+        PhysicsActorBase* TargetActor{ mPhysicsWorld.GetActor(static_cast<std::size_t>(KinematicState.mActorId)) };
+        if (TargetActor == nullptr || TargetActor->GetActorType() != PhysicsActorBase::PhysicsActorType::Kinematic) {
+            continue;
+        }
+
+        PhysicsKinematicActor* KinematicActor{ static_cast<PhysicsKinematicActor*>(TargetActor) };
+        KinematicActor->SetIsActive(KinematicState.mIsActive);
+        KinematicActor->SetScale(KinematicState.mScale);
+        KinematicActor->SetOrientation(KinematicState.mOrientation);
+        KinematicActor->SetPosition(KinematicState.mPosition);
+        KinematicActor->SetVelocity(KinematicState.mVelocity);
+    }
 }
 
 void PhysicsRuntime::BuildWorldFromScene(std::size_t SceneIndex) {

@@ -10,6 +10,7 @@
 #include "Game/Scene/SceneWorldSnapshot.h"
 #include "PhysicsLib/Common.h"
 #include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
+#include "PhysicsLib/Terrain/TerrainDataRepository.h"
 #include "Utility/SimpleMathWrapper.h"
 
 namespace Game {
@@ -56,6 +57,7 @@ namespace Game {
         AssetRegistry* AssetRegistryResource{ nullptr };
         IPhysicsWorld* PhysicsWorldResource{ nullptr };
         const PhysicsSnapshot* PhysicsSnapshotResource{ nullptr };
+        TerrainDataRepository* TerrainDataRepositoryResource{ nullptr };
         bool IsPhysicsRuntimeModeEnabled{};
         PhysicsRuntimeStatus PhysicsRuntimeStatus{};
         Arche::EntityID PickedEntityId{ Arche::NullEntityID };

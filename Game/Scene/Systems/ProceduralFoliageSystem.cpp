@@ -1767,7 +1767,8 @@ namespace Game {
         }
 
         FoliageSlot Slot{};
-        const bool IsCreated{ CreateFoliageSlotEntities(World, Ctx.PhysicsWorldResource, mConfig, mRules[RuleIndex], RuleIndex, Slot) };
+        IPhysicsWorld* FoliagePhysicsWorldResource{ Ctx.IsPhysicsRuntimeModeEnabled == true ? nullptr : Ctx.PhysicsWorldResource };
+        const bool IsCreated{ CreateFoliageSlotEntities(World, FoliagePhysicsWorldResource, mConfig, mRules[RuleIndex], RuleIndex, Slot) };
         if (IsCreated == false) {
             return false;
         }

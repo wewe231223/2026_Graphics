@@ -24,6 +24,40 @@ namespace {
         }
     }
 
+    DirectX::BoundingOrientedBox BuildWorldBoundingBoxFromTransform(const Game::BoundingBox& BoundingBoxComponent, const Game::Transform& TransformComponent) {
+        const DirectX::SimpleMath::Matrix WorldMatrix{ DirectX::SimpleMath::Matrix::CreateScale(TransformComponent.scale) * DirectX::SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * DirectX::SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
+        DirectX::BoundingOrientedBox WorldBoundingBox{};
+        BoundingBoxComponent.GetObb().Transform(WorldBoundingBox, WorldMatrix);
+        return WorldBoundingBox;
+    }
+
+    void ApplySceneKinematicCache(Arche::World& World, Game::PhysicsActor& PhysicsActorComponent, Game::Transform& TransformComponent, const Game::EntityHierarchy& EntityHierarchyComponent) {
+        PhysicsActorBase* ActorPointer{ PhysicsActorComponent.mActorPointer };
+        if (ActorPointer != nullptr && ActorPointer->GetActorType() == PhysicsActorBase::PhysicsActorType::Kinematic) {
+            ActorPointer->SetScale(TransformComponent.scale);
+            ActorPointer->SetOrientation(TransformComponent.rotation);
+            ActorPointer->SetPosition(TransformComponent.position);
+            Game::UpdatePhysicsActorCachedSnapshot(PhysicsActorComponent, TransformComponent.position, TransformComponent.rotation, TransformComponent.scale, ActorPointer->GetVelocity(), ActorPointer->GetWorldBoundingBox());
+
+            Game::BoundingBox* BoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(EntityHierarchyComponent.self) };
+            if (BoundingBoxComponent != nullptr) {
+                BoundingBoxComponent->SetWorldObb(ActorPointer->GetWorldBoundingBox());
+            }
+
+            return;
+        }
+
+        Game::BoundingBox* BoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(EntityHierarchyComponent.self) };
+        if (BoundingBoxComponent == nullptr) {
+            Game::UpdatePhysicsActorCachedSnapshot(PhysicsActorComponent, TransformComponent.position, TransformComponent.rotation, TransformComponent.scale, PhysicsActorComponent.mCachedVelocity, PhysicsActorComponent.mCachedWorldBoundingBox);
+            return;
+        }
+
+        const DirectX::BoundingOrientedBox WorldBoundingBox{ BuildWorldBoundingBoxFromTransform(*BoundingBoxComponent, TransformComponent) };
+        BoundingBoxComponent->SetWorldObb(WorldBoundingBox);
+        Game::UpdatePhysicsActorCachedSnapshot(PhysicsActorComponent, TransformComponent.position, TransformComponent.rotation, TransformComponent.scale, PhysicsActorComponent.mCachedVelocity, WorldBoundingBox);
+    }
+
     const PhysicsActorSnapshot* TryResolvePhysicsActorSnapshot(const PhysicsSnapshot& Snapshot, const Game::PhysicsActor& PhysicsActorComponent) {
         const std::uint32_t PhysicsActorId{ Game::ResolvePhysicsActorId(PhysicsActorComponent) };
         if (PhysicsActorId == Game::InvalidPhysicsActorId) {
@@ -69,12 +103,23 @@ namespace Game {
         if (Ctx.IsPhysicsRuntimeModeEnabled == true) {
             const PhysicsSnapshot* PhysicsSnapshotResource{ Ctx.PhysicsSnapshotResource };
             for (auto [PhysicsActorComponent, TransformComponent, EntityHierarchyComponent] : World.Query<PhysicsActor, Transform, EntityHierarchy>()) {
+                if (PhysicsActorComponent.mActorType == PhysicsActorBase::PhysicsActorType::Kinematic) {
+                    ApplySceneKinematicCache(World, PhysicsActorComponent, TransformComponent, EntityHierarchyComponent);
+                    continue;
+                }
+
                 if (PhysicsSnapshotResource == nullptr) {
                     ApplyCachedPhysicsActorSnapshot(World, PhysicsActorComponent, TransformComponent, EntityHierarchyComponent);
                     continue;
                 }
 
                 const PhysicsActorSnapshot* SnapshotActor{ TryResolvePhysicsActorSnapshot(*PhysicsSnapshotResource, PhysicsActorComponent) };
+                if (SnapshotActor != nullptr && SnapshotActor->mActorType == PhysicsActorBase::PhysicsActorType::Kinematic) {
+                    PhysicsActorComponent.mActorType = PhysicsActorBase::PhysicsActorType::Kinematic;
+                    ApplySceneKinematicCache(World, PhysicsActorComponent, TransformComponent, EntityHierarchyComponent);
+                    continue;
+                }
+
                 if (SnapshotActor == nullptr) {
                     ApplyCachedPhysicsActorSnapshot(World, PhysicsActorComponent, TransformComponent, EntityHierarchyComponent);
                     continue;

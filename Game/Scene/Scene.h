@@ -12,6 +12,8 @@
 #include "Script/Core/LuaScriptFramework.h"
 #include "PhysicsLib/Runtime/PhysicsRuntime.h"
 #include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
+#include "PhysicsLib/Simulation/Kinematic/PhysicsKinematicSceneSimulator.h"
+#include "PhysicsLib/Terrain/TerrainDataRepository.h"
 #include "PhysicsLib/World/PhysicsWorld.h"
 
 namespace Game {
@@ -82,8 +84,11 @@ namespace Game {
         void InitializePhysicsRuntime();
         void ShutdownPhysicsRuntime();
         void SubmitPhysicsRuntimeCommands();
+        void PublishPhysicsRuntimeKinematicStates();
         void RefreshPhysicsRuntimeSnapshot();
         void PublishPhysicsRuntimeStatus(const PhysicsSnapshot* Snapshot);
+        void UpdateTerrainDataRepository();
+        void UpdateSceneKinematicActors(float Dt);
 
         void RegisterScriptTypes(); 
         void AttachDefaultCameraControlBehavior();
@@ -97,6 +102,9 @@ namespace Game {
         PhysicsRuntimeScene mPhysicsRuntimeScene{};
         std::vector<PhysicsRuntimeScene> mPhysicsRuntimeScenes{};
         PhysicsSnapshot mPhysicsRuntimeSnapshot{};
+        PhysicsKinematicSceneSimulator mKinematicSceneSimulator{};
+        TerrainDataRepository mTerrainDataRepository{};
+        std::vector<PhysicsKinematicRuntimeState> mKinematicRuntimeStates{};
         std::uint32_t mPhysicsWorldVersion{ 1U };
         double mRenderPhysicsDelaySeconds{};
         FrameContext mFrameContext{};

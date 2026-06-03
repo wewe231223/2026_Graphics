@@ -20,6 +20,7 @@ Notes:
 #include <DirectXTK12/SimpleMath.h>
 
 #include "PhysicsLib/Actors/PhysicsStaticActor.h"
+#include "PhysicsLib/Terrain/TerrainDataRepository.h"
 
 class PhysicsTerrainActor final : public PhysicsStaticActor {
 public:
@@ -36,6 +37,7 @@ public:
         float HeightFieldMaxHeight{};
         bool HeightFieldCenterOrigin{};
         std::vector<float> HeightFieldValues{};
+        std::shared_ptr<const TerrainWorldData> mTerrainWorldData{};
     };
 
 public:
@@ -51,6 +53,9 @@ public:
 public:
     void SetActorDesc(const ActorDesc& Desc);
     ActorDesc GetActorDesc() const;
+    const std::shared_ptr<const TerrainWorldData>& GetTerrainWorldData() const;
+    static TerrainWorldData BuildTerrainWorldDataFromActorDesc(const ActorDesc& Desc, std::uint32_t TerrainId);
+    static ActorDesc BuildActorDescFromTerrainWorldData(const TerrainWorldData& TerrainData);
     static ActorDesc BuildHeightFieldActorDesc(std::uint32_t HeightFieldWidth, std::uint32_t HeightFieldHeight, const std::vector<float>& HeightFieldValues, float HeightFieldMaxHeight, float HeightFieldCellSizeX, float HeightFieldCellSizeZ, bool HeightFieldCenterOrigin);
     bool IsTerrainActor() const override;
 
@@ -61,20 +66,8 @@ public:
     std::unique_ptr<PhysicsActorBase> Clone() const override;
 
 private:
-    bool TryGetSurfaceHeightAtLocalPosition(float LocalX, float LocalZ, float& OutLocalHeight) const;
-    bool TryGetSurfaceNormalAtLocalPosition(float LocalX, float LocalZ, DirectX::SimpleMath::Vector3& OutLocalNormal) const;
-    bool TryResolveSurfaceAtLocalPosition(float LocalX, float LocalZ, float& OutLocalHeight, DirectX::SimpleMath::Vector3& OutLocalNormal) const;
-    std::size_t CalculateHeightFieldIndex(std::uint32_t X, std::uint32_t Z) const;
-    float SampleCellHeight(std::uint32_t X, std::uint32_t Z) const;
+    const TerrainWorldData* GetTerrainDataPointer() const;
 
 private:
-    float mHalfExtentX;
-    float mHalfExtentZ;
-    std::uint32_t mHeightFieldWidth;
-    std::uint32_t mHeightFieldHeight;
-    float mHeightFieldCellSizeX;
-    float mHeightFieldCellSizeZ;
-    float mHeightFieldMaxHeight;
-    bool mHeightFieldCenterOrigin;
-    std::vector<float> mHeightFieldValues;
+    std::shared_ptr<const TerrainWorldData> mTerrainWorldData;
 };

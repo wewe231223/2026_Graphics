@@ -82,6 +82,8 @@ PhysicsKinematicActorSimulator::PhysicsKinematicActorSimulator(PhysicsKinematicA
 PhysicsKinematicActorSimulator& PhysicsKinematicActorSimulator::operator=(PhysicsKinematicActorSimulator&& Other) noexcept = default;
 
 void PhysicsKinematicActorSimulator::Tick(IPhysicsWorldMediator& WorldMediator, IPhysicsActorRepository& ActorRepository, float DeltaTime) {
+    (void)WorldMediator;
+
     if (DeltaTime <= 0.0F) {
         return;
     }
@@ -109,20 +111,19 @@ void PhysicsKinematicActorSimulator::Tick(IPhysicsWorldMediator& WorldMediator, 
         SweepState.mDeltaTime = DeltaTime;
 
         if (PreviousSweepState != nullptr && !IsTeleport) {
-            SweepState.mPreviousPosition = PreviousSweepState->mCanUseForCcd ? PreviousSweepState->mPreviousPosition : PreviousSweepState->mCurrentPosition;
-            SweepState.mPreviousOrientation = PreviousSweepState->mCanUseForCcd ? PreviousSweepState->mPreviousOrientation : PreviousSweepState->mCurrentOrientation;
-            SweepState.mPreviousScale = PreviousSweepState->mCanUseForCcd ? PreviousSweepState->mPreviousScale : PreviousSweepState->mCurrentScale;
-            SweepState.mDeltaTime = PreviousSweepState->mCanUseForCcd ? (PreviousSweepState->mDeltaTime + DeltaTime) : DeltaTime;
+            SweepState.mPreviousPosition = PreviousSweepState->mCurrentPosition;
+            SweepState.mPreviousOrientation = PreviousSweepState->mCurrentOrientation;
+            SweepState.mPreviousScale = PreviousSweepState->mCurrentScale;
         }
-
-        KinematicActor->Integrate(WorldMediator, DeltaTime);
-        KinematicActor->SolveConstraints(WorldMediator, DeltaTime);
 
         SweepState.mCurrentPosition = KinematicActor->GetPosition();
         SweepState.mCurrentOrientation = KinematicActor->GetOrientation();
         SweepState.mCurrentScale = KinematicActor->GetScale();
         SweepState.mMovementDelta = SweepState.mCurrentPosition - SweepState.mPreviousPosition;
-        SweepState.mVelocity = SweepState.mDeltaTime > KinematicSweepVelocityDeltaTimeEpsilon ? (SweepState.mMovementDelta / SweepState.mDeltaTime) : KinematicActor->GetVelocity();
+        SweepState.mVelocity = KinematicActor->GetVelocity();
+        if (SweepState.mVelocity.LengthSquared() <= 0.0F && SweepState.mDeltaTime > KinematicSweepVelocityDeltaTimeEpsilon) {
+            SweepState.mVelocity = SweepState.mMovementDelta / SweepState.mDeltaTime;
+        }
 
         DirectX::BoundingOrientedBox PreviousBounds{ CreateKinematicActorBoundingBoxAtTransform(*KinematicActor, SweepState.mPreviousPosition, SweepState.mPreviousOrientation, SweepState.mPreviousScale) };
         DirectX::BoundingOrientedBox CurrentBounds{ CreateKinematicActorBoundingBoxAtTransform(*KinematicActor, SweepState.mCurrentPosition, SweepState.mCurrentOrientation, SweepState.mCurrentScale) };

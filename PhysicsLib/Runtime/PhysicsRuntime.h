@@ -50,10 +50,11 @@ public:
     bool EnqueueSetKinematicVelocity(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Velocity);
     bool EnqueueAddForce(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Force);
     bool EnqueueSetVelocity(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Velocity);
-    bool EnqueueSetKinematicTransform(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Position, const DirectX::SimpleMath::Quaternion& Orientation, const DirectX::SimpleMath::Vector3& Scale);
+    bool EnqueueSetKinematicTransform(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Position, const DirectX::SimpleMath::Quaternion& Orientation, const DirectX::SimpleMath::Vector3& Scale, bool IsTeleport, bool SetPosition, bool SetOrientation, bool SetScale);
     bool EnqueueSetLocalBoundingBox(ActorId ActorIdValue, const DirectX::BoundingOrientedBox& LocalBoundingBox);
     bool EnqueueSetTerrainActorDesc(ActorId ActorIdValue, const std::shared_ptr<const PhysicsTerrainActor::ActorDesc>& TerrainActorDesc);
     bool EnqueueSetActorActive(ActorId ActorIdValue, bool IsActive);
+    void PublishKinematicStates(const std::vector<PhysicsKinematicRuntimeState>& KinematicStates);
 
     std::uint32_t GetReadableSnapshotIndex() const;
     const PhysicsSnapshot& GetSnapshot(std::uint32_t SnapshotIndex) const;
@@ -81,6 +82,7 @@ private:
     void ApplySetLocalBoundingBoxCommand(const PhysicsSetLocalBoundingBoxCommand& Command);
     void ApplySetTerrainActorDescCommand(const PhysicsSetTerrainActorDescCommand& Command);
     void ApplySetActorActiveCommand(const PhysicsSetActorActiveCommand& Command);
+    void ApplyPublishedKinematicStates();
     void BuildWorldFromScene(std::size_t SceneIndex);
     void PublishSnapshot(std::size_t LastUpdateStepCount, double LastUpdateStepElapsedMilliseconds, double LastStepElapsedMilliseconds);
 
@@ -106,4 +108,7 @@ private:
     std::atomic<double> mLatestSimulationTimeSeconds;
     std::atomic<std::uint64_t> mPublishedSnapshotCount;
     std::thread mPhysicsThread;
+    mutable std::mutex mKinematicStateMutex;
+    std::vector<PhysicsKinematicRuntimeState> mPublishedKinematicStates;
+    std::vector<PhysicsKinematicRuntimeState> mKinematicStateScratch;
 };

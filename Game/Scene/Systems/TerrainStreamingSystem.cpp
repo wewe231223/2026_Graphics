@@ -1,6 +1,7 @@
 #include "TerrainStreamingSystem.h"
 
 #include <array>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -27,13 +28,14 @@ namespace {
         return false;
     }
 
-    PhysicsTerrainActor::ActorDesc BuildStreamingTerrainActorDesc(const Game::TerrainRenderResource& Resource, const Game::Transform& TransformComponent) {
+    PhysicsTerrainActor::ActorDesc BuildStreamingTerrainActorDesc(const Game::TerrainRenderResource& Resource, const Game::Transform& TransformComponent, std::uint32_t TerrainId) {
         const Game::TerrainBuildDesc& BuildDesc{ Resource.GetBuildDesc() };
         const Game::HeightFieldData& HeightField{ Resource.GetHeightFieldData() };
         PhysicsTerrainActor::ActorDesc Desc{ PhysicsTerrainActor::BuildHeightFieldActorDesc(HeightField.Width, HeightField.Height, HeightField.HeightValues, BuildDesc.MaxHeight, BuildDesc.CellSizeX, BuildDesc.CellSizeZ, BuildDesc.CenterOrigin) };
         Desc.Position = TransformComponent.position;
         Desc.Rotation = TransformComponent.rotationEuler;
         Desc.Scale = TransformComponent.scale;
+        Desc.mTerrainWorldData = std::make_shared<const TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(Desc, TerrainId));
         return Desc;
     }
 
@@ -57,18 +59,22 @@ namespace {
         }
     }
 
-    void UpdateTerrainPhysicsActor(Game::TerrainRenderResource& Resource, const Game::Transform& TransformComponent, const Game::PhysicsActor* PhysicsActorComponent, IPhysicsWorld* PhysicsWorldResource) {
+    void UpdateTerrainPhysicsActor(Game::TerrainRenderResource& Resource, const Game::Transform& TransformComponent, const Game::PhysicsActor* PhysicsActorComponent, IPhysicsWorld* PhysicsWorldResource, TerrainDataRepository* TerrainDataRepositoryResource) {
         if (PhysicsActorComponent == nullptr || PhysicsWorldResource == nullptr) {
             return;
         }
 
-        PhysicsTerrainActor* TerrainActor{ PhysicsWorldResource->GetTerrainActor(Game::ResolvePhysicsActorId(*PhysicsActorComponent)) };
+        const std::uint32_t PhysicsActorId{ Game::ResolvePhysicsActorId(*PhysicsActorComponent) };
+        PhysicsTerrainActor* TerrainActor{ PhysicsWorldResource->GetTerrainActor(PhysicsActorId) };
         if (TerrainActor == nullptr) {
             return;
         }
 
-        const PhysicsTerrainActor::ActorDesc Desc{ BuildStreamingTerrainActorDesc(Resource, TransformComponent) };
+        const PhysicsTerrainActor::ActorDesc Desc{ BuildStreamingTerrainActorDesc(Resource, TransformComponent, PhysicsActorId) };
         TerrainActor->SetActorDesc(Desc);
+        if (TerrainDataRepositoryResource != nullptr && Desc.mTerrainWorldData != nullptr) {
+            TerrainDataRepositoryResource->UpsertTerrainData(*Desc.mTerrainWorldData);
+        }
     }
 }
 
@@ -111,7 +117,7 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> TerrainStreamingSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 2> Accesses{ { { typeid(AssetRegistry), Access::Write }, { typeid(IPhysicsWorld), Access::Write } } };
+        static std::array<ResourceAccess, 3> Accesses{ { { typeid(AssetRegistry), Access::Write }, { typeid(IPhysicsWorld), Access::Write }, { typeid(TerrainDataRepository), Access::Write } } };
         return Accesses;
     }
 
@@ -144,7 +150,7 @@ namespace Game {
             UpdateTerrainBoundingBoxes(World, Resource, ParentBoundingBox);
 
             const PhysicsActor* PhysicsActorComponent{ std::as_const(World).GetComponent<PhysicsActor>(HierarchyComponent.self) };
-            UpdateTerrainPhysicsActor(Resource, TransformComponent, PhysicsActorComponent, Ctx.PhysicsWorldResource);
+            UpdateTerrainPhysicsActor(Resource, TransformComponent, PhysicsActorComponent, Ctx.PhysicsWorldResource, Ctx.TerrainDataRepositoryResource);
         }
     }
 }

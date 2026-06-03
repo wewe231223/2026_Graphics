@@ -49,6 +49,15 @@ struct PhysicsRuntimeScene final {
     std::vector<PhysicsActorSpawnInfo> mActorSpawnInfos{};
 };
 
+struct PhysicsKinematicRuntimeState final {
+    ActorId mActorId{ InvalidActorId };
+    DirectX::SimpleMath::Vector3 mPosition{};
+    DirectX::SimpleMath::Quaternion mOrientation{ 0.0F, 0.0F, 0.0F, 1.0F };
+    DirectX::SimpleMath::Vector3 mScale{ 1.0F, 1.0F, 1.0F };
+    DirectX::SimpleMath::Vector3 mVelocity{};
+    bool mIsActive{ true };
+};
+
 enum class PhysicsCommandType : std::uint32_t {
     ResetScene = 0U,
     AddImpulse = 1U,
@@ -91,6 +100,10 @@ struct PhysicsSetKinematicTransformCommand final {
     DirectX::SimpleMath::Vector3 mPosition{};
     DirectX::SimpleMath::Quaternion mOrientation{ 0.0F, 0.0F, 0.0F, 1.0F };
     DirectX::SimpleMath::Vector3 mScale{ 1.0F, 1.0F, 1.0F };
+    bool mIsTeleport{};
+    bool mSetPosition{ true };
+    bool mSetOrientation{ true };
+    bool mSetScale{ true };
 };
 
 struct PhysicsSetLocalBoundingBoxCommand final {
