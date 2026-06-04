@@ -236,6 +236,16 @@ bool PhysicsRuntime::EnqueueSetActorActive(ActorId ActorIdValue, bool IsActive) 
     return Enqueued;
 }
 
+bool PhysicsRuntime::EnqueueAddStaticActor(ActorId ActorIdValue, const PhysicsStaticActor::ActorDesc& ActorDesc) {
+    PhysicsCommand NewCommand{};
+    NewCommand.mType = PhysicsCommandType::AddStaticActor;
+    NewCommand.mAddStaticActor.mActorId = ActorIdValue;
+    NewCommand.mAddStaticActor.mActorDesc = ActorDesc;
+
+    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
+    return Enqueued;
+}
+
 void PhysicsRuntime::PublishKinematicStates(const std::vector<PhysicsKinematicRuntimeState>& KinematicStates) {
     std::lock_guard<std::mutex> KinematicStateLock{ mKinematicStateMutex };
     mPublishedKinematicStates = KinematicStates;
@@ -503,6 +513,12 @@ bool PhysicsRuntime::ProcessCommand(const PhysicsCommand& Command, double& OutTi
 
     if (Command.mType == PhysicsCommandType::SetActorActive) {
         ApplySetActorActiveCommand(Command.mSetActorActive);
+        return false;
+    }
+
+    if (Command.mType == PhysicsCommandType::AddStaticActor) {
+        ApplyAddStaticActorCommand(Command.mAddStaticActor);
+        return false;
     }
 
     return false;
@@ -691,6 +707,43 @@ void PhysicsRuntime::ApplySetActorActiveCommand(const PhysicsSetActorActiveComma
     TargetActor->SetIsActive(Command.mIsActive);
 }
 
+void PhysicsRuntime::ApplyAddStaticActorCommand(const PhysicsAddStaticActorCommand& Command) {
+    if (Command.mActorId == InvalidActorId) {
+        return;
+    }
+
+    const std::size_t ActorIndex{ static_cast<std::size_t>(Command.mActorId) };
+    const std::size_t ActorCount{ mPhysicsWorld.GetActorCount() };
+    PhysicsStaticActor::ActorDesc ActorDesc{ Command.mActorDesc };
+    ActorDesc.ActorType = PhysicsActorBase::PhysicsActorType::Static;
+    ActorDesc.Mass = 0.0F;
+
+    if (ActorIndex < ActorCount) {
+        PhysicsActorBase* ExistingActor{ mPhysicsWorld.GetActor(ActorIndex) };
+        if (ExistingActor == nullptr || ExistingActor->GetActorType() != PhysicsActorBase::PhysicsActorType::Static) {
+            return;
+        }
+
+        ExistingActor->SetName(ActorDesc.Name);
+        ExistingActor->SetIsActive(ActorDesc.IsActive);
+        ExistingActor->SetFlags(ActorDesc.Flags);
+        ExistingActor->SetFriction(ActorDesc.Friction);
+        ExistingActor->SetRestitution(ActorDesc.Restitution);
+        ExistingActor->SetLocalBoundingBox(ActorDesc.LocalBoundingBox);
+        ExistingActor->SetScale(ActorDesc.Scale);
+        ExistingActor->SetRotation(ActorDesc.Rotation);
+        ExistingActor->SetPosition(ActorDesc.Position);
+        return;
+    }
+
+    if (ActorIndex != ActorCount) {
+        return;
+    }
+
+    std::unique_ptr<PhysicsActorBase> NewActor{ std::make_unique<PhysicsStaticActor>(ActorDesc) };
+    mPhysicsWorld.AddActor(std::move(NewActor));
+}
+
 void PhysicsRuntime::ApplyPublishedKinematicStates() {
     {
         std::lock_guard<std::mutex> KinematicStateLock{ mKinematicStateMutex };
@@ -787,9 +840,11 @@ void PhysicsRuntime::PublishSnapshot(std::size_t LastUpdateStepCount, double Las
     WriteBuffer.mLastUpdateStepElapsedMilliseconds = LastUpdateStepElapsedMilliseconds;
     WriteBuffer.mLastStepElapsedMilliseconds = LastStepElapsedMilliseconds;
 
-    std::size_t ActorCount{ mPhysicsWorld.GetActorCount() };
+    const std::size_t ActorCount{ mPhysicsWorld.GetActorCount() };
     if (ActorCount > WriteBuffer.mActors.size()) {
-        ActorCount = WriteBuffer.mActors.size();
+        for (PhysicsSnapshot& SnapshotBuffer : mSnapshotBuffers) {
+            SnapshotBuffer.mActors.resize(ActorCount);
+        }
     }
 
     WriteBuffer.mActorCount = ActorCount;

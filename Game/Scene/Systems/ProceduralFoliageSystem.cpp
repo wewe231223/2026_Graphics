@@ -39,6 +39,7 @@
 #include "Game/Scene/Components/TerrainRenderer.h"
 #include "Game/Scene/Components/Transform.h"
 #include "PhysicsLib/Actors/PhysicsStaticActor.h"
+#include "PhysicsLib/Runtime/PhysicsRuntime.h"
 #include "Utility/ErrorHandler.h"
 
 namespace {
@@ -1061,6 +1062,26 @@ namespace {
         return Desc;
     }
 
+    void EnqueueFoliageCollisionActorRuntimeState(PhysicsRuntime* PhysicsRuntimeResource, bool IsPhysicsRuntimeModeEnabled, const FoliageSlot& Slot, const Game::Transform& TransformComponent, bool IsActive) {
+        if (IsPhysicsRuntimeModeEnabled == false || PhysicsRuntimeResource == nullptr || PhysicsRuntimeResource->IsRunning() == false || Slot.mCollisionActorPointer == nullptr) {
+            return;
+        }
+
+        PhysicsStaticActor::ActorDesc Desc{};
+        Desc.Name = Slot.mCollisionActorPointer->GetName();
+        Desc.IsActive = IsActive;
+        Desc.Mass = 0.0f;
+        Desc.Flags = Slot.mCollisionActorPointer->GetFlags();
+        Desc.ActorType = PhysicsActorBase::PhysicsActorType::Static;
+        Desc.LocalBoundingBox = Slot.mCollisionActorPointer->GetLocalBoundingBox();
+        Desc.Position = TransformComponent.position;
+        Desc.Rotation = TransformComponent.rotationEuler;
+        Desc.Scale = TransformComponent.scale;
+        Desc.Friction = Slot.mCollisionActorPointer->GetFriction();
+        Desc.Restitution = Slot.mCollisionActorPointer->GetRestitution();
+        static_cast<void>(PhysicsRuntimeResource->EnqueueAddStaticActor(static_cast<ActorId>(Slot.mCollisionActorIndex), Desc));
+    }
+
     bool CreateFoliageCollisionActor(Arche::World& World, IPhysicsWorld* PhysicsWorldResource, const FoliagePlacementConfig& Config, const FoliageRuntimeRule& Rule, Arche::EntityID RootEntityId, FoliageSlot& OutSlot) {
         if (Rule.mDesc.mCollisionActorEnabled == false) {
             return true;
@@ -1213,7 +1234,7 @@ namespace {
         Slot.mActiveLodIndex = IsActive == true ? ResolvedLodIndex : std::numeric_limits<std::uint32_t>::max();
     }
 
-    void ApplyFoliageCollisionActorToSlot(Arche::World& World, FoliageSlot& Slot, const Game::Transform& TransformComponent, bool IsActive) {
+    void ApplyFoliageCollisionActorToSlot(Arche::World& World, FoliageSlot& Slot, PhysicsRuntime* PhysicsRuntimeResource, bool IsPhysicsRuntimeModeEnabled, const Game::Transform& TransformComponent, bool IsActive) {
         if (Slot.mCollisionActorPointer == nullptr) {
             return;
         }
@@ -1227,11 +1248,18 @@ namespace {
         if (BoundingBoxComponent != nullptr) {
             BoundingBoxComponent->SetWorldObb(Slot.mCollisionActorPointer->GetWorldBoundingBox());
         }
+
+        EnqueueFoliageCollisionActorRuntimeState(PhysicsRuntimeResource, IsPhysicsRuntimeModeEnabled, Slot, TransformComponent, IsActive);
     }
 
-    void ApplyFoliageCandidateToSlot(Arche::World& World, FoliageSlot& Slot, const FoliageCandidate& Candidate) {
+    void ApplyFoliageCandidateToSlot(Arche::World& World, FoliageSlot& Slot, PhysicsRuntime* PhysicsRuntimeResource, bool IsPhysicsRuntimeModeEnabled, const FoliageCandidate& Candidate) {
         if (Slot.mActive == true && Slot.mKey == Candidate.mKey) {
             Slot.mAssignedThisFrame = true;
+            Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(Slot.mRootEntityId) };
+            if (TransformComponent != nullptr) {
+                ApplyFoliageCollisionActorToSlot(World, Slot, PhysicsRuntimeResource, IsPhysicsRuntimeModeEnabled, *TransformComponent, true);
+            }
+
             if (Slot.mActiveLodIndex != Candidate.mLodIndex) {
                 SetFoliageSlotActive(World, Slot, true, Candidate.mLodIndex);
             }
@@ -1248,13 +1276,13 @@ namespace {
         TransformComponent->rotationEuler = SimpleMath::Vector3{ 0.0f, Candidate.mYawRadians, 0.0f };
         TransformComponent->UpdateRotationFromEulerRadians();
         TransformComponent->scale = SimpleMath::Vector3{ Candidate.mScale, Candidate.mScale, Candidate.mScale };
-        ApplyFoliageCollisionActorToSlot(World, Slot, *TransformComponent, true);
+        ApplyFoliageCollisionActorToSlot(World, Slot, PhysicsRuntimeResource, IsPhysicsRuntimeModeEnabled, *TransformComponent, true);
         Slot.mKey = Candidate.mKey;
         Slot.mAssignedThisFrame = true;
         SetFoliageSlotActive(World, Slot, true, Candidate.mLodIndex);
     }
 
-    void DeactivateFoliageSlot(Arche::World& World, FoliageSlot& Slot) {
+    void DeactivateFoliageSlot(Arche::World& World, FoliageSlot& Slot, PhysicsRuntime* PhysicsRuntimeResource, bool IsPhysicsRuntimeModeEnabled) {
         if (Slot.mActive == false) {
             return;
         }
@@ -1262,10 +1290,13 @@ namespace {
         Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(Slot.mRootEntityId) };
         if (TransformComponent != nullptr) {
             TransformComponent->position.y = Slot.mInactiveHeight;
-            ApplyFoliageCollisionActorToSlot(World, Slot, *TransformComponent, false);
+            ApplyFoliageCollisionActorToSlot(World, Slot, PhysicsRuntimeResource, IsPhysicsRuntimeModeEnabled, *TransformComponent, false);
         }
         else if (Slot.mCollisionActorPointer != nullptr) {
             Slot.mCollisionActorPointer->SetIsActive(false);
+            if (IsPhysicsRuntimeModeEnabled == true && PhysicsRuntimeResource != nullptr && PhysicsRuntimeResource->IsRunning() == true) {
+                static_cast<void>(PhysicsRuntimeResource->EnqueueSetActorActive(static_cast<ActorId>(Slot.mCollisionActorIndex), false));
+            }
         }
 
         SetFoliageSlotActive(World, Slot, false, 0u);
@@ -1291,7 +1322,7 @@ namespace Game {
         void ProcessFoliageUpdateBatch(Arche::World& World, FrameContext& Ctx, const TerrainSamplingContext& TerrainContext);
         void BuildCandidateBatch(const TerrainSamplingContext& TerrainContext);
         void ApplyCandidateBatch(Arche::World& World, FrameContext& Ctx);
-        void RebuildSlotLookupBatch(Arche::World& World);
+        void RebuildSlotLookupBatch(Arche::World& World, FrameContext& Ctx);
         bool TryCreateCandidate(const TerrainSamplingContext& TerrainContext, const SimpleMath::Vector3& FocusPosition, std::uint32_t RuleIndex, std::int32_t CellX, std::int32_t CellZ, std::uint32_t InstanceIndex, FoliageCandidate& OutCandidate) const;
         std::size_t FindReusableSlot(std::uint32_t RuleIndex) const;
         bool CreateSlot(Arche::World& World, FrameContext& Ctx, std::uint32_t RuleIndex, std::size_t& OutSlotIndex);
@@ -1604,7 +1635,7 @@ namespace Game {
         }
 
         if (mUpdatePhase == FoliageUpdatePhase::RebuildSlotLookup) {
-            RebuildSlotLookupBatch(World);
+            RebuildSlotLookupBatch(World, Ctx);
         }
     }
 
@@ -1649,7 +1680,7 @@ namespace Game {
             const FoliageCandidate& Candidate{ mUpdateCandidates[mUpdateCandidateIndex] };
             const std::unordered_map<FoliageCandidateKey, std::size_t, FoliageCandidateKeyHasher>::const_iterator SlotIter{ mSlotByKey.find(Candidate.mKey) };
             if (SlotIter != mSlotByKey.end() && SlotIter->second < mSlots.size() && mSlots[SlotIter->second].mRuleIndex == Candidate.mKey.mRuleIndex) {
-                ApplyFoliageCandidateToSlot(World, mSlots[SlotIter->second], Candidate);
+                ApplyFoliageCandidateToSlot(World, mSlots[SlotIter->second], Ctx.PhysicsRuntimeResource, Ctx.IsPhysicsRuntimeModeEnabled, Candidate);
                 mUpdateCandidateIndex += 1ULL;
                 ProcessedCandidateCount += 1u;
                 continue;
@@ -1665,7 +1696,7 @@ namespace Game {
                 }
             }
 
-            ApplyFoliageCandidateToSlot(World, mSlots[SlotIndex], Candidate);
+            ApplyFoliageCandidateToSlot(World, mSlots[SlotIndex], Ctx.PhysicsRuntimeResource, Ctx.IsPhysicsRuntimeModeEnabled, Candidate);
             mUpdateCandidateIndex += 1ULL;
             ProcessedCandidateCount += 1u;
         }
@@ -1681,12 +1712,12 @@ namespace Game {
         mUpdatePhase = FoliageUpdatePhase::RebuildSlotLookup;
     }
 
-    void ProceduralFoliageRuntime::RebuildSlotLookupBatch(Arche::World& World) {
+    void ProceduralFoliageRuntime::RebuildSlotLookupBatch(Arche::World& World, FrameContext& Ctx) {
         std::uint32_t ProcessedSlotCount{};
         while (mUpdateSlotIndex < mSlots.size() && ProcessedSlotCount < mConfig.mUpdateSlotBatchSize) {
             FoliageSlot& Slot{ mSlots[mUpdateSlotIndex] };
             if (Slot.mAssignedThisFrame == false) {
-                DeactivateFoliageSlot(World, Slot);
+                DeactivateFoliageSlot(World, Slot, Ctx.PhysicsRuntimeResource, Ctx.IsPhysicsRuntimeModeEnabled);
             }
             else {
                 mUpdateSlotByKey.insert_or_assign(Slot.mKey, mUpdateSlotIndex);
@@ -1767,7 +1798,7 @@ namespace Game {
         }
 
         FoliageSlot Slot{};
-        IPhysicsWorld* FoliagePhysicsWorldResource{ Ctx.IsPhysicsRuntimeModeEnabled == true ? nullptr : Ctx.PhysicsWorldResource };
+        IPhysicsWorld* FoliagePhysicsWorldResource{ Ctx.PhysicsWorldResource };
         const bool IsCreated{ CreateFoliageSlotEntities(World, FoliagePhysicsWorldResource, mConfig, mRules[RuleIndex], RuleIndex, Slot) };
         if (IsCreated == false) {
             return false;
@@ -1840,7 +1871,7 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> ProceduralFoliageSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 2> Accesses{ { { typeid(AssetRegistry), Access::Write }, { typeid(IPhysicsWorld), Access::Write } } };
+        static std::array<ResourceAccess, 3> Accesses{ { { typeid(AssetRegistry), Access::Write }, { typeid(IPhysicsWorld), Access::Write }, { typeid(PhysicsRuntime), Access::Write } } };
         return Accesses;
     }
 

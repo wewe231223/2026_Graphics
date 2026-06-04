@@ -46,6 +46,18 @@ void ResolveSecondActorVelocity(PhysicsActorBase& SecondActor, const DirectX::Si
     SecondActor.SetVelocity(SecondVelocity);
 }
 
+void ResolveFirstActorVelocity(PhysicsActorBase& FirstActor, const DirectX::SimpleMath::Vector3& CollisionNormal, float Restitution) {
+    DirectX::SimpleMath::Vector3 FirstVelocity{ FirstActor.GetVelocity() };
+    float VelocityAlongNormal{ FirstVelocity.Dot(CollisionNormal) };
+    if (VelocityAlongNormal <= 0.0F) {
+        return;
+    }
+
+    float VelocityCorrection{ VelocityAlongNormal * (1.0F + Restitution) };
+    FirstVelocity -= CollisionNormal * VelocityCorrection;
+    FirstActor.SetVelocity(FirstVelocity);
+}
+
 bool ApplyKinematicDynamicContactImpulse(const PhysicsActorBase& FirstActor, PhysicsActorBase& SecondActor, const DynamicSatResult& SatResult, const DirectX::SimpleMath::Vector3& CollisionNormal) {
     if (SecondActor.GetActorType() != PhysicsActorBase::PhysicsActorType::Dynamic || SecondActor.GetInverseMass() <= 0.0F) {
         return false;
@@ -102,6 +114,18 @@ bool ResolveKinematicActorPair(PhysicsActorBase& FirstActor, PhysicsActorBase& S
     DirectX::SimpleMath::Vector3 CollisionNormal{ NormalizeOrZero(SatResult.mNormal) };
     if (IsNearlyZeroVector(CollisionNormal, DynamicSatAxisEpsilon)) {
         return false;
+    }
+
+    if (SecondActor.GetActorType() == PhysicsActorBase::PhysicsActorType::Static) {
+        float PenetrationDepth{ std::max(0.0F, SatResult.mPenetration - KinematicPositionCorrectionSlop) };
+        FirstActor.RegisterContactNormal(-CollisionNormal);
+        if (PenetrationDepth > 0.0F) {
+            FirstActor.SetPosition(FirstActor.GetPosition() - (CollisionNormal * PenetrationDepth));
+        }
+
+        float EffectiveRestitution{ GetEffectiveRestitution(FirstActor, SecondActor) };
+        ResolveFirstActorVelocity(FirstActor, CollisionNormal, EffectiveRestitution);
+        return true;
     }
 
     if (SecondActor.GetActorType() != PhysicsActorBase::PhysicsActorType::Dynamic) {

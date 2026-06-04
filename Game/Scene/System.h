@@ -13,6 +13,8 @@
 #include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
 #include "Utility/SimpleMathWrapper.h"
 
+class PhysicsRuntime;
+
 namespace Game {
     class AssetRegistry;
     struct RegisteredMaterialGroup;
@@ -56,6 +58,7 @@ namespace Game {
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
         AssetRegistry* AssetRegistryResource{ nullptr };
         IPhysicsWorld* PhysicsWorldResource{ nullptr };
+        PhysicsRuntime* PhysicsRuntimeResource{ nullptr };
         const PhysicsSnapshot* PhysicsSnapshotResource{ nullptr };
         TerrainManager* TerrainManagerResource{ nullptr };
         ITerrainQuery* TerrainQueryResource{ nullptr };

@@ -54,6 +54,7 @@ public:
     bool EnqueueSetLocalBoundingBox(ActorId ActorIdValue, const DirectX::BoundingOrientedBox& LocalBoundingBox);
     bool EnqueueSetTerrainActorDesc(ActorId ActorIdValue, const std::shared_ptr<const PhysicsTerrainActor::ActorDesc>& TerrainActorDesc);
     bool EnqueueSetActorActive(ActorId ActorIdValue, bool IsActive);
+    bool EnqueueAddStaticActor(ActorId ActorIdValue, const PhysicsStaticActor::ActorDesc& ActorDesc);
     void PublishKinematicStates(const std::vector<PhysicsKinematicRuntimeState>& KinematicStates);
 
     std::uint32_t GetReadableSnapshotIndex() const;
@@ -82,6 +83,7 @@ private:
     void ApplySetLocalBoundingBoxCommand(const PhysicsSetLocalBoundingBoxCommand& Command);
     void ApplySetTerrainActorDescCommand(const PhysicsSetTerrainActorDescCommand& Command);
     void ApplySetActorActiveCommand(const PhysicsSetActorActiveCommand& Command);
+    void ApplyAddStaticActorCommand(const PhysicsAddStaticActorCommand& Command);
     void ApplyPublishedKinematicStates();
     void BuildWorldFromScene(std::size_t SceneIndex);
     void PublishSnapshot(std::size_t LastUpdateStepCount, double LastUpdateStepElapsedMilliseconds, double LastStepElapsedMilliseconds);

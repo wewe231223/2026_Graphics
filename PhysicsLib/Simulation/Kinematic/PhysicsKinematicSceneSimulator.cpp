@@ -50,6 +50,18 @@ bool ResolveKinematicActorTerrainContact(const Game::ITerrainQuery& TerrainQuery
     Actor.SetVelocity(NextVelocity);
     return true;
 }
+
+void ResolveKinematicActorStaticContacts(IPhysicsActorRepository& ActorRepository, PhysicsKinematicActor& KinematicActor, float DeltaTime) {
+    std::size_t ActorCount{ ActorRepository.GetActorCount() };
+    for (std::size_t ActorIndex{ 0U }; ActorIndex < ActorCount; ++ActorIndex) {
+        PhysicsActorBase* OtherActor{ ActorRepository.GetActor(ActorIndex) };
+        if (OtherActor == nullptr || OtherActor == &KinematicActor || OtherActor->GetActorType() != PhysicsActorBase::PhysicsActorType::Static) {
+            continue;
+        }
+
+        static_cast<void>(KinematicActor.ResolveActorCollision(*OtherActor, DeltaTime));
+    }
+}
 }
 
 PhysicsKinematicSceneSimulator::PhysicsKinematicSceneSimulator() {
@@ -100,6 +112,7 @@ void PhysicsKinematicSceneSimulator::Tick(IPhysicsActorRepository& ActorReposito
         KinematicActor->SetVelocity(NextVelocity);
         KinematicActor->SetPosition(NextPosition);
         static_cast<void>(ResolveKinematicActorTerrainContact(TerrainQuery, *KinematicActor));
+        ResolveKinematicActorStaticContacts(ActorRepository, *KinematicActor, DeltaTime);
         KinematicActor->ClearAccumulatedForce();
         KinematicActor->ClearTorque();
     }

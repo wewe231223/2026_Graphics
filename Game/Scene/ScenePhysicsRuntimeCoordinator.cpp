@@ -452,6 +452,7 @@ namespace Game {
         PhysicsWorld::WorldSettings Settings{ BuildDefaultPhysicsWorldSettings() };
         Context.mPhysicsWorld.Initialize(Settings);
         Context.mFrameContext.PhysicsWorldResource = &Context.mPhysicsWorld;
+        Context.mFrameContext.PhysicsRuntimeResource = &Context.mPhysicsRuntime;
         Context.mFrameContext.PhysicsSnapshotResource = nullptr;
         Context.mFrameContext.TerrainManagerResource = &Context.mTerrainManager;
         Context.mFrameContext.TerrainQueryResource = &Context.mTerrainManager;
@@ -467,6 +468,7 @@ namespace Game {
         ShutdownPhysicsRuntime(Context);
         Context.mFrameContext.IsPhysicsRuntimeModeEnabled = Context.mIsPhysicsRuntimeModeEnabled;
         Context.mFrameContext.PhysicsSnapshotResource = nullptr;
+        Context.mFrameContext.PhysicsRuntimeResource = &Context.mPhysicsRuntime;
         Context.mFrameContext.TerrainManagerResource = &Context.mTerrainManager;
         Context.mFrameContext.TerrainQueryResource = &Context.mTerrainManager;
 
@@ -727,6 +729,7 @@ namespace Game {
 
     void ScenePhysicsRuntimeCoordinator::UpdatePhysics(ScenePhysicsRuntimeContext Context, float Dt) {
         Context.mFrameContext.PhysicsWorldResource = &Context.mPhysicsWorld;
+        Context.mFrameContext.PhysicsRuntimeResource = &Context.mPhysicsRuntime;
         Context.mFrameContext.TerrainManagerResource = &Context.mTerrainManager;
         Context.mFrameContext.TerrainQueryResource = &Context.mTerrainManager;
         UpdateTerrainManager(Context);

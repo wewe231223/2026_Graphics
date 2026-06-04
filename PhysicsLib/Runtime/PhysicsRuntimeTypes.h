@@ -24,6 +24,7 @@ Notes:
 
 #include "PhysicsLib/Actors/PhysicsActor.h"
 #include "PhysicsLib/Actors/PhysicsDynamicActor.h"
+#include "PhysicsLib/Actors/PhysicsStaticActor.h"
 #include "PhysicsLib/Actors/PhysicsTerrainActor.h"
 
 #undef max
@@ -67,7 +68,8 @@ enum class PhysicsCommandType : std::uint32_t {
     SetKinematicTransform = 5U,
     SetLocalBoundingBox = 6U,
     SetTerrainActorDesc = 7U,
-    SetActorActive = 8U
+    SetActorActive = 8U,
+    AddStaticActor = 9U
 };
 
 struct PhysicsResetSceneCommand final {
@@ -121,6 +123,11 @@ struct PhysicsSetActorActiveCommand final {
     bool mIsActive{};
 };
 
+struct PhysicsAddStaticActorCommand final {
+    ActorId mActorId{ InvalidActorId };
+    PhysicsStaticActor::ActorDesc mActorDesc{};
+};
+
 struct PhysicsCommand final {
     PhysicsCommandType mType{ PhysicsCommandType::ResetScene };
     PhysicsResetSceneCommand mResetScene{};
@@ -132,6 +139,7 @@ struct PhysicsCommand final {
     PhysicsSetLocalBoundingBoxCommand mSetLocalBoundingBox{};
     PhysicsSetTerrainActorDescCommand mSetTerrainActorDesc{};
     PhysicsSetActorActiveCommand mSetActorActive{};
+    PhysicsAddStaticActorCommand mAddStaticActor{};
 };
 
 struct PhysicsActorSnapshot final {
