@@ -3,7 +3,9 @@
 #include <DirectXTK12/SimpleMath.h>
 
 class IPhysicsActorRepository;
-class ITerrainQuery;
+namespace Game {
+    class ITerrainQuery;
+}
 
 class PhysicsKinematicSceneSimulator final {
 public:
@@ -15,5 +17,5 @@ public:
     PhysicsKinematicSceneSimulator& operator=(PhysicsKinematicSceneSimulator&& Other) noexcept;
 
 public:
-    void Tick(IPhysicsActorRepository& ActorRepository, const ITerrainQuery& TerrainQuery, const DirectX::SimpleMath::Vector3& Gravity, float DeltaTime) const;
+    void Tick(IPhysicsActorRepository& ActorRepository, const Game::ITerrainQuery& TerrainQuery, const DirectX::SimpleMath::Vector3& Gravity, float DeltaTime) const;
 };

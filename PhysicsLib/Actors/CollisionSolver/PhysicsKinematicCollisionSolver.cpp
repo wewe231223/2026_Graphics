@@ -30,8 +30,7 @@ bool IsHeightFieldTerrainActor(const PhysicsActorBase& Actor) {
     }
 
     const PhysicsTerrainActor& TerrainActor{ static_cast<const PhysicsTerrainActor&>(Actor) };
-    PhysicsTerrainActor::ActorDesc TerrainActorDesc{ TerrainActor.GetActorDesc() };
-    bool HasHeightField{ TerrainActorDesc.HeightFieldWidth > 1U && TerrainActorDesc.HeightFieldHeight > 1U && !TerrainActorDesc.HeightFieldValues.empty() };
+    bool HasHeightField{ TerrainActor.HasHeightFieldData() };
     return HasHeightField;
 }
 

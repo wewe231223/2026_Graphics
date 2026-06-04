@@ -139,27 +139,43 @@ namespace Game::SceneYaml {
         return true;
     }
 
-    bool TryBuildTerrainActorDescFromHeightField(const Game::HeightFieldData& HeightFieldDataValue, const Game::TerrainBuildDesc& TerrainBuildDescValue, PhysicsTerrainActor::ActorDesc& OutTerrainActorDesc) {
-        if (HeightFieldDataValue.Width == 0u || HeightFieldDataValue.Height == 0u || HeightFieldDataValue.HeightValues.empty() == true) {
+    bool TryBuildTerrainActorDescFromHeightFieldPointer(const std::shared_ptr<const Game::HeightFieldData>& HeightFieldDataValue, const Game::TerrainBuildDesc& TerrainBuildDescValue, PhysicsTerrainActor::ActorDesc& OutTerrainActorDesc) {
+        if (HeightFieldDataValue == nullptr || HeightFieldDataValue->Width == 0u || HeightFieldDataValue->Height == 0u || HeightFieldDataValue->HeightValues.empty() == true) {
             return false;
         }
 
-        OutTerrainActorDesc = PhysicsTerrainActor::BuildHeightFieldActorDesc(HeightFieldDataValue.Width, HeightFieldDataValue.Height, HeightFieldDataValue.HeightValues, TerrainBuildDescValue.MaxHeight, TerrainBuildDescValue.CellSizeX, TerrainBuildDescValue.CellSizeZ, TerrainBuildDescValue.CenterOrigin);
+        OutTerrainActorDesc = PhysicsTerrainActor::ActorDesc{};
+        OutTerrainActorDesc.HeightFieldWidth = HeightFieldDataValue->Width;
+        OutTerrainActorDesc.HeightFieldHeight = HeightFieldDataValue->Height;
+        OutTerrainActorDesc.HeightFieldCellSizeX = TerrainBuildDescValue.CellSizeX;
+        OutTerrainActorDesc.HeightFieldCellSizeZ = TerrainBuildDescValue.CellSizeZ;
+        OutTerrainActorDesc.HeightFieldMaxHeight = TerrainBuildDescValue.MaxHeight;
+        OutTerrainActorDesc.HeightFieldCenterOrigin = TerrainBuildDescValue.CenterOrigin;
+        OutTerrainActorDesc.HeightFieldValues = std::shared_ptr<const std::vector<float>>{ HeightFieldDataValue, &HeightFieldDataValue->HeightValues };
+        OutTerrainActorDesc.HalfExtentX = HeightFieldDataValue->Width > 1u ? static_cast<float>(HeightFieldDataValue->Width - 1u) * TerrainBuildDescValue.CellSizeX * 0.5f : 0.0f;
+        OutTerrainActorDesc.HalfExtentZ = HeightFieldDataValue->Height > 1u ? static_cast<float>(HeightFieldDataValue->Height - 1u) * TerrainBuildDescValue.CellSizeZ * 0.5f : 0.0f;
+        OutTerrainActorDesc.Scale = SimpleMath::Vector3{ 1.0f, 1.0f, 1.0f };
+        OutTerrainActorDesc.mTerrainWorldData = std::make_shared<const Game::TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(OutTerrainActorDesc, 0u));
         return true;
+    }
+
+    bool TryBuildTerrainActorDescFromHeightField(const Game::HeightFieldData& HeightFieldDataValue, const Game::TerrainBuildDesc& TerrainBuildDescValue, PhysicsTerrainActor::ActorDesc& OutTerrainActorDesc) {
+        const std::shared_ptr<const Game::HeightFieldData> HeightFieldDataPointer{ std::make_shared<const Game::HeightFieldData>(HeightFieldDataValue) };
+        return TryBuildTerrainActorDescFromHeightFieldPointer(HeightFieldDataPointer, TerrainBuildDescValue, OutTerrainActorDesc);
     }
 
     bool TryBuildTerrainActorDescFromRenderResource(const Game::TerrainRenderResource& TerrainResource, PhysicsTerrainActor::ActorDesc& OutTerrainActorDesc) {
         const Game::TerrainBuildDesc& TerrainBuildDescValue{ TerrainResource.GetBuildDesc() };
-        const Game::HeightFieldData& ResourceHeightFieldData{ TerrainResource.GetHeightFieldData() };
-        const bool IsResourceHeightFieldResolved{ TryBuildTerrainActorDescFromHeightField(ResourceHeightFieldData, TerrainBuildDescValue, OutTerrainActorDesc) };
+        const std::shared_ptr<const Game::HeightFieldData>& ResourceHeightFieldData{ TerrainResource.GetHeightFieldDataPointer() };
+        const bool IsResourceHeightFieldResolved{ TryBuildTerrainActorDescFromHeightFieldPointer(ResourceHeightFieldData, TerrainBuildDescValue, OutTerrainActorDesc) };
         if (IsResourceHeightFieldResolved == true) {
             return true;
         }
 
         try {
             Game::TerrainHeightFieldFactory HeightFieldFactory{};
-            const Game::HeightFieldData BuiltHeightFieldData{ HeightFieldFactory.Build(TerrainBuildDescValue) };
-            return TryBuildTerrainActorDescFromHeightField(BuiltHeightFieldData, TerrainBuildDescValue, OutTerrainActorDesc);
+            const std::shared_ptr<const Game::HeightFieldData> BuiltHeightFieldData{ std::make_shared<const Game::HeightFieldData>(HeightFieldFactory.Build(TerrainBuildDescValue)) };
+            return TryBuildTerrainActorDescFromHeightFieldPointer(BuiltHeightFieldData, TerrainBuildDescValue, OutTerrainActorDesc);
         }
         catch (const std::exception&) {
             return false;

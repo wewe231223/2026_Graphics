@@ -8,9 +8,9 @@
 #include "Arche/World.h"
 #include "Game/Base/RenderFrameData.h"
 #include "Game/Scene/SceneWorldSnapshot.h"
+#include "Game/Terrain/TerrainManager.h"
 #include "PhysicsLib/Common.h"
 #include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
-#include "PhysicsLib/Terrain/TerrainDataRepository.h"
 #include "Utility/SimpleMathWrapper.h"
 
 namespace Game {
@@ -57,7 +57,8 @@ namespace Game {
         AssetRegistry* AssetRegistryResource{ nullptr };
         IPhysicsWorld* PhysicsWorldResource{ nullptr };
         const PhysicsSnapshot* PhysicsSnapshotResource{ nullptr };
-        TerrainDataRepository* TerrainDataRepositoryResource{ nullptr };
+        TerrainManager* TerrainManagerResource{ nullptr };
+        ITerrainQuery* TerrainQueryResource{ nullptr };
         bool IsPhysicsRuntimeModeEnabled{};
         PhysicsRuntimeStatus PhysicsRuntimeStatus{};
         Arche::EntityID PickedEntityId{ Arche::NullEntityID };

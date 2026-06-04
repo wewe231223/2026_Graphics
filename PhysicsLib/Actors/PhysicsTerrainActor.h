@@ -19,8 +19,8 @@ Notes:
 
 #include <DirectXTK12/SimpleMath.h>
 
+#include "Game/Terrain/TerrainQuery.h"
 #include "PhysicsLib/Actors/PhysicsStaticActor.h"
-#include "PhysicsLib/Terrain/TerrainDataRepository.h"
 
 class PhysicsTerrainActor final : public PhysicsStaticActor {
 public:
@@ -36,8 +36,10 @@ public:
         float HeightFieldCellSizeZ{};
         float HeightFieldMaxHeight{};
         bool HeightFieldCenterOrigin{};
-        std::vector<float> HeightFieldValues{};
-        std::shared_ptr<const TerrainWorldData> mTerrainWorldData{};
+        std::shared_ptr<const std::vector<float>> HeightFieldValues{};
+        std::shared_ptr<const Game::TerrainWorldData> mTerrainWorldData{};
+        Game::TerrainDataHandle mTerrainHandle{};
+        const Game::ITerrainQuery* mTerrainQuery{};
     };
 
 public:
@@ -53,9 +55,11 @@ public:
 public:
     void SetActorDesc(const ActorDesc& Desc);
     ActorDesc GetActorDesc() const;
-    const std::shared_ptr<const TerrainWorldData>& GetTerrainWorldData() const;
-    static TerrainWorldData BuildTerrainWorldDataFromActorDesc(const ActorDesc& Desc, std::uint32_t TerrainId);
-    static ActorDesc BuildActorDescFromTerrainWorldData(const TerrainWorldData& TerrainData);
+    const std::shared_ptr<const Game::TerrainWorldData>& GetTerrainWorldData() const;
+    Game::TerrainDataHandle GetTerrainHandle() const;
+    bool HasHeightFieldData() const;
+    static Game::TerrainWorldData BuildTerrainWorldDataFromActorDesc(const ActorDesc& Desc, std::uint32_t TerrainId);
+    static ActorDesc BuildActorDescFromTerrainWorldData(const Game::TerrainWorldData& TerrainData);
     static ActorDesc BuildHeightFieldActorDesc(std::uint32_t HeightFieldWidth, std::uint32_t HeightFieldHeight, const std::vector<float>& HeightFieldValues, float HeightFieldMaxHeight, float HeightFieldCellSizeX, float HeightFieldCellSizeZ, bool HeightFieldCenterOrigin);
     bool IsTerrainActor() const override;
 
@@ -66,8 +70,10 @@ public:
     std::unique_ptr<PhysicsActorBase> Clone() const override;
 
 private:
-    const TerrainWorldData* GetTerrainDataPointer() const;
+    bool TryResolveTerrainWorldData(std::shared_ptr<const Game::TerrainWorldData>& OutTerrainData) const;
 
 private:
-    std::shared_ptr<const TerrainWorldData> mTerrainWorldData;
+    std::shared_ptr<const Game::TerrainWorldData> mTerrainWorldData;
+    Game::TerrainDataHandle mTerrainHandle;
+    const Game::ITerrainQuery* mTerrainQuery;
 };

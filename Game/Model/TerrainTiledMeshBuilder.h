@@ -5,7 +5,7 @@
 
 #include "Asset/ModelResult.h"
 #include "Game/Model/TerrainMeshTypes.h"
-#include "Game/Model/TerrainRenderResource.h"
+#include "Game/Terrain/TerrainManager.h"
 
 namespace Game {
     struct TerrainTiledMeshData final {

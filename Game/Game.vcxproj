@@ -41,6 +41,8 @@
     <ClInclude Include="Model\TerrainRenderResource.h" />
     <ClInclude Include="Model\TerrainSplatMapGenerator.h" />
     <ClInclude Include="Model\TerrainTiledMeshBuilder.h" />
+    <ClInclude Include="Terrain\TerrainManager.h" />
+    <ClInclude Include="Terrain\TerrainQuery.h" />
     <ClInclude Include="Scene\Components\BoundingBox.h" />
     <ClInclude Include="Scene\Components\Bone.h" />
     <ClInclude Include="Scene\Components\BoneSkinReference.h" />
@@ -71,6 +73,7 @@
     <ClInclude Include="Scene\Components\Transform.h" />
     <ClInclude Include="Scene\Scene.h" />
     <ClInclude Include="Scene\SceneEntityFactory.h" />
+    <ClInclude Include="Scene\ScenePhysicsRuntimeCoordinator.h" />
     <ClInclude Include="Scene\SceneWorldSnapshot.h" />
     <ClInclude Include="Scene\SceneYamlSerializer.h" />
     <ClInclude Include="Scene\SceneYaml\SceneYamlInternal.h" />
@@ -113,6 +116,7 @@
     <ClCompile Include="Model\TerrainRenderResource.cpp" />
     <ClCompile Include="Model\TerrainSplatMapGenerator.cpp" />
     <ClCompile Include="Model\TerrainTiledMeshBuilder.cpp" />
+    <ClCompile Include="Terrain\TerrainManager.cpp" />
     <ClCompile Include="Asset\AnimationGraphAsset.cpp" />
     <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp" />
     <ClCompile Include="Scene\Components\Culling.cpp" />
@@ -122,6 +126,7 @@
     <ClCompile Include="Scene\Components\BoneSkinReference.cpp" />
     <ClCompile Include="Scene\Scene.cpp" />
     <ClCompile Include="Scene\SceneEntityFactory.cpp" />
+    <ClCompile Include="Scene\ScenePhysicsRuntimeCoordinator.cpp" />
     <ClCompile Include="Scene\SceneWorldSnapshot.cpp" />
     <ClCompile Include="Scene\SceneYamlSerializer.cpp" />
     <ClCompile Include="Scene\SceneYaml\SceneYamlCommon.cpp" />

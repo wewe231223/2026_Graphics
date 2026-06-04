@@ -8,7 +8,7 @@
 #include "DirectXTK12/SimpleMath.h"
 #include "Game/Scene/Components/FootIKRig.h"
 #include "Game/Scene/Components/FootIKRuntime.h"
-#include "PhysicsLib/Terrain/TerrainDataRepository.h"
+#include "Game/Terrain/TerrainQuery.h"
 
 namespace Game {
     class IFootIKSolver;

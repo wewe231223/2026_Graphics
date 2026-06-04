@@ -13,13 +13,16 @@
 #include "PhysicsLib/Runtime/PhysicsRuntime.h"
 #include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
 #include "PhysicsLib/Simulation/Kinematic/PhysicsKinematicSceneSimulator.h"
-#include "PhysicsLib/Terrain/TerrainDataRepository.h"
 #include "PhysicsLib/World/PhysicsWorld.h"
+#include "Game/Terrain/TerrainManager.h"
 
 namespace Game {
+    struct ScenePhysicsRuntimeContext;
+
     struct TerrainActorDescBinding final {
         Arche::EntityID mEntityId{ Arche::NullEntityID };
         PhysicsTerrainActor::ActorDesc mTerrainActorDesc{};
+        TerrainDataHandle mTerrainHandle{};
         bool mIsTerrainActorDescApplied{};
     };
 
@@ -78,6 +81,7 @@ namespace Game {
 
 
     private:
+        ScenePhysicsRuntimeContext BuildPhysicsRuntimeContext();
         void RebuildWorldSnapshot();
         void SpawnModelAtOrigin(const std::string& ModelSelector, const std::string& RootEntityName, std::uint32_t MaterialGroupIndex, bool IsDerivedEntity);
 
@@ -87,7 +91,7 @@ namespace Game {
         void PublishPhysicsRuntimeKinematicStates();
         void RefreshPhysicsRuntimeSnapshot();
         void PublishPhysicsRuntimeStatus(const PhysicsSnapshot* Snapshot);
-        void UpdateTerrainDataRepository();
+        void UpdateTerrainManager();
         void UpdateSceneKinematicActors(float Dt);
 
         void RegisterScriptTypes(); 
@@ -103,7 +107,7 @@ namespace Game {
         std::vector<PhysicsRuntimeScene> mPhysicsRuntimeScenes{};
         PhysicsSnapshot mPhysicsRuntimeSnapshot{};
         PhysicsKinematicSceneSimulator mKinematicSceneSimulator{};
-        TerrainDataRepository mTerrainDataRepository{};
+        TerrainManager mTerrainManager{};
         std::vector<PhysicsKinematicRuntimeState> mKinematicRuntimeStates{};
         std::uint32_t mPhysicsWorldVersion{ 1U };
         double mRenderPhysicsDelaySeconds{};

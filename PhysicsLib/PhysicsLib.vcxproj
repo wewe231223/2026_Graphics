@@ -38,7 +38,6 @@
     <ClCompile Include="Simulation\SpatialQuery\BruteForcePhysicsSpatialQuery.cpp" />
     <ClCompile Include="Simulation\SpatialQuery\IPhysicsSpatialQuery.cpp" />
     <ClCompile Include="Runtime\PhysicsRuntime.cpp" />
-    <ClCompile Include="Terrain\TerrainDataRepository.cpp" />
     <ClCompile Include="World\PhysicsWorld.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -70,7 +69,6 @@
     <ClInclude Include="Runtime\PhysicsRuntime.h" />
     <ClInclude Include="Runtime\PhysicsRuntimeTypes.h" />
     <ClInclude Include="Runtime\SpscRingQueue.h" />
-    <ClInclude Include="Terrain\TerrainDataRepository.h" />
     <ClInclude Include="World\PhysicsWorld.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

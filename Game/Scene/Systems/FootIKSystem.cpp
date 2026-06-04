@@ -28,7 +28,7 @@
 namespace {
     constexpr std::size_t MinimumRayHitCountForFootSurfaceAlignment{ 3 };
 
-    bool TryResolveRaycastHitOnTerrain(const ITerrainQuery& TerrainQuery, const SimpleMath::Ray& Ray, const float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal) {
+    bool TryResolveRaycastHitOnTerrain(const Game::ITerrainQuery& TerrainQuery, const SimpleMath::Ray& Ray, const float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal) {
         if (MathUtility::IsFiniteVector3(Ray.position) == false || MathUtility::IsFiniteVector3(Ray.direction) == false || MathUtility::IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
             return false;
         }
@@ -42,7 +42,7 @@ namespace {
         return true;
     }
 
-    void AppendFootCornerDebugLines(Arche::World& World, const ITerrainQuery& TerrainQuery, Game::FrameContext& Ctx, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+    void AppendFootCornerDebugLines(Arche::World& World, const Game::ITerrainQuery& TerrainQuery, Game::FrameContext& Ctx, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
         constexpr float RayStartOffset{ 0.3f };
         constexpr float RayLineLength{ 0.3f + 0.2f };
         constexpr float HitNormalLineLength{ 0.12f };
@@ -163,13 +163,13 @@ namespace Game {
 
     std::span<const ResourceAccess> FootIKSystem::ResourceAccesses() const {
         static std::array<ResourceAccess, 1> Accesses{ {
-            { typeid(TerrainDataRepository), Access::Read }
+            { typeid(TerrainManager), Access::Read }
         } };
         return Accesses;
     }
 
     void FootIKSystem::Execute(Arche::World& World, FrameContext& Ctx, const float Dt) {
-        const ITerrainQuery* TerrainQueryResource{ Ctx.TerrainDataRepositoryResource };
+        const ITerrainQuery* TerrainQueryResource{ Ctx.TerrainQueryResource };
 
         const Arche::World::WorldReadOnlyView& ReadOnlyWorld{ std::as_const(World).GetReadOnlyView() };
         std::vector<Arche::EntityID> RuntimeMissingEntityIds{};

@@ -34,6 +34,9 @@
     <Filter Include="Scene\Scene YAML">
       <UniqueIdentifier>{6bab11cf-0e16-4ef9-aed7-3729ebb82219}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Terrain">
+      <UniqueIdentifier>{580f3db8-7db0-49d0-a335-9d4fa00e5819}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Base\Common.h">
@@ -90,6 +93,12 @@
     <ClInclude Include="Model\TerrainTiledMeshBuilder.h">
       <Filter>Model</Filter>
     </ClInclude>
+    <ClInclude Include="Terrain\TerrainManager.h">
+      <Filter>Terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="Terrain\TerrainQuery.h">
+      <Filter>Terrain</Filter>
+    </ClInclude>
     <ClInclude Include="Base\RenderFrameData.h">
       <Filter>Base</Filter>
     </ClInclude>
@@ -97,6 +106,9 @@
       <Filter>Scene</Filter>
     </ClInclude>
     <ClInclude Include="Scene\SceneEntityFactory.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\ScenePhysicsRuntimeCoordinator.h">
       <Filter>Scene</Filter>
     </ClInclude>
     <ClInclude Include="Scene\SceneYamlSerializer.h">
@@ -296,6 +308,9 @@
     <ClCompile Include="Scene\SceneEntityFactory.cpp">
       <Filter>Scene</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\ScenePhysicsRuntimeCoordinator.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\SceneYamlSerializer.cpp">
       <Filter>Scene</Filter>
     </ClCompile>
@@ -472,6 +487,9 @@
     </ClCompile>
     <ClCompile Include="Model\TerrainTiledMeshBuilder.cpp">
       <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Terrain\TerrainManager.cpp">
+      <Filter>Terrain</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\PrefabInstance.cpp">
       <Filter>Model</Filter>

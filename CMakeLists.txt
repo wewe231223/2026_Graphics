@@ -114,7 +114,6 @@ add_library(PhysicsLib STATIC
     PhysicsLib/Simulation/Repository/PhysicsActorRepository.cpp
     PhysicsLib/Simulation/SpatialQuery/BruteForcePhysicsSpatialQuery.cpp
     PhysicsLib/Simulation/SpatialQuery/IPhysicsSpatialQuery.cpp
-    PhysicsLib/Terrain/TerrainDataRepository.cpp
     PhysicsLib/Runtime/PhysicsRuntime.cpp
     PhysicsLib/World/PhysicsWorld.cpp
 )
@@ -161,8 +160,10 @@ add_library(Game STATIC
     Game/Model/TerrainMeshBuilder.cpp
     Game/Model/TerrainRenderResource.cpp
     Game/Model/TerrainTiledMeshBuilder.cpp
+    Game/Terrain/TerrainManager.cpp
     Game/Scene/Scene.cpp
     Game/Scene/SceneEntityFactory.cpp
+    Game/Scene/ScenePhysicsRuntimeCoordinator.cpp
     Game/Scene/SceneWorldSnapshot.cpp
     Game/Scene/SceneYamlSerializer.cpp
     Game/Scene/SceneYaml/SceneYamlCommon.cpp

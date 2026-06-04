@@ -306,7 +306,7 @@ Entities:
         TileQuadCount: 56
         LodCount: 8
         LodDistances: [80.0, 140.0, 230.0, 340.0, 470.0, 600.0, 720.0]
-        StreamingEnabled: true
+        StreamingEnabled: false
         StreamingGridStep: 56
         active: true
   - EntityId: 43
