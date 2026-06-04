@@ -34,6 +34,9 @@
     <Filter Include="Scene\Scene YAML">
       <UniqueIdentifier>{6bab11cf-0e16-4ef9-aed7-3729ebb82219}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Scene\Scene YAML\Components">
+      <UniqueIdentifier>{0f7c2c5b-2199-4f98-a79b-5151b41a9632}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Terrain">
       <UniqueIdentifier>{580f3db8-7db0-49d0-a335-9d4fa00e5819}</UniqueIdentifier>
     </Filter>
@@ -116,6 +119,48 @@
     </ClInclude>
     <ClInclude Include="Scene\SceneYaml\SceneYamlInternal.h">
       <Filter>Scene\Scene YAML</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\SceneYamlComponentRegistry.h">
+      <Filter>Scene\Scene YAML</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\SceneYamlContexts.h">
+      <Filter>Scene\Scene YAML</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\SceneYamlPhysics.h">
+      <Filter>Scene\Scene YAML</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\SceneYamlReadUtils.h">
+      <Filter>Scene\Scene YAML</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\SceneYamlTerrain.h">
+      <Filter>Scene\Scene YAML</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\SceneYamlTypes.h">
+      <Filter>Scene\Scene YAML</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\SceneYamlWriteUtils.h">
+      <Filter>Scene\Scene YAML</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\Components\SceneYamlAnimationComponent.h">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\Components\SceneYamlBasicComponents.h">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\Components\SceneYamlCameraComponent.h">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\Components\SceneYamlNameComponent.h">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\Components\SceneYamlPhysicsComponent.h">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\Components\SceneYamlTerrainComponent.h">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\Components\SceneYamlTransformComponent.h">
+      <Filter>Scene\Scene YAML\Components</Filter>
     </ClInclude>
     <ClInclude Include="Scene\SceneWorldSnapshot.h">
       <Filter>Scene</Filter>
@@ -316,6 +361,30 @@
     </ClCompile>
     <ClCompile Include="Scene\SceneYaml\SceneYamlCommon.cpp">
       <Filter>Scene\Scene YAML</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\SceneYamlComponentRegistry.cpp">
+      <Filter>Scene\Scene YAML</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\Components\SceneYamlAnimationComponent.cpp">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\Components\SceneYamlBasicComponents.cpp">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\Components\SceneYamlCameraComponent.cpp">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\Components\SceneYamlNameComponent.cpp">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\Components\SceneYamlPhysicsComponent.cpp">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\Components\SceneYamlTerrainComponent.cpp">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\Components\SceneYamlTransformComponent.cpp">
+      <Filter>Scene\Scene YAML\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\SceneYaml\SceneYamlDeserializer.cpp">
       <Filter>Scene\Scene YAML</Filter>

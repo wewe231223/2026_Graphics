@@ -1,4 +1,23 @@
 #include "SceneYamlInternal.h"
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdint>
+#include <filesystem>
+#include <limits>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <ryml_std.hpp>
+#include "Game/Model/TerrainHeightFieldFactory.h"
+#include "Game/Model/TerrainMeshTypes.h"
+#include "Game/Model/TerrainRenderResource.h"
+#include "Game/Scene/Components/BoundingBox.h"
+#include "Game/Scene/Components/Camera.h"
+#include "Game/Scene/Components/TerrainRenderer.h"
+#include "Game/Scene/Components/Transform.h"
+#include "PhysicsLib/Actors/PhysicsTerrainActor.h"
 
 namespace Game::SceneYaml {
     SimpleMath::Matrix BuildTransformOnlyWorldMatrix(const Game::Transform& TransformComponent) {
