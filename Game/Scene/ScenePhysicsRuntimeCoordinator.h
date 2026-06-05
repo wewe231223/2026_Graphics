@@ -14,6 +14,10 @@ namespace Arche {
     class World;
 }
 
+namespace Utility {
+    class Time;
+}
+
 namespace Game {
     class SceneWorldSnapshot;
     class TerrainManager;
@@ -32,6 +36,7 @@ namespace Game {
         TerrainManager& mTerrainManager;
         std::vector<PhysicsKinematicRuntimeState>& mKinematicRuntimeStates;
         std::uint32_t& mPhysicsWorldVersion;
+        Utility::Time* mPhysicsTime{};
         double mRenderPhysicsDelaySeconds{};
         FrameContext& mFrameContext;
         SceneWorldSnapshot& mWorldSnapshot;

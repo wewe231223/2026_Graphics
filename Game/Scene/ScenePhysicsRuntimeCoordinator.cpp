@@ -27,6 +27,7 @@
 #include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
 #include "PhysicsLib/Simulation/Kinematic/PhysicsKinematicSceneSimulator.h"
 #include "Utility/MathValidation.h"
+#include "Utility/Time.hpp"
 
 namespace {
     constexpr std::string_view ObjectTagText{ "ObjectTag" };
@@ -190,6 +191,118 @@ namespace {
 
     bool AreTerrainWorldDataEquivalent(const Game::TerrainWorldData& Left, const Game::TerrainWorldData& Right) {
         return Left.mPosition == Right.mPosition && Left.mRotation == Right.mRotation && Left.mOrientation == Right.mOrientation && Left.mScale == Right.mScale && Left.mHalfExtentX == Right.mHalfExtentX && Left.mHalfExtentZ == Right.mHalfExtentZ && Left.mHeightFieldWidth == Right.mHeightFieldWidth && Left.mHeightFieldHeight == Right.mHeightFieldHeight && Left.mHeightFieldCellSizeX == Right.mHeightFieldCellSizeX && Left.mHeightFieldCellSizeZ == Right.mHeightFieldCellSizeZ && Left.mHeightFieldMaxHeight == Right.mHeightFieldMaxHeight && Left.mHeightFieldCenterOrigin == Right.mHeightFieldCenterOrigin && Left.mHeightFieldValues == Right.mHeightFieldValues;
+    }
+
+    DirectX::SimpleMath::Vector3 InterpolateVector3(const DirectX::SimpleMath::Vector3& StartValue, const DirectX::SimpleMath::Vector3& EndValue, float Alpha) {
+        DirectX::SimpleMath::Vector3 InterpolatedValue{ StartValue + ((EndValue - StartValue) * Alpha) };
+        return InterpolatedValue;
+    }
+
+    DirectX::SimpleMath::Quaternion NormalizeQuaternionOrIdentity(const DirectX::SimpleMath::Quaternion& QuaternionValue) {
+        DirectX::SimpleMath::Quaternion NormalizedQuaternion{ QuaternionValue };
+        if (NormalizedQuaternion.LengthSquared() <= 0.0F) {
+            NormalizedQuaternion = DirectX::SimpleMath::Quaternion{ 0.0F, 0.0F, 0.0F, 1.0F };
+        } else {
+            NormalizedQuaternion.Normalize();
+        }
+
+        return NormalizedQuaternion;
+    }
+
+    DirectX::SimpleMath::Quaternion InterpolateQuaternion(const DirectX::SimpleMath::Quaternion& StartValue, const DirectX::SimpleMath::Quaternion& EndValue, float Alpha) {
+        DirectX::SimpleMath::Quaternion StartOrientation{ NormalizeQuaternionOrIdentity(StartValue) };
+        DirectX::SimpleMath::Quaternion EndOrientation{ NormalizeQuaternionOrIdentity(EndValue) };
+        DirectX::SimpleMath::Quaternion InterpolatedOrientation{ DirectX::SimpleMath::Quaternion::Slerp(StartOrientation, EndOrientation, Alpha) };
+        DirectX::SimpleMath::Quaternion NormalizedInterpolatedOrientation{ NormalizeQuaternionOrIdentity(InterpolatedOrientation) };
+        return NormalizedInterpolatedOrientation;
+    }
+
+    const PhysicsActorSnapshot* TryResolvePhysicsActorSnapshotById(const PhysicsSnapshot& Snapshot, ActorId ActorIdValue) {
+        if (ActorIdValue == InvalidActorId) {
+            return nullptr;
+        }
+
+        std::size_t ActorIndex{ static_cast<std::size_t>(ActorIdValue) };
+        if (ActorIndex < Snapshot.mActorCount && ActorIndex < Snapshot.mActors.size()) {
+            const PhysicsActorSnapshot& SnapshotActor{ Snapshot.mActors[ActorIndex] };
+            if (SnapshotActor.mActorId == ActorIdValue) {
+                return &SnapshotActor;
+            }
+        }
+
+        std::size_t ActorCount{ std::min(Snapshot.mActorCount, Snapshot.mActors.size()) };
+        for (std::size_t CurrentActorIndex{ 0U }; CurrentActorIndex < ActorCount; ++CurrentActorIndex) {
+            const PhysicsActorSnapshot& SnapshotActor{ Snapshot.mActors[CurrentActorIndex] };
+            if (SnapshotActor.mActorId == ActorIdValue) {
+                return &SnapshotActor;
+            }
+        }
+
+        return nullptr;
+    }
+
+    DirectX::BoundingOrientedBox InterpolateBoundingOrientedBox(const DirectX::BoundingOrientedBox& StartValue, const DirectX::BoundingOrientedBox& EndValue, float Alpha) {
+        DirectX::SimpleMath::Vector3 StartCenter{ StartValue.Center };
+        DirectX::SimpleMath::Vector3 EndCenter{ EndValue.Center };
+        DirectX::SimpleMath::Vector3 StartExtents{ StartValue.Extents };
+        DirectX::SimpleMath::Vector3 EndExtents{ EndValue.Extents };
+        DirectX::SimpleMath::Quaternion StartOrientation{ StartValue.Orientation };
+        DirectX::SimpleMath::Quaternion EndOrientation{ EndValue.Orientation };
+        DirectX::SimpleMath::Vector3 InterpolatedCenter{ InterpolateVector3(StartCenter, EndCenter, Alpha) };
+        DirectX::SimpleMath::Vector3 InterpolatedExtents{ InterpolateVector3(StartExtents, EndExtents, Alpha) };
+        DirectX::SimpleMath::Quaternion InterpolatedOrientation{ InterpolateQuaternion(StartOrientation, EndOrientation, Alpha) };
+
+        DirectX::BoundingOrientedBox InterpolatedBoundingBox{};
+        InterpolatedBoundingBox.Center = DirectX::XMFLOAT3{ InterpolatedCenter.x, InterpolatedCenter.y, InterpolatedCenter.z };
+        InterpolatedBoundingBox.Extents = DirectX::XMFLOAT3{ InterpolatedExtents.x, InterpolatedExtents.y, InterpolatedExtents.z };
+        InterpolatedBoundingBox.Orientation = DirectX::XMFLOAT4{ InterpolatedOrientation.x, InterpolatedOrientation.y, InterpolatedOrientation.z, InterpolatedOrientation.w };
+        return InterpolatedBoundingBox;
+    }
+
+    PhysicsActorSnapshot InterpolatePhysicsActorSnapshot(const PhysicsActorSnapshot& PreviousActor, const PhysicsActorSnapshot& NextActor, float Alpha) {
+        if (PreviousActor.mActorId != NextActor.mActorId || PreviousActor.mActorType != NextActor.mActorType) {
+            return PreviousActor;
+        }
+
+        PhysicsActorSnapshot InterpolatedActor{ PreviousActor };
+        InterpolatedActor.mIsActive = PreviousActor.mIsActive && NextActor.mIsActive;
+        InterpolatedActor.mPosition = InterpolateVector3(PreviousActor.mPosition, NextActor.mPosition, Alpha);
+        InterpolatedActor.mOrientation = InterpolateQuaternion(PreviousActor.mOrientation, NextActor.mOrientation, Alpha);
+        InterpolatedActor.mScale = InterpolateVector3(PreviousActor.mScale, NextActor.mScale, Alpha);
+        InterpolatedActor.mVelocity = InterpolateVector3(PreviousActor.mVelocity, NextActor.mVelocity, Alpha);
+        InterpolatedActor.mWorldBoundingBox = InterpolateBoundingOrientedBox(PreviousActor.mWorldBoundingBox, NextActor.mWorldBoundingBox, Alpha);
+        return InterpolatedActor;
+    }
+
+    void BuildInterpolatedPhysicsSnapshot(const PhysicsSnapshot& PreviousSnapshot, const PhysicsSnapshot& NextSnapshot, float Alpha, PhysicsSnapshot& OutSnapshot) {
+        const float ClampedAlpha{ std::clamp(Alpha, 0.0F, 1.0F) };
+        const double InterpolatedSimulationTimeSeconds{ PreviousSnapshot.mSimulationTimeSeconds + ((NextSnapshot.mSimulationTimeSeconds - PreviousSnapshot.mSimulationTimeSeconds) * static_cast<double>(ClampedAlpha)) };
+        OutSnapshot = PreviousSnapshot;
+        OutSnapshot.mSimulationTimeSeconds = InterpolatedSimulationTimeSeconds;
+        OutSnapshot.mLastUpdateStepCount = NextSnapshot.mLastUpdateStepCount;
+        OutSnapshot.mLastUpdateStepElapsedMilliseconds = NextSnapshot.mLastUpdateStepElapsedMilliseconds;
+        OutSnapshot.mLastStepElapsedMilliseconds = NextSnapshot.mLastStepElapsedMilliseconds;
+
+        const std::size_t ActorCount{ std::min(OutSnapshot.mActorCount, OutSnapshot.mActors.size()) };
+        for (std::size_t ActorIndex{ 0U }; ActorIndex < ActorCount; ++ActorIndex) {
+            PhysicsActorSnapshot& PreviousActor{ OutSnapshot.mActors[ActorIndex] };
+            const PhysicsActorSnapshot* NextActor{ TryResolvePhysicsActorSnapshotById(NextSnapshot, PreviousActor.mActorId) };
+            if (NextActor == nullptr) {
+                continue;
+            }
+
+            PreviousActor = InterpolatePhysicsActorSnapshot(PreviousActor, *NextActor, ClampedAlpha);
+        }
+    }
+
+    double ResolveRenderPhysicsTimeSeconds(const Game::ScenePhysicsRuntimeContext& Context) {
+        if (Context.mPhysicsTime != nullptr) {
+            const double PhysicsTimeSeconds{ Context.mPhysicsTime->GetTimeSinceStarted<double>() };
+            return std::max(0.0, PhysicsTimeSeconds - Context.mRenderPhysicsDelaySeconds);
+        }
+
+        const double LatestSimulationTimeSeconds{ Context.mPhysicsRuntime.LatestSimulationTimeSeconds() };
+        return std::max(0.0, LatestSimulationTimeSeconds - Context.mRenderPhysicsDelaySeconds);
     }
 
     bool TryResolveLegacyPhysicsActorType(std::string_view TagText, PhysicsActorBase::PhysicsActorType& OutActorType) {
@@ -495,6 +608,10 @@ namespace Game {
             return;
         }
 
+        if (Context.mPhysicsTime != nullptr) {
+            Context.mPhysicsTime->Reset();
+        }
+
         PublishPhysicsRuntimeStatus(Context, nullptr);
     }
 
@@ -604,19 +721,15 @@ namespace Game {
             return;
         }
 
-        const double LatestSimulationTimeSeconds{ Context.mPhysicsRuntime.LatestSimulationTimeSeconds() };
-        const double RenderPhysicsTimeSeconds{ std::max(0.0, LatestSimulationTimeSeconds - Context.mRenderPhysicsDelaySeconds) };
+        const double RenderPhysicsTimeSeconds{ ResolveRenderPhysicsTimeSeconds(Context) };
 
         PhysicsSnapshot PreviousSnapshot{};
         PhysicsSnapshot NextSnapshot{};
         float SnapshotAlpha{};
         bool HasSnapshot{ Context.mPhysicsRuntime.TryGetSnapshotPairForTime(RenderPhysicsTimeSeconds, PreviousSnapshot, NextSnapshot, SnapshotAlpha) };
         if (HasSnapshot == true) {
-            (void)NextSnapshot;
-            (void)SnapshotAlpha;
-            Context.mPhysicsRuntimeSnapshot = std::move(PreviousSnapshot);
-        }
-        else {
+            BuildInterpolatedPhysicsSnapshot(PreviousSnapshot, NextSnapshot, SnapshotAlpha, Context.mPhysicsRuntimeSnapshot);
+        } else {
             const std::uint32_t SnapshotIndex{ Context.mPhysicsRuntime.GetReadableSnapshotIndex() };
             Context.mPhysicsRuntimeSnapshot = Context.mPhysicsRuntime.GetSnapshot(SnapshotIndex);
             HasSnapshot = Context.mPhysicsRuntimeSnapshot.mPublishIndex != 0U;

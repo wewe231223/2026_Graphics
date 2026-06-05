@@ -16,6 +16,10 @@
 #include "PhysicsLib/World/PhysicsWorld.h"
 #include "Game/Terrain/TerrainManager.h"
 
+namespace Utility {
+    class Time;
+}
+
 namespace Game {
     struct ScenePhysicsRuntimeContext;
 
@@ -63,6 +67,7 @@ namespace Game {
         void InitializePhysicsWorld();
         void RebuildPhysicsActors();
         void UpdatePhysics(float Dt);
+        void SetPhysicsTime(Utility::Time* PhysicsTime);
         void SetName(const std::string& NewName);
         const std::string& GetName() const;
 
@@ -110,6 +115,7 @@ namespace Game {
         TerrainManager mTerrainManager{};
         std::vector<PhysicsKinematicRuntimeState> mKinematicRuntimeStates{};
         std::uint32_t mPhysicsWorldVersion{ 1U };
+        Utility::Time* mPhysicsTime{};
         double mRenderPhysicsDelaySeconds{};
         FrameContext mFrameContext{};
         AssetRegistry mAssetRegistry{};

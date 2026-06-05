@@ -147,7 +147,6 @@ add_library(Game STATIC
     Game/Base/RootSignature.cpp
     Game/Base/Pipeline.cpp
     Game/Base/Input.cpp
-    Game/Base/Time.cpp
     Game/Model/HeightMapLoader.cpp
     Game/Model/TerrainHeightFieldFactory.cpp
     Game/Model/TerrainProceduralHeightFieldConfigLoader.cpp

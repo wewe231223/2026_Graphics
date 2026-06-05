@@ -29,6 +29,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)FixedArray.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)StringUtils.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)StdOutput.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)Time.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)Views.h" />
   </ItemGroup>
 </Project>

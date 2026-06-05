@@ -76,6 +76,7 @@ namespace Game {
         mTerrainManager{},
         mKinematicRuntimeStates{},
         mPhysicsWorldVersion{ 1U },
+        mPhysicsTime{},
         mRenderPhysicsDelaySeconds{ ScenePhysicsRuntimeCoordinator::ResolveRenderPhysicsDelaySeconds() },
         mFrameContext{},
         mAssetRegistry{},
@@ -209,7 +210,7 @@ namespace Game {
     }
 
     ScenePhysicsRuntimeContext Scene::BuildPhysicsRuntimeContext() {
-        return ScenePhysicsRuntimeContext{ mWorld, mPhysicsWorld, mPhysicsRuntime, mPhysicsRuntimeScene, mPhysicsRuntimeScenes, mPhysicsRuntimeSnapshot, mKinematicSceneSimulator, mTerrainManager, mKinematicRuntimeStates, mPhysicsWorldVersion, mRenderPhysicsDelaySeconds, mFrameContext, mWorldSnapshot, mTerrainActorDescBindings, mIsPhysicsRuntimeModeEnabled };
+        return ScenePhysicsRuntimeContext{ mWorld, mPhysicsWorld, mPhysicsRuntime, mPhysicsRuntimeScene, mPhysicsRuntimeScenes, mPhysicsRuntimeSnapshot, mKinematicSceneSimulator, mTerrainManager, mKinematicRuntimeStates, mPhysicsWorldVersion, mPhysicsTime, mRenderPhysicsDelaySeconds, mFrameContext, mWorldSnapshot, mTerrainActorDescBindings, mIsPhysicsRuntimeModeEnabled };
     }
 
     void Scene::InitializePhysicsWorld() {
@@ -254,6 +255,10 @@ namespace Game {
 
     void Scene::UpdatePhysics(float Dt) {
         ScenePhysicsRuntimeCoordinator::UpdatePhysics(BuildPhysicsRuntimeContext(), Dt);
+    }
+
+    void Scene::SetPhysicsTime(Utility::Time* PhysicsTime) {
+        mPhysicsTime = PhysicsTime;
     }
 
     void Scene::SetName(const std::string& NewName) {

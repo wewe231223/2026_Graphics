@@ -255,9 +255,6 @@
     <ClInclude Include="Base\Input.h">
       <Filter>Base</Filter>
     </ClInclude>
-    <ClInclude Include="Base\Time.h">
-      <Filter>Base</Filter>
-    </ClInclude>
     <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
@@ -513,9 +510,6 @@
       <Filter>Base</Filter>
     </ClCompile>
     <ClCompile Include="Base\RenderFrameData.cpp">
-      <Filter>Base</Filter>
-    </ClCompile>
-    <ClCompile Include="Base\Time.cpp">
       <Filter>Base</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\SkinnedMeshRenderSystem.cpp">
