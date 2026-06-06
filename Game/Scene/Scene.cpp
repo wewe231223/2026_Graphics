@@ -70,14 +70,12 @@ namespace Game {
         mPhysicsWorld{},
         mPhysicsRuntime{},
         mPhysicsRuntimeScene{},
-        mPhysicsRuntimeScenes{},
         mPhysicsRuntimeSnapshot{},
         mKinematicSceneSimulator{},
         mTerrainManager{},
         mKinematicRuntimeStates{},
         mPhysicsWorldVersion{ 1U },
         mPhysicsTime{},
-        mRenderPhysicsDelaySeconds{ ScenePhysicsRuntimeCoordinator::ResolveRenderPhysicsDelaySeconds() },
         mFrameContext{},
         mAssetRegistry{},
         mSystems{},
@@ -210,7 +208,7 @@ namespace Game {
     }
 
     ScenePhysicsRuntimeContext Scene::BuildPhysicsRuntimeContext() {
-        return ScenePhysicsRuntimeContext{ mWorld, mPhysicsWorld, mPhysicsRuntime, mPhysicsRuntimeScene, mPhysicsRuntimeScenes, mPhysicsRuntimeSnapshot, mKinematicSceneSimulator, mTerrainManager, mKinematicRuntimeStates, mPhysicsWorldVersion, mPhysicsTime, mRenderPhysicsDelaySeconds, mFrameContext, mWorldSnapshot, mTerrainActorDescBindings, mIsPhysicsRuntimeModeEnabled };
+        return ScenePhysicsRuntimeContext{ mWorld, mPhysicsWorld, mPhysicsRuntime, mPhysicsRuntimeScene, mPhysicsRuntimeSnapshot, mKinematicSceneSimulator, mTerrainManager, mKinematicRuntimeStates, mPhysicsWorldVersion, mPhysicsTime, mFrameContext, mWorldSnapshot, mTerrainActorDescBindings, mIsPhysicsRuntimeModeEnabled };
     }
 
     void Scene::InitializePhysicsWorld() {
@@ -582,6 +580,11 @@ namespace Game {
     }
 
     void Scene::AppendDebugWorldAxes() {
+        const bool IsDrawDebugGeometriesEnabled{ (mFrameContext.RenderData.globals.flags & RFD::FrameGlobalFlagDrawDebugGeometry) != 0u };
+        if (IsDrawDebugGeometriesEnabled == false) {
+            return;
+        }
+
         constexpr float AxisLength{ 100000.0f };
         constexpr float AxisThickness{ 0.0035f };
         const SimpleMath::Vector3 Origin{ 0.0f, 0.0f, 0.0f };

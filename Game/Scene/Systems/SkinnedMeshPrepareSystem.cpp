@@ -74,7 +74,7 @@ namespace {
         return true;
     }
 
-    void GatherBonePoseAndBoundingRecursive(Arche::World& World, Arche::EntityID EntityId, Game::Model* ModelData, std::uint32_t SkinArrayIndex, const SimpleMath::Matrix& MeshWorldInverseMatrix, std::vector<SimpleMath::Matrix>& InOutBoneMatrices, std::vector<Game::RFD::BoundingBoxContext>& InOutBoundingBoxContexts) {
+    void GatherBonePoseAndBoundingRecursive(Arche::World& World, Arche::EntityID EntityId, Game::Model* ModelData, std::uint32_t SkinArrayIndex, const SimpleMath::Matrix& MeshWorldInverseMatrix, bool IsDrawBoundingBoxesEnabled, std::vector<SimpleMath::Matrix>& InOutBoneMatrices, std::vector<Game::RFD::BoundingBoxContext>& InOutBoundingBoxContexts) {
         if (EntityId == Arche::NullEntityID || ModelData == nullptr) {
             return;
         }
@@ -101,7 +101,7 @@ namespace {
                 }
 
                 const Game::BoundingBox* BoundingBoxComponent{ std::as_const(World).GetComponent<Game::BoundingBox>(EntityId) };
-                if (BoundingBoxComponent != nullptr) {
+                if (BoundingBoxComponent != nullptr && IsDrawBoundingBoxesEnabled == true) {
                     DirectX::BoundingOrientedBox BoneWorldObb{};
                     BoundingBoxComponent->GetObb().Transform(BoneWorldObb, BoneWorldMatrix);
 
@@ -125,12 +125,12 @@ namespace {
                 break;
             }
 
-            GatherBonePoseAndBoundingRecursive(World, ChildEntityId, ModelData, SkinArrayIndex, MeshWorldInverseMatrix, InOutBoneMatrices, InOutBoundingBoxContexts);
+            GatherBonePoseAndBoundingRecursive(World, ChildEntityId, ModelData, SkinArrayIndex, MeshWorldInverseMatrix, IsDrawBoundingBoxesEnabled, InOutBoneMatrices, InOutBoundingBoxContexts);
             ChildEntityId = ChildHierarchyComponent->nextSibling;
         }
     }
 
-    bool TryBuildPreparedResult(Arche::World& World, Arche::EntityID EntityId, Game::SkinnedMeshPreparedData& OutPreparedData) {
+    bool TryBuildPreparedResult(Arche::World& World, Arche::EntityID EntityId, bool IsDrawBoundingBoxesEnabled, Game::SkinnedMeshPreparedData& OutPreparedData) {
         const Game::SkinnedMeshRenderer* SkinnedMeshRendererComponent{ std::as_const(World).GetComponent<Game::SkinnedMeshRenderer>(EntityId) };
         if (SkinnedMeshRendererComponent == nullptr || SkinnedMeshRendererComponent->active == false || SkinnedMeshRendererComponent->model == nullptr) {
             return false;
@@ -176,7 +176,7 @@ namespace {
 
         SimpleMath::Matrix MeshWorldInverseMatrix{ MeshWorldMatrix };
         MeshWorldInverseMatrix = MeshWorldInverseMatrix.Invert();
-        GatherBonePoseAndBoundingRecursive(World, BoneRootEntityId, SkinnedMeshRendererComponent->model, SkinArrayIndex, MeshWorldInverseMatrix, OutPreparedData.BonePalette, OutPreparedData.BoneBoundingBoxContexts);
+        GatherBonePoseAndBoundingRecursive(World, BoneRootEntityId, SkinnedMeshRendererComponent->model, SkinArrayIndex, MeshWorldInverseMatrix, IsDrawBoundingBoxesEnabled, OutPreparedData.BonePalette, OutPreparedData.BoneBoundingBoxContexts);
 
         return true;
     }
@@ -216,13 +216,14 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> SkinnedMeshPrepareSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 1> Accesses{ { { typeid(std::vector<SkinnedMeshPreparedData>), Access::Write } } };
+        static std::array<ResourceAccess, 2> Accesses{ { { typeid(std::vector<SkinnedMeshPreparedData>), Access::Write }, { typeid(RFD::RenderFrameData), Access::Read } } };
         return Accesses;
     }
 
     void SkinnedMeshPrepareSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
         (void)Dt;
 
+        const bool IsDrawBoundingBoxesEnabled{ (Ctx.RenderData.globals.flags & RFD::FrameGlobalFlagDrawBoundingBoxes) != 0u };
         std::vector<Arche::EntityID> TargetEntityIds{};
         for (auto [SkinnedMeshRendererComponent, EntityHierarchyComponent] : World.Query<SkinnedMeshRenderer, EntityHierarchy>()) {
             if (SkinnedMeshRendererComponent.active == false || SkinnedMeshRendererComponent.model == nullptr) {
@@ -249,7 +250,7 @@ namespace Game {
 
             for (std::size_t EntityIndex{ BlockStart }; EntityIndex < BlockEnd; ++EntityIndex) {
                 SkinnedMeshPreparedData PreparedData{};
-                const bool IsPrepared{ TryBuildPreparedResult(World, TargetEntityIds[EntityIndex], PreparedData) };
+                const bool IsPrepared{ TryBuildPreparedResult(World, TargetEntityIds[EntityIndex], IsDrawBoundingBoxesEnabled, PreparedData) };
                 if (IsPrepared == true) {
                     LocalPreparedDataItems.push_back(std::move(PreparedData));
                 }

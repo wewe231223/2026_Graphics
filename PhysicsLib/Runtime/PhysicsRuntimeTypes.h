@@ -73,7 +73,6 @@ enum class PhysicsCommandType : std::uint32_t {
 };
 
 struct PhysicsResetSceneCommand final {
-    std::size_t mSceneIndex{};
     std::uint32_t mWorldVersion{};
 };
 
@@ -158,7 +157,6 @@ struct PhysicsSnapshot final {
     std::uint64_t mStepIndex{};
     double mSimulationTimeSeconds{};
     std::uint64_t mPublishIndex{};
-    std::size_t mSceneIndex{};
     std::size_t mActorCount{};
     std::size_t mLastUpdateStepCount{};
     double mLastUpdateStepElapsedMilliseconds{};

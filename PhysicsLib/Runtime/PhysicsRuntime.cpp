@@ -19,9 +19,8 @@
 
 PhysicsRuntime::PhysicsRuntime()
     : mSettings{},
-      mSceneTemplates{},
+      mSceneTemplate{},
       mPhysicsWorld{},
-      mCurrentSceneIndex{},
       mCurrentWorldVersion{ 1U },
       mSnapshotBuffers{},
       mSnapshotMutex{},
@@ -44,16 +43,12 @@ PhysicsRuntime::~PhysicsRuntime() {
     Shutdown();
 }
 
-bool PhysicsRuntime::Initialize(const std::vector<PhysicsRuntimeScene>* SceneTemplates, const RuntimeSettings& Settings, std::size_t InitialSceneIndex, std::uint32_t InitialWorldVersion) {
+bool PhysicsRuntime::Initialize(const PhysicsRuntimeScene& SceneTemplate, const RuntimeSettings& Settings, std::uint32_t InitialWorldVersion) {
     if (mIsRunning.load(std::memory_order_acquire)) {
         return false;
     }
 
-    if (SceneTemplates == nullptr || SceneTemplates->empty()) {
-        return false;
-    }
-
-    mSceneTemplates = SceneTemplates;
+    mSceneTemplate = SceneTemplate;
     mSettings = Settings;
     if (mSettings.mWorldSettings.FixedTimeStep <= 0.0F) {
         mSettings.mWorldSettings.FixedTimeStep = 1.0F / 60.0F;
@@ -63,22 +58,9 @@ bool PhysicsRuntime::Initialize(const std::vector<PhysicsRuntimeScene>* SceneTem
         mSettings.mMaxSubSteps = 1U;
     }
 
-    if (InitialSceneIndex >= mSceneTemplates->size()) {
-        InitialSceneIndex = 0U;
-    }
-
-    mCurrentSceneIndex = InitialSceneIndex;
     mCurrentWorldVersion = InitialWorldVersion;
 
-    std::size_t MaxActorCount{};
-    std::size_t SceneCount{ mSceneTemplates->size() };
-    for (std::size_t SceneIndex{ 0U }; SceneIndex < SceneCount; ++SceneIndex) {
-        const PhysicsRuntimeScene& CurrentScene{ (*mSceneTemplates)[SceneIndex] };
-        std::size_t CurrentActorCount{ CurrentScene.mActorSpawnInfos.size() };
-        if (CurrentActorCount > MaxActorCount) {
-            MaxActorCount = CurrentActorCount;
-        }
-    }
+    std::size_t MaxActorCount{ mSceneTemplate.mActorSpawnInfos.size() };
 
     {
         std::lock_guard<std::mutex> SnapshotLock{ mSnapshotMutex };
@@ -88,7 +70,6 @@ bool PhysicsRuntime::Initialize(const std::vector<PhysicsRuntimeScene>* SceneTem
             CurrentBuffer.mStepIndex = 0U;
             CurrentBuffer.mSimulationTimeSeconds = 0.0;
             CurrentBuffer.mPublishIndex = 0U;
-            CurrentBuffer.mSceneIndex = mCurrentSceneIndex;
             CurrentBuffer.mActorCount = 0U;
             CurrentBuffer.mLastUpdateStepCount = 0U;
             CurrentBuffer.mLastUpdateStepElapsedMilliseconds = 0.0;
@@ -129,10 +110,9 @@ void PhysicsRuntime::Shutdown() {
     }
 }
 
-bool PhysicsRuntime::EnqueueResetScene(std::size_t SceneIndex, std::uint32_t WorldVersion) {
+bool PhysicsRuntime::EnqueueResetScene(std::uint32_t WorldVersion) {
     PhysicsCommand NewCommand{};
     NewCommand.mType = PhysicsCommandType::ResetScene;
-    NewCommand.mResetScene.mSceneIndex = SceneIndex;
     NewCommand.mResetScene.mWorldVersion = WorldVersion;
 
     bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
@@ -370,15 +350,13 @@ std::uint64_t PhysicsRuntime::PublishedSnapshotCount() const {
 }
 
 std::uint64_t PhysicsRuntime::PackResetSceneCommand(const PhysicsResetSceneCommand& Command) {
-    std::uint64_t PackedSceneIndex{ static_cast<std::uint64_t>(Command.mSceneIndex) & 0xFFFFFFFFULL };
     std::uint64_t PackedVersion{ static_cast<std::uint64_t>(Command.mWorldVersion) & 0xFFFFFFFFULL };
-    std::uint64_t PackedCommand{ (PackedSceneIndex << 32U) | PackedVersion };
+    std::uint64_t PackedCommand{ PackedVersion };
     return PackedCommand;
 }
 
 PhysicsResetSceneCommand PhysicsRuntime::UnpackResetSceneCommand(std::uint64_t PackedCommand) {
     PhysicsResetSceneCommand UnpackedCommand{};
-    UnpackedCommand.mSceneIndex = static_cast<std::size_t>((PackedCommand >> 32U) & 0xFFFFFFFFULL);
     UnpackedCommand.mWorldVersion = static_cast<std::uint32_t>(PackedCommand & 0xFFFFFFFFULL);
     return UnpackedCommand;
 }
@@ -396,7 +374,7 @@ bool PhysicsRuntime::TryConsumeCoalescedResetCommand(PhysicsResetSceneCommand& O
 
 void PhysicsRuntime::RunPhysicsThread() {
     double TimeAccumulatorSeconds{};
-    ApplyResetSceneCommand(PhysicsResetSceneCommand{ mCurrentSceneIndex, mCurrentWorldVersion }, TimeAccumulatorSeconds);
+    ApplyResetSceneCommand(PhysicsResetSceneCommand{ mCurrentWorldVersion }, TimeAccumulatorSeconds);
 
     using Clock = std::chrono::steady_clock;
     Clock::time_point PreviousTickTime{ Clock::now() };
@@ -525,16 +503,8 @@ bool PhysicsRuntime::ProcessCommand(const PhysicsCommand& Command, double& OutTi
 }
 
 void PhysicsRuntime::ApplyResetSceneCommand(const PhysicsResetSceneCommand& Command, double& OutTimeAccumulatorSeconds) {
-    std::size_t NextSceneIndex{ Command.mSceneIndex };
-    if (mSceneTemplates == nullptr || mSceneTemplates->empty()) {
-        NextSceneIndex = 0U;
-    } else if (NextSceneIndex >= mSceneTemplates->size()) {
-        NextSceneIndex = 0U;
-    }
-
-    mCurrentSceneIndex = NextSceneIndex;
     mCurrentWorldVersion = Command.mWorldVersion;
-    BuildWorldFromScene(mCurrentSceneIndex);
+    BuildWorldFromScene();
     OutTimeAccumulatorSeconds = 0.0;
     mLatestStepIndex.store(0U, std::memory_order_release);
     mLatestSimulationTimeSeconds.store(0.0, std::memory_order_release);
@@ -553,7 +523,6 @@ void PhysicsRuntime::ApplyResetSceneCommand(const PhysicsResetSceneCommand& Comm
             CurrentBuffer.mStepIndex = 0U;
             CurrentBuffer.mSimulationTimeSeconds = 0.0;
             CurrentBuffer.mPublishIndex = 0U;
-            CurrentBuffer.mSceneIndex = mCurrentSceneIndex;
             CurrentBuffer.mActorCount = 0U;
             CurrentBuffer.mLastUpdateStepCount = 0U;
             CurrentBuffer.mLastUpdateStepElapsedMilliseconds = 0.0;
@@ -771,18 +740,10 @@ void PhysicsRuntime::ApplyPublishedKinematicStates() {
     }
 }
 
-void PhysicsRuntime::BuildWorldFromScene(std::size_t SceneIndex) {
+void PhysicsRuntime::BuildWorldFromScene() {
     mPhysicsWorld.Initialize(mSettings.mWorldSettings);
 
-    if (mSceneTemplates == nullptr || mSceneTemplates->empty()) {
-        return;
-    }
-
-    if (SceneIndex >= mSceneTemplates->size()) {
-        return;
-    }
-
-    const PhysicsRuntimeScene& SelectedScene{ (*mSceneTemplates)[SceneIndex] };
+    const PhysicsRuntimeScene& SelectedScene{ mSceneTemplate };
     const std::vector<PhysicsActorSpawnInfo>& SpawnInfos{ SelectedScene.mActorSpawnInfos };
     std::size_t SpawnCount{ SpawnInfos.size() };
     for (std::size_t SpawnIndex{ 0U }; SpawnIndex < SpawnCount; ++SpawnIndex) {
@@ -835,7 +796,6 @@ void PhysicsRuntime::PublishSnapshot(std::size_t LastUpdateStepCount, double Las
     WriteBuffer.mStepIndex = mLatestStepIndex.load(std::memory_order_acquire);
     WriteBuffer.mSimulationTimeSeconds = mLatestSimulationTimeSeconds.load(std::memory_order_acquire);
     WriteBuffer.mPublishIndex = mPublishedSnapshotCount.fetch_add(1U, std::memory_order_acq_rel) + 1U;
-    WriteBuffer.mSceneIndex = mCurrentSceneIndex;
     WriteBuffer.mLastUpdateStepCount = LastUpdateStepCount;
     WriteBuffer.mLastUpdateStepElapsedMilliseconds = LastUpdateStepElapsedMilliseconds;
     WriteBuffer.mLastStepElapsedMilliseconds = LastStepElapsedMilliseconds;

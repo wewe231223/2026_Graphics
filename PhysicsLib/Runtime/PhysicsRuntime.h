@@ -5,11 +5,11 @@ PhysicsLib Header Guide
 Role:
 - Owns the asynchronous PhysicsWorld update loop and publishes triple-buffered simulation snapshots.
 Initialization:
-- Initialize with immutable PhysicsRuntimeScene templates, RuntimeSettings, initial scene index, and world version.
+- Initialize with a PhysicsRuntimeScene template, RuntimeSettings, and world version.
 Usage:
 - Enqueue commands from the application thread, then read snapshots through GetReadableSnapshotIndex and GetSnapshot.
 Notes:
-- The scene template pointer is non-owning and must remain valid until Shutdown completes.
+- The runtime owns a copied scene template until the next Initialize call.
 */
 
 #include <DirectXTK12/SimpleMath.h>
@@ -42,10 +42,10 @@ public:
     PhysicsRuntime& operator=(PhysicsRuntime&& Other) noexcept = delete;
 
 public:
-    bool Initialize(const std::vector<PhysicsRuntimeScene>* SceneTemplates, const RuntimeSettings& Settings, std::size_t InitialSceneIndex, std::uint32_t InitialWorldVersion);
+    bool Initialize(const PhysicsRuntimeScene& SceneTemplate, const RuntimeSettings& Settings, std::uint32_t InitialWorldVersion);
     void Shutdown();
 
-    bool EnqueueResetScene(std::size_t SceneIndex, std::uint32_t WorldVersion);
+    bool EnqueueResetScene(std::uint32_t WorldVersion);
     bool EnqueueAddImpulse(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Impulse);
     bool EnqueueSetKinematicVelocity(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Velocity);
     bool EnqueueAddForce(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Force);
@@ -85,7 +85,7 @@ private:
     void ApplySetActorActiveCommand(const PhysicsSetActorActiveCommand& Command);
     void ApplyAddStaticActorCommand(const PhysicsAddStaticActorCommand& Command);
     void ApplyPublishedKinematicStates();
-    void BuildWorldFromScene(std::size_t SceneIndex);
+    void BuildWorldFromScene();
     void PublishSnapshot(std::size_t LastUpdateStepCount, double LastUpdateStepElapsedMilliseconds, double LastStepElapsedMilliseconds);
 
 private:
@@ -94,9 +94,8 @@ private:
 
 private:
     RuntimeSettings mSettings;
-    const std::vector<PhysicsRuntimeScene>* mSceneTemplates;
+    PhysicsRuntimeScene mSceneTemplate;
     PhysicsWorld mPhysicsWorld;
-    std::size_t mCurrentSceneIndex;
     std::uint32_t mCurrentWorldVersion;
     std::array<PhysicsSnapshot, SnapshotBufferCount> mSnapshotBuffers;
     mutable std::mutex mSnapshotMutex;

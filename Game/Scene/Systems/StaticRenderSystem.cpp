@@ -57,6 +57,22 @@ namespace {
         return &MaterialGroups[ResolvedMaterialGroupIndex];
     }
 
+    bool IsDrawBoundingBoxesEnabled(const Game::RFD::RenderFrameData& RenderData) {
+        return (RenderData.globals.flags & Game::RFD::FrameGlobalFlagDrawBoundingBoxes) != 0u;
+    }
+
+    void AppendBoundingBoxContext(const DirectX::BoundingOrientedBox& WorldObb, Game::RFD::RenderFrameData& RenderData) {
+        if (IsDrawBoundingBoxesEnabled(RenderData) == false) {
+            return;
+        }
+
+        Game::RFD::BoundingBoxContext BoundingBoxContext{};
+        BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
+        BoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
+        BoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
+        RenderData.boundingBoxContexts.push_back(BoundingBoxContext);
+    }
+
     void AppendStaticDrawRecords(const std::vector<Game::ModelSubMesh>& SubMeshes, const Game::ModelNode& Node, const Game::RegisteredMaterialGroup* ResolvedMaterialGroup, std::uint32_t ObjectIndex, std::uint32_t MaterialFlags, std::uint32_t PickFlags, std::vector<Game::RFD::DrawRecord>& OutDrawRecords) {
         for (std::size_t SubMeshIndex{ 0 }; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
             const Game::ModelSubMesh& SubMesh{ SubMeshes[SubMeshIndex] };
@@ -165,12 +181,7 @@ namespace Game {
                 ModelContext.prevWorld = ModelContext.world;
 
                 if (BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
-                    const DirectX::BoundingOrientedBox& WorldObb{ BoundingBoxComponent->GetWorldObb() };
-                    RFD::BoundingBoxContext BoundingBoxContext{};
-                    BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
-                    BoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
-                    BoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
-                    RenderData.boundingBoxContexts.push_back(BoundingBoxContext);
+                    AppendBoundingBoxContext(BoundingBoxComponent->GetWorldObb(), RenderData);
                 }
 
                 ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());

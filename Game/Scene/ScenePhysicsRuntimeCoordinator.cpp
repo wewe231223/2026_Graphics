@@ -296,13 +296,14 @@ namespace {
     }
 
     double ResolveRenderPhysicsTimeSeconds(const Game::ScenePhysicsRuntimeContext& Context) {
+        const double RenderPhysicsDelaySeconds{ Game::ScenePhysicsRuntimeCoordinator::ResolveRenderPhysicsDelaySeconds() };
         if (Context.mPhysicsTime != nullptr) {
             const double PhysicsTimeSeconds{ Context.mPhysicsTime->GetTimeSinceStarted<double>() };
-            return std::max(0.0, PhysicsTimeSeconds - Context.mRenderPhysicsDelaySeconds);
+            return std::max(0.0, PhysicsTimeSeconds - RenderPhysicsDelaySeconds);
         }
 
         const double LatestSimulationTimeSeconds{ Context.mPhysicsRuntime.LatestSimulationTimeSeconds() };
-        return std::max(0.0, LatestSimulationTimeSeconds - Context.mRenderPhysicsDelaySeconds);
+        return std::max(0.0, LatestSimulationTimeSeconds - RenderPhysicsDelaySeconds);
     }
 
     bool TryResolveLegacyPhysicsActorType(std::string_view TagText, PhysicsActorBase::PhysicsActorType& OutActorType) {
@@ -592,14 +593,12 @@ namespace Game {
         }
 
         Context.mFrameContext.PhysicsWorldResource = &Context.mPhysicsWorld;
-        Context.mPhysicsRuntimeScenes.clear();
-        Context.mPhysicsRuntimeScenes.push_back(Context.mPhysicsRuntimeScene);
 
         PhysicsRuntime::RuntimeSettings RuntimeSettings{};
         RuntimeSettings.mWorldSettings = BuildDefaultPhysicsWorldSettings();
         RuntimeSettings.mMaxSubSteps = 4U;
 
-        const bool IsRuntimeInitialized{ Context.mPhysicsRuntime.Initialize(&Context.mPhysicsRuntimeScenes, RuntimeSettings, 0U, Context.mPhysicsWorldVersion) };
+        const bool IsRuntimeInitialized{ Context.mPhysicsRuntime.Initialize(Context.mPhysicsRuntimeScene, RuntimeSettings, Context.mPhysicsWorldVersion) };
         if (IsRuntimeInitialized == false) {
             Context.mIsPhysicsRuntimeModeEnabled = false;
             Context.mFrameContext.IsPhysicsRuntimeModeEnabled = false;

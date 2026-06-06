@@ -1,5 +1,8 @@
 #pragma once
 #include <cstdint>
+#include <map>
+#include <utility>
+#include <vector>
 #include "Core/DX/DesciptorHeap.h"
 #include "Game/Base/RenderFrameData.h"
 #include "Game/Base/Pipeline.h"
@@ -24,6 +27,7 @@ namespace Core {
 			void DrawDepthOnly(ID3D12GraphicsCommandList* CommandList, ID3D12GraphicsCommandList9* DynamicDepthBiasCommandList, float RasterDepthBias, float RasterDepthBiasClamp, float RasterSlopeScaledDepthBias, const Game::RFD::ShadowRenderContext& ShadowRenderContext, std::uint32_t ShadowFrameGlobalsIndex, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle);
 
 		private:
+			const std::vector<D3D12_VERTEX_BUFFER_VIEW>& ResolveVertexBufferViews(const Interface::IPipeline& Pipeline, const Interface::IModelNode& Mesh);
 			bool IsSkyDomePipeline(const Interface::IPipeline* Pipeline);
 			const Interface::IPipeline* ResolveDepthOnlyPipeline(const Game::RFD::DrawRecord& DrawRecord);
 			void DrawBoundingBoxes(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle);
@@ -46,6 +50,7 @@ namespace Core {
 			bool mIsDebugGeometryPipelineInitialized{};
 			Game::Base::Pipeline mTerrainDepthPipeline{};
 			bool mIsTerrainDepthPipelineInitialized{};
+			std::map<std::pair<const Interface::IPipeline*, const Interface::IModelNode*>, std::vector<D3D12_VERTEX_BUFFER_VIEW>> mVertexBufferViewCache{};
 		};
 	}
 }

@@ -30,14 +30,12 @@ namespace Game {
         PhysicsWorld& mPhysicsWorld;
         PhysicsRuntime& mPhysicsRuntime;
         PhysicsRuntimeScene& mPhysicsRuntimeScene;
-        std::vector<PhysicsRuntimeScene>& mPhysicsRuntimeScenes;
         PhysicsSnapshot& mPhysicsRuntimeSnapshot;
         PhysicsKinematicSceneSimulator& mKinematicSceneSimulator;
         TerrainManager& mTerrainManager;
         std::vector<PhysicsKinematicRuntimeState>& mKinematicRuntimeStates;
         std::uint32_t& mPhysicsWorldVersion;
         Utility::Time* mPhysicsTime{};
-        double mRenderPhysicsDelaySeconds{};
         FrameContext& mFrameContext;
         SceneWorldSnapshot& mWorldSnapshot;
         std::vector<TerrainActorDescBinding>& mTerrainActorDescBindings;

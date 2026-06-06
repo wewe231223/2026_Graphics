@@ -109,14 +109,12 @@ namespace Game {
         PhysicsWorld mPhysicsWorld{};
         PhysicsRuntime mPhysicsRuntime{};
         PhysicsRuntimeScene mPhysicsRuntimeScene{};
-        std::vector<PhysicsRuntimeScene> mPhysicsRuntimeScenes{};
         PhysicsSnapshot mPhysicsRuntimeSnapshot{};
         PhysicsKinematicSceneSimulator mKinematicSceneSimulator{};
         TerrainManager mTerrainManager{};
         std::vector<PhysicsKinematicRuntimeState> mKinematicRuntimeStates{};
         std::uint32_t mPhysicsWorldVersion{ 1U };
         Utility::Time* mPhysicsTime{};
-        double mRenderPhysicsDelaySeconds{};
         FrameContext mFrameContext{};
         AssetRegistry mAssetRegistry{};
         std::vector<std::unique_ptr<ISystem>> mSystems{};

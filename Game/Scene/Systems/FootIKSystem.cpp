@@ -43,6 +43,11 @@ namespace {
     }
 
     void AppendFootCornerDebugLines(Arche::World& World, const Game::ITerrainQuery& TerrainQuery, Game::FrameContext& Ctx, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        const bool IsDrawDebugGeometriesEnabled{ (Ctx.RenderData.globals.flags & Game::RFD::FrameGlobalFlagDrawDebugGeometry) != 0u };
+        if (IsDrawDebugGeometriesEnabled == false) {
+            return;
+        }
+
         constexpr float RayStartOffset{ 0.3f };
         constexpr float RayLineLength{ 0.3f + 0.2f };
         constexpr float HitNormalLineLength{ 0.12f };
