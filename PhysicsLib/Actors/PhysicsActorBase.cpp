@@ -180,6 +180,10 @@ const DirectX::SimpleMath::Vector3& PhysicsActorBase::GetAngularVelocity() const
 }
 
 void PhysicsActorBase::AddTorque(const DirectX::SimpleMath::Vector3& Torque) {
+    if (mActorType != PhysicsActorType::Dynamic) {
+        return;
+    }
+
     mRigidBody.mTorque += Torque;
     SetIsSleeping(false);
 }
@@ -193,6 +197,10 @@ void PhysicsActorBase::ClearTorque() {
 }
 
 void PhysicsActorBase::AddAngularImpulse(const DirectX::SimpleMath::Vector3& AngularImpulse) {
+    if (mActorType != PhysicsActorType::Dynamic) {
+        return;
+    }
+
     DirectX::SimpleMath::Vector3 NextAngularMomentum{ GetAngularMomentum() + AngularImpulse };
     SetAngularMomentum(NextAngularMomentum);
     mRigidBody.mAngularVelocity = DirectX::SimpleMath::Vector3::TransformNormal(NextAngularMomentum, mRigidBody.mInverseInertiaTensorWorld);
@@ -200,6 +208,10 @@ void PhysicsActorBase::AddAngularImpulse(const DirectX::SimpleMath::Vector3& Ang
 }
 
 void PhysicsActorBase::ApplyImpulseAtPoint(const DirectX::SimpleMath::Vector3& Impulse, const DirectX::SimpleMath::Vector3& WorldPoint) {
+    if (mActorType != PhysicsActorType::Dynamic) {
+        return;
+    }
+
     AddImpulse(Impulse);
     DirectX::SimpleMath::Vector3 ContactOffset{ WorldPoint - GetPosition() };
     DirectX::SimpleMath::Vector3 AngularImpulse{ ContactOffset.Cross(Impulse) };
@@ -330,6 +342,10 @@ const DirectX::SimpleMath::Vector3& PhysicsActorBase::GetAcceleration() const {
 }
 
 void PhysicsActorBase::AddForce(const DirectX::SimpleMath::Vector3& Force) {
+    if (mActorType != PhysicsActorType::Dynamic) {
+        return;
+    }
+
     mRigidBody.mAccumulatedForce += Force;
     SetIsSleeping(false);
 }
@@ -343,6 +359,10 @@ void PhysicsActorBase::ClearAccumulatedForce() {
 }
 
 void PhysicsActorBase::AddImpulse(const DirectX::SimpleMath::Vector3& Impulse) {
+    if (mActorType != PhysicsActorType::Dynamic) {
+        return;
+    }
+
     DirectX::SimpleMath::Vector3 NextLinearMomentum{ GetLinearMomentum() + Impulse };
     SetLinearMomentum(NextLinearMomentum);
     float InverseMass{ GetInverseMass() };

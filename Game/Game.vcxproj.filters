@@ -34,6 +34,12 @@
     <Filter Include="Scene\Scene YAML">
       <UniqueIdentifier>{6bab11cf-0e16-4ef9-aed7-3729ebb82219}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Scene\Scene YAML\Components">
+      <UniqueIdentifier>{0f7c2c5b-2199-4f98-a79b-5151b41a9632}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Terrain">
+      <UniqueIdentifier>{580f3db8-7db0-49d0-a335-9d4fa00e5819}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Base\Common.h">
@@ -90,6 +96,12 @@
     <ClInclude Include="Model\TerrainTiledMeshBuilder.h">
       <Filter>Model</Filter>
     </ClInclude>
+    <ClInclude Include="Terrain\TerrainManager.h">
+      <Filter>Terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="Terrain\TerrainQuery.h">
+      <Filter>Terrain</Filter>
+    </ClInclude>
     <ClInclude Include="Base\RenderFrameData.h">
       <Filter>Base</Filter>
     </ClInclude>
@@ -99,11 +111,56 @@
     <ClInclude Include="Scene\SceneEntityFactory.h">
       <Filter>Scene</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\ScenePhysicsRuntimeCoordinator.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\SceneYamlSerializer.h">
       <Filter>Scene</Filter>
     </ClInclude>
     <ClInclude Include="Scene\SceneYaml\SceneYamlInternal.h">
       <Filter>Scene\Scene YAML</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\SceneYamlComponentRegistry.h">
+      <Filter>Scene\Scene YAML</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\SceneYamlContexts.h">
+      <Filter>Scene\Scene YAML</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\SceneYamlPhysics.h">
+      <Filter>Scene\Scene YAML</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\SceneYamlReadUtils.h">
+      <Filter>Scene\Scene YAML</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\SceneYamlTerrain.h">
+      <Filter>Scene\Scene YAML</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\SceneYamlTypes.h">
+      <Filter>Scene\Scene YAML</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\SceneYamlWriteUtils.h">
+      <Filter>Scene\Scene YAML</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\Components\SceneYamlAnimationComponent.h">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\Components\SceneYamlBasicComponents.h">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\Components\SceneYamlCameraComponent.h">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\Components\SceneYamlNameComponent.h">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\Components\SceneYamlPhysicsComponent.h">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\Components\SceneYamlTerrainComponent.h">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\Components\SceneYamlTransformComponent.h">
+      <Filter>Scene\Scene YAML\Components</Filter>
     </ClInclude>
     <ClInclude Include="Scene\SceneWorldSnapshot.h">
       <Filter>Scene</Filter>
@@ -196,9 +253,6 @@
       <Filter>Scene\Components</Filter>
     </ClInclude>
     <ClInclude Include="Base\Input.h">
-      <Filter>Base</Filter>
-    </ClInclude>
-    <ClInclude Include="Base\Time.h">
       <Filter>Base</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h">
@@ -296,11 +350,38 @@
     <ClCompile Include="Scene\SceneEntityFactory.cpp">
       <Filter>Scene</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\ScenePhysicsRuntimeCoordinator.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\SceneYamlSerializer.cpp">
       <Filter>Scene</Filter>
     </ClCompile>
     <ClCompile Include="Scene\SceneYaml\SceneYamlCommon.cpp">
       <Filter>Scene\Scene YAML</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\SceneYamlComponentRegistry.cpp">
+      <Filter>Scene\Scene YAML</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\Components\SceneYamlAnimationComponent.cpp">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\Components\SceneYamlBasicComponents.cpp">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\Components\SceneYamlCameraComponent.cpp">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\Components\SceneYamlNameComponent.cpp">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\Components\SceneYamlPhysicsComponent.cpp">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\Components\SceneYamlTerrainComponent.cpp">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\Components\SceneYamlTransformComponent.cpp">
+      <Filter>Scene\Scene YAML\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\SceneYaml\SceneYamlDeserializer.cpp">
       <Filter>Scene\Scene YAML</Filter>
@@ -431,9 +512,6 @@
     <ClCompile Include="Base\RenderFrameData.cpp">
       <Filter>Base</Filter>
     </ClCompile>
-    <ClCompile Include="Base\Time.cpp">
-      <Filter>Base</Filter>
-    </ClCompile>
     <ClCompile Include="Scene\Systems\SkinnedMeshRenderSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
@@ -472,6 +550,9 @@
     </ClCompile>
     <ClCompile Include="Model\TerrainTiledMeshBuilder.cpp">
       <Filter>Model</Filter>
+    </ClCompile>
+    <ClCompile Include="Terrain\TerrainManager.cpp">
+      <Filter>Terrain</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\PrefabInstance.cpp">
       <Filter>Model</Filter>

@@ -1,5 +1,6 @@
 #include "DrawCallDispatcher.h"
 #include <tuple>
+#include <utility>
 #include <vector>
 
 namespace Core {
@@ -122,7 +123,7 @@ namespace Core {
 
 				CommandList->IASetPrimitiveTopology(StartRecord.pso->GetPrimitiveTopology());
 
-				const std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{ BuildVertexBufferViews(*StartRecord.pso, *StartRecord.mesh) };
+				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*StartRecord.pso, *StartRecord.mesh) };
 				if (VertexBufferViews.empty() == false) {
 					CommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
 				}
@@ -229,7 +230,7 @@ namespace Core {
 
 				CommandList->IASetPrimitiveTopology(DepthPipeline->GetPrimitiveTopology());
 
-				const std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{ BuildVertexBufferViews(*DepthPipeline, *StartRecord.mesh) };
+				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*DepthPipeline, *StartRecord.mesh) };
 				if (VertexBufferViews.empty() == false) {
 					CommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
 				}
@@ -246,6 +247,18 @@ namespace Core {
 				CommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
 				DrawRecordIndex = RunEndIndex;
 			}
+		}
+
+		const std::vector<D3D12_VERTEX_BUFFER_VIEW>& DrawCallDispatcher::ResolveVertexBufferViews(const Interface::IPipeline& Pipeline, const Interface::IModelNode& Mesh) {
+			const std::pair<const Interface::IPipeline*, const Interface::IModelNode*> CacheKey{ &Pipeline, &Mesh };
+			std::map<std::pair<const Interface::IPipeline*, const Interface::IModelNode*>, std::vector<D3D12_VERTEX_BUFFER_VIEW>>::iterator CacheIter{ mVertexBufferViewCache.find(CacheKey) };
+			if (CacheIter != mVertexBufferViewCache.end()) {
+				return CacheIter->second;
+			}
+
+			std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{ BuildVertexBufferViews(Pipeline, Mesh) };
+			std::pair<std::map<std::pair<const Interface::IPipeline*, const Interface::IModelNode*>, std::vector<D3D12_VERTEX_BUFFER_VIEW>>::iterator, bool> InsertResult{ mVertexBufferViewCache.emplace(CacheKey, std::move(VertexBufferViews)) };
+			return InsertResult.first->second;
 		}
 
 		bool DrawCallDispatcher::IsSkyDomePipeline(const Interface::IPipeline* Pipeline) {
@@ -353,7 +366,7 @@ namespace Core {
 
 				CommandList->IASetPrimitiveTopology(StartRecord.pso->GetPrimitiveTopology());
 
-				const std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{ BuildVertexBufferViews(*StartRecord.pso, *StartRecord.mesh) };
+				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*StartRecord.pso, *StartRecord.mesh) };
 				if (VertexBufferViews.empty() == false) {
 					CommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
 				}

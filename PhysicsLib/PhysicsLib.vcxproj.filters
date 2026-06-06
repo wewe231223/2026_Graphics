@@ -97,6 +97,9 @@
     <ClCompile Include="World\PhysicsWorld.cpp">
       <Filter>World</Filter>
     </ClCompile>
+    <ClCompile Include="Simulation\Kinematic\PhysicsKinematicSceneSimulator.cpp">
+      <Filter>Simulation\Kinematic</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common.h" />
@@ -180,6 +183,9 @@
     </ClInclude>
     <ClInclude Include="World\PhysicsWorld.h">
       <Filter>World</Filter>
+    </ClInclude>
+    <ClInclude Include="Simulation\Kinematic\PhysicsKinematicSceneSimulator.h">
+      <Filter>Simulation\Kinematic</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

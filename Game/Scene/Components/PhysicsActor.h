@@ -1,12 +1,25 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 #include <string_view>
 #include "Game/Scene/Components/ComponentText.h"
 #include "PhysicsLib/Actors/PhysicsActorBase.h"
 #include "Utility/ComponentRestraint.h"
 
 namespace Game {
+    constexpr std::uint32_t InvalidPhysicsActorId{ std::numeric_limits<std::uint32_t>::max() };
+
+    struct PhysicsActorPendingCommands final {
+        std::uint32_t mActorId{ InvalidPhysicsActorId };
+        DirectX::SimpleMath::Vector3 mForce{};
+        DirectX::SimpleMath::Vector3 mImpulse{};
+        DirectX::SimpleMath::Vector3 mVelocity{};
+        bool mHasForce{};
+        bool mHasImpulse{};
+        bool mHasSetVelocity{};
+    };
+
     ComponentDecl(
         PhysicsActorSettings,
         ComponentFields(
@@ -26,7 +39,20 @@ namespace Game {
         ComponentFields(
             ComponentField(PhysicsActorBase*, mActorPointer, nullptr)
             ComponentField(std::uint32_t, mActorIndex, 0)
+            ComponentField(std::uint32_t, mActorId, InvalidPhysicsActorId)
             ComponentField(PhysicsActorBase::PhysicsActorType, mActorType, PhysicsActorBase::PhysicsActorType::Dynamic)
+            ComponentField(DirectX::SimpleMath::Vector3, mCachedVelocity, DirectX::SimpleMath::Vector3{})
+            ComponentField(DirectX::SimpleMath::Vector3, mCachedPosition, DirectX::SimpleMath::Vector3{})
+            ComponentField(DirectX::SimpleMath::Quaternion, mCachedOrientation, DirectX::SimpleMath::Quaternion::Identity)
+            ComponentField(DirectX::SimpleMath::Vector3, mCachedScale, DirectX::SimpleMath::Vector3::One)
+            ComponentField(DirectX::BoundingOrientedBox, mCachedWorldBoundingBox, DirectX::BoundingOrientedBox{})
+            ComponentField(bool, mHasCachedSnapshot, false)
+            ComponentField(DirectX::SimpleMath::Vector3, mPendingForce, DirectX::SimpleMath::Vector3{})
+            ComponentField(DirectX::SimpleMath::Vector3, mPendingImpulse, DirectX::SimpleMath::Vector3{})
+            ComponentField(DirectX::SimpleMath::Vector3, mPendingSetVelocity, DirectX::SimpleMath::Vector3{})
+            ComponentField(bool, mHasPendingForce, false)
+            ComponentField(bool, mHasPendingImpulse, false)
+            ComponentField(bool, mHasPendingSetVelocity, false)
         ),
         ComponentMethods(
             ComponentMethod(bool HasActor() const, HasActor)
@@ -36,6 +62,10 @@ namespace Game {
             ComponentMethod(void AddImpulse(const DirectX::SimpleMath::Vector3& Impulse), AddImpulse)
         )
     );
+
+    std::uint32_t ResolvePhysicsActorId(const PhysicsActor& ActorComponent);
+    void UpdatePhysicsActorCachedSnapshot(PhysicsActor& ActorComponent, const DirectX::SimpleMath::Vector3& Position, const DirectX::SimpleMath::Quaternion& Orientation, const DirectX::SimpleMath::Vector3& Scale, const DirectX::SimpleMath::Vector3& Velocity, const DirectX::BoundingOrientedBox& WorldBoundingBox);
+    bool TryConsumePhysicsActorPendingCommands(PhysicsActor& ActorComponent, PhysicsActorPendingCommands& OutCommands);
 
     PhysicsActorSettings CreatePhysicsActorSettingsComponent(std::string_view SourceName);
     std::string_view GetPhysicsActorSettingsNameTextView(const PhysicsActorSettings& SettingsComponent);

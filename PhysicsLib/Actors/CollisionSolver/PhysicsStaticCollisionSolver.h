@@ -3,13 +3,13 @@
 /*
 PhysicsLib Header Guide
 Role:
-- Provides the default collision solver policy for Static Actors.
+- Provides the collision solver policy for plain Static Actors.
 Initialization:
 - Direct construction is valid, but normal users get this through the PhysicsStaticActor policy type.
 Usage:
-- Use it for plain Static Actors, and override the functions in types that need custom Static collision.
+- Use it for immovable OBB collision targets, and override the functions in types that need custom Static collision.
 Notes:
-- The default implementation does not resolve collisions.
+- Height-field Terrain Actors still use their specialized path.
 */
 
 #include "PhysicsLib/Actors/SolverType/PhysicsSolverType.h"

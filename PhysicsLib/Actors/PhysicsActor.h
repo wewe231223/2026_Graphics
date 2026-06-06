@@ -113,7 +113,7 @@ template <PhysicsCollisionSolverPolicy CollisionSolverType, PhysicsIntegraterPol
 void PhysicsActor<CollisionSolverType, IntegraterType, ConstraintSolverType, ActorTypeValue>::ApplyActorTypeDefaults() {
     SetActorType(ActorTypeValue);
 
-    if constexpr (ActorTypeValue == PhysicsActorBase::PhysicsActorType::Static) {
+    if constexpr (ActorTypeValue == PhysicsActorBase::PhysicsActorType::Static || ActorTypeValue == PhysicsActorBase::PhysicsActorType::Kinematic) {
         SetMass(0.0F);
     }
 }

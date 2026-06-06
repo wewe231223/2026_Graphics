@@ -72,6 +72,22 @@ namespace {
         return CullingBox.Intersects(BoundingBoxComponent->GetWorldObb());
     }
 
+    bool IsDrawBoundingBoxesEnabled(const Game::RFD::RenderFrameData& RenderData) {
+        return (RenderData.globals.flags & Game::RFD::FrameGlobalFlagDrawBoundingBoxes) != 0u;
+    }
+
+    void AppendBoundingBoxContext(const DirectX::BoundingOrientedBox& WorldObb, Game::RFD::RenderFrameData& RenderData) {
+        if (IsDrawBoundingBoxesEnabled(RenderData) == false) {
+            return;
+        }
+
+        Game::RFD::BoundingBoxContext BoundingBoxContext{};
+        BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
+        BoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
+        BoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
+        RenderData.boundingBoxContexts.push_back(BoundingBoxContext);
+    }
+
     void AppendSkinnedDrawRecords(const std::vector<Game::ModelSubMesh>& SubMeshes, const Game::ModelNode& Node, const Game::RegisteredMaterialGroup* ResolvedMaterialGroup, std::uint32_t ObjectIndex, std::uint32_t MaterialFlags, std::uint32_t PickFlags, std::vector<Game::RFD::DrawRecord>& OutDrawRecords) {
         for (std::size_t SubMeshIndex{ 0 }; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
             const Game::ModelSubMesh& SubMesh{ SubMeshes[SubMeshIndex] };
@@ -137,6 +153,7 @@ namespace Game {
         const std::vector<RegisteredMaterialGroup>& MaterialGroups{ *Ctx.MaterialGroups };
         const std::uint32_t ShadowCascadeCount{ RFD::ResolveShadowCascadeCount(RenderData.shadowMapping) };
         const std::array<DirectX::BoundingOrientedBox, RFD::ShadowCascadeMaxCount> ShadowCullingBoxes{ RFD::BuildShadowCullingBoxes(RenderData.shadowMapping) };
+        const bool IsDrawBoundingBoxesEnabledForFrame{ IsDrawBoundingBoxesEnabled(RenderData) };
         std::unordered_map<Arche::EntityID, const SkinnedMeshPreparedData*> PreparedDataByEntity{};
         PreparedDataByEntity.reserve(Ctx.SkinnedMeshPreparedDataItems.size());
         for (const SkinnedMeshPreparedData& PreparedData : Ctx.SkinnedMeshPreparedDataItems) {
@@ -144,24 +161,21 @@ namespace Game {
         }
 
         std::unordered_set<Arche::EntityID> AppendedBoundingBoxEntities{};
-        for (auto [AnimatorComponent, BoundingBoxComponent, HierarchyComponent] : World.Query<Animator, BoundingBox, EntityHierarchy>()) {
-            (void)AnimatorComponent;
-            if (BoundingBoxComponent.HasWorldObb() == false) {
-                continue;
-            }
+        if (IsDrawBoundingBoxesEnabledForFrame == true) {
+            for (auto [AnimatorComponent, BoundingBoxComponent, HierarchyComponent] : World.Query<Animator, BoundingBox, EntityHierarchy>()) {
+                (void)AnimatorComponent;
+                if (BoundingBoxComponent.HasWorldObb() == false) {
+                    continue;
+                }
 
-            const Arche::EntityID EntityId{ HierarchyComponent.self };
-            const bool IsInserted{ AppendedBoundingBoxEntities.insert(EntityId).second };
-            if (IsInserted == false) {
-                continue;
-            }
+                const Arche::EntityID EntityId{ HierarchyComponent.self };
+                const bool IsInserted{ AppendedBoundingBoxEntities.insert(EntityId).second };
+                if (IsInserted == false) {
+                    continue;
+                }
 
-            const DirectX::BoundingOrientedBox& WorldObb{ BoundingBoxComponent.GetWorldObb() };
-            RFD::BoundingBoxContext BoundingBoxContext{};
-            BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
-            BoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
-            BoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
-            RenderData.boundingBoxContexts.push_back(BoundingBoxContext);
+                AppendBoundingBoxContext(BoundingBoxComponent.GetWorldObb(), RenderData);
+            }
         }
 
         for (auto [TransformComponent, Renderer, HierarchyComponent] : World.Query<Transform, SkinnedMeshRenderer, EntityHierarchy>()) {
@@ -189,21 +203,16 @@ namespace Game {
 
             const std::uint32_t GlobalBoneIndexStart{ static_cast<std::uint32_t>(RenderData.bonePalette.size()) };
             RenderData.bonePalette.insert(RenderData.bonePalette.end(), PreparedData.BonePalette.begin(), PreparedData.BonePalette.end());
-            RenderData.boundingBoxContexts.insert(RenderData.boundingBoxContexts.end(), PreparedData.BoneBoundingBoxContexts.begin(), PreparedData.BoneBoundingBoxContexts.end());
+            if (IsDrawBoundingBoxesEnabledForFrame == true) {
+                RenderData.boundingBoxContexts.insert(RenderData.boundingBoxContexts.end(), PreparedData.BoneBoundingBoxContexts.begin(), PreparedData.BoneBoundingBoxContexts.end());
+            }
 
             BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityId) };
-            if (BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
+            if (IsDrawBoundingBoxesEnabledForFrame == true && BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
                 const bool IsInserted{ AppendedBoundingBoxEntities.insert(EntityId).second };
-                if (IsInserted == false) {
-                    continue;
+                if (IsInserted == true) {
+                    AppendBoundingBoxContext(BoundingBoxComponent->GetWorldObb(), RenderData);
                 }
-
-                const DirectX::BoundingOrientedBox& WorldObb{ BoundingBoxComponent->GetWorldObb() };
-                RFD::BoundingBoxContext BoundingBoxContext{};
-                BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
-                BoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
-                BoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
-                RenderData.boundingBoxContexts.push_back(BoundingBoxContext);
             }
 
             const Material* MaterialComponent{ std::as_const(World).GetComponent<Material>(EntityId) };

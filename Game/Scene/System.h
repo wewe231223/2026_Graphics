@@ -7,8 +7,13 @@
 #include "Utility/DirectXInclude.h"
 #include "Arche/World.h"
 #include "Game/Base/RenderFrameData.h"
+#include "Game/Scene/SceneWorldSnapshot.h"
+#include "Game/Terrain/TerrainManager.h"
 #include "PhysicsLib/Common.h"
+#include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
 #include "Utility/SimpleMathWrapper.h"
+
+class PhysicsRuntime;
 
 namespace Game {
     class AssetRegistry;
@@ -53,6 +58,12 @@ namespace Game {
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
         AssetRegistry* AssetRegistryResource{ nullptr };
         IPhysicsWorld* PhysicsWorldResource{ nullptr };
+        PhysicsRuntime* PhysicsRuntimeResource{ nullptr };
+        const PhysicsSnapshot* PhysicsSnapshotResource{ nullptr };
+        TerrainManager* TerrainManagerResource{ nullptr };
+        ITerrainQuery* TerrainQueryResource{ nullptr };
+        bool IsPhysicsRuntimeModeEnabled{};
+        PhysicsRuntimeStatus PhysicsRuntimeStatus{};
         Arche::EntityID PickedEntityId{ Arche::NullEntityID };
         std::vector<SkinnedMeshPreparedData> SkinnedMeshPreparedDataItems{};
     };

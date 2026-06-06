@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -8,6 +9,15 @@
 
 namespace Game {
     class AssetRegistry;
+
+    struct PhysicsRuntimeStatus final {
+        bool mIsRuntimeModeEnabled{};
+        bool mIsRunning{};
+        std::uint64_t mLatestStepIndex{};
+        std::uint64_t mSnapshotStepIndex{};
+        std::size_t mActorCount{};
+        double mSnapshotAgeMilliseconds{};
+    };
 
     class SceneWorldSnapshot final {
     public:
@@ -35,6 +45,7 @@ namespace Game {
         void AddEntity(Arche::EntityID EntityId, Arche::EntityID ParentId);
         void AddSystemName(const std::string& SystemName);
         void SetSceneName(const std::string& SceneName);
+        void SetPhysicsRuntimeStatus(const PhysicsRuntimeStatus& Status);
         void BuildHierarchy();
 
         const Arche::World::WorldReadOnlyView* GetReadOnlyWorld() const;
@@ -43,6 +54,7 @@ namespace Game {
         const AssetRegistry* GetAssetRegistry() const;
 
         const std::string& GetSceneName() const;
+        const PhysicsRuntimeStatus& GetPhysicsRuntimeStatus() const;
         const std::vector<std::string>& GetSystemNames() const;
         const std::vector<SceneEntitySnapshot>& GetEntities() const;
         const std::vector<std::uint32_t>& GetRootIndices() const;
@@ -54,6 +66,7 @@ namespace Game {
         Arche::World* mWorld{};
         const AssetRegistry* mAssetRegistry{};
         std::string mSceneName{};
+        PhysicsRuntimeStatus mPhysicsRuntimeStatus{};
         std::vector<std::string> mSystemNames{};
         std::vector<SceneEntitySnapshot> mEntities{};
         std::vector<std::uint32_t> mRootIndices{};

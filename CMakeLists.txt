@@ -109,10 +109,12 @@ add_library(PhysicsLib STATIC
     PhysicsLib/Actors/SolverType/PhysicsSolverType.cpp
     PhysicsLib/Simulation/Mediator/IPhysicsWorldMediator.cpp
     PhysicsLib/Simulation/Kinematic/PhysicsKinematicActorSimulator.cpp
+    PhysicsLib/Simulation/Kinematic/PhysicsKinematicSceneSimulator.cpp
     PhysicsLib/Simulation/Repository/IPhysicsActorRepository.cpp
     PhysicsLib/Simulation/Repository/PhysicsActorRepository.cpp
     PhysicsLib/Simulation/SpatialQuery/BruteForcePhysicsSpatialQuery.cpp
     PhysicsLib/Simulation/SpatialQuery/IPhysicsSpatialQuery.cpp
+    PhysicsLib/Runtime/PhysicsRuntime.cpp
     PhysicsLib/World/PhysicsWorld.cpp
 )
 
@@ -145,7 +147,6 @@ add_library(Game STATIC
     Game/Base/RootSignature.cpp
     Game/Base/Pipeline.cpp
     Game/Base/Input.cpp
-    Game/Base/Time.cpp
     Game/Model/HeightMapLoader.cpp
     Game/Model/TerrainHeightFieldFactory.cpp
     Game/Model/TerrainProceduralHeightFieldConfigLoader.cpp
@@ -158,11 +159,21 @@ add_library(Game STATIC
     Game/Model/TerrainMeshBuilder.cpp
     Game/Model/TerrainRenderResource.cpp
     Game/Model/TerrainTiledMeshBuilder.cpp
+    Game/Terrain/TerrainManager.cpp
     Game/Scene/Scene.cpp
     Game/Scene/SceneEntityFactory.cpp
+    Game/Scene/ScenePhysicsRuntimeCoordinator.cpp
     Game/Scene/SceneWorldSnapshot.cpp
     Game/Scene/SceneYamlSerializer.cpp
     Game/Scene/SceneYaml/SceneYamlCommon.cpp
+    Game/Scene/SceneYaml/SceneYamlComponentRegistry.cpp
+    Game/Scene/SceneYaml/Components/SceneYamlAnimationComponent.cpp
+    Game/Scene/SceneYaml/Components/SceneYamlBasicComponents.cpp
+    Game/Scene/SceneYaml/Components/SceneYamlCameraComponent.cpp
+    Game/Scene/SceneYaml/Components/SceneYamlNameComponent.cpp
+    Game/Scene/SceneYaml/Components/SceneYamlPhysicsComponent.cpp
+    Game/Scene/SceneYaml/Components/SceneYamlTerrainComponent.cpp
+    Game/Scene/SceneYaml/Components/SceneYamlTransformComponent.cpp
     Game/Scene/SceneYaml/SceneYamlDeserializer.cpp
     Game/Scene/SceneYaml/SceneYamlTerrain.cpp
     Game/Scene/SceneYaml/SceneYamlWriter.cpp

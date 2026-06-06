@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -9,12 +10,23 @@
 #include "SceneWorldSnapshot.h"
 #include "Game/Model/AssetRegistry.h"
 #include "Script/Core/LuaScriptFramework.h"
+#include "PhysicsLib/Runtime/PhysicsRuntime.h"
+#include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
+#include "PhysicsLib/Simulation/Kinematic/PhysicsKinematicSceneSimulator.h"
 #include "PhysicsLib/World/PhysicsWorld.h"
+#include "Game/Terrain/TerrainManager.h"
+
+namespace Utility {
+    class Time;
+}
 
 namespace Game {
+    struct ScenePhysicsRuntimeContext;
+
     struct TerrainActorDescBinding final {
         Arche::EntityID mEntityId{ Arche::NullEntityID };
         PhysicsTerrainActor::ActorDesc mTerrainActorDesc{};
+        TerrainDataHandle mTerrainHandle{};
         bool mIsTerrainActorDescApplied{};
     };
 
@@ -46,11 +58,16 @@ namespace Game {
         const Script::LuaBehaviorFramework& GetLuaScriptFramework() const;
         PhysicsWorld& GetPhysicsWorld();
         const PhysicsWorld& GetPhysicsWorld() const;
+        const PhysicsRuntime& GetPhysicsRuntime() const;
+        const PhysicsRuntimeScene& GetPhysicsRuntimeScene() const;
+        std::uint32_t GetPhysicsWorldVersion() const;
+        bool IsPhysicsRuntimeModeEnabled() const;
 
         void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap);
         void InitializePhysicsWorld();
         void RebuildPhysicsActors();
         void UpdatePhysics(float Dt);
+        void SetPhysicsTime(Utility::Time* PhysicsTime);
         void SetName(const std::string& NewName);
         const std::string& GetName() const;
 
@@ -69,8 +86,18 @@ namespace Game {
 
 
     private:
+        ScenePhysicsRuntimeContext BuildPhysicsRuntimeContext();
         void RebuildWorldSnapshot();
         void SpawnModelAtOrigin(const std::string& ModelSelector, const std::string& RootEntityName, std::uint32_t MaterialGroupIndex, bool IsDerivedEntity);
+
+        void InitializePhysicsRuntime();
+        void ShutdownPhysicsRuntime();
+        void SubmitPhysicsRuntimeCommands();
+        void PublishPhysicsRuntimeKinematicStates();
+        void RefreshPhysicsRuntimeSnapshot();
+        void PublishPhysicsRuntimeStatus(const PhysicsSnapshot* Snapshot);
+        void UpdateTerrainManager();
+        void UpdateSceneKinematicActors(float Dt);
 
         void RegisterScriptTypes(); 
         void AttachDefaultCameraControlBehavior();
@@ -80,6 +107,14 @@ namespace Game {
         std::string mName{};
         Arche::World mWorld{};
         PhysicsWorld mPhysicsWorld{};
+        PhysicsRuntime mPhysicsRuntime{};
+        PhysicsRuntimeScene mPhysicsRuntimeScene{};
+        PhysicsSnapshot mPhysicsRuntimeSnapshot{};
+        PhysicsKinematicSceneSimulator mKinematicSceneSimulator{};
+        TerrainManager mTerrainManager{};
+        std::vector<PhysicsKinematicRuntimeState> mKinematicRuntimeStates{};
+        std::uint32_t mPhysicsWorldVersion{ 1U };
+        Utility::Time* mPhysicsTime{};
         FrameContext mFrameContext{};
         AssetRegistry mAssetRegistry{};
         std::vector<std::unique_ptr<ISystem>> mSystems{};
@@ -92,6 +127,7 @@ namespace Game {
         bool mIsDefaultCameraControlBehaviorAttached{};
         bool mIsDebugGeometryDrawEnabled{};
         bool mIsBoundingBoxDrawEnabled{};
+        bool mIsPhysicsRuntimeModeEnabled{};
 
 		Script::LuaBehaviorFramework mLuaScriptFramework{};
         std::vector<TerrainActorDescBinding> mTerrainActorDescBindings{};

@@ -1,13 +1,9 @@
 ﻿#include "Scene.h"
 #include <utility>
 #include <algorithm>
-#include <array>
 #include <cctype>
 #include <cstdint>
-#include <cmath>
 #include <memory>
-#include <string_view>
-#include <tuple>
 #include <unordered_set>
 #include <vector>
 #include "Imgui/imgui.h"
@@ -39,27 +35,15 @@
 #include "Game/Scene/Components/ScriptComponent.h"
 #include "Game/Scene/Components/Tags.h"
 #include "Game/Base/Input.h"
-#include "PhysicsLib/Actors/PhysicsStaticActor.h"
-#include "PhysicsLib/Actors/PhysicsTerrainActor.h"
-
 #include "Game/Scene/Events/SelectionEvent.h"
 #include "Core/Event/EventQueue.h"
 #include "Core/Event/FileDropEvent.h"
 #include "Utility/MathValidation.h"
 #include "Utility/StringUtils.h"
 #include "SceneEntityFactory.h"
+#include "Game/Scene/ScenePhysicsRuntimeCoordinator.h"
 
 namespace {
-    constexpr std::string_view ObjectTagText{ "ObjectTag" };
-    constexpr std::string_view PlayerTagText{ "PlayerTag" };
-
-    struct PendingPhysicsActorBinding final {
-        Arche::EntityID mEntityId{ Arche::NullEntityID };
-        PhysicsActorBase* mActorPointer{};
-        std::uint32_t mActorIndex{};
-        PhysicsActorBase::PhysicsActorType mActorType{ PhysicsActorBase::PhysicsActorType::Dynamic };
-    };
-
     std::uint64_t GenerateNextPrefabId(Game::Scene& TargetScene) {
         std::unordered_set<std::uint64_t> UsedPrefabIds{};
         for (const auto [PrefabComponent] : TargetScene.GetWorld().Query<Game::PrefabInstance>()) {
@@ -77,154 +61,6 @@ namespace {
 
         return NextPrefabId;
     }
-
-    std::string ResolvePhysicsActorName(const Arche::World& World, Arche::EntityID EntityId, const Game::Tag* TagComponent) {
-        const Game::Name* NameComponent{ World.GetComponent<Game::Name>(EntityId) };
-        if (NameComponent != nullptr && Game::GetNameTextView(*NameComponent).empty() == false) {
-            return std::string{ Game::GetNameTextView(*NameComponent) };
-        }
-
-        if (TagComponent != nullptr && Game::GetTagTextView(*TagComponent).empty() == false) {
-            return std::string{ Game::GetTagTextView(*TagComponent) };
-        }
-
-        return "PhysicsActor";
-    }
-
-    PhysicsActorBase::PhysicsActorFlags BuildDefaultPhysicsActorFlags() {
-        PhysicsActorBase::PhysicsActorFlags ActorFlags{ PhysicsActorBase::PhysicsActorFlags::None };
-        return ActorFlags;
-    }
-
-    PhysicsActorBase::ActorDesc BuildPhysicsActorDesc(const Arche::World& World, Arche::EntityID EntityId, const Game::Tag* TagComponent, const Game::BoundingBox& BoundingBoxComponent, const Game::Transform& TransformComponent, const Game::PhysicsActorSettings& SettingsComponent) {
-        PhysicsActorBase::ActorDesc Desc{};
-        const std::string_view SettingsName{ Game::GetPhysicsActorSettingsNameTextView(SettingsComponent) };
-        Desc.Name = SettingsName.empty() == false ? std::string{ SettingsName } : ResolvePhysicsActorName(World, EntityId, TagComponent);
-        Desc.IsActive = SettingsComponent.mIsActive;
-        Desc.Mass = SettingsComponent.mMass;
-        Desc.Flags = SettingsComponent.mFlags;
-        Desc.ActorType = SettingsComponent.mActorType;
-        Desc.LocalBoundingBox = BoundingBoxComponent.GetObb();
-        Desc.Position = TransformComponent.position;
-        Desc.Rotation = TransformComponent.rotationEuler;
-        Desc.Scale = TransformComponent.scale;
-        Desc.Velocity = DirectX::SimpleMath::Vector3{};
-        Desc.Acceleration = DirectX::SimpleMath::Vector3{};
-        Desc.Friction = SettingsComponent.mFriction;
-        Desc.Restitution = SettingsComponent.mRestitution;
-        return Desc;
-    }
-
-    PhysicsActorBase::ActorDesc BuildLegacyPhysicsActorDesc(const Arche::World& World, Arche::EntityID EntityId, const Game::Tag& TagComponent, const Game::BoundingBox& BoundingBoxComponent, const Game::Transform& TransformComponent, PhysicsActorBase::PhysicsActorType ActorType) {
-        Game::PhysicsActorSettings SettingsComponent{};
-        SettingsComponent.mActorType = ActorType;
-        SettingsComponent.mFlags = BuildDefaultPhysicsActorFlags();
-        return BuildPhysicsActorDesc(World, EntityId, &TagComponent, BoundingBoxComponent, TransformComponent, SettingsComponent);
-    }
-
-    PhysicsActorBase* CreatePhysicsActor(PhysicsWorld& PhysicsWorldInstance, const PhysicsActorBase::ActorDesc& Desc, std::uint32_t& OutActorIndex) {
-        OutActorIndex = static_cast<std::uint32_t>(PhysicsWorldInstance.GetActorCount());
-        if (Desc.ActorType == PhysicsActorBase::PhysicsActorType::Kinematic) {
-            return PhysicsWorldInstance.CreateKinematicActor(Desc);
-        }
-
-        if (Desc.ActorType == PhysicsActorBase::PhysicsActorType::Static) {
-            std::unique_ptr<PhysicsActorBase> NewActor{ std::make_unique<PhysicsStaticActor>(Desc) };
-            PhysicsActorBase* CreatedActor{ NewActor.get() };
-            PhysicsWorldInstance.AddActor(std::move(NewActor));
-            return CreatedActor;
-        }
-
-        return PhysicsWorldInstance.CreateDynamicActor(Desc);
-    }
-
-    PhysicsTerrainActor::ActorDesc BuildPhysicsTerrainActorDesc(const PhysicsTerrainActor::ActorDesc& SourceDesc, const Game::Transform& TransformComponent) {
-        PhysicsTerrainActor::ActorDesc Desc{ SourceDesc };
-        Desc.Position = TransformComponent.position;
-        Desc.Rotation = TransformComponent.rotationEuler;
-        Desc.Scale = TransformComponent.scale;
-        return Desc;
-    }
-
-    bool IsValidTerrainActorDesc(const PhysicsTerrainActor::ActorDesc& TerrainActorDesc) {
-        const std::size_t ExpectedHeightValueCount{ static_cast<std::size_t>(TerrainActorDesc.HeightFieldWidth) * static_cast<std::size_t>(TerrainActorDesc.HeightFieldHeight) };
-        return TerrainActorDesc.HeightFieldWidth > 1u && TerrainActorDesc.HeightFieldHeight > 1u && TerrainActorDesc.HeightFieldCellSizeX > 0.0f && TerrainActorDesc.HeightFieldCellSizeZ > 0.0f && TerrainActorDesc.HeightFieldMaxHeight > 0.0f && TerrainActorDesc.HeightFieldValues.size() == ExpectedHeightValueCount;
-    }
-
-    void ApplyTerrainActorTransformIfChanged(PhysicsTerrainActor& TerrainActor, const Game::Transform& TransformComponent) {
-        if (TerrainActor.GetPosition() != TransformComponent.position) {
-            TerrainActor.SetPosition(TransformComponent.position);
-        }
-
-        if (TerrainActor.GetRotation() != TransformComponent.rotationEuler) {
-            TerrainActor.SetRotation(TransformComponent.rotationEuler);
-        }
-
-        if (TerrainActor.GetScale() != TransformComponent.scale) {
-            TerrainActor.SetScale(TransformComponent.scale);
-        }
-    }
-
-    float ResolveTerrainRaycastDistance(const IPhysicsWorld& PhysicsWorldInstance, const DirectX::SimpleMath::Vector3& RayStartPoint, const DirectX::SimpleMath::Vector3& RayDirection, const float RayLength) {
-        if (MathUtility::IsFiniteVector3(RayStartPoint) == false || MathUtility::IsFiniteVector3(RayDirection) == false || MathUtility::IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
-            return -1.0f;
-        }
-
-        bool IsHit{};
-        float NearestHitDistance{ RayLength };
-        std::vector<const PhysicsTerrainActor*> TerrainActors{ PhysicsWorldInstance.CollectTerrainActors() };
-        const DirectX::SimpleMath::Ray Ray{ RayStartPoint, RayDirection };
-        for (const PhysicsTerrainActor* TerrainActorPointer : TerrainActors) {
-            if (TerrainActorPointer == nullptr) {
-                continue;
-            }
-
-            DirectX::SimpleMath::Vector3 HitPosition{};
-            DirectX::SimpleMath::Vector3 HitNormal{ DirectX::SimpleMath::Vector3::Up };
-            float HitDistance{};
-            const bool IsTerrainHit{ TerrainActorPointer->TryRaycast(Ray, RayLength, HitPosition, HitNormal, HitDistance) };
-            if (IsTerrainHit == false || MathUtility::IsFiniteFloat(HitDistance) == false || HitDistance < 0.0f || HitDistance > RayLength) {
-                continue;
-            }
-
-            if (IsHit == false || HitDistance < NearestHitDistance) {
-                IsHit = true;
-                NearestHitDistance = HitDistance;
-            }
-        }
-
-        return IsHit == true ? NearestHitDistance : -1.0f;
-    }
-
-    void AttachPhysicsActorComponent(Arche::World& World, const PendingPhysicsActorBinding& Binding) {
-        Game::PhysicsActor* ExistingPhysicsActorComponent{ World.GetComponent<Game::PhysicsActor>(Binding.mEntityId) };
-        if (ExistingPhysicsActorComponent != nullptr) {
-            ExistingPhysicsActorComponent->mActorPointer = Binding.mActorPointer;
-            ExistingPhysicsActorComponent->mActorIndex = Binding.mActorIndex;
-            ExistingPhysicsActorComponent->mActorType = Binding.mActorType;
-            return;
-        }
-
-        Game::PhysicsActor NewPhysicsActorComponent{};
-        NewPhysicsActorComponent.mActorPointer = Binding.mActorPointer;
-        NewPhysicsActorComponent.mActorIndex = Binding.mActorIndex;
-        NewPhysicsActorComponent.mActorType = Binding.mActorType;
-        World.AddComponent(Binding.mEntityId, NewPhysicsActorComponent);
-    }
-
-    void SetActorTransformFromComponent(PhysicsActorBase& Actor, const Game::Transform& TransformComponent) {
-        if (Actor.GetPosition() != TransformComponent.position) {
-            Actor.SetPosition(TransformComponent.position);
-        }
-
-        if (Actor.GetOrientation() != TransformComponent.rotation) {
-            Actor.SetOrientation(TransformComponent.rotation);
-        }
-
-        if (Actor.GetScale() != TransformComponent.scale) {
-            Actor.SetScale(TransformComponent.scale);
-        }
-    }
 }
 
 namespace Game {
@@ -232,6 +68,14 @@ namespace Game {
         : mName{},
         mWorld{},
         mPhysicsWorld{},
+        mPhysicsRuntime{},
+        mPhysicsRuntimeScene{},
+        mPhysicsRuntimeSnapshot{},
+        mKinematicSceneSimulator{},
+        mTerrainManager{},
+        mKinematicRuntimeStates{},
+        mPhysicsWorldVersion{ 1U },
+        mPhysicsTime{},
         mFrameContext{},
         mAssetRegistry{},
         mSystems{},
@@ -242,7 +86,8 @@ namespace Game {
         mFileDropSubscriptionId{},
         mIsDefaultCameraControlBehaviorAttached{},
         mIsDebugGeometryDrawEnabled{},
-        mIsBoundingBoxDrawEnabled{} {
+        mIsBoundingBoxDrawEnabled{},
+        mIsPhysicsRuntimeModeEnabled{ ScenePhysicsRuntimeCoordinator::ResolvePhysicsRuntimeModeEnabled() } {
         InitializePhysicsWorld();
 
         mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
@@ -281,6 +126,7 @@ namespace Game {
     }
 
     Scene::~Scene() {
+        ShutdownPhysicsRuntime();
     }
 
     Arche::World& Scene::GetWorld() {
@@ -335,6 +181,22 @@ namespace Game {
         return mPhysicsWorld;
     }
 
+    const PhysicsRuntime& Scene::GetPhysicsRuntime() const {
+        return mPhysicsRuntime;
+    }
+
+    const PhysicsRuntimeScene& Scene::GetPhysicsRuntimeScene() const {
+        return mPhysicsRuntimeScene;
+    }
+
+    std::uint32_t Scene::GetPhysicsWorldVersion() const {
+        return mPhysicsWorldVersion;
+    }
+
+    bool Scene::IsPhysicsRuntimeModeEnabled() const {
+        return mIsPhysicsRuntimeModeEnabled;
+    }
+
     void Scene::InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap) {
         mAssetRegistry.Initialize(Device, CopyQueue, Allocator);
         mAssetRegistry.SetSrvHeap(SrvHeap);
@@ -345,158 +207,56 @@ namespace Game {
 
     }
 
-    void Scene::InitializePhysicsWorld() {
-        PhysicsWorld::WorldSettings Settings{};
-        Settings.FixedTimeStep = 1.0f / 60.0f;
-        Settings.Gravity = DirectX::SimpleMath::Vector3{ 0.0f, -9.8f, 0.0f };
-        mPhysicsWorld.Initialize(Settings);
-        mFrameContext.PhysicsWorldResource = &mPhysicsWorld;
+    ScenePhysicsRuntimeContext Scene::BuildPhysicsRuntimeContext() {
+        return ScenePhysicsRuntimeContext{ mWorld, mPhysicsWorld, mPhysicsRuntime, mPhysicsRuntimeScene, mPhysicsRuntimeSnapshot, mKinematicSceneSimulator, mTerrainManager, mKinematicRuntimeStates, mPhysicsWorldVersion, mPhysicsTime, mFrameContext, mWorldSnapshot, mTerrainActorDescBindings, mIsPhysicsRuntimeModeEnabled };
+    }
 
-        for (TerrainActorDescBinding& Binding : mTerrainActorDescBindings) {
-            Binding.mIsTerrainActorDescApplied = false;
-        }
+    void Scene::InitializePhysicsWorld() {
+        ScenePhysicsRuntimeCoordinator::InitializePhysicsWorld(BuildPhysicsRuntimeContext());
+    }
+
+    void Scene::InitializePhysicsRuntime() {
+        ScenePhysicsRuntimeCoordinator::InitializePhysicsRuntime(BuildPhysicsRuntimeContext());
+    }
+
+    void Scene::ShutdownPhysicsRuntime() {
+        ScenePhysicsRuntimeCoordinator::ShutdownPhysicsRuntime(BuildPhysicsRuntimeContext());
+    }
+
+    void Scene::SubmitPhysicsRuntimeCommands() {
+        ScenePhysicsRuntimeCoordinator::SubmitPhysicsRuntimeCommands(BuildPhysicsRuntimeContext());
+    }
+
+    void Scene::PublishPhysicsRuntimeKinematicStates() {
+        ScenePhysicsRuntimeCoordinator::PublishPhysicsRuntimeKinematicStates(BuildPhysicsRuntimeContext());
+    }
+
+    void Scene::RefreshPhysicsRuntimeSnapshot() {
+        ScenePhysicsRuntimeCoordinator::RefreshPhysicsRuntimeSnapshot(BuildPhysicsRuntimeContext());
+    }
+
+    void Scene::PublishPhysicsRuntimeStatus(const PhysicsSnapshot* Snapshot) {
+        ScenePhysicsRuntimeCoordinator::PublishPhysicsRuntimeStatus(BuildPhysicsRuntimeContext(), Snapshot);
+    }
+
+    void Scene::UpdateTerrainManager() {
+        ScenePhysicsRuntimeCoordinator::UpdateTerrainManager(BuildPhysicsRuntimeContext());
+    }
+
+    void Scene::UpdateSceneKinematicActors(float Dt) {
+        ScenePhysicsRuntimeCoordinator::UpdateSceneKinematicActors(BuildPhysicsRuntimeContext(), Dt);
     }
 
     void Scene::RebuildPhysicsActors() {
-        InitializePhysicsWorld();
-
-        std::vector<PendingPhysicsActorBinding> PendingBindings{};
-        std::unordered_set<Arche::EntityID> ExplicitPhysicsActorEntities{};
-        for (auto [PhysicsSettingsComponent, BoundingBoxComponent, TransformComponent, EntityHierarchyComponent] : mWorld.Query<PhysicsActorSettings, BoundingBox, Transform, EntityHierarchy>()) {
-            std::uint32_t ActorIndex{};
-            const Tag* TagComponent{ std::as_const(mWorld).GetComponent<Tag>(EntityHierarchyComponent.self) };
-            PhysicsActorBase::ActorDesc Desc{ BuildPhysicsActorDesc(mWorld, EntityHierarchyComponent.self, TagComponent, BoundingBoxComponent, TransformComponent, PhysicsSettingsComponent) };
-            PhysicsActorBase* CreatedActor{ CreatePhysicsActor(mPhysicsWorld, Desc, ActorIndex) };
-            if (CreatedActor == nullptr) {
-                continue;
-            }
-
-            CreatedActor->SetOrientation(TransformComponent.rotation);
-            CreatedActor->SetLocalBoundingBox(BoundingBoxComponent.GetObb());
-            PendingPhysicsActorBinding Binding{};
-            Binding.mEntityId = EntityHierarchyComponent.self;
-            Binding.mActorPointer = CreatedActor;
-            Binding.mActorIndex = ActorIndex;
-            Binding.mActorType = Desc.ActorType;
-            PendingBindings.push_back(Binding);
-            ExplicitPhysicsActorEntities.insert(EntityHierarchyComponent.self);
-        }
-
-        for (auto [TagComponent, BoundingBoxComponent, TransformComponent, EntityHierarchyComponent] : mWorld.Query<Tag, BoundingBox, Transform, EntityHierarchy>()) {
-            if (ExplicitPhysicsActorEntities.contains(EntityHierarchyComponent.self) == true) {
-                continue;
-            }
-
-            const std::string_view TagText{ GetTagTextView(TagComponent) };
-            PhysicsActorBase::PhysicsActorType ActorType{ PhysicsActorBase::PhysicsActorType::Dynamic };
-
-            if (TagText == ObjectTagText) {
-                ActorType = PhysicsActorBase::PhysicsActorType::Dynamic;
-            }
-            else if (TagText == PlayerTagText) {
-                ActorType = PhysicsActorBase::PhysicsActorType::Kinematic;
-            }
-            else {
-                continue;
-            }
-
-            std::uint32_t ActorIndex{};
-            PhysicsActorBase::ActorDesc Desc{ BuildLegacyPhysicsActorDesc(mWorld, EntityHierarchyComponent.self, TagComponent, BoundingBoxComponent, TransformComponent, ActorType) };
-            PhysicsActorBase* CreatedActor{ CreatePhysicsActor(mPhysicsWorld, Desc, ActorIndex) };
-            if (CreatedActor == nullptr) {
-                continue;
-            }
-
-            CreatedActor->SetOrientation(TransformComponent.rotation);
-            CreatedActor->SetLocalBoundingBox(BoundingBoxComponent.GetObb());
-            PendingPhysicsActorBinding Binding{};
-            Binding.mEntityId = EntityHierarchyComponent.self;
-            Binding.mActorPointer = CreatedActor;
-            Binding.mActorIndex = ActorIndex;
-            Binding.mActorType = ActorType;
-            PendingBindings.push_back(Binding);
-        }
-
-        for (const TerrainActorDescBinding& BindingSource : mTerrainActorDescBindings) {
-            if (BindingSource.mEntityId == Arche::NullEntityID || IsValidTerrainActorDesc(BindingSource.mTerrainActorDesc) == false) {
-                continue;
-            }
-
-            const Transform* TransformComponent{ std::as_const(mWorld).GetComponent<Transform>(BindingSource.mEntityId) };
-            if (TransformComponent == nullptr) {
-                continue;
-            }
-
-            const std::uint32_t ActorIndex{ static_cast<std::uint32_t>(mPhysicsWorld.GetActorCount()) };
-            PhysicsTerrainActor::ActorDesc Desc{ BuildPhysicsTerrainActorDesc(BindingSource.mTerrainActorDesc, *TransformComponent) };
-            PhysicsTerrainActor* CreatedActor{ mPhysicsWorld.CreateTerrainActor(Desc) };
-            if (CreatedActor == nullptr) {
-                continue;
-            }
-
-            CreatedActor->SetName("TerrainActor");
-            PendingPhysicsActorBinding Binding{};
-            Binding.mEntityId = BindingSource.mEntityId;
-            Binding.mActorPointer = CreatedActor;
-            Binding.mActorIndex = ActorIndex;
-            Binding.mActorType = PhysicsActorBase::PhysicsActorType::Static;
-            PendingBindings.push_back(Binding);
-        }
-
-        for (const PendingPhysicsActorBinding& Binding : PendingBindings) {
-            AttachPhysicsActorComponent(mWorld, Binding);
-        }
+        ScenePhysicsRuntimeCoordinator::RebuildPhysicsActors(BuildPhysicsRuntimeContext());
     }
 
     void Scene::UpdatePhysics(float Dt) {
-        for (auto [PhysicsActorComponent, TransformComponent, BoundingBoxComponent] : mWorld.Query<PhysicsActor, Transform, BoundingBox>()) {
-            PhysicsActorBase* ActorPointer{ PhysicsActorComponent.mActorPointer };
-            if (ActorPointer == nullptr) {
-                continue;
-            }
+        ScenePhysicsRuntimeCoordinator::UpdatePhysics(BuildPhysicsRuntimeContext(), Dt);
+    }
 
-            if (ActorPointer->GetActorType() != PhysicsActorBase::PhysicsActorType::Kinematic) {
-                continue;
-            }
-
-            const bool IsActorTransformChanged{ std::make_tuple(ActorPointer->GetPosition(), ActorPointer->GetOrientation(), ActorPointer->GetScale()) != std::make_tuple(TransformComponent.position, TransformComponent.rotation, TransformComponent.scale) };
-            if (IsActorTransformChanged == true) {
-                SetActorTransformFromComponent(*ActorPointer, TransformComponent);
-            }
-
-            const DirectX::BoundingOrientedBox& ComponentLocalBoundingBox{ BoundingBoxComponent.GetObb() };
-            const DirectX::BoundingOrientedBox& ActorLocalBoundingBox{ ActorPointer->GetLocalBoundingBox() };
-            const std::tuple<DirectX::SimpleMath::Vector3, DirectX::SimpleMath::Vector3, DirectX::SimpleMath::Quaternion> ActorLocalBoundingBoxValue{ DirectX::SimpleMath::Vector3{ ActorLocalBoundingBox.Center }, DirectX::SimpleMath::Vector3{ ActorLocalBoundingBox.Extents }, DirectX::SimpleMath::Quaternion{ ActorLocalBoundingBox.Orientation } };
-            const std::tuple<DirectX::SimpleMath::Vector3, DirectX::SimpleMath::Vector3, DirectX::SimpleMath::Quaternion> ComponentLocalBoundingBoxValue{ DirectX::SimpleMath::Vector3{ ComponentLocalBoundingBox.Center }, DirectX::SimpleMath::Vector3{ ComponentLocalBoundingBox.Extents }, DirectX::SimpleMath::Quaternion{ ComponentLocalBoundingBox.Orientation } };
-            if (ActorLocalBoundingBoxValue != ComponentLocalBoundingBoxValue) {
-                ActorPointer->SetLocalBoundingBox(ComponentLocalBoundingBox);
-            }
-        }
-
-        for (TerrainActorDescBinding& BindingSource : mTerrainActorDescBindings) {
-            PhysicsActor* PhysicsActorComponent{ mWorld.GetComponent<PhysicsActor>(BindingSource.mEntityId) };
-            Transform* TransformComponent{ mWorld.GetComponent<Transform>(BindingSource.mEntityId) };
-            if (PhysicsActorComponent == nullptr || TransformComponent == nullptr || IsValidTerrainActorDesc(BindingSource.mTerrainActorDesc) == false) {
-                continue;
-            }
-
-            PhysicsTerrainActor* TerrainActorPointer{ mPhysicsWorld.GetTerrainActor(PhysicsActorComponent->mActorIndex) };
-            if (TerrainActorPointer == nullptr) {
-                continue;
-            }
-
-            if (BindingSource.mIsTerrainActorDescApplied == false) {
-                PhysicsTerrainActor::ActorDesc Desc{ BuildPhysicsTerrainActorDesc(BindingSource.mTerrainActorDesc, *TransformComponent) };
-                TerrainActorPointer->SetActorDesc(Desc);
-                BindingSource.mIsTerrainActorDescApplied = true;
-                continue;
-            }
-
-            ApplyTerrainActorTransformIfChanged(*TerrainActorPointer, *TransformComponent);
-        }
-
-        mPhysicsWorld.TickKinematicActors(Dt);
-        mPhysicsWorld.Update(Dt);
+    void Scene::SetPhysicsTime(Utility::Time* PhysicsTime) {
+        mPhysicsTime = PhysicsTime;
     }
 
     void Scene::SetName(const std::string& NewName) {
@@ -625,7 +385,16 @@ namespace Game {
             return CameraFlagNone;
         });
         mLuaScriptFramework.RegisterGlobalFunction("RaycastTerrainDistance", [this](const DirectX::SimpleMath::Vector3& RayStartPoint, const DirectX::SimpleMath::Vector3& RayDirection, const float RayLength) -> float {
-            return ResolveTerrainRaycastDistance(mPhysicsWorld, RayStartPoint, RayDirection, RayLength);
+            if (MathUtility::IsFiniteVector3(RayStartPoint) == false || MathUtility::IsFiniteVector3(RayDirection) == false || MathUtility::IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
+                return -1.0f;
+            }
+
+            const DirectX::SimpleMath::Ray Ray{ RayStartPoint, RayDirection };
+            DirectX::SimpleMath::Vector3 HitPosition{};
+            DirectX::SimpleMath::Vector3 HitNormal{ DirectX::SimpleMath::Vector3::Up };
+            float HitDistance{};
+            const bool HasHit{ mTerrainManager.TryRaycast(Ray, RayLength, HitPosition, HitNormal, HitDistance) };
+            return HasHit == true ? HitDistance : -1.0f;
         });
 
         mLuaScriptFramework.RegisterTypeByDefinition<Arche::EntityID>();
@@ -669,28 +438,11 @@ namespace Game {
     }
 
     void Scene::AddTerrainActorDesc(Arche::EntityID EntityId, const PhysicsTerrainActor::ActorDesc& TerrainActorDesc) {
-        for (TerrainActorDescBinding& Binding : mTerrainActorDescBindings) {
-            if (Binding.mEntityId != EntityId) {
-                continue;
-            }
-
-            const bool IsTerrainActorDescChanged{ std::tie(Binding.mTerrainActorDesc.HalfExtentX, Binding.mTerrainActorDesc.HalfExtentZ, Binding.mTerrainActorDesc.HeightFieldWidth, Binding.mTerrainActorDesc.HeightFieldHeight, Binding.mTerrainActorDesc.HeightFieldCellSizeX, Binding.mTerrainActorDesc.HeightFieldCellSizeZ, Binding.mTerrainActorDesc.HeightFieldMaxHeight, Binding.mTerrainActorDesc.HeightFieldCenterOrigin, Binding.mTerrainActorDesc.HeightFieldValues) != std::tie(TerrainActorDesc.HalfExtentX, TerrainActorDesc.HalfExtentZ, TerrainActorDesc.HeightFieldWidth, TerrainActorDesc.HeightFieldHeight, TerrainActorDesc.HeightFieldCellSizeX, TerrainActorDesc.HeightFieldCellSizeZ, TerrainActorDesc.HeightFieldMaxHeight, TerrainActorDesc.HeightFieldCenterOrigin, TerrainActorDesc.HeightFieldValues) };
-            Binding.mTerrainActorDesc = TerrainActorDesc;
-            if (IsTerrainActorDescChanged == true) {
-                Binding.mIsTerrainActorDescApplied = false;
-            }
-
-            return;
-        }
-
-        TerrainActorDescBinding NewBinding{};
-        NewBinding.mEntityId = EntityId;
-        NewBinding.mTerrainActorDesc = TerrainActorDesc;
-        mTerrainActorDescBindings.push_back(NewBinding);
+        ScenePhysicsRuntimeCoordinator::AddTerrainActorDesc(BuildPhysicsRuntimeContext(), EntityId, TerrainActorDesc);
     }
 
     void Scene::ClearTerrainActorDescs() {
-        mTerrainActorDescBindings.clear();
+        ScenePhysicsRuntimeCoordinator::ClearTerrainActorDescs(BuildPhysicsRuntimeContext());
     }
 
     void Scene::InitializeWorldSnapshot() {
@@ -828,6 +580,11 @@ namespace Game {
     }
 
     void Scene::AppendDebugWorldAxes() {
+        const bool IsDrawDebugGeometriesEnabled{ (mFrameContext.RenderData.globals.flags & RFD::FrameGlobalFlagDrawDebugGeometry) != 0u };
+        if (IsDrawDebugGeometriesEnabled == false) {
+            return;
+        }
+
         constexpr float AxisLength{ 100000.0f };
         constexpr float AxisThickness{ 0.0035f };
         const SimpleMath::Vector3 Origin{ 0.0f, 0.0f, 0.0f };

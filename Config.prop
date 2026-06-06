@@ -2,4 +2,6 @@ Windowed = true
 Window_Width = 1920
 Window_Height = 1080
 Block_ImGui = true
-Draw_DebugGeometry = false
+Draw_DebugGeometry = true
+PhysicsRuntime_Enabled = true
+RenderPhysicsDelaySeconds = 0.016667

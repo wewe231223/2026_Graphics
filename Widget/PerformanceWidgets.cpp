@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include "External/Include/ImGui/imgui.h"
+#include "Game/Scene/SceneWorldSnapshot.h"
 #include "PerformanceProvider.h"
 
 #ifdef max
@@ -155,7 +156,6 @@ namespace Widget {
     }
 
     void FrameTimeWidget::Render(const Game::SceneWorldSnapshot* Snapshot) {
-        (void)Snapshot;
         if (!ImGui::Begin("Performance Frame Time")) {
             ImGui::End();
             return;
@@ -172,6 +172,17 @@ namespace Widget {
         ImGui::NextColumn();
         ImGui::Text("0.1%% Low\n%.2f", Provider.GetZeroPointOnePercentLowFps());
         ImGui::Columns(1);
+
+        if (Snapshot != nullptr) {
+            const Game::PhysicsRuntimeStatus& RuntimeStatus{ Snapshot->GetPhysicsRuntimeStatus() };
+            ImGui::SeparatorText("Physics Runtime");
+            ImGui::Text("PhysicsRuntime %s", RuntimeStatus.mIsRunning == true ? "Running" : "Stopped");
+            ImGui::Text("Mode %s", RuntimeStatus.mIsRuntimeModeEnabled == true ? "Runtime" : "Sync");
+            ImGui::Text("LatestStepIndex %llu", static_cast<unsigned long long>(RuntimeStatus.mLatestStepIndex));
+            ImGui::Text("SnapshotStepIndex %llu", static_cast<unsigned long long>(RuntimeStatus.mSnapshotStepIndex));
+            ImGui::Text("ActorCount %zu", RuntimeStatus.mActorCount);
+            ImGui::Text("SnapshotAgeMs %.2f", RuntimeStatus.mSnapshotAgeMilliseconds);
+        }
 
         constexpr float ThresholdMilliseconds{ 16.6f };
         bool IsThresholdVisible{};

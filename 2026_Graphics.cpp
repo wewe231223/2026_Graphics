@@ -5,6 +5,8 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "framework.h"
 #include "2026_Graphics.h"
 #include <algorithm>
+#include <chrono>
+#include <cstddef>
 #include <filesystem>
 #include <shellapi.h>
 #include <fstream>
@@ -22,11 +24,11 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Core/DX/GraphicsAllocator.h"
 #include "Utility/ErrorHandler.h"
 #include "Utility/StdOutput.h"
+#include "Utility/Time.hpp"
 #include "Game/Base/Shader.h"
 #include "Game/Base/RootSignature.h"
 #include "Game/Base/Pipeline.h"
 #include "Game/Base/Input.h"
-#include "Game/Base/Time.h"
 #include "Game/Scene/Scene.h"
 #include "Game/Scene/SceneYamlSerializer.h"
 #include "Game/Scene/Components/Name.h"
@@ -137,17 +139,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     Globals::Input::Get().Initialize(hWnd); 
 
 
-    size_t frameCount = 0;
-    Globals::Time::Get().AddEvent(1s, [&frameCount]() {
-        std::string title = "FPS [ " + std::to_string(frameCount)+" ] ( Toggle Mouse : F7 )";
-        SetWindowTextA(hWnd, title.c_str());
-        frameCount = 0;
+    Utility::Time SceneTime{};
+    Utility::Time PhysicsTime{};
+    std::size_t FrameCount{};
+    SceneTime.AddEvent(std::chrono::seconds{ 1 }, [&FrameCount]() {
+        std::string Title{ "FPS [ " + std::to_string(FrameCount) + " ] ( Toggle Mouse : F7 )" };
+        SetWindowTextA(hWnd, Title.c_str());
+        FrameCount = 0U;
         return true;
     });
 
 
 
     Game::Scene SceneInstance{};
+    SceneInstance.SetPhysicsTime(&PhysicsTime);
     SceneInstance.InitializeAssetRegistry(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator, directQueue.GetSrvHeap());
 
     Game::SceneYamlSerializer SceneYamlSerializer{};
@@ -177,7 +182,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                 Widget::PerformanceProvider::Get().BeginFrame();
             }
 
-            Globals::Time::Get().AdvanceTime();
+            SceneTime.AdvanceTime();
+            PhysicsTime.AdvanceTime();
+            const float SceneDeltaTime{ SceneTime.GetDeltaTime<float>() };
             Globals::Input::Get().Update();
 
             SceneInstance.SetRenderFrameIndex(directQueue.GetCurrentFrameIndex());
@@ -185,7 +192,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().BeginPhaseProfile("PreUpdate");
             }
-            SceneInstance.ExecutePhase(Game::Phase::PreUpdate, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::PreUpdate, SceneDeltaTime);
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().EndPhaseProfile();
             }
@@ -193,7 +200,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().BeginPhaseProfile("Update");
             }
-            SceneInstance.ExecutePhase(Game::Phase::Update, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::Update, SceneDeltaTime);
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().EndPhaseProfile();
             }
@@ -201,7 +208,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().BeginPhaseProfile("PostUpdate");
             }
-            SceneInstance.ExecutePhase(Game::Phase::PostUpdate, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::PostUpdate, SceneDeltaTime);
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().EndPhaseProfile();
             }
@@ -209,7 +216,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().BeginPhaseProfile("PhysicsActorUpdate");
             }
-            SceneInstance.ExecutePhase(Game::Phase::PhysicsActorUpdate, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::PhysicsActorUpdate, SceneDeltaTime);
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().EndPhaseProfile();
             }
@@ -217,7 +224,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().BeginPhaseProfile("IK");
             }
-            SceneInstance.ExecutePhase(Game::Phase::IK, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::IK, SceneDeltaTime);
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().EndPhaseProfile();
             }
@@ -225,7 +232,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().BeginPhaseProfile("TransformWorld");
             }
-            SceneInstance.ExecutePhase(Game::Phase::TransformWorld, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::TransformWorld, SceneDeltaTime);
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().EndPhaseProfile();
             }
@@ -233,7 +240,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().BeginPhaseProfile("RenderPrepare");
             }
-            SceneInstance.ExecutePhase(Game::Phase::RenderPrepare, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::RenderPrepare, SceneDeltaTime);
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().EndPhaseProfile();
             }
@@ -241,7 +248,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().BeginPhaseProfile("Render");
             }
-            SceneInstance.ExecutePhase(Game::Phase::Render, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::Render, SceneDeltaTime);
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().EndPhaseProfile();
             }
@@ -249,7 +256,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().BeginPhaseProfile("PostRender");
             }
-            SceneInstance.ExecutePhase(Game::Phase::PostRender, Globals::Time::Get().GetDeltaTime<float>());
+            SceneInstance.ExecutePhase(Game::Phase::PostRender, SceneDeltaTime);
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().EndPhaseProfile();
             }
@@ -262,7 +269,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             }
 
             SceneInstance.PrepareRender();
-            directQueue.PreRender(SceneInstance.GetRenderFrameData(), Globals::Time::Get().GetDeltaTime<float>());
+            directQueue.PreRender(SceneInstance.GetRenderFrameData(), SceneDeltaTime);
             if (!IsImGuiBlocked) {
                 directQueue.Render(SceneInstance.GetRenderFrameData(), &WidgetCoreInstance);
             }
@@ -270,7 +277,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                 directQueue.Render(SceneInstance.GetRenderFrameData(), nullptr);
             }
 
-            frameCount++; 
+            ++FrameCount;
         }
     }
 

@@ -31,6 +31,7 @@
     <ClCompile Include="Actors\PhysicsTerrainActor.cpp" />
     <ClCompile Include="Actors\SolverType\PhysicsSolverType.cpp" />
     <ClCompile Include="Simulation\Kinematic\PhysicsKinematicActorSimulator.cpp" />
+    <ClCompile Include="Simulation\Kinematic\PhysicsKinematicSceneSimulator.cpp" />
     <ClCompile Include="Simulation\Mediator\IPhysicsWorldMediator.cpp" />
     <ClCompile Include="Simulation\Repository\IPhysicsActorRepository.cpp" />
     <ClCompile Include="Simulation\Repository\PhysicsActorRepository.cpp" />
@@ -57,6 +58,7 @@
     <ClInclude Include="Actors\SolverType\PhysicsActorSolverType.h" />
     <ClInclude Include="Actors\SolverType\PhysicsSolverType.h" />
     <ClInclude Include="Simulation\Kinematic\PhysicsKinematicActorSimulator.h" />
+    <ClInclude Include="Simulation\Kinematic\PhysicsKinematicSceneSimulator.h" />
     <ClInclude Include="Simulation\Mediator\IPhysicsWorldMediator.h" />
     <ClInclude Include="Simulation\Repository\IPhysicsActorRepository.h" />
     <ClInclude Include="Simulation\Repository\PhysicsActorRepository.h" />

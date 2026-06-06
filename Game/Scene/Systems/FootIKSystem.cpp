@@ -28,47 +28,26 @@
 namespace {
     constexpr std::size_t MinimumRayHitCountForFootSurfaceAlignment{ 3 };
 
-    bool TryResolveRaycastHitOnTerrain(const IPhysicsWorld& PhysicsWorldInstance, const SimpleMath::Ray& Ray, const float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal) {
+    bool TryResolveRaycastHitOnTerrain(const Game::ITerrainQuery& TerrainQuery, const SimpleMath::Ray& Ray, const float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal) {
         if (MathUtility::IsFiniteVector3(Ray.position) == false || MathUtility::IsFiniteVector3(Ray.direction) == false || MathUtility::IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
             return false;
         }
 
-        bool IsHit{};
-        float NearestHitDistance{ RayLength };
-        SimpleMath::Vector3 NearestHitPoint{};
-        SimpleMath::Vector3 NearestHitNormal{ SimpleMath::Vector3::Up };
-        std::vector<const PhysicsTerrainActor*> TerrainActors{ PhysicsWorldInstance.CollectTerrainActors() };
-        for (const PhysicsTerrainActor* TerrainActorPointer : TerrainActors) {
-            if (TerrainActorPointer == nullptr) {
-                continue;
-            }
-
-            SimpleMath::Vector3 CandidateHitPoint{};
-            SimpleMath::Vector3 CandidateHitNormal{ SimpleMath::Vector3::Up };
-            float CandidateHitDistance{};
-            const bool IsCandidateHit{ TerrainActorPointer->TryRaycast(Ray, RayLength, CandidateHitPoint, CandidateHitNormal, CandidateHitDistance) };
-            if (IsCandidateHit == false || MathUtility::IsFiniteVector3(CandidateHitPoint) == false || MathUtility::IsFiniteVector3(CandidateHitNormal) == false || MathUtility::IsFiniteFloat(CandidateHitDistance) == false || CandidateHitDistance < 0.0f || CandidateHitDistance > RayLength) {
-                continue;
-            }
-
-            if (IsHit == false || CandidateHitDistance < NearestHitDistance) {
-                IsHit = true;
-                NearestHitDistance = CandidateHitDistance;
-                NearestHitPoint = CandidateHitPoint;
-                NearestHitNormal = CandidateHitNormal;
-            }
-        }
-
-        if (IsHit == false) {
+        float HitDistance{};
+        const bool IsHit{ TerrainQuery.TryRaycast(Ray, RayLength, OutHitPoint, OutHitNormal, HitDistance) };
+        if (IsHit == false || MathUtility::IsFiniteVector3(OutHitPoint) == false || MathUtility::IsFiniteVector3(OutHitNormal) == false || MathUtility::IsFiniteFloat(HitDistance) == false || HitDistance < 0.0f || HitDistance > RayLength) {
             return false;
         }
 
-        OutHitPoint = NearestHitPoint;
-        OutHitNormal = NearestHitNormal;
         return true;
     }
 
-    void AppendFootCornerDebugLines(Arche::World& World, const IPhysicsWorld& PhysicsWorldInstance, Game::FrameContext& Ctx, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+    void AppendFootCornerDebugLines(Arche::World& World, const Game::ITerrainQuery& TerrainQuery, Game::FrameContext& Ctx, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+        const bool IsDrawDebugGeometriesEnabled{ (Ctx.RenderData.globals.flags & Game::RFD::FrameGlobalFlagDrawDebugGeometry) != 0u };
+        if (IsDrawDebugGeometriesEnabled == false) {
+            return;
+        }
+
         constexpr float RayStartOffset{ 0.3f };
         constexpr float RayLineLength{ 0.3f + 0.2f };
         constexpr float HitNormalLineLength{ 0.12f };
@@ -95,7 +74,7 @@ namespace {
             const SimpleMath::Ray Ray{ RayStartPoint, RayDirection };
             SimpleMath::Vector3 HitPoint{};
             SimpleMath::Vector3 HitNormal{ SimpleMath::Vector3::Up };
-            const bool IsTerrainHit{ TryResolveRaycastHitOnTerrain(PhysicsWorldInstance, Ray, RayLineLength, HitPoint, HitNormal) };
+            const bool IsTerrainHit{ TryResolveRaycastHitOnTerrain(TerrainQuery, Ray, RayLineLength, HitPoint, HitNormal) };
             if (IsTerrainHit == true && HitNormal.Dot(RayDirection) > 0.0f) {
                 HitNormal *= -1.0f;
             }
@@ -189,13 +168,13 @@ namespace Game {
 
     std::span<const ResourceAccess> FootIKSystem::ResourceAccesses() const {
         static std::array<ResourceAccess, 1> Accesses{ {
-            { typeid(IPhysicsWorld), Access::Read }
+            { typeid(TerrainManager), Access::Read }
         } };
         return Accesses;
     }
 
     void FootIKSystem::Execute(Arche::World& World, FrameContext& Ctx, const float Dt) {
-        const IPhysicsWorld* PhysicsWorldResource{ Ctx.PhysicsWorldResource };
+        const ITerrainQuery* TerrainQueryResource{ Ctx.TerrainQueryResource };
 
         const Arche::World::WorldReadOnlyView& ReadOnlyWorld{ std::as_const(World).GetReadOnlyView() };
         std::vector<Arche::EntityID> RuntimeMissingEntityIds{};
@@ -256,13 +235,13 @@ namespace Game {
 
             FootIKSolveTarget LeftSolveTarget{};
             FootIKSolveTarget RightSolveTarget{};
-            if (FootIKRigComponent.mEnabled == true && FootIKRuntimeComponent.mResolved == true && PhysicsWorldResource != nullptr) {
+            if (FootIKRigComponent.mEnabled == true && FootIKRuntimeComponent.mResolved == true && TerrainQueryResource != nullptr) {
                 float LeftResolvedTargetOffset{};
                 SimpleMath::Vector3 LeftResolvedRayOppositeDirection{ SimpleMath::Vector3::Up };
                 SimpleMath::Vector3 LeftResolvedGroundNormal{ SimpleMath::Vector3::Up };
                 SimpleMath::Vector3 LeftResolvedTargetFootWorldPosition{};
                 std::size_t LeftResolvedHitCount{};
-                const bool IsLeftTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, *PhysicsWorldResource, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, WorldMatrices, LeftResolvedTargetOffset, LeftResolvedRayOppositeDirection, LeftResolvedGroundNormal, LeftResolvedTargetFootWorldPosition, LeftResolvedHitCount) };
+                const bool IsLeftTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, *TerrainQueryResource, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, WorldMatrices, LeftResolvedTargetOffset, LeftResolvedRayOppositeDirection, LeftResolvedGroundNormal, LeftResolvedTargetFootWorldPosition, LeftResolvedHitCount) };
                 if (IsLeftTargetOffsetResolved == true && LeftResolvedHitCount >= MinimumRayHitCountForFootSurfaceAlignment) {
                     LeftSolveTarget.IsTargetResolved = true;
                     LeftSolveTarget.RawTargetOffset = LeftResolvedTargetOffset;
@@ -277,7 +256,7 @@ namespace Game {
                 SimpleMath::Vector3 RightResolvedGroundNormal{ SimpleMath::Vector3::Up };
                 SimpleMath::Vector3 RightResolvedTargetFootWorldPosition{};
                 std::size_t RightResolvedHitCount{};
-                const bool IsRightTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, *PhysicsWorldResource, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, WorldMatrices, RightResolvedTargetOffset, RightResolvedRayOppositeDirection, RightResolvedGroundNormal, RightResolvedTargetFootWorldPosition, RightResolvedHitCount) };
+                const bool IsRightTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, *TerrainQueryResource, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, WorldMatrices, RightResolvedTargetOffset, RightResolvedRayOppositeDirection, RightResolvedGroundNormal, RightResolvedTargetFootWorldPosition, RightResolvedHitCount) };
                 if (IsRightTargetOffsetResolved == true && RightResolvedHitCount >= MinimumRayHitCountForFootSurfaceAlignment) {
                     RightSolveTarget.IsTargetResolved = true;
                     RightSolveTarget.RawTargetOffset = RightResolvedTargetOffset;
@@ -366,23 +345,23 @@ namespace Game {
                     }
                 }
 
-                if (LeftSolveTarget.IsGroundNormalResolved == true && PhysicsWorldResource != nullptr) {
-                    const bool IsLeftFootSurfaceAligned{ IK::TryAlignFootToSurface(World, *PhysicsWorldResource, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, LeftSolveTarget.RayOppositeDirection, LeftSolveTarget.GroundNormal, 1.0f, WorldMatrices) };
+                if (LeftSolveTarget.IsGroundNormalResolved == true && TerrainQueryResource != nullptr) {
+                    const bool IsLeftFootSurfaceAligned{ IK::TryAlignFootToSurface(World, *TerrainQueryResource, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, LeftSolveTarget.RayOppositeDirection, LeftSolveTarget.GroundNormal, 1.0f, WorldMatrices) };
                     if (IsLeftFootSurfaceAligned == true) {
                         WorldMatrices.clear();
                     }
                 }
 
-                if (RightSolveTarget.IsGroundNormalResolved == true && PhysicsWorldResource != nullptr) {
-                    const bool IsRightFootSurfaceAligned{ IK::TryAlignFootToSurface(World, *PhysicsWorldResource, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, RightSolveTarget.RayOppositeDirection, RightSolveTarget.GroundNormal, 1.0f, WorldMatrices) };
+                if (RightSolveTarget.IsGroundNormalResolved == true && TerrainQueryResource != nullptr) {
+                    const bool IsRightFootSurfaceAligned{ IK::TryAlignFootToSurface(World, *TerrainQueryResource, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, RightSolveTarget.RayOppositeDirection, RightSolveTarget.GroundNormal, 1.0f, WorldMatrices) };
                     if (IsRightFootSurfaceAligned == true) {
                         WorldMatrices.clear();
                     }
                 }
 
-                if (PhysicsWorldResource != nullptr) {
-                    AppendFootCornerDebugLines(World, *PhysicsWorldResource, Ctx, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, WorldMatrices);
-                    AppendFootCornerDebugLines(World, *PhysicsWorldResource, Ctx, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, WorldMatrices);
+                if (TerrainQueryResource != nullptr) {
+                    AppendFootCornerDebugLines(World, *TerrainQueryResource, Ctx, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, WorldMatrices);
+                    AppendFootCornerDebugLines(World, *TerrainQueryResource, Ctx, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, WorldMatrices);
                 }
             }
         }

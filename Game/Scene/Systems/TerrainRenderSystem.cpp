@@ -123,6 +123,11 @@ namespace {
     }
 
     void AppendBoundingBoxContext(const DirectX::BoundingOrientedBox& WorldObb, Game::RFD::RenderFrameData& RenderData) {
+        const bool IsDrawBoundingBoxesEnabled{ (RenderData.globals.flags & Game::RFD::FrameGlobalFlagDrawBoundingBoxes) != 0u };
+        if (IsDrawBoundingBoxesEnabled == false) {
+            return;
+        }
+
         Game::RFD::BoundingBoxContext BoundingBoxContext{};
         BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
         BoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };

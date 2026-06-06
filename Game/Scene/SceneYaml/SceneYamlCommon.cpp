@@ -1,4 +1,39 @@
 ﻿#include "SceneYamlInternal.h"
+#include <algorithm>
+#include <array>
+#include <cctype>
+#include <cstdint>
+#include <filesystem>
+#include <initializer_list>
+#include <memory>
+#include <sstream>
+#include <string_view>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+#include <ryml_std.hpp>
+#include "Game/Model/Model.h"
+#include "Game/Scene/Components/Animator.h"
+#include "Game/Scene/Components/BoundingBox.h"
+#include "Game/Scene/Components/Camera.h"
+#include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/Material.h"
+#include "Game/Scene/Components/Name.h"
+#include "Game/Scene/Components/PhysicsActor.h"
+#include "Game/Scene/Components/StaticMeshRenderer.h"
+#include "Game/Scene/Systems/AnimationGraphSystem.h"
+#include "Game/Scene/Systems/AnimateSystem.h"
+#include "Game/Scene/Systems/CameraRenderSystem.h"
+#include "Game/Scene/Systems/FootIKSystem.h"
+#include "Game/Scene/Systems/PhysicsActorUpdateSystem.h"
+#include "Game/Scene/Systems/ProceduralFoliageSystem.h"
+#include "Game/Scene/Systems/ShadowMappingParameterSystem.h"
+#include "Game/Scene/Systems/SkinnedMeshPrepareSystem.h"
+#include "Game/Scene/Systems/SkinnedMeshRenderSystem.h"
+#include "Game/Scene/Systems/StaticRenderSystem.h"
+#include "Game/Scene/Systems/TerrainRenderSystem.h"
+#include "Game/Scene/Systems/TerrainStreamingSystem.h"
+#include "Game/Scene/Systems/TransformWorldSystem.h"
 
 namespace Game::SceneYaml {
     const char* const TransformTypeName{ "Transform" };

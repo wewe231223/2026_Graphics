@@ -1,0 +1,59 @@
+#pragma once
+
+#include <cstdint>
+#include <sstream>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+#include "Arche/World.h"
+#include "Game/Model/AssetRegistry.h"
+#include "Game/Scene/Scene.h"
+#include "Game/Scene/SceneEntityFactory.h"
+#include "Game/Scene/SceneWorldSnapshot.h"
+#include "SceneYamlTypes.h"
+
+namespace Game::SceneYaml {
+    struct SceneYamlLoadContext final {
+    public:
+        SceneYamlLoadContext(Scene& TargetScene, SceneYamlLoadResult& TargetLoadResult);
+
+    public:
+        Scene& mScene;
+        SceneYamlLoadResult& mLoadResult;
+        SceneEntityFactory mEntityFactory;
+        std::string mSceneName{};
+        std::unordered_map<std::uint64_t, PrefabDescriptor> mPrefabDescriptors{};
+        std::unordered_map<std::int64_t, Arche::EntityID> mEntityBySerializedId{};
+        std::vector<std::pair<Arche::EntityID, std::int64_t>> mDeferredParents{};
+        std::vector<std::pair<Arche::EntityID, std::int64_t>> mDeferredBoneSkinReferenceEntities{};
+        std::vector<std::pair<Arche::EntityID, std::int64_t>> mDeferredThirdPersonFollowTargetEntities{};
+        std::vector<std::pair<Arche::EntityID, std::int64_t>> mDeferredSkySphereEntities{};
+        std::vector<PendingAnimatorBinding> mPendingAnimatorBindings{};
+        std::vector<PendingBoundingBoxBinding> mPendingBoundingBoxBindings{};
+        std::vector<PendingTerrainSnapBinding> mPendingTerrainSnapBindings{};
+        std::vector<TerrainSurfaceBinding> mTerrainSurfaceBindings{};
+    };
+
+    struct SceneYamlComponentReadState final {
+    public:
+        std::uint32_t mMaterialGroupIndexForModel{};
+        bool mHasPrefabInstance{};
+        std::string mPrefabModelSelector{};
+        bool mPrefabIsActive{ true };
+        bool mHasInstantiatedPrefabModel{};
+        bool mFrustumCullingEnabled{ true };
+        bool mShouldStopReadingEntity{};
+    };
+
+    struct SceneYamlComponentWriteContext final {
+    public:
+        std::ostringstream& mStream;
+        SceneYamlSaveResult& mSaveResult;
+        const SceneWorldSnapshot& mTargetSnapshot;
+        const Arche::World::WorldReadOnlyView& mReadOnlyWorld;
+        const AssetRegistry& mAssetRegistry;
+        const std::unordered_map<Arche::EntityID, std::uint32_t>& mSerializedEntityIds;
+        const SceneWorldSnapshot::SceneEntitySnapshot& mEntitySnapshot;
+    };
+}

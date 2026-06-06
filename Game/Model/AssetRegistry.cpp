@@ -18,6 +18,7 @@
 #include "TerrainHeightFieldFactory.h"
 #include "TerrainRenderResource.h"
 #include "TerrainTiledMeshBuilder.h"
+#include "Game/Terrain/TerrainManager.h"
 #include "Utility/ErrorHandler.h"
 
 namespace {
@@ -368,9 +369,10 @@ namespace Game {
         }
 
         std::shared_ptr<TerrainRenderResource> NewResource{ std::make_shared<TerrainRenderResource>() };
+        std::shared_ptr<const HeightFieldData> HeightFieldPointer{ std::make_shared<const HeightFieldData>(std::move(HeightField)) };
         NewResource->Initialize(NewModel, std::move(TiledMeshData.mTileMetadata), TiledMeshData.mTileQuadCount, TiledMeshData.mTileCountX, TiledMeshData.mTileCountZ, TiledMeshData.mLodCount, std::move(TiledMeshData.mLodDistances), TiledMeshData.mLocalBoundingBox, ResolvedDesc);
         if (mDevice != nullptr && mCopyQueue != nullptr && mAllocator != nullptr && mSrvHeap != nullptr) {
-            const bool IsHeightFieldInitialized{ NewResource->InitializeHeightField(HeightField, ResolvedDesc, mDevice, mCopyQueue, mAllocator, mSrvHeap) };
+            const bool IsHeightFieldInitialized{ NewResource->InitializeHeightField(HeightFieldPointer, ResolvedDesc, mDevice, mCopyQueue, mAllocator, mSrvHeap) };
             if (IsHeightFieldInitialized == false) {
                 ErrorHandler::report("TerrainRenderResource", "Failed to initialize terrain height field GPU resource.", ErrorHandler::Level::Warning);
                 return nullptr;
@@ -383,12 +385,12 @@ namespace Game {
         return NewResource;
     }
 
-    bool AssetRegistry::UpdateTerrainStreaming(TerrainRenderResource& Resource, const SimpleMath::Vector3& FocusPosition, std::uint32_t FrameIndex) {
+    bool AssetRegistry::UpdateTerrainStreaming(TerrainRenderResource& Resource, const TerrainManager& TerrainManagerInstance, const SimpleMath::Vector3& FocusPosition, std::uint32_t FrameIndex) {
         if (mDevice == nullptr || mCopyQueue == nullptr || mAllocator == nullptr || mSrvHeap == nullptr) {
             return false;
         }
 
-        return Resource.UpdateStreaming(FocusPosition, FrameIndex, mDevice, mCopyQueue, mAllocator, mSrvHeap);
+        return Resource.UpdateStreaming(TerrainManagerInstance, FocusPosition, FrameIndex, mDevice, mCopyQueue, mAllocator, mSrvHeap);
     }
 
     std::shared_ptr<asset::Animation> AssetRegistry::GetAnimation(const std::string& AnimationBinaryPath) {
