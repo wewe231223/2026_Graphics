@@ -17,6 +17,15 @@
 #include <thread>
 #include <utility>
 
+namespace {
+    PhysicsCommand CreateResetSceneCommand(std::uint32_t WorldVersion) {
+        PhysicsCommand Command{};
+        Command.mType = PhysicsCommandType::ResetScene;
+        Command.mWorldVersion = WorldVersion;
+        return Command;
+    }
+}
+
 PhysicsRuntime::PhysicsRuntime()
     : mSettings{},
       mSceneTemplate{},
@@ -110,120 +119,24 @@ void PhysicsRuntime::Shutdown() {
     }
 }
 
-bool PhysicsRuntime::EnqueueResetScene(std::uint32_t WorldVersion) {
-    PhysicsCommand NewCommand{};
-    NewCommand.mType = PhysicsCommandType::ResetScene;
-    NewCommand.mResetScene.mWorldVersion = WorldVersion;
-
-    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
-    if (Enqueued) {
-        return true;
-    }
-
-    std::uint64_t PackedCommand{ PackResetSceneCommand(NewCommand.mResetScene) };
-    mCoalescedResetCommand.store(PackedCommand, std::memory_order_release);
-    mHasCoalescedResetCommand.store(true, std::memory_order_release);
-    return true;
-}
-
-bool PhysicsRuntime::EnqueueAddImpulse(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Impulse) {
-    PhysicsCommand NewCommand{};
-    NewCommand.mType = PhysicsCommandType::AddImpulse;
-    NewCommand.mAddImpulse.mActorId = ActorIdValue;
-    NewCommand.mAddImpulse.mImpulse = Impulse;
-
-    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
-    return Enqueued;
-}
-
-bool PhysicsRuntime::EnqueueSetKinematicVelocity(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Velocity) {
-    PhysicsCommand NewCommand{};
-    NewCommand.mType = PhysicsCommandType::SetKinematicVelocity;
-    NewCommand.mSetKinematicVelocity.mActorId = ActorIdValue;
-    NewCommand.mSetKinematicVelocity.mVelocity = Velocity;
-
-    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
-    return Enqueued;
-}
-
-bool PhysicsRuntime::EnqueueAddForce(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Force) {
-    PhysicsCommand NewCommand{};
-    NewCommand.mType = PhysicsCommandType::AddForce;
-    NewCommand.mAddForce.mActorId = ActorIdValue;
-    NewCommand.mAddForce.mForce = Force;
-
-    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
-    return Enqueued;
-}
-
-bool PhysicsRuntime::EnqueueSetVelocity(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Velocity) {
-    PhysicsCommand NewCommand{};
-    NewCommand.mType = PhysicsCommandType::SetVelocity;
-    NewCommand.mSetVelocity.mActorId = ActorIdValue;
-    NewCommand.mSetVelocity.mVelocity = Velocity;
-
-    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
-    return Enqueued;
-}
-
-bool PhysicsRuntime::EnqueueSetKinematicTransform(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Position, const DirectX::SimpleMath::Quaternion& Orientation, const DirectX::SimpleMath::Vector3& Scale, bool IsTeleport, bool SetPosition, bool SetOrientation, bool SetScale) {
-    PhysicsCommand NewCommand{};
-    NewCommand.mType = PhysicsCommandType::SetKinematicTransform;
-    NewCommand.mSetKinematicTransform.mActorId = ActorIdValue;
-    NewCommand.mSetKinematicTransform.mPosition = Position;
-    NewCommand.mSetKinematicTransform.mOrientation = Orientation;
-    NewCommand.mSetKinematicTransform.mScale = Scale;
-    NewCommand.mSetKinematicTransform.mIsTeleport = IsTeleport;
-    NewCommand.mSetKinematicTransform.mSetPosition = SetPosition;
-    NewCommand.mSetKinematicTransform.mSetOrientation = SetOrientation;
-    NewCommand.mSetKinematicTransform.mSetScale = SetScale;
-
-    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
-    return Enqueued;
-}
-
-bool PhysicsRuntime::EnqueueSetLocalBoundingBox(ActorId ActorIdValue, const DirectX::BoundingOrientedBox& LocalBoundingBox) {
-    PhysicsCommand NewCommand{};
-    NewCommand.mType = PhysicsCommandType::SetLocalBoundingBox;
-    NewCommand.mSetLocalBoundingBox.mActorId = ActorIdValue;
-    NewCommand.mSetLocalBoundingBox.mLocalBoundingBox = LocalBoundingBox;
-
-    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
-    return Enqueued;
-}
-
-bool PhysicsRuntime::EnqueueSetTerrainActorDesc(ActorId ActorIdValue, const std::shared_ptr<const PhysicsTerrainActor::ActorDesc>& TerrainActorDesc) {
-    if (TerrainActorDesc == nullptr) {
+bool PhysicsRuntime::EnqueueCommand(const PhysicsCommand& Command) {
+    if (Command.mType == PhysicsCommandType::SetTerrainActorDesc && Command.mTerrainActorDesc == nullptr) {
         return false;
     }
 
-    PhysicsCommand NewCommand{};
-    NewCommand.mType = PhysicsCommandType::SetTerrainActorDesc;
-    NewCommand.mSetTerrainActorDesc.mActorId = ActorIdValue;
-    NewCommand.mSetTerrainActorDesc.mTerrainActorDesc = TerrainActorDesc;
+    bool Enqueued{ mCommandQueue.TryEnqueue(Command) };
+    if (Enqueued == true) {
+        return true;
+    }
 
-    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
-    return Enqueued;
-}
+    if (Command.mType != PhysicsCommandType::ResetScene) {
+        return false;
+    }
 
-bool PhysicsRuntime::EnqueueSetActorActive(ActorId ActorIdValue, bool IsActive) {
-    PhysicsCommand NewCommand{};
-    NewCommand.mType = PhysicsCommandType::SetActorActive;
-    NewCommand.mSetActorActive.mActorId = ActorIdValue;
-    NewCommand.mSetActorActive.mIsActive = IsActive;
-
-    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
-    return Enqueued;
-}
-
-bool PhysicsRuntime::EnqueueAddStaticActor(ActorId ActorIdValue, const PhysicsStaticActor::ActorDesc& ActorDesc) {
-    PhysicsCommand NewCommand{};
-    NewCommand.mType = PhysicsCommandType::AddStaticActor;
-    NewCommand.mAddStaticActor.mActorId = ActorIdValue;
-    NewCommand.mAddStaticActor.mActorDesc = ActorDesc;
-
-    bool Enqueued{ mCommandQueue.TryEnqueue(NewCommand) };
-    return Enqueued;
+    std::uint64_t PackedCommand{ PackResetSceneCommand(Command) };
+    mCoalescedResetCommand.store(PackedCommand, std::memory_order_release);
+    mHasCoalescedResetCommand.store(true, std::memory_order_release);
+    return true;
 }
 
 void PhysicsRuntime::PublishKinematicStates(const std::vector<PhysicsKinematicRuntimeState>& KinematicStates) {
@@ -349,19 +262,20 @@ std::uint64_t PhysicsRuntime::PublishedSnapshotCount() const {
     return SnapshotCount;
 }
 
-std::uint64_t PhysicsRuntime::PackResetSceneCommand(const PhysicsResetSceneCommand& Command) {
+std::uint64_t PhysicsRuntime::PackResetSceneCommand(const PhysicsCommand& Command) {
     std::uint64_t PackedVersion{ static_cast<std::uint64_t>(Command.mWorldVersion) & 0xFFFFFFFFULL };
     std::uint64_t PackedCommand{ PackedVersion };
     return PackedCommand;
 }
 
-PhysicsResetSceneCommand PhysicsRuntime::UnpackResetSceneCommand(std::uint64_t PackedCommand) {
-    PhysicsResetSceneCommand UnpackedCommand{};
+PhysicsCommand PhysicsRuntime::UnpackResetSceneCommand(std::uint64_t PackedCommand) {
+    PhysicsCommand UnpackedCommand{};
+    UnpackedCommand.mType = PhysicsCommandType::ResetScene;
     UnpackedCommand.mWorldVersion = static_cast<std::uint32_t>(PackedCommand & 0xFFFFFFFFULL);
     return UnpackedCommand;
 }
 
-bool PhysicsRuntime::TryConsumeCoalescedResetCommand(PhysicsResetSceneCommand& OutCommand) {
+bool PhysicsRuntime::TryConsumeCoalescedResetCommand(PhysicsCommand& OutCommand) {
     bool HasCommand{ mHasCoalescedResetCommand.exchange(false, std::memory_order_acq_rel) };
     if (!HasCommand) {
         return false;
@@ -374,7 +288,7 @@ bool PhysicsRuntime::TryConsumeCoalescedResetCommand(PhysicsResetSceneCommand& O
 
 void PhysicsRuntime::RunPhysicsThread() {
     double TimeAccumulatorSeconds{};
-    ApplyResetSceneCommand(PhysicsResetSceneCommand{ mCurrentWorldVersion }, TimeAccumulatorSeconds);
+    ApplyResetSceneCommand(CreateResetSceneCommand(mCurrentWorldVersion), TimeAccumulatorSeconds);
 
     using Clock = std::chrono::steady_clock;
     Clock::time_point PreviousTickTime{ Clock::now() };
@@ -438,7 +352,7 @@ bool PhysicsRuntime::ProcessPendingCommandsAtFixedStepBoundary(double& OutTimeAc
         ResetApplied = ResetApplied || CurrentResetApplied;
     }
 
-    PhysicsResetSceneCommand CoalescedResetCommand{};
+    PhysicsCommand CoalescedResetCommand{};
     bool HasCoalescedResetCommand{ TryConsumeCoalescedResetCommand(CoalescedResetCommand) };
     if (HasCoalescedResetCommand) {
         ApplyResetSceneCommand(CoalescedResetCommand, OutTimeAccumulatorSeconds);
@@ -449,60 +363,53 @@ bool PhysicsRuntime::ProcessPendingCommandsAtFixedStepBoundary(double& OutTimeAc
 }
 
 bool PhysicsRuntime::ProcessCommand(const PhysicsCommand& Command, double& OutTimeAccumulatorSeconds) {
-    if (Command.mType == PhysicsCommandType::ResetScene) {
-        ApplyResetSceneCommand(Command.mResetScene, OutTimeAccumulatorSeconds);
-        return true;
-    }
+    switch (Command.mType) {
+        case PhysicsCommandType::ResetScene:
+            ApplyResetSceneCommand(Command, OutTimeAccumulatorSeconds);
+            return true;
 
-    if (Command.mType == PhysicsCommandType::AddImpulse) {
-        ApplyImpulseCommand(Command.mAddImpulse);
-        return false;
-    }
+        case PhysicsCommandType::AddImpulse:
+            ApplyImpulseCommand(Command);
+            return false;
 
-    if (Command.mType == PhysicsCommandType::SetKinematicVelocity) {
-        ApplySetKinematicVelocityCommand(Command.mSetKinematicVelocity);
-        return false;
-    }
+        case PhysicsCommandType::SetKinematicVelocity:
+            ApplySetKinematicVelocityCommand(Command);
+            return false;
 
-    if (Command.mType == PhysicsCommandType::AddForce) {
-        ApplyAddForceCommand(Command.mAddForce);
-        return false;
-    }
+        case PhysicsCommandType::AddForce:
+            ApplyAddForceCommand(Command);
+            return false;
 
-    if (Command.mType == PhysicsCommandType::SetVelocity) {
-        ApplySetVelocityCommand(Command.mSetVelocity);
-        return false;
-    }
+        case PhysicsCommandType::SetVelocity:
+            ApplySetVelocityCommand(Command);
+            return false;
 
-    if (Command.mType == PhysicsCommandType::SetKinematicTransform) {
-        ApplySetKinematicTransformCommand(Command.mSetKinematicTransform);
-        return false;
-    }
+        case PhysicsCommandType::SetKinematicTransform:
+            ApplySetKinematicTransformCommand(Command);
+            return false;
 
-    if (Command.mType == PhysicsCommandType::SetLocalBoundingBox) {
-        ApplySetLocalBoundingBoxCommand(Command.mSetLocalBoundingBox);
-        return false;
-    }
+        case PhysicsCommandType::SetLocalBoundingBox:
+            ApplySetLocalBoundingBoxCommand(Command);
+            return false;
 
-    if (Command.mType == PhysicsCommandType::SetTerrainActorDesc) {
-        ApplySetTerrainActorDescCommand(Command.mSetTerrainActorDesc);
-        return false;
-    }
+        case PhysicsCommandType::SetTerrainActorDesc:
+            ApplySetTerrainActorDescCommand(Command);
+            return false;
 
-    if (Command.mType == PhysicsCommandType::SetActorActive) {
-        ApplySetActorActiveCommand(Command.mSetActorActive);
-        return false;
-    }
+        case PhysicsCommandType::SetActorActive:
+            ApplySetActorActiveCommand(Command);
+            return false;
 
-    if (Command.mType == PhysicsCommandType::AddStaticActor) {
-        ApplyAddStaticActorCommand(Command.mAddStaticActor);
-        return false;
-    }
+        case PhysicsCommandType::AddStaticActor:
+            ApplyAddStaticActorCommand(Command);
+            return false;
 
-    return false;
+        default:
+            return false;
+    }
 }
 
-void PhysicsRuntime::ApplyResetSceneCommand(const PhysicsResetSceneCommand& Command, double& OutTimeAccumulatorSeconds) {
+void PhysicsRuntime::ApplyResetSceneCommand(const PhysicsCommand& Command, double& OutTimeAccumulatorSeconds) {
     mCurrentWorldVersion = Command.mWorldVersion;
     BuildWorldFromScene();
     OutTimeAccumulatorSeconds = 0.0;
@@ -536,7 +443,7 @@ void PhysicsRuntime::ApplyResetSceneCommand(const PhysicsResetSceneCommand& Comm
     PublishSnapshot(0U, 0.0, 0.0);
 }
 
-void PhysicsRuntime::ApplyImpulseCommand(const PhysicsAddImpulseCommand& Command) {
+void PhysicsRuntime::ApplyImpulseCommand(const PhysicsCommand& Command) {
     if (Command.mActorId == InvalidActorId) {
         return;
     }
@@ -551,10 +458,10 @@ void PhysicsRuntime::ApplyImpulseCommand(const PhysicsAddImpulseCommand& Command
         return;
     }
 
-    TargetActor->AddImpulse(Command.mImpulse);
+    TargetActor->AddImpulse(Command.mVector);
 }
 
-void PhysicsRuntime::ApplySetKinematicVelocityCommand(const PhysicsSetKinematicVelocityCommand& Command) {
+void PhysicsRuntime::ApplySetKinematicVelocityCommand(const PhysicsCommand& Command) {
     if (Command.mActorId == InvalidActorId) {
         return;
     }
@@ -566,10 +473,10 @@ void PhysicsRuntime::ApplySetKinematicVelocityCommand(const PhysicsSetKinematicV
     }
 
     PhysicsKinematicActor* KinematicActor{ static_cast<PhysicsKinematicActor*>(TargetActor) };
-    KinematicActor->SetVelocity(Command.mVelocity);
+    KinematicActor->SetVelocity(Command.mVector);
 }
 
-void PhysicsRuntime::ApplyAddForceCommand(const PhysicsAddForceCommand& Command) {
+void PhysicsRuntime::ApplyAddForceCommand(const PhysicsCommand& Command) {
     if (Command.mActorId == InvalidActorId) {
         return;
     }
@@ -584,10 +491,10 @@ void PhysicsRuntime::ApplyAddForceCommand(const PhysicsAddForceCommand& Command)
         return;
     }
 
-    TargetActor->AddForce(Command.mForce);
+    TargetActor->AddForce(Command.mVector);
 }
 
-void PhysicsRuntime::ApplySetVelocityCommand(const PhysicsSetVelocityCommand& Command) {
+void PhysicsRuntime::ApplySetVelocityCommand(const PhysicsCommand& Command) {
     if (Command.mActorId == InvalidActorId) {
         return;
     }
@@ -602,10 +509,10 @@ void PhysicsRuntime::ApplySetVelocityCommand(const PhysicsSetVelocityCommand& Co
         return;
     }
 
-    TargetActor->SetVelocity(Command.mVelocity);
+    TargetActor->SetVelocity(Command.mVector);
 }
 
-void PhysicsRuntime::ApplySetKinematicTransformCommand(const PhysicsSetKinematicTransformCommand& Command) {
+void PhysicsRuntime::ApplySetKinematicTransformCommand(const PhysicsCommand& Command) {
     if (Command.mActorId == InvalidActorId) {
         return;
     }
@@ -634,7 +541,7 @@ void PhysicsRuntime::ApplySetKinematicTransformCommand(const PhysicsSetKinematic
     }
 }
 
-void PhysicsRuntime::ApplySetLocalBoundingBoxCommand(const PhysicsSetLocalBoundingBoxCommand& Command) {
+void PhysicsRuntime::ApplySetLocalBoundingBoxCommand(const PhysicsCommand& Command) {
     if (Command.mActorId == InvalidActorId) {
         return;
     }
@@ -648,7 +555,7 @@ void PhysicsRuntime::ApplySetLocalBoundingBoxCommand(const PhysicsSetLocalBoundi
     TargetActor->SetLocalBoundingBox(Command.mLocalBoundingBox);
 }
 
-void PhysicsRuntime::ApplySetTerrainActorDescCommand(const PhysicsSetTerrainActorDescCommand& Command) {
+void PhysicsRuntime::ApplySetTerrainActorDescCommand(const PhysicsCommand& Command) {
     if (Command.mActorId == InvalidActorId || Command.mTerrainActorDesc == nullptr) {
         return;
     }
@@ -662,7 +569,7 @@ void PhysicsRuntime::ApplySetTerrainActorDescCommand(const PhysicsSetTerrainActo
     TerrainActor->SetActorDesc(*Command.mTerrainActorDesc);
 }
 
-void PhysicsRuntime::ApplySetActorActiveCommand(const PhysicsSetActorActiveCommand& Command) {
+void PhysicsRuntime::ApplySetActorActiveCommand(const PhysicsCommand& Command) {
     if (Command.mActorId == InvalidActorId) {
         return;
     }
@@ -676,14 +583,14 @@ void PhysicsRuntime::ApplySetActorActiveCommand(const PhysicsSetActorActiveComma
     TargetActor->SetIsActive(Command.mIsActive);
 }
 
-void PhysicsRuntime::ApplyAddStaticActorCommand(const PhysicsAddStaticActorCommand& Command) {
+void PhysicsRuntime::ApplyAddStaticActorCommand(const PhysicsCommand& Command) {
     if (Command.mActorId == InvalidActorId) {
         return;
     }
 
     const std::size_t ActorIndex{ static_cast<std::size_t>(Command.mActorId) };
     const std::size_t ActorCount{ mPhysicsWorld.GetActorCount() };
-    PhysicsStaticActor::ActorDesc ActorDesc{ Command.mActorDesc };
+    PhysicsStaticActor::ActorDesc ActorDesc{ Command.mStaticActorDesc };
     ActorDesc.ActorType = PhysicsActorBase::PhysicsActorType::Static;
     ActorDesc.Mass = 0.0F;
 

@@ -217,6 +217,13 @@ namespace {
         return NormalizedInterpolatedOrientation;
     }
 
+    void ClearPhysicsActorPendingCommands(Game::PhysicsActor& PhysicsActorComponent) {
+        PhysicsCommand PendingCommand{};
+        while (Game::TryConsumePhysicsActorPendingCommand(PhysicsActorComponent, PendingCommand) == true) {
+            PendingCommand = PhysicsCommand{};
+        }
+    }
+
     const PhysicsActorSnapshot* TryResolvePhysicsActorSnapshotById(const PhysicsSnapshot& Snapshot, ActorId ActorIdValue) {
         if (ActorIdValue == InvalidActorId) {
             return nullptr;
@@ -625,23 +632,13 @@ namespace Game {
         }
 
         for (auto [PhysicsActorComponent] : Context.mWorld.Query<PhysicsActor>()) {
-            PhysicsActorPendingCommands PendingCommands{};
-            const bool HasPendingCommands{ TryConsumePhysicsActorPendingCommands(PhysicsActorComponent, PendingCommands) };
-            if (HasPendingCommands == false || PendingCommands.mActorId == InvalidPhysicsActorId) {
-                continue;
-            }
+            PhysicsCommand PendingCommand{};
+            while (TryConsumePhysicsActorPendingCommand(PhysicsActorComponent, PendingCommand) == true) {
+                if (PendingCommand.mActorId == InvalidActorId || PhysicsActorComponent.mActorType != PhysicsActorBase::PhysicsActorType::Dynamic) {
+                    continue;
+                }
 
-            const ActorId RuntimeActorId{ static_cast<ActorId>(PendingCommands.mActorId) };
-            if (PendingCommands.mHasSetVelocity == true && PhysicsActorComponent.mActorType == PhysicsActorBase::PhysicsActorType::Dynamic) {
-                static_cast<void>(Context.mPhysicsRuntime.EnqueueSetVelocity(RuntimeActorId, PendingCommands.mVelocity));
-            }
-
-            if (PendingCommands.mHasForce == true && PhysicsActorComponent.mActorType == PhysicsActorBase::PhysicsActorType::Dynamic) {
-                static_cast<void>(Context.mPhysicsRuntime.EnqueueAddForce(RuntimeActorId, PendingCommands.mForce));
-            }
-
-            if (PendingCommands.mHasImpulse == true && PhysicsActorComponent.mActorType == PhysicsActorBase::PhysicsActorType::Dynamic) {
-                static_cast<void>(Context.mPhysicsRuntime.EnqueueAddImpulse(RuntimeActorId, PendingCommands.mImpulse));
+                static_cast<void>(Context.mPhysicsRuntime.EnqueueCommand(PendingCommand));
             }
         }
 
@@ -665,7 +662,11 @@ namespace Game {
             const PhysicsTerrainActor* TerrainActorPointer{ Context.mPhysicsWorld.GetTerrainActor(PhysicsActorId) };
             PhysicsTerrainActor::ActorDesc Desc{ BuildCurrentPhysicsTerrainActorDesc(BindingSource.mTerrainActorDesc, *TransformComponent, PhysicsActorId, TerrainActorPointer, Context.mTerrainManager) };
             const std::shared_ptr<const PhysicsTerrainActor::ActorDesc> RuntimeTerrainActorDesc{ std::make_shared<const PhysicsTerrainActor::ActorDesc>(std::move(Desc)) };
-            const bool IsCommandSubmitted{ Context.mPhysicsRuntime.EnqueueSetTerrainActorDesc(static_cast<ActorId>(PhysicsActorId), RuntimeTerrainActorDesc) };
+            PhysicsCommand Command{};
+            Command.mType = PhysicsCommandType::SetTerrainActorDesc;
+            Command.mActorId = static_cast<ActorId>(PhysicsActorId);
+            Command.mTerrainActorDesc = RuntimeTerrainActorDesc;
+            const bool IsCommandSubmitted{ Context.mPhysicsRuntime.EnqueueCommand(Command) };
             if (IsCommandSubmitted == true) {
                 BindingSource.mIsTerrainActorDescApplied = true;
             }
@@ -886,8 +887,7 @@ namespace Game {
         }
 
         for (auto [PhysicsActorComponent] : Context.mWorld.Query<PhysicsActor>()) {
-            PhysicsActorPendingCommands PendingCommands{};
-            static_cast<void>(TryConsumePhysicsActorPendingCommands(PhysicsActorComponent, PendingCommands));
+            ClearPhysicsActorPendingCommands(PhysicsActorComponent);
         }
 
         Context.mPhysicsWorld.TickKinematicActors(Dt);
