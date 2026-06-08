@@ -5,20 +5,11 @@
 #include <string_view>
 #include "Game/Scene/Components/ComponentText.h"
 #include "PhysicsLib/Actors/PhysicsActorBase.h"
+#include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
 #include "Utility/ComponentRestraint.h"
 
 namespace Game {
     constexpr std::uint32_t InvalidPhysicsActorId{ std::numeric_limits<std::uint32_t>::max() };
-
-    struct PhysicsActorPendingCommands final {
-        std::uint32_t mActorId{ InvalidPhysicsActorId };
-        DirectX::SimpleMath::Vector3 mForce{};
-        DirectX::SimpleMath::Vector3 mImpulse{};
-        DirectX::SimpleMath::Vector3 mVelocity{};
-        bool mHasForce{};
-        bool mHasImpulse{};
-        bool mHasSetVelocity{};
-    };
 
     ComponentDecl(
         PhysicsActorSettings,
@@ -65,7 +56,7 @@ namespace Game {
 
     std::uint32_t ResolvePhysicsActorId(const PhysicsActor& ActorComponent);
     void UpdatePhysicsActorCachedSnapshot(PhysicsActor& ActorComponent, const DirectX::SimpleMath::Vector3& Position, const DirectX::SimpleMath::Quaternion& Orientation, const DirectX::SimpleMath::Vector3& Scale, const DirectX::SimpleMath::Vector3& Velocity, const DirectX::BoundingOrientedBox& WorldBoundingBox);
-    bool TryConsumePhysicsActorPendingCommands(PhysicsActor& ActorComponent, PhysicsActorPendingCommands& OutCommands);
+    bool TryConsumePhysicsActorPendingCommand(PhysicsActor& ActorComponent, PhysicsCommand& OutCommand);
 
     PhysicsActorSettings CreatePhysicsActorSettingsComponent(std::string_view SourceName);
     std::string_view GetPhysicsActorSettingsNameTextView(const PhysicsActorSettings& SettingsComponent);

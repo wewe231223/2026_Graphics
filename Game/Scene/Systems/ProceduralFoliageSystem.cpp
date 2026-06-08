@@ -1079,7 +1079,12 @@ namespace {
         Desc.Scale = TransformComponent.scale;
         Desc.Friction = Slot.mCollisionActorPointer->GetFriction();
         Desc.Restitution = Slot.mCollisionActorPointer->GetRestitution();
-        static_cast<void>(PhysicsRuntimeResource->EnqueueAddStaticActor(static_cast<ActorId>(Slot.mCollisionActorIndex), Desc));
+
+        PhysicsCommand Command{};
+        Command.mType = PhysicsCommandType::AddStaticActor;
+        Command.mActorId = static_cast<ActorId>(Slot.mCollisionActorIndex);
+        Command.mStaticActorDesc = Desc;
+        static_cast<void>(PhysicsRuntimeResource->EnqueueCommand(Command));
     }
 
     bool CreateFoliageCollisionActor(Arche::World& World, IPhysicsWorld* PhysicsWorldResource, const FoliagePlacementConfig& Config, const FoliageRuntimeRule& Rule, Arche::EntityID RootEntityId, FoliageSlot& OutSlot) {
@@ -1295,7 +1300,11 @@ namespace {
         else if (Slot.mCollisionActorPointer != nullptr) {
             Slot.mCollisionActorPointer->SetIsActive(false);
             if (IsPhysicsRuntimeModeEnabled == true && PhysicsRuntimeResource != nullptr && PhysicsRuntimeResource->IsRunning() == true) {
-                static_cast<void>(PhysicsRuntimeResource->EnqueueSetActorActive(static_cast<ActorId>(Slot.mCollisionActorIndex), false));
+                PhysicsCommand Command{};
+                Command.mType = PhysicsCommandType::SetActorActive;
+                Command.mActorId = static_cast<ActorId>(Slot.mCollisionActorIndex);
+                Command.mIsActive = false;
+                static_cast<void>(PhysicsRuntimeResource->EnqueueCommand(Command));
             }
         }
 

@@ -108,13 +108,16 @@ namespace Game {
         Arche::World mWorld{};
         PhysicsWorld mPhysicsWorld{};
         PhysicsRuntime mPhysicsRuntime{};
+        
         PhysicsRuntimeScene mPhysicsRuntimeScene{};
         PhysicsSnapshot mPhysicsRuntimeSnapshot{};
         PhysicsKinematicSceneSimulator mKinematicSceneSimulator{};
-        TerrainManager mTerrainManager{};
         std::vector<PhysicsKinematicRuntimeState> mKinematicRuntimeStates{};
         std::uint32_t mPhysicsWorldVersion{ 1U };
         Utility::Time* mPhysicsTime{};
+        
+        TerrainManager mTerrainManager{};
+        
         FrameContext mFrameContext{};
         AssetRegistry mAssetRegistry{};
         std::vector<std::unique_ptr<ISystem>> mSystems{};
@@ -124,6 +127,7 @@ namespace Game {
         std::uint64_t mWorldSnapshotVersion{};
         std::uint64_t mHierarchyEntitySelectedSubscriptionId{};
         std::uint64_t mFileDropSubscriptionId{};
+
         bool mIsDefaultCameraControlBehaviorAttached{};
         bool mIsDebugGeometryDrawEnabled{};
         bool mIsBoundingBoxDrawEnabled{};

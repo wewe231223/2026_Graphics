@@ -164,28 +164,35 @@ namespace Game {
         ActorComponent.mHasCachedSnapshot = true;
     }
 
-    bool TryConsumePhysicsActorPendingCommands(PhysicsActor& ActorComponent, PhysicsActorPendingCommands& OutCommands) {
-        OutCommands = PhysicsActorPendingCommands{};
-        OutCommands.mActorId = ResolvePhysicsActorId(ActorComponent);
-        OutCommands.mForce = ActorComponent.mPendingForce;
-        OutCommands.mImpulse = ActorComponent.mPendingImpulse;
-        OutCommands.mVelocity = ActorComponent.mPendingSetVelocity;
-        OutCommands.mHasForce = ActorComponent.mHasPendingForce;
-        OutCommands.mHasImpulse = ActorComponent.mHasPendingImpulse;
-        OutCommands.mHasSetVelocity = ActorComponent.mHasPendingSetVelocity;
+    bool TryConsumePhysicsActorPendingCommand(PhysicsActor& ActorComponent, PhysicsCommand& OutCommand) {
+        OutCommand = PhysicsCommand{};
+        OutCommand.mActorId = static_cast<ActorId>(ResolvePhysicsActorId(ActorComponent));
 
-        const bool HasPendingCommands{ OutCommands.mHasForce == true || OutCommands.mHasImpulse == true || OutCommands.mHasSetVelocity == true };
-        if (HasPendingCommands == false) {
-            return false;
+        if (ActorComponent.mHasPendingSetVelocity == true) {
+            OutCommand.mType = PhysicsCommandType::SetVelocity;
+            OutCommand.mVector = ActorComponent.mPendingSetVelocity;
+            ActorComponent.mPendingSetVelocity = DirectX::SimpleMath::Vector3{};
+            ActorComponent.mHasPendingSetVelocity = false;
+            return true;
         }
 
-        ActorComponent.mPendingForce = DirectX::SimpleMath::Vector3{};
-        ActorComponent.mPendingImpulse = DirectX::SimpleMath::Vector3{};
-        ActorComponent.mPendingSetVelocity = DirectX::SimpleMath::Vector3{};
-        ActorComponent.mHasPendingForce = false;
-        ActorComponent.mHasPendingImpulse = false;
-        ActorComponent.mHasPendingSetVelocity = false;
-        return true;
+        if (ActorComponent.mHasPendingForce == true) {
+            OutCommand.mType = PhysicsCommandType::AddForce;
+            OutCommand.mVector = ActorComponent.mPendingForce;
+            ActorComponent.mPendingForce = DirectX::SimpleMath::Vector3{};
+            ActorComponent.mHasPendingForce = false;
+            return true;
+        }
+
+        if (ActorComponent.mHasPendingImpulse == true) {
+            OutCommand.mType = PhysicsCommandType::AddImpulse;
+            OutCommand.mVector = ActorComponent.mPendingImpulse;
+            ActorComponent.mPendingImpulse = DirectX::SimpleMath::Vector3{};
+            ActorComponent.mHasPendingImpulse = false;
+            return true;
+        }
+
+        return false;
     }
 
     PhysicsActorSettings CreatePhysicsActorSettingsComponent(std::string_view SourceName) {

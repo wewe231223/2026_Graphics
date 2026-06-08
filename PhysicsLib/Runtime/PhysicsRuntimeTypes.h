@@ -72,73 +72,22 @@ enum class PhysicsCommandType : std::uint32_t {
     AddStaticActor = 9U
 };
 
-struct PhysicsResetSceneCommand final {
+struct PhysicsCommand final {
+    PhysicsCommandType mType{ PhysicsCommandType::ResetScene };
+    ActorId mActorId{ InvalidActorId };
     std::uint32_t mWorldVersion{};
-};
-
-struct PhysicsAddImpulseCommand final {
-    ActorId mActorId{ InvalidActorId };
-    DirectX::SimpleMath::Vector3 mImpulse{};
-};
-
-struct PhysicsSetKinematicVelocityCommand final {
-    ActorId mActorId{ InvalidActorId };
-    DirectX::SimpleMath::Vector3 mVelocity{};
-};
-
-struct PhysicsAddForceCommand final {
-    ActorId mActorId{ InvalidActorId };
-    DirectX::SimpleMath::Vector3 mForce{};
-};
-
-struct PhysicsSetVelocityCommand final {
-    ActorId mActorId{ InvalidActorId };
-    DirectX::SimpleMath::Vector3 mVelocity{};
-};
-
-struct PhysicsSetKinematicTransformCommand final {
-    ActorId mActorId{ InvalidActorId };
+    DirectX::SimpleMath::Vector3 mVector{};
     DirectX::SimpleMath::Vector3 mPosition{};
     DirectX::SimpleMath::Quaternion mOrientation{ 0.0F, 0.0F, 0.0F, 1.0F };
     DirectX::SimpleMath::Vector3 mScale{ 1.0F, 1.0F, 1.0F };
+    DirectX::BoundingOrientedBox mLocalBoundingBox{};
+    std::shared_ptr<const PhysicsTerrainActor::ActorDesc> mTerrainActorDesc{};
+    PhysicsStaticActor::ActorDesc mStaticActorDesc{};
     bool mIsTeleport{};
     bool mSetPosition{ true };
     bool mSetOrientation{ true };
     bool mSetScale{ true };
-};
-
-struct PhysicsSetLocalBoundingBoxCommand final {
-    ActorId mActorId{ InvalidActorId };
-    DirectX::BoundingOrientedBox mLocalBoundingBox{};
-};
-
-struct PhysicsSetTerrainActorDescCommand final {
-    ActorId mActorId{ InvalidActorId };
-    std::shared_ptr<const PhysicsTerrainActor::ActorDesc> mTerrainActorDesc{};
-};
-
-struct PhysicsSetActorActiveCommand final {
-    ActorId mActorId{ InvalidActorId };
     bool mIsActive{};
-};
-
-struct PhysicsAddStaticActorCommand final {
-    ActorId mActorId{ InvalidActorId };
-    PhysicsStaticActor::ActorDesc mActorDesc{};
-};
-
-struct PhysicsCommand final {
-    PhysicsCommandType mType{ PhysicsCommandType::ResetScene };
-    PhysicsResetSceneCommand mResetScene{};
-    PhysicsAddImpulseCommand mAddImpulse{};
-    PhysicsSetKinematicVelocityCommand mSetKinematicVelocity{};
-    PhysicsAddForceCommand mAddForce{};
-    PhysicsSetVelocityCommand mSetVelocity{};
-    PhysicsSetKinematicTransformCommand mSetKinematicTransform{};
-    PhysicsSetLocalBoundingBoxCommand mSetLocalBoundingBox{};
-    PhysicsSetTerrainActorDescCommand mSetTerrainActorDesc{};
-    PhysicsSetActorActiveCommand mSetActorActive{};
-    PhysicsAddStaticActorCommand mAddStaticActor{};
 };
 
 struct PhysicsActorSnapshot final {

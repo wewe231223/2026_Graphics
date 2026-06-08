@@ -45,16 +45,7 @@ public:
     bool Initialize(const PhysicsRuntimeScene& SceneTemplate, const RuntimeSettings& Settings, std::uint32_t InitialWorldVersion);
     void Shutdown();
 
-    bool EnqueueResetScene(std::uint32_t WorldVersion);
-    bool EnqueueAddImpulse(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Impulse);
-    bool EnqueueSetKinematicVelocity(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Velocity);
-    bool EnqueueAddForce(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Force);
-    bool EnqueueSetVelocity(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Velocity);
-    bool EnqueueSetKinematicTransform(ActorId ActorIdValue, const DirectX::SimpleMath::Vector3& Position, const DirectX::SimpleMath::Quaternion& Orientation, const DirectX::SimpleMath::Vector3& Scale, bool IsTeleport, bool SetPosition, bool SetOrientation, bool SetScale);
-    bool EnqueueSetLocalBoundingBox(ActorId ActorIdValue, const DirectX::BoundingOrientedBox& LocalBoundingBox);
-    bool EnqueueSetTerrainActorDesc(ActorId ActorIdValue, const std::shared_ptr<const PhysicsTerrainActor::ActorDesc>& TerrainActorDesc);
-    bool EnqueueSetActorActive(ActorId ActorIdValue, bool IsActive);
-    bool EnqueueAddStaticActor(ActorId ActorIdValue, const PhysicsStaticActor::ActorDesc& ActorDesc);
+    bool EnqueueCommand(const PhysicsCommand& Command);
     void PublishKinematicStates(const std::vector<PhysicsKinematicRuntimeState>& KinematicStates);
 
     std::uint32_t GetReadableSnapshotIndex() const;
@@ -67,23 +58,23 @@ public:
     std::uint64_t PublishedSnapshotCount() const;
 
 private:
-    static std::uint64_t PackResetSceneCommand(const PhysicsResetSceneCommand& Command);
-    static PhysicsResetSceneCommand UnpackResetSceneCommand(std::uint64_t PackedCommand);
+    static std::uint64_t PackResetSceneCommand(const PhysicsCommand& Command);
+    static PhysicsCommand UnpackResetSceneCommand(std::uint64_t PackedCommand);
 
-    bool TryConsumeCoalescedResetCommand(PhysicsResetSceneCommand& OutCommand);
+    bool TryConsumeCoalescedResetCommand(PhysicsCommand& OutCommand);
     void RunPhysicsThread();
     bool ProcessPendingCommandsAtFixedStepBoundary(double& OutTimeAccumulatorSeconds);
     bool ProcessCommand(const PhysicsCommand& Command, double& OutTimeAccumulatorSeconds);
-    void ApplyResetSceneCommand(const PhysicsResetSceneCommand& Command, double& OutTimeAccumulatorSeconds);
-    void ApplyImpulseCommand(const PhysicsAddImpulseCommand& Command);
-    void ApplySetKinematicVelocityCommand(const PhysicsSetKinematicVelocityCommand& Command);
-    void ApplyAddForceCommand(const PhysicsAddForceCommand& Command);
-    void ApplySetVelocityCommand(const PhysicsSetVelocityCommand& Command);
-    void ApplySetKinematicTransformCommand(const PhysicsSetKinematicTransformCommand& Command);
-    void ApplySetLocalBoundingBoxCommand(const PhysicsSetLocalBoundingBoxCommand& Command);
-    void ApplySetTerrainActorDescCommand(const PhysicsSetTerrainActorDescCommand& Command);
-    void ApplySetActorActiveCommand(const PhysicsSetActorActiveCommand& Command);
-    void ApplyAddStaticActorCommand(const PhysicsAddStaticActorCommand& Command);
+    void ApplyResetSceneCommand(const PhysicsCommand& Command, double& OutTimeAccumulatorSeconds);
+    void ApplyImpulseCommand(const PhysicsCommand& Command);
+    void ApplySetKinematicVelocityCommand(const PhysicsCommand& Command);
+    void ApplyAddForceCommand(const PhysicsCommand& Command);
+    void ApplySetVelocityCommand(const PhysicsCommand& Command);
+    void ApplySetKinematicTransformCommand(const PhysicsCommand& Command);
+    void ApplySetLocalBoundingBoxCommand(const PhysicsCommand& Command);
+    void ApplySetTerrainActorDescCommand(const PhysicsCommand& Command);
+    void ApplySetActorActiveCommand(const PhysicsCommand& Command);
+    void ApplyAddStaticActorCommand(const PhysicsCommand& Command);
     void ApplyPublishedKinematicStates();
     void BuildWorldFromScene();
     void PublishSnapshot(std::size_t LastUpdateStepCount, double LastUpdateStepElapsedMilliseconds, double LastStepElapsedMilliseconds);
