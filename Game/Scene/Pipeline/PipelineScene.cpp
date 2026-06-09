@@ -1,12 +1,14 @@
 #include "PipelineScene.h"
 #include <limits>
 #include <memory>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include "Game/Scene/Pipeline/PipelineSceneYamlMetadata.h"
 #include "Game/Scene/Pipeline/PipelineSystemRegistry.h"
+#include "Game/Scene/Pipeline/RenderGatherResultMerger.h"
 
 namespace Game {
     namespace Pipeline {
@@ -15,6 +17,8 @@ namespace Game {
 
             void AddFailure(PipelineSystemBindingResult& BindingResult, const std::string& Message);
             IPipelineSystem* FindCreatedPipelineSystem(const std::vector<std::pair<std::string, std::unique_ptr<IPipelineSystem>>>& CreatedPipelineSystems, const std::string& SystemName);
+            std::string BuildFailureMessage(const std::string& Prefix, const std::vector<std::string>& FailureMessages);
+            PipelineFrameExecutionResult BuildFailureResult(const std::string& FailureMessage);
 
             void AddFailure(PipelineSystemBindingResult& BindingResult, const std::string& Message) {
                 BindingResult.IsSuccess = false;
@@ -30,7 +34,34 @@ namespace Game {
 
                 return nullptr;
             }
+
+            std::string BuildFailureMessage(const std::string& Prefix, const std::vector<std::string>& FailureMessages) {
+                std::string FailureMessage{ Prefix };
+                for (const std::string& Message : FailureMessages) {
+                    if (FailureMessage.empty() == false) {
+                        FailureMessage += "\n";
+                    }
+
+                    FailureMessage += Message;
+                }
+
+                return FailureMessage;
+            }
+
+            PipelineFrameExecutionResult BuildFailureResult(const std::string& FailureMessage) {
+                PipelineFrameExecutionResult Result{};
+                Result.IsSuccess = false;
+                Result.FailureMessage = FailureMessage;
+                return Result;
+            }
         }
+
+        PipelineFrameExecutionResult::PipelineFrameExecutionResult() = default;
+        PipelineFrameExecutionResult::~PipelineFrameExecutionResult() = default;
+        PipelineFrameExecutionResult::PipelineFrameExecutionResult(const PipelineFrameExecutionResult& Other) = default;
+        PipelineFrameExecutionResult& PipelineFrameExecutionResult::operator=(const PipelineFrameExecutionResult& Other) = default;
+        PipelineFrameExecutionResult::PipelineFrameExecutionResult(PipelineFrameExecutionResult&& Other) noexcept = default;
+        PipelineFrameExecutionResult& PipelineFrameExecutionResult::operator=(PipelineFrameExecutionResult&& Other) noexcept = default;
 
         Scene::Scene()
             : mWorld{},
@@ -96,6 +127,30 @@ namespace Game {
 
         void Scene::SetRenderFrameIndex(std::uint32_t RenderFrameIndex) {
             mFrameContext.RenderData.globals.frameIndex = RenderFrameIndex;
+        }
+
+        PipelineFrameExecutionResult Scene::ExecuteDataPipelineFrame(float Dt, const PipelineSystemRegistry& Registry) {
+            InitializeDataPipelineFrameRenderData();
+
+            mLuaScriptFramework.Update(Dt);
+            mLuaScriptFramework.LateUpdate(Dt);
+            RefreshPhysicsRuntimeSnapshot();
+            mWorld.FlushDeferredStructuralChanges();
+
+            SceneWorkUnitBuildResult WorkUnitBuildResult{ UpdateWorkUnitsIfNeeded() };
+            if (WorkUnitBuildResult.IsSuccess == false) {
+                return BuildFailureResult(BuildFailureMessage("WorkUnit build failed.", WorkUnitBuildResult.UndecidedItems));
+            }
+
+            PipelineSystemBindingResult BindingResult{ BuildPipelineSystemBindings(Registry) };
+            if (BindingResult.IsSuccess == false) {
+                return BuildFailureResult(BuildFailureMessage("Pipeline system binding failed.", BindingResult.FailureMessages));
+            }
+
+            std::span<SceneWorkUnit> WorkUnitSpan{ mWorkUnits.data(), mWorkUnits.size() };
+            mPipelineExecutor.Execute(mWorld, WorkUnitSpan, Dt);
+            RenderGatherResultMerger::Merge(std::span<const SceneWorkUnit>{ mWorkUnits.data(), mWorkUnits.size() }, mFrameContext.RenderData);
+            return PipelineFrameExecutionResult{};
         }
 
         AssetRegistry& Scene::GetAssetRegistry() {
@@ -197,6 +252,14 @@ namespace Game {
         void Scene::SetPhysicsRuntimeModeEnabled(bool IsPhysicsRuntimeModeEnabled) {
             mIsPhysicsRuntimeModeEnabled = IsPhysicsRuntimeModeEnabled;
             mFrameContext.IsPhysicsRuntimeModeEnabled = mIsPhysicsRuntimeModeEnabled;
+        }
+
+        void Scene::RefreshPhysicsRuntimeSnapshot() {
+            ScenePhysicsRuntimeCoordinator::RefreshPhysicsRuntimeSnapshot(BuildPhysicsRuntimeContext());
+        }
+
+        void Scene::PublishPhysicsRuntimeStatus(const PhysicsSnapshot* Snapshot) {
+            ScenePhysicsRuntimeCoordinator::PublishPhysicsRuntimeStatus(BuildPhysicsRuntimeContext(), Snapshot);
         }
 
         std::vector<TerrainActorDescBinding>& Scene::GetTerrainActorDescBindings() {
@@ -533,6 +596,26 @@ namespace Game {
 
         ScenePhysicsRuntimeContext Scene::BuildPhysicsRuntimeContext() {
             return ScenePhysicsRuntimeContext{ mWorld, mPhysicsWorld, mPhysicsRuntime, mPhysicsRuntimeScene, mPhysicsRuntimeSnapshot, mKinematicSceneSimulator, mTerrainManager, mKinematicRuntimeStates, mPhysicsWorldVersion, mPhysicsTime, mFrameContext, mWorldSnapshot, mTerrainActorDescBindings, mIsPhysicsRuntimeModeEnabled };
+        }
+
+        void Scene::InitializeDataPipelineFrameRenderData() {
+            mFrameContext.RenderData.modelContexts.clear();
+            mFrameContext.RenderData.boundingBoxContexts.clear();
+            mFrameContext.RenderData.debugGeometryContexts.clear();
+            mFrameContext.RenderData.TerrainPatchContexts.clear();
+            mFrameContext.RenderData.drawRecords.clear();
+            mFrameContext.RenderData.bonePalette.clear();
+            mFrameContext.RenderData.mTerrainUploadFutures.clear();
+
+            for (RFD::ShadowRenderContext& ShadowRenderContext : mFrameContext.RenderData.ShadowRenderContexts) {
+                ShadowRenderContext.ModelContexts.clear();
+                ShadowRenderContext.TerrainPatchContexts.clear();
+                ShadowRenderContext.DrawRecords.clear();
+            }
+
+            mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
+            mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
+            mFrameContext.SkinnedMeshPreparedDataItems.clear();
         }
 
         bool Scene::CanAddPipelineDefinition(const PipelineDefinition& PipelineDefinitionValue) const {

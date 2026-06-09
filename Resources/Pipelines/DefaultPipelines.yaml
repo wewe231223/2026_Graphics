@@ -6,15 +6,22 @@ Pipelines:
       - FootIKSystem
       - TransformWorldSystem
       - SkinnedMeshPrepareSystem
-      - SkinnedMeshRenderGatherSystem
+      - StaticRenderSystem
+      - SkinnedMeshRenderSystem
 
   StaticMeshPipeline:
     Systems:
       - TransformWorldSystem
-      - BoundingBoxUpdateSystem
-      - StaticMeshRenderGatherSystem
+      - StaticRenderSystem
 
   TerrainPipeline:
     Systems:
+      - TerrainStreamingSystem
       - TransformWorldSystem
-      - TerrainRenderGatherSystem
+      - TerrainRenderSystem
+
+  CameraPipeline:
+    Systems:
+      - TransformWorldSystem
+      - CameraRenderSystem
+      - ShadowMappingParameterSystem

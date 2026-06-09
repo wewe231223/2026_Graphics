@@ -31,6 +31,22 @@ namespace Game {
         class PipelineSystemRegistry;
         struct SerializedUnitPipelineAssignment;
 
+        struct PipelineFrameExecutionResult final {
+        public:
+            PipelineFrameExecutionResult();
+            ~PipelineFrameExecutionResult();
+
+            PipelineFrameExecutionResult(const PipelineFrameExecutionResult& Other);
+            PipelineFrameExecutionResult& operator=(const PipelineFrameExecutionResult& Other);
+
+            PipelineFrameExecutionResult(PipelineFrameExecutionResult&& Other) noexcept;
+            PipelineFrameExecutionResult& operator=(PipelineFrameExecutionResult&& Other) noexcept;
+
+        public:
+            bool IsSuccess{ true };
+            std::string FailureMessage{};
+        };
+
         struct UnitPipelineAssignment final {
             Arche::EntityID mUnitEntityId{ Arche::NullEntityID };
             PipelineId mPipelineId{ InvalidPipelineId };
@@ -58,6 +74,7 @@ namespace Game {
             RFD::RenderFrameData& GetRenderFrameData();
             const RFD::RenderFrameData& GetRenderFrameData() const;
             void SetRenderFrameIndex(std::uint32_t RenderFrameIndex);
+            PipelineFrameExecutionResult ExecuteDataPipelineFrame(float Dt, const PipelineSystemRegistry& Registry);
 
             AssetRegistry& GetAssetRegistry();
             const AssetRegistry& GetAssetRegistry() const;
@@ -95,6 +112,8 @@ namespace Game {
 
             bool IsPhysicsRuntimeModeEnabled() const;
             void SetPhysicsRuntimeModeEnabled(bool IsPhysicsRuntimeModeEnabled);
+            void RefreshPhysicsRuntimeSnapshot();
+            void PublishPhysicsRuntimeStatus(const PhysicsSnapshot* Snapshot);
 
             std::vector<TerrainActorDescBinding>& GetTerrainActorDescBindings();
             const std::vector<TerrainActorDescBinding>& GetTerrainActorDescBindings() const;
@@ -136,6 +155,7 @@ namespace Game {
 
         private:
             ScenePhysicsRuntimeContext BuildPhysicsRuntimeContext();
+            void InitializeDataPipelineFrameRenderData();
             bool CanAddPipelineDefinition(const PipelineDefinition& PipelineDefinitionValue) const;
             void InvalidateWorkUnits();
 
