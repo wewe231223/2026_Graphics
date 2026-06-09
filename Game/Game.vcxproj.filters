@@ -201,6 +201,9 @@
     <ClInclude Include="Scene\Pipeline\RenderGatherResult.h">
       <Filter>Scene\Pipeline</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Pipeline\RenderGatherResultMerger.h">
+      <Filter>Scene\Pipeline</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Pipeline\SceneWorkUnit.h">
       <Filter>Scene\Pipeline</Filter>
     </ClInclude>
@@ -459,6 +462,9 @@
       <Filter>Scene</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Pipeline\RenderGatherResult.cpp">
+      <Filter>Scene\Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\RenderGatherResultMerger.cpp">
       <Filter>Scene\Pipeline</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Pipeline\PipelineContext.cpp">

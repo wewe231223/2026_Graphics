@@ -29,6 +29,7 @@ namespace Game {
 
         void PipelineExecutor::Execute(Arche::World& World, std::span<SceneWorkUnit> WorkUnits, float Dt) {
             for (SceneWorkUnit& WorkUnit : WorkUnits) {
+                WorkUnit.GetRenderGatherResult().Clear();
                 std::vector<Arche::EntityID>& EntityIds{ WorkUnit.GetEntityIds() };
                 PipelineContext Ctx{ World, WorkUnit.GetUnitEntityId(), std::span<const Arche::EntityID>{ EntityIds.data(), EntityIds.size() }, WorkUnit.GetRenderGatherResult() };
 

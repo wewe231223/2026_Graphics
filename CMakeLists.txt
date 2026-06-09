@@ -181,6 +181,7 @@ add_library(Game STATIC
     Game/Scene/SystemSceduler.cpp
     Game/Scene/ParallelSystemBase.cpp
     Game/Scene/Pipeline/RenderGatherResult.cpp
+    Game/Scene/Pipeline/RenderGatherResultMerger.cpp
     Game/Scene/Pipeline/PipelineContext.cpp
     Game/Scene/Pipeline/PipelineTypes.cpp
     Game/Scene/Pipeline/SceneWorkUnit.cpp

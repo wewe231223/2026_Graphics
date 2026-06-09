@@ -100,6 +100,7 @@
     <ClInclude Include="Scene\Pipeline\PipelineContext.inl" />
     <ClInclude Include="Scene\Pipeline\PipelineTypes.h" />
     <ClInclude Include="Scene\Pipeline\RenderGatherResult.h" />
+    <ClInclude Include="Scene\Pipeline\RenderGatherResultMerger.h" />
     <ClInclude Include="Scene\Pipeline\SceneWorkUnit.h" />
     <ClInclude Include="Scene\Pipeline\PipelineExecutor.h" />
     <ClInclude Include="Scene\Pipeline\PipelineSystemBindingResult.h" />
@@ -173,6 +174,7 @@
     <ClCompile Include="Scene\SystemSceduler.cpp" />
     <ClCompile Include="Scene\ParallelSystemBase.cpp" />
     <ClCompile Include="Scene\Pipeline\RenderGatherResult.cpp" />
+    <ClCompile Include="Scene\Pipeline\RenderGatherResultMerger.cpp" />
     <ClCompile Include="Scene\Pipeline\PipelineContext.cpp" />
     <ClCompile Include="Scene\Pipeline\PipelineTypes.cpp" />
     <ClCompile Include="Scene\Pipeline\SceneWorkUnit.cpp" />

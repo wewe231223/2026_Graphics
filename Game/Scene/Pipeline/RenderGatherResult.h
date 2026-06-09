@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <array>
+#include <cstddef>
 #include <vector>
 #include "Game/Base/RenderFrameData.h"
 
@@ -18,6 +19,8 @@ namespace Game {
 
         public:
             void Clear();
+            bool Empty() const;
+
             void Append(const RenderGatherResult& Other);
             void Append(RenderGatherResult&& Other);
 
@@ -43,8 +46,8 @@ namespace Game {
             const std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& GetShadowRenderContexts() const;
 
         private:
-            void AppendShadowRenderContexts(const std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& OtherShadowRenderContexts);
-            void AppendShadowRenderContexts(std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>&& OtherShadowRenderContexts);
+            void AppendShadowRenderContexts(const std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& OtherShadowRenderContexts, std::size_t BonePaletteOffset);
+            void AppendShadowRenderContexts(std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>&& OtherShadowRenderContexts, std::size_t BonePaletteOffset);
 
         private:
             std::vector<RFD::ModelContext> mModelContexts{};
