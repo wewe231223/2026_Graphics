@@ -85,6 +85,7 @@ namespace Game {
 
             std::uint32_t GetPhysicsWorldVersion() const;
             void SetPhysicsWorldVersion(std::uint32_t PhysicsWorldVersion);
+            void RebuildPhysicsActors();
 
             Utility::Time* GetPhysicsTime() const;
             void SetPhysicsTime(Utility::Time* PhysicsTime);
@@ -94,6 +95,8 @@ namespace Game {
 
             std::vector<TerrainActorDescBinding>& GetTerrainActorDescBindings();
             const std::vector<TerrainActorDescBinding>& GetTerrainActorDescBindings() const;
+            void AddTerrainActorDesc(Arche::EntityID EntityId, const PhysicsTerrainActor::ActorDesc& TerrainActorDesc);
+            void ClearTerrainActorDescs();
 
             SceneWorldSnapshot& GetWorldSnapshot();
             const SceneWorldSnapshot& GetWorldSnapshot() const;

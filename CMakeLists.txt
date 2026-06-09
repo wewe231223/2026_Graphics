@@ -188,6 +188,7 @@ add_library(Game STATIC
     Game/Scene/Pipeline/PipelineScene.cpp
     Game/Scene/Pipeline/PipelineYamlSerializer.cpp
     Game/Scene/Pipeline/PipelineSceneYamlMetadata.cpp
+    Game/Scene/Pipeline/PipelineSceneYamlDeserializer.cpp
     Game/Scene/Pipeline/SceneWorkUnitBuilder.cpp
     Game/Scene/Components/Transform.cpp
     Game/Scene/Components/ComponentText.cpp

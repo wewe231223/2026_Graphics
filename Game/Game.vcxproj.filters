@@ -213,6 +213,9 @@
     <ClInclude Include="Scene\Pipeline\PipelineSceneYamlMetadata.h">
       <Filter>Scene\Pipeline</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Pipeline\PipelineSceneYamlDeserializer.h">
+      <Filter>Scene\Pipeline</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Pipeline\SceneWorkUnitBuilder.h">
       <Filter>Scene\Pipeline</Filter>
     </ClInclude>
@@ -468,6 +471,9 @@
       <Filter>Scene\Pipeline</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Pipeline\PipelineSceneYamlMetadata.cpp">
+      <Filter>Scene\Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\PipelineSceneYamlDeserializer.cpp">
       <Filter>Scene\Pipeline</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Pipeline\SceneWorkUnitBuilder.cpp">

@@ -42,6 +42,7 @@ namespace Game {
     class SceneEntityFactory final {
     public:
         SceneEntityFactory(Scene& TargetScene);
+        SceneEntityFactory(Arche::World& TargetWorld);
         ~SceneEntityFactory();
         SceneEntityFactory(const SceneEntityFactory& Other);
         SceneEntityFactory& operator=(const SceneEntityFactory& Other);
@@ -70,6 +71,6 @@ namespace Game {
         std::string ResolveNodeName(const ModelNode& SourceNode, std::size_t NodeIndex, std::size_t RootNodeIndex, const std::string& RootEntityName) const;
 
     private:
-        Scene* mScene{};
+        Arche::World* mWorld{};
     };
 }

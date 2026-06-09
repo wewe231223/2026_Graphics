@@ -154,6 +154,10 @@ namespace Game {
             mPhysicsWorldVersion = PhysicsWorldVersion;
         }
 
+        void Scene::RebuildPhysicsActors() {
+            ScenePhysicsRuntimeCoordinator::RebuildPhysicsActors(BuildPhysicsRuntimeContext());
+        }
+
         Utility::Time* Scene::GetPhysicsTime() const {
             return mPhysicsTime;
         }
@@ -177,6 +181,14 @@ namespace Game {
 
         const std::vector<TerrainActorDescBinding>& Scene::GetTerrainActorDescBindings() const {
             return mTerrainActorDescBindings;
+        }
+
+        void Scene::AddTerrainActorDesc(Arche::EntityID EntityId, const PhysicsTerrainActor::ActorDesc& TerrainActorDesc) {
+            ScenePhysicsRuntimeCoordinator::AddTerrainActorDesc(BuildPhysicsRuntimeContext(), EntityId, TerrainActorDesc);
+        }
+
+        void Scene::ClearTerrainActorDescs() {
+            ScenePhysicsRuntimeCoordinator::ClearTerrainActorDescs(BuildPhysicsRuntimeContext());
         }
 
         SceneWorldSnapshot& Scene::GetWorldSnapshot() {

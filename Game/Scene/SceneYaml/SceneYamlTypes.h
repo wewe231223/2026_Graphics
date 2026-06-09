@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include "Arche/Common.h"
 #include "Asset/AnimationClipResult.h"
@@ -11,6 +12,10 @@
 
 namespace Game {
     class AnimationGraphAsset;
+
+    namespace Pipeline {
+        class Scene;
+    }
 }
 
 namespace Game::SceneYaml {
@@ -96,6 +101,7 @@ namespace Game::SceneYaml {
     class SceneYamlDeserializer final {
     public:
         SceneYamlLoadResult Deserialize(const std::string& YamlText, Scene& OutScene) const;
+        SceneYamlLoadResult Deserialize(const std::string& YamlText, Pipeline::Scene& OutScene, std::unordered_map<std::int64_t, Arche::EntityID>& OutEntityIdMap) const;
     };
 
     class SceneYamlWriter final {

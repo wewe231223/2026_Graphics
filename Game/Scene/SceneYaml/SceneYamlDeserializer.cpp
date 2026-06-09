@@ -13,6 +13,7 @@
 #include "Game/Scene/Components/RuntimeVariableTable.h"
 #include "Game/Scene/Components/SkySphere.h"
 #include "Game/Scene/Components/Transform.h"
+#include "Game/Scene/Pipeline/PipelineScene.h"
 #include "Game/Scene/Systems/ProceduralFoliageSystem.h"
 #include "Utility/StdOutput.h"
 
@@ -32,12 +33,139 @@ namespace Game::SceneYaml {
         void ResolveDeferredBindings(SceneYamlLoadContext& LoadContext);
         void ApplyTerrainPostProcess(SceneYamlLoadContext& LoadContext);
         void FinalizeSceneBuild(SceneYamlLoadContext& LoadContext);
+        SceneYamlLoadResult DeserializeSceneYaml(const std::string& YamlText, SceneYamlLoadContext& LoadContext, std::unordered_map<std::int64_t, Arche::EntityID>* OutEntityIdMap);
+    }
+
+    SceneYamlLoadTarget::SceneYamlLoadTarget(Scene& TargetScene)
+        : mScene{ &TargetScene },
+        mPipelineScene{} {
+    }
+
+    SceneYamlLoadTarget::SceneYamlLoadTarget(Pipeline::Scene& TargetScene)
+        : mScene{},
+        mPipelineScene{ &TargetScene } {
+    }
+
+    SceneYamlLoadTarget::~SceneYamlLoadTarget() = default;
+    SceneYamlLoadTarget::SceneYamlLoadTarget(const SceneYamlLoadTarget& Other) = default;
+    SceneYamlLoadTarget& SceneYamlLoadTarget::operator=(const SceneYamlLoadTarget& Other) = default;
+    SceneYamlLoadTarget::SceneYamlLoadTarget(SceneYamlLoadTarget&& Other) noexcept = default;
+    SceneYamlLoadTarget& SceneYamlLoadTarget::operator=(SceneYamlLoadTarget&& Other) noexcept = default;
+
+    Arche::World& SceneYamlLoadTarget::GetWorld() {
+        if (mScene != nullptr) {
+            return mScene->GetWorld();
+        }
+
+        return mPipelineScene->GetWorld();
+    }
+
+    const Arche::World& SceneYamlLoadTarget::GetWorld() const {
+        if (mScene != nullptr) {
+            return mScene->GetWorld();
+        }
+
+        return mPipelineScene->GetWorld();
+    }
+
+    AssetRegistry& SceneYamlLoadTarget::GetAssetRegistry() {
+        if (mScene != nullptr) {
+            return mScene->GetAssetRegistry();
+        }
+
+        return mPipelineScene->GetAssetRegistry();
+    }
+
+    const AssetRegistry& SceneYamlLoadTarget::GetAssetRegistry() const {
+        if (mScene != nullptr) {
+            return mScene->GetAssetRegistry();
+        }
+
+        return mPipelineScene->GetAssetRegistry();
+    }
+
+    Script::LuaBehaviorFramework& SceneYamlLoadTarget::GetLuaScriptFramework() {
+        if (mScene != nullptr) {
+            return mScene->GetLuaScriptFramework();
+        }
+
+        return mPipelineScene->GetLuaScriptFramework();
+    }
+
+    const Script::LuaBehaviorFramework& SceneYamlLoadTarget::GetLuaScriptFramework() const {
+        if (mScene != nullptr) {
+            return mScene->GetLuaScriptFramework();
+        }
+
+        return mPipelineScene->GetLuaScriptFramework();
+    }
+
+    void SceneYamlLoadTarget::SetName(const std::string& NewName) {
+        if (mScene != nullptr) {
+            mScene->SetName(NewName);
+            return;
+        }
+
+        mPipelineScene->GetWorldSnapshot().SetSceneName(NewName);
+    }
+
+    bool SceneYamlLoadTarget::ShouldReadSystems() const {
+        return mScene != nullptr;
+    }
+
+    void SceneYamlLoadTarget::AddSystem(std::unique_ptr<ISystem> NewSystem) {
+        if (mScene == nullptr) {
+            return;
+        }
+
+        mScene->AddSystem(std::move(NewSystem));
+    }
+
+    void SceneYamlLoadTarget::BuildSystemExecutionPlan() {
+        if (mScene == nullptr) {
+            return;
+        }
+
+        mScene->BuildSystemExecutionPlan();
+    }
+
+    void SceneYamlLoadTarget::RebuildPhysicsActors() {
+        if (mScene != nullptr) {
+            mScene->RebuildPhysicsActors();
+            return;
+        }
+
+        mPipelineScene->RebuildPhysicsActors();
+    }
+
+    void SceneYamlLoadTarget::AddTerrainActorDesc(Arche::EntityID EntityId, const PhysicsTerrainActor::ActorDesc& TerrainActorDesc) {
+        if (mScene != nullptr) {
+            mScene->AddTerrainActorDesc(EntityId, TerrainActorDesc);
+            return;
+        }
+
+        mPipelineScene->AddTerrainActorDesc(EntityId, TerrainActorDesc);
+    }
+
+    void SceneYamlLoadTarget::ClearTerrainActorDescs() {
+        if (mScene != nullptr) {
+            mScene->ClearTerrainActorDescs();
+            return;
+        }
+
+        mPipelineScene->ClearTerrainActorDescs();
     }
 
     SceneYamlLoadContext::SceneYamlLoadContext(Scene& TargetScene, SceneYamlLoadResult& TargetLoadResult)
         : mScene(TargetScene),
         mLoadResult(TargetLoadResult),
-        mEntityFactory(TargetScene) {
+        mEntityFactory(mScene.GetWorld()) {
+    }
+
+    SceneYamlLoadContext::SceneYamlLoadContext(Pipeline::Scene& TargetScene, SceneYamlLoadResult& TargetLoadResult)
+        : mScene(TargetScene),
+        mLoadResult(TargetLoadResult),
+        mEntityFactory(mScene.GetWorld()) {
     }
 
     namespace {
@@ -55,6 +183,10 @@ namespace Game::SceneYaml {
         }
 
         void ReadSystems(c4::yml::ConstNodeRef RootNode, SceneYamlLoadContext& LoadContext) {
+            if (LoadContext.mScene.ShouldReadSystems() == false) {
+                return;
+            }
+
             if (RootNode.has_child("Systems") == false) {
                 return;
             }
@@ -378,21 +510,36 @@ namespace Game::SceneYaml {
             LoadContext.mScene.RebuildPhysicsActors();
             LoadContext.mScene.BuildSystemExecutionPlan();
         }
+
+        SceneYamlLoadResult DeserializeSceneYaml(const std::string& YamlText, SceneYamlLoadContext& LoadContext, std::unordered_map<std::int64_t, Arche::EntityID>* OutEntityIdMap) {
+            c4::yml::Tree Tree{ ParseSceneYaml(YamlText) };
+            const c4::yml::ConstNodeRef RootNode{ Tree.rootref() };
+
+            ReadSceneMetadata(RootNode, LoadContext);
+            ReadSystems(RootNode, LoadContext);
+            ReadPrefabDescriptors(RootNode, LoadContext);
+            CreateSceneEntities(RootNode, LoadContext);
+            ResolveDeferredBindings(LoadContext);
+            ApplyTerrainPostProcess(LoadContext);
+            FinalizeSceneBuild(LoadContext);
+
+            if (OutEntityIdMap != nullptr) {
+                *OutEntityIdMap = LoadContext.mEntityBySerializedId;
+            }
+
+            return LoadContext.mLoadResult;
+        }
     }
 
     SceneYamlLoadResult SceneYamlDeserializer::Deserialize(const std::string& YamlText, Scene& OutScene) const {
         SceneYamlLoadResult LoadResult{};
-        c4::yml::Tree Tree{ ParseSceneYaml(YamlText) };
-        const c4::yml::ConstNodeRef RootNode{ Tree.rootref() };
         SceneYamlLoadContext LoadContext{ OutScene, LoadResult };
+        return DeserializeSceneYaml(YamlText, LoadContext, nullptr);
+    }
 
-        ReadSceneMetadata(RootNode, LoadContext);
-        ReadSystems(RootNode, LoadContext);
-        ReadPrefabDescriptors(RootNode, LoadContext);
-        CreateSceneEntities(RootNode, LoadContext);
-        ResolveDeferredBindings(LoadContext);
-        ApplyTerrainPostProcess(LoadContext);
-        FinalizeSceneBuild(LoadContext);
-        return LoadResult;
+    SceneYamlLoadResult SceneYamlDeserializer::Deserialize(const std::string& YamlText, Pipeline::Scene& OutScene, std::unordered_map<std::int64_t, Arche::EntityID>& OutEntityIdMap) const {
+        SceneYamlLoadResult LoadResult{};
+        SceneYamlLoadContext LoadContext{ OutScene, LoadResult };
+        return DeserializeSceneYaml(YamlText, LoadContext, &OutEntityIdMap);
     }
 }

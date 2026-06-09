@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -13,13 +14,53 @@
 #include "Game/Scene/SceneWorldSnapshot.h"
 #include "SceneYamlTypes.h"
 
+namespace Game {
+    namespace Pipeline {
+        class Scene;
+    }
+}
+
 namespace Game::SceneYaml {
+    class SceneYamlLoadTarget final {
+    public:
+        SceneYamlLoadTarget(Scene& TargetScene);
+        SceneYamlLoadTarget(Pipeline::Scene& TargetScene);
+        ~SceneYamlLoadTarget();
+        SceneYamlLoadTarget(const SceneYamlLoadTarget& Other);
+        SceneYamlLoadTarget& operator=(const SceneYamlLoadTarget& Other);
+        SceneYamlLoadTarget(SceneYamlLoadTarget&& Other) noexcept;
+        SceneYamlLoadTarget& operator=(SceneYamlLoadTarget&& Other) noexcept;
+
+    public:
+        Arche::World& GetWorld();
+        const Arche::World& GetWorld() const;
+
+        AssetRegistry& GetAssetRegistry();
+        const AssetRegistry& GetAssetRegistry() const;
+
+        Script::LuaBehaviorFramework& GetLuaScriptFramework();
+        const Script::LuaBehaviorFramework& GetLuaScriptFramework() const;
+
+        void SetName(const std::string& NewName);
+        bool ShouldReadSystems() const;
+        void AddSystem(std::unique_ptr<ISystem> NewSystem);
+        void BuildSystemExecutionPlan();
+        void RebuildPhysicsActors();
+        void AddTerrainActorDesc(Arche::EntityID EntityId, const PhysicsTerrainActor::ActorDesc& TerrainActorDesc);
+        void ClearTerrainActorDescs();
+
+    private:
+        Scene* mScene{};
+        Pipeline::Scene* mPipelineScene{};
+    };
+
     struct SceneYamlLoadContext final {
     public:
         SceneYamlLoadContext(Scene& TargetScene, SceneYamlLoadResult& TargetLoadResult);
+        SceneYamlLoadContext(Pipeline::Scene& TargetScene, SceneYamlLoadResult& TargetLoadResult);
 
     public:
-        Scene& mScene;
+        SceneYamlLoadTarget mScene;
         SceneYamlLoadResult& mLoadResult;
         SceneEntityFactory mEntityFactory;
         std::string mSceneName{};

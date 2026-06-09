@@ -22,7 +22,11 @@ namespace Game {
     ModelHierarchySpawnRequest& ModelHierarchySpawnRequest::operator=(ModelHierarchySpawnRequest&& Other) noexcept = default;
 
     SceneEntityFactory::SceneEntityFactory(Scene& TargetScene)
-        : mScene{ &TargetScene } {
+        : SceneEntityFactory{ TargetScene.GetWorld() } {
+    }
+
+    SceneEntityFactory::SceneEntityFactory(Arche::World& TargetWorld)
+        : mWorld{ &TargetWorld } {
     }
 
     SceneEntityFactory::~SceneEntityFactory() = default;
@@ -32,14 +36,14 @@ namespace Game {
     SceneEntityFactory& SceneEntityFactory::operator=(SceneEntityFactory&& Other) noexcept = default;
 
     Arche::EntityID SceneEntityFactory::CreateEntity(bool IsDerivedEntity) {
-        Arche::EntityID EntityId{ mScene->GetWorld().CreateEntity() };
+        Arche::EntityID EntityId{ mWorld->CreateEntity() };
         EntityId.SetDerivedEntity(IsDerivedEntity);
         EnsureHierarchy(EntityId);
         return EntityId;
     }
 
     void SceneEntityFactory::EnsureHierarchy(Arche::EntityID EntityId) {
-        EntityHierarchy* ExistingHierarchy{ mScene->GetWorld().GetComponent<EntityHierarchy>(EntityId) };
+        EntityHierarchy* ExistingHierarchy{ mWorld->GetComponent<EntityHierarchy>(EntityId) };
         if (ExistingHierarchy != nullptr) {
             ExistingHierarchy->self = EntityId;
             return;
@@ -47,12 +51,12 @@ namespace Game {
 
         EntityHierarchy NewHierarchy{};
         NewHierarchy.self = EntityId;
-        mScene->GetWorld().AddComponent(EntityId, NewHierarchy);
+        mWorld->AddComponent(EntityId, NewHierarchy);
     }
 
     void SceneEntityFactory::AttachChildEntity(Arche::EntityID ParentEntityId, Arche::EntityID ChildEntityId) {
-        EntityHierarchy* ParentHierarchy{ mScene->GetWorld().GetComponent<EntityHierarchy>(ParentEntityId) };
-        EntityHierarchy* ChildHierarchy{ mScene->GetWorld().GetComponent<EntityHierarchy>(ChildEntityId) };
+        EntityHierarchy* ParentHierarchy{ mWorld->GetComponent<EntityHierarchy>(ParentEntityId) };
+        EntityHierarchy* ChildHierarchy{ mWorld->GetComponent<EntityHierarchy>(ChildEntityId) };
         if (ParentHierarchy == nullptr || ChildHierarchy == nullptr) {
             return;
         }
@@ -66,7 +70,7 @@ namespace Game {
 
         Arche::EntityID SiblingEntityId{ ParentHierarchy->firstChild };
         while (SiblingEntityId != Arche::NullEntityID) {
-            EntityHierarchy* SiblingHierarchy{ mScene->GetWorld().GetComponent<EntityHierarchy>(SiblingEntityId) };
+            EntityHierarchy* SiblingHierarchy{ mWorld->GetComponent<EntityHierarchy>(SiblingEntityId) };
             if (SiblingHierarchy == nullptr) {
                 return;
             }
@@ -207,9 +211,9 @@ namespace Game {
     }
 
     void SceneEntityFactory::AddTransform(Arche::EntityID EntityId, const Transform& TransformComponent, bool ReplaceExistingRootComponent) {
-        Transform* ExistingTransform{ mScene->GetWorld().GetComponent<Transform>(EntityId) };
+        Transform* ExistingTransform{ mWorld->GetComponent<Transform>(EntityId) };
         if (ExistingTransform == nullptr) {
-            mScene->GetWorld().AddComponent(EntityId, TransformComponent);
+            mWorld->AddComponent(EntityId, TransformComponent);
             return;
         }
 
@@ -219,9 +223,9 @@ namespace Game {
     }
 
     void SceneEntityFactory::AddName(Arche::EntityID EntityId, const Name& NameComponent, bool ReplaceExistingRootComponent, bool OnlyWhenEmpty) {
-        Name* ExistingName{ mScene->GetWorld().GetComponent<Name>(EntityId) };
+        Name* ExistingName{ mWorld->GetComponent<Name>(EntityId) };
         if (ExistingName == nullptr) {
-            mScene->GetWorld().AddComponent(EntityId, NameComponent);
+            mWorld->AddComponent(EntityId, NameComponent);
             return;
         }
 
@@ -238,9 +242,9 @@ namespace Game {
     }
 
     void SceneEntityFactory::AddStaticMeshRenderer(Arche::EntityID EntityId, const StaticMeshRenderer& StaticMeshRendererComponent) {
-        StaticMeshRenderer* ExistingRenderer{ mScene->GetWorld().GetComponent<StaticMeshRenderer>(EntityId) };
+        StaticMeshRenderer* ExistingRenderer{ mWorld->GetComponent<StaticMeshRenderer>(EntityId) };
         if (ExistingRenderer == nullptr) {
-            mScene->GetWorld().AddComponent(EntityId, StaticMeshRendererComponent);
+            mWorld->AddComponent(EntityId, StaticMeshRendererComponent);
             return;
         }
 
@@ -248,9 +252,9 @@ namespace Game {
     }
 
     void SceneEntityFactory::AddSkinnedMeshRenderer(Arche::EntityID EntityId, const SkinnedMeshRenderer& SkinnedMeshRendererComponent) {
-        SkinnedMeshRenderer* ExistingRenderer{ mScene->GetWorld().GetComponent<SkinnedMeshRenderer>(EntityId) };
+        SkinnedMeshRenderer* ExistingRenderer{ mWorld->GetComponent<SkinnedMeshRenderer>(EntityId) };
         if (ExistingRenderer == nullptr) {
-            mScene->GetWorld().AddComponent(EntityId, SkinnedMeshRendererComponent);
+            mWorld->AddComponent(EntityId, SkinnedMeshRendererComponent);
             return;
         }
 
@@ -258,9 +262,9 @@ namespace Game {
     }
 
     void SceneEntityFactory::AddCulling(Arche::EntityID EntityId, const Culling& CullingComponent) {
-        Culling* ExistingCulling{ mScene->GetWorld().GetComponent<Culling>(EntityId) };
+        Culling* ExistingCulling{ mWorld->GetComponent<Culling>(EntityId) };
         if (ExistingCulling == nullptr) {
-            mScene->GetWorld().AddComponent(EntityId, CullingComponent);
+            mWorld->AddComponent(EntityId, CullingComponent);
             return;
         }
 
@@ -268,9 +272,9 @@ namespace Game {
     }
 
     void SceneEntityFactory::AddMaterial(Arche::EntityID EntityId, const Material& MaterialComponent) {
-        Material* ExistingMaterial{ mScene->GetWorld().GetComponent<Material>(EntityId) };
+        Material* ExistingMaterial{ mWorld->GetComponent<Material>(EntityId) };
         if (ExistingMaterial == nullptr) {
-            mScene->GetWorld().AddComponent(EntityId, MaterialComponent);
+            mWorld->AddComponent(EntityId, MaterialComponent);
             return;
         }
 
@@ -278,9 +282,9 @@ namespace Game {
     }
 
     void SceneEntityFactory::AddBoundingBox(Arche::EntityID EntityId, const BoundingBox& BoundingBoxComponent) {
-        BoundingBox* ExistingBoundingBox{ mScene->GetWorld().GetComponent<BoundingBox>(EntityId) };
+        BoundingBox* ExistingBoundingBox{ mWorld->GetComponent<BoundingBox>(EntityId) };
         if (ExistingBoundingBox == nullptr) {
-            mScene->GetWorld().AddComponent(EntityId, BoundingBoxComponent);
+            mWorld->AddComponent(EntityId, BoundingBoxComponent);
             return;
         }
 
@@ -288,9 +292,9 @@ namespace Game {
     }
 
     void SceneEntityFactory::AddBone(Arche::EntityID EntityId, const Bone& BoneComponent) {
-        Bone* ExistingBone{ mScene->GetWorld().GetComponent<Bone>(EntityId) };
+        Bone* ExistingBone{ mWorld->GetComponent<Bone>(EntityId) };
         if (ExistingBone == nullptr) {
-            mScene->GetWorld().AddComponent(EntityId, BoneComponent);
+            mWorld->AddComponent(EntityId, BoneComponent);
             return;
         }
 
@@ -298,9 +302,9 @@ namespace Game {
     }
 
     void SceneEntityFactory::AddBoneSkinReference(Arche::EntityID EntityId, const BoneSkinReference& BoneSkinReferenceComponent) {
-        BoneSkinReference* ExistingBoneSkinReference{ mScene->GetWorld().GetComponent<BoneSkinReference>(EntityId) };
+        BoneSkinReference* ExistingBoneSkinReference{ mWorld->GetComponent<BoneSkinReference>(EntityId) };
         if (ExistingBoneSkinReference == nullptr) {
-            mScene->GetWorld().AddComponent(EntityId, BoneSkinReferenceComponent);
+            mWorld->AddComponent(EntityId, BoneSkinReferenceComponent);
             return;
         }
 
@@ -308,9 +312,9 @@ namespace Game {
     }
 
     void SceneEntityFactory::AddAnimator(Arche::EntityID EntityId, const Animator& AnimatorComponent) {
-        Animator* ExistingAnimator{ mScene->GetWorld().GetComponent<Animator>(EntityId) };
+        Animator* ExistingAnimator{ mWorld->GetComponent<Animator>(EntityId) };
         if (ExistingAnimator == nullptr) {
-            mScene->GetWorld().AddComponent(EntityId, AnimatorComponent);
+            mWorld->AddComponent(EntityId, AnimatorComponent);
             return;
         }
 
