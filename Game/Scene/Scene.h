@@ -14,6 +14,7 @@
 #include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
 #include "PhysicsLib/Simulation/Kinematic/PhysicsKinematicSceneSimulator.h"
 #include "PhysicsLib/World/PhysicsWorld.h"
+#include "Game/Scene/SceneTerrainBindings.h"
 #include "Game/Terrain/TerrainManager.h"
 
 namespace Utility {
@@ -22,13 +23,6 @@ namespace Utility {
 
 namespace Game {
     struct ScenePhysicsRuntimeContext;
-
-    struct TerrainActorDescBinding final {
-        Arche::EntityID mEntityId{ Arche::NullEntityID };
-        PhysicsTerrainActor::ActorDesc mTerrainActorDesc{};
-        TerrainDataHandle mTerrainHandle{};
-        bool mIsTerrainActorDescApplied{};
-    };
 
     class Scene final {
     public:

@@ -171,6 +171,9 @@
     <ClInclude Include="Scene\SceneWorldSnapshot.h">
       <Filter>Scene</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\SceneTerrainBindings.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\System.h">
       <Filter>Scene</Filter>
     </ClInclude>
@@ -205,6 +208,12 @@
       <Filter>Scene\Pipeline</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Pipeline\PipelineYamlSerializer.h">
+      <Filter>Scene\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\PipelineSceneYamlMetadata.h">
+      <Filter>Scene\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\SceneWorkUnitBuilder.h">
       <Filter>Scene\Pipeline</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h">
@@ -456,6 +465,12 @@
       <Filter>Scene\Pipeline</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Pipeline\PipelineYamlSerializer.cpp">
+      <Filter>Scene\Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\PipelineSceneYamlMetadata.cpp">
+      <Filter>Scene\Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\SceneWorkUnitBuilder.cpp">
       <Filter>Scene\Pipeline</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\Transform.cpp">

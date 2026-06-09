@@ -74,6 +74,7 @@
     <ClInclude Include="Scene\SceneEntityFactory.h" />
     <ClInclude Include="Scene\ScenePhysicsRuntimeCoordinator.h" />
     <ClInclude Include="Scene\SceneWorldSnapshot.h" />
+    <ClInclude Include="Scene\SceneTerrainBindings.h" />
     <ClInclude Include="Scene\SceneYamlSerializer.h" />
     <ClInclude Include="Scene\SceneYaml\Components\SceneYamlAnimationComponent.h" />
     <ClInclude Include="Scene\SceneYaml\Components\SceneYamlBasicComponents.h" />
@@ -102,6 +103,8 @@
     <ClInclude Include="Scene\Pipeline\PipelineExecutor.h" />
     <ClInclude Include="Scene\Pipeline\PipelineScene.h" />
     <ClInclude Include="Scene\Pipeline\PipelineYamlSerializer.h" />
+    <ClInclude Include="Scene\Pipeline\PipelineSceneYamlMetadata.h" />
+    <ClInclude Include="Scene\Pipeline\SceneWorkUnitBuilder.h" />
     <ClInclude Include="Scene\Systems\AnimationGraphSystem.h" />
     <ClInclude Include="Scene\Systems\AnimateSystem.h" />
     <ClInclude Include="Scene\IK\FootIKSolver.h" />
@@ -172,6 +175,8 @@
     <ClCompile Include="Scene\Pipeline\PipelineExecutor.cpp" />
     <ClCompile Include="Scene\Pipeline\PipelineScene.cpp" />
     <ClCompile Include="Scene\Pipeline\PipelineYamlSerializer.cpp" />
+    <ClCompile Include="Scene\Pipeline\PipelineSceneYamlMetadata.cpp" />
+    <ClCompile Include="Scene\Pipeline\SceneWorkUnitBuilder.cpp" />
     <ClCompile Include="Scene\Components\Transform.cpp" />
     <ClCompile Include="Scene\Components\ComponentText.cpp" />
     <ClCompile Include="Scene\Components\Name.cpp" />

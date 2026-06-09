@@ -16,7 +16,7 @@
 #include "Game/Scene/Components/PhysicsActor.h"
 #include "Game/Scene/Components/Tags.h"
 #include "Game/Scene/Components/Transform.h"
-#include "Game/Scene/Scene.h"
+#include "Game/Scene/SceneTerrainBindings.h"
 #include "Game/Scene/SceneWorldSnapshot.h"
 #include "Game/Scene/System.h"
 #include "Game/Terrain/TerrainManager.h"

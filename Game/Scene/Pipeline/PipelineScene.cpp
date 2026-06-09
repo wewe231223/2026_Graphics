@@ -1,9 +1,14 @@
 #include "PipelineScene.h"
 #include <limits>
 #include <utility>
+#include "Game/Scene/Pipeline/PipelineSceneYamlMetadata.h"
 
 namespace Game {
     namespace Pipeline {
+        namespace {
+            constexpr std::uint64_t InvalidWorkUnitBuildStructureVersion{ std::numeric_limits<std::uint64_t>::max() };
+        }
+
         Scene::Scene()
             : mWorld{},
             mFrameContext{},
@@ -22,9 +27,10 @@ namespace Game {
             mTerrainActorDescBindings{},
             mWorldSnapshot{},
             mPipelineDefinitions{},
+            mUnitPipelineAssignments{},
             mWorkUnits{},
             mPipelineExecutor{},
-            mWorkUnitBuildStructureVersion{} {
+            mWorkUnitBuildStructureVersion{ InvalidWorkUnitBuildStructureVersion } {
             ScenePhysicsRuntimeCoordinator::InitializePhysicsWorld(BuildPhysicsRuntimeContext());
 
             mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
@@ -189,6 +195,7 @@ namespace Game {
             PipelineDefinition NewPipelineDefinition{ PipelineDefinitionValue };
             NewPipelineDefinition.SetPipelineId(static_cast<PipelineId>(mPipelineDefinitions.size()));
             mPipelineDefinitions.push_back(std::move(NewPipelineDefinition));
+            InvalidateWorkUnits();
             return true;
         }
 
@@ -200,11 +207,13 @@ namespace Game {
             PipelineDefinition NewPipelineDefinition{ std::move(PipelineDefinitionValue) };
             NewPipelineDefinition.SetPipelineId(static_cast<PipelineId>(mPipelineDefinitions.size()));
             mPipelineDefinitions.push_back(std::move(NewPipelineDefinition));
+            InvalidateWorkUnits();
             return true;
         }
 
         void Scene::ClearPipelineDefinitions() {
             mPipelineDefinitions.clear();
+            InvalidateWorkUnits();
         }
 
         const std::vector<PipelineDefinition>& Scene::GetPipelineDefinitions() const {
@@ -240,6 +249,96 @@ namespace Game {
             return nullptr;
         }
 
+        bool Scene::AddUnitPipelineAssignment(Arche::EntityID UnitEntityId, const std::string& PipelineName) {
+            if (UnitEntityId == Arche::NullEntityID) {
+                return false;
+            }
+
+            if (PipelineName.empty() == true) {
+                return false;
+            }
+
+            if (FindUnitPipelineAssignment(UnitEntityId) != nullptr) {
+                return false;
+            }
+
+            const PipelineId PipelineIdValue{ FindPipelineIdByName(PipelineName) };
+            if (PipelineIdValue == InvalidPipelineId) {
+                return false;
+            }
+
+            UnitPipelineAssignment NewAssignment{};
+            NewAssignment.mUnitEntityId = UnitEntityId;
+            NewAssignment.mPipelineId = PipelineIdValue;
+            NewAssignment.mPipelineName = PipelineName;
+            mUnitPipelineAssignments.push_back(std::move(NewAssignment));
+            InvalidateWorkUnits();
+            return true;
+        }
+
+        void Scene::ClearUnitPipelineAssignments() {
+            mUnitPipelineAssignments.clear();
+            InvalidateWorkUnits();
+        }
+
+        const std::vector<UnitPipelineAssignment>& Scene::GetUnitPipelineAssignments() const {
+            return mUnitPipelineAssignments;
+        }
+
+        const UnitPipelineAssignment* Scene::FindUnitPipelineAssignment(Arche::EntityID UnitEntityId) const {
+            for (const UnitPipelineAssignment& Assignment : mUnitPipelineAssignments) {
+                if (Assignment.mUnitEntityId == UnitEntityId) {
+                    return &Assignment;
+                }
+            }
+
+            return nullptr;
+        }
+
+        SceneWorkUnitBuildResult Scene::ApplySerializedUnitPipelineAssignments(const std::vector<SerializedUnitPipelineAssignment>& SerializedUnitPipelineAssignments, const std::unordered_map<std::int64_t, Arche::EntityID>& EntityIdMap) {
+            SceneWorkUnitBuildResult ApplyResult{};
+            std::vector<UnitPipelineAssignment> OriginalUnitPipelineAssignments{ mUnitPipelineAssignments };
+
+            for (const SerializedUnitPipelineAssignment& SerializedAssignment : SerializedUnitPipelineAssignments) {
+                const std::unordered_map<std::int64_t, Arche::EntityID>::const_iterator EntityIdIter{ EntityIdMap.find(SerializedAssignment.mSerializedEntityId) };
+                if (EntityIdIter == EntityIdMap.end()) {
+                    ApplyResult.IsSuccess = false;
+                    ApplyResult.UndecidedItems.push_back(std::string{ "Serialized EntityId is not mapped: " } + std::to_string(SerializedAssignment.mSerializedEntityId));
+                    continue;
+                }
+
+                if (SerializedAssignment.mPipelineName.empty() == true) {
+                    ApplyResult.IsSuccess = false;
+                    ApplyResult.UndecidedItems.push_back(std::string{ "Pipeline name is empty: " } + std::to_string(SerializedAssignment.mSerializedEntityId));
+                    continue;
+                }
+
+                if (FindPipelineDefinition(SerializedAssignment.mPipelineName) == nullptr) {
+                    ApplyResult.IsSuccess = false;
+                    ApplyResult.UndecidedItems.push_back(std::string{ "Pipeline definition is missing: " } + SerializedAssignment.mPipelineName);
+                    continue;
+                }
+
+                if (FindUnitPipelineAssignment(EntityIdIter->second) != nullptr) {
+                    ApplyResult.IsSuccess = false;
+                    ApplyResult.UndecidedItems.push_back(std::string{ "Duplicate Unit Entity pipeline assignment: " } + std::to_string(SerializedAssignment.mSerializedEntityId));
+                    continue;
+                }
+
+                if (AddUnitPipelineAssignment(EntityIdIter->second, SerializedAssignment.mPipelineName) == false) {
+                    ApplyResult.IsSuccess = false;
+                    ApplyResult.UndecidedItems.push_back(std::string{ "Unit Pipeline assignment could not be added: " } + std::to_string(SerializedAssignment.mSerializedEntityId));
+                }
+            }
+
+            if (ApplyResult.IsSuccess == false) {
+                mUnitPipelineAssignments = std::move(OriginalUnitPipelineAssignments);
+                InvalidateWorkUnits();
+            }
+
+            return ApplyResult;
+        }
+
         std::vector<SceneWorkUnit>& Scene::GetWorkUnits() {
             return mWorkUnits;
         }
@@ -250,6 +349,7 @@ namespace Game {
 
         void Scene::ClearWorkUnits() {
             mWorkUnits.clear();
+            InvalidateWorkUnits();
         }
 
         PipelineExecutor& Scene::GetPipelineExecutor() {
@@ -266,6 +366,28 @@ namespace Game {
 
         void Scene::SetWorkUnitBuildStructureVersion(std::uint64_t WorkUnitBuildStructureVersion) {
             mWorkUnitBuildStructureVersion = WorkUnitBuildStructureVersion;
+        }
+
+        SceneWorkUnitBuildResult Scene::RebuildWorkUnits() {
+            std::vector<SceneWorkUnit> NewWorkUnits{};
+            SceneWorkUnitBuilder Builder{};
+            SceneWorkUnitBuildResult BuildResult{ Builder.Build(*this, NewWorkUnits) };
+            if (BuildResult.IsSuccess == false) {
+                return BuildResult;
+            }
+
+            mWorkUnits.swap(NewWorkUnits);
+            mWorkUnitBuildStructureVersion = mWorld.GetStructureVersion();
+            return BuildResult;
+        }
+
+        SceneWorkUnitBuildResult Scene::UpdateWorkUnitsIfNeeded() {
+            SceneWorkUnitBuildResult BuildResult{};
+            if (mWorkUnitBuildStructureVersion == mWorld.GetStructureVersion()) {
+                return BuildResult;
+            }
+
+            return RebuildWorkUnits();
         }
 
         ScenePhysicsRuntimeContext Scene::BuildPhysicsRuntimeContext() {
@@ -286,6 +408,10 @@ namespace Game {
             }
 
             return FindPipelineDefinition(PipelineDefinitionValue.GetName()) == nullptr;
+        }
+
+        void Scene::InvalidateWorkUnits() {
+            mWorkUnitBuildStructureVersion = InvalidWorkUnitBuildStructureVersion;
         }
     }
 }

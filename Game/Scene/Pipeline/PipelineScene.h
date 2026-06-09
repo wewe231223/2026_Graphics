@@ -1,14 +1,16 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include "Arche/World.h"
 #include "Game/Model/AssetRegistry.h"
 #include "Game/Scene/Pipeline/PipelineExecutor.h"
 #include "Game/Scene/Pipeline/PipelineTypes.h"
 #include "Game/Scene/Pipeline/SceneWorkUnit.h"
-#include "Game/Scene/Scene.h"
+#include "Game/Scene/Pipeline/SceneWorkUnitBuilder.h"
 #include "Game/Scene/ScenePhysicsRuntimeCoordinator.h"
+#include "Game/Scene/SceneTerrainBindings.h"
 #include "Game/Scene/SceneWorldSnapshot.h"
 #include "Game/Scene/System.h"
 #include "Game/Terrain/TerrainManager.h"
@@ -24,6 +26,14 @@ namespace Utility {
 
 namespace Game {
     namespace Pipeline {
+        struct SerializedUnitPipelineAssignment;
+
+        struct UnitPipelineAssignment final {
+            Arche::EntityID mUnitEntityId{ Arche::NullEntityID };
+            PipelineId mPipelineId{ InvalidPipelineId };
+            std::string mPipelineName{};
+        };
+
         class Scene final {
         public:
             Scene();
@@ -96,6 +106,12 @@ namespace Game {
             PipelineDefinition* FindPipelineDefinition(const std::string& PipelineName);
             const PipelineDefinition* FindPipelineDefinition(const std::string& PipelineName) const;
 
+            bool AddUnitPipelineAssignment(Arche::EntityID UnitEntityId, const std::string& PipelineName);
+            void ClearUnitPipelineAssignments();
+            const std::vector<UnitPipelineAssignment>& GetUnitPipelineAssignments() const;
+            const UnitPipelineAssignment* FindUnitPipelineAssignment(Arche::EntityID UnitEntityId) const;
+            SceneWorkUnitBuildResult ApplySerializedUnitPipelineAssignments(const std::vector<SerializedUnitPipelineAssignment>& SerializedUnitPipelineAssignments, const std::unordered_map<std::int64_t, Arche::EntityID>& EntityIdMap);
+
             std::vector<SceneWorkUnit>& GetWorkUnits();
             const std::vector<SceneWorkUnit>& GetWorkUnits() const;
             void ClearWorkUnits();
@@ -105,10 +121,13 @@ namespace Game {
 
             std::uint64_t GetWorkUnitBuildStructureVersion() const;
             void SetWorkUnitBuildStructureVersion(std::uint64_t WorkUnitBuildStructureVersion);
+            SceneWorkUnitBuildResult RebuildWorkUnits();
+            SceneWorkUnitBuildResult UpdateWorkUnitsIfNeeded();
 
         private:
             ScenePhysicsRuntimeContext BuildPhysicsRuntimeContext();
             bool CanAddPipelineDefinition(const PipelineDefinition& PipelineDefinitionValue) const;
+            void InvalidateWorkUnits();
 
         private:
             Arche::World mWorld{};
@@ -131,6 +150,7 @@ namespace Game {
 
             SceneWorldSnapshot mWorldSnapshot{};
             std::vector<PipelineDefinition> mPipelineDefinitions{};
+            std::vector<UnitPipelineAssignment> mUnitPipelineAssignments{};
             std::vector<SceneWorkUnit> mWorkUnits{};
             PipelineExecutor mPipelineExecutor{};
             std::uint64_t mWorkUnitBuildStructureVersion{};
