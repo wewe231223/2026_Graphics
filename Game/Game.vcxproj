@@ -100,6 +100,8 @@
     <ClInclude Include="Scene\Pipeline\RenderGatherResult.h" />
     <ClInclude Include="Scene\Pipeline\SceneWorkUnit.h" />
     <ClInclude Include="Scene\Pipeline\PipelineExecutor.h" />
+    <ClInclude Include="Scene\Pipeline\PipelineScene.h" />
+    <ClInclude Include="Scene\Pipeline\PipelineYamlSerializer.h" />
     <ClInclude Include="Scene\Systems\AnimationGraphSystem.h" />
     <ClInclude Include="Scene\Systems\AnimateSystem.h" />
     <ClInclude Include="Scene\IK\FootIKSolver.h" />
@@ -168,6 +170,8 @@
     <ClCompile Include="Scene\Pipeline\PipelineTypes.cpp" />
     <ClCompile Include="Scene\Pipeline\SceneWorkUnit.cpp" />
     <ClCompile Include="Scene\Pipeline\PipelineExecutor.cpp" />
+    <ClCompile Include="Scene\Pipeline\PipelineScene.cpp" />
+    <ClCompile Include="Scene\Pipeline\PipelineYamlSerializer.cpp" />
     <ClCompile Include="Scene\Components\Transform.cpp" />
     <ClCompile Include="Scene\Components\ComponentText.cpp" />
     <ClCompile Include="Scene\Components\Name.cpp" />
@@ -257,6 +261,7 @@
     <None Include="..\Resources\DefaultScene\FoliagePlacement.yaml" />
     <None Include="..\Resources\DefaultScene\TerrainProceduralHeightField.yaml" />
     <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml" />
+    <None Include="..\Resources\Pipelines\DefaultPipelines.yaml" />
     <None Include="..\Resources\ShadowMappingParameter.yaml" />
     <None Include="..\Shader\PSO\DefaultGraphics.json" />
     <None Include="..\Shader\PSO\DebugGeometryGraphics.json" />

@@ -22,6 +22,9 @@
     <Filter Include="Scene\Pipeline">
       <UniqueIdentifier>{d75cfc60-07dd-49fa-accc-cd1584fbd664}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Scene\Pipeline YAML">
+      <UniqueIdentifier>{a5d88a47-cf93-4c61-b0e8-8155f73919d8}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Scene\Systems">
       <UniqueIdentifier>{da518e6d-61b2-4bda-9554-c317d5a33a1b}</UniqueIdentifier>
     </Filter>
@@ -196,6 +199,12 @@
       <Filter>Scene\Pipeline</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Pipeline\PipelineExecutor.h">
+      <Filter>Scene\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\PipelineScene.h">
+      <Filter>Scene\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\PipelineYamlSerializer.h">
       <Filter>Scene\Pipeline</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h">
@@ -443,6 +452,12 @@
     <ClCompile Include="Scene\Pipeline\PipelineExecutor.cpp">
       <Filter>Scene\Pipeline</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Pipeline\PipelineScene.cpp">
+      <Filter>Scene\Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\PipelineYamlSerializer.cpp">
+      <Filter>Scene\Pipeline</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\Components\Transform.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
@@ -639,6 +654,9 @@
     </None>
     <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml">
       <Filter>Scene\Scene YAML</Filter>
+    </None>
+    <None Include="..\Resources\Pipelines\DefaultPipelines.yaml">
+      <Filter>Scene\Pipeline YAML</Filter>
     </None>
     <None Include="..\Shader\Source\defines.hlsli">
       <Filter>Shader</Filter>

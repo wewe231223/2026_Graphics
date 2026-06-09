@@ -1,0 +1,139 @@
+#pragma once
+#include <cstdint>
+#include <string>
+#include <vector>
+#include "Arche/World.h"
+#include "Game/Model/AssetRegistry.h"
+#include "Game/Scene/Pipeline/PipelineExecutor.h"
+#include "Game/Scene/Pipeline/PipelineTypes.h"
+#include "Game/Scene/Pipeline/SceneWorkUnit.h"
+#include "Game/Scene/Scene.h"
+#include "Game/Scene/ScenePhysicsRuntimeCoordinator.h"
+#include "Game/Scene/SceneWorldSnapshot.h"
+#include "Game/Scene/System.h"
+#include "Game/Terrain/TerrainManager.h"
+#include "PhysicsLib/Runtime/PhysicsRuntime.h"
+#include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
+#include "PhysicsLib/Simulation/Kinematic/PhysicsKinematicSceneSimulator.h"
+#include "PhysicsLib/World/PhysicsWorld.h"
+#include "Script/Core/LuaScriptFramework.h"
+
+namespace Utility {
+    class Time;
+}
+
+namespace Game {
+    namespace Pipeline {
+        class Scene final {
+        public:
+            Scene();
+            ~Scene();
+
+            Scene(const Scene& Other) = delete;
+            Scene& operator=(const Scene& Other) = delete;
+
+            Scene(Scene&& Other) noexcept = delete;
+            Scene& operator=(Scene&& Other) noexcept = delete;
+
+        public:
+            Arche::World& GetWorld();
+            const Arche::World& GetWorld() const;
+
+            FrameContext& GetFrameContext();
+            const FrameContext& GetFrameContext() const;
+
+            RFD::RenderFrameData& GetRenderFrameData();
+            const RFD::RenderFrameData& GetRenderFrameData() const;
+            void SetRenderFrameIndex(std::uint32_t RenderFrameIndex);
+
+            AssetRegistry& GetAssetRegistry();
+            const AssetRegistry& GetAssetRegistry() const;
+
+            Script::LuaBehaviorFramework& GetLuaScriptFramework();
+            const Script::LuaBehaviorFramework& GetLuaScriptFramework() const;
+
+            PhysicsWorld& GetPhysicsWorld();
+            const PhysicsWorld& GetPhysicsWorld() const;
+
+            PhysicsRuntime& GetPhysicsRuntime();
+            const PhysicsRuntime& GetPhysicsRuntime() const;
+
+            PhysicsRuntimeScene& GetPhysicsRuntimeScene();
+            const PhysicsRuntimeScene& GetPhysicsRuntimeScene() const;
+
+            PhysicsSnapshot& GetPhysicsRuntimeSnapshot();
+            const PhysicsSnapshot& GetPhysicsRuntimeSnapshot() const;
+
+            PhysicsKinematicSceneSimulator& GetKinematicSceneSimulator();
+            const PhysicsKinematicSceneSimulator& GetKinematicSceneSimulator() const;
+
+            std::vector<PhysicsKinematicRuntimeState>& GetKinematicRuntimeStates();
+            const std::vector<PhysicsKinematicRuntimeState>& GetKinematicRuntimeStates() const;
+
+            TerrainManager& GetTerrainManager();
+            const TerrainManager& GetTerrainManager() const;
+
+            std::uint32_t GetPhysicsWorldVersion() const;
+            void SetPhysicsWorldVersion(std::uint32_t PhysicsWorldVersion);
+
+            Utility::Time* GetPhysicsTime() const;
+            void SetPhysicsTime(Utility::Time* PhysicsTime);
+
+            bool IsPhysicsRuntimeModeEnabled() const;
+            void SetPhysicsRuntimeModeEnabled(bool IsPhysicsRuntimeModeEnabled);
+
+            std::vector<TerrainActorDescBinding>& GetTerrainActorDescBindings();
+            const std::vector<TerrainActorDescBinding>& GetTerrainActorDescBindings() const;
+
+            SceneWorldSnapshot& GetWorldSnapshot();
+            const SceneWorldSnapshot& GetWorldSnapshot() const;
+
+            bool AddPipelineDefinition(const PipelineDefinition& PipelineDefinitionValue);
+            bool AddPipelineDefinition(PipelineDefinition&& PipelineDefinitionValue);
+            void ClearPipelineDefinitions();
+            const std::vector<PipelineDefinition>& GetPipelineDefinitions() const;
+            PipelineId FindPipelineIdByName(const std::string& PipelineName) const;
+            PipelineDefinition* FindPipelineDefinition(const std::string& PipelineName);
+            const PipelineDefinition* FindPipelineDefinition(const std::string& PipelineName) const;
+
+            std::vector<SceneWorkUnit>& GetWorkUnits();
+            const std::vector<SceneWorkUnit>& GetWorkUnits() const;
+            void ClearWorkUnits();
+
+            PipelineExecutor& GetPipelineExecutor();
+            const PipelineExecutor& GetPipelineExecutor() const;
+
+            std::uint64_t GetWorkUnitBuildStructureVersion() const;
+            void SetWorkUnitBuildStructureVersion(std::uint64_t WorkUnitBuildStructureVersion);
+
+        private:
+            ScenePhysicsRuntimeContext BuildPhysicsRuntimeContext();
+            bool CanAddPipelineDefinition(const PipelineDefinition& PipelineDefinitionValue) const;
+
+        private:
+            Arche::World mWorld{};
+            FrameContext mFrameContext{};
+            AssetRegistry mAssetRegistry{};
+            Script::LuaBehaviorFramework mLuaScriptFramework{};
+
+            PhysicsWorld mPhysicsWorld{};
+            PhysicsRuntime mPhysicsRuntime{};
+            PhysicsRuntimeScene mPhysicsRuntimeScene{};
+            PhysicsSnapshot mPhysicsRuntimeSnapshot{};
+            PhysicsKinematicSceneSimulator mKinematicSceneSimulator{};
+            std::vector<PhysicsKinematicRuntimeState> mKinematicRuntimeStates{};
+            std::uint32_t mPhysicsWorldVersion{ 1U };
+            Utility::Time* mPhysicsTime{};
+            bool mIsPhysicsRuntimeModeEnabled{};
+
+            TerrainManager mTerrainManager{};
+            std::vector<TerrainActorDescBinding> mTerrainActorDescBindings{};
+
+            SceneWorldSnapshot mWorldSnapshot{};
+            std::vector<PipelineDefinition> mPipelineDefinitions{};
+            std::vector<SceneWorkUnit> mWorkUnits{};
+            PipelineExecutor mPipelineExecutor{};
+            std::uint64_t mWorkUnitBuildStructureVersion{};
+        };
+    }
+}

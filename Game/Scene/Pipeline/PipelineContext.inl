@@ -27,11 +27,15 @@ namespace Game {
                 return;
             }
 
-            for (const Arche::EntityID EntityId : mEntityIds) {
+            auto ExecuteForEntity = [&](Arche::EntityID EntityId) {
+                if (EntityId == Arche::NullEntityID) {
+                    return;
+                }
+
                 std::tuple<Ts*...> ComponentPointers{ mWorld->GetComponent<Ts>(EntityId)... };
                 const bool HasAllComponents{ std::apply([](auto*... Pointers) { return ((Pointers != nullptr) && ...); }, ComponentPointers) };
                 if (HasAllComponents == false) {
-                    continue;
+                    return;
                 }
 
                 std::apply([&](auto*... Pointers) {
@@ -42,6 +46,16 @@ namespace Game {
                         FuncObject(*Pointers...);
                     }
                 }, ComponentPointers);
+            };
+
+            ExecuteForEntity(mUnitEntityId);
+
+            for (const Arche::EntityID EntityId : mEntityIds) {
+                if (EntityId == mUnitEntityId) {
+                    continue;
+                }
+
+                ExecuteForEntity(EntityId);
             }
         }
     }
