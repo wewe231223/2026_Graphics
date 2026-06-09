@@ -185,6 +185,8 @@ add_library(Game STATIC
     Game/Scene/Pipeline/PipelineTypes.cpp
     Game/Scene/Pipeline/SceneWorkUnit.cpp
     Game/Scene/Pipeline/PipelineExecutor.cpp
+    Game/Scene/Pipeline/PipelineSystemBindingResult.cpp
+    Game/Scene/Pipeline/PipelineSystemRegistry.cpp
     Game/Scene/Pipeline/PipelineScene.cpp
     Game/Scene/Pipeline/PipelineYamlSerializer.cpp
     Game/Scene/Pipeline/PipelineSceneYamlMetadata.cpp

@@ -91,6 +91,7 @@
     <ClInclude Include="Scene\SceneYaml\SceneYamlTerrain.h" />
     <ClInclude Include="Scene\SceneYaml\SceneYamlTypes.h" />
     <ClInclude Include="Scene\SceneYaml\SceneYamlWriteUtils.h" />
+    <ClInclude Include="Scene\FrameContext.h" />
     <ClInclude Include="Scene\System.h" />
     <ClInclude Include="Scene\SystemSceduler.h" />
     <ClInclude Include="Scene\ParallelSystemBase.h" />
@@ -101,6 +102,8 @@
     <ClInclude Include="Scene\Pipeline\RenderGatherResult.h" />
     <ClInclude Include="Scene\Pipeline\SceneWorkUnit.h" />
     <ClInclude Include="Scene\Pipeline\PipelineExecutor.h" />
+    <ClInclude Include="Scene\Pipeline\PipelineSystemBindingResult.h" />
+    <ClInclude Include="Scene\Pipeline\PipelineSystemRegistry.h" />
     <ClInclude Include="Scene\Pipeline\PipelineScene.h" />
     <ClInclude Include="Scene\Pipeline\PipelineYamlSerializer.h" />
     <ClInclude Include="Scene\Pipeline\PipelineSceneYamlMetadata.h" />
@@ -174,6 +177,8 @@
     <ClCompile Include="Scene\Pipeline\PipelineTypes.cpp" />
     <ClCompile Include="Scene\Pipeline\SceneWorkUnit.cpp" />
     <ClCompile Include="Scene\Pipeline\PipelineExecutor.cpp" />
+    <ClCompile Include="Scene\Pipeline\PipelineSystemBindingResult.cpp" />
+    <ClCompile Include="Scene\Pipeline\PipelineSystemRegistry.cpp" />
     <ClCompile Include="Scene\Pipeline\PipelineScene.cpp" />
     <ClCompile Include="Scene\Pipeline\PipelineYamlSerializer.cpp" />
     <ClCompile Include="Scene\Pipeline\PipelineSceneYamlMetadata.cpp" />

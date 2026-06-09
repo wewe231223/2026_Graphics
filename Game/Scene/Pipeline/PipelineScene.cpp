@@ -1,12 +1,35 @@
 #include "PipelineScene.h"
 #include <limits>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include "Game/Scene/Pipeline/PipelineSceneYamlMetadata.h"
+#include "Game/Scene/Pipeline/PipelineSystemRegistry.h"
 
 namespace Game {
     namespace Pipeline {
         namespace {
             constexpr std::uint64_t InvalidWorkUnitBuildStructureVersion{ std::numeric_limits<std::uint64_t>::max() };
+
+            void AddFailure(PipelineSystemBindingResult& BindingResult, const std::string& Message);
+            IPipelineSystem* FindCreatedPipelineSystem(const std::vector<std::pair<std::string, std::unique_ptr<IPipelineSystem>>>& CreatedPipelineSystems, const std::string& SystemName);
+
+            void AddFailure(PipelineSystemBindingResult& BindingResult, const std::string& Message) {
+                BindingResult.IsSuccess = false;
+                BindingResult.FailureMessages.push_back(Message);
+            }
+
+            IPipelineSystem* FindCreatedPipelineSystem(const std::vector<std::pair<std::string, std::unique_ptr<IPipelineSystem>>>& CreatedPipelineSystems, const std::string& SystemName) {
+                for (const std::pair<std::string, std::unique_ptr<IPipelineSystem>>& CreatedPipelineSystem : CreatedPipelineSystems) {
+                    if (CreatedPipelineSystem.first == SystemName) {
+                        return CreatedPipelineSystem.second.get();
+                    }
+                }
+
+                return nullptr;
+            }
         }
 
         Scene::Scene()
@@ -28,6 +51,7 @@ namespace Game {
             mWorldSnapshot{},
             mPipelineDefinitions{},
             mUnitPipelineAssignments{},
+            mPipelineSystemsByName{},
             mWorkUnits{},
             mPipelineExecutor{},
             mWorkUnitBuildStructureVersion{ InvalidWorkUnitBuildStructureVersion } {
@@ -362,6 +386,111 @@ namespace Game {
         void Scene::ClearWorkUnits() {
             mWorkUnits.clear();
             InvalidateWorkUnits();
+        }
+
+        PipelineSystemBindingResult Scene::BuildPipelineSystemBindings(const PipelineSystemRegistry& Registry) {
+            PipelineSystemBindingResult BindingResult{};
+            std::vector<std::string> RequiredSystemNames{};
+            std::unordered_set<std::string> RequiredSystemNameSet{};
+
+            for (const PipelineDefinition& PipelineDefinitionValue : mPipelineDefinitions) {
+                for (const std::string& SystemName : PipelineDefinitionValue.GetSystemNames()) {
+                    if (Registry.Contains(SystemName) == false) {
+                        AddFailure(BindingResult, std::string{ "Pipeline System factory is missing: " } + SystemName);
+                    }
+
+                    const bool IsRequiredSystemNameInserted{ RequiredSystemNameSet.insert(SystemName).second };
+                    if (IsRequiredSystemNameInserted == true) {
+                        RequiredSystemNames.push_back(SystemName);
+                    }
+                }
+            }
+
+            for (const SceneWorkUnit& WorkUnit : mWorkUnits) {
+                const PipelineId PipelineIdValue{ WorkUnit.GetPipelineId() };
+                if (PipelineIdValue == InvalidPipelineId || static_cast<std::size_t>(PipelineIdValue) >= mPipelineDefinitions.size()) {
+                    AddFailure(BindingResult, std::string{ "WorkUnit PipelineId is invalid: " } + std::to_string(PipelineIdValue));
+                }
+            }
+
+            if (BindingResult.IsSuccess == false) {
+                return BindingResult;
+            }
+
+            std::vector<std::pair<std::string, std::unique_ptr<IPipelineSystem>>> CreatedPipelineSystems{};
+            for (const std::string& SystemName : RequiredSystemNames) {
+                if (mPipelineSystemsByName.find(SystemName) != mPipelineSystemsByName.end()) {
+                    continue;
+                }
+
+                std::unique_ptr<IPipelineSystem> NewPipelineSystem{ Registry.CreateSystem(SystemName) };
+                if (NewPipelineSystem == nullptr) {
+                    AddFailure(BindingResult, std::string{ "Pipeline System factory returned null: " } + SystemName);
+                    continue;
+                }
+
+                CreatedPipelineSystems.emplace_back(SystemName, std::move(NewPipelineSystem));
+            }
+
+            if (BindingResult.IsSuccess == false) {
+                return BindingResult;
+            }
+
+            std::vector<std::vector<IPipelineSystem*>> WorkUnitPipelineSystems{};
+            WorkUnitPipelineSystems.reserve(mWorkUnits.size());
+            for (const SceneWorkUnit& WorkUnit : mWorkUnits) {
+                const PipelineDefinition& PipelineDefinitionValue{ mPipelineDefinitions[static_cast<std::size_t>(WorkUnit.GetPipelineId())] };
+                std::vector<IPipelineSystem*> PipelineSystems{};
+                PipelineSystems.reserve(PipelineDefinitionValue.GetSystemNames().size());
+
+                for (const std::string& SystemName : PipelineDefinitionValue.GetSystemNames()) {
+                    IPipelineSystem* PipelineSystem{ FindPipelineSystem(SystemName) };
+                    if (PipelineSystem == nullptr) {
+                        PipelineSystem = FindCreatedPipelineSystem(CreatedPipelineSystems, SystemName);
+                    }
+
+                    if (PipelineSystem == nullptr) {
+                        AddFailure(BindingResult, std::string{ "Pipeline System instance is missing: " } + SystemName);
+                        continue;
+                    }
+
+                    PipelineSystems.push_back(PipelineSystem);
+                }
+
+                WorkUnitPipelineSystems.push_back(std::move(PipelineSystems));
+            }
+
+            if (BindingResult.IsSuccess == false) {
+                return BindingResult;
+            }
+
+            for (std::pair<std::string, std::unique_ptr<IPipelineSystem>>& CreatedPipelineSystem : CreatedPipelineSystems) {
+                mPipelineSystemsByName.emplace(std::move(CreatedPipelineSystem.first), std::move(CreatedPipelineSystem.second));
+            }
+
+            for (std::size_t WorkUnitIndex{}; WorkUnitIndex < mWorkUnits.size(); ++WorkUnitIndex) {
+                mWorkUnits[WorkUnitIndex].GetPipelineSystems() = std::move(WorkUnitPipelineSystems[WorkUnitIndex]);
+            }
+
+            return BindingResult;
+        }
+
+        IPipelineSystem* Scene::FindPipelineSystem(const std::string& SystemName) {
+            const std::unordered_map<std::string, std::unique_ptr<IPipelineSystem>>::iterator PipelineSystemIter{ mPipelineSystemsByName.find(SystemName) };
+            if (PipelineSystemIter == mPipelineSystemsByName.end()) {
+                return nullptr;
+            }
+
+            return PipelineSystemIter->second.get();
+        }
+
+        const IPipelineSystem* Scene::FindPipelineSystem(const std::string& SystemName) const {
+            const std::unordered_map<std::string, std::unique_ptr<IPipelineSystem>>::const_iterator PipelineSystemIter{ mPipelineSystemsByName.find(SystemName) };
+            if (PipelineSystemIter == mPipelineSystemsByName.end()) {
+                return nullptr;
+            }
+
+            return PipelineSystemIter->second.get();
         }
 
         PipelineExecutor& Scene::GetPipelineExecutor() {

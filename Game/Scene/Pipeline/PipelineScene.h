@@ -1,18 +1,20 @@
 #pragma once
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 #include "Arche/World.h"
 #include "Game/Model/AssetRegistry.h"
+#include "Game/Scene/FrameContext.h"
 #include "Game/Scene/Pipeline/PipelineExecutor.h"
+#include "Game/Scene/Pipeline/PipelineSystemBindingResult.h"
 #include "Game/Scene/Pipeline/PipelineTypes.h"
 #include "Game/Scene/Pipeline/SceneWorkUnit.h"
 #include "Game/Scene/Pipeline/SceneWorkUnitBuilder.h"
 #include "Game/Scene/ScenePhysicsRuntimeCoordinator.h"
 #include "Game/Scene/SceneTerrainBindings.h"
 #include "Game/Scene/SceneWorldSnapshot.h"
-#include "Game/Scene/System.h"
 #include "Game/Terrain/TerrainManager.h"
 #include "PhysicsLib/Runtime/PhysicsRuntime.h"
 #include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
@@ -26,6 +28,7 @@ namespace Utility {
 
 namespace Game {
     namespace Pipeline {
+        class PipelineSystemRegistry;
         struct SerializedUnitPipelineAssignment;
 
         struct UnitPipelineAssignment final {
@@ -119,6 +122,10 @@ namespace Game {
             const std::vector<SceneWorkUnit>& GetWorkUnits() const;
             void ClearWorkUnits();
 
+            PipelineSystemBindingResult BuildPipelineSystemBindings(const PipelineSystemRegistry& Registry);
+            IPipelineSystem* FindPipelineSystem(const std::string& SystemName);
+            const IPipelineSystem* FindPipelineSystem(const std::string& SystemName) const;
+
             PipelineExecutor& GetPipelineExecutor();
             const PipelineExecutor& GetPipelineExecutor() const;
 
@@ -154,6 +161,7 @@ namespace Game {
             SceneWorldSnapshot mWorldSnapshot{};
             std::vector<PipelineDefinition> mPipelineDefinitions{};
             std::vector<UnitPipelineAssignment> mUnitPipelineAssignments{};
+            std::unordered_map<std::string, std::unique_ptr<IPipelineSystem>> mPipelineSystemsByName{};
             std::vector<SceneWorkUnit> mWorkUnits{};
             PipelineExecutor mPipelineExecutor{};
             std::uint64_t mWorkUnitBuildStructureVersion{};

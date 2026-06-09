@@ -3,22 +3,10 @@
 #include <span>
 #include <string>
 #include <typeindex>
-#include <vector>
-#include "Utility/DirectXInclude.h"
 #include "Arche/World.h"
-#include "Game/Base/RenderFrameData.h"
-#include "Game/Scene/SceneWorldSnapshot.h"
-#include "Game/Terrain/TerrainManager.h"
-#include "PhysicsLib/Common.h"
-#include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
-#include "Utility/SimpleMathWrapper.h"
-
-class PhysicsRuntime;
+#include "Game/Scene/FrameContext.h"
 
 namespace Game {
-    class AssetRegistry;
-    struct RegisteredMaterialGroup;
-
     enum class Phase : std::uint32_t {
         PreUpdate,
         Update,
@@ -45,27 +33,6 @@ namespace Game {
     struct ResourceAccess final {
         std::type_index Type{ typeid(void) };
         Access AccessMode{ Access::Read };
-    };
-
-    struct SkinnedMeshPreparedData final {
-        Arche::EntityID EntityId{ Arche::NullEntityID };
-        std::vector<SimpleMath::Matrix> BonePalette{};
-        std::vector<RFD::BoundingBoxContext> BoneBoundingBoxContexts{};
-    };
-
-    struct FrameContext final {
-        RFD::RenderFrameData RenderData{};
-        const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
-        AssetRegistry* AssetRegistryResource{ nullptr };
-        IPhysicsWorld* PhysicsWorldResource{ nullptr };
-        PhysicsRuntime* PhysicsRuntimeResource{ nullptr };
-        const PhysicsSnapshot* PhysicsSnapshotResource{ nullptr };
-        TerrainManager* TerrainManagerResource{ nullptr };
-        ITerrainQuery* TerrainQueryResource{ nullptr };
-        bool IsPhysicsRuntimeModeEnabled{};
-        PhysicsRuntimeStatus PhysicsRuntimeStatus{};
-        Arche::EntityID PickedEntityId{ Arche::NullEntityID };
-        std::vector<SkinnedMeshPreparedData> SkinnedMeshPreparedDataItems{};
     };
 
     class ISystem abstract {
