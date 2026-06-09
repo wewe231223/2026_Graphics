@@ -180,6 +180,11 @@ add_library(Game STATIC
     Game/Scene/System.cpp
     Game/Scene/SystemSceduler.cpp
     Game/Scene/ParallelSystemBase.cpp
+    Game/Scene/Pipeline/RenderGatherResult.cpp
+    Game/Scene/Pipeline/PipelineContext.cpp
+    Game/Scene/Pipeline/PipelineTypes.cpp
+    Game/Scene/Pipeline/SceneWorkUnit.cpp
+    Game/Scene/Pipeline/PipelineExecutor.cpp
     Game/Scene/Components/Transform.cpp
     Game/Scene/Components/ComponentText.cpp
     Game/Scene/Components/Name.cpp

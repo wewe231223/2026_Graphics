@@ -1,4 +1,4 @@
-#include "SceneYamlComponentRegistry.h"
+﻿#include "SceneYamlComponentRegistry.h"
 #include <memory>
 #include "Game/Model/Model.h"
 #include "Game/Scene/SceneEntityFactory.h"

@@ -19,6 +19,9 @@
     <Filter Include="Scene">
       <UniqueIdentifier>{90865894-c1ea-4192-aea0-6b95f8b15d45}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Scene\Pipeline">
+      <UniqueIdentifier>{d75cfc60-07dd-49fa-accc-cd1584fbd664}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Scene\Systems">
       <UniqueIdentifier>{da518e6d-61b2-4bda-9554-c317d5a33a1b}</UniqueIdentifier>
     </Filter>
@@ -173,6 +176,27 @@
     </ClInclude>
     <ClInclude Include="Scene\ParallelSystemBase.h">
       <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\PipelineSystem.h">
+      <Filter>Scene\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\PipelineContext.h">
+      <Filter>Scene\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\PipelineContext.inl">
+      <Filter>Scene\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\PipelineTypes.h">
+      <Filter>Scene\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\RenderGatherResult.h">
+      <Filter>Scene\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\SceneWorkUnit.h">
+      <Filter>Scene\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\PipelineExecutor.h">
+      <Filter>Scene\Pipeline</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h">
       <Filter>Scene\Systems</Filter>
@@ -403,6 +427,21 @@
     </ClCompile>
     <ClCompile Include="Scene\ParallelSystemBase.cpp">
       <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\RenderGatherResult.cpp">
+      <Filter>Scene\Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\PipelineContext.cpp">
+      <Filter>Scene\Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\PipelineTypes.cpp">
+      <Filter>Scene\Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\SceneWorkUnit.cpp">
+      <Filter>Scene\Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\PipelineExecutor.cpp">
+      <Filter>Scene\Pipeline</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\Transform.cpp">
       <Filter>Scene\Components</Filter>
