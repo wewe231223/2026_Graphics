@@ -1,5 +1,7 @@
 #pragma once
+#include <memory>
 #include <string>
+#include "Game/Scene/IK/FootIKSolver.h"
 #include "Game/Scene/Pipeline/PipelineSystem.h"
 
 namespace Game {
@@ -18,6 +20,9 @@ namespace Game {
         public:
             const std::string& Name() const override;
             void Execute(PipelineContext& Ctx, float Dt) override;
+
+        private:
+            std::unique_ptr<IFootIKSolver> mFootIKSolver{};
         };
     }
 }

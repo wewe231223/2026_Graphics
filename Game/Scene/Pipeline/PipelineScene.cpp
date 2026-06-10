@@ -6,9 +6,33 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include "Imgui/imgui.h"
 #include "Core/Config.h"
+#include "Game/Base/Input.h"
+#include "Game/Scene/Components/Animator.h"
+#include "Game/Scene/Components/AnimatorGraphPlayer.h"
+#include "Game/Scene/Components/Bone.h"
+#include "Game/Scene/Components/BoneSkinReference.h"
+#include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Camera.h"
+#include "Game/Scene/Components/ComponentLuaTypeDefinitions.h"
+#include "Game/Scene/Components/Culling.h"
+#include "Game/Scene/Components/DirectionalLight.h"
+#include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/FootIKRig.h"
+#include "Game/Scene/Components/FootIKRuntime.h"
 #include "Game/Scene/Components/Frustum.h"
+#include "Game/Scene/Components/Material.h"
+#include "Game/Scene/Components/Name.h"
+#include "Game/Scene/Components/PhysicsActor.h"
+#include "Game/Scene/Components/PrefabInstance.h"
+#include "Game/Scene/Components/RuntimeVariableTable.h"
+#include "Game/Scene/Components/ScriptComponent.h"
+#include "Game/Scene/Components/SkinnedMeshRenderer.h"
+#include "Game/Scene/Components/SkySphere.h"
+#include "Game/Scene/Components/StaticMeshRenderer.h"
+#include "Game/Scene/Components/Tags.h"
+#include "Game/Scene/Components/TerrainRenderer.h"
 #include "Game/Scene/Components/Transform.h"
 #include "Game/Scene/Pipeline/PipelineContext.h"
 #include "Game/Scene/Pipeline/PipelineSceneYamlMetadata.h"
@@ -19,6 +43,7 @@
 #include "Game/Scene/Systems/ProceduralFoliageSystem.h"
 #include "Game/Scene/Systems/ShadowMappingParameterSystem.h"
 #include "Game/Scene/Systems/TerrainStreamingSystem.h"
+#include "Utility/MathValidation.h"
 
 namespace Game {
     namespace Pipeline {
@@ -99,16 +124,19 @@ namespace Game {
             mIsPhysicsRuntimeModeEnabled{ ScenePhysicsRuntimeCoordinator::ResolvePhysicsRuntimeModeEnabled() },
             mIsDebugGeometryDrawEnabled{ ResolveInitialDebugGeometryDrawEnabled() },
             mIsBoundingBoxDrawEnabled{},
+            mIsDefaultCameraControlBehaviorAttached{},
             mTerrainManager{},
             mTerrainActorDescBindings{},
             mWorldSnapshot{},
+            mWorldSnapshotVersion{},
             mPipelineDefinitions{},
             mUnitPipelineAssignments{},
             mSynchronousSystems{},
             mPipelineSystemsByName{},
             mWorkUnits{},
             mPipelineExecutor{},
-            mWorkUnitBuildStructureVersion{ InvalidWorkUnitBuildStructureVersion } {
+            mWorkUnitBuildStructureVersion{ InvalidWorkUnitBuildStructureVersion },
+            mWorkUnitBuildRuntimePipelineAssignmentVersion{} {
             mSynchronousSystems.push_back(std::make_unique<Game::PhysicsActorUpdateSystem>());
             mSynchronousSystems.push_back(std::make_unique<Game::TerrainStreamingSystem>());
             mSynchronousSystems.push_back(std::make_unique<Game::ProceduralFoliageSystem>());
@@ -124,6 +152,7 @@ namespace Game {
             mLuaScriptFramework.Initialize(&mWorld);
             mLuaScriptFramework.SetFixedUpdateInterval(1.0F);
             mLuaScriptFramework.OpenDefaultLibraries();
+            RegisterScriptTypes();
         }
 
         Scene::~Scene() {
@@ -158,12 +187,18 @@ namespace Game {
             mFrameContext.RenderData.globals.frameIndex = RenderFrameIndex;
         }
 
+        void Scene::PrepareRender() {
+            mAssetRegistry.PrepareRenderTextures(mFrameContext.RenderData);
+            mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
+        }
+
         PipelineFrameExecutionResult Scene::ExecuteDataPipelineFrame(float Dt, const PipelineSystemRegistry& Registry) {
             InitializeDataPipelineFrameRenderData();
 
+            AttachDefaultCameraControlBehavior();
             mLuaScriptFramework.Update(Dt);
             mLuaScriptFramework.LateUpdate(Dt);
-            RefreshPhysicsRuntimeSnapshot();
+            UpdatePhysics(Dt);
             ExecuteSynchronousSystems(Dt);
             mWorld.FlushDeferredStructuralChanges();
 
@@ -291,6 +326,10 @@ namespace Game {
             ScenePhysicsRuntimeCoordinator::RebuildPhysicsActors(BuildPhysicsRuntimeContext());
         }
 
+        void Scene::UpdatePhysics(float Dt) {
+            ScenePhysicsRuntimeCoordinator::UpdatePhysics(BuildPhysicsRuntimeContext(), Dt);
+        }
+
         Utility::Time* Scene::GetPhysicsTime() const {
             return mPhysicsTime;
         }
@@ -330,6 +369,25 @@ namespace Game {
 
         void Scene::ClearTerrainActorDescs() {
             ScenePhysicsRuntimeCoordinator::ClearTerrainActorDescs(BuildPhysicsRuntimeContext());
+        }
+
+        void Scene::InitializeWorldSnapshot() {
+            mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
+            mWorldSnapshot.BindWorld(&mWorld);
+            mWorldSnapshot.BindAssetRegistry(&mAssetRegistry);
+            RebuildWorldSnapshot();
+            mWorldSnapshotVersion = mWorld.GetStructureVersion();
+        }
+
+        void Scene::UpdateWorldSnapshotIfNeeded() {
+            const std::uint64_t CurrentStructureVersion{ mWorld.GetStructureVersion() };
+
+            if (CurrentStructureVersion == mWorldSnapshotVersion) {
+                return;
+            }
+
+            RebuildWorldSnapshot();
+            mWorldSnapshotVersion = CurrentStructureVersion;
         }
 
         SceneWorldSnapshot& Scene::GetWorldSnapshot() {
@@ -636,12 +694,13 @@ namespace Game {
 
             mWorkUnits.swap(NewWorkUnits);
             mWorkUnitBuildStructureVersion = mWorld.GetStructureVersion();
+            mWorkUnitBuildRuntimePipelineAssignmentVersion = mFrameContext.mRuntimePipelineAssignmentVersion;
             return BuildResult;
         }
 
         SceneWorkUnitBuildResult Scene::UpdateWorkUnitsIfNeeded() {
             SceneWorkUnitBuildResult BuildResult{};
-            if (mWorkUnitBuildStructureVersion == mWorld.GetStructureVersion()) {
+            if (mWorkUnitBuildStructureVersion == mWorld.GetStructureVersion() && mWorkUnitBuildRuntimePipelineAssignmentVersion == mFrameContext.mRuntimePipelineAssignmentVersion) {
                 return BuildResult;
             }
 
@@ -677,6 +736,8 @@ namespace Game {
         }
 
         void Scene::InitializeDataPipelineFrameRenderData() {
+            UpdateCameraVirtualMouseState();
+
             mFrameContext.RenderData.modelContexts.clear();
             mFrameContext.RenderData.boundingBoxContexts.clear();
             mFrameContext.RenderData.debugGeometryContexts.clear();
@@ -749,6 +810,223 @@ namespace Game {
 
         void Scene::InvalidateWorkUnits() {
             mWorkUnitBuildStructureVersion = InvalidWorkUnitBuildStructureVersion;
+        }
+
+        void Scene::RebuildWorldSnapshot() {
+            mWorldSnapshot.Clear();
+
+            std::unordered_set<std::string> AddedSystemNames{};
+            for (const std::unique_ptr<Game::ISystem>& SystemInstance : mSynchronousSystems) {
+                if (SystemInstance == nullptr) {
+                    continue;
+                }
+
+                const std::string& SystemName{ SystemInstance->Name() };
+                if (AddedSystemNames.insert(SystemName).second == true) {
+                    mWorldSnapshot.AddSystemName(SystemName);
+                }
+            }
+
+            for (const PipelineDefinition& PipelineDefinitionValue : mPipelineDefinitions) {
+                for (const std::string& SystemName : PipelineDefinitionValue.GetSystemNames()) {
+                    if (AddedSystemNames.insert(SystemName).second == true) {
+                        mWorldSnapshot.AddSystemName(SystemName);
+                    }
+                }
+            }
+
+            for (const auto& [NameComponent, HierarchyComponent] : mWorld.Query<Name, EntityHierarchy>()) {
+                if (GetNameText(NameComponent)[0] == '\0') {
+                    continue;
+                }
+
+                mWorldSnapshot.AddEntity(HierarchyComponent.self, HierarchyComponent.parent);
+            }
+
+            mWorldSnapshot.BuildHierarchy();
+        }
+
+        void Scene::RegisterScriptTypes() {
+            mLuaScriptFramework.RegisterGlobalFunction("IsInputKeyDown", &Globals::IsInputKeyDown);
+            mLuaScriptFramework.RegisterGlobalFunction("IsInputKeyPressed", &Globals::IsInputKeyPressed);
+            mLuaScriptFramework.RegisterGlobalFunction("IsInputKeyReleased", &Globals::IsInputKeyReleased);
+            mLuaScriptFramework.RegisterGlobalFunction("GetInputMousePositionX", &Globals::GetInputMousePositionX);
+            mLuaScriptFramework.RegisterGlobalFunction("GetInputMousePositionY", &Globals::GetInputMousePositionY);
+            mLuaScriptFramework.RegisterGlobalFunction("GetInputMouseDeltaX", &Globals::GetInputMouseDeltaX);
+            mLuaScriptFramework.RegisterGlobalFunction("GetInputMouseDeltaY", &Globals::GetInputMouseDeltaY);
+            mLuaScriptFramework.RegisterGlobalFunction("IsInputMouseLeftButtonDown", &Globals::IsInputMouseLeftButtonDown);
+            mLuaScriptFramework.RegisterGlobalFunction("IsInputMouseRightButtonDown", &Globals::IsInputMouseRightButtonDown);
+            mLuaScriptFramework.RegisterGlobalFunction("IsInputMouseMiddleButtonDown", &Globals::IsInputMouseMiddleButtonDown);
+            mLuaScriptFramework.RegisterGlobalFunction("GetInputMouseWheelDelta", &Globals::GetInputMouseWheelDelta);
+            mLuaScriptFramework.RegisterGlobalFunction("GetActiveCameraForwardDirection", [this]() -> DirectX::SimpleMath::Vector3 {
+                for (auto [TransformComponent, CameraComponent] : mWorld.Query<Transform, Camera>()) {
+                    if (CameraComponent.isActive == false) {
+                        continue;
+                    }
+
+                    return TransformComponent.GetForwardDirection();
+                }
+
+                return DirectX::SimpleMath::Vector3::Forward;
+            });
+            mLuaScriptFramework.RegisterGlobalFunction("GetActiveCameraRightDirection", [this]() -> DirectX::SimpleMath::Vector3 {
+                for (auto [TransformComponent, CameraComponent] : mWorld.Query<Transform, Camera>()) {
+                    if (CameraComponent.isActive == false) {
+                        continue;
+                    }
+
+                    return TransformComponent.TransformDirectionToWorld(DirectX::SimpleMath::Vector3::Right);
+                }
+
+                return DirectX::SimpleMath::Vector3::Right;
+            });
+            mLuaScriptFramework.RegisterGlobalFunction("GetActiveCameraFlags", [this]() -> std::uint32_t {
+                for (auto [CameraComponent] : mWorld.Query<Camera>()) {
+                    if (CameraComponent.isActive == false) {
+                        continue;
+                    }
+
+                    return CameraComponent.cameraFlags;
+                }
+
+                return CameraFlagNone;
+            });
+            mLuaScriptFramework.RegisterGlobalFunction("RaycastTerrainDistance", [this](const DirectX::SimpleMath::Vector3& RayStartPoint, const DirectX::SimpleMath::Vector3& RayDirection, const float RayLength) -> float {
+                if (MathUtility::IsFiniteVector3(RayStartPoint) == false || MathUtility::IsFiniteVector3(RayDirection) == false || MathUtility::IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
+                    return -1.0f;
+                }
+
+                const DirectX::SimpleMath::Ray Ray{ RayStartPoint, RayDirection };
+                DirectX::SimpleMath::Vector3 HitPosition{};
+                DirectX::SimpleMath::Vector3 HitNormal{ DirectX::SimpleMath::Vector3::Up };
+                float HitDistance{};
+                const bool HasHit{ mTerrainManager.TryRaycast(Ray, RayLength, HitPosition, HitNormal, HitDistance) };
+                return HasHit == true ? HitDistance : -1.0f;
+            });
+
+            mLuaScriptFramework.RegisterTypeByDefinition<Arche::EntityID>();
+            mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector2>();
+            mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Vector3>();
+            mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Quaternion>();
+            mLuaScriptFramework.RegisterTypeByDefinition<DirectX::SimpleMath::Matrix>();
+            mLuaScriptFramework.RegisterTypeUsertype<Game::ComponentTextArray>("Text", sol::constructors<Game::ComponentTextArray()>(), sol::meta_function::index, [](const Game::ComponentTextArray& TargetArray, std::size_t LuaIndex) -> Game::ComponentTextArray::value_type { if (LuaIndex >= TargetArray.size()) { return '\0'; } return TargetArray[LuaIndex]; }, sol::meta_function::new_index, [](Game::ComponentTextArray& TargetArray, std::size_t LuaIndex, const Game::ComponentTextArray::value_type Value) { if (LuaIndex >= TargetArray.size()) { return; } TargetArray[LuaIndex] = Value; }, "Get", [](const Game::ComponentTextArray& TargetArray, const std::size_t Index) -> Game::ComponentTextArray::value_type { if (Index >= TargetArray.size()) { return '\0'; } return TargetArray[Index]; }, "Set", [](Game::ComponentTextArray& TargetArray, const std::size_t Index, const Game::ComponentTextArray::value_type Value) { if (Index >= TargetArray.size()) { return; } TargetArray[Index] = Value; }, "Size", [](const Game::ComponentTextArray& TargetArray) -> std::size_t { return TargetArray.size(); });
+            mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableBoolArray>();
+            mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableIntArray>();
+            mLuaScriptFramework.RegisterTypeByDefinition<Game::RuntimeVariableFloatArray>();
+
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::Material>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::Name>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::Transform>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::EntityHierarchy>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::StaticMeshRenderer>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::TerrainRenderer>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::SkinnedMeshRenderer>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::Culling>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::BoundingBox>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::Bone>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::BoneSkinReference>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::Camera>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::DirectionalLight>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::Frustum>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::SkySphere>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::RuntimeVariableTable>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::Animator>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::AnimatorGraphPlayer>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::FootIKRig>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::FootIKRuntime>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::PrefabInstance>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::PhysicsActorSettings>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::PhysicsActor>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::Tag>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::BehaviorInstanceComponent>();
+        }
+
+        void Scene::AttachDefaultCameraControlBehavior() {
+            if (mIsDefaultCameraControlBehaviorAttached == true) {
+                return;
+            }
+
+            for (const auto [CameraComponent, HierarchyComponent] : mWorld.Query<Camera, EntityHierarchy>()) {
+                if (CameraComponent.isActive == false) {
+                    continue;
+                }
+
+                const Arche::EntityID TargetCameraEntity{ HierarchyComponent.self };
+                const BehaviorInstanceComponent* ExistingBehaviorComponent{ std::as_const(mWorld).GetComponent<BehaviorInstanceComponent>(TargetCameraEntity) };
+                if (ExistingBehaviorComponent != nullptr) {
+                    mIsDefaultCameraControlBehaviorAttached = true;
+                    return;
+                }
+
+                const Script::LuaBehaviorFramework::BehaviorOperationResult AttachResult{ mLuaScriptFramework.AttachBehaviorFromFile(TargetCameraEntity, "Script/Lua/CameraController.lua") };
+                if (AttachResult) {
+                    mIsDefaultCameraControlBehaviorAttached = true;
+                }
+
+                return;
+            }
+        }
+
+        void Scene::UpdateCameraVirtualMouseState() {
+            Globals::Input& InputInstance{ Globals::Input::Get() };
+            const bool IsDebugGeometryToggleRequested{ InputInstance.IsKeyPressed(DirectX::Keyboard::Keys::F3) };
+            const bool IsThirdPersonToggleRequested{ InputInstance.IsKeyPressed(DirectX::Keyboard::Keys::F8) };
+            const bool IsBoundingBoxToggleRequested{ InputInstance.IsKeyPressed(DirectX::Keyboard::Keys::F9) };
+            const DirectX::Mouse::ButtonStateTracker& MouseTracker{ InputInstance.GetMouseTracker() };
+            const bool IsSelectionDragInput{ mFrameContext.PickedEntityId != Arche::NullEntityID && (MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::PRESSED || MouseTracker.leftButton == DirectX::Mouse::ButtonStateTracker::HELD) };
+
+            if (IsDebugGeometryToggleRequested == true) {
+                mIsDebugGeometryDrawEnabled = mIsDebugGeometryDrawEnabled == false;
+            }
+
+            if (IsBoundingBoxToggleRequested == true) {
+                mIsBoundingBoxDrawEnabled = mIsBoundingBoxDrawEnabled == false;
+            }
+
+            bool IsUiCapturingInput{ false };
+            if (Config::Query()->Get<bool>("Block_ImGui") == false) {
+                const ImGuiIO& ImGuiInputState{ ImGui::GetIO() };
+                const bool IsUiCapturingMouseInput{ ImGuiInputState.WantCaptureMouse };
+                const bool IsUiCapturingKeyboardInput{ ImGuiInputState.WantCaptureKeyboard };
+                IsUiCapturingInput = IsUiCapturingMouseInput || IsUiCapturingKeyboardInput;
+            }
+
+            for (auto [CameraComponent] : mWorld.Query<Camera>()) {
+                if (CameraComponent.isActive == false) {
+                    continue;
+                }
+
+                if (IsThirdPersonToggleRequested == true) {
+                    const bool IsThirdPersonMode{ (CameraComponent.cameraFlags & CameraFlagThirdPerson) != 0u };
+                    if (IsThirdPersonMode == true) {
+                        CameraComponent.cameraFlags &= ~CameraFlagThirdPerson;
+                        CameraComponent.cameraFlags |= CameraFlagFreeLook;
+                        InputInstance.SetRightButtonVirtualMouseEnabled(true);
+                        InputInstance.SetVirtualMouse(false);
+                    }
+                    else {
+                        CameraComponent.cameraFlags |= CameraFlagThirdPerson;
+                        CameraComponent.cameraFlags &= ~CameraFlagFreeLook;
+                        InputInstance.SetRightButtonVirtualMouseEnabled(false);
+                        InputInstance.SetVirtualMouse(true);
+                    }
+                }
+
+                if (IsSelectionDragInput == true || IsUiCapturingInput == true) {
+                    return;
+                }
+
+                const bool IsThirdPersonMode{ (CameraComponent.cameraFlags & CameraFlagThirdPerson) != 0u };
+                if (IsThirdPersonMode == true) {
+                    InputInstance.SetRightButtonVirtualMouseEnabled(false);
+                    InputInstance.SetVirtualMouse(true);
+                }
+                else {
+                    InputInstance.SetRightButtonVirtualMouseEnabled(true);
+                }
+
+                return;
+            }
         }
     }
 }

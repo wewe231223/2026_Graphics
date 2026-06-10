@@ -1,4 +1,6 @@
 #pragma once
+#include <cstdint>
+#include <string>
 #include <vector>
 #include "Arche/Common.h"
 #include "Game/Base/RenderFrameData.h"
@@ -20,6 +22,12 @@ namespace Game {
         std::vector<RFD::BoundingBoxContext> BoneBoundingBoxContexts{};
     };
 
+    struct FramePipelineAssignment final {
+    public:
+        Arche::EntityID mUnitEntityId{ Arche::NullEntityID };
+        std::string mPipelineName{};
+    };
+
     struct FrameContext final {
         RFD::RenderFrameData RenderData{};
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
@@ -33,5 +41,7 @@ namespace Game {
         PhysicsRuntimeStatus PhysicsRuntimeStatus{};
         Arche::EntityID PickedEntityId{ Arche::NullEntityID };
         std::vector<SkinnedMeshPreparedData> SkinnedMeshPreparedDataItems{};
+        std::vector<FramePipelineAssignment> mRuntimePipelineAssignments{};
+        std::uint64_t mRuntimePipelineAssignmentVersion{};
     };
 }

@@ -9,12 +9,23 @@
 namespace Game {
     namespace Pipeline {
         namespace {
+            struct RuntimePipelineBatch final {
+            public:
+                std::string mPipelineName{};
+                PipelineId mPipelineId{ InvalidPipelineId };
+                std::vector<Arche::EntityID> mRootEntityIds{};
+            };
+
             std::string ToEntityIdText(Arche::EntityID EntityId);
             void AddFailure(SceneWorkUnitBuildResult& BuildResult, const std::string& Message);
             bool ValidateAssignment(const Scene& TargetScene, const UnitPipelineAssignment& Assignment, SceneWorkUnitBuildResult& BuildResult);
             bool TryCollectHierarchyEntityIds(const Arche::World& World, Arche::EntityID UnitEntityId, Arche::EntityID CurrentEntityId, const std::unordered_set<Arche::EntityID>& AssignedUnitEntityIds, std::unordered_set<Arche::EntityID>& LocalVisitedEntityIds, std::vector<Arche::EntityID>& OutEntityIds, SceneWorkUnitBuildResult& BuildResult);
             bool TryAddWorkUnitEntityOwners(const SceneWorkUnit& WorkUnit, std::unordered_map<Arche::EntityID, Arche::EntityID>& WorkUnitOwnerByEntityId, SceneWorkUnitBuildResult& BuildResult);
             SceneWorkUnit CreateSceneWorkUnit(const UnitPipelineAssignment& Assignment, std::vector<Arche::EntityID>&& EntityIds);
+            SceneWorkUnit CreateRuntimeBatchWorkUnit(const RuntimePipelineBatch& RuntimeBatch, std::vector<Arche::EntityID>&& EntityIds);
+            RuntimePipelineBatch* FindRuntimePipelineBatch(std::vector<RuntimePipelineBatch>& RuntimePipelineBatches, const std::string& PipelineName);
+            void AppendRuntimePipelineBatches(const Scene& TargetScene, std::unordered_set<Arche::EntityID>& InOutAssignedUnitEntityIds, std::vector<RuntimePipelineBatch>& OutRuntimePipelineBatches, SceneWorkUnitBuildResult& BuildResult);
+            bool TryCreateRuntimeBatchWorkUnit(const Scene& TargetScene, const RuntimePipelineBatch& RuntimeBatch, const std::unordered_set<Arche::EntityID>& AssignedUnitEntityIds, SceneWorkUnit& OutWorkUnit, SceneWorkUnitBuildResult& BuildResult);
 
             std::string ToEntityIdText(Arche::EntityID EntityId) {
                 return std::to_string(EntityId.index) + ":" + std::to_string(EntityId.generation);
@@ -130,6 +141,90 @@ namespace Game {
                 WorkUnit.GetRenderGatherResult().Clear();
                 return WorkUnit;
             }
+
+            SceneWorkUnit CreateRuntimeBatchWorkUnit(const RuntimePipelineBatch& RuntimeBatch, std::vector<Arche::EntityID>&& EntityIds) {
+                SceneWorkUnit WorkUnit{};
+                WorkUnit.SetUnitEntityId(RuntimeBatch.mRootEntityIds.empty() == true ? Arche::NullEntityID : RuntimeBatch.mRootEntityIds.front());
+                WorkUnit.SetPipelineId(RuntimeBatch.mPipelineId);
+                WorkUnit.GetEntityIds() = std::move(EntityIds);
+                WorkUnit.GetPipelineSystems().clear();
+                WorkUnit.GetRenderGatherResult().Clear();
+                return WorkUnit;
+            }
+
+            RuntimePipelineBatch* FindRuntimePipelineBatch(std::vector<RuntimePipelineBatch>& RuntimePipelineBatches, const std::string& PipelineName) {
+                for (RuntimePipelineBatch& RuntimePipelineBatchValue : RuntimePipelineBatches) {
+                    if (RuntimePipelineBatchValue.mPipelineName == PipelineName) {
+                        return &RuntimePipelineBatchValue;
+                    }
+                }
+
+                return nullptr;
+            }
+
+            void AppendRuntimePipelineBatches(const Scene& TargetScene, std::unordered_set<Arche::EntityID>& InOutAssignedUnitEntityIds, std::vector<RuntimePipelineBatch>& OutRuntimePipelineBatches, SceneWorkUnitBuildResult& BuildResult) {
+                const FrameContext& FrameContextValue{ TargetScene.GetFrameContext() };
+                for (const FramePipelineAssignment& RuntimeAssignment : FrameContextValue.mRuntimePipelineAssignments) {
+                    const Arche::EntityID EntityId{ RuntimeAssignment.mUnitEntityId };
+                    if (EntityId == Arche::NullEntityID) {
+                        continue;
+                    }
+
+                    if (InOutAssignedUnitEntityIds.find(EntityId) != InOutAssignedUnitEntityIds.end()) {
+                        continue;
+                    }
+
+                    const EntityHierarchy* HierarchyComponent{ TargetScene.GetWorld().GetComponent<EntityHierarchy>(EntityId) };
+                    if (HierarchyComponent == nullptr) {
+                        continue;
+                    }
+
+                    if (RuntimeAssignment.mPipelineName.empty() == true) {
+                        AddFailure(BuildResult, std::string{ "Runtime pipeline assignment name is empty: " } + ToEntityIdText(EntityId));
+                        continue;
+                    }
+
+                    const PipelineDefinition* PipelineDefinitionValue{ TargetScene.FindPipelineDefinition(RuntimeAssignment.mPipelineName) };
+                    if (PipelineDefinitionValue == nullptr) {
+                        AddFailure(BuildResult, std::string{ "Runtime pipeline assignment definition is missing: " } + RuntimeAssignment.mPipelineName);
+                        continue;
+                    }
+
+                    RuntimePipelineBatch* RuntimeBatch{ FindRuntimePipelineBatch(OutRuntimePipelineBatches, RuntimeAssignment.mPipelineName) };
+                    if (RuntimeBatch == nullptr) {
+                        RuntimePipelineBatch NewRuntimeBatch{};
+                        NewRuntimeBatch.mPipelineName = RuntimeAssignment.mPipelineName;
+                        NewRuntimeBatch.mPipelineId = PipelineDefinitionValue->GetPipelineId();
+                        OutRuntimePipelineBatches.push_back(std::move(NewRuntimeBatch));
+                        RuntimeBatch = &OutRuntimePipelineBatches.back();
+                    }
+
+                    RuntimeBatch->mRootEntityIds.push_back(EntityId);
+                    InOutAssignedUnitEntityIds.insert(EntityId);
+                }
+            }
+
+            bool TryCreateRuntimeBatchWorkUnit(const Scene& TargetScene, const RuntimePipelineBatch& RuntimeBatch, const std::unordered_set<Arche::EntityID>& AssignedUnitEntityIds, SceneWorkUnit& OutWorkUnit, SceneWorkUnitBuildResult& BuildResult) {
+                if (RuntimeBatch.mRootEntityIds.empty() == true) {
+                    return false;
+                }
+
+                if (RuntimeBatch.mPipelineId == InvalidPipelineId) {
+                    AddFailure(BuildResult, std::string{ "Runtime pipeline batch PipelineId is invalid: " } + RuntimeBatch.mPipelineName);
+                    return false;
+                }
+
+                std::vector<Arche::EntityID> EntityIds{};
+                std::unordered_set<Arche::EntityID> LocalVisitedEntityIds{};
+                for (Arche::EntityID RootEntityId : RuntimeBatch.mRootEntityIds) {
+                    if (TryCollectHierarchyEntityIds(TargetScene.GetWorld(), RootEntityId, RootEntityId, AssignedUnitEntityIds, LocalVisitedEntityIds, EntityIds, BuildResult) == false) {
+                        return false;
+                    }
+                }
+
+                OutWorkUnit = CreateRuntimeBatchWorkUnit(RuntimeBatch, std::move(EntityIds));
+                return true;
+            }
         }
 
         SceneWorkUnitBuildResult::SceneWorkUnitBuildResult() = default;
@@ -149,10 +244,12 @@ namespace Game {
         SceneWorkUnitBuildResult SceneWorkUnitBuilder::Build(const Scene& TargetScene, std::vector<SceneWorkUnit>& OutWorkUnits) const {
             SceneWorkUnitBuildResult BuildResult{};
             std::vector<SceneWorkUnit> NewWorkUnits{};
+            std::vector<UnitPipelineAssignment> EffectiveAssignments{ TargetScene.GetUnitPipelineAssignments() };
+            std::vector<RuntimePipelineBatch> RuntimePipelineBatches{};
             std::unordered_set<Arche::EntityID> AssignedUnitEntityIds{};
             std::unordered_map<Arche::EntityID, Arche::EntityID> WorkUnitOwnerByEntityId{};
 
-            for (const UnitPipelineAssignment& Assignment : TargetScene.GetUnitPipelineAssignments()) {
+            for (const UnitPipelineAssignment& Assignment : EffectiveAssignments) {
                 if (Assignment.mUnitEntityId == Arche::NullEntityID) {
                     AddFailure(BuildResult, "Unit EntityId is NullEntityID.");
                     continue;
@@ -164,7 +261,9 @@ namespace Game {
                 }
             }
 
-            for (const UnitPipelineAssignment& Assignment : TargetScene.GetUnitPipelineAssignments()) {
+            AppendRuntimePipelineBatches(TargetScene, AssignedUnitEntityIds, RuntimePipelineBatches, BuildResult);
+
+            for (const UnitPipelineAssignment& Assignment : EffectiveAssignments) {
                 if (ValidateAssignment(TargetScene, Assignment, BuildResult) == false) {
                     continue;
                 }
@@ -176,6 +275,19 @@ namespace Game {
                 }
 
                 SceneWorkUnit WorkUnit{ CreateSceneWorkUnit(Assignment, std::move(EntityIds)) };
+                if (TryAddWorkUnitEntityOwners(WorkUnit, WorkUnitOwnerByEntityId, BuildResult) == false) {
+                    continue;
+                }
+
+                NewWorkUnits.push_back(std::move(WorkUnit));
+            }
+
+            for (const RuntimePipelineBatch& RuntimePipelineBatchValue : RuntimePipelineBatches) {
+                SceneWorkUnit WorkUnit{};
+                if (TryCreateRuntimeBatchWorkUnit(TargetScene, RuntimePipelineBatchValue, AssignedUnitEntityIds, WorkUnit, BuildResult) == false) {
+                    continue;
+                }
+
                 if (TryAddWorkUnitEntityOwners(WorkUnit, WorkUnitOwnerByEntityId, BuildResult) == false) {
                     continue;
                 }

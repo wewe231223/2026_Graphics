@@ -3,6 +3,7 @@
 #include <span>
 #include <tuple>
 #include <type_traits>
+#include <unordered_set>
 #include <vector>
 #include "Arche/World.h"
 #include "Game/Scene/Components/Frustum.h"
@@ -41,6 +42,8 @@ namespace Game {
         public:
             Arche::EntityID GetUnitEntityId() const;
             bool ContainsEntity(Arche::EntityID EntityId) const;
+            Arche::World& GetWorld();
+            const Arche::World& GetWorld() const;
             const PipelineFrameInput& GetFrameInput() const;
             const std::vector<RegisteredMaterialGroup>* GetMaterialGroups() const;
             const ITerrainQuery* GetTerrainQuery() const;
@@ -70,6 +73,7 @@ namespace Game {
             Arche::World* mWorld{};
             Arche::EntityID mUnitEntityId{ Arche::NullEntityID };
             std::span<const Arche::EntityID> mEntityIds{};
+            std::unordered_set<Arche::EntityID> mEntityIdLookup{};
             PipelineFrameInput mFrameInput{};
             RenderGatherResult* mRenderGatherResult{};
         };

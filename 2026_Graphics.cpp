@@ -29,9 +29,10 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
 #include "Game/Base/RootSignature.h"
 #include "Game/Base/Pipeline.h"
 #include "Game/Base/Input.h"
-#include "Game/Scene/Scene.h"
-#include "Game/Scene/SceneYamlSerializer.h"
-#include "Game/Scene/Components/Name.h"
+#include "Game/Scene/Pipeline/PipelineScene.h"
+#include "Game/Scene/Pipeline/PipelineSceneYamlDeserializer.h"
+#include "Game/Scene/Pipeline/PipelineSystemRegistry.h"
+#include "Game/Scene/Pipeline/Systems/RegisterDefaultPipelineSystems.h"
 #include "External/Include/ImGui/imgui.h"
 #include "Widget/PerformanceProvider.h"
 #include "Widget/WidgetCore.h"
@@ -151,12 +152,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 
 
-    Game::Scene SceneInstance{};
+    Game::Pipeline::Scene SceneInstance{};
     SceneInstance.SetPhysicsTime(&PhysicsTime);
     SceneInstance.InitializeAssetRegistry(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator, directQueue.GetSrvHeap());
 
-    Game::SceneYamlSerializer SceneYamlSerializer{};
-    const Game::SceneYamlLoadResult SceneYamlLoadResult{ SceneYamlSerializer.DeserializeFromFile("Resources/DefaultScene.yaml", SceneInstance) };
+    Game::Pipeline::PipelineSystemRegistry PipelineRegistry{};
+    Game::Pipeline::RegisterDefaultPipelineSystems(PipelineRegistry);
+
+    Game::Pipeline::PipelineSceneYamlDeserializer SceneYamlDeserializer{};
+    const Game::Pipeline::PipelineSceneYamlLoadResult SceneYamlLoadResult{ SceneYamlDeserializer.DeserializeFromFiles("Resources/DefaultScene.yaml", "Resources/Pipelines/DefaultPipelines.yaml", SceneInstance) };
     ErrorHandler::report(SceneYamlLoadResult.IsSuccess == false, "WinMain", "Failed to load scene yaml.", ErrorHandler::Level::Warning);
 
     SceneInstance.InitializeWorldSnapshot();
@@ -190,73 +194,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             SceneInstance.SetRenderFrameIndex(directQueue.GetCurrentFrameIndex());
 
             if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().BeginPhaseProfile("PreUpdate");
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("DataPipelineFrame");
             }
-            SceneInstance.ExecutePhase(Game::Phase::PreUpdate, SceneDeltaTime);
-            if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().EndPhaseProfile();
-            }
-
-            if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().BeginPhaseProfile("Update");
-            }
-            SceneInstance.ExecutePhase(Game::Phase::Update, SceneDeltaTime);
-            if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().EndPhaseProfile();
-            }
-
-            if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().BeginPhaseProfile("PostUpdate");
-            }
-            SceneInstance.ExecutePhase(Game::Phase::PostUpdate, SceneDeltaTime);
-            if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().EndPhaseProfile();
-            }
-
-            if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().BeginPhaseProfile("PhysicsActorUpdate");
-            }
-            SceneInstance.ExecutePhase(Game::Phase::PhysicsActorUpdate, SceneDeltaTime);
-            if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().EndPhaseProfile();
-            }
-
-            if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().BeginPhaseProfile("IK");
-            }
-            SceneInstance.ExecutePhase(Game::Phase::IK, SceneDeltaTime);
-            if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().EndPhaseProfile();
-            }
-
-            if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().BeginPhaseProfile("TransformWorld");
-            }
-            SceneInstance.ExecutePhase(Game::Phase::TransformWorld, SceneDeltaTime);
-            if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().EndPhaseProfile();
-            }
-
-            if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().BeginPhaseProfile("RenderPrepare");
-            }
-            SceneInstance.ExecutePhase(Game::Phase::RenderPrepare, SceneDeltaTime);
-            if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().EndPhaseProfile();
-            }
-
-            if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().BeginPhaseProfile("Render");
-            }
-            SceneInstance.ExecutePhase(Game::Phase::Render, SceneDeltaTime);
-            if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().EndPhaseProfile();
-            }
-
-            if (!IsImGuiBlocked) {
-                Widget::PerformanceProvider::Get().BeginPhaseProfile("PostRender");
-            }
-            SceneInstance.ExecutePhase(Game::Phase::PostRender, SceneDeltaTime);
+            const Game::Pipeline::PipelineFrameExecutionResult PipelineResult{ SceneInstance.ExecuteDataPipelineFrame(SceneDeltaTime, PipelineRegistry) };
+            ErrorHandler::report(PipelineResult.IsSuccess == false, "WinMain", PipelineResult.FailureMessage, ErrorHandler::Level::Warning);
             if (!IsImGuiBlocked) {
                 Widget::PerformanceProvider::Get().EndPhaseProfile();
             }

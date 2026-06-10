@@ -12,6 +12,11 @@ Pipelines:
       - TransformWorldSystem
       - StaticRenderSystem
 
+  EnvironmentPipeline:
+    Systems:
+      - TransformWorldSystem
+      - StaticRenderSystem
+
   TerrainPipeline:
     Systems:
       - TransformWorldSystem

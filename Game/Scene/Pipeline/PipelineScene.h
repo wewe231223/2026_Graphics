@@ -75,6 +75,7 @@ namespace Game {
             RFD::RenderFrameData& GetRenderFrameData();
             const RFD::RenderFrameData& GetRenderFrameData() const;
             void SetRenderFrameIndex(std::uint32_t RenderFrameIndex);
+            void PrepareRender();
             PipelineFrameExecutionResult ExecuteDataPipelineFrame(float Dt, const PipelineSystemRegistry& Registry);
             void AddSynchronousSystem(std::unique_ptr<Game::ISystem> NewSystem);
 
@@ -109,6 +110,7 @@ namespace Game {
             std::uint32_t GetPhysicsWorldVersion() const;
             void SetPhysicsWorldVersion(std::uint32_t PhysicsWorldVersion);
             void RebuildPhysicsActors();
+            void UpdatePhysics(float Dt);
 
             Utility::Time* GetPhysicsTime() const;
             void SetPhysicsTime(Utility::Time* PhysicsTime);
@@ -123,6 +125,8 @@ namespace Game {
             void AddTerrainActorDesc(Arche::EntityID EntityId, const PhysicsTerrainActor::ActorDesc& TerrainActorDesc);
             void ClearTerrainActorDescs();
 
+            void InitializeWorldSnapshot();
+            void UpdateWorldSnapshotIfNeeded();
             SceneWorldSnapshot& GetWorldSnapshot();
             const SceneWorldSnapshot& GetWorldSnapshot() const;
 
@@ -164,6 +168,10 @@ namespace Game {
             void AppendDebugWorldAxes();
             bool CanAddPipelineDefinition(const PipelineDefinition& PipelineDefinitionValue) const;
             void InvalidateWorkUnits();
+            void RebuildWorldSnapshot();
+            void RegisterScriptTypes();
+            void AttachDefaultCameraControlBehavior();
+            void UpdateCameraVirtualMouseState();
 
         private:
             Arche::World mWorld{};
@@ -182,11 +190,13 @@ namespace Game {
             bool mIsPhysicsRuntimeModeEnabled{};
             bool mIsDebugGeometryDrawEnabled{};
             bool mIsBoundingBoxDrawEnabled{};
+            bool mIsDefaultCameraControlBehaviorAttached{};
 
             TerrainManager mTerrainManager{};
             std::vector<TerrainActorDescBinding> mTerrainActorDescBindings{};
 
             SceneWorldSnapshot mWorldSnapshot{};
+            std::uint64_t mWorldSnapshotVersion{};
             std::vector<PipelineDefinition> mPipelineDefinitions{};
             std::vector<UnitPipelineAssignment> mUnitPipelineAssignments{};
             std::vector<std::unique_ptr<Game::ISystem>> mSynchronousSystems{};
@@ -194,6 +204,7 @@ namespace Game {
             std::vector<SceneWorkUnit> mWorkUnits{};
             PipelineExecutor mPipelineExecutor{};
             std::uint64_t mWorkUnitBuildStructureVersion{};
+            std::uint64_t mWorkUnitBuildRuntimePipelineAssignmentVersion{};
         };
     }
 }

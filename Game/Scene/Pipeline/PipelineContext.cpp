@@ -1,13 +1,40 @@
 ﻿#include "PipelineContext.h"
 #include <algorithm>
+#include <cstddef>
+#include <unordered_set>
 #include <utility>
 
 namespace Game {
     namespace Pipeline {
+        namespace {
+            constexpr std::size_t EntityIdLookupBuildThreshold{ 64ULL };
+
+            std::unordered_set<Arche::EntityID> BuildEntityIdLookup(std::span<const Arche::EntityID> EntityIds);
+
+            std::unordered_set<Arche::EntityID> BuildEntityIdLookup(std::span<const Arche::EntityID> EntityIds) {
+                std::unordered_set<Arche::EntityID> EntityIdLookup{};
+                if (EntityIds.size() < EntityIdLookupBuildThreshold) {
+                    return EntityIdLookup;
+                }
+
+                EntityIdLookup.reserve(EntityIds.size());
+                for (const Arche::EntityID EntityId : EntityIds) {
+                    if (EntityId == Arche::NullEntityID) {
+                        continue;
+                    }
+
+                    EntityIdLookup.insert(EntityId);
+                }
+
+                return EntityIdLookup;
+            }
+        }
+
         PipelineContext::PipelineContext(Arche::World& World, Arche::EntityID UnitEntityId, std::span<const Arche::EntityID> EntityIds, const PipelineFrameInput& FrameInput, RenderGatherResult& RenderGatherResult)
             : mWorld{ &World },
             mUnitEntityId{ UnitEntityId },
             mEntityIds{ EntityIds },
+            mEntityIdLookup{ BuildEntityIdLookup(EntityIds) },
             mFrameInput{ FrameInput },
             mRenderGatherResult{ &RenderGatherResult } {
         }
@@ -19,6 +46,7 @@ namespace Game {
             : mWorld{ Other.mWorld },
             mUnitEntityId{ Other.mUnitEntityId },
             mEntityIds{ Other.mEntityIds },
+            mEntityIdLookup{ Other.mEntityIdLookup },
             mFrameInput{ Other.mFrameInput },
             mRenderGatherResult{ Other.mRenderGatherResult } {
         }
@@ -31,6 +59,7 @@ namespace Game {
             mWorld = Other.mWorld;
             mUnitEntityId = Other.mUnitEntityId;
             mEntityIds = Other.mEntityIds;
+            mEntityIdLookup = Other.mEntityIdLookup;
             mFrameInput = Other.mFrameInput;
             mRenderGatherResult = Other.mRenderGatherResult;
             return *this;
@@ -40,6 +69,7 @@ namespace Game {
             : mWorld{ std::move(Other.mWorld) },
             mUnitEntityId{ std::move(Other.mUnitEntityId) },
             mEntityIds{ std::move(Other.mEntityIds) },
+            mEntityIdLookup{ std::move(Other.mEntityIdLookup) },
             mFrameInput{ std::move(Other.mFrameInput) },
             mRenderGatherResult{ std::move(Other.mRenderGatherResult) } {
         }
@@ -52,6 +82,7 @@ namespace Game {
             mWorld = std::move(Other.mWorld);
             mUnitEntityId = std::move(Other.mUnitEntityId);
             mEntityIds = std::move(Other.mEntityIds);
+            mEntityIdLookup = std::move(Other.mEntityIdLookup);
             mFrameInput = std::move(Other.mFrameInput);
             mRenderGatherResult = std::move(Other.mRenderGatherResult);
             return *this;
@@ -70,8 +101,20 @@ namespace Game {
                 return true;
             }
 
+            if (mEntityIdLookup.empty() == false) {
+                return mEntityIdLookup.find(EntityId) != mEntityIdLookup.end();
+            }
+
             const std::span<const Arche::EntityID>::iterator EntityIter{ std::find(mEntityIds.begin(), mEntityIds.end(), EntityId) };
             return EntityIter != mEntityIds.end();
+        }
+
+        Arche::World& PipelineContext::GetWorld() {
+            return *mWorld;
+        }
+
+        const Arche::World& PipelineContext::GetWorld() const {
+            return *mWorld;
         }
 
         const PipelineFrameInput& PipelineContext::GetFrameInput() const {

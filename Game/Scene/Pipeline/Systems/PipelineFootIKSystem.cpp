@@ -1,22 +1,21 @@
 #include "PipelineFootIKSystem.h"
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
-#include <vector>
 #include "Game/Scene/Components/Animator.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
+#include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/FootIKRig.h"
 #include "Game/Scene/Components/FootIKRuntime.h"
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/Transform.h"
+#include "Game/Scene/IK/FabrikFootIKSolver.h"
 #include "Game/Scene/IK/FootIKAlgorithms.h"
 #include "Game/Scene/Pipeline/PipelineContext.h"
 #include "Game/Terrain/TerrainQuery.h"
@@ -25,240 +24,117 @@
 namespace Game {
     namespace Pipeline {
         namespace {
+            constexpr std::size_t MinimumRayHitCountForFootSurfaceAlignment{ 3ULL };
+
             struct FootIKSolveTarget final {
             public:
                 bool mIsTargetResolved{};
                 float mRawTargetOffset{};
+                bool mIsGroundNormalResolved{};
+                SimpleMath::Vector3 mRayOppositeDirection{ SimpleMath::Vector3::Up };
                 SimpleMath::Vector3 mGroundNormal{ SimpleMath::Vector3::Up };
                 SimpleMath::Vector3 mTargetFootWorldPosition{};
             };
 
-            SimpleMath::Matrix BuildLocalWorldMatrix(const Transform& TransformComponent) {
-                const SimpleMath::Matrix TrsMatrix{ SimpleMath::Matrix::CreateScale(TransformComponent.scale) * SimpleMath::Matrix::CreateFromQuaternion(TransformComponent.rotation) * SimpleMath::Matrix::CreateTranslation(TransformComponent.position) };
-                return TransformComponent.nodeToParent * TrsMatrix;
-            }
+            bool TryResolveRaycastHitOnTerrain(const ITerrainQuery& TerrainQuery, const SimpleMath::Ray& Ray, float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal);
+            void AppendFootCornerDebugLines(PipelineContext& Ctx, const ITerrainQuery& TerrainQuery, Arche::EntityID FootEntityId, Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices);
 
-            bool TryResolveWorldMatrix(PipelineContext& Ctx, Arche::EntityID EntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, SimpleMath::Matrix& OutWorldMatrix) {
-                const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>::const_iterator CachedWorldMatrixIter{ InOutWorldMatrices.find(EntityId) };
-                if (CachedWorldMatrixIter != InOutWorldMatrices.end()) {
-                    OutWorldMatrix = CachedWorldMatrixIter->second;
-                    return true;
-                }
-
-                std::vector<Arche::EntityID> EntityPath{};
-                Arche::EntityID CurrentEntityId{ EntityId };
-                SimpleMath::Matrix ParentWorldMatrix{ SimpleMath::Matrix::Identity };
-                while (CurrentEntityId != Arche::NullEntityID && Ctx.ContainsEntity(CurrentEntityId) == true) {
-                    const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>::const_iterator CurrentCachedWorldMatrixIter{ InOutWorldMatrices.find(CurrentEntityId) };
-                    if (CurrentCachedWorldMatrixIter != InOutWorldMatrices.end()) {
-                        ParentWorldMatrix = CurrentCachedWorldMatrixIter->second;
-                        break;
-                    }
-
-                    const Transform* TransformComponent{ Ctx.ReadComponent<Transform>(CurrentEntityId) };
-                    const EntityHierarchy* HierarchyComponent{ Ctx.ReadComponent<EntityHierarchy>(CurrentEntityId) };
-                    if (TransformComponent == nullptr || HierarchyComponent == nullptr) {
-                        return false;
-                    }
-
-                    EntityPath.push_back(CurrentEntityId);
-                    CurrentEntityId = HierarchyComponent->parent;
-                }
-
-                for (std::vector<Arche::EntityID>::const_reverse_iterator EntityPathIter{ EntityPath.crbegin() }; EntityPathIter != EntityPath.crend(); ++EntityPathIter) {
-                    const Arche::EntityID CurrentPathEntityId{ *EntityPathIter };
-                    const Transform* TransformComponent{ Ctx.ReadComponent<Transform>(CurrentPathEntityId) };
-                    if (TransformComponent == nullptr) {
-                        return false;
-                    }
-
-                    const SimpleMath::Matrix LocalWorldMatrix{ BuildLocalWorldMatrix(*TransformComponent) };
-                    const SimpleMath::Matrix CurrentWorldMatrix{ LocalWorldMatrix * ParentWorldMatrix };
-                    InOutWorldMatrices[CurrentPathEntityId] = CurrentWorldMatrix;
-                    ParentWorldMatrix = CurrentWorldMatrix;
-                }
-
-                OutWorldMatrix = ParentWorldMatrix;
-                return true;
-            }
-
-            Arche::EntityID FindBoneEntityByNameInHierarchy(PipelineContext& Ctx, Arche::EntityID RootEntityId, std::string_view TargetNameText) {
-                if (RootEntityId == Arche::NullEntityID || TargetNameText.empty() == true || Ctx.ContainsEntity(RootEntityId) == false) {
-                    return Arche::NullEntityID;
-                }
-
-                std::vector<Arche::EntityID> Stack{};
-                Stack.reserve(256u);
-                Stack.push_back(RootEntityId);
-                while (Stack.empty() == false) {
-                    const Arche::EntityID CurrentEntityId{ Stack.back() };
-                    Stack.pop_back();
-                    if (Ctx.ContainsEntity(CurrentEntityId) == false) {
-                        continue;
-                    }
-
-                    const Bone* BoneComponent{ Ctx.ReadComponent<Bone>(CurrentEntityId) };
-                    const Name* NameComponent{ Ctx.ReadComponent<Name>(CurrentEntityId) };
-                    if (BoneComponent != nullptr && NameComponent != nullptr) {
-                        const std::string_view CurrentNameText{ GetNameTextView(*NameComponent) };
-                        if (CurrentNameText == TargetNameText) {
-                            return CurrentEntityId;
-                        }
-                    }
-
-                    const EntityHierarchy* HierarchyComponent{ Ctx.ReadComponent<EntityHierarchy>(CurrentEntityId) };
-                    if (HierarchyComponent == nullptr) {
-                        continue;
-                    }
-
-                    Arche::EntityID ChildEntityId{ HierarchyComponent->firstChild };
-                    while (ChildEntityId != Arche::NullEntityID) {
-                        if (Ctx.ContainsEntity(ChildEntityId) == true) {
-                            Stack.push_back(ChildEntityId);
-                        }
-
-                        const EntityHierarchy* ChildHierarchyComponent{ Ctx.ReadComponent<EntityHierarchy>(ChildEntityId) };
-                        ChildEntityId = ChildHierarchyComponent == nullptr ? Arche::NullEntityID : ChildHierarchyComponent->nextSibling;
-                    }
-                }
-
-                return Arche::NullEntityID;
-            }
-
-            bool IsCachedBoneEntityValid(PipelineContext& Ctx, Arche::EntityID EntityId, std::string_view ExpectedBoneNameText) {
-                if (ExpectedBoneNameText.empty() == true) {
-                    return EntityId == Arche::NullEntityID;
-                }
-
-                if (EntityId == Arche::NullEntityID || Ctx.ContainsEntity(EntityId) == false) {
+            bool TryResolveRaycastHitOnTerrain(const ITerrainQuery& TerrainQuery, const SimpleMath::Ray& Ray, float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal) {
+                if (MathUtility::IsFiniteVector3(Ray.position) == false || MathUtility::IsFiniteVector3(Ray.direction) == false || MathUtility::IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
                     return false;
                 }
 
-                const Bone* BoneComponent{ Ctx.ReadComponent<Bone>(EntityId) };
-                const Name* NameComponent{ Ctx.ReadComponent<Name>(EntityId) };
-                if (BoneComponent == nullptr || NameComponent == nullptr) {
-                    return false;
-                }
-
-                return GetNameTextView(*NameComponent) == ExpectedBoneNameText;
-            }
-
-            void ResolveFootBoneEntities(PipelineContext& Ctx, const FootIKRig& FootIKRigComponent, Arche::EntityID BoneRootEntityId, FootIKRuntime& InOutRuntimeComponent) {
-                InOutRuntimeComponent.mLeftFootEntityId = FindBoneEntityByNameInHierarchy(Ctx, BoneRootEntityId, GetFootIKRigBoneNameText(FootIKRigComponent.mLeftFootBoneName));
-                InOutRuntimeComponent.mRightFootEntityId = FindBoneEntityByNameInHierarchy(Ctx, BoneRootEntityId, GetFootIKRigBoneNameText(FootIKRigComponent.mRightFootBoneName));
-                InOutRuntimeComponent.mLeftToeEntityId = FindBoneEntityByNameInHierarchy(Ctx, BoneRootEntityId, GetFootIKRigBoneNameText(FootIKRigComponent.mLeftToeBoneName));
-                InOutRuntimeComponent.mRightToeEntityId = FindBoneEntityByNameInHierarchy(Ctx, BoneRootEntityId, GetFootIKRigBoneNameText(FootIKRigComponent.mRightToeBoneName));
-                InOutRuntimeComponent.mLeftShinEntityId = FindBoneEntityByNameInHierarchy(Ctx, BoneRootEntityId, GetFootIKRigBoneNameText(FootIKRigComponent.mLeftShinBoneName));
-                InOutRuntimeComponent.mRightShinEntityId = FindBoneEntityByNameInHierarchy(Ctx, BoneRootEntityId, GetFootIKRigBoneNameText(FootIKRigComponent.mRightShinBoneName));
-                InOutRuntimeComponent.mLeftThighEntityId = FindBoneEntityByNameInHierarchy(Ctx, BoneRootEntityId, GetFootIKRigBoneNameText(FootIKRigComponent.mLeftThighBoneName));
-                InOutRuntimeComponent.mRightThighEntityId = FindBoneEntityByNameInHierarchy(Ctx, BoneRootEntityId, GetFootIKRigBoneNameText(FootIKRigComponent.mRightThighBoneName));
-                InOutRuntimeComponent.mPelvisEntityId = FindBoneEntityByNameInHierarchy(Ctx, BoneRootEntityId, GetFootIKRigBoneNameText(FootIKRigComponent.mPelvisBoneName));
-                InOutRuntimeComponent.mResolved = InOutRuntimeComponent.mLeftFootEntityId != Arche::NullEntityID || InOutRuntimeComponent.mRightFootEntityId != Arche::NullEntityID;
-            }
-
-            bool TryResolveTerrainTarget(PipelineContext& Ctx, const ITerrainQuery& TerrainQuery, Arche::EntityID FootEntityId, float MaxLift, float MaxDrop, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, FootIKSolveTarget& OutSolveTarget) {
-                SimpleMath::Matrix FootWorldMatrix{};
-                if (TryResolveWorldMatrix(Ctx, FootEntityId, InOutWorldMatrices, FootWorldMatrix) == false) {
-                    return false;
-                }
-
-                SimpleMath::Vector3 FootWorldScale{};
-                SimpleMath::Quaternion FootWorldRotation{};
-                SimpleMath::Vector3 FootWorldPosition{};
-                const bool IsDecomposed{ FootWorldMatrix.Decompose(FootWorldScale, FootWorldRotation, FootWorldPosition) };
-                if (IsDecomposed == false || MathUtility::IsFiniteVector3(FootWorldPosition) == false) {
-                    return false;
-                }
-
-                const float RayLength{ std::max(MaxLift, 0.0f) + std::max(MaxDrop, 0.0f) + 0.05f };
-                if (RayLength <= 0.0f) {
-                    return false;
-                }
-
-                const SimpleMath::Vector3 RayStartPoint{ FootWorldPosition + (SimpleMath::Vector3::Up * std::max(MaxLift, 0.0f)) };
-                const SimpleMath::Ray Ray{ RayStartPoint, SimpleMath::Vector3::Down };
-                SimpleMath::Vector3 HitPosition{};
-                SimpleMath::Vector3 HitNormal{ SimpleMath::Vector3::Up };
                 float HitDistance{};
-                const bool IsHit{ TerrainQuery.TryRaycast(Ray, RayLength, HitPosition, HitNormal, HitDistance) };
-                if (IsHit == false || MathUtility::IsFiniteVector3(HitPosition) == false || MathUtility::IsFiniteVector3(HitNormal) == false || MathUtility::IsFiniteFloat(HitDistance) == false) {
+                const bool IsHit{ TerrainQuery.TryRaycast(Ray, RayLength, OutHitPoint, OutHitNormal, HitDistance) };
+                if (IsHit == false || MathUtility::IsFiniteVector3(OutHitPoint) == false || MathUtility::IsFiniteVector3(OutHitNormal) == false || MathUtility::IsFiniteFloat(HitDistance) == false || HitDistance < 0.0f || HitDistance > RayLength) {
                     return false;
                 }
 
-                OutSolveTarget.mIsTargetResolved = true;
-                OutSolveTarget.mRawTargetOffset = HitPosition.y - FootWorldPosition.y;
-                OutSolveTarget.mGroundNormal = HitNormal;
-                OutSolveTarget.mTargetFootWorldPosition = HitPosition;
                 return true;
             }
 
-            bool TryApplyOffsetToTransform(PipelineContext& Ctx, Arche::EntityID EntityId, float OffsetY) {
-                Transform* TransformComponent{ Ctx.WriteComponent<Transform>(EntityId) };
-                if (TransformComponent == nullptr || MathUtility::IsFiniteFloat(OffsetY) == false) {
-                    return false;
-                }
-
-                TransformComponent->position.y += OffsetY;
-                return true;
-            }
-
-            void AppendFootDebugRay(PipelineContext& Ctx, const ITerrainQuery& TerrainQuery, Arche::EntityID EntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+            void AppendFootCornerDebugLines(PipelineContext& Ctx, const ITerrainQuery& TerrainQuery, Arche::EntityID FootEntityId, Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
                 if (Ctx.HasRenderFlag(RFD::FrameGlobalFlagDrawDebugGeometry) == false) {
                     return;
                 }
 
-                SimpleMath::Matrix WorldMatrix{};
-                if (TryResolveWorldMatrix(Ctx, EntityId, InOutWorldMatrices, WorldMatrix) == false) {
-                    return;
-                }
-
-                SimpleMath::Vector3 WorldScale{};
-                SimpleMath::Quaternion WorldRotation{};
-                SimpleMath::Vector3 WorldPosition{};
-                if (WorldMatrix.Decompose(WorldScale, WorldRotation, WorldPosition) == false || MathUtility::IsFiniteVector3(WorldPosition) == false) {
-                    return;
-                }
-
                 constexpr float RayStartOffset{ 0.3f };
-                constexpr float RayLength{ 0.5f };
-                constexpr float LineThickness{ 0.0025f };
-                constexpr SimpleMath::Vector4 RayColor{ 0.35f, 1.0f, 0.45f, 1.0f };
-                constexpr SimpleMath::Vector4 HitColor{ 1.0f, 0.15f, 0.15f, 1.0f };
-                constexpr SimpleMath::Vector4 HitNormalColor{ 0.15f, 0.65f, 1.0f, 1.0f };
-                const SimpleMath::Vector3 RayStartPoint{ WorldPosition + (SimpleMath::Vector3::Up * RayStartOffset) };
-                const SimpleMath::Ray Ray{ RayStartPoint, SimpleMath::Vector3::Down };
-                SimpleMath::Vector3 HitPoint{};
-                SimpleMath::Vector3 HitNormal{ SimpleMath::Vector3::Up };
-                float HitDistance{};
-                const bool IsHit{ TerrainQuery.TryRaycast(Ray, RayLength, HitPoint, HitNormal, HitDistance) };
-                Ctx.GetRenderGatherResult().GetDebugGeometryContexts().push_back(RFD::DebugGeometryContext::CreateDirection(RayStartPoint, SimpleMath::Vector3::Down, RayLength, IsHit == true ? HitColor : RayColor, LineThickness));
-                if (IsHit == true) {
-                    Ctx.GetRenderGatherResult().GetDebugGeometryContexts().push_back(RFD::DebugGeometryContext::CreateDirection(HitPoint, HitNormal, 0.12f, HitNormalColor, LineThickness));
+                constexpr float RayLineLength{ 0.3f + 0.2f };
+                constexpr float HitNormalLineLength{ 0.12f };
+                constexpr float CornerLineThickness{ 0.0025f };
+                constexpr SimpleMath::Vector4 CornerLineColor{ 0.35f, 1.0f, 0.45f, 1.0f };
+                constexpr SimpleMath::Vector4 HitLineColor{ 1.0f, 0.15f, 0.15f, 1.0f };
+                constexpr SimpleMath::Vector4 HitNormalLineColor{ 0.15f, 0.65f, 1.0f, 1.0f };
+
+                std::array<SimpleMath::Vector3, 4ULL> CornerPoints{};
+                std::array<SimpleMath::Vector3, 4ULL> CornerDirections{};
+                const bool IsCornerPointsResolved{ IK::TryResolveFootObbAndToeObbCorners(Ctx.GetWorld(), FootEntityId, ToeEntityId, InOutWorldMatrices, CornerPoints, CornerDirections) };
+                if (IsCornerPointsResolved == false) {
+                    return;
+                }
+
+                for (std::size_t CornerIndex{}; CornerIndex < CornerPoints.size(); ++CornerIndex) {
+                    const SimpleMath::Vector3& CornerPoint{ CornerPoints[CornerIndex] };
+                    const SimpleMath::Vector3& RayDirection{ CornerDirections[CornerIndex] };
+                    const SimpleMath::Vector3 RayStartPoint{ CornerPoint - (RayDirection * RayStartOffset) };
+                    if (MathUtility::IsFiniteVector3(RayStartPoint) == false) {
+                        continue;
+                    }
+
+                    const SimpleMath::Ray Ray{ RayStartPoint, RayDirection };
+                    SimpleMath::Vector3 HitPoint{};
+                    SimpleMath::Vector3 HitNormal{ SimpleMath::Vector3::Up };
+                    const bool IsTerrainHit{ TryResolveRaycastHitOnTerrain(TerrainQuery, Ray, RayLineLength, HitPoint, HitNormal) };
+                    if (IsTerrainHit == true && HitNormal.Dot(RayDirection) > 0.0f) {
+                        HitNormal *= -1.0f;
+                    }
+
+                    const SimpleMath::Vector4& LineColor{ IsTerrainHit == true ? HitLineColor : CornerLineColor };
+                    Ctx.GetRenderGatherResult().GetDebugGeometryContexts().push_back(RFD::DebugGeometryContext::CreateDirection(RayStartPoint, RayDirection, RayLineLength, LineColor, CornerLineThickness));
+                    if (IsTerrainHit == true) {
+                        Ctx.GetRenderGatherResult().GetDebugGeometryContexts().push_back(RFD::DebugGeometryContext::CreateDirection(HitPoint, HitNormal, HitNormalLineLength, HitNormalLineColor, CornerLineThickness));
+                    }
                 }
             }
         }
 
-        PipelineFootIKSystem::PipelineFootIKSystem() {
+        PipelineFootIKSystem::PipelineFootIKSystem()
+            : mFootIKSolver{ CreateFabrikFootIKSolver() } {
         }
 
         PipelineFootIKSystem::~PipelineFootIKSystem() {
         }
 
-        PipelineFootIKSystem::PipelineFootIKSystem(const PipelineFootIKSystem& Other) {
-            (void)Other;
+        PipelineFootIKSystem::PipelineFootIKSystem(const PipelineFootIKSystem& Other)
+            : mFootIKSolver{ Other.mFootIKSolver == nullptr ? CreateFabrikFootIKSolver() : Other.mFootIKSolver->Clone() } {
         }
 
         PipelineFootIKSystem& PipelineFootIKSystem::operator=(const PipelineFootIKSystem& Other) {
-            (void)Other;
+            if (this == &Other) {
+                return *this;
+            }
+
+            mFootIKSolver = Other.mFootIKSolver == nullptr ? CreateFabrikFootIKSolver() : Other.mFootIKSolver->Clone();
             return *this;
         }
 
-        PipelineFootIKSystem::PipelineFootIKSystem(PipelineFootIKSystem&& Other) noexcept {
-            (void)Other;
+        PipelineFootIKSystem::PipelineFootIKSystem(PipelineFootIKSystem&& Other) noexcept
+            : mFootIKSolver{ std::move(Other.mFootIKSolver) } {
+            if (mFootIKSolver == nullptr) {
+                mFootIKSolver = CreateFabrikFootIKSolver();
+            }
         }
 
         PipelineFootIKSystem& PipelineFootIKSystem::operator=(PipelineFootIKSystem&& Other) noexcept {
-            (void)Other;
+            if (this == &Other) {
+                return *this;
+            }
+
+            mFootIKSolver = std::move(Other.mFootIKSolver);
+            if (mFootIKSolver == nullptr) {
+                mFootIKSolver = CreateFabrikFootIKSolver();
+            }
+
             return *this;
         }
 
@@ -269,63 +145,174 @@ namespace Game {
 
         void PipelineFootIKSystem::Execute(PipelineContext& Ctx, float Dt) {
             const ITerrainQuery* TerrainQueryResource{ Ctx.GetTerrainQuery() };
-            if (TerrainQueryResource == nullptr) {
-                return;
-            }
+            Arche::World& World{ Ctx.GetWorld() };
+            const Arche::World::WorldReadOnlyView& ReadOnlyWorld{ std::as_const(World).GetReadOnlyView() };
 
             std::unordered_map<Arche::EntityID, SimpleMath::Matrix> WorldMatrices{};
-            WorldMatrices.reserve(1024u);
-            Ctx.ForEach<Animator, FootIKRig, BoneSkinReference, Transform, FootIKRuntime, EntityHierarchy>([&](Animator& AnimatorComponent, FootIKRig& FootIKRigComponent, BoneSkinReference& BoneSkinReferenceComponent, Transform& TransformComponent, FootIKRuntime& RuntimeComponent, EntityHierarchy& HierarchyComponent) {
+            WorldMatrices.reserve(1024ULL);
+
+            Ctx.ForEach<Animator, FootIKRig, BoneSkinReference, Transform, FootIKRuntime, EntityHierarchy>([&](Animator& AnimatorComponent, FootIKRig& FootIKRigComponent, BoneSkinReference& BoneSkinReferenceComponent, Transform& TransformComponent, FootIKRuntime& FootIKRuntimeComponent, EntityHierarchy& EntityHierarchyComponent) {
                 (void)AnimatorComponent;
                 (void)TransformComponent;
-                (void)HierarchyComponent;
+                (void)EntityHierarchyComponent;
 
                 const std::string_view LeftFootBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftFootBoneName) };
                 const std::string_view RightFootBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightFootBoneName) };
                 const std::string_view LeftToeBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftToeBoneName) };
                 const std::string_view RightToeBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightToeBoneName) };
-                const bool IsRuntimeValid{ IsCachedBoneEntityValid(Ctx, RuntimeComponent.mLeftFootEntityId, LeftFootBoneNameText) == true && IsCachedBoneEntityValid(Ctx, RuntimeComponent.mRightFootEntityId, RightFootBoneNameText) == true && IsCachedBoneEntityValid(Ctx, RuntimeComponent.mLeftToeEntityId, LeftToeBoneNameText) == true && IsCachedBoneEntityValid(Ctx, RuntimeComponent.mRightToeEntityId, RightToeBoneNameText) == true };
-                if (IsRuntimeValid == false) {
-                    RuntimeComponent.mResolved = false;
+                const std::string_view LeftShinBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftShinBoneName) };
+                const std::string_view RightShinBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightShinBoneName) };
+                const std::string_view LeftThighBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mLeftThighBoneName) };
+                const std::string_view RightThighBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mRightThighBoneName) };
+                const std::string_view PelvisBoneNameText{ GetFootIKRigBoneNameText(FootIKRigComponent.mPelvisBoneName) };
+
+                const bool IsLeftFootCachedEntityValid{ IK::IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mLeftFootEntityId, LeftFootBoneNameText) };
+                const bool IsRightFootCachedEntityValid{ IK::IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mRightFootEntityId, RightFootBoneNameText) };
+                const bool IsLeftToeCachedEntityValid{ IK::IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mLeftToeEntityId, LeftToeBoneNameText) };
+                const bool IsRightToeCachedEntityValid{ IK::IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mRightToeEntityId, RightToeBoneNameText) };
+                const bool IsLeftShinCachedEntityValid{ IK::IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mLeftShinEntityId, LeftShinBoneNameText) };
+                const bool IsRightShinCachedEntityValid{ IK::IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mRightShinEntityId, RightShinBoneNameText) };
+                const bool IsLeftThighCachedEntityValid{ IK::IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mLeftThighEntityId, LeftThighBoneNameText) };
+                const bool IsRightThighCachedEntityValid{ IK::IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mRightThighEntityId, RightThighBoneNameText) };
+                const bool IsPelvisCachedEntityValid{ IK::IsCachedBoneEntityValid(ReadOnlyWorld, FootIKRuntimeComponent.mPelvisEntityId, PelvisBoneNameText) };
+                if (IsLeftFootCachedEntityValid == false || IsRightFootCachedEntityValid == false || IsLeftToeCachedEntityValid == false || IsRightToeCachedEntityValid == false || IsLeftShinCachedEntityValid == false || IsRightShinCachedEntityValid == false || IsLeftThighCachedEntityValid == false || IsRightThighCachedEntityValid == false || IsPelvisCachedEntityValid == false) {
+                    FootIKRuntimeComponent.mResolved = false;
                 }
 
-                if (RuntimeComponent.mResolved == false) {
-                    ResolveFootBoneEntities(Ctx, FootIKRigComponent, BoneSkinReferenceComponent.boneRootEntityId, RuntimeComponent);
+                if (FootIKRuntimeComponent.mResolved == false) {
+                    IK::ResolveFootBoneEntities(ReadOnlyWorld, FootIKRigComponent, BoneSkinReferenceComponent.boneRootEntityId, FootIKRuntimeComponent);
                 }
 
                 FootIKSolveTarget LeftSolveTarget{};
                 FootIKSolveTarget RightSolveTarget{};
-                if (FootIKRigComponent.mEnabled == true && RuntimeComponent.mResolved == true) {
-                    static_cast<void>(TryResolveTerrainTarget(Ctx, *TerrainQueryResource, RuntimeComponent.mLeftFootEntityId, FootIKRigComponent.mMaxLift, FootIKRigComponent.mMaxDrop, WorldMatrices, LeftSolveTarget));
-                    static_cast<void>(TryResolveTerrainTarget(Ctx, *TerrainQueryResource, RuntimeComponent.mRightFootEntityId, FootIKRigComponent.mMaxLift, FootIKRigComponent.mMaxDrop, WorldMatrices, RightSolveTarget));
+                if (FootIKRigComponent.mEnabled == true && FootIKRuntimeComponent.mResolved == true && TerrainQueryResource != nullptr) {
+                    float LeftResolvedTargetOffset{};
+                    SimpleMath::Vector3 LeftResolvedRayOppositeDirection{ SimpleMath::Vector3::Up };
+                    SimpleMath::Vector3 LeftResolvedGroundNormal{ SimpleMath::Vector3::Up };
+                    SimpleMath::Vector3 LeftResolvedTargetFootWorldPosition{};
+                    std::size_t LeftResolvedHitCount{};
+                    const bool IsLeftTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, *TerrainQueryResource, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, WorldMatrices, LeftResolvedTargetOffset, LeftResolvedRayOppositeDirection, LeftResolvedGroundNormal, LeftResolvedTargetFootWorldPosition, LeftResolvedHitCount) };
+                    if (IsLeftTargetOffsetResolved == true && LeftResolvedHitCount >= MinimumRayHitCountForFootSurfaceAlignment) {
+                        LeftSolveTarget.mIsTargetResolved = true;
+                        LeftSolveTarget.mRawTargetOffset = LeftResolvedTargetOffset;
+                        LeftSolveTarget.mIsGroundNormalResolved = true;
+                        LeftSolveTarget.mRayOppositeDirection = LeftResolvedRayOppositeDirection;
+                        LeftSolveTarget.mGroundNormal = LeftResolvedGroundNormal;
+                        LeftSolveTarget.mTargetFootWorldPosition = LeftResolvedTargetFootWorldPosition;
+                    }
+
+                    float RightResolvedTargetOffset{};
+                    SimpleMath::Vector3 RightResolvedRayOppositeDirection{ SimpleMath::Vector3::Up };
+                    SimpleMath::Vector3 RightResolvedGroundNormal{ SimpleMath::Vector3::Up };
+                    SimpleMath::Vector3 RightResolvedTargetFootWorldPosition{};
+                    std::size_t RightResolvedHitCount{};
+                    const bool IsRightTargetOffsetResolved{ IK::TryResolveFootTargetOffset(World, *TerrainQueryResource, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, WorldMatrices, RightResolvedTargetOffset, RightResolvedRayOppositeDirection, RightResolvedGroundNormal, RightResolvedTargetFootWorldPosition, RightResolvedHitCount) };
+                    if (IsRightTargetOffsetResolved == true && RightResolvedHitCount >= MinimumRayHitCountForFootSurfaceAlignment) {
+                        RightSolveTarget.mIsTargetResolved = true;
+                        RightSolveTarget.mRawTargetOffset = RightResolvedTargetOffset;
+                        RightSolveTarget.mIsGroundNormalResolved = true;
+                        RightSolveTarget.mRayOppositeDirection = RightResolvedRayOppositeDirection;
+                        RightSolveTarget.mGroundNormal = RightResolvedGroundNormal;
+                        RightSolveTarget.mTargetFootWorldPosition = RightResolvedTargetFootWorldPosition;
+                    }
                 }
 
                 const float MaxLift{ std::max(FootIKRigComponent.mMaxLift, 0.0f) };
                 const float MaxDrop{ std::max(FootIKRigComponent.mMaxDrop, 0.0f) };
                 const float LeftTargetOffset{ LeftSolveTarget.mIsTargetResolved == true ? std::clamp(LeftSolveTarget.mRawTargetOffset, -MaxDrop, MaxLift) : 0.0f };
                 const float RightTargetOffset{ RightSolveTarget.mIsTargetResolved == true ? std::clamp(RightSolveTarget.mRawTargetOffset, -MaxDrop, MaxLift) : 0.0f };
-                const float PreviousLeftOffset{ MathUtility::IsFiniteFloat(RuntimeComponent.mLeftCurrentOffset) == true ? RuntimeComponent.mLeftCurrentOffset : 0.0f };
-                const float PreviousRightOffset{ MathUtility::IsFiniteFloat(RuntimeComponent.mRightCurrentOffset) == true ? RuntimeComponent.mRightCurrentOffset : 0.0f };
+
+                const float PreviousLeftOffset{ MathUtility::IsFiniteFloat(FootIKRuntimeComponent.mLeftCurrentOffset) == true ? FootIKRuntimeComponent.mLeftCurrentOffset : 0.0f };
+                const float PreviousRightOffset{ MathUtility::IsFiniteFloat(FootIKRuntimeComponent.mRightCurrentOffset) == true ? FootIKRuntimeComponent.mRightCurrentOffset : 0.0f };
                 const float SmoothedLeftOffset{ IK::ResolveSmoothedOffset(PreviousLeftOffset, LeftTargetOffset, FootIKRigComponent.mBlendSpeed, Dt) };
                 const float SmoothedRightOffset{ IK::ResolveSmoothedOffset(PreviousRightOffset, RightTargetOffset, FootIKRigComponent.mBlendSpeed, Dt) };
-                const float LeftOffsetDelta{ SmoothedLeftOffset - PreviousLeftOffset };
-                const float RightOffsetDelta{ SmoothedRightOffset - PreviousRightOffset };
-                RuntimeComponent.mLeftCurrentOffset = MathUtility::IsFiniteFloat(SmoothedLeftOffset) == true ? SmoothedLeftOffset : 0.0f;
-                RuntimeComponent.mRightCurrentOffset = MathUtility::IsFiniteFloat(SmoothedRightOffset) == true ? SmoothedRightOffset : 0.0f;
+                FootIKRuntimeComponent.mLeftCurrentOffset = MathUtility::IsFiniteFloat(SmoothedLeftOffset) == true ? SmoothedLeftOffset : 0.0f;
+                FootIKRuntimeComponent.mRightCurrentOffset = MathUtility::IsFiniteFloat(SmoothedRightOffset) == true ? SmoothedRightOffset : 0.0f;
 
-                if (FootIKRigComponent.mEnabled == true && RuntimeComponent.mResolved == true) {
-                    if (LeftSolveTarget.mIsTargetResolved == true && TryApplyOffsetToTransform(Ctx, RuntimeComponent.mLeftFootEntityId, LeftOffsetDelta) == true) {
-                        WorldMatrices.clear();
+                SimpleMath::Vector3 LeftTargetFootWorldPosition{};
+                bool IsLeftTargetFootWorldPositionResolved{};
+                if (LeftSolveTarget.mIsTargetResolved == true) {
+                    const float LeftBaseFootWorldPositionY{ LeftSolveTarget.mTargetFootWorldPosition.y - LeftSolveTarget.mRawTargetOffset };
+                    LeftTargetFootWorldPosition = LeftSolveTarget.mTargetFootWorldPosition;
+                    LeftTargetFootWorldPosition.y = LeftBaseFootWorldPositionY + FootIKRuntimeComponent.mLeftCurrentOffset;
+                    IsLeftTargetFootWorldPositionResolved = MathUtility::IsFiniteVector3(LeftTargetFootWorldPosition);
+                }
+
+                SimpleMath::Vector3 RightTargetFootWorldPosition{};
+                bool IsRightTargetFootWorldPositionResolved{};
+                if (RightSolveTarget.mIsTargetResolved == true) {
+                    const float RightBaseFootWorldPositionY{ RightSolveTarget.mTargetFootWorldPosition.y - RightSolveTarget.mRawTargetOffset };
+                    RightTargetFootWorldPosition = RightSolveTarget.mTargetFootWorldPosition;
+                    RightTargetFootWorldPosition.y = RightBaseFootWorldPositionY + FootIKRuntimeComponent.mRightCurrentOffset;
+                    IsRightTargetFootWorldPositionResolved = MathUtility::IsFiniteVector3(RightTargetFootWorldPosition);
+                }
+
+                const float LeftCurrentOffsetForPelvis{ LeftSolveTarget.mIsTargetResolved == true ? FootIKRuntimeComponent.mLeftCurrentOffset : 0.0f };
+                const float RightCurrentOffsetForPelvis{ RightSolveTarget.mIsTargetResolved == true ? FootIKRuntimeComponent.mRightCurrentOffset : 0.0f };
+                float PelvisOffset{ FootIKRuntimeComponent.mPelvisEntityId == Arche::NullEntityID ? 0.0f : IK::ResolveSharedPelvisOffset(LeftCurrentOffsetForPelvis, RightCurrentOffsetForPelvis) };
+                if (FootIKRuntimeComponent.mPelvisEntityId != Arche::NullEntityID) {
+                    float LeftReachOverflowDistance{};
+                    if (IsLeftTargetFootWorldPositionResolved == true) {
+                        float ResolvedLeftReachOverflowDistance{};
+                        if (IK::TryResolveLegReachOverflowDistance(World, FootIKRuntimeComponent.mLeftThighEntityId, FootIKRuntimeComponent.mLeftShinEntityId, FootIKRuntimeComponent.mLeftFootEntityId, LeftTargetFootWorldPosition, WorldMatrices, ResolvedLeftReachOverflowDistance) == true) {
+                            LeftReachOverflowDistance = ResolvedLeftReachOverflowDistance;
+                        }
                     }
 
-                    if (RightSolveTarget.mIsTargetResolved == true && TryApplyOffsetToTransform(Ctx, RuntimeComponent.mRightFootEntityId, RightOffsetDelta) == true) {
-                        WorldMatrices.clear();
+                    float RightReachOverflowDistance{};
+                    if (IsRightTargetFootWorldPositionResolved == true) {
+                        float ResolvedRightReachOverflowDistance{};
+                        if (IK::TryResolveLegReachOverflowDistance(World, FootIKRuntimeComponent.mRightThighEntityId, FootIKRuntimeComponent.mRightShinEntityId, FootIKRuntimeComponent.mRightFootEntityId, RightTargetFootWorldPosition, WorldMatrices, ResolvedRightReachOverflowDistance) == true) {
+                            RightReachOverflowDistance = ResolvedRightReachOverflowDistance;
+                        }
                     }
 
-                    AppendFootDebugRay(Ctx, *TerrainQueryResource, RuntimeComponent.mLeftFootEntityId, WorldMatrices);
-                    AppendFootDebugRay(Ctx, *TerrainQueryResource, RuntimeComponent.mRightFootEntityId, WorldMatrices);
-                    AppendFootDebugRay(Ctx, *TerrainQueryResource, RuntimeComponent.mLeftToeEntityId, WorldMatrices);
-                    AppendFootDebugRay(Ctx, *TerrainQueryResource, RuntimeComponent.mRightToeEntityId, WorldMatrices);
+                    const float MaximumReachOverflowDistance{ std::max(LeftReachOverflowDistance, RightReachOverflowDistance) };
+                    if (MathUtility::IsFiniteFloat(MaximumReachOverflowDistance) == true && MaximumReachOverflowDistance > 0.0f) {
+                        PelvisOffset -= MaximumReachOverflowDistance;
+                    }
+
+                    const bool IsPelvisOffsetApplied{ IK::TryApplyOffsetToBoneTransform(World, FootIKRuntimeComponent.mPelvisEntityId, PelvisOffset, WorldMatrices) };
+                    if (IsPelvisOffsetApplied == true) {
+                        WorldMatrices.clear();
+                    }
+                }
+
+                if (FootIKRigComponent.mEnabled == true && FootIKRuntimeComponent.mResolved == true) {
+                    if (mFootIKSolver != nullptr) {
+                        if (IsLeftTargetFootWorldPositionResolved == true) {
+                            const bool IsLeftLegSolved{ IK::TrySolveLegWithIK(World, FootIKRuntimeComponent.mLeftThighEntityId, FootIKRuntimeComponent.mLeftShinEntityId, FootIKRuntimeComponent.mLeftFootEntityId, LeftTargetFootWorldPosition, *mFootIKSolver, WorldMatrices) };
+                            if (IsLeftLegSolved == true) {
+                                WorldMatrices.clear();
+                            }
+                        }
+
+                        if (IsRightTargetFootWorldPositionResolved == true) {
+                            const bool IsRightLegSolved{ IK::TrySolveLegWithIK(World, FootIKRuntimeComponent.mRightThighEntityId, FootIKRuntimeComponent.mRightShinEntityId, FootIKRuntimeComponent.mRightFootEntityId, RightTargetFootWorldPosition, *mFootIKSolver, WorldMatrices) };
+                            if (IsRightLegSolved == true) {
+                                WorldMatrices.clear();
+                            }
+                        }
+                    }
+
+                    if (LeftSolveTarget.mIsGroundNormalResolved == true && TerrainQueryResource != nullptr) {
+                        const bool IsLeftFootSurfaceAligned{ IK::TryAlignFootToSurface(World, *TerrainQueryResource, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, LeftSolveTarget.mRayOppositeDirection, LeftSolveTarget.mGroundNormal, 1.0f, WorldMatrices) };
+                        if (IsLeftFootSurfaceAligned == true) {
+                            WorldMatrices.clear();
+                        }
+                    }
+
+                    if (RightSolveTarget.mIsGroundNormalResolved == true && TerrainQueryResource != nullptr) {
+                        const bool IsRightFootSurfaceAligned{ IK::TryAlignFootToSurface(World, *TerrainQueryResource, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, RightSolveTarget.mRayOppositeDirection, RightSolveTarget.mGroundNormal, 1.0f, WorldMatrices) };
+                        if (IsRightFootSurfaceAligned == true) {
+                            WorldMatrices.clear();
+                        }
+                    }
+
+                    if (TerrainQueryResource != nullptr) {
+                        AppendFootCornerDebugLines(Ctx, *TerrainQueryResource, FootIKRuntimeComponent.mLeftFootEntityId, FootIKRuntimeComponent.mLeftToeEntityId, WorldMatrices);
+                        AppendFootCornerDebugLines(Ctx, *TerrainQueryResource, FootIKRuntimeComponent.mRightFootEntityId, FootIKRuntimeComponent.mRightToeEntityId, WorldMatrices);
+                    }
                 }
             });
         }

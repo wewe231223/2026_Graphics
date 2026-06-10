@@ -36,6 +36,8 @@ namespace Game {
             void ClearPipelineSceneLoadProducts(Scene& TargetScene) {
                 TargetScene.ClearUnitPipelineAssignments();
                 TargetScene.ClearWorkUnits();
+                TargetScene.GetFrameContext().mRuntimePipelineAssignments.clear();
+                TargetScene.GetFrameContext().mRuntimePipelineAssignmentVersion += 1ULL;
             }
         }
 
