@@ -22,6 +22,9 @@
     <Filter Include="Scene\Pipeline">
       <UniqueIdentifier>{d75cfc60-07dd-49fa-accc-cd1584fbd664}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Scene\Pipeline\Systems">
+      <UniqueIdentifier>{3a3e8c0c-0ec3-47a9-9ba7-6d8188f71f5e}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Scene\Pipeline YAML">
       <UniqueIdentifier>{a5d88a47-cf93-4c61-b0e8-8155f73919d8}</UniqueIdentifier>
     </Filter>
@@ -230,6 +233,30 @@
     </ClInclude>
     <ClInclude Include="Scene\Pipeline\SceneWorkUnitBuilder.h">
       <Filter>Scene\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\Systems\PipelineAnimationGraphSystem.h">
+      <Filter>Scene\Pipeline\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\Systems\PipelineAnimateSystem.h">
+      <Filter>Scene\Pipeline\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\Systems\PipelineFootIKSystem.h">
+      <Filter>Scene\Pipeline\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\Systems\PipelineTransformWorldSystem.h">
+      <Filter>Scene\Pipeline\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\Systems\PipelineStaticRenderSystem.h">
+      <Filter>Scene\Pipeline\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\Systems\PipelineTerrainRenderSystem.h">
+      <Filter>Scene\Pipeline\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\Systems\PipelineSkinnedRenderSystem.h">
+      <Filter>Scene\Pipeline\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Pipeline\Systems\RegisterDefaultPipelineSystems.h">
+      <Filter>Scene\Pipeline\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h">
       <Filter>Scene\Systems</Filter>
@@ -499,6 +526,30 @@
     </ClCompile>
     <ClCompile Include="Scene\Pipeline\SceneWorkUnitBuilder.cpp">
       <Filter>Scene\Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\Systems\PipelineAnimationGraphSystem.cpp">
+      <Filter>Scene\Pipeline\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\Systems\PipelineAnimateSystem.cpp">
+      <Filter>Scene\Pipeline\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\Systems\PipelineFootIKSystem.cpp">
+      <Filter>Scene\Pipeline\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\Systems\PipelineTransformWorldSystem.cpp">
+      <Filter>Scene\Pipeline\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\Systems\PipelineStaticRenderSystem.cpp">
+      <Filter>Scene\Pipeline\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\Systems\PipelineTerrainRenderSystem.cpp">
+      <Filter>Scene\Pipeline\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\Systems\PipelineSkinnedRenderSystem.cpp">
+      <Filter>Scene\Pipeline\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Pipeline\Systems\RegisterDefaultPipelineSystems.cpp">
+      <Filter>Scene\Pipeline\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\Transform.cpp">
       <Filter>Scene\Components</Filter>

@@ -294,7 +294,8 @@ namespace Game {
 
             const Interface::Future TerrainUploadFuture{ Renderer.mResource->GetFrameUploadFuture(FrameIndex) };
             if (TerrainUploadFuture.IsValid() == true) {
-                RenderData.mTerrainUploadFutures.push_back(TerrainUploadFuture);
+                RenderData.mTerrainUploadFuture = TerrainUploadFuture;
+                RenderData.mHasTerrainUploadFuture = true;
             }
 
             const SimpleMath::Matrix NodeWorld{ TransformComponent.worldMatrix };

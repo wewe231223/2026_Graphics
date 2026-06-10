@@ -5,9 +5,7 @@ Pipelines:
       - AnimateSystem
       - FootIKSystem
       - TransformWorldSystem
-      - SkinnedMeshPrepareSystem
-      - StaticRenderSystem
-      - SkinnedMeshRenderSystem
+      - SkinnedRenderSystem
 
   StaticMeshPipeline:
     Systems:

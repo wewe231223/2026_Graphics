@@ -1,16 +1,35 @@
 ﻿#pragma once
+#include <cstdint>
 #include <span>
 #include <tuple>
 #include <type_traits>
 #include <vector>
 #include "Arche/World.h"
+#include "Game/Scene/Components/Frustum.h"
 #include "Game/Scene/Pipeline/RenderGatherResult.h"
 
 namespace Game {
+    class ITerrainQuery;
+    struct RegisteredMaterialGroup;
+
     namespace Pipeline {
+        struct PipelineFrameInput final {
+        public:
+            const std::vector<RegisteredMaterialGroup>* mMaterialGroups{};
+            const ITerrainQuery* mTerrainQueryResource{};
+            Arche::EntityID mPickedEntityId{ Arche::NullEntityID };
+            std::uint32_t mFrameIndex{};
+            std::uint32_t mRenderFlags{};
+            RFD::ShadowMappingParameter mShadowMappingParameter{};
+            Frustum mActiveCameraFrustum{};
+            SimpleMath::Vector3 mActiveCameraPosition{};
+            bool mHasActiveCameraFrustum{};
+            bool mHasActiveCameraPosition{};
+        };
+
         class PipelineContext final {
         public:
-            PipelineContext(Arche::World& World, Arche::EntityID UnitEntityId, std::span<const Arche::EntityID> EntityIds, RenderGatherResult& RenderGatherResult);
+            PipelineContext(Arche::World& World, Arche::EntityID UnitEntityId, std::span<const Arche::EntityID> EntityIds, const PipelineFrameInput& FrameInput, RenderGatherResult& RenderGatherResult);
             ~PipelineContext();
 
             PipelineContext(const PipelineContext& Other);
@@ -22,6 +41,16 @@ namespace Game {
         public:
             Arche::EntityID GetUnitEntityId() const;
             bool ContainsEntity(Arche::EntityID EntityId) const;
+            const PipelineFrameInput& GetFrameInput() const;
+            const std::vector<RegisteredMaterialGroup>* GetMaterialGroups() const;
+            const ITerrainQuery* GetTerrainQuery() const;
+            Arche::EntityID GetPickedEntityId() const;
+            std::uint32_t GetFrameIndex() const;
+            std::uint32_t GetRenderFlags() const;
+            bool HasRenderFlag(std::uint32_t Flag) const;
+            const RFD::ShadowMappingParameter& GetShadowMappingParameter() const;
+            const Frustum* GetActiveCameraFrustum() const;
+            bool GetActiveCameraPosition(SimpleMath::Vector3& OutCameraPosition) const;
 
             template <TrivialComponent T>
             const T* ReadComponent(Arche::EntityID EntityId) const;
@@ -41,6 +70,7 @@ namespace Game {
             Arche::World* mWorld{};
             Arche::EntityID mUnitEntityId{ Arche::NullEntityID };
             std::span<const Arche::EntityID> mEntityIds{};
+            PipelineFrameInput mFrameInput{};
             RenderGatherResult* mRenderGatherResult{};
         };
     }

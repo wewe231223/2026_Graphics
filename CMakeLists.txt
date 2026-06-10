@@ -193,6 +193,14 @@ add_library(Game STATIC
     Game/Scene/Pipeline/PipelineSceneYamlMetadata.cpp
     Game/Scene/Pipeline/PipelineSceneYamlDeserializer.cpp
     Game/Scene/Pipeline/SceneWorkUnitBuilder.cpp
+    Game/Scene/Pipeline/Systems/PipelineAnimationGraphSystem.cpp
+    Game/Scene/Pipeline/Systems/PipelineAnimateSystem.cpp
+    Game/Scene/Pipeline/Systems/PipelineFootIKSystem.cpp
+    Game/Scene/Pipeline/Systems/PipelineTransformWorldSystem.cpp
+    Game/Scene/Pipeline/Systems/PipelineStaticRenderSystem.cpp
+    Game/Scene/Pipeline/Systems/PipelineTerrainRenderSystem.cpp
+    Game/Scene/Pipeline/Systems/PipelineSkinnedRenderSystem.cpp
+    Game/Scene/Pipeline/Systems/RegisterDefaultPipelineSystems.cpp
     Game/Scene/Components/Transform.cpp
     Game/Scene/Components/ComponentText.cpp
     Game/Scene/Components/Name.cpp

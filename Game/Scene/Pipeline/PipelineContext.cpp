@@ -4,10 +4,11 @@
 
 namespace Game {
     namespace Pipeline {
-        PipelineContext::PipelineContext(Arche::World& World, Arche::EntityID UnitEntityId, std::span<const Arche::EntityID> EntityIds, RenderGatherResult& RenderGatherResult)
+        PipelineContext::PipelineContext(Arche::World& World, Arche::EntityID UnitEntityId, std::span<const Arche::EntityID> EntityIds, const PipelineFrameInput& FrameInput, RenderGatherResult& RenderGatherResult)
             : mWorld{ &World },
             mUnitEntityId{ UnitEntityId },
             mEntityIds{ EntityIds },
+            mFrameInput{ FrameInput },
             mRenderGatherResult{ &RenderGatherResult } {
         }
 
@@ -18,6 +19,7 @@ namespace Game {
             : mWorld{ Other.mWorld },
             mUnitEntityId{ Other.mUnitEntityId },
             mEntityIds{ Other.mEntityIds },
+            mFrameInput{ Other.mFrameInput },
             mRenderGatherResult{ Other.mRenderGatherResult } {
         }
 
@@ -29,6 +31,7 @@ namespace Game {
             mWorld = Other.mWorld;
             mUnitEntityId = Other.mUnitEntityId;
             mEntityIds = Other.mEntityIds;
+            mFrameInput = Other.mFrameInput;
             mRenderGatherResult = Other.mRenderGatherResult;
             return *this;
         }
@@ -37,6 +40,7 @@ namespace Game {
             : mWorld{ std::move(Other.mWorld) },
             mUnitEntityId{ std::move(Other.mUnitEntityId) },
             mEntityIds{ std::move(Other.mEntityIds) },
+            mFrameInput{ std::move(Other.mFrameInput) },
             mRenderGatherResult{ std::move(Other.mRenderGatherResult) } {
         }
 
@@ -48,6 +52,7 @@ namespace Game {
             mWorld = std::move(Other.mWorld);
             mUnitEntityId = std::move(Other.mUnitEntityId);
             mEntityIds = std::move(Other.mEntityIds);
+            mFrameInput = std::move(Other.mFrameInput);
             mRenderGatherResult = std::move(Other.mRenderGatherResult);
             return *this;
         }
@@ -67,6 +72,55 @@ namespace Game {
 
             const std::span<const Arche::EntityID>::iterator EntityIter{ std::find(mEntityIds.begin(), mEntityIds.end(), EntityId) };
             return EntityIter != mEntityIds.end();
+        }
+
+        const PipelineFrameInput& PipelineContext::GetFrameInput() const {
+            return mFrameInput;
+        }
+
+        const std::vector<RegisteredMaterialGroup>* PipelineContext::GetMaterialGroups() const {
+            return mFrameInput.mMaterialGroups;
+        }
+
+        const ITerrainQuery* PipelineContext::GetTerrainQuery() const {
+            return mFrameInput.mTerrainQueryResource;
+        }
+
+        Arche::EntityID PipelineContext::GetPickedEntityId() const {
+            return mFrameInput.mPickedEntityId;
+        }
+
+        std::uint32_t PipelineContext::GetFrameIndex() const {
+            return mFrameInput.mFrameIndex;
+        }
+
+        std::uint32_t PipelineContext::GetRenderFlags() const {
+            return mFrameInput.mRenderFlags;
+        }
+
+        bool PipelineContext::HasRenderFlag(std::uint32_t Flag) const {
+            return (mFrameInput.mRenderFlags & Flag) != 0u;
+        }
+
+        const RFD::ShadowMappingParameter& PipelineContext::GetShadowMappingParameter() const {
+            return mFrameInput.mShadowMappingParameter;
+        }
+
+        const Frustum* PipelineContext::GetActiveCameraFrustum() const {
+            if (mFrameInput.mHasActiveCameraFrustum == false) {
+                return nullptr;
+            }
+
+            return &mFrameInput.mActiveCameraFrustum;
+        }
+
+        bool PipelineContext::GetActiveCameraPosition(SimpleMath::Vector3& OutCameraPosition) const {
+            if (mFrameInput.mHasActiveCameraPosition == false) {
+                return false;
+            }
+
+            OutCameraPosition = mFrameInput.mActiveCameraPosition;
+            return true;
         }
 
         void PipelineContext::AddRenderResult(const RenderGatherResult& RenderResult) {

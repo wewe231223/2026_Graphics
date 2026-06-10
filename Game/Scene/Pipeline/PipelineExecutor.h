@@ -7,6 +7,8 @@
 
 namespace Game {
     namespace Pipeline {
+        struct PipelineFrameInput;
+
         class PipelineExecutor final {
         public:
             PipelineExecutor();
@@ -19,7 +21,7 @@ namespace Game {
             PipelineExecutor& operator=(PipelineExecutor&& Other) noexcept;
 
         public:
-            void Execute(Arche::World& World, std::span<SceneWorkUnit> WorkUnits, float Dt);
+            void Execute(Arche::World& World, std::span<SceneWorkUnit> WorkUnits, const PipelineFrameInput& FrameInput, float Dt);
 
         private:
             BS::thread_pool<BS::tp::none> mThreadPool{};

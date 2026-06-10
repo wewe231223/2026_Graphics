@@ -603,7 +603,8 @@ namespace Game {
                 mFrameContext.RenderData.TerrainPatchContexts.clear();
                 mFrameContext.RenderData.drawRecords.clear();
                 mFrameContext.RenderData.bonePalette.clear();
-                mFrameContext.RenderData.mTerrainUploadFutures.clear();
+                mFrameContext.RenderData.mTerrainUploadFuture = Interface::Future{};
+                mFrameContext.RenderData.mHasTerrainUploadFuture = false;
                 for (RFD::ShadowRenderContext& ShadowRenderContext : mFrameContext.RenderData.ShadowRenderContexts) {
                     ShadowRenderContext.ModelContexts.clear();
                     ShadowRenderContext.TerrainPatchContexts.clear();

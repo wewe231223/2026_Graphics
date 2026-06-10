@@ -78,6 +78,11 @@ namespace Game {
                 OutRenderData.boundingBoxContexts.insert(OutRenderData.boundingBoxContexts.end(), SourceRenderGatherResult.GetBoundingBoxContexts().begin(), SourceRenderGatherResult.GetBoundingBoxContexts().end());
                 OutRenderData.debugGeometryContexts.insert(OutRenderData.debugGeometryContexts.end(), SourceRenderGatherResult.GetDebugGeometryContexts().begin(), SourceRenderGatherResult.GetDebugGeometryContexts().end());
                 OutRenderData.TerrainPatchContexts.insert(OutRenderData.TerrainPatchContexts.end(), SourceRenderGatherResult.GetTerrainPatchContexts().begin(), SourceRenderGatherResult.GetTerrainPatchContexts().end());
+                if (SourceRenderGatherResult.HasTerrainUploadFuture() == true) {
+                    OutRenderData.mTerrainUploadFuture = SourceRenderGatherResult.GetTerrainUploadFuture();
+                    OutRenderData.mHasTerrainUploadFuture = true;
+                }
+
                 MergeDrawRecords(SourceRenderGatherResult.GetDrawRecords(), ModelContextOffset, TerrainPatchContextOffset, OutRenderData.drawRecords);
                 OutRenderData.bonePalette.insert(OutRenderData.bonePalette.end(), SourceRenderGatherResult.GetBonePalette().begin(), SourceRenderGatherResult.GetBonePalette().end());
                 MergeShadowRenderContexts(SourceRenderGatherResult.GetShadowRenderContexts(), BonePaletteOffset, OutRenderData.ShadowRenderContexts);

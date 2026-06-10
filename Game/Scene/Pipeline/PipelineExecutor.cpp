@@ -6,13 +6,13 @@
 namespace Game {
     namespace Pipeline {
         namespace {
-            void ExecuteWorkUnit(Arche::World& World, SceneWorkUnit& WorkUnit, float Dt);
-            void ExecuteWorkUnitRange(Arche::World& World, std::span<SceneWorkUnit> WorkUnits, std::size_t BeginIndex, std::size_t EndIndex, float Dt);
+            void ExecuteWorkUnit(Arche::World& World, SceneWorkUnit& WorkUnit, const PipelineFrameInput& FrameInput, float Dt);
+            void ExecuteWorkUnitRange(Arche::World& World, std::span<SceneWorkUnit> WorkUnits, std::size_t BeginIndex, std::size_t EndIndex, const PipelineFrameInput& FrameInput, float Dt);
 
-            void ExecuteWorkUnit(Arche::World& World, SceneWorkUnit& WorkUnit, float Dt) {
+            void ExecuteWorkUnit(Arche::World& World, SceneWorkUnit& WorkUnit, const PipelineFrameInput& FrameInput, float Dt) {
                 WorkUnit.GetRenderGatherResult().Clear();
                 std::vector<Arche::EntityID>& EntityIds{ WorkUnit.GetEntityIds() };
-                PipelineContext Ctx{ World, WorkUnit.GetUnitEntityId(), std::span<const Arche::EntityID>{ EntityIds.data(), EntityIds.size() }, WorkUnit.GetRenderGatherResult() };
+                PipelineContext Ctx{ World, WorkUnit.GetUnitEntityId(), std::span<const Arche::EntityID>{ EntityIds.data(), EntityIds.size() }, FrameInput, WorkUnit.GetRenderGatherResult() };
 
                 for (IPipelineSystem* PipelineSystem : WorkUnit.GetPipelineSystems()) {
                     if (PipelineSystem == nullptr) {
@@ -23,9 +23,9 @@ namespace Game {
                 }
             }
 
-            void ExecuteWorkUnitRange(Arche::World& World, std::span<SceneWorkUnit> WorkUnits, std::size_t BeginIndex, std::size_t EndIndex, float Dt) {
+            void ExecuteWorkUnitRange(Arche::World& World, std::span<SceneWorkUnit> WorkUnits, std::size_t BeginIndex, std::size_t EndIndex, const PipelineFrameInput& FrameInput, float Dt) {
                 for (std::size_t WorkUnitIndex{ BeginIndex }; WorkUnitIndex < EndIndex; ++WorkUnitIndex) {
-                    ExecuteWorkUnit(World, WorkUnits[WorkUnitIndex], Dt);
+                    ExecuteWorkUnit(World, WorkUnits[WorkUnitIndex], FrameInput, Dt);
                 }
             }
         }
@@ -57,19 +57,19 @@ namespace Game {
             return *this;
         }
 
-        void PipelineExecutor::Execute(Arche::World& World, std::span<SceneWorkUnit> WorkUnits, float Dt) {
+        void PipelineExecutor::Execute(Arche::World& World, std::span<SceneWorkUnit> WorkUnits, const PipelineFrameInput& FrameInput, float Dt) {
             const std::size_t WorkUnitCount{ WorkUnits.size() };
             if (WorkUnitCount == 0) {
                 return;
             }
 
             if (WorkUnitCount == 1) {
-                ExecuteWorkUnit(World, WorkUnits[0], Dt);
+                ExecuteWorkUnit(World, WorkUnits[0], FrameInput, Dt);
                 return;
             }
 
-            const auto BlockFunction{ [&World, WorkUnits, Dt](std::size_t BeginIndex, std::size_t EndIndex) {
-                ExecuteWorkUnitRange(World, WorkUnits, BeginIndex, EndIndex, Dt);
+            const auto BlockFunction{ [&World, WorkUnits, &FrameInput, Dt](std::size_t BeginIndex, std::size_t EndIndex) {
+                ExecuteWorkUnitRange(World, WorkUnits, BeginIndex, EndIndex, FrameInput, Dt);
             } };
             BS::multi_future<void> WorkUnitFutures{ mThreadPool.submit_blocks<std::size_t>(0, WorkUnitCount, BlockFunction) };
             WorkUnitFutures.wait();

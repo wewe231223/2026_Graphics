@@ -80,6 +80,7 @@ namespace Game {
 
             AssetRegistry& GetAssetRegistry();
             const AssetRegistry& GetAssetRegistry() const;
+            void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap);
 
             Script::LuaBehaviorFramework& GetLuaScriptFramework();
             const Script::LuaBehaviorFramework& GetLuaScriptFramework() const;
@@ -157,8 +158,10 @@ namespace Game {
 
         private:
             ScenePhysicsRuntimeContext BuildPhysicsRuntimeContext();
+            PipelineFrameInput BuildPipelineFrameInput();
             void InitializeDataPipelineFrameRenderData();
             void ExecuteSynchronousSystems(float Dt);
+            void AppendDebugWorldAxes();
             bool CanAddPipelineDefinition(const PipelineDefinition& PipelineDefinitionValue) const;
             void InvalidateWorkUnits();
 
@@ -177,6 +180,8 @@ namespace Game {
             std::uint32_t mPhysicsWorldVersion{ 1U };
             Utility::Time* mPhysicsTime{};
             bool mIsPhysicsRuntimeModeEnabled{};
+            bool mIsDebugGeometryDrawEnabled{};
+            bool mIsBoundingBoxDrawEnabled{};
 
             TerrainManager mTerrainManager{};
             std::vector<TerrainActorDescBinding> mTerrainActorDescBindings{};

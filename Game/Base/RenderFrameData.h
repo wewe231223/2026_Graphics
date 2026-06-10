@@ -210,7 +210,8 @@ namespace Game {
             std::vector<MaterialGpu> materials{};
             std::vector<MaterialTextureTableItemGpu> materialTextureTable{};
             std::vector<SimpleMath::Matrix> bonePalette{};
-            std::vector<Interface::Future> mTerrainUploadFutures{};
+            Interface::Future mTerrainUploadFuture{};
+            bool mHasTerrainUploadFuture{};
             std::array<ShadowRenderContext, ShadowCascadeMaxCount> ShadowRenderContexts{};
 
 

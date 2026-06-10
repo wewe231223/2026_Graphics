@@ -10,6 +10,8 @@
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
+#include "Game/Scene/Components/FootIKRig.h"
+#include "Game/Scene/Components/FootIKRuntime.h"
 #include "Game/Scene/Components/RuntimeVariableTable.h"
 #include "Game/Scene/Components/SkySphere.h"
 #include "Game/Scene/Components/Transform.h"
@@ -32,6 +34,7 @@ namespace Game::SceneYaml {
         void ResolvePendingAnimatorBindings(SceneYamlLoadContext& LoadContext);
         void ResolveDeferredBindings(SceneYamlLoadContext& LoadContext);
         void ApplyTerrainPostProcess(SceneYamlLoadContext& LoadContext);
+        void EnsureFootIKRuntimeComponents(SceneYamlLoadContext& LoadContext);
         void FinalizeSceneBuild(SceneYamlLoadContext& LoadContext);
         SceneYamlLoadResult DeserializeSceneYaml(const std::string& YamlText, SceneYamlLoadContext& LoadContext, std::unordered_map<std::int64_t, Arche::EntityID>* OutEntityIdMap);
     }
@@ -507,7 +510,31 @@ namespace Game::SceneYaml {
             ApplyPendingTerrainSnapBindings(LoadContext.mScene.GetWorld(), LoadContext.mTerrainSurfaceBindings, LoadContext.mPendingTerrainSnapBindings);
         }
 
+        void EnsureFootIKRuntimeComponents(SceneYamlLoadContext& LoadContext) {
+            Arche::World& World{ LoadContext.mScene.GetWorld() };
+            const Arche::World::WorldReadOnlyView& ReadOnlyWorld{ std::as_const(World).GetReadOnlyView() };
+            std::vector<Arche::EntityID> RuntimeMissingEntityIds{};
+            RuntimeMissingEntityIds.reserve(32);
+
+            for (auto [FootIKRigComponent, HierarchyComponent] : World.Query<FootIKRig, EntityHierarchy>()) {
+                (void)FootIKRigComponent;
+                if (ReadOnlyWorld.GetComponent<FootIKRuntime>(HierarchyComponent.self) == nullptr) {
+                    RuntimeMissingEntityIds.push_back(HierarchyComponent.self);
+                }
+            }
+
+            for (const Arche::EntityID RuntimeMissingEntityId : RuntimeMissingEntityIds) {
+                if (World.GetComponent<FootIKRuntime>(RuntimeMissingEntityId) != nullptr) {
+                    continue;
+                }
+
+                FootIKRuntime NewFootIKRuntime{};
+                World.AddComponent(RuntimeMissingEntityId, NewFootIKRuntime);
+            }
+        }
+
         void FinalizeSceneBuild(SceneYamlLoadContext& LoadContext) {
+            EnsureFootIKRuntimeComponents(LoadContext);
             LoadContext.mScene.RebuildPhysicsActors();
             LoadContext.mScene.BuildSystemExecutionPlan();
         }

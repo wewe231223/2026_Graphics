@@ -6,6 +6,11 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include "Core/Config.h"
+#include "Game/Scene/Components/Camera.h"
+#include "Game/Scene/Components/Frustum.h"
+#include "Game/Scene/Components/Transform.h"
+#include "Game/Scene/Pipeline/PipelineContext.h"
 #include "Game/Scene/Pipeline/PipelineSceneYamlMetadata.h"
 #include "Game/Scene/Pipeline/PipelineSystemRegistry.h"
 #include "Game/Scene/Pipeline/RenderGatherResultMerger.h"
@@ -24,6 +29,7 @@ namespace Game {
             IPipelineSystem* FindCreatedPipelineSystem(const std::vector<std::pair<std::string, std::unique_ptr<IPipelineSystem>>>& CreatedPipelineSystems, const std::string& SystemName);
             std::string BuildFailureMessage(const std::string& Prefix, const std::vector<std::string>& FailureMessages);
             PipelineFrameExecutionResult BuildFailureResult(const std::string& FailureMessage);
+            bool ResolveInitialDebugGeometryDrawEnabled();
 
             void AddFailure(PipelineSystemBindingResult& BindingResult, const std::string& Message) {
                 BindingResult.IsSuccess = false;
@@ -59,6 +65,15 @@ namespace Game {
                 Result.FailureMessage = FailureMessage;
                 return Result;
             }
+
+            bool ResolveInitialDebugGeometryDrawEnabled() {
+                const IConfig* ConfigInstance{ Config::Query() };
+                if (ConfigInstance == nullptr) {
+                    return false;
+                }
+
+                return ConfigInstance->Get<bool>("Draw_DebugGeometry");
+            }
         }
 
         PipelineFrameExecutionResult::PipelineFrameExecutionResult() = default;
@@ -82,6 +97,8 @@ namespace Game {
             mPhysicsWorldVersion{ 1U },
             mPhysicsTime{},
             mIsPhysicsRuntimeModeEnabled{ ScenePhysicsRuntimeCoordinator::ResolvePhysicsRuntimeModeEnabled() },
+            mIsDebugGeometryDrawEnabled{ ResolveInitialDebugGeometryDrawEnabled() },
+            mIsBoundingBoxDrawEnabled{},
             mTerrainManager{},
             mTerrainActorDescBindings{},
             mWorldSnapshot{},
@@ -160,8 +177,9 @@ namespace Game {
                 return BuildFailureResult(BuildFailureMessage("Pipeline system binding failed.", BindingResult.FailureMessages));
             }
 
+            const PipelineFrameInput FrameInput{ BuildPipelineFrameInput() };
             std::span<SceneWorkUnit> WorkUnitSpan{ mWorkUnits.data(), mWorkUnits.size() };
-            mPipelineExecutor.Execute(mWorld, WorkUnitSpan, Dt);
+            mPipelineExecutor.Execute(mWorld, WorkUnitSpan, FrameInput, Dt);
             RenderGatherResultMerger::Merge(std::span<const SceneWorkUnit>{ mWorkUnits.data(), mWorkUnits.size() }, mFrameContext.RenderData);
             return PipelineFrameExecutionResult{};
         }
@@ -186,6 +204,15 @@ namespace Game {
 
         const AssetRegistry& Scene::GetAssetRegistry() const {
             return mAssetRegistry;
+        }
+
+        void Scene::InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap) {
+            mAssetRegistry.Initialize(Device, CopyQueue, Allocator);
+            mAssetRegistry.SetSrvHeap(SrvHeap);
+            mFrameContext.MaterialGroups = &mAssetRegistry.GetMaterialGroups();
+            mFrameContext.AssetRegistryResource = &mAssetRegistry;
+            mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
+            mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
         }
 
         Script::LuaBehaviorFramework& Scene::GetLuaScriptFramework() {
@@ -625,6 +652,30 @@ namespace Game {
             return ScenePhysicsRuntimeContext{ mWorld, mPhysicsWorld, mPhysicsRuntime, mPhysicsRuntimeScene, mPhysicsRuntimeSnapshot, mKinematicSceneSimulator, mTerrainManager, mKinematicRuntimeStates, mPhysicsWorldVersion, mPhysicsTime, mFrameContext, mWorldSnapshot, mTerrainActorDescBindings, mIsPhysicsRuntimeModeEnabled };
         }
 
+        PipelineFrameInput Scene::BuildPipelineFrameInput() {
+            PipelineFrameInput FrameInput{};
+            FrameInput.mMaterialGroups = mFrameContext.MaterialGroups;
+            FrameInput.mTerrainQueryResource = mFrameContext.TerrainQueryResource;
+            FrameInput.mPickedEntityId = mFrameContext.PickedEntityId;
+            FrameInput.mFrameIndex = mFrameContext.RenderData.globals.frameIndex;
+            FrameInput.mRenderFlags = mFrameContext.RenderData.globals.flags;
+            FrameInput.mShadowMappingParameter = mFrameContext.RenderData.shadowMapping;
+
+            for (const auto [TransformComponent, CameraComponent, FrustumComponent] : mWorld.Query<Transform, Camera, Frustum>()) {
+                if (CameraComponent.isActive == false) {
+                    continue;
+                }
+
+                FrameInput.mActiveCameraFrustum = FrustumComponent;
+                FrameInput.mActiveCameraPosition = TransformComponent.position;
+                FrameInput.mHasActiveCameraFrustum = true;
+                FrameInput.mHasActiveCameraPosition = true;
+                break;
+            }
+
+            return FrameInput;
+        }
+
         void Scene::InitializeDataPipelineFrameRenderData() {
             mFrameContext.RenderData.modelContexts.clear();
             mFrameContext.RenderData.boundingBoxContexts.clear();
@@ -632,7 +683,8 @@ namespace Game {
             mFrameContext.RenderData.TerrainPatchContexts.clear();
             mFrameContext.RenderData.drawRecords.clear();
             mFrameContext.RenderData.bonePalette.clear();
-            mFrameContext.RenderData.mTerrainUploadFutures.clear();
+            mFrameContext.RenderData.mTerrainUploadFuture = Interface::Future{};
+            mFrameContext.RenderData.mHasTerrainUploadFuture = false;
 
             for (RFD::ShadowRenderContext& ShadowRenderContext : mFrameContext.RenderData.ShadowRenderContexts) {
                 ShadowRenderContext.ModelContexts.clear();
@@ -641,6 +693,16 @@ namespace Game {
             }
 
             mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
+            mFrameContext.RenderData.globals.flags = 0u;
+            if (mIsBoundingBoxDrawEnabled == true) {
+                mFrameContext.RenderData.globals.flags |= RFD::FrameGlobalFlagDrawBoundingBoxes;
+            }
+
+            if (mIsDebugGeometryDrawEnabled == true) {
+                mFrameContext.RenderData.globals.flags |= RFD::FrameGlobalFlagDrawDebugGeometry;
+            }
+
+            AppendDebugWorldAxes();
             mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
             mFrameContext.SkinnedMeshPreparedDataItems.clear();
         }
@@ -653,6 +715,20 @@ namespace Game {
 
                 System->Execute(mWorld, mFrameContext, Dt);
             }
+        }
+
+        void Scene::AppendDebugWorldAxes() {
+            const bool IsDrawDebugGeometriesEnabled{ (mFrameContext.RenderData.globals.flags & RFD::FrameGlobalFlagDrawDebugGeometry) != 0u };
+            if (IsDrawDebugGeometriesEnabled == false) {
+                return;
+            }
+
+            constexpr float AxisLength{ 100000.0f };
+            constexpr float AxisThickness{ 0.0035f };
+            const SimpleMath::Vector3 Origin{ 0.0f, 0.0f, 0.0f };
+            mFrameContext.RenderData.debugGeometryContexts.push_back(RFD::DebugGeometryContext::CreateDirection(Origin, SimpleMath::Vector3{ 1.0f, 0.0f, 0.0f }, AxisLength, SimpleMath::Vector4{ 1.0f, 0.1f, 0.1f, 1.0f }, AxisThickness));
+            mFrameContext.RenderData.debugGeometryContexts.push_back(RFD::DebugGeometryContext::CreateDirection(Origin, SimpleMath::Vector3{ 0.0f, 1.0f, 0.0f }, AxisLength, SimpleMath::Vector4{ 0.1f, 1.0f, 0.1f, 1.0f }, AxisThickness));
+            mFrameContext.RenderData.debugGeometryContexts.push_back(RFD::DebugGeometryContext::CreateDirection(Origin, SimpleMath::Vector3{ 0.0f, 0.0f, 1.0f }, AxisLength, SimpleMath::Vector4{ 0.1f, 0.4f, 1.0f, 1.0f }, AxisThickness));
         }
 
         bool Scene::CanAddPipelineDefinition(const PipelineDefinition& PipelineDefinitionValue) const {

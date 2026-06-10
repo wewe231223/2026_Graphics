@@ -36,6 +36,10 @@ namespace Game {
             std::vector<RFD::TerrainPatchContext>& GetTerrainPatchContexts();
             const std::vector<RFD::TerrainPatchContext>& GetTerrainPatchContexts() const;
 
+            bool HasTerrainUploadFuture() const;
+            void SetTerrainUploadFuture(const Interface::Future& TerrainUploadFuture);
+            const Interface::Future& GetTerrainUploadFuture() const;
+
             std::vector<RFD::DrawRecord>& GetDrawRecords();
             const std::vector<RFD::DrawRecord>& GetDrawRecords() const;
 
@@ -54,6 +58,8 @@ namespace Game {
             std::vector<RFD::BoundingBoxContext> mBoundingBoxContexts{};
             std::vector<RFD::DebugGeometryContext> mDebugGeometryContexts{};
             std::vector<RFD::TerrainPatchContext> mTerrainPatchContexts{};
+            Interface::Future mTerrainUploadFuture{};
+            bool mHasTerrainUploadFuture{};
             std::vector<RFD::DrawRecord> mDrawRecords{};
             std::vector<SimpleMath::Matrix> mBonePalette{};
             std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount> mShadowRenderContexts{};

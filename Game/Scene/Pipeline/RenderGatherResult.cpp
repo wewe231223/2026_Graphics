@@ -85,6 +85,8 @@ namespace Game {
             mBoundingBoxContexts{},
             mDebugGeometryContexts{},
             mTerrainPatchContexts{},
+            mTerrainUploadFuture{},
+            mHasTerrainUploadFuture{},
             mDrawRecords{},
             mBonePalette{},
             mShadowRenderContexts{} {
@@ -98,6 +100,8 @@ namespace Game {
             mBoundingBoxContexts{ Other.mBoundingBoxContexts },
             mDebugGeometryContexts{ Other.mDebugGeometryContexts },
             mTerrainPatchContexts{ Other.mTerrainPatchContexts },
+            mTerrainUploadFuture{ Other.mTerrainUploadFuture },
+            mHasTerrainUploadFuture{ Other.mHasTerrainUploadFuture },
             mDrawRecords{ Other.mDrawRecords },
             mBonePalette{ Other.mBonePalette },
             mShadowRenderContexts{ Other.mShadowRenderContexts } {
@@ -112,6 +116,8 @@ namespace Game {
             mBoundingBoxContexts = Other.mBoundingBoxContexts;
             mDebugGeometryContexts = Other.mDebugGeometryContexts;
             mTerrainPatchContexts = Other.mTerrainPatchContexts;
+            mTerrainUploadFuture = Other.mTerrainUploadFuture;
+            mHasTerrainUploadFuture = Other.mHasTerrainUploadFuture;
             mDrawRecords = Other.mDrawRecords;
             mBonePalette = Other.mBonePalette;
             mShadowRenderContexts = Other.mShadowRenderContexts;
@@ -123,6 +129,8 @@ namespace Game {
             mBoundingBoxContexts{ std::move(Other.mBoundingBoxContexts) },
             mDebugGeometryContexts{ std::move(Other.mDebugGeometryContexts) },
             mTerrainPatchContexts{ std::move(Other.mTerrainPatchContexts) },
+            mTerrainUploadFuture{ std::move(Other.mTerrainUploadFuture) },
+            mHasTerrainUploadFuture{ Other.mHasTerrainUploadFuture },
             mDrawRecords{ std::move(Other.mDrawRecords) },
             mBonePalette{ std::move(Other.mBonePalette) },
             mShadowRenderContexts{ std::move(Other.mShadowRenderContexts) } {
@@ -137,6 +145,8 @@ namespace Game {
             mBoundingBoxContexts = std::move(Other.mBoundingBoxContexts);
             mDebugGeometryContexts = std::move(Other.mDebugGeometryContexts);
             mTerrainPatchContexts = std::move(Other.mTerrainPatchContexts);
+            mTerrainUploadFuture = std::move(Other.mTerrainUploadFuture);
+            mHasTerrainUploadFuture = Other.mHasTerrainUploadFuture;
             mDrawRecords = std::move(Other.mDrawRecords);
             mBonePalette = std::move(Other.mBonePalette);
             mShadowRenderContexts = std::move(Other.mShadowRenderContexts);
@@ -148,6 +158,8 @@ namespace Game {
             mBoundingBoxContexts.clear();
             mDebugGeometryContexts.clear();
             mTerrainPatchContexts.clear();
+            mTerrainUploadFuture = Interface::Future{};
+            mHasTerrainUploadFuture = false;
             mDrawRecords.clear();
             mBonePalette.clear();
 
@@ -159,7 +171,7 @@ namespace Game {
         }
 
         bool RenderGatherResult::Empty() const {
-            return mModelContexts.empty() == true && mBoundingBoxContexts.empty() == true && mDebugGeometryContexts.empty() == true && mTerrainPatchContexts.empty() == true && mDrawRecords.empty() == true && mBonePalette.empty() == true && AreShadowRenderContextsEmpty(mShadowRenderContexts) == true;
+            return mModelContexts.empty() == true && mBoundingBoxContexts.empty() == true && mDebugGeometryContexts.empty() == true && mTerrainPatchContexts.empty() == true && mHasTerrainUploadFuture == false && mDrawRecords.empty() == true && mBonePalette.empty() == true && AreShadowRenderContextsEmpty(mShadowRenderContexts) == true;
         }
 
         void RenderGatherResult::Append(const RenderGatherResult& Other) {
@@ -171,6 +183,11 @@ namespace Game {
             mBoundingBoxContexts.insert(mBoundingBoxContexts.end(), Other.mBoundingBoxContexts.begin(), Other.mBoundingBoxContexts.end());
             mDebugGeometryContexts.insert(mDebugGeometryContexts.end(), Other.mDebugGeometryContexts.begin(), Other.mDebugGeometryContexts.end());
             mTerrainPatchContexts.insert(mTerrainPatchContexts.end(), Other.mTerrainPatchContexts.begin(), Other.mTerrainPatchContexts.end());
+            if (mHasTerrainUploadFuture == false && Other.mHasTerrainUploadFuture == true) {
+                mTerrainUploadFuture = Other.mTerrainUploadFuture;
+                mHasTerrainUploadFuture = true;
+            }
+
             AppendDrawRecords(Other.mDrawRecords, ModelContextOffset, TerrainPatchContextOffset, mDrawRecords);
             mBonePalette.insert(mBonePalette.end(), Other.mBonePalette.begin(), Other.mBonePalette.end());
             AppendShadowRenderContexts(Other.mShadowRenderContexts, BonePaletteOffset);
@@ -185,6 +202,11 @@ namespace Game {
             mBoundingBoxContexts.insert(mBoundingBoxContexts.end(), std::make_move_iterator(Other.mBoundingBoxContexts.begin()), std::make_move_iterator(Other.mBoundingBoxContexts.end()));
             mDebugGeometryContexts.insert(mDebugGeometryContexts.end(), std::make_move_iterator(Other.mDebugGeometryContexts.begin()), std::make_move_iterator(Other.mDebugGeometryContexts.end()));
             mTerrainPatchContexts.insert(mTerrainPatchContexts.end(), std::make_move_iterator(Other.mTerrainPatchContexts.begin()), std::make_move_iterator(Other.mTerrainPatchContexts.end()));
+            if (mHasTerrainUploadFuture == false && Other.mHasTerrainUploadFuture == true) {
+                mTerrainUploadFuture = std::move(Other.mTerrainUploadFuture);
+                mHasTerrainUploadFuture = true;
+            }
+
             AppendDrawRecords(std::move(Other.mDrawRecords), ModelContextOffset, TerrainPatchContextOffset, mDrawRecords);
             mBonePalette.insert(mBonePalette.end(), std::make_move_iterator(Other.mBonePalette.begin()), std::make_move_iterator(Other.mBonePalette.end()));
             AppendShadowRenderContexts(std::move(Other.mShadowRenderContexts), BonePaletteOffset);
@@ -220,6 +242,19 @@ namespace Game {
 
         const std::vector<RFD::TerrainPatchContext>& RenderGatherResult::GetTerrainPatchContexts() const {
             return mTerrainPatchContexts;
+        }
+
+        bool RenderGatherResult::HasTerrainUploadFuture() const {
+            return mHasTerrainUploadFuture;
+        }
+
+        void RenderGatherResult::SetTerrainUploadFuture(const Interface::Future& TerrainUploadFuture) {
+            mTerrainUploadFuture = TerrainUploadFuture;
+            mHasTerrainUploadFuture = TerrainUploadFuture.IsValid();
+        }
+
+        const Interface::Future& RenderGatherResult::GetTerrainUploadFuture() const {
+            return mTerrainUploadFuture;
         }
 
         std::vector<RFD::DrawRecord>& RenderGatherResult::GetDrawRecords() {
