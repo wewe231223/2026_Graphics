@@ -12,6 +12,7 @@
 #include "Game/Scene/Pipeline/PipelineTypes.h"
 #include "Game/Scene/Pipeline/SceneWorkUnit.h"
 #include "Game/Scene/Pipeline/SceneWorkUnitBuilder.h"
+#include "Game/Scene/System.h"
 #include "Game/Scene/ScenePhysicsRuntimeCoordinator.h"
 #include "Game/Scene/SceneTerrainBindings.h"
 #include "Game/Scene/SceneWorldSnapshot.h"
@@ -75,6 +76,7 @@ namespace Game {
             const RFD::RenderFrameData& GetRenderFrameData() const;
             void SetRenderFrameIndex(std::uint32_t RenderFrameIndex);
             PipelineFrameExecutionResult ExecuteDataPipelineFrame(float Dt, const PipelineSystemRegistry& Registry);
+            void AddSynchronousSystem(std::unique_ptr<Game::ISystem> NewSystem);
 
             AssetRegistry& GetAssetRegistry();
             const AssetRegistry& GetAssetRegistry() const;
@@ -156,6 +158,7 @@ namespace Game {
         private:
             ScenePhysicsRuntimeContext BuildPhysicsRuntimeContext();
             void InitializeDataPipelineFrameRenderData();
+            void ExecuteSynchronousSystems(float Dt);
             bool CanAddPipelineDefinition(const PipelineDefinition& PipelineDefinitionValue) const;
             void InvalidateWorkUnits();
 
@@ -181,6 +184,7 @@ namespace Game {
             SceneWorldSnapshot mWorldSnapshot{};
             std::vector<PipelineDefinition> mPipelineDefinitions{};
             std::vector<UnitPipelineAssignment> mUnitPipelineAssignments{};
+            std::vector<std::unique_ptr<Game::ISystem>> mSynchronousSystems{};
             std::unordered_map<std::string, std::unique_ptr<IPipelineSystem>> mPipelineSystemsByName{};
             std::vector<SceneWorkUnit> mWorkUnits{};
             PipelineExecutor mPipelineExecutor{};

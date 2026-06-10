@@ -16,12 +16,5 @@ Pipelines:
 
   TerrainPipeline:
     Systems:
-      - TerrainStreamingSystem
       - TransformWorldSystem
       - TerrainRenderSystem
-
-  CameraPipeline:
-    Systems:
-      - TransformWorldSystem
-      - CameraRenderSystem
-      - ShadowMappingParameterSystem

@@ -110,15 +110,16 @@ namespace Game::SceneYaml {
     }
 
     bool SceneYamlLoadTarget::ShouldReadSystems() const {
-        return mScene != nullptr;
+        return mScene != nullptr || mPipelineScene != nullptr;
     }
 
     void SceneYamlLoadTarget::AddSystem(std::unique_ptr<ISystem> NewSystem) {
-        if (mScene == nullptr) {
+        if (mScene != nullptr) {
+            mScene->AddSystem(std::move(NewSystem));
             return;
         }
 
-        mScene->AddSystem(std::move(NewSystem));
+        mPipelineScene->AddSynchronousSystem(std::move(NewSystem));
     }
 
     void SceneYamlLoadTarget::BuildSystemExecutionPlan() {

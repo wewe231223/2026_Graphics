@@ -9,6 +9,11 @@
 #include "Game/Scene/Pipeline/PipelineSceneYamlMetadata.h"
 #include "Game/Scene/Pipeline/PipelineSystemRegistry.h"
 #include "Game/Scene/Pipeline/RenderGatherResultMerger.h"
+#include "Game/Scene/Systems/CameraRenderSystem.h"
+#include "Game/Scene/Systems/PhysicsActorUpdateSystem.h"
+#include "Game/Scene/Systems/ProceduralFoliageSystem.h"
+#include "Game/Scene/Systems/ShadowMappingParameterSystem.h"
+#include "Game/Scene/Systems/TerrainStreamingSystem.h"
 
 namespace Game {
     namespace Pipeline {
@@ -82,10 +87,17 @@ namespace Game {
             mWorldSnapshot{},
             mPipelineDefinitions{},
             mUnitPipelineAssignments{},
+            mSynchronousSystems{},
             mPipelineSystemsByName{},
             mWorkUnits{},
             mPipelineExecutor{},
             mWorkUnitBuildStructureVersion{ InvalidWorkUnitBuildStructureVersion } {
+            mSynchronousSystems.push_back(std::make_unique<Game::PhysicsActorUpdateSystem>());
+            mSynchronousSystems.push_back(std::make_unique<Game::TerrainStreamingSystem>());
+            mSynchronousSystems.push_back(std::make_unique<Game::ProceduralFoliageSystem>());
+            mSynchronousSystems.push_back(std::make_unique<Game::CameraRenderSystem>());
+            mSynchronousSystems.push_back(std::make_unique<Game::ShadowMappingParameterSystem>());
+
             ScenePhysicsRuntimeCoordinator::InitializePhysicsWorld(BuildPhysicsRuntimeContext());
 
             mWorldSnapshot.BindReadOnlyWorld(&mWorld.GetReadOnlyView());
@@ -135,6 +147,7 @@ namespace Game {
             mLuaScriptFramework.Update(Dt);
             mLuaScriptFramework.LateUpdate(Dt);
             RefreshPhysicsRuntimeSnapshot();
+            ExecuteSynchronousSystems(Dt);
             mWorld.FlushDeferredStructuralChanges();
 
             SceneWorkUnitBuildResult WorkUnitBuildResult{ UpdateWorkUnitsIfNeeded() };
@@ -151,6 +164,20 @@ namespace Game {
             mPipelineExecutor.Execute(mWorld, WorkUnitSpan, Dt);
             RenderGatherResultMerger::Merge(std::span<const SceneWorkUnit>{ mWorkUnits.data(), mWorkUnits.size() }, mFrameContext.RenderData);
             return PipelineFrameExecutionResult{};
+        }
+
+        void Scene::AddSynchronousSystem(std::unique_ptr<Game::ISystem> NewSystem) {
+            if (NewSystem == nullptr) {
+                return;
+            }
+
+            const std::string& SystemName{ NewSystem->Name() };
+            for (std::unique_ptr<Game::ISystem>& System : mSynchronousSystems) {
+                if (System != nullptr && System->Name() == SystemName) {
+                    System = std::move(NewSystem);
+                    return;
+                }
+            }
         }
 
         AssetRegistry& Scene::GetAssetRegistry() {
@@ -616,6 +643,16 @@ namespace Game {
             mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
             mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
             mFrameContext.SkinnedMeshPreparedDataItems.clear();
+        }
+
+        void Scene::ExecuteSynchronousSystems(float Dt) {
+            for (std::unique_ptr<Game::ISystem>& System : mSynchronousSystems) {
+                if (System == nullptr) {
+                    continue;
+                }
+
+                System->Execute(mWorld, mFrameContext, Dt);
+            }
         }
 
         bool Scene::CanAddPipelineDefinition(const PipelineDefinition& PipelineDefinitionValue) const {
