@@ -7,8 +7,7 @@ namespace Game {
             : mUnitEntityId{ Arche::NullEntityID },
             mEntityIds{},
             mPipelineId{ InvalidPipelineId },
-            mPipelineSystems{},
-            mRenderGatherResult{} {
+            mPipelineSystems{} {
         }
 
         SceneWorkUnit::~SceneWorkUnit() {
@@ -18,8 +17,7 @@ namespace Game {
             : mUnitEntityId{ Other.mUnitEntityId },
             mEntityIds{ Other.mEntityIds },
             mPipelineId{ Other.mPipelineId },
-            mPipelineSystems{ Other.mPipelineSystems },
-            mRenderGatherResult{ Other.mRenderGatherResult } {
+            mPipelineSystems{ Other.mPipelineSystems } {
         }
 
         SceneWorkUnit& SceneWorkUnit::operator=(const SceneWorkUnit& Other) {
@@ -31,7 +29,6 @@ namespace Game {
             mEntityIds = Other.mEntityIds;
             mPipelineId = Other.mPipelineId;
             mPipelineSystems = Other.mPipelineSystems;
-            mRenderGatherResult = Other.mRenderGatherResult;
             return *this;
         }
 
@@ -39,8 +36,7 @@ namespace Game {
             : mUnitEntityId{ std::move(Other.mUnitEntityId) },
             mEntityIds{ std::move(Other.mEntityIds) },
             mPipelineId{ std::move(Other.mPipelineId) },
-            mPipelineSystems{ std::move(Other.mPipelineSystems) },
-            mRenderGatherResult{ std::move(Other.mRenderGatherResult) } {
+            mPipelineSystems{ std::move(Other.mPipelineSystems) } {
         }
 
         SceneWorkUnit& SceneWorkUnit::operator=(SceneWorkUnit&& Other) noexcept {
@@ -52,7 +48,6 @@ namespace Game {
             mEntityIds = std::move(Other.mEntityIds);
             mPipelineId = std::move(Other.mPipelineId);
             mPipelineSystems = std::move(Other.mPipelineSystems);
-            mRenderGatherResult = std::move(Other.mRenderGatherResult);
             return *this;
         }
 
@@ -86,14 +81,6 @@ namespace Game {
 
         const std::vector<IPipelineSystem*>& SceneWorkUnit::GetPipelineSystems() const {
             return mPipelineSystems;
-        }
-
-        RenderGatherResult& SceneWorkUnit::GetRenderGatherResult() {
-            return mRenderGatherResult;
-        }
-
-        const RenderGatherResult& SceneWorkUnit::GetRenderGatherResult() const {
-            return mRenderGatherResult;
         }
     }
 }

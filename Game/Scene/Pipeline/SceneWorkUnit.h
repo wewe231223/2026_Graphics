@@ -3,7 +3,6 @@
 #include "Arche/Common.h"
 #include "Game/Scene/Pipeline/PipelineSystem.h"
 #include "Game/Scene/Pipeline/PipelineTypes.h"
-#include "Game/Scene/Pipeline/RenderGatherResult.h"
 
 namespace Game {
     namespace Pipeline {
@@ -31,15 +30,11 @@ namespace Game {
             std::vector<IPipelineSystem*>& GetPipelineSystems();
             const std::vector<IPipelineSystem*>& GetPipelineSystems() const;
 
-            RenderGatherResult& GetRenderGatherResult();
-            const RenderGatherResult& GetRenderGatherResult() const;
-
         private:
             Arche::EntityID mUnitEntityId{ Arche::NullEntityID };
             std::vector<Arche::EntityID> mEntityIds{};
             PipelineId mPipelineId{ InvalidPipelineId };
             std::vector<IPipelineSystem*> mPipelineSystems{};
-            RenderGatherResult mRenderGatherResult{};
         };
     }
 }

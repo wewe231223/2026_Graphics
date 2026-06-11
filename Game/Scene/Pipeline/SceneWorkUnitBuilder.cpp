@@ -172,7 +172,6 @@ namespace Game {
                 WorkUnit.SetPipelineId(Assignment.mPipelineId);
                 WorkUnit.GetEntityIds() = std::move(EntityIds);
                 WorkUnit.GetPipelineSystems().clear();
-                WorkUnit.GetRenderGatherResult().Clear();
                 return WorkUnit;
             }
         }

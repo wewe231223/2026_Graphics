@@ -239,7 +239,7 @@ namespace Game {
             const PipelineFrameInput FrameInput{ BuildPipelineFrameInput() };
             std::span<SceneWorkUnit> WorkUnitSpan{ mWorkUnits.data(), mWorkUnits.size() };
             mPipelineExecutor.Execute(mWorld, WorkUnitSpan, FrameInput, Dt);
-            RenderGatherResultMerger::Merge(std::span<const SceneWorkUnit>{ mWorkUnits.data(), mWorkUnits.size() }, mFrameContext.RenderData);
+            RenderGatherResultMerger::Merge(mPipelineExecutor.GetRenderGatherResults(), mFrameContext.RenderData);
             return PipelineFrameExecutionResult{};
         }
 

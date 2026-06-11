@@ -18,7 +18,7 @@ namespace Game {
                 return nullptr;
             }
 
-            return mWorld->GetComponent<T>(EntityId);
+            return const_cast<T*>(std::as_const(*mWorld).GetComponent<T>(EntityId));
         }
 
         template <TrivialComponent... Ts, typename Func>
@@ -32,7 +32,8 @@ namespace Game {
                     return;
                 }
 
-                std::tuple<Ts*...> ComponentPointers{ mWorld->GetComponent<Ts>(EntityId)... };
+                const Arche::World& WorldValue{ std::as_const(*mWorld) };
+                std::tuple<Ts*...> ComponentPointers{ const_cast<Ts*>(WorldValue.GetComponent<Ts>(EntityId))... };
                 const bool HasAllComponents{ std::apply([](auto*... Pointers) { return ((Pointers != nullptr) && ...); }, ComponentPointers) };
                 if (HasAllComponents == false) {
                     return;

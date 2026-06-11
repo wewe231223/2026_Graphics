@@ -1,7 +1,7 @@
 #pragma once
 #include <span>
 #include "Game/Base/RenderFrameData.h"
-#include "Game/Scene/Pipeline/SceneWorkUnit.h"
+#include "Game/Scene/Pipeline/RenderGatherResult.h"
 
 namespace Game {
     namespace Pipeline {
@@ -17,7 +17,7 @@ namespace Game {
             RenderGatherResultMerger& operator=(RenderGatherResultMerger&& Other) noexcept;
 
         public:
-            static void Merge(std::span<const SceneWorkUnit> WorkUnits, RFD::RenderFrameData& OutRenderData);
+            static void Merge(std::span<const RenderGatherResult> RenderGatherResults, RFD::RenderFrameData& OutRenderData);
         };
     }
 }
