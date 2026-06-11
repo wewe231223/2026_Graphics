@@ -40,7 +40,6 @@ namespace Game {
 
         public:
             Arche::EntityID GetUnitEntityId() const;
-            bool ContainsEntity(Arche::EntityID EntityId) const;
             Arche::World& GetWorld();
             const Arche::World& GetWorld() const;
             const PipelineFrameInput& GetFrameInput() const;

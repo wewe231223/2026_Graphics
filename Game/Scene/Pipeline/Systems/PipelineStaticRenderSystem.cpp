@@ -25,7 +25,7 @@ namespace Game {
                 }
 
                 Arche::EntityID CurrentEntityId{ EntityId };
-                while (CurrentEntityId != Arche::NullEntityID && Ctx.ContainsEntity(CurrentEntityId) == true) {
+                while (CurrentEntityId != Arche::NullEntityID) {
                     if (CurrentEntityId == PickedEntityId) {
                         return true;
                     }
@@ -184,7 +184,7 @@ namespace Game {
 
                 const SimpleMath::Matrix NodeWorld{ TransformComponent.worldMatrix };
                 BoundingBox* BoundingBoxComponent{ Ctx.WriteComponent<BoundingBox>(EntityId) };
-                if (BoundingBoxComponent != nullptr) {
+                if (BoundingBoxComponent != nullptr && (TransformComponent.mWorldMatrixChanged == true || BoundingBoxComponent->HasWorldObb() == false)) {
                     BoundingBoxComponent->UpdateWorldObb(NodeWorld);
                 }
 

@@ -87,7 +87,7 @@ namespace Game {
                 }
 
                 Arche::EntityID CurrentEntityId{ StartEntityId };
-                while (CurrentEntityId != Arche::NullEntityID && Ctx.ContainsEntity(CurrentEntityId) == true) {
+                while (CurrentEntityId != Arche::NullEntityID) {
                     const ResolvedAnimatorCache::const_iterator CurrentCachedIter{ Cache.find(CurrentEntityId) };
                     if (CurrentCachedIter != Cache.end()) {
                         Cache.insert_or_assign(StartEntityId, CurrentCachedIter->second);
@@ -122,7 +122,7 @@ namespace Game {
                 }
 
                 Arche::EntityID CurrentEntityId{ StartEntityId };
-                while (CurrentEntityId != Arche::NullEntityID && Ctx.ContainsEntity(CurrentEntityId) == true) {
+                while (CurrentEntityId != Arche::NullEntityID) {
                     const ResolvedBoneSkinReferenceCache::const_iterator CurrentCachedIter{ Cache.find(CurrentEntityId) };
                     if (CurrentCachedIter != Cache.end()) {
                         Cache.insert_or_assign(StartEntityId, CurrentCachedIter->second);
@@ -237,7 +237,7 @@ namespace Game {
                 while (Stack.empty() == false) {
                     const Arche::EntityID EntityId{ Stack.back() };
                     Stack.pop_back();
-                    if (EntityId == Arche::NullEntityID || Ctx.ContainsEntity(EntityId) == false) {
+                    if (EntityId == Arche::NullEntityID) {
                         continue;
                     }
 
@@ -245,9 +245,7 @@ namespace Game {
                     if (HierarchyComponent != nullptr) {
                         Arche::EntityID ChildEntityId{ HierarchyComponent->firstChild };
                         while (ChildEntityId != Arche::NullEntityID) {
-                            if (Ctx.ContainsEntity(ChildEntityId) == true) {
-                                Stack.push_back(ChildEntityId);
-                            }
+                            Stack.push_back(ChildEntityId);
 
                             const EntityHierarchy* ChildHierarchyComponent{ Ctx.ReadComponent<EntityHierarchy>(ChildEntityId) };
                             ChildEntityId = ChildHierarchyComponent == nullptr ? Arche::NullEntityID : ChildHierarchyComponent->nextSibling;
@@ -365,7 +363,7 @@ namespace Game {
                 }
 
                 const Arche::EntityID BoneRootEntityId{ ResolvedBoneSkinReferenceComponent.mComponent->boneRootEntityId };
-                if (BoneRootEntityId == Arche::NullEntityID || Ctx.ContainsEntity(BoneRootEntityId) == false) {
+                if (BoneRootEntityId == Arche::NullEntityID) {
                     return;
                 }
 

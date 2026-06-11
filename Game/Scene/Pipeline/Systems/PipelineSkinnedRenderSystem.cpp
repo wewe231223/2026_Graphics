@@ -47,7 +47,7 @@ namespace Game {
 
             ResolvedAnimator ResolveAnimatorInHierarchy(PipelineContext& Ctx, Arche::EntityID StartEntityId) {
                 Arche::EntityID CurrentEntityId{ StartEntityId };
-                while (CurrentEntityId != Arche::NullEntityID && Ctx.ContainsEntity(CurrentEntityId) == true) {
+                while (CurrentEntityId != Arche::NullEntityID) {
                     const Animator* AnimatorComponent{ Ctx.ReadComponent<Animator>(CurrentEntityId) };
                     if (AnimatorComponent != nullptr) {
                         return ResolvedAnimator{ CurrentEntityId, AnimatorComponent };
@@ -66,7 +66,7 @@ namespace Game {
 
             ResolvedBoneSkinReference ResolveBoneSkinReferenceInHierarchy(PipelineContext& Ctx, Arche::EntityID StartEntityId) {
                 Arche::EntityID CurrentEntityId{ StartEntityId };
-                while (CurrentEntityId != Arche::NullEntityID && Ctx.ContainsEntity(CurrentEntityId) == true) {
+                while (CurrentEntityId != Arche::NullEntityID) {
                     const BoneSkinReference* BoneSkinReferenceComponent{ Ctx.ReadComponent<BoneSkinReference>(CurrentEntityId) };
                     if (BoneSkinReferenceComponent != nullptr) {
                         return ResolvedBoneSkinReference{ CurrentEntityId, BoneSkinReferenceComponent };
@@ -102,7 +102,7 @@ namespace Game {
             }
 
             void GatherBonePoseAndBoundingRecursive(PipelineContext& Ctx, Arche::EntityID EntityId, Model* ModelData, std::uint32_t SkinArrayIndex, const SimpleMath::Matrix& MeshWorldInverseMatrix, bool IsDrawBoundingBoxesEnabled, std::vector<SimpleMath::Matrix>& InOutBoneMatrices, std::vector<RFD::BoundingBoxContext>& InOutBoundingBoxContexts) {
-                if (EntityId == Arche::NullEntityID || Ctx.ContainsEntity(EntityId) == false || ModelData == nullptr) {
+                if (EntityId == Arche::NullEntityID || ModelData == nullptr) {
                     return;
                 }
 
@@ -166,7 +166,7 @@ namespace Game {
                 }
 
                 const Arche::EntityID BoneRootEntityId{ ResolvedBoneSkinReferenceComponent.mComponent->boneRootEntityId };
-                if (BoneRootEntityId == Arche::NullEntityID || Ctx.ContainsEntity(BoneRootEntityId) == false) {
+                if (BoneRootEntityId == Arche::NullEntityID) {
                     return false;
                 }
 
@@ -215,7 +215,7 @@ namespace Game {
                 }
 
                 Arche::EntityID CurrentEntityId{ EntityId };
-                while (CurrentEntityId != Arche::NullEntityID && Ctx.ContainsEntity(CurrentEntityId) == true) {
+                while (CurrentEntityId != Arche::NullEntityID) {
                     if (CurrentEntityId == PickedEntityId) {
                         return true;
                     }

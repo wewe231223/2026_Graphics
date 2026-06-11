@@ -133,7 +133,7 @@ namespace Game {
                 }
 
                 Arche::EntityID CurrentEntityId{ EntityId };
-                while (CurrentEntityId != Arche::NullEntityID && Ctx.ContainsEntity(CurrentEntityId) == true) {
+                while (CurrentEntityId != Arche::NullEntityID) {
                     if (CurrentEntityId == PickedEntityId) {
                         return true;
                     }
@@ -318,8 +318,16 @@ namespace Game {
                 const bool IsFrustumCullingEnabled{ CullingComponent == nullptr ? true : CullingComponent->frustumCulling };
                 BoundingBox* BoundingBoxComponent{ Ctx.WriteComponent<BoundingBox>(EntityId) };
                 DirectX::BoundingOrientedBox ParentWorldBoundingBox{};
-                const bool IsParentVisible{ IsTileVisibleByFrustum(Renderer.mResource->GetLocalBoundingBox(), NodeWorld, CullingFrustumComponent, IsFrustumCullingEnabled, ParentWorldBoundingBox) };
-                if (BoundingBoxComponent != nullptr) {
+                bool IsParentVisible{};
+                if (TransformComponent.mWorldMatrixChanged == false && BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
+                    ParentWorldBoundingBox = BoundingBoxComponent->GetWorldObb();
+                    IsParentVisible = IsWorldBoundingBoxVisibleByFrustum(ParentWorldBoundingBox, CullingFrustumComponent, IsFrustumCullingEnabled);
+                }
+                else {
+                    IsParentVisible = IsTileVisibleByFrustum(Renderer.mResource->GetLocalBoundingBox(), NodeWorld, CullingFrustumComponent, IsFrustumCullingEnabled, ParentWorldBoundingBox);
+                }
+
+                if (BoundingBoxComponent != nullptr && (TransformComponent.mWorldMatrixChanged == true || BoundingBoxComponent->HasWorldObb() == false)) {
                     BoundingBoxComponent->SetWorldObb(ParentWorldBoundingBox);
                 }
 

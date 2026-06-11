@@ -5,7 +5,7 @@ namespace Game {
     namespace Pipeline {
         template <TrivialComponent T>
         const T* PipelineContext::ReadComponent(Arche::EntityID EntityId) const {
-            if (mWorld == nullptr || ContainsEntity(EntityId) == false) {
+            if (mWorld == nullptr || EntityId == Arche::NullEntityID) {
                 return nullptr;
             }
 
@@ -14,7 +14,7 @@ namespace Game {
 
         template <TrivialComponent T>
         T* PipelineContext::WriteComponent(Arche::EntityID EntityId) {
-            if (mWorld == nullptr || ContainsEntity(EntityId) == false) {
+            if (mWorld == nullptr || EntityId == Arche::NullEntityID) {
                 return nullptr;
             }
 

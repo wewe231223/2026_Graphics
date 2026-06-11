@@ -1,5 +1,4 @@
 ﻿#include "PipelineContext.h"
-#include <algorithm>
 #include <utility>
 
 namespace Game {
@@ -59,19 +58,6 @@ namespace Game {
 
         Arche::EntityID PipelineContext::GetUnitEntityId() const {
             return mUnitEntityId;
-        }
-
-        bool PipelineContext::ContainsEntity(Arche::EntityID EntityId) const {
-            if (EntityId == Arche::NullEntityID) {
-                return false;
-            }
-
-            if (EntityId == mUnitEntityId) {
-                return true;
-            }
-
-            const std::span<const Arche::EntityID>::iterator EntityIter{ std::find(mEntityIds.begin(), mEntityIds.end(), EntityId) };
-            return EntityIter != mEntityIds.end();
         }
 
         Arche::World& PipelineContext::GetWorld() {

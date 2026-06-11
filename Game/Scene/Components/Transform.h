@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Arche/Common.h"
 #include "Utility/ComponentRestraint.h"
 #include "DirectXTK12/SimpleMath.h"
 
@@ -15,6 +16,13 @@ namespace Game {
             ComponentField(::SimpleMath::Vector3, scale, ::SimpleMath::Vector3::One)
             ComponentField(::SimpleMath::Matrix, nodeToParent, ::SimpleMath::Matrix::Identity)
             ComponentField(::SimpleMath::Matrix, worldMatrix, ::SimpleMath::Matrix::Identity)
+            ComponentField(::SimpleMath::Vector3, mCachedPosition, ::SimpleMath::Vector3::Zero)
+            ComponentField(::SimpleMath::Quaternion, mCachedRotation, ::SimpleMath::Quaternion::Identity)
+            ComponentField(::SimpleMath::Vector3, mCachedScale, ::SimpleMath::Vector3::One)
+            ComponentField(::SimpleMath::Matrix, mCachedNodeToParent, ::SimpleMath::Matrix::Identity)
+            ComponentField(Arche::EntityID, mCachedParentEntityId, Arche::NullEntityID)
+            ComponentField(bool, mWorldMatrixCacheValid, false)
+            ComponentField(bool, mWorldMatrixChanged, true)
         ),
         ComponentMethods(
             ComponentMethodNamed(void Translate(const SimpleMath::Vector3& Translation); void Translate(float X, float Y, float Z); void TranslateForLua(const SimpleMath::Vector3& Translation), TranslateForLua, Translate)
