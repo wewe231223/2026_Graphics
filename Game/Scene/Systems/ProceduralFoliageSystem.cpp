@@ -28,6 +28,7 @@
 #include <ryml.hpp>
 #include <ryml_std.hpp>
 
+#include "Core/Config.h"
 #include "Game/Model/AssetRegistry.h"
 #include "Game/Model/TerrainRenderResource.h"
 #include "Game/Scene/Components/BoundingBox.h"
@@ -1932,6 +1933,10 @@ namespace Game {
     }
 
     void ProceduralFoliageSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
+        if (Config::Query()->Get<bool>("EnvironmentObjects_Enabled") == false) {
+            return;
+        }
+
         if (mRuntime == nullptr) {
             mRuntime = std::make_unique<ProceduralFoliageRuntime>(mConfigPath);
         }

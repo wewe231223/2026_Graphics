@@ -205,6 +205,8 @@ namespace Game {
             PipelineExecutor mPipelineExecutor{};
             std::uint64_t mWorkUnitBuildStructureVersion{};
             std::uint64_t mWorkUnitBuildRuntimePipelineAssignmentVersion{};
+            std::uint64_t mPipelineSystemBindingStructureVersion{};
+            std::uint64_t mPipelineSystemBindingRuntimePipelineAssignmentVersion{};
         };
     }
 }

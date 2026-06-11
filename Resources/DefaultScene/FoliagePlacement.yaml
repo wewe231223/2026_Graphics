@@ -1,7 +1,7 @@
 ProceduralFoliage:
   Enabled: true
   InactiveHeight: -100000.0
-  PlacementRadius: 240.0
+  PlacementRadius: 280.0
   CellSize: 14.0
   UpdateInterval: 1.0
   DensityMultiplier: 10.0
@@ -27,10 +27,10 @@ ProceduralFoliage:
   ForestEnabled: true
   ForestMinimumWidth: 36.0
   ForestPatchScale: 220.0
-  ForestPatchCoverage: 0.82
+  ForestPatchCoverage: 0.90
   ForestPatchContrast: 1.35
   ForestPatchEdgeSoftness: 0.24
-  ForestOutsideDensity: 0.10
+  ForestOutsideDensity: 0.18
   ForestPatchNoiseIndex: 311
   ForestPatchCornerStream: 71
   ForestMinimumAreaFactor: 0.08
@@ -160,9 +160,9 @@ ProceduralFoliage:
         - Rock
       ModelPath: Tree1_LOD0.bin
       MaterialPath: Tree1_materials.json
-      InstancesPerCell: 1
-      DensityMultiplier: 0.34
-      SpawnChance: 0.26
+      InstancesPerCell: 7
+      DensityMultiplier: 0.56
+      SpawnChance: 0.42
       MinimumWeight: 0.42
       MinimumScale: 1.2
       MaximumScale: 1.75
@@ -171,11 +171,11 @@ ProceduralFoliage:
       ClusterStrength: 1.0
       ClusterScale: 185.0
       ClusterContrast: 1.85
-      ClusterCoverage: 0.48
+      ClusterCoverage: 0.62
       ClusterEdgeSoftness: 0.14
-      ClusterOutsideDensity: 0.18
+      ClusterOutsideDensity: 0.32
       OffsetY: 0.0
-      MinimumSpacing: 8.0
+      MinimumSpacing: 4.2
       CollisionActor: true
       CollisionCenter: [0.0, 2.8, 0.0]
       CollisionExtents: [0.35, 2.8, 0.35]
@@ -194,9 +194,9 @@ ProceduralFoliage:
         - Rock
       ModelPath: Tree2_LOD0.bin
       MaterialPath: Tree2_materials.json
-      InstancesPerCell: 1
-      DensityMultiplier: 0.30
-      SpawnChance: 0.24
+      InstancesPerCell: 6
+      DensityMultiplier: 0.52
+      SpawnChance: 0.40
       MinimumWeight: 0.42
       MinimumScale: 1.1
       MaximumScale: 1.55
@@ -205,11 +205,11 @@ ProceduralFoliage:
       ClusterStrength: 1.0
       ClusterScale: 205.0
       ClusterContrast: 1.75
-      ClusterCoverage: 0.44
+      ClusterCoverage: 0.58
       ClusterEdgeSoftness: 0.15
-      ClusterOutsideDensity: 0.16
+      ClusterOutsideDensity: 0.28
       OffsetY: 0.0
-      MinimumSpacing: 8.0
+      MinimumSpacing: 4.6
       CollisionActor: true
       CollisionCenter: [0.0, 2.6, 0.0]
       CollisionExtents: [0.32, 2.6, 0.32]

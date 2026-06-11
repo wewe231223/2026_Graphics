@@ -3,7 +3,6 @@
 #include <span>
 #include <tuple>
 #include <type_traits>
-#include <unordered_set>
 #include <vector>
 #include "Arche/World.h"
 #include "Game/Scene/Components/Frustum.h"
@@ -73,7 +72,6 @@ namespace Game {
             Arche::World* mWorld{};
             Arche::EntityID mUnitEntityId{ Arche::NullEntityID };
             std::span<const Arche::EntityID> mEntityIds{};
-            std::unordered_set<Arche::EntityID> mEntityIdLookup{};
             PipelineFrameInput mFrameInput{};
             RenderGatherResult* mRenderGatherResult{};
         };

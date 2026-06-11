@@ -1,4 +1,5 @@
 #include "PipelineScene.h"
+#include <cstddef>
 #include <limits>
 #include <memory>
 #include <span>
@@ -51,7 +52,8 @@ namespace Game {
             constexpr std::uint64_t InvalidWorkUnitBuildStructureVersion{ std::numeric_limits<std::uint64_t>::max() };
 
             void AddFailure(PipelineSystemBindingResult& BindingResult, const std::string& Message);
-            IPipelineSystem* FindCreatedPipelineSystem(const std::vector<std::pair<std::string, std::unique_ptr<IPipelineSystem>>>& CreatedPipelineSystems, const std::string& SystemName);
+            bool IsWorkUnitPipelineBindingCurrent(const SceneWorkUnit& WorkUnit, const PipelineDefinition& PipelineDefinitionValue, const std::unordered_map<std::string, std::unique_ptr<IPipelineSystem>>& PipelineSystemsByName);
+            void TransferReusablePipelineBindings(std::span<const SceneWorkUnit> ExistingWorkUnits, std::vector<SceneWorkUnit>& NewWorkUnits);
             std::string BuildFailureMessage(const std::string& Prefix, const std::vector<std::string>& FailureMessages);
             PipelineFrameExecutionResult BuildFailureResult(const std::string& FailureMessage);
             bool ResolveInitialDebugGeometryDrawEnabled();
@@ -61,14 +63,34 @@ namespace Game {
                 BindingResult.FailureMessages.push_back(Message);
             }
 
-            IPipelineSystem* FindCreatedPipelineSystem(const std::vector<std::pair<std::string, std::unique_ptr<IPipelineSystem>>>& CreatedPipelineSystems, const std::string& SystemName) {
-                for (const std::pair<std::string, std::unique_ptr<IPipelineSystem>>& CreatedPipelineSystem : CreatedPipelineSystems) {
-                    if (CreatedPipelineSystem.first == SystemName) {
-                        return CreatedPipelineSystem.second.get();
+            bool IsWorkUnitPipelineBindingCurrent(const SceneWorkUnit& WorkUnit, const PipelineDefinition& PipelineDefinitionValue, const std::unordered_map<std::string, std::unique_ptr<IPipelineSystem>>& PipelineSystemsByName) {
+                const std::vector<std::string>& SystemNames{ PipelineDefinitionValue.GetSystemNames() };
+                const std::vector<IPipelineSystem*>& PipelineSystems{ WorkUnit.GetPipelineSystems() };
+                if (PipelineSystems.size() != SystemNames.size()) {
+                    return false;
+                }
+
+                for (std::size_t SystemIndex{}; SystemIndex < SystemNames.size(); ++SystemIndex) {
+                    const std::unordered_map<std::string, std::unique_ptr<IPipelineSystem>>::const_iterator PipelineSystemIter{ PipelineSystemsByName.find(SystemNames[SystemIndex]) };
+                    if (PipelineSystemIter == PipelineSystemsByName.end() || PipelineSystems[SystemIndex] != PipelineSystemIter->second.get()) {
+                        return false;
                     }
                 }
 
-                return nullptr;
+                return true;
+            }
+
+            void TransferReusablePipelineBindings(std::span<const SceneWorkUnit> ExistingWorkUnits, std::vector<SceneWorkUnit>& NewWorkUnits) {
+                for (SceneWorkUnit& NewWorkUnit : NewWorkUnits) {
+                    for (const SceneWorkUnit& ExistingWorkUnit : ExistingWorkUnits) {
+                        if (NewWorkUnit.GetUnitEntityId() != ExistingWorkUnit.GetUnitEntityId() || NewWorkUnit.GetPipelineId() != ExistingWorkUnit.GetPipelineId()) {
+                            continue;
+                        }
+
+                        NewWorkUnit.GetPipelineSystems() = ExistingWorkUnit.GetPipelineSystems();
+                        break;
+                    }
+                }
             }
 
             std::string BuildFailureMessage(const std::string& Prefix, const std::vector<std::string>& FailureMessages) {
@@ -136,7 +158,9 @@ namespace Game {
             mWorkUnits{},
             mPipelineExecutor{},
             mWorkUnitBuildStructureVersion{ InvalidWorkUnitBuildStructureVersion },
-            mWorkUnitBuildRuntimePipelineAssignmentVersion{} {
+            mWorkUnitBuildRuntimePipelineAssignmentVersion{},
+            mPipelineSystemBindingStructureVersion{ InvalidWorkUnitBuildStructureVersion },
+            mPipelineSystemBindingRuntimePipelineAssignmentVersion{} {
             mSynchronousSystems.push_back(std::make_unique<Game::PhysicsActorUpdateSystem>());
             mSynchronousSystems.push_back(std::make_unique<Game::TerrainStreamingSystem>());
             mSynchronousSystems.push_back(std::make_unique<Game::ProceduralFoliageSystem>());
@@ -565,6 +589,10 @@ namespace Game {
 
         PipelineSystemBindingResult Scene::BuildPipelineSystemBindings(const PipelineSystemRegistry& Registry) {
             PipelineSystemBindingResult BindingResult{};
+            if (mWorkUnitBuildStructureVersion != InvalidWorkUnitBuildStructureVersion && mPipelineSystemBindingStructureVersion == mWorkUnitBuildStructureVersion && mPipelineSystemBindingRuntimePipelineAssignmentVersion == mWorkUnitBuildRuntimePipelineAssignmentVersion) {
+                return BindingResult;
+            }
+
             std::vector<std::string> RequiredSystemNames{};
             std::unordered_set<std::string> RequiredSystemNameSet{};
 
@@ -611,19 +639,20 @@ namespace Game {
                 return BindingResult;
             }
 
-            std::vector<std::vector<IPipelineSystem*>> WorkUnitPipelineSystems{};
-            WorkUnitPipelineSystems.reserve(mWorkUnits.size());
-            for (const SceneWorkUnit& WorkUnit : mWorkUnits) {
+            for (std::pair<std::string, std::unique_ptr<IPipelineSystem>>& CreatedPipelineSystem : CreatedPipelineSystems) {
+                mPipelineSystemsByName.emplace(std::move(CreatedPipelineSystem.first), std::move(CreatedPipelineSystem.second));
+            }
+
+            for (SceneWorkUnit& WorkUnit : mWorkUnits) {
                 const PipelineDefinition& PipelineDefinitionValue{ mPipelineDefinitions[static_cast<std::size_t>(WorkUnit.GetPipelineId())] };
+                if (IsWorkUnitPipelineBindingCurrent(WorkUnit, PipelineDefinitionValue, mPipelineSystemsByName) == true) {
+                    continue;
+                }
+
                 std::vector<IPipelineSystem*> PipelineSystems{};
                 PipelineSystems.reserve(PipelineDefinitionValue.GetSystemNames().size());
-
                 for (const std::string& SystemName : PipelineDefinitionValue.GetSystemNames()) {
                     IPipelineSystem* PipelineSystem{ FindPipelineSystem(SystemName) };
-                    if (PipelineSystem == nullptr) {
-                        PipelineSystem = FindCreatedPipelineSystem(CreatedPipelineSystems, SystemName);
-                    }
-
                     if (PipelineSystem == nullptr) {
                         AddFailure(BindingResult, std::string{ "Pipeline System instance is missing: " } + SystemName);
                         continue;
@@ -632,21 +661,15 @@ namespace Game {
                     PipelineSystems.push_back(PipelineSystem);
                 }
 
-                WorkUnitPipelineSystems.push_back(std::move(PipelineSystems));
+                WorkUnit.GetPipelineSystems() = std::move(PipelineSystems);
             }
 
             if (BindingResult.IsSuccess == false) {
                 return BindingResult;
             }
 
-            for (std::pair<std::string, std::unique_ptr<IPipelineSystem>>& CreatedPipelineSystem : CreatedPipelineSystems) {
-                mPipelineSystemsByName.emplace(std::move(CreatedPipelineSystem.first), std::move(CreatedPipelineSystem.second));
-            }
-
-            for (std::size_t WorkUnitIndex{}; WorkUnitIndex < mWorkUnits.size(); ++WorkUnitIndex) {
-                mWorkUnits[WorkUnitIndex].GetPipelineSystems() = std::move(WorkUnitPipelineSystems[WorkUnitIndex]);
-            }
-
+            mPipelineSystemBindingStructureVersion = mWorkUnitBuildStructureVersion;
+            mPipelineSystemBindingRuntimePipelineAssignmentVersion = mWorkUnitBuildRuntimePipelineAssignmentVersion;
             return BindingResult;
         }
 
@@ -682,6 +705,7 @@ namespace Game {
 
         void Scene::SetWorkUnitBuildStructureVersion(std::uint64_t WorkUnitBuildStructureVersion) {
             mWorkUnitBuildStructureVersion = WorkUnitBuildStructureVersion;
+            mPipelineSystemBindingStructureVersion = InvalidWorkUnitBuildStructureVersion;
         }
 
         SceneWorkUnitBuildResult Scene::RebuildWorkUnits() {
@@ -692,6 +716,7 @@ namespace Game {
                 return BuildResult;
             }
 
+            TransferReusablePipelineBindings(std::span<const SceneWorkUnit>{ mWorkUnits.data(), mWorkUnits.size() }, NewWorkUnits);
             mWorkUnits.swap(NewWorkUnits);
             mWorkUnitBuildStructureVersion = mWorld.GetStructureVersion();
             mWorkUnitBuildRuntimePipelineAssignmentVersion = mFrameContext.mRuntimePipelineAssignmentVersion;
@@ -810,6 +835,7 @@ namespace Game {
 
         void Scene::InvalidateWorkUnits() {
             mWorkUnitBuildStructureVersion = InvalidWorkUnitBuildStructureVersion;
+            mPipelineSystemBindingStructureVersion = InvalidWorkUnitBuildStructureVersion;
         }
 
         void Scene::RebuildWorldSnapshot() {
