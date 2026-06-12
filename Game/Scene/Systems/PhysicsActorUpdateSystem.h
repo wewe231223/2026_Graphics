@@ -1,7 +1,7 @@
-#pragma once
+﻿#pragma once
 
 #include <string>
-#include "Game/Scene/System.h"
+#include "Game/Scene/Base/SynchronousSystem.h"
 
 namespace Game {
     class PhysicsActorUpdateSystem final : public ISystem {

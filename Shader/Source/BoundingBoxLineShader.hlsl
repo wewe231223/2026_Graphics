@@ -1,4 +1,4 @@
-#include "Common.hlsli"
+﻿#include "Common.hlsli"
 
 ConstantBuffer<RootConstantsB1> RootConstants : register(b1);
 

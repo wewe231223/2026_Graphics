@@ -1,9 +1,9 @@
-#pragma once
+﻿#pragma once
 #include <array>
 #include <cstdint>
 #include <filesystem>
 #include <string>
-#include "Game/Scene/System.h"
+#include "Game/Scene/Base/SynchronousSystem.h"
 
 namespace Game {
     struct Camera;

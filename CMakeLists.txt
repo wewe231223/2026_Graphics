@@ -158,11 +158,11 @@ add_library(Game STATIC
     Game/Model/TerrainRenderResource.cpp
     Game/Model/TerrainTiledMeshBuilder.cpp
     Game/Terrain/TerrainManager.cpp
-    Game/Scene/Scene.cpp
-    Game/Scene/SceneEntityFactory.cpp
-    Game/Scene/ScenePhysicsRuntimeCoordinator.cpp
-    Game/Scene/SceneWorldSnapshot.cpp
-    Game/Scene/SceneYamlSerializer.cpp
+    Game/Scene/Legacy/Scene.cpp
+    Game/Scene/Base/SceneEntityFactory.cpp
+    Game/Scene/Base/ScenePhysicsRuntimeCoordinator.cpp
+    Game/Scene/Base/SceneWorldSnapshot.cpp
+    Game/Scene/Legacy/SceneYamlSerializer.cpp
     Game/Scene/SceneYaml/SceneYamlCommon.cpp
     Game/Scene/SceneYaml/SceneYamlComponentRegistry.cpp
     Game/Scene/SceneYaml/Components/SceneYamlAnimationComponent.cpp
@@ -175,29 +175,29 @@ add_library(Game STATIC
     Game/Scene/SceneYaml/SceneYamlDeserializer.cpp
     Game/Scene/SceneYaml/SceneYamlTerrain.cpp
     Game/Scene/SceneYaml/SceneYamlWriter.cpp
-    Game/Scene/SystemSceduler.cpp
-    Game/Scene/ParallelSystemBase.cpp
-    Game/Scene/Pipeline/RenderGatherResult.cpp
-    Game/Scene/Pipeline/RenderGatherResultMerger.cpp
-    Game/Scene/Pipeline/PipelineContext.cpp
-    Game/Scene/Pipeline/PipelineTypes.cpp
-    Game/Scene/Pipeline/SceneWorkUnit.cpp
-    Game/Scene/Pipeline/PipelineExecutor.cpp
-    Game/Scene/Pipeline/PipelineSystemBindingResult.cpp
-    Game/Scene/Pipeline/PipelineSystemRegistry.cpp
-    Game/Scene/Pipeline/PipelineScene.cpp
-    Game/Scene/Pipeline/PipelineYamlSerializer.cpp
-    Game/Scene/Pipeline/PipelineSceneYamlMetadata.cpp
-    Game/Scene/Pipeline/PipelineSceneYamlDeserializer.cpp
-    Game/Scene/Pipeline/SceneWorkUnitBuilder.cpp
-    Game/Scene/Pipeline/Systems/PipelineAnimationGraphSystem.cpp
-    Game/Scene/Pipeline/Systems/PipelineAnimateSystem.cpp
-    Game/Scene/Pipeline/Systems/PipelineFootIKSystem.cpp
-    Game/Scene/Pipeline/Systems/PipelineTransformWorldSystem.cpp
-    Game/Scene/Pipeline/Systems/PipelineStaticRenderSystem.cpp
-    Game/Scene/Pipeline/Systems/PipelineTerrainRenderSystem.cpp
-    Game/Scene/Pipeline/Systems/PipelineSkinnedRenderSystem.cpp
-    Game/Scene/Pipeline/Systems/RegisterDefaultPipelineSystems.cpp
+    Game/Scene/Legacy/SystemSceduler.cpp
+    Game/Scene/Legacy/ParallelSystemBase.cpp
+    Game/Scene/Base/RenderGatherResult.cpp
+    Game/Scene/Base/RenderGatherResultMerger.cpp
+    Game/Scene/Base/Context.cpp
+    Game/Scene/Base/Types.cpp
+    Game/Scene/Base/SceneWorkUnit.cpp
+    Game/Scene/Base/Executor.cpp
+    Game/Scene/Base/SystemBindingResult.cpp
+    Game/Scene/Base/SystemRegistry.cpp
+    Game/Scene/Base/Scene.cpp
+    Game/Scene/Base/PipelineYAMLSerializer.cpp
+    Game/Scene/Base/PipelineYAMLMetadata.cpp
+    Game/Scene/Base/PipelineYAMLDeserializer.cpp
+    Game/Scene/Base/SceneWorkUnitBuilder.cpp
+    Game/Scene/Systems/AnimationGraphSystem.cpp
+    Game/Scene/Systems/AnimateSystem.cpp
+    Game/Scene/Systems/FootIKSystem.cpp
+    Game/Scene/Systems/TransformWorldSystem.cpp
+    Game/Scene/Systems/StaticRenderSystem.cpp
+    Game/Scene/Systems/TerrainRenderSystem.cpp
+    Game/Scene/Systems/SkinnedRenderSystem.cpp
+    Game/Scene/Systems/RegisterDefaultSystems.cpp
     Game/Scene/Components/Transform.cpp
     Game/Scene/Components/ComponentText.cpp
     Game/Scene/Components/Name.cpp
@@ -225,21 +225,21 @@ add_library(Game STATIC
     Game/Scene/Components/FootIKRuntime.cpp
     Game/Scene/Components/PhysicsActor.cpp
     Game/Scene/Systems/CameraRenderSystem.cpp
-    Game/Scene/Systems/AnimationGraphSystem.cpp
-    Game/Scene/Systems/AnimateSystem.cpp
+    Game/Scene/Legacy/Systems/AnimationGraphSystem.cpp
+    Game/Scene/Legacy/Systems/AnimateSystem.cpp
     Game/Scene/IK/FootIKSolver.cpp
     Game/Scene/IK/FabrikFootIKSolver.cpp
     Game/Scene/IK/FootIKAlgorithms.cpp
-    Game/Scene/Systems/FootIKSystem.cpp
+    Game/Scene/Legacy/Systems/FootIKSystem.cpp
     Game/Scene/Systems/PhysicsActorUpdateSystem.cpp
     Game/Scene/Systems/ProceduralFoliageSystem.cpp
-    Game/Scene/Systems/TransformWorldSystem.cpp
-    Game/Scene/Systems/SkinnedMeshPrepareSystem.cpp
+    Game/Scene/Legacy/Systems/TransformWorldSystem.cpp
+    Game/Scene/Legacy/Systems/SkinnedMeshPrepareSystem.cpp
     Game/Scene/Systems/ShadowMappingParameterSystem.cpp
-    Game/Scene/Systems/StaticRenderSystem.cpp
+    Game/Scene/Legacy/Systems/StaticRenderSystem.cpp
     Game/Scene/Systems/TerrainStreamingSystem.cpp
-    Game/Scene/Systems/TerrainRenderSystem.cpp
-    Game/Scene/Systems/SkinnedMeshRenderSystem.cpp
+    Game/Scene/Legacy/Systems/TerrainRenderSystem.cpp
+    Game/Scene/Legacy/Systems/SkinnedMeshRenderSystem.cpp
     Script/Core/LuaScriptFramework.cpp
 )
 

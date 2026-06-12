@@ -1,4 +1,4 @@
-#include "Console.h"
+﻿#include "Console.h"
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -11,7 +11,7 @@
 #include "External/Include/ImGui/imgui.h"
 #include "Utility/StdOutput.h"
 #include "Game/Base/Input.h"
-#include "Game/Scene/SceneYamlSerializer.h"
+#include "Game/Scene/Legacy/SceneYamlSerializer.h"
 
 namespace Widget {
     void LogBuffer::AddLog(const std::string& RawMessage) {

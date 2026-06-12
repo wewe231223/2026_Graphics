@@ -1,4 +1,4 @@
-#include "SceneYamlInternal.h"
+﻿#include "SceneYamlInternal.h"
 #include <format>
 #include <memory>
 #include <utility>
@@ -15,7 +15,7 @@
 #include "Game/Scene/Components/RuntimeVariableTable.h"
 #include "Game/Scene/Components/SkySphere.h"
 #include "Game/Scene/Components/Transform.h"
-#include "Game/Scene/Pipeline/PipelineScene.h"
+#include "Game/Scene/Base/Scene.h"
 #include "Game/Scene/Systems/ProceduralFoliageSystem.h"
 #include "Utility/StdOutput.h"
 

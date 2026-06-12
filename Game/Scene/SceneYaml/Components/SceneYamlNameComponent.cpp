@@ -1,4 +1,4 @@
-#include "SceneYamlNameComponent.h"
+﻿#include "SceneYamlNameComponent.h"
 #include <string>
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/SceneYaml/SceneYamlReadUtils.h"

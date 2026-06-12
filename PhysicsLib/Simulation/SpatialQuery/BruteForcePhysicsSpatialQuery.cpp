@@ -1,4 +1,4 @@
-#include "BruteForcePhysicsSpatialQuery.h"
+﻿#include "BruteForcePhysicsSpatialQuery.h"
 
 #include <algorithm>
 #include <utility>

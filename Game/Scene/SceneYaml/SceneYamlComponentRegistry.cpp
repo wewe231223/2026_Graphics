@@ -1,7 +1,7 @@
 ﻿#include "SceneYamlComponentRegistry.h"
 #include <memory>
 #include "Game/Model/Model.h"
-#include "Game/Scene/SceneEntityFactory.h"
+#include "Game/Scene/Base/SceneEntityFactory.h"
 #include "Game/Scene/SceneYaml/Components/SceneYamlAnimationComponent.h"
 #include "Game/Scene/SceneYaml/Components/SceneYamlBasicComponents.h"
 #include "Game/Scene/SceneYaml/Components/SceneYamlCameraComponent.h"

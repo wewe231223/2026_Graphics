@@ -1,4 +1,4 @@
-#include "AssetRegistryBackEnd.h"
+﻿#include "AssetRegistryBackEnd.h"
 
 namespace Game {
     AssetRegistryStorage::AssetRegistryStorage()

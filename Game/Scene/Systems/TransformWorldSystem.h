@@ -1,26 +1,23 @@
-#pragma once
-
+﻿#pragma once
 #include <string>
-#include "Game/Scene/System.h"
+#include "Game/Scene/Base/System.h"
 
 namespace Game {
-    class TransformWorldSystem final : public ISystem {
-    public:
-        TransformWorldSystem();
-        ~TransformWorldSystem() override;
-        TransformWorldSystem(const TransformWorldSystem& Other);
-        TransformWorldSystem& operator=(const TransformWorldSystem& Other);
-        TransformWorldSystem(TransformWorldSystem&& Other) noexcept;
-        TransformWorldSystem& operator=(TransformWorldSystem&& Other) noexcept;
+    namespace Pipeline {
+        class PipelineTransformWorldSystem final : public IPipelineSystem {
+        public:
+            PipelineTransformWorldSystem();
+            ~PipelineTransformWorldSystem() override;
 
-    public:
-        const std::string& Name() const override;
-        Phase GetPhase() const override;
-        std::span<const ComponentAccess> ComponentAccesses() const override;
-        std::span<const ResourceAccess> ResourceAccesses() const override;
-        void Execute(Arche::World& World, FrameContext& Ctx, float Dt) override;
+            PipelineTransformWorldSystem(const PipelineTransformWorldSystem& Other);
+            PipelineTransformWorldSystem& operator=(const PipelineTransformWorldSystem& Other);
 
-    private:
-        const std::string mName{ "TransformWorldSystem" };
-    };
+            PipelineTransformWorldSystem(PipelineTransformWorldSystem&& Other) noexcept;
+            PipelineTransformWorldSystem& operator=(PipelineTransformWorldSystem&& Other) noexcept;
+
+        public:
+            const std::string& Name() const override;
+            void Execute(PipelineContext& Ctx, float Dt) override;
+        };
+    }
 }

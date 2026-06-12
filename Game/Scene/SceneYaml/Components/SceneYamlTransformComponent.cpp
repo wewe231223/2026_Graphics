@@ -1,4 +1,4 @@
-#include "SceneYamlTransformComponent.h"
+﻿#include "SceneYamlTransformComponent.h"
 #include "Game/Scene/Components/Transform.h"
 #include "Game/Scene/SceneYaml/SceneYamlReadUtils.h"
 #include "Game/Scene/SceneYaml/SceneYamlWriteUtils.h"

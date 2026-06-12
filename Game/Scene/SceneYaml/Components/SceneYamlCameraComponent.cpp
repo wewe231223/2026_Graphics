@@ -1,4 +1,4 @@
-#include "SceneYamlCameraComponent.h"
+﻿#include "SceneYamlCameraComponent.h"
 #include <cstdint>
 #include <string>
 #include <unordered_map>

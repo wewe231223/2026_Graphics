@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -9,9 +9,9 @@
 #include <vector>
 #include "Arche/World.h"
 #include "Game/Model/AssetRegistry.h"
-#include "Game/Scene/Scene.h"
-#include "Game/Scene/SceneEntityFactory.h"
-#include "Game/Scene/SceneWorldSnapshot.h"
+#include "Game/Scene/Legacy/Scene.h"
+#include "Game/Scene/Base/SceneEntityFactory.h"
+#include "Game/Scene/Base/SceneWorldSnapshot.h"
 #include "SceneYamlTypes.h"
 
 namespace Game {

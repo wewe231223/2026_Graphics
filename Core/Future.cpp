@@ -1,4 +1,4 @@
-#include "Core/Future.h"
+﻿#include "Core/Future.h"
 #include <utility>
 
 using namespace Interface;

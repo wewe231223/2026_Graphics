@@ -1,30 +1,28 @@
-#pragma once
-
+﻿#pragma once
 #include <memory>
 #include <string>
-#include "Game/Scene/System.h"
+#include "Game/Scene/IK/FootIKSolver.h"
+#include "Game/Scene/Base/System.h"
 
 namespace Game {
-    class IFootIKSolver;
+    namespace Pipeline {
+        class PipelineFootIKSystem final : public IPipelineSystem {
+        public:
+            PipelineFootIKSystem();
+            ~PipelineFootIKSystem() override;
 
-    class FootIKSystem final : public ISystem {
-    public:
-        FootIKSystem();
-        ~FootIKSystem() override;
-        FootIKSystem(const FootIKSystem& Other);
-        FootIKSystem& operator=(const FootIKSystem& Other);
-        FootIKSystem(FootIKSystem&& Other) noexcept;
-        FootIKSystem& operator=(FootIKSystem&& Other) noexcept;
+            PipelineFootIKSystem(const PipelineFootIKSystem& Other);
+            PipelineFootIKSystem& operator=(const PipelineFootIKSystem& Other);
 
-    public:
-        const std::string& Name() const override;
-        Phase GetPhase() const override;
-        std::span<const ComponentAccess> ComponentAccesses() const override;
-        std::span<const ResourceAccess> ResourceAccesses() const override;
-        void Execute(Arche::World& World, FrameContext& Ctx, float Dt) override;
+            PipelineFootIKSystem(PipelineFootIKSystem&& Other) noexcept;
+            PipelineFootIKSystem& operator=(PipelineFootIKSystem&& Other) noexcept;
 
-    private:
-        std::string mName{};
-        std::unique_ptr<IFootIKSolver> mFootIKSolver{};
-    };
+        public:
+            const std::string& Name() const override;
+            void Execute(PipelineContext& Ctx, float Dt) override;
+
+        private:
+            std::unique_ptr<IFootIKSolver> mFootIKSolver{};
+        };
+    }
 }

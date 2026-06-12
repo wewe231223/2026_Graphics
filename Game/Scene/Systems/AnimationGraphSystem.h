@@ -1,26 +1,23 @@
-#pragma once
-
+﻿#pragma once
 #include <string>
-#include "Game/Scene/System.h"
+#include "Game/Scene/Base/System.h"
 
 namespace Game {
-    class AnimationGraphSystem final : public ISystem {
-    public:
-        AnimationGraphSystem() = default;
-        ~AnimationGraphSystem() override = default;
-        AnimationGraphSystem(const AnimationGraphSystem& Other) = default;
-        AnimationGraphSystem& operator=(const AnimationGraphSystem& Other) = default;
-        AnimationGraphSystem(AnimationGraphSystem&& Other) noexcept = default;
-        AnimationGraphSystem& operator=(AnimationGraphSystem&& Other) noexcept = default;
+    namespace Pipeline {
+        class PipelineAnimationGraphSystem final : public IPipelineSystem {
+        public:
+            PipelineAnimationGraphSystem();
+            ~PipelineAnimationGraphSystem() override;
 
-    public:
-        const std::string& Name() const override;
-        Phase GetPhase() const override;
-        std::span<const ComponentAccess> ComponentAccesses() const override;
-        std::span<const ResourceAccess> ResourceAccesses() const override;
-        void Execute(Arche::World& World, FrameContext& Ctx, float Dt) override;
+            PipelineAnimationGraphSystem(const PipelineAnimationGraphSystem& Other);
+            PipelineAnimationGraphSystem& operator=(const PipelineAnimationGraphSystem& Other);
 
-    private:
-        const std::string mName{ "AnimationGraphSystem" };
-    };
+            PipelineAnimationGraphSystem(PipelineAnimationGraphSystem&& Other) noexcept;
+            PipelineAnimationGraphSystem& operator=(PipelineAnimationGraphSystem&& Other) noexcept;
+
+        public:
+            const std::string& Name() const override;
+            void Execute(PipelineContext& Ctx, float Dt) override;
+        };
+    }
 }

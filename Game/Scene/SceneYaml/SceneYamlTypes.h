@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <cstdint>
 #include <string>
@@ -7,11 +7,12 @@
 #include "Arche/Common.h"
 #include "Asset/AnimationClipResult.h"
 #include "DirectXTK12/SimpleMath.h"
-#include "Game/Scene/SceneYamlSerializer.h"
+#include "Game/Scene/Legacy/SceneYamlSerializer.h"
 #include "PhysicsLib/Actors/PhysicsTerrainActor.h"
 
 namespace Game {
     class AnimationGraphAsset;
+    class Scene;
 
     namespace Pipeline {
         class Scene;

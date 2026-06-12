@@ -1,4 +1,4 @@
-SceneName: DefaultScene
+﻿SceneName: DefaultScene
 
 Systems:
   - Type: AnimationGraphSystem

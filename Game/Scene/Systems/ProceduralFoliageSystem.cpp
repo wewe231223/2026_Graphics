@@ -1,4 +1,4 @@
-#include "ProceduralFoliageSystem.h"
+﻿#include "ProceduralFoliageSystem.h"
 
 #include <algorithm>
 #include <array>

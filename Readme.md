@@ -1,4 +1,4 @@
-# 2026Graphics
+﻿# 2026Graphics
 
 <p>
 <img width="1922" height="1114" alt="2026Graphics 실행 화면" src="https://github.com/user-attachments/assets/14762276-b963-4ab4-9fa8-a515fc3cd8e3" />

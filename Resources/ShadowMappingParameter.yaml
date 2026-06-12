@@ -1,4 +1,4 @@
-ShadowMapping:
+﻿ShadowMapping:
   CascadeCount: 3
   Cascades:
     - ShadowMapSize: 4096
