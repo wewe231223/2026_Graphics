@@ -60,7 +60,6 @@
     <ClInclude Include="Scene\Components\FootIKRuntime.h" />
     <ClInclude Include="Scene\Components\Name.h" />
     <ClInclude Include="Scene\Components\ComponentInspection.h" />
-    <ClInclude Include="Scene\Components\PickingGizmo.h" />
     <ClInclude Include="Scene\Components\PrefabInstance.h" />
     <ClInclude Include="Scene\Components\PhysicsActor.h" />
     <ClInclude Include="Scene\Components\ScriptComponent.h" />
@@ -155,7 +154,6 @@
     <ClCompile Include="Model\TerrainTiledMeshBuilder.cpp" />
     <ClCompile Include="Terrain\TerrainManager.cpp" />
     <ClCompile Include="Asset\AnimationGraphAsset.cpp" />
-    <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp" />
     <ClCompile Include="Scene\Components\Culling.cpp" />
     <ClCompile Include="Scene\Components\DirectionalLight.cpp" />
     <ClCompile Include="Scene\Components\PrefabInstance.cpp" />
@@ -178,7 +176,6 @@
     <ClCompile Include="Scene\SceneYaml\SceneYamlDeserializer.cpp" />
     <ClCompile Include="Scene\SceneYaml\SceneYamlTerrain.cpp" />
     <ClCompile Include="Scene\SceneYaml\SceneYamlWriter.cpp" />
-    <ClCompile Include="Scene\System.cpp" />
     <ClCompile Include="Scene\SystemSceduler.cpp" />
     <ClCompile Include="Scene\ParallelSystemBase.cpp" />
     <ClCompile Include="Scene\Pipeline\RenderGatherResult.cpp" />

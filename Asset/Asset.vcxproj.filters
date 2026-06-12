@@ -40,12 +40,6 @@
     <ClCompile Include="AssetBinaryWriter.cpp">
       <Filter>Serializer</Filter>
     </ClCompile>
-    <ClCompile Include="FbxAssetImporter.cpp">
-      <Filter>Importer</Filter>
-    </ClCompile>
-    <ClCompile Include="GltfAssetImporter.cpp">
-      <Filter>Importer</Filter>
-    </ClCompile>
     <ClCompile Include="DataList.cpp">
       <Filter>Defines</Filter>
     </ClCompile>
@@ -80,12 +74,6 @@
     </ClInclude>
     <ClInclude Include="AssetBinaryWriter.h">
       <Filter>Serializer</Filter>
-    </ClInclude>
-    <ClInclude Include="FbxAssetImporter.h">
-      <Filter>Importer</Filter>
-    </ClInclude>
-    <ClInclude Include="GltfAssetImporter.h">
-      <Filter>Importer</Filter>
     </ClInclude>
     <ClInclude Include="DataList.h">
       <Filter>Defines</Filter>

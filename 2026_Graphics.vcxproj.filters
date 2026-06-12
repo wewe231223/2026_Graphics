@@ -41,13 +41,7 @@
     <ClCompile Include="Core\Future.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="Core\Event\Event.cpp">
-      <Filter>Core\Event</Filter>
-    </ClCompile>
     <ClCompile Include="Core\Event\EventQueue.cpp">
-      <Filter>Core\Event</Filter>
-    </ClCompile>
-    <ClCompile Include="Core\Event\FileDropEvent.cpp">
       <Filter>Core\Event</Filter>
     </ClCompile>
     <ClCompile Include="Core\DX\FrameSync.cpp">

@@ -74,8 +74,6 @@ add_library(Asset STATIC
     Asset/Common.cpp
     Asset/DataList.cpp
     Asset/AssimpAssetImporter.cpp
-    Asset/FbxAssetImporter.cpp
-    Asset/GltfAssetImporter.cpp
     Asset/MaterialGroupJsonSerializer.cpp
     Asset/ModelResult.cpp
 )
@@ -177,7 +175,6 @@ add_library(Game STATIC
     Game/Scene/SceneYaml/SceneYamlDeserializer.cpp
     Game/Scene/SceneYaml/SceneYamlTerrain.cpp
     Game/Scene/SceneYaml/SceneYamlWriter.cpp
-    Game/Scene/System.cpp
     Game/Scene/SystemSceduler.cpp
     Game/Scene/ParallelSystemBase.cpp
     Game/Scene/Pipeline/RenderGatherResult.cpp
@@ -278,9 +275,7 @@ add_executable(2026_Graphics WIN32
     2026_Graphics.rc
     Core/Config.cpp
     Core/Future.cpp
-    Core/Event/Event.cpp
     Core/Event/EventQueue.cpp
-    Core/Event/FileDropEvent.cpp
     Core/DX/AllocationHandle.cpp
     Core/DX/ComputeQueue.cpp
     Core/DX/CopyQueue.cpp
