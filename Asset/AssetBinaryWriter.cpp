@@ -1,4 +1,4 @@
-#include "AssetBinaryWriter.h"
+﻿#include "AssetBinaryWriter.h"
 
 #include <algorithm>
 #include <array>

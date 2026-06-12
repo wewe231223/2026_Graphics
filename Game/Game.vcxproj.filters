@@ -19,6 +19,9 @@
     <Filter Include="Scene">
       <UniqueIdentifier>{90865894-c1ea-4192-aea0-6b95f8b15d45}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Scene\Base">
+      <UniqueIdentifier>{3aa6dcb1-222c-498b-8db6-0930c8d0451b}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Scene\Systems">
       <UniqueIdentifier>{da518e6d-61b2-4bda-9554-c317d5a33a1b}</UniqueIdentifier>
     </Filter>
@@ -39,6 +42,12 @@
     </Filter>
     <Filter Include="Terrain">
       <UniqueIdentifier>{580f3db8-7db0-49d0-a335-9d4fa00e5819}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Scene\Legacy">
+      <UniqueIdentifier>{b89eb99f-4db0-4592-b9a3-698c3aaefa0b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Scene\Legacy\Systems">
+      <UniqueIdentifier>{918775c3-7c72-4a98-a529-debed94a43b0}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -105,17 +114,17 @@
     <ClInclude Include="Base\RenderFrameData.h">
       <Filter>Base</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\Scene.h">
-      <Filter>Scene</Filter>
+    <ClInclude Include="Scene\Legacy\Scene.h">
+      <Filter>Scene\Legacy</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\SceneEntityFactory.h">
-      <Filter>Scene</Filter>
+    <ClInclude Include="Scene\Base\SceneEntityFactory.h">
+      <Filter>Scene\Base</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\ScenePhysicsRuntimeCoordinator.h">
-      <Filter>Scene</Filter>
+    <ClInclude Include="Scene\Base\ScenePhysicsRuntimeCoordinator.h">
+      <Filter>Scene\Base</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\SceneYamlSerializer.h">
-      <Filter>Scene</Filter>
+    <ClInclude Include="Scene\Legacy\SceneYamlSerializer.h">
+      <Filter>Scene\Legacy</Filter>
     </ClInclude>
     <ClInclude Include="Scene\SceneYaml\SceneYamlInternal.h">
       <Filter>Scene\Scene YAML</Filter>
@@ -162,20 +171,95 @@
     <ClInclude Include="Scene\SceneYaml\Components\SceneYamlTransformComponent.h">
       <Filter>Scene\Scene YAML\Components</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\SceneWorldSnapshot.h">
-      <Filter>Scene</Filter>
+    <ClInclude Include="Scene\Base\SceneWorldSnapshot.h">
+      <Filter>Scene\Base</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\System.h">
-      <Filter>Scene</Filter>
+    <ClInclude Include="Scene\Base\SceneTerrainBindings.h">
+      <Filter>Scene\Base</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\SystemSceduler.h">
-      <Filter>Scene</Filter>
+    <ClInclude Include="Scene\Base\FrameContext.h">
+      <Filter>Scene\Base</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\ParallelSystemBase.h">
-      <Filter>Scene</Filter>
+    <ClInclude Include="Scene\Base\SynchronousSystem.h">
+      <Filter>Scene\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Legacy\SystemSceduler.h">
+      <Filter>Scene\Legacy</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Legacy\ParallelSystemBase.h">
+      <Filter>Scene\Legacy</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Base\System.h">
+      <Filter>Scene\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Base\Context.h">
+      <Filter>Scene\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Base\Context.inl">
+      <Filter>Scene\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Base\Types.h">
+      <Filter>Scene\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Base\RenderGatherResult.h">
+      <Filter>Scene\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Base\RenderGatherResultMerger.h">
+      <Filter>Scene\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Base\SceneWorkUnit.h">
+      <Filter>Scene\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Base\Executor.h">
+      <Filter>Scene\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Base\SystemBindingResult.h">
+      <Filter>Scene\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Base\SystemRegistry.h">
+      <Filter>Scene\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Base\Scene.h">
+      <Filter>Scene\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Base\PipelineYAMLSerializer.h">
+      <Filter>Scene\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Base\PipelineYAMLMetadata.h">
+      <Filter>Scene\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Base\PipelineYAMLDeserializer.h">
+      <Filter>Scene\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Base\SceneWorkUnitBuilder.h">
+      <Filter>Scene\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\AnimationGraphSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\AnimateSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\FootIKSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\TransformWorldSystem.h">
+      <Filter>Scene\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\StaticRenderSystem.h">
       <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\TerrainRenderSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\SkinnedRenderSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Systems\RegisterDefaultSystems.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Legacy\Systems\StaticRenderSystem.h">
+      <Filter>Scene\Legacy\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Components\BoundingBox.h">
       <Filter>Scene\Components</Filter>
@@ -225,11 +309,11 @@
     <ClInclude Include="Scene\Components\ComponentInspection.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\Systems\AnimationGraphSystem.h">
-      <Filter>Scene\Systems</Filter>
+    <ClInclude Include="Scene\Legacy\Systems\AnimationGraphSystem.h">
+      <Filter>Scene\Legacy\Systems</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\Systems\AnimateSystem.h">
-      <Filter>Scene\Systems</Filter>
+    <ClInclude Include="Scene\Legacy\Systems\AnimateSystem.h">
+      <Filter>Scene\Legacy\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\IK\FootIKSolver.h">
       <Filter>Scene\IK</Filter>
@@ -240,8 +324,8 @@
     <ClInclude Include="Scene\IK\FootIKAlgorithms.h">
       <Filter>Scene\IK</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\Systems\FootIKSystem.h">
-      <Filter>Scene\Systems</Filter>
+    <ClInclude Include="Scene\Legacy\Systems\FootIKSystem.h">
+      <Filter>Scene\Legacy\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\PhysicsActorUpdateSystem.h">
       <Filter>Scene\Systems</Filter>
@@ -255,11 +339,11 @@
     <ClInclude Include="Base\Input.h">
       <Filter>Base</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h">
-      <Filter>Scene\Systems</Filter>
+    <ClInclude Include="Scene\Legacy\Systems\SkinnedMeshRenderSystem.h">
+      <Filter>Scene\Legacy\Systems</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\Systems\TerrainRenderSystem.h">
-      <Filter>Scene\Systems</Filter>
+    <ClInclude Include="Scene\Legacy\Systems\TerrainRenderSystem.h">
+      <Filter>Scene\Legacy\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\TerrainStreamingSystem.h">
       <Filter>Scene\Systems</Filter>
@@ -267,14 +351,14 @@
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\Systems\SkinnedMeshPrepareSystem.h">
-      <Filter>Scene\Systems</Filter>
+    <ClInclude Include="Scene\Legacy\Systems\SkinnedMeshPrepareSystem.h">
+      <Filter>Scene\Legacy\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Systems\ShadowMappingParameterSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\Systems\TransformWorldSystem.h">
-      <Filter>Scene\Systems</Filter>
+    <ClInclude Include="Scene\Legacy\Systems\TransformWorldSystem.h">
+      <Filter>Scene\Legacy\Systems</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Components\EntityHierarchy.h">
       <Filter>Scene\Components</Filter>
@@ -299,9 +383,6 @@
     </ClInclude>
     <ClInclude Include="Scene\Components\PhysicsActor.h">
       <Filter>Scene\Components</Filter>
-    </ClInclude>
-    <ClInclude Include="Scene\Components\PickingGizmo.h">
-      <Filter>Model</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Components\ScriptComponent.h">
       <Filter>Scene\Components</Filter>
@@ -344,17 +425,17 @@
     <ClCompile Include="Model\TerrainProceduralHeightFieldConfigLoader.cpp">
       <Filter>Model</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\Scene.cpp">
-      <Filter>Scene</Filter>
+    <ClCompile Include="Scene\Legacy\Scene.cpp">
+      <Filter>Scene\Legacy</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\SceneEntityFactory.cpp">
-      <Filter>Scene</Filter>
+    <ClCompile Include="Scene\Base\SceneEntityFactory.cpp">
+      <Filter>Scene\Base</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\ScenePhysicsRuntimeCoordinator.cpp">
-      <Filter>Scene</Filter>
+    <ClCompile Include="Scene\Base\ScenePhysicsRuntimeCoordinator.cpp">
+      <Filter>Scene\Base</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\SceneYamlSerializer.cpp">
-      <Filter>Scene</Filter>
+    <ClCompile Include="Scene\Legacy\SceneYamlSerializer.cpp">
+      <Filter>Scene\Legacy</Filter>
     </ClCompile>
     <ClCompile Include="Scene\SceneYaml\SceneYamlCommon.cpp">
       <Filter>Scene\Scene YAML</Filter>
@@ -392,17 +473,77 @@
     <ClCompile Include="Scene\SceneYaml\SceneYamlWriter.cpp">
       <Filter>Scene\Scene YAML</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\SceneWorldSnapshot.cpp">
-      <Filter>Scene</Filter>
+    <ClCompile Include="Scene\Base\SceneWorldSnapshot.cpp">
+      <Filter>Scene\Base</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\System.cpp">
-      <Filter>Scene</Filter>
+    <ClCompile Include="Scene\Legacy\SystemSceduler.cpp">
+      <Filter>Scene\Legacy</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\SystemSceduler.cpp">
-      <Filter>Scene</Filter>
+    <ClCompile Include="Scene\Legacy\ParallelSystemBase.cpp">
+      <Filter>Scene\Legacy</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\ParallelSystemBase.cpp">
-      <Filter>Scene</Filter>
+    <ClCompile Include="Scene\Base\RenderGatherResult.cpp">
+      <Filter>Scene\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Base\RenderGatherResultMerger.cpp">
+      <Filter>Scene\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Base\Context.cpp">
+      <Filter>Scene\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Base\Types.cpp">
+      <Filter>Scene\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Base\SceneWorkUnit.cpp">
+      <Filter>Scene\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Base\Executor.cpp">
+      <Filter>Scene\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Base\SystemBindingResult.cpp">
+      <Filter>Scene\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Base\SystemRegistry.cpp">
+      <Filter>Scene\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Base\Scene.cpp">
+      <Filter>Scene\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Base\PipelineYAMLSerializer.cpp">
+      <Filter>Scene\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Base\PipelineYAMLMetadata.cpp">
+      <Filter>Scene\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Base\PipelineYAMLDeserializer.cpp">
+      <Filter>Scene\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Base\SceneWorkUnitBuilder.cpp">
+      <Filter>Scene\Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\AnimateSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\FootIKSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\TransformWorldSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\TerrainRenderSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\SkinnedRenderSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\RegisterDefaultSystems.cpp">
+      <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\Transform.cpp">
       <Filter>Scene\Components</Filter>
@@ -473,20 +614,20 @@
     <ClCompile Include="Scene\Components\ComponentInspection.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp">
-      <Filter>Scene\Systems</Filter>
+    <ClCompile Include="Scene\Legacy\Systems\StaticRenderSystem.cpp">
+      <Filter>Scene\Legacy\Systems</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\Systems\TerrainRenderSystem.cpp">
-      <Filter>Scene\Systems</Filter>
+    <ClCompile Include="Scene\Legacy\Systems\TerrainRenderSystem.cpp">
+      <Filter>Scene\Legacy\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\TerrainStreamingSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp">
-      <Filter>Scene\Systems</Filter>
+    <ClCompile Include="Scene\Legacy\Systems\AnimationGraphSystem.cpp">
+      <Filter>Scene\Legacy\Systems</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\Systems\AnimateSystem.cpp">
-      <Filter>Scene\Systems</Filter>
+    <ClCompile Include="Scene\Legacy\Systems\AnimateSystem.cpp">
+      <Filter>Scene\Legacy\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\IK\FootIKSolver.cpp">
       <Filter>Scene\IK</Filter>
@@ -497,8 +638,8 @@
     <ClCompile Include="Scene\IK\FootIKAlgorithms.cpp">
       <Filter>Scene\IK</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\Systems\FootIKSystem.cpp">
-      <Filter>Scene\Systems</Filter>
+    <ClCompile Include="Scene\Legacy\Systems\FootIKSystem.cpp">
+      <Filter>Scene\Legacy\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\PhysicsActorUpdateSystem.cpp">
       <Filter>Scene\Systems</Filter>
@@ -512,23 +653,20 @@
     <ClCompile Include="Base\RenderFrameData.cpp">
       <Filter>Base</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\Systems\SkinnedMeshRenderSystem.cpp">
-      <Filter>Scene\Systems</Filter>
+    <ClCompile Include="Scene\Legacy\Systems\SkinnedMeshRenderSystem.cpp">
+      <Filter>Scene\Legacy\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\Systems\SkinnedMeshPrepareSystem.cpp">
-      <Filter>Scene\Systems</Filter>
+    <ClCompile Include="Scene\Legacy\Systems\SkinnedMeshPrepareSystem.cpp">
+      <Filter>Scene\Legacy\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\ShadowMappingParameterSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\Systems\TransformWorldSystem.cpp">
-      <Filter>Scene\Systems</Filter>
-    </ClCompile>
-    <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp">
-      <Filter>Scene\Components</Filter>
+    <ClCompile Include="Scene\Legacy\Systems\TransformWorldSystem.cpp">
+      <Filter>Scene\Legacy\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\Culling.cpp">
       <Filter>Scene\Components</Filter>
@@ -599,6 +737,9 @@
       <Filter>Scene\Scene YAML</Filter>
     </None>
     <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml">
+      <Filter>Scene\Scene YAML</Filter>
+    </None>
+    <None Include="..\Resources\Pipelines\DefaultPipelines.yaml">
       <Filter>Scene\Scene YAML</Filter>
     </None>
     <None Include="..\Shader\Source\defines.hlsli">

@@ -1,4 +1,4 @@
-#include "ProceduralFoliageSystem.h"
+﻿#include "ProceduralFoliageSystem.h"
 
 #include <algorithm>
 #include <array>
@@ -12,6 +12,7 @@
 #include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -27,6 +28,7 @@
 #include <ryml.hpp>
 #include <ryml_std.hpp>
 
+#include "Core/Config.h"
 #include "Game/Model/AssetRegistry.h"
 #include "Game/Model/TerrainRenderResource.h"
 #include "Game/Scene/Components/BoundingBox.h"
@@ -1009,6 +1011,43 @@ namespace {
         return EntityId;
     }
 
+    void AddRuntimePipelineAssignment(Game::FrameContext& Ctx, Arche::EntityID UnitEntityId, const std::string& PipelineName) {
+        if (UnitEntityId == Arche::NullEntityID || PipelineName.empty() == true) {
+            return;
+        }
+
+        for (Game::FramePipelineAssignment& Assignment : Ctx.mRuntimePipelineAssignments) {
+            if (Assignment.mUnitEntityId == UnitEntityId) {
+                if (Assignment.mPipelineName == PipelineName) {
+                    return;
+                }
+
+                Assignment.mPipelineName = PipelineName;
+                Ctx.mRuntimePipelineAssignmentVersion += 1ULL;
+                return;
+            }
+        }
+
+        Game::FramePipelineAssignment Assignment{};
+        Assignment.mUnitEntityId = UnitEntityId;
+        Assignment.mPipelineName = PipelineName;
+        Ctx.mRuntimePipelineAssignments.push_back(std::move(Assignment));
+        Ctx.mRuntimePipelineAssignmentVersion += 1ULL;
+    }
+
+    void RemoveRuntimePipelineAssignment(Game::FrameContext& Ctx, Arche::EntityID UnitEntityId) {
+        if (UnitEntityId == Arche::NullEntityID) {
+            return;
+        }
+
+        const std::size_t PreviousAssignmentCount{ Ctx.mRuntimePipelineAssignments.size() };
+        const std::vector<Game::FramePipelineAssignment>::iterator RemoveBegin{ std::remove_if(Ctx.mRuntimePipelineAssignments.begin(), Ctx.mRuntimePipelineAssignments.end(), [UnitEntityId](const Game::FramePipelineAssignment& Assignment) { return Assignment.mUnitEntityId == UnitEntityId; }) };
+        Ctx.mRuntimePipelineAssignments.erase(RemoveBegin, Ctx.mRuntimePipelineAssignments.end());
+        if (Ctx.mRuntimePipelineAssignments.size() != PreviousAssignmentCount) {
+            Ctx.mRuntimePipelineAssignmentVersion += 1ULL;
+        }
+    }
+
     void AttachChildEntity(Arche::World& World, Arche::EntityID ParentEntityId, Arche::EntityID ChildEntityId) {
         Game::EntityHierarchy* ParentHierarchy{ World.GetComponent<Game::EntityHierarchy>(ParentEntityId) };
         Game::EntityHierarchy* ChildHierarchy{ World.GetComponent<Game::EntityHierarchy>(ChildEntityId) };
@@ -1257,23 +1296,29 @@ namespace {
         EnqueueFoliageCollisionActorRuntimeState(PhysicsRuntimeResource, IsPhysicsRuntimeModeEnabled, Slot, TransformComponent, IsActive);
     }
 
-    void ApplyFoliageCandidateToSlot(Arche::World& World, FoliageSlot& Slot, PhysicsRuntime* PhysicsRuntimeResource, bool IsPhysicsRuntimeModeEnabled, const FoliageCandidate& Candidate) {
+    void ApplyFoliageCandidateToSlot(Arche::World& World, Game::FrameContext& Ctx, FoliageSlot& Slot, const FoliageCandidate& Candidate) {
         if (Slot.mActive == true && Slot.mKey == Candidate.mKey) {
             Slot.mAssignedThisFrame = true;
             Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(Slot.mRootEntityId) };
             if (TransformComponent != nullptr) {
-                ApplyFoliageCollisionActorToSlot(World, Slot, PhysicsRuntimeResource, IsPhysicsRuntimeModeEnabled, *TransformComponent, true);
+                ApplyFoliageCollisionActorToSlot(World, Slot, Ctx.PhysicsRuntimeResource, Ctx.IsPhysicsRuntimeModeEnabled, *TransformComponent, true);
+            }
+            else {
+                RemoveRuntimePipelineAssignment(Ctx, Slot.mRootEntityId);
+                return;
             }
 
             if (Slot.mActiveLodIndex != Candidate.mLodIndex) {
                 SetFoliageSlotActive(World, Slot, true, Candidate.mLodIndex);
             }
 
+            AddRuntimePipelineAssignment(Ctx, Slot.mRootEntityId, "EnvironmentPipeline");
             return;
         }
 
         Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(Slot.mRootEntityId) };
         if (TransformComponent == nullptr) {
+            RemoveRuntimePipelineAssignment(Ctx, Slot.mRootEntityId);
             return;
         }
 
@@ -1281,34 +1326,37 @@ namespace {
         TransformComponent->rotationEuler = SimpleMath::Vector3{ 0.0f, Candidate.mYawRadians, 0.0f };
         TransformComponent->UpdateRotationFromEulerRadians();
         TransformComponent->scale = SimpleMath::Vector3{ Candidate.mScale, Candidate.mScale, Candidate.mScale };
-        ApplyFoliageCollisionActorToSlot(World, Slot, PhysicsRuntimeResource, IsPhysicsRuntimeModeEnabled, *TransformComponent, true);
+        ApplyFoliageCollisionActorToSlot(World, Slot, Ctx.PhysicsRuntimeResource, Ctx.IsPhysicsRuntimeModeEnabled, *TransformComponent, true);
         Slot.mKey = Candidate.mKey;
         Slot.mAssignedThisFrame = true;
         SetFoliageSlotActive(World, Slot, true, Candidate.mLodIndex);
+        AddRuntimePipelineAssignment(Ctx, Slot.mRootEntityId, "EnvironmentPipeline");
     }
 
-    void DeactivateFoliageSlot(Arche::World& World, FoliageSlot& Slot, PhysicsRuntime* PhysicsRuntimeResource, bool IsPhysicsRuntimeModeEnabled) {
+    void DeactivateFoliageSlot(Arche::World& World, Game::FrameContext& Ctx, FoliageSlot& Slot) {
         if (Slot.mActive == false) {
+            RemoveRuntimePipelineAssignment(Ctx, Slot.mRootEntityId);
             return;
         }
 
         Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(Slot.mRootEntityId) };
         if (TransformComponent != nullptr) {
             TransformComponent->position.y = Slot.mInactiveHeight;
-            ApplyFoliageCollisionActorToSlot(World, Slot, PhysicsRuntimeResource, IsPhysicsRuntimeModeEnabled, *TransformComponent, false);
+            ApplyFoliageCollisionActorToSlot(World, Slot, Ctx.PhysicsRuntimeResource, Ctx.IsPhysicsRuntimeModeEnabled, *TransformComponent, false);
         }
         else if (Slot.mCollisionActorPointer != nullptr) {
             Slot.mCollisionActorPointer->SetIsActive(false);
-            if (IsPhysicsRuntimeModeEnabled == true && PhysicsRuntimeResource != nullptr && PhysicsRuntimeResource->IsRunning() == true) {
+            if (Ctx.IsPhysicsRuntimeModeEnabled == true && Ctx.PhysicsRuntimeResource != nullptr && Ctx.PhysicsRuntimeResource->IsRunning() == true) {
                 PhysicsCommand Command{};
                 Command.mType = PhysicsCommandType::SetActorActive;
                 Command.mActorId = static_cast<ActorId>(Slot.mCollisionActorIndex);
                 Command.mIsActive = false;
-                static_cast<void>(PhysicsRuntimeResource->EnqueueCommand(Command));
+                static_cast<void>(Ctx.PhysicsRuntimeResource->EnqueueCommand(Command));
             }
         }
 
         SetFoliageSlotActive(World, Slot, false, 0u);
+        RemoveRuntimePipelineAssignment(Ctx, Slot.mRootEntityId);
     }
 }
 
@@ -1689,7 +1737,7 @@ namespace Game {
             const FoliageCandidate& Candidate{ mUpdateCandidates[mUpdateCandidateIndex] };
             const std::unordered_map<FoliageCandidateKey, std::size_t, FoliageCandidateKeyHasher>::const_iterator SlotIter{ mSlotByKey.find(Candidate.mKey) };
             if (SlotIter != mSlotByKey.end() && SlotIter->second < mSlots.size() && mSlots[SlotIter->second].mRuleIndex == Candidate.mKey.mRuleIndex) {
-                ApplyFoliageCandidateToSlot(World, mSlots[SlotIter->second], Ctx.PhysicsRuntimeResource, Ctx.IsPhysicsRuntimeModeEnabled, Candidate);
+                ApplyFoliageCandidateToSlot(World, Ctx, mSlots[SlotIter->second], Candidate);
                 mUpdateCandidateIndex += 1ULL;
                 ProcessedCandidateCount += 1u;
                 continue;
@@ -1705,7 +1753,7 @@ namespace Game {
                 }
             }
 
-            ApplyFoliageCandidateToSlot(World, mSlots[SlotIndex], Ctx.PhysicsRuntimeResource, Ctx.IsPhysicsRuntimeModeEnabled, Candidate);
+            ApplyFoliageCandidateToSlot(World, Ctx, mSlots[SlotIndex], Candidate);
             mUpdateCandidateIndex += 1ULL;
             ProcessedCandidateCount += 1u;
         }
@@ -1726,7 +1774,7 @@ namespace Game {
         while (mUpdateSlotIndex < mSlots.size() && ProcessedSlotCount < mConfig.mUpdateSlotBatchSize) {
             FoliageSlot& Slot{ mSlots[mUpdateSlotIndex] };
             if (Slot.mAssignedThisFrame == false) {
-                DeactivateFoliageSlot(World, Slot, Ctx.PhysicsRuntimeResource, Ctx.IsPhysicsRuntimeModeEnabled);
+                DeactivateFoliageSlot(World, Ctx, Slot);
             }
             else {
                 mUpdateSlotByKey.insert_or_assign(Slot.mKey, mUpdateSlotIndex);
@@ -1885,6 +1933,10 @@ namespace Game {
     }
 
     void ProceduralFoliageSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
+        if (Config::Query()->Get<bool>("EnvironmentObjects_Enabled") == false) {
+            return;
+        }
+
         if (mRuntime == nullptr) {
             mRuntime = std::make_unique<ProceduralFoliageRuntime>(mConfigPath);
         }

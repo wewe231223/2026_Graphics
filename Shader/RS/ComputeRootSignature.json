@@ -1,4 +1,4 @@
-{
+﻿{
   "$schema": "./Schema.RootSignature.json",
   "Name": "ComputeRootSignature",
   "Flags": [

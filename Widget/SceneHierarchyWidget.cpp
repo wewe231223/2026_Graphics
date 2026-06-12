@@ -18,7 +18,7 @@
 #include "Game/Scene/Components/Name.h"
 #include "Game/Scene/Components/Transform.h"
 #include "Game/Scene/Events/SelectionEvent.h"
-#include "Game/Scene/SceneWorldSnapshot.h"
+#include "Game/Scene/Base/SceneWorldSnapshot.h"
 
 #ifdef max 
 #undef max

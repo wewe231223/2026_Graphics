@@ -1,4 +1,4 @@
-{
+﻿{
   "$schema": "./Schema.Pipeline.json",
   "Name": "TerrainDepthGraphics",
   "Type": "Graphics",

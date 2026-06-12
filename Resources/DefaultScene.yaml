@@ -1,4 +1,4 @@
-SceneName: DefaultScene
+﻿SceneName: DefaultScene
 
 Systems:
   - Type: AnimationGraphSystem
@@ -191,6 +191,7 @@ Entities:
         text: Script/Lua/SunCycle.lua
   - EntityId: 9
     ParentEntityId: -1
+    Pipeline: CharacterPipeline
     Components:
       Tag:
         text: PlayerTag
@@ -238,6 +239,7 @@ Entities:
         path: Script/Lua/PlayerBehavior.lua
   - EntityId: 10
     ParentEntityId: -1
+    Pipeline: CharacterPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -268,6 +270,7 @@ Entities:
           Extents: [0.60, 0.85, 0.60]
   - EntityId: 11
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: SkyBoxTag
@@ -283,6 +286,7 @@ Entities:
         prefabId: 2007
   - EntityId: 12
     ParentEntityId: -1
+    Pipeline: TerrainPipeline
     Components:
       Tag:
         text: TerrainTag
@@ -311,6 +315,7 @@ Entities:
         active: true
   - EntityId: 43
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -335,6 +340,7 @@ Entities:
         restitution: 0.15
   - EntityId: 52
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -359,6 +365,7 @@ Entities:
         restitution: 0.72
   - EntityId: 53
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -383,6 +390,7 @@ Entities:
         restitution: 0.25
   - EntityId: 55
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -407,6 +415,7 @@ Entities:
         restitution: 0.34
   - EntityId: 56
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -431,6 +440,7 @@ Entities:
         restitution: 0.30
   - EntityId: 57
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -455,6 +465,7 @@ Entities:
         restitution: 0.12
   - EntityId: 58
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -479,6 +490,7 @@ Entities:
         restitution: 0.10
   - EntityId: 59
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -503,6 +515,7 @@ Entities:
         restitution: 0.16
   - EntityId: 60
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -527,6 +540,7 @@ Entities:
         restitution: 0.14
   - EntityId: 61
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -551,6 +565,7 @@ Entities:
         restitution: 0.18
   - EntityId: 62
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -575,6 +590,7 @@ Entities:
         restitution: 0.22
   - EntityId: 63
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -599,6 +615,7 @@ Entities:
         restitution: 0.92
   - EntityId: 64
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -623,6 +640,7 @@ Entities:
         restitution: 0.76
   - EntityId: 65
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -647,6 +665,7 @@ Entities:
         restitution: 0.24
   - EntityId: 66
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -671,6 +690,7 @@ Entities:
         restitution: 0.50
   - EntityId: 67
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag
@@ -695,6 +715,7 @@ Entities:
         restitution: 0.38
   - EntityId: 68
     ParentEntityId: -1
+    Pipeline: StaticMeshPipeline
     Components:
       Tag:
         text: ObjectTag

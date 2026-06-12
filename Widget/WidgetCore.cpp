@@ -1,4 +1,4 @@
-#include <algorithm>
+﻿#include <algorithm>
 #include <filesystem>
 #include "WidgetCore.h"
 #include "../External/Include/ImGui/imgui.h"

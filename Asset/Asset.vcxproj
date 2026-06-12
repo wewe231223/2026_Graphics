@@ -28,8 +28,6 @@
     <ClCompile Include="AssimpAssetImporter.cpp" />
     <ClCompile Include="Common.cpp" />
     <ClCompile Include="DataList.cpp" />
-    <ClCompile Include="FbxAssetImporter.cpp" />
-    <ClCompile Include="GltfAssetImporter.cpp" />
     <ClCompile Include="MaterialGroupJsonSerializer.cpp" />
     <ClCompile Include="ModelResult.cpp" />
   </ItemGroup>
@@ -43,8 +41,6 @@
     <ClInclude Include="AssimpAssetImporter.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="DataList.h" />
-    <ClInclude Include="FbxAssetImporter.h" />
-    <ClInclude Include="GltfAssetImporter.h" />
     <ClInclude Include="MaterialGroupJsonSerializer.h" />
     <ClInclude Include="ModelResult.h" />
   </ItemGroup>

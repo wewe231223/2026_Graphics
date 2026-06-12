@@ -1,4 +1,4 @@
-#include "SceneYamlAnimationComponent.h"
+﻿#include "SceneYamlAnimationComponent.h"
 #include <memory>
 #include <string>
 #include <utility>

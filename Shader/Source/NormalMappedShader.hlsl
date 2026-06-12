@@ -1,15 +1,7 @@
-#include "Common.hlsli"
+﻿#include "Common.hlsli"
 
 ConstantBuffer<RootConstantsB1> RootConstants : register(b1);
 SamplerState LinearWrapSampler : register(s0);
-
-struct NormalMappedVertexInput {
-    float3 Position : POSITION;
-    float3 Normal : NORMAL;
-    float2 TexCoord0 : TEXCOORD0;
-    float3 Tangent : TANGENT;
-    float3 Bitangent : BITANGENT;
-};
 
 struct SkinnedNormalMappedVertexInput {
     float3 Position : POSITION;
@@ -31,31 +23,6 @@ struct NormalMappedVertexOutput {
     uint MaterialIndex : MATERIAL_INDEX;
     uint Flags : FLAGS;
 };
-
-NormalMappedVertexOutput VsMain(NormalMappedVertexInput Input, uint InstanceId : SV_InstanceID) {
-    StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
-    StructuredBuffer<ModelContextGpu> ModelContextBuffer = ResourceDescriptorHeap[RootConstants.ModelContextSrvIndex];
-    StructuredBuffer<DrawRecordGpu> DrawRecordBuffer = ResourceDescriptorHeap[RootConstants.DrawRecordSrvIndex];
-
-    const uint DrawIndex = RootConstants.DrawRecordBaseIndex + InstanceId;
-    const DrawRecordGpu DrawRecord = DrawRecordBuffer[DrawIndex];
-    const ModelContextGpu ModelContext = ModelContextBuffer[DrawRecord.ObjectIndex];
-    const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[RootConstants.FrameGlobalsElementIndex];
-    const float4x4 World = ModelContext.World;
-    const float3x3 WorldRotation = (float3x3)World;
-    const float4 WorldPosition = mul(float4(Input.Position, 1.0f), World);
-
-    NormalMappedVertexOutput Output;
-    Output.Position = mul(WorldPosition, FrameGlobals.ViewProj);
-    Output.Normal = normalize(mul(Input.Normal, WorldRotation));
-    Output.Tangent = normalize(mul(Input.Tangent, WorldRotation));
-    Output.Bitangent = normalize(mul(Input.Bitangent, WorldRotation));
-    Output.WorldPosition = WorldPosition.xyz;
-    Output.TexCoord0 = Input.TexCoord0;
-    Output.MaterialIndex = DrawRecord.MaterialIndex;
-    Output.Flags = DrawRecord.Flags;
-    return Output;
-}
 
 NormalMappedVertexOutput SkinnedVsMain(SkinnedNormalMappedVertexInput Input, uint InstanceId : SV_InstanceID) {
     StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];

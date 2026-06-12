@@ -1,16 +1,22 @@
-#pragma once
+﻿#pragma once
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include "Arche/Common.h"
 #include "Asset/AnimationClipResult.h"
 #include "DirectXTK12/SimpleMath.h"
-#include "Game/Scene/SceneYamlSerializer.h"
+#include "Game/Scene/Legacy/SceneYamlSerializer.h"
 #include "PhysicsLib/Actors/PhysicsTerrainActor.h"
 
 namespace Game {
     class AnimationGraphAsset;
+    class Scene;
+
+    namespace Pipeline {
+        class Scene;
+    }
 }
 
 namespace Game::SceneYaml {
@@ -96,6 +102,7 @@ namespace Game::SceneYaml {
     class SceneYamlDeserializer final {
     public:
         SceneYamlLoadResult Deserialize(const std::string& YamlText, Scene& OutScene) const;
+        SceneYamlLoadResult Deserialize(const std::string& YamlText, Pipeline::Scene& OutScene, std::unordered_map<std::int64_t, Arche::EntityID>& OutEntityIdMap) const;
     };
 
     class SceneYamlWriter final {

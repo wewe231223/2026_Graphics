@@ -60,7 +60,6 @@
     <ClInclude Include="Scene\Components\FootIKRuntime.h" />
     <ClInclude Include="Scene\Components\Name.h" />
     <ClInclude Include="Scene\Components\ComponentInspection.h" />
-    <ClInclude Include="Scene\Components\PickingGizmo.h" />
     <ClInclude Include="Scene\Components\PrefabInstance.h" />
     <ClInclude Include="Scene\Components\PhysicsActor.h" />
     <ClInclude Include="Scene\Components\ScriptComponent.h" />
@@ -70,11 +69,12 @@
     <ClInclude Include="Scene\Components\SkinnedMeshRenderer.h" />
     <ClInclude Include="Scene\Components\Tags.h" />
     <ClInclude Include="Scene\Components\Transform.h" />
-    <ClInclude Include="Scene\Scene.h" />
-    <ClInclude Include="Scene\SceneEntityFactory.h" />
-    <ClInclude Include="Scene\ScenePhysicsRuntimeCoordinator.h" />
-    <ClInclude Include="Scene\SceneWorldSnapshot.h" />
-    <ClInclude Include="Scene\SceneYamlSerializer.h" />
+    <ClInclude Include="Scene\Legacy\Scene.h" />
+    <ClInclude Include="Scene\Base\SceneEntityFactory.h" />
+    <ClInclude Include="Scene\Base\ScenePhysicsRuntimeCoordinator.h" />
+    <ClInclude Include="Scene\Base\SceneWorldSnapshot.h" />
+    <ClInclude Include="Scene\Base\SceneTerrainBindings.h" />
+    <ClInclude Include="Scene\Legacy\SceneYamlSerializer.h" />
     <ClInclude Include="Scene\SceneYaml\Components\SceneYamlAnimationComponent.h" />
     <ClInclude Include="Scene\SceneYaml\Components\SceneYamlBasicComponents.h" />
     <ClInclude Include="Scene\SceneYaml\Components\SceneYamlCameraComponent.h" />
@@ -90,25 +90,49 @@
     <ClInclude Include="Scene\SceneYaml\SceneYamlTerrain.h" />
     <ClInclude Include="Scene\SceneYaml\SceneYamlTypes.h" />
     <ClInclude Include="Scene\SceneYaml\SceneYamlWriteUtils.h" />
-    <ClInclude Include="Scene\System.h" />
-    <ClInclude Include="Scene\SystemSceduler.h" />
-    <ClInclude Include="Scene\ParallelSystemBase.h" />
+    <ClInclude Include="Scene\Base\FrameContext.h" />
+    <ClInclude Include="Scene\Base\SynchronousSystem.h" />
+    <ClInclude Include="Scene\Legacy\SystemSceduler.h" />
+    <ClInclude Include="Scene\Legacy\ParallelSystemBase.h" />
+    <ClInclude Include="Scene\Base\System.h" />
+    <ClInclude Include="Scene\Base\Context.h" />
+    <ClInclude Include="Scene\Base\Context.inl" />
+    <ClInclude Include="Scene\Base\Types.h" />
+    <ClInclude Include="Scene\Base\RenderGatherResult.h" />
+    <ClInclude Include="Scene\Base\RenderGatherResultMerger.h" />
+    <ClInclude Include="Scene\Base\SceneWorkUnit.h" />
+    <ClInclude Include="Scene\Base\Executor.h" />
+    <ClInclude Include="Scene\Base\SystemBindingResult.h" />
+    <ClInclude Include="Scene\Base\SystemRegistry.h" />
+    <ClInclude Include="Scene\Base\Scene.h" />
+    <ClInclude Include="Scene\Base\PipelineYAMLSerializer.h" />
+    <ClInclude Include="Scene\Base\PipelineYAMLMetadata.h" />
+    <ClInclude Include="Scene\Base\PipelineYAMLDeserializer.h" />
+    <ClInclude Include="Scene\Base\SceneWorkUnitBuilder.h" />
     <ClInclude Include="Scene\Systems\AnimationGraphSystem.h" />
     <ClInclude Include="Scene\Systems\AnimateSystem.h" />
+    <ClInclude Include="Scene\Systems\FootIKSystem.h" />
+    <ClInclude Include="Scene\Systems\TransformWorldSystem.h" />
+    <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
+    <ClInclude Include="Scene\Systems\TerrainRenderSystem.h" />
+    <ClInclude Include="Scene\Systems\SkinnedRenderSystem.h" />
+    <ClInclude Include="Scene\Systems\RegisterDefaultSystems.h" />
+    <ClInclude Include="Scene\Legacy\Systems\AnimationGraphSystem.h" />
+    <ClInclude Include="Scene\Legacy\Systems\AnimateSystem.h" />
     <ClInclude Include="Scene\IK\FootIKSolver.h" />
     <ClInclude Include="Scene\IK\FabrikFootIKSolver.h" />
     <ClInclude Include="Scene\IK\FootIKAlgorithms.h" />
-    <ClInclude Include="Scene\Systems\FootIKSystem.h" />
+    <ClInclude Include="Scene\Legacy\Systems\FootIKSystem.h" />
     <ClInclude Include="Scene\Systems\PhysicsActorUpdateSystem.h" />
     <ClInclude Include="Scene\Systems\ProceduralFoliageSystem.h" />
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
     <ClInclude Include="Scene\Systems\ShadowMappingParameterSystem.h" />
-    <ClInclude Include="Scene\Systems\TransformWorldSystem.h" />
-    <ClInclude Include="Scene\Systems\SkinnedMeshPrepareSystem.h" />
-    <ClInclude Include="Scene\Systems\StaticRenderSystem.h" />
+    <ClInclude Include="Scene\Legacy\Systems\TransformWorldSystem.h" />
+    <ClInclude Include="Scene\Legacy\Systems\SkinnedMeshPrepareSystem.h" />
+    <ClInclude Include="Scene\Legacy\Systems\StaticRenderSystem.h" />
     <ClInclude Include="Scene\Systems\TerrainStreamingSystem.h" />
-    <ClInclude Include="Scene\Systems\TerrainRenderSystem.h" />
-    <ClInclude Include="Scene\Systems\SkinnedMeshRenderSystem.h" />
+    <ClInclude Include="Scene\Legacy\Systems\TerrainRenderSystem.h" />
+    <ClInclude Include="Scene\Legacy\Systems\SkinnedMeshRenderSystem.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Input.cpp" />
@@ -130,17 +154,18 @@
     <ClCompile Include="Model\TerrainTiledMeshBuilder.cpp" />
     <ClCompile Include="Terrain\TerrainManager.cpp" />
     <ClCompile Include="Asset\AnimationGraphAsset.cpp" />
-    <ClCompile Include="Scene\Components\ComponentLuaTypeDefinitions.cpp" />
     <ClCompile Include="Scene\Components\Culling.cpp" />
     <ClCompile Include="Scene\Components\DirectionalLight.cpp" />
     <ClCompile Include="Scene\Components\PrefabInstance.cpp" />
     <ClCompile Include="Scene\Components\Bone.cpp" />
     <ClCompile Include="Scene\Components\BoneSkinReference.cpp" />
-    <ClCompile Include="Scene\Scene.cpp" />
-    <ClCompile Include="Scene\SceneEntityFactory.cpp" />
-    <ClCompile Include="Scene\ScenePhysicsRuntimeCoordinator.cpp" />
-    <ClCompile Include="Scene\SceneWorldSnapshot.cpp" />
-    <ClCompile Include="Scene\SceneYamlSerializer.cpp" />
+    <ClCompile Include="Scene\Legacy\Scene.cpp">
+      <ObjectFileName>$(IntDir)Scene_Legacy_Scene.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="Scene\Base\SceneEntityFactory.cpp" />
+    <ClCompile Include="Scene\Base\ScenePhysicsRuntimeCoordinator.cpp" />
+    <ClCompile Include="Scene\Base\SceneWorldSnapshot.cpp" />
+    <ClCompile Include="Scene\Legacy\SceneYamlSerializer.cpp" />
     <ClCompile Include="Scene\SceneYaml\SceneYamlCommon.cpp" />
     <ClCompile Include="Scene\SceneYaml\SceneYamlComponentRegistry.cpp" />
     <ClCompile Include="Scene\SceneYaml\Components\SceneYamlAnimationComponent.cpp" />
@@ -150,12 +175,34 @@
     <ClCompile Include="Scene\SceneYaml\Components\SceneYamlPhysicsComponent.cpp" />
     <ClCompile Include="Scene\SceneYaml\Components\SceneYamlTerrainComponent.cpp" />
     <ClCompile Include="Scene\SceneYaml\Components\SceneYamlTransformComponent.cpp" />
-    <ClCompile Include="Scene\SceneYaml\SceneYamlDeserializer.cpp" />
+    <ClCompile Include="Scene\SceneYaml\SceneYamlDeserializer.cpp">
+      <ObjectFileName>$(IntDir)Scene_SceneYaml_SceneYamlDeserializer.obj</ObjectFileName>
+    </ClCompile>
     <ClCompile Include="Scene\SceneYaml\SceneYamlTerrain.cpp" />
     <ClCompile Include="Scene\SceneYaml\SceneYamlWriter.cpp" />
-    <ClCompile Include="Scene\System.cpp" />
-    <ClCompile Include="Scene\SystemSceduler.cpp" />
-    <ClCompile Include="Scene\ParallelSystemBase.cpp" />
+    <ClCompile Include="Scene\Legacy\SystemSceduler.cpp" />
+    <ClCompile Include="Scene\Legacy\ParallelSystemBase.cpp" />
+    <ClCompile Include="Scene\Base\RenderGatherResult.cpp" />
+    <ClCompile Include="Scene\Base\RenderGatherResultMerger.cpp" />
+    <ClCompile Include="Scene\Base\Context.cpp" />
+    <ClCompile Include="Scene\Base\Types.cpp" />
+    <ClCompile Include="Scene\Base\SceneWorkUnit.cpp" />
+    <ClCompile Include="Scene\Base\Executor.cpp" />
+    <ClCompile Include="Scene\Base\SystemBindingResult.cpp" />
+    <ClCompile Include="Scene\Base\SystemRegistry.cpp" />
+    <ClCompile Include="Scene\Base\Scene.cpp" />
+    <ClCompile Include="Scene\Base\PipelineYAMLSerializer.cpp" />
+    <ClCompile Include="Scene\Base\PipelineYAMLMetadata.cpp" />
+    <ClCompile Include="Scene\Base\PipelineYAMLDeserializer.cpp" />
+    <ClCompile Include="Scene\Base\SceneWorkUnitBuilder.cpp" />
+    <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp" />
+    <ClCompile Include="Scene\Systems\AnimateSystem.cpp" />
+    <ClCompile Include="Scene\Systems\FootIKSystem.cpp" />
+    <ClCompile Include="Scene\Systems\TransformWorldSystem.cpp" />
+    <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />
+    <ClCompile Include="Scene\Systems\TerrainRenderSystem.cpp" />
+    <ClCompile Include="Scene\Systems\SkinnedRenderSystem.cpp" />
+    <ClCompile Include="Scene\Systems\RegisterDefaultSystems.cpp" />
     <ClCompile Include="Scene\Components\Transform.cpp" />
     <ClCompile Include="Scene\Components\ComponentText.cpp" />
     <ClCompile Include="Scene\Components\Name.cpp" />
@@ -177,22 +224,34 @@
     <ClCompile Include="Scene\Components\TerrainRenderer.cpp" />
     <ClCompile Include="Scene\Components\SkinnedMeshRenderer.cpp" />
     <ClCompile Include="Scene\Components\ComponentInspection.cpp" />
-    <ClCompile Include="Scene\Systems\AnimationGraphSystem.cpp" />
-    <ClCompile Include="Scene\Systems\AnimateSystem.cpp" />
+    <ClCompile Include="Scene\Legacy\Systems\AnimationGraphSystem.cpp">
+      <ObjectFileName>$(IntDir)Scene_Legacy_Systems_AnimationGraphSystem.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="Scene\Legacy\Systems\AnimateSystem.cpp">
+      <ObjectFileName>$(IntDir)Scene_Legacy_Systems_AnimateSystem.obj</ObjectFileName>
+    </ClCompile>
     <ClCompile Include="Scene\IK\FootIKSolver.cpp" />
     <ClCompile Include="Scene\IK\FabrikFootIKSolver.cpp" />
     <ClCompile Include="Scene\IK\FootIKAlgorithms.cpp" />
-    <ClCompile Include="Scene\Systems\FootIKSystem.cpp" />
+    <ClCompile Include="Scene\Legacy\Systems\FootIKSystem.cpp">
+      <ObjectFileName>$(IntDir)Scene_Legacy_Systems_FootIKSystem.obj</ObjectFileName>
+    </ClCompile>
     <ClCompile Include="Scene\Systems\PhysicsActorUpdateSystem.cpp" />
     <ClCompile Include="Scene\Systems\ProceduralFoliageSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\ShadowMappingParameterSystem.cpp" />
-    <ClCompile Include="Scene\Systems\TransformWorldSystem.cpp" />
-    <ClCompile Include="Scene\Systems\SkinnedMeshPrepareSystem.cpp" />
-    <ClCompile Include="Scene\Systems\StaticRenderSystem.cpp" />
+    <ClCompile Include="Scene\Legacy\Systems\TransformWorldSystem.cpp">
+      <ObjectFileName>$(IntDir)Scene_Legacy_Systems_TransformWorldSystem.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="Scene\Legacy\Systems\SkinnedMeshPrepareSystem.cpp" />
+    <ClCompile Include="Scene\Legacy\Systems\StaticRenderSystem.cpp">
+      <ObjectFileName>$(IntDir)Scene_Legacy_Systems_StaticRenderSystem.obj</ObjectFileName>
+    </ClCompile>
     <ClCompile Include="Scene\Systems\TerrainStreamingSystem.cpp" />
-    <ClCompile Include="Scene\Systems\TerrainRenderSystem.cpp" />
-    <ClCompile Include="Scene\Systems\SkinnedMeshRenderSystem.cpp" />
+    <ClCompile Include="Scene\Legacy\Systems\TerrainRenderSystem.cpp">
+      <ObjectFileName>$(IntDir)Scene_Legacy_Systems_TerrainRenderSystem.obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="Scene\Legacy\Systems\SkinnedMeshRenderSystem.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shader\Source\BasicShader.hlsl">
@@ -245,6 +304,7 @@
     <None Include="..\Resources\DefaultScene\FoliagePlacement.yaml" />
     <None Include="..\Resources\DefaultScene\TerrainProceduralHeightField.yaml" />
     <None Include="..\Resources\DefaultScene\knight_idle_run.graph.yaml" />
+    <None Include="..\Resources\Pipelines\DefaultPipelines.yaml" />
     <None Include="..\Resources\ShadowMappingParameter.yaml" />
     <None Include="..\Shader\PSO\DefaultGraphics.json" />
     <None Include="..\Shader\PSO\DebugGeometryGraphics.json" />
@@ -294,8 +354,7 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Label="ExtensionSettings">
-  </ImportGroup>
+  <ImportGroup Label="ExtensionSettings"></ImportGroup>
   <ImportGroup Label="Shared">
     <Import Project="..\Utility\Utility.vcxitems" Label="Shared" />
   </ImportGroup>
@@ -332,8 +391,7 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
-      <SubSystem>
-      </SubSystem>
+      <SubSystem></SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
@@ -349,8 +407,7 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
-      <SubSystem>
-      </SubSystem>
+      <SubSystem></SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -368,8 +425,7 @@
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <SubSystem>
-      </SubSystem>
+      <SubSystem></SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
@@ -387,14 +443,12 @@
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <SubSystem>
-      </SubSystem>
+      <SubSystem></SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-  </ImportGroup>
+  <ImportGroup Label="ExtensionTargets"></ImportGroup>
 </Project>

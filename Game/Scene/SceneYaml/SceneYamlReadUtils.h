@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <array>
 #include <cstdint>
@@ -10,7 +10,7 @@
 #include <ryml_std.hpp>
 #include "Arche/World.h"
 #include "DirectXTK12/SimpleMath.h"
-#include "Game/Scene/System.h"
+#include "Game/Scene/Base/SynchronousSystem.h"
 #include "SceneYamlTypes.h"
 
 namespace Game::SceneYaml {

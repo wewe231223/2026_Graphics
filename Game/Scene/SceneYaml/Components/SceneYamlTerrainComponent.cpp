@@ -1,4 +1,4 @@
-#include "SceneYamlTerrainComponent.h"
+﻿#include "SceneYamlTerrainComponent.h"
 #include <cstddef>
 #include <cstdint>
 #include <format>
@@ -14,7 +14,7 @@
 #include "Game/Scene/Components/PrefabInstance.h"
 #include "Game/Scene/Components/TerrainRenderer.h"
 #include "Game/Scene/Components/Transform.h"
-#include "Game/Scene/SceneEntityFactory.h"
+#include "Game/Scene/Base/SceneEntityFactory.h"
 #include "Game/Scene/SceneYaml/SceneYamlReadUtils.h"
 #include "Game/Scene/SceneYaml/SceneYamlTerrain.h"
 #include "Game/Scene/SceneYaml/SceneYamlWriteUtils.h"

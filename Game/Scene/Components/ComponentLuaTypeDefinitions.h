@@ -8,10 +8,6 @@
 #include "Game/Scene/Components/RuntimeVariableTable.h"
 #include "Utility/ComponentRestraint.h"
 
-namespace Game {
-    void InitializeComponentLuaTypeDefinitions();
-}
-
 LuaTypeDefinitionDeclWithName(
     Arche::EntityID,
     "EntityID",

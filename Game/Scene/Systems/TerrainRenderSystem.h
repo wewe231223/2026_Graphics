@@ -1,35 +1,23 @@
-#pragma once
-
+﻿#pragma once
 #include <string>
-#include "Arche/Common.h"
-#include "Game/Scene/System.h"
+#include "Game/Scene/Base/System.h"
 
 namespace Game {
-    struct Frustum;
-    struct TerrainTileMetadata;
-    class TerrainRenderResource;
+    namespace Pipeline {
+        class PipelineTerrainRenderSystem final : public IPipelineSystem {
+        public:
+            PipelineTerrainRenderSystem();
+            ~PipelineTerrainRenderSystem() override;
 
-    class TerrainRenderSystem final : public ISystem {
-    public:
-        TerrainRenderSystem();
-        ~TerrainRenderSystem() override;
-        TerrainRenderSystem(const TerrainRenderSystem& Other);
-        TerrainRenderSystem& operator=(const TerrainRenderSystem& Other);
-        TerrainRenderSystem(TerrainRenderSystem&& Other) noexcept;
-        TerrainRenderSystem& operator=(TerrainRenderSystem&& Other) noexcept;
+            PipelineTerrainRenderSystem(const PipelineTerrainRenderSystem& Other);
+            PipelineTerrainRenderSystem& operator=(const PipelineTerrainRenderSystem& Other);
 
-    public:
-        const std::string& Name() const override;
-        Phase GetPhase() const override;
-        std::span<const ComponentAccess> ComponentAccesses() const override;
-        std::span<const ResourceAccess> ResourceAccesses() const override;
-        void Execute(Arche::World& World, FrameContext& Ctx, float Dt) override;
+            PipelineTerrainRenderSystem(PipelineTerrainRenderSystem&& Other) noexcept;
+            PipelineTerrainRenderSystem& operator=(PipelineTerrainRenderSystem&& Other) noexcept;
 
-    private:
-        std::uint32_t SelectLodIndex(const TerrainTileMetadata& TileMetadata, const SimpleMath::Matrix& WorldMatrix, const SimpleMath::Vector3& CameraPosition, bool HasCameraPosition, const TerrainRenderResource& Resource) const;
-        bool IsTileVisibleByFrustum(const DirectX::BoundingOrientedBox& LocalBoundingBox, const SimpleMath::Matrix& WorldMatrix, const Frustum* CullingFrustumComponent, bool IsFrustumCullingEnabled, DirectX::BoundingOrientedBox& OutWorldBoundingBox) const;
-
-    private:
-        const std::string mName{ "TerrainRenderSystem" };
-    };
+        public:
+            const std::string& Name() const override;
+            void Execute(PipelineContext& Ctx, float Dt) override;
+        };
+    }
 }

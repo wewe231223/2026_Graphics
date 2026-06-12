@@ -1,0 +1,23 @@
+﻿Pipelines:
+  CharacterPipeline:
+    Systems:
+      - AnimationGraphSystem
+      - AnimateSystem
+      - FootIKSystem
+      - TransformWorldSystem
+      - SkinnedRenderSystem
+
+  StaticMeshPipeline:
+    Systems:
+      - TransformWorldSystem
+      - StaticRenderSystem
+
+  EnvironmentPipeline:
+    Systems:
+      - TransformWorldSystem
+      - StaticRenderSystem
+
+  TerrainPipeline:
+    Systems:
+      - TransformWorldSystem
+      - TerrainRenderSystem

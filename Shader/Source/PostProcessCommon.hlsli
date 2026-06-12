@@ -1,4 +1,4 @@
-#ifndef POST_PROCESS_COMMON_HLSLI
+﻿#ifndef POST_PROCESS_COMMON_HLSLI
 #define POST_PROCESS_COMMON_HLSLI
 
 struct PostProcessRootConstants {

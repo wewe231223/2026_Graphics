@@ -1,4 +1,4 @@
-#include "Game/Scene/IK/FootIKAlgorithms.h"
+﻿#include "Game/Scene/IK/FootIKAlgorithms.h"
 
 #include <algorithm>
 #include <array>
@@ -553,7 +553,7 @@ namespace Game::IK {
             return false;
         }
 
-        Game::Transform* BoneTransformComponent{ World.GetComponent<Game::Transform>(BoneEntityId) };
+        Game::Transform* BoneTransformComponent{ const_cast<Game::Transform*>(std::as_const(World).GetComponent<Game::Transform>(BoneEntityId)) };
         const Game::EntityHierarchy* BoneHierarchyComponent{ std::as_const(World).GetComponent<Game::EntityHierarchy>(BoneEntityId) };
         if (BoneTransformComponent == nullptr || BoneHierarchyComponent == nullptr) {
             return false;

@@ -1,4 +1,4 @@
-#include "PerformanceWidgets.h"
+﻿#include "PerformanceWidgets.h"
 
 #include <algorithm>
 #include <cmath>
@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 #include "External/Include/ImGui/imgui.h"
-#include "Game/Scene/SceneWorldSnapshot.h"
+#include "Game/Scene/Base/SceneWorldSnapshot.h"
 #include "PerformanceProvider.h"
 
 #ifdef max

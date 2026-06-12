@@ -1,4 +1,4 @@
-#include "MaterialResourceManager.h"
+﻿#include "MaterialResourceManager.h"
 #include <vector>
 #include "Core/DX/GraphicsAllocator.h"
 #include "Utility/ErrorHandler.h"

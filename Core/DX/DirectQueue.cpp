@@ -227,8 +227,8 @@ namespace Core {
 			mCommandList->Close();
 			DrawCallResources.QueueWaitForUpload(mDirectCommandQueue.Get());
 			mMaterialResourceManager.QueueWaitForUpload(mDirectCommandQueue.Get(), static_cast<std::uint32_t>(CurrentIndex));
-			for (const Interface::Future& TerrainUploadFuture : Data.mTerrainUploadFutures) {
-				TerrainUploadFuture.QueueWait(mDirectCommandQueue.Get());
+			if (Data.mHasTerrainUploadFuture == true) {
+				Data.mTerrainUploadFuture.QueueWait(mDirectCommandQueue.Get());
 			}
 
 			ID3D12CommandList* MainCommandLists[]{ mCommandList.Get() };
