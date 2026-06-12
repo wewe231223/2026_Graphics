@@ -26,6 +26,7 @@
 6. [구조](#6-구조)
    1. [프로젝트 구조](#6-1-프로젝트-구조)
    2. [시스템 구조](#6-2-시스템-구조)
+   3. [Scene 파이프라이닝 병렬화](#6-3-scene-파이프라이닝-병렬화)
 7. [TODO](#7-todo)
 8. [Reference](#8-reference)
 
@@ -120,6 +121,7 @@ cmake --build --preset build-release
 | DirectX 12 렌더링 | Direct, Compute, Copy Queue를 분리하고 Fence/Future 기반으로 GPU 작업을 동기화합니다. |
 | Deferred Rendering | G-Buffer, Shadow Map, Deferred Lighting, Tone Mapping을 별도 패스로 구성합니다. |
 | 데이터 기반 파이프라인 | Scene, Material, PSO, Root Signature, Shadow 설정을 데이터 파일로 분리합니다. |
+| Scene 파이프라이닝 병렬화 | 씬 엔티티 계층을 WorkUnit으로 나누고 Thread Pool 기반 동적 pull 방식으로 시스템을 병렬 실행합니다. |
 | 커스텀 ECS | Archetype과 Chunk 기반 저장소, Query Cache, Deferred Structural Change를 직접 구현합니다. |
 | RenderFrameData 경계 | Game 시스템 결과와 Core 렌더러 입력을 명확히 분리합니다. |
 | 자체 에셋 파이프라인 | Assimp 기반 변환 도구와 런타임 로더가 같은 데이터 모델을 공유합니다. |
@@ -132,7 +134,7 @@ cmake --build --preset build-release
 | --- | --- | --- |
 | `2026_Graphics` | Win32 실행 파일과 전체 런타임 진입점 | 창 생성, 설정 로드, DirectX 12 초기화, 프레임 루프, 씬 로드 |
 | `Core` | DirectX 12 렌더링 기반 | Queue 관리, Descriptor Heap, G-Buffer, Shadow Map, Deferred Lighting, Tone Mapping, GPU 업로드 |
-| `Game` | 씬과 게임 시스템 런타임 | YAML Scene, System Scheduler, AssetRegistry, Transform, Camera, Animation, Terrain, Physics Sync |
+| `Game` | 씬과 게임 시스템 런타임 | YAML Scene, Data Pipeline Scene, WorkUnit 병렬 실행, AssetRegistry, Transform, Camera, Animation, Terrain, Physics Sync |
 | `Arche` | 커스텀 ECS | Entity, Component, Archetype, Chunk, Query Cache, Deferred Structural Change |
 | `Asset` | 에셋 임포트와 직렬화 | Model Import, Animation Import, Binary Reader/Writer, Material JSON |
 | `AssetZIP` | 에셋 변환 CLI | `model`, `animation`, `help`, UV Flip 옵션, 변환 결과 출력 |
@@ -283,7 +285,7 @@ D3D/           D3D12 Agility SDK DLL
 
 | 항목 | 내용 |
 | --- | --- |
-| 주요 파일 | `DefaultScene.yaml`, `ShadowMappingParameter.yaml` |
+| 주요 파일 | `DefaultScene.yaml`, `Pipelines/DefaultPipelines.yaml`, `ShadowMappingParameter.yaml` |
 | 주요 폴더 | `DefaultResource`, `DefaultScene`, `Font` |
 | 역할 | 기본 씬, 모델, 애니메이션, 머티리얼, 텍스처, 폰트를 제공합니다. |
 
@@ -446,6 +448,40 @@ flowchart LR
 
 </details>
 
+### 6-3. Scene 파이프라이닝 병렬화
+
+현재 브랜치는 기존 `Scene` 실행 경로와 별도로 `Game::Pipeline::Scene` 기반 데이터 파이프라인 경로를 추가합니다. `Config.prop`의 `Use_PipelineScene = true`일 때 `2026_Graphics.cpp`는 `Resources/DefaultScene.yaml`과 `Resources/Pipelines/DefaultPipelines.yaml`을 함께 로드하고, 씬 엔티티에 지정된 `Pipeline` 메타데이터를 기준으로 실행 단위를 구성합니다.
+
+```mermaid
+flowchart LR
+    Config["Config.prop<br/>Use_PipelineScene"] --> PipelineScene["Game::Pipeline::Scene"]
+    SceneYaml["DefaultScene.yaml<br/>Entity Pipeline Assignment"] --> WorkUnitBuilder["SceneWorkUnitBuilder"]
+    PipelineYaml["DefaultPipelines.yaml<br/>Pipeline Definition"] --> Registry["PipelineSystemRegistry"]
+    WorkUnitBuilder --> WorkUnits["SceneWorkUnit"]
+    Registry --> Binding["Pipeline System Binding"]
+    WorkUnits --> Executor["PipelineExecutor"]
+    Binding --> Executor
+    Executor --> GatherResults["RenderGatherResult per Worker"]
+    GatherResults --> Merger["RenderGatherResultMerger"]
+    Merger --> RenderFrameData["RenderFrameData"]
+```
+
+`Resources/Pipelines/DefaultPipelines.yaml`은 `CharacterPipeline`, `StaticMeshPipeline`, `EnvironmentPipeline`, `TerrainPipeline`을 정의하고 각 파이프라인에 실행할 시스템 이름을 순서대로 배치합니다. 예를 들어 캐릭터 파이프라인은 Animation Graph, Animation, Foot IK, Transform, Skinned Render 순서로 실행되고, 정적 메시와 지형 파이프라인은 Transform 이후 각 렌더 수집 시스템으로 이어집니다.
+
+| 단계 | 동작 |
+| --- | --- |
+| Pipeline 정의 로드 | `PipelineSceneYamlDeserializer`가 파이프라인 YAML을 읽고 `PipelineDefinition` 목록을 구성합니다. |
+| WorkUnit 구성 | `SceneWorkUnitBuilder`가 `DefaultScene.yaml`의 `Pipeline` 지정 엔티티를 기준으로 하위 계층을 하나의 `SceneWorkUnit`으로 묶습니다. |
+| 시스템 바인딩 | `PipelineSystemRegistry`가 파이프라인 이름에 등록된 시스템 팩토리를 통해 `IPipelineSystem` 인스턴스를 연결합니다. |
+| 병렬 실행 | `PipelineExecutor`가 WorkUnit을 Thread Pool 워커에 동적 pull 방식으로 분배합니다. |
+| 결과 병합 | 각 워커가 별도 `RenderGatherResult`에 수집한 렌더 데이터를 `RenderGatherResultMerger`가 최종 `RenderFrameData`로 병합합니다. |
+
+병렬 실행은 고정 분배가 아니라 `std::atomic` 인덱스를 사용하는 동적 pull 방식입니다. 워커는 남아 있는 WorkUnit 청크를 가져가 처리하고, 메인 스레드도 첫 번째 워커로 참여합니다. WorkUnit 수가 실제 Thread Pool 워커 수보다 적을 경우 활성 워커 수를 WorkUnit 수로 제한해 불필요한 작업 제출을 줄입니다.
+
+각 파이프라인 시스템은 공용 `RenderFrameData`에 직접 쓰지 않고 `PipelineContext`를 통해 자신에게 배정된 엔티티 범위만 순회합니다. 렌더링에 필요한 `ModelContext`, `DrawRecord`, 지형 패치, Bone Palette, Shadow Cascade 데이터는 워커별 `RenderGatherResult`에 먼저 기록됩니다. 이후 병합 단계에서 Model Context, Terrain Patch, Bone Palette 오프셋을 보정하므로 여러 워커가 만든 Draw Record가 하나의 렌더 프레임 데이터 안에서 일관된 인덱스를 갖습니다.
+
+Physics, Terrain Streaming, Procedural Foliage, Camera, Shadow Mapping Parameter처럼 전역 상태 갱신이나 프레임 입력 구성에 가까운 작업은 `mSynchronousSystems`로 먼저 실행됩니다. 그 뒤 구조 변경을 Flush하고 WorkUnit과 시스템 바인딩을 갱신한 다음 병렬 파이프라인을 실행해, 구조 변경과 렌더 수집 병렬화를 분리합니다.
+
 ## 7. TODO
 
 향후 개발 항목은 렌더링 파이프라인 확장, 에디터 기반 작업 흐름, 런타임 시스템 고도화를 중심으로 진행합니다.
@@ -456,7 +492,6 @@ flowchart LR
 | 렌더링 최적화 | Indirect Draw | Draw Call 제출 구조를 GPU Driven Rendering에 가깝게 개선 |
 | 에디터 도구 | Scene Editor | 런타임 씬 계층과 컴포넌트를 편집하고 저장할 수 있는 작업 흐름 구축 |
 | 에디터 도구 | Material Editor 및 Shader Hot Reload | 머티리얼 파라미터 편집과 셰이더 수정 사항의 런타임 반영 지원 |
-| 런타임 시스템 | System 병렬화 | ECS 시스템 실행 단계를 병렬화할 수 있는 스케줄링 구조 개선 |
 | 런타임 시스템 | UI 렌더링을 위한 구조적 기능 | 게임 UI 렌더링을 렌더 프레임 데이터와 분리해 구성할 수 있는 기반 마련 |
 | 애니메이션 | Animation Blending 수정 및 Hot Reload | 애니메이션 블렌딩 품질을 개선하고 클립 변경 사항을 런타임에 반영 |
 | AI | 플레이어 이외 AI 오브젝트 | 플레이어 외 오브젝트가 자체 상태와 행동 흐름을 가질 수 있도록 확장 |
