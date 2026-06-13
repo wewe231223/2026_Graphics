@@ -77,7 +77,11 @@ namespace Core {
 			mDebugGeometryPipeline{},
 			mIsDebugGeometryPipelineInitialized{},
 			mTerrainDepthPipeline{},
-			mIsTerrainDepthPipelineInitialized{} {
+			mIsTerrainDepthPipelineInitialized{},
+			mEnvironmentObjectPipeline{},
+			mIsEnvironmentObjectPipelineInitialized{},
+			mEnvironmentObjectDepthPipeline{},
+			mIsEnvironmentObjectDepthPipelineInitialized{} {
 		}
 
 		DrawCallDispatcher::~DrawCallDispatcher() {
@@ -139,6 +143,63 @@ namespace Core {
 				UINT StartInstanceLocation{ 0 };
 				CommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
 				DrawRecordIndex = RunEndIndex;
+			}
+		}
+
+		void DrawCallDispatcher::DrawEnvironmentGBuffer(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle EnvironmentInstanceContextSrvHandle, DescriptorHandle EnvironmentSegmentContextSrvHandle, DescriptorHandle EnvironmentDrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+			if (CommandList == nullptr || Data.mEnvironmentDrawRecords.empty() == true) {
+				return;
+			}
+
+			if (mIsEnvironmentObjectPipelineInitialized == false) {
+				mIsEnvironmentObjectPipelineInitialized = mEnvironmentObjectPipeline.Initialize("EnvironmentObjectGraphics");
+			}
+
+			if (mIsEnvironmentObjectPipelineInitialized == false) {
+				return;
+			}
+
+			const Interface::IPipeline* ActivePipeline{ nullptr };
+			for (std::size_t DrawRecordIndex{}; DrawRecordIndex < Data.mEnvironmentDrawRecords.size(); DrawRecordIndex += 1ULL) {
+				const Game::RFD::EnvironmentDrawRecord& DrawRecord{ Data.mEnvironmentDrawRecords[DrawRecordIndex] };
+				if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u) {
+					continue;
+				}
+
+				ActivePipeline = mEnvironmentObjectPipeline.Set(ActivePipeline, CommandList);
+
+				DrawRootConstantsB1 RootConstants{};
+				RootConstants.FrameGlobalsSrvIndex = FrameGlobalsSrvHandle.GetIndex();
+				RootConstants.ModelContextSrvIndex = EnvironmentInstanceContextSrvHandle.GetIndex();
+				RootConstants.BonePaletteSrvIndex = EnvironmentSegmentContextSrvHandle.GetIndex();
+				RootConstants.DrawRecordSrvIndex = EnvironmentDrawRecordSrvHandle.GetIndex();
+				RootConstants.DrawRecordBaseIndex = static_cast<uint32_t>(DrawRecordIndex);
+				RootConstants.MaterialSrvIndex = MaterialSrvHandle.GetIndex();
+				RootConstants.MaterialTextureTableSrvIndex = MaterialTextureTableSrvHandle.GetIndex();
+				RootConstants.ShadowMappingParameterSrvIndex = InvalidDescriptorIndex;
+				RootConstants.ShadowMapTextureBaseSrvIndex = InvalidDescriptorIndex;
+				RootConstants.FrameGlobalsElementIndex = 0u;
+				RootConstants.TerrainPatchContextSrvIndex = InvalidDescriptorIndex;
+				RootConstants.Reserved1 = 0u;
+				CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
+
+				CommandList->IASetPrimitiveTopology(mEnvironmentObjectPipeline.GetPrimitiveTopology());
+
+				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(mEnvironmentObjectPipeline, *DrawRecord.mMesh) };
+				if (VertexBufferViews.empty() == false) {
+					CommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
+				}
+
+				const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ DrawRecord.mMesh->GetIndexBufferView() };
+				CommandList->IASetIndexBuffer(&IndexBufferView);
+
+				const Game::ModelSubMesh& SubMesh{ DrawRecord.mMesh->GetSubMesh(DrawRecord.mSubMesh) };
+				const UINT IndexCountPerInstance{ static_cast<UINT>(SubMesh.IndexCount) };
+				const UINT InstanceCount{ static_cast<UINT>(DrawRecord.mInstanceCount) };
+				const UINT StartIndexLocation{ static_cast<UINT>(SubMesh.IndexOffset) };
+				const INT BaseVertexLocation{ 0 };
+				const UINT StartInstanceLocation{ 0 };
+				CommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
 			}
 		}
 
@@ -246,6 +307,66 @@ namespace Core {
 				UINT StartInstanceLocation{ 0 };
 				CommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
 				DrawRecordIndex = RunEndIndex;
+			}
+		}
+
+		void DrawCallDispatcher::DrawEnvironmentDepthOnly(ID3D12GraphicsCommandList* CommandList, ID3D12GraphicsCommandList9* DynamicDepthBiasCommandList, float RasterDepthBias, float RasterDepthBiasClamp, float RasterSlopeScaledDepthBias, const Game::RFD::ShadowRenderContext& ShadowRenderContext, std::uint32_t ShadowFrameGlobalsIndex, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle EnvironmentInstanceContextSrvHandle, DescriptorHandle EnvironmentSegmentContextSrvHandle, DescriptorHandle EnvironmentDrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+			if (CommandList == nullptr || ShadowRenderContext.mEnvironmentDrawRecords.empty() == true) {
+				return;
+			}
+
+			if (mIsEnvironmentObjectDepthPipelineInitialized == false) {
+				mIsEnvironmentObjectDepthPipelineInitialized = mEnvironmentObjectDepthPipeline.Initialize("EnvironmentObjectDepthGraphics");
+			}
+
+			if (mIsEnvironmentObjectDepthPipelineInitialized == false) {
+				return;
+			}
+
+			const Interface::IPipeline* ActivePipeline{ nullptr };
+			for (std::size_t DrawRecordIndex{}; DrawRecordIndex < ShadowRenderContext.mEnvironmentDrawRecords.size(); DrawRecordIndex += 1ULL) {
+				const Game::RFD::EnvironmentDrawRecord& DrawRecord{ ShadowRenderContext.mEnvironmentDrawRecords[DrawRecordIndex] };
+				if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u) {
+					continue;
+				}
+
+				ActivePipeline = mEnvironmentObjectDepthPipeline.Set(ActivePipeline, CommandList);
+				if (DynamicDepthBiasCommandList != nullptr) {
+					DynamicDepthBiasCommandList->RSSetDepthBias(RasterDepthBias, RasterDepthBiasClamp, RasterSlopeScaledDepthBias);
+				}
+
+				DrawRootConstantsB1 RootConstants{};
+				RootConstants.FrameGlobalsSrvIndex = FrameGlobalsSrvHandle.GetIndex();
+				RootConstants.ModelContextSrvIndex = EnvironmentInstanceContextSrvHandle.GetIndex();
+				RootConstants.BonePaletteSrvIndex = EnvironmentSegmentContextSrvHandle.GetIndex();
+				RootConstants.DrawRecordSrvIndex = EnvironmentDrawRecordSrvHandle.GetIndex();
+				RootConstants.DrawRecordBaseIndex = static_cast<uint32_t>(DrawRecordIndex);
+				RootConstants.MaterialSrvIndex = MaterialSrvHandle.GetIndex();
+				RootConstants.MaterialTextureTableSrvIndex = MaterialTextureTableSrvHandle.GetIndex();
+				RootConstants.ShadowMappingParameterSrvIndex = InvalidDescriptorIndex;
+				RootConstants.ShadowMapTextureBaseSrvIndex = InvalidDescriptorIndex;
+				RootConstants.FrameGlobalsElementIndex = ShadowFrameGlobalsIndex;
+				RootConstants.TerrainPatchContextSrvIndex = InvalidDescriptorIndex;
+				RootConstants.Reserved1 = 0u;
+				CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
+
+				CommandList->IASetPrimitiveTopology(mEnvironmentObjectDepthPipeline.GetPrimitiveTopology());
+
+				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(mEnvironmentObjectDepthPipeline, *DrawRecord.mMesh) };
+				if (VertexBufferViews.empty() == false) {
+					CommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
+				}
+
+				const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ DrawRecord.mMesh->GetIndexBufferView() };
+				CommandList->IASetIndexBuffer(&IndexBufferView);
+
+				const Game::ModelSubMesh& SubMesh{ DrawRecord.mMesh->GetSubMesh(DrawRecord.mSubMesh) };
+				const UINT IndexCountPerInstance{ static_cast<UINT>(SubMesh.IndexCount) };
+				const UINT InstanceCount{ static_cast<UINT>(DrawRecord.mInstanceCount) };
+				const UINT StartIndexLocation{ static_cast<UINT>(SubMesh.IndexOffset) };
+				const INT BaseVertexLocation{ 0 };
+				const UINT StartInstanceLocation{ 0 };
+				CommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
 			}
 		}
 

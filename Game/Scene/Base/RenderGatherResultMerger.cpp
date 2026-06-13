@@ -15,9 +15,11 @@ namespace Game {
             std::uint32_t AddIndexOffset(std::uint32_t Index, std::size_t Offset);
             RFD::ModelContext BuildAdjustedModelContext(RFD::ModelContext ModelContext, std::size_t ModelContextOffset, std::size_t BonePaletteOffset);
             RFD::DrawRecord BuildAdjustedDrawRecord(RFD::DrawRecord DrawRecord, std::size_t ModelContextOffset, std::size_t TerrainPatchContextOffset);
+            RFD::EnvironmentDrawRecord BuildAdjustedEnvironmentDrawRecord(RFD::EnvironmentDrawRecord DrawRecord, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset);
             void MergeModelContexts(const std::vector<RFD::ModelContext>& SourceModelContexts, std::size_t ModelContextOffset, std::size_t BonePaletteOffset, std::vector<RFD::ModelContext>& OutModelContexts);
             void MergeDrawRecords(const std::vector<RFD::DrawRecord>& SourceDrawRecords, std::size_t ModelContextOffset, std::size_t TerrainPatchContextOffset, std::vector<RFD::DrawRecord>& OutDrawRecords);
-            void MergeShadowRenderContexts(const std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& SourceShadowRenderContexts, std::size_t BonePaletteOffset, std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& OutShadowRenderContexts);
+            void MergeEnvironmentDrawRecords(const std::vector<RFD::EnvironmentDrawRecord>& SourceDrawRecords, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset, std::vector<RFD::EnvironmentDrawRecord>& OutDrawRecords);
+            void MergeShadowRenderContexts(const std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& SourceShadowRenderContexts, std::size_t BonePaletteOffset, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset, std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& OutShadowRenderContexts);
             void ReserveRenderFrameData(std::span<const RenderGatherResult> RenderGatherResults, RFD::RenderFrameData& OutRenderData);
             void MergeRenderGatherResult(const RenderGatherResult& SourceRenderGatherResult, RFD::RenderFrameData& OutRenderData);
 
@@ -43,6 +45,12 @@ namespace Game {
                 return DrawRecord;
             }
 
+            RFD::EnvironmentDrawRecord BuildAdjustedEnvironmentDrawRecord(RFD::EnvironmentDrawRecord DrawRecord, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset) {
+                DrawRecord.mInstanceOffset = AddIndexOffset(DrawRecord.mInstanceOffset, EnvironmentInstanceContextOffset);
+                DrawRecord.mSegmentContextIndex = AddIndexOffset(DrawRecord.mSegmentContextIndex, EnvironmentSegmentContextOffset);
+                return DrawRecord;
+            }
+
             void MergeModelContexts(const std::vector<RFD::ModelContext>& SourceModelContexts, std::size_t ModelContextOffset, std::size_t BonePaletteOffset, std::vector<RFD::ModelContext>& OutModelContexts) {
                 for (const RFD::ModelContext& SourceModelContext : SourceModelContexts) {
                     OutModelContexts.push_back(BuildAdjustedModelContext(SourceModelContext, ModelContextOffset, BonePaletteOffset));
@@ -55,7 +63,13 @@ namespace Game {
                 }
             }
 
-            void MergeShadowRenderContexts(const std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& SourceShadowRenderContexts, std::size_t BonePaletteOffset, std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& OutShadowRenderContexts) {
+            void MergeEnvironmentDrawRecords(const std::vector<RFD::EnvironmentDrawRecord>& SourceDrawRecords, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset, std::vector<RFD::EnvironmentDrawRecord>& OutDrawRecords) {
+                for (const RFD::EnvironmentDrawRecord& SourceDrawRecord : SourceDrawRecords) {
+                    OutDrawRecords.push_back(BuildAdjustedEnvironmentDrawRecord(SourceDrawRecord, EnvironmentInstanceContextOffset, EnvironmentSegmentContextOffset));
+                }
+            }
+
+            void MergeShadowRenderContexts(const std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& SourceShadowRenderContexts, std::size_t BonePaletteOffset, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset, std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& OutShadowRenderContexts) {
                 for (std::size_t ShadowContextIndex{ 0 }; ShadowContextIndex < OutShadowRenderContexts.size(); ++ShadowContextIndex) {
                     const RFD::ShadowRenderContext& SourceShadowRenderContext{ SourceShadowRenderContexts[ShadowContextIndex] };
                     RFD::ShadowRenderContext& OutShadowRenderContext{ OutShadowRenderContexts[ShadowContextIndex] };
@@ -65,6 +79,7 @@ namespace Game {
                     MergeModelContexts(SourceShadowRenderContext.ModelContexts, ModelContextOffset, BonePaletteOffset, OutShadowRenderContext.ModelContexts);
                     OutShadowRenderContext.TerrainPatchContexts.insert(OutShadowRenderContext.TerrainPatchContexts.end(), SourceShadowRenderContext.TerrainPatchContexts.begin(), SourceShadowRenderContext.TerrainPatchContexts.end());
                     MergeDrawRecords(SourceShadowRenderContext.DrawRecords, ModelContextOffset, TerrainPatchContextOffset, OutShadowRenderContext.DrawRecords);
+                    MergeEnvironmentDrawRecords(SourceShadowRenderContext.mEnvironmentDrawRecords, EnvironmentInstanceContextOffset, EnvironmentSegmentContextOffset, OutShadowRenderContext.mEnvironmentDrawRecords);
                 }
             }
 
@@ -75,15 +90,20 @@ namespace Game {
                 std::size_t TerrainPatchContextCount{ OutRenderData.TerrainPatchContexts.size() };
                 std::size_t DrawRecordCount{ OutRenderData.drawRecords.size() };
                 std::size_t BonePaletteCount{ OutRenderData.bonePalette.size() };
+                std::size_t EnvironmentInstanceContextCount{ OutRenderData.mEnvironmentInstanceContexts.size() };
+                std::size_t EnvironmentSegmentContextCount{ OutRenderData.mEnvironmentSegmentContexts.size() };
+                std::size_t EnvironmentDrawRecordCount{ OutRenderData.mEnvironmentDrawRecords.size() };
                 std::array<std::size_t, RFD::ShadowCascadeMaxCount> ShadowModelContextCounts{};
                 std::array<std::size_t, RFD::ShadowCascadeMaxCount> ShadowTerrainPatchContextCounts{};
                 std::array<std::size_t, RFD::ShadowCascadeMaxCount> ShadowDrawRecordCounts{};
+                std::array<std::size_t, RFD::ShadowCascadeMaxCount> ShadowEnvironmentDrawRecordCounts{};
 
                 for (std::size_t ShadowContextIndex{}; ShadowContextIndex < OutRenderData.ShadowRenderContexts.size(); ++ShadowContextIndex) {
                     const RFD::ShadowRenderContext& ShadowRenderContext{ OutRenderData.ShadowRenderContexts[ShadowContextIndex] };
                     ShadowModelContextCounts[ShadowContextIndex] = ShadowRenderContext.ModelContexts.size();
                     ShadowTerrainPatchContextCounts[ShadowContextIndex] = ShadowRenderContext.TerrainPatchContexts.size();
                     ShadowDrawRecordCounts[ShadowContextIndex] = ShadowRenderContext.DrawRecords.size();
+                    ShadowEnvironmentDrawRecordCounts[ShadowContextIndex] = ShadowRenderContext.mEnvironmentDrawRecords.size();
                 }
 
                 for (const RenderGatherResult& RenderGatherResultValue : RenderGatherResults) {
@@ -93,6 +113,9 @@ namespace Game {
                     TerrainPatchContextCount += RenderGatherResultValue.GetTerrainPatchContexts().size();
                     DrawRecordCount += RenderGatherResultValue.GetDrawRecords().size();
                     BonePaletteCount += RenderGatherResultValue.GetBonePalette().size();
+                    EnvironmentInstanceContextCount += RenderGatherResultValue.GetEnvironmentInstanceContexts().size();
+                    EnvironmentSegmentContextCount += RenderGatherResultValue.GetEnvironmentSegmentContexts().size();
+                    EnvironmentDrawRecordCount += RenderGatherResultValue.GetEnvironmentDrawRecords().size();
 
                     const std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& SourceShadowRenderContexts{ RenderGatherResultValue.GetShadowRenderContexts() };
                     for (std::size_t ShadowContextIndex{}; ShadowContextIndex < SourceShadowRenderContexts.size(); ++ShadowContextIndex) {
@@ -100,6 +123,7 @@ namespace Game {
                         ShadowModelContextCounts[ShadowContextIndex] += SourceShadowRenderContext.ModelContexts.size();
                         ShadowTerrainPatchContextCounts[ShadowContextIndex] += SourceShadowRenderContext.TerrainPatchContexts.size();
                         ShadowDrawRecordCounts[ShadowContextIndex] += SourceShadowRenderContext.DrawRecords.size();
+                        ShadowEnvironmentDrawRecordCounts[ShadowContextIndex] += SourceShadowRenderContext.mEnvironmentDrawRecords.size();
                     }
                 }
 
@@ -109,12 +133,16 @@ namespace Game {
                 OutRenderData.TerrainPatchContexts.reserve(TerrainPatchContextCount);
                 OutRenderData.drawRecords.reserve(DrawRecordCount);
                 OutRenderData.bonePalette.reserve(BonePaletteCount);
+                OutRenderData.mEnvironmentInstanceContexts.reserve(EnvironmentInstanceContextCount);
+                OutRenderData.mEnvironmentSegmentContexts.reserve(EnvironmentSegmentContextCount);
+                OutRenderData.mEnvironmentDrawRecords.reserve(EnvironmentDrawRecordCount);
 
                 for (std::size_t ShadowContextIndex{}; ShadowContextIndex < OutRenderData.ShadowRenderContexts.size(); ++ShadowContextIndex) {
                     RFD::ShadowRenderContext& ShadowRenderContext{ OutRenderData.ShadowRenderContexts[ShadowContextIndex] };
                     ShadowRenderContext.ModelContexts.reserve(ShadowModelContextCounts[ShadowContextIndex]);
                     ShadowRenderContext.TerrainPatchContexts.reserve(ShadowTerrainPatchContextCounts[ShadowContextIndex]);
                     ShadowRenderContext.DrawRecords.reserve(ShadowDrawRecordCounts[ShadowContextIndex]);
+                    ShadowRenderContext.mEnvironmentDrawRecords.reserve(ShadowEnvironmentDrawRecordCounts[ShadowContextIndex]);
                 }
             }
 
@@ -122,6 +150,8 @@ namespace Game {
                 const std::size_t ModelContextOffset{ OutRenderData.modelContexts.size() };
                 const std::size_t TerrainPatchContextOffset{ OutRenderData.TerrainPatchContexts.size() };
                 const std::size_t BonePaletteOffset{ OutRenderData.bonePalette.size() };
+                const std::size_t EnvironmentInstanceContextOffset{ OutRenderData.mEnvironmentInstanceContexts.size() };
+                const std::size_t EnvironmentSegmentContextOffset{ OutRenderData.mEnvironmentSegmentContexts.size() };
 
                 MergeModelContexts(SourceRenderGatherResult.GetModelContexts(), ModelContextOffset, BonePaletteOffset, OutRenderData.modelContexts);
                 OutRenderData.boundingBoxContexts.insert(OutRenderData.boundingBoxContexts.end(), SourceRenderGatherResult.GetBoundingBoxContexts().begin(), SourceRenderGatherResult.GetBoundingBoxContexts().end());
@@ -134,7 +164,10 @@ namespace Game {
 
                 MergeDrawRecords(SourceRenderGatherResult.GetDrawRecords(), ModelContextOffset, TerrainPatchContextOffset, OutRenderData.drawRecords);
                 OutRenderData.bonePalette.insert(OutRenderData.bonePalette.end(), SourceRenderGatherResult.GetBonePalette().begin(), SourceRenderGatherResult.GetBonePalette().end());
-                MergeShadowRenderContexts(SourceRenderGatherResult.GetShadowRenderContexts(), BonePaletteOffset, OutRenderData.ShadowRenderContexts);
+                OutRenderData.mEnvironmentInstanceContexts.insert(OutRenderData.mEnvironmentInstanceContexts.end(), SourceRenderGatherResult.GetEnvironmentInstanceContexts().begin(), SourceRenderGatherResult.GetEnvironmentInstanceContexts().end());
+                OutRenderData.mEnvironmentSegmentContexts.insert(OutRenderData.mEnvironmentSegmentContexts.end(), SourceRenderGatherResult.GetEnvironmentSegmentContexts().begin(), SourceRenderGatherResult.GetEnvironmentSegmentContexts().end());
+                MergeEnvironmentDrawRecords(SourceRenderGatherResult.GetEnvironmentDrawRecords(), EnvironmentInstanceContextOffset, EnvironmentSegmentContextOffset, OutRenderData.mEnvironmentDrawRecords);
+                MergeShadowRenderContexts(SourceRenderGatherResult.GetShadowRenderContexts(), BonePaletteOffset, EnvironmentInstanceContextOffset, EnvironmentSegmentContextOffset, OutRenderData.ShadowRenderContexts);
             }
         }
 

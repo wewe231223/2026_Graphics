@@ -816,6 +816,19 @@ namespace Game {
         }
     }
 
+    void AppendUsedEnvironmentTextureTableIndices(const std::vector<std::vector<std::uint32_t>>& MaterialToTextureTableIndices, const std::vector<RFD::EnvironmentDrawRecord>& DrawRecords, std::unordered_set<std::uint32_t>& InOutUsedTextureTableIndices) {
+        for (const RFD::EnvironmentDrawRecord& DrawRecordData : DrawRecords) {
+            if (DrawRecordData.mMaterialIndex >= MaterialToTextureTableIndices.size()) {
+                continue;
+            }
+
+            const std::vector<std::uint32_t>& MaterialTextureIndices{ MaterialToTextureTableIndices[DrawRecordData.mMaterialIndex] };
+            for (const std::uint32_t TextureIndex : MaterialTextureIndices) {
+                InOutUsedTextureTableIndices.insert(TextureIndex);
+            }
+        }
+    }
+
     void AssetRegistry::PrepareRenderTextures(const RFD::RenderFrameData& RenderData) {
         if (mDevice == nullptr || mCopyQueue == nullptr || mAllocator == nullptr || mSrvHeap == nullptr) {
             return;
@@ -829,8 +842,10 @@ namespace Game {
 
         std::unordered_set<std::uint32_t> UsedTextureTableIndices{};
         AppendUsedTextureTableIndices(MaterialToTextureTableIndices, RenderData.drawRecords, UsedTextureTableIndices);
+        AppendUsedEnvironmentTextureTableIndices(MaterialToTextureTableIndices, RenderData.mEnvironmentDrawRecords, UsedTextureTableIndices);
         for (const RFD::ShadowRenderContext& ShadowRenderContext : RenderData.ShadowRenderContexts) {
             AppendUsedTextureTableIndices(MaterialToTextureTableIndices, ShadowRenderContext.DrawRecords, UsedTextureTableIndices);
+            AppendUsedEnvironmentTextureTableIndices(MaterialToTextureTableIndices, ShadowRenderContext.mEnvironmentDrawRecords, UsedTextureTableIndices);
         }
 
         for (AssetRegistryTextureRecord& TextureData : TextureRecords) {

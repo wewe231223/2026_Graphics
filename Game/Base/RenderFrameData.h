@@ -169,6 +169,38 @@ namespace Game {
             std::uint32_t SplatMapHeight{ 0u };
         };
 
+        struct alignas(16) EnvironmentInstanceContext final {
+            SimpleMath::Vector4 mPositionScale{};
+            SimpleMath::Vector4 mRotationVariation{};
+        };
+
+        struct alignas(16) EnvironmentSegmentContext final {
+            SimpleMath::Matrix mLocalTransform{ SimpleMath::Matrix::Identity };
+        };
+
+        struct EnvironmentDrawRecord final {
+            const Interface::IPipeline* mPipeline{};
+            const Interface::IModelNode* mMesh{};
+            std::uint32_t mSubMesh{};
+            std::uint32_t mPass{};
+            std::uint32_t mInstanceOffset{};
+            std::uint32_t mInstanceCount{};
+            std::uint32_t mSegmentContextIndex{};
+            std::uint32_t mMaterialIndex{};
+            std::uint32_t mFlags{};
+        };
+
+        struct alignas(16) EnvironmentDrawRecordGpu final {
+            std::uint32_t mInstanceOffset{};
+            std::uint32_t mInstanceCount{};
+            std::uint32_t mSegmentContextIndex{};
+            std::uint32_t mMaterialIndex{};
+            std::uint32_t mFlags{};
+            std::uint32_t mPadding0{};
+            std::uint32_t mPadding1{};
+            std::uint32_t mPadding2{};
+        };
+
         struct DrawRecord {
             const Interface::IPipeline* pso{ nullptr };
             const Interface::IModelNode* mesh{ nullptr };
@@ -187,6 +219,7 @@ namespace Game {
             std::vector<ModelContext> ModelContexts{};
             std::vector<TerrainPatchContext> TerrainPatchContexts{};
             std::vector<DrawRecord> DrawRecords{};
+            std::vector<EnvironmentDrawRecord> mEnvironmentDrawRecords{};
         };
 
         std::uint32_t ResolveShadowCascadeCount(const ShadowMappingParameter& ShadowMappingParameter);
@@ -210,6 +243,9 @@ namespace Game {
             std::vector<MaterialGpu> materials{};
             std::vector<MaterialTextureTableItemGpu> materialTextureTable{};
             std::vector<SimpleMath::Matrix> bonePalette{};
+            std::vector<EnvironmentInstanceContext> mEnvironmentInstanceContexts{};
+            std::vector<EnvironmentSegmentContext> mEnvironmentSegmentContexts{};
+            std::vector<EnvironmentDrawRecord> mEnvironmentDrawRecords{};
             Interface::Future mTerrainUploadFuture{};
             bool mHasTerrainUploadFuture{};
             std::array<ShadowRenderContext, ShadowCascadeMaxCount> ShadowRenderContexts{};

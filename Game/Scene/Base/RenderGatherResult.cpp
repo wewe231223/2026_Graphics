@@ -13,11 +13,14 @@ namespace Game {
             std::uint32_t AddIndexOffset(std::uint32_t Index, std::size_t Offset);
             RFD::ModelContext BuildAdjustedModelContext(RFD::ModelContext ModelContext, std::size_t ModelContextOffset, std::size_t BonePaletteOffset);
             RFD::DrawRecord BuildAdjustedDrawRecord(RFD::DrawRecord DrawRecord, std::size_t ModelContextOffset, std::size_t TerrainPatchContextOffset);
+            RFD::EnvironmentDrawRecord BuildAdjustedEnvironmentDrawRecord(RFD::EnvironmentDrawRecord DrawRecord, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset);
             bool AreShadowRenderContextsEmpty(const std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& ShadowRenderContexts);
             void AppendModelContexts(const std::vector<RFD::ModelContext>& SourceModelContexts, std::size_t ModelContextOffset, std::size_t BonePaletteOffset, std::vector<RFD::ModelContext>& OutModelContexts);
             void AppendModelContexts(std::vector<RFD::ModelContext>&& SourceModelContexts, std::size_t ModelContextOffset, std::size_t BonePaletteOffset, std::vector<RFD::ModelContext>& OutModelContexts);
             void AppendDrawRecords(const std::vector<RFD::DrawRecord>& SourceDrawRecords, std::size_t ModelContextOffset, std::size_t TerrainPatchContextOffset, std::vector<RFD::DrawRecord>& OutDrawRecords);
             void AppendDrawRecords(std::vector<RFD::DrawRecord>&& SourceDrawRecords, std::size_t ModelContextOffset, std::size_t TerrainPatchContextOffset, std::vector<RFD::DrawRecord>& OutDrawRecords);
+            void AppendEnvironmentDrawRecords(const std::vector<RFD::EnvironmentDrawRecord>& SourceDrawRecords, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset, std::vector<RFD::EnvironmentDrawRecord>& OutDrawRecords);
+            void AppendEnvironmentDrawRecords(std::vector<RFD::EnvironmentDrawRecord>&& SourceDrawRecords, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset, std::vector<RFD::EnvironmentDrawRecord>& OutDrawRecords);
 
             std::uint32_t AddIndexOffset(std::uint32_t Index, std::size_t Offset) {
                 return Index + static_cast<std::uint32_t>(Offset);
@@ -41,9 +44,15 @@ namespace Game {
                 return DrawRecord;
             }
 
+            RFD::EnvironmentDrawRecord BuildAdjustedEnvironmentDrawRecord(RFD::EnvironmentDrawRecord DrawRecord, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset) {
+                DrawRecord.mInstanceOffset = AddIndexOffset(DrawRecord.mInstanceOffset, EnvironmentInstanceContextOffset);
+                DrawRecord.mSegmentContextIndex = AddIndexOffset(DrawRecord.mSegmentContextIndex, EnvironmentSegmentContextOffset);
+                return DrawRecord;
+            }
+
             bool AreShadowRenderContextsEmpty(const std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& ShadowRenderContexts) {
                 for (const RFD::ShadowRenderContext& ShadowRenderContext : ShadowRenderContexts) {
-                    if (ShadowRenderContext.ModelContexts.empty() == false || ShadowRenderContext.TerrainPatchContexts.empty() == false || ShadowRenderContext.DrawRecords.empty() == false) {
+                    if (ShadowRenderContext.ModelContexts.empty() == false || ShadowRenderContext.TerrainPatchContexts.empty() == false || ShadowRenderContext.DrawRecords.empty() == false || ShadowRenderContext.mEnvironmentDrawRecords.empty() == false) {
                         return false;
                     }
                 }
@@ -78,6 +87,20 @@ namespace Game {
                     OutDrawRecords.push_back(BuildAdjustedDrawRecord(std::move(SourceDrawRecord), ModelContextOffset, TerrainPatchContextOffset));
                 }
             }
+
+            void AppendEnvironmentDrawRecords(const std::vector<RFD::EnvironmentDrawRecord>& SourceDrawRecords, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset, std::vector<RFD::EnvironmentDrawRecord>& OutDrawRecords) {
+                OutDrawRecords.reserve(OutDrawRecords.size() + SourceDrawRecords.size());
+                for (const RFD::EnvironmentDrawRecord& SourceDrawRecord : SourceDrawRecords) {
+                    OutDrawRecords.push_back(BuildAdjustedEnvironmentDrawRecord(SourceDrawRecord, EnvironmentInstanceContextOffset, EnvironmentSegmentContextOffset));
+                }
+            }
+
+            void AppendEnvironmentDrawRecords(std::vector<RFD::EnvironmentDrawRecord>&& SourceDrawRecords, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset, std::vector<RFD::EnvironmentDrawRecord>& OutDrawRecords) {
+                OutDrawRecords.reserve(OutDrawRecords.size() + SourceDrawRecords.size());
+                for (RFD::EnvironmentDrawRecord& SourceDrawRecord : SourceDrawRecords) {
+                    OutDrawRecords.push_back(BuildAdjustedEnvironmentDrawRecord(std::move(SourceDrawRecord), EnvironmentInstanceContextOffset, EnvironmentSegmentContextOffset));
+                }
+            }
         }
 
         RenderGatherResult::RenderGatherResult()
@@ -89,6 +112,9 @@ namespace Game {
             mHasTerrainUploadFuture{},
             mDrawRecords{},
             mBonePalette{},
+            mEnvironmentInstanceContexts{},
+            mEnvironmentSegmentContexts{},
+            mEnvironmentDrawRecords{},
             mShadowRenderContexts{} {
         }
 
@@ -104,6 +130,9 @@ namespace Game {
             mHasTerrainUploadFuture{ Other.mHasTerrainUploadFuture },
             mDrawRecords{ Other.mDrawRecords },
             mBonePalette{ Other.mBonePalette },
+            mEnvironmentInstanceContexts{ Other.mEnvironmentInstanceContexts },
+            mEnvironmentSegmentContexts{ Other.mEnvironmentSegmentContexts },
+            mEnvironmentDrawRecords{ Other.mEnvironmentDrawRecords },
             mShadowRenderContexts{ Other.mShadowRenderContexts } {
         }
 
@@ -120,6 +149,9 @@ namespace Game {
             mHasTerrainUploadFuture = Other.mHasTerrainUploadFuture;
             mDrawRecords = Other.mDrawRecords;
             mBonePalette = Other.mBonePalette;
+            mEnvironmentInstanceContexts = Other.mEnvironmentInstanceContexts;
+            mEnvironmentSegmentContexts = Other.mEnvironmentSegmentContexts;
+            mEnvironmentDrawRecords = Other.mEnvironmentDrawRecords;
             mShadowRenderContexts = Other.mShadowRenderContexts;
             return *this;
         }
@@ -133,6 +165,9 @@ namespace Game {
             mHasTerrainUploadFuture{ Other.mHasTerrainUploadFuture },
             mDrawRecords{ std::move(Other.mDrawRecords) },
             mBonePalette{ std::move(Other.mBonePalette) },
+            mEnvironmentInstanceContexts{ std::move(Other.mEnvironmentInstanceContexts) },
+            mEnvironmentSegmentContexts{ std::move(Other.mEnvironmentSegmentContexts) },
+            mEnvironmentDrawRecords{ std::move(Other.mEnvironmentDrawRecords) },
             mShadowRenderContexts{ std::move(Other.mShadowRenderContexts) } {
         }
 
@@ -149,6 +184,9 @@ namespace Game {
             mHasTerrainUploadFuture = Other.mHasTerrainUploadFuture;
             mDrawRecords = std::move(Other.mDrawRecords);
             mBonePalette = std::move(Other.mBonePalette);
+            mEnvironmentInstanceContexts = std::move(Other.mEnvironmentInstanceContexts);
+            mEnvironmentSegmentContexts = std::move(Other.mEnvironmentSegmentContexts);
+            mEnvironmentDrawRecords = std::move(Other.mEnvironmentDrawRecords);
             mShadowRenderContexts = std::move(Other.mShadowRenderContexts);
             return *this;
         }
@@ -162,22 +200,28 @@ namespace Game {
             mHasTerrainUploadFuture = false;
             mDrawRecords.clear();
             mBonePalette.clear();
+            mEnvironmentInstanceContexts.clear();
+            mEnvironmentSegmentContexts.clear();
+            mEnvironmentDrawRecords.clear();
 
             for (RFD::ShadowRenderContext& ShadowRenderContext : mShadowRenderContexts) {
                 ShadowRenderContext.ModelContexts.clear();
                 ShadowRenderContext.TerrainPatchContexts.clear();
                 ShadowRenderContext.DrawRecords.clear();
+                ShadowRenderContext.mEnvironmentDrawRecords.clear();
             }
         }
 
         bool RenderGatherResult::Empty() const {
-            return mModelContexts.empty() == true && mBoundingBoxContexts.empty() == true && mDebugGeometryContexts.empty() == true && mTerrainPatchContexts.empty() == true && mHasTerrainUploadFuture == false && mDrawRecords.empty() == true && mBonePalette.empty() == true && AreShadowRenderContextsEmpty(mShadowRenderContexts) == true;
+            return mModelContexts.empty() == true && mBoundingBoxContexts.empty() == true && mDebugGeometryContexts.empty() == true && mTerrainPatchContexts.empty() == true && mHasTerrainUploadFuture == false && mDrawRecords.empty() == true && mBonePalette.empty() == true && mEnvironmentInstanceContexts.empty() == true && mEnvironmentSegmentContexts.empty() == true && mEnvironmentDrawRecords.empty() == true && AreShadowRenderContextsEmpty(mShadowRenderContexts) == true;
         }
 
         void RenderGatherResult::Append(const RenderGatherResult& Other) {
             const std::size_t ModelContextOffset{ mModelContexts.size() };
             const std::size_t TerrainPatchContextOffset{ mTerrainPatchContexts.size() };
             const std::size_t BonePaletteOffset{ mBonePalette.size() };
+            const std::size_t EnvironmentInstanceContextOffset{ mEnvironmentInstanceContexts.size() };
+            const std::size_t EnvironmentSegmentContextOffset{ mEnvironmentSegmentContexts.size() };
 
             AppendModelContexts(Other.mModelContexts, ModelContextOffset, BonePaletteOffset, mModelContexts);
             mBoundingBoxContexts.insert(mBoundingBoxContexts.end(), Other.mBoundingBoxContexts.begin(), Other.mBoundingBoxContexts.end());
@@ -190,13 +234,18 @@ namespace Game {
 
             AppendDrawRecords(Other.mDrawRecords, ModelContextOffset, TerrainPatchContextOffset, mDrawRecords);
             mBonePalette.insert(mBonePalette.end(), Other.mBonePalette.begin(), Other.mBonePalette.end());
-            AppendShadowRenderContexts(Other.mShadowRenderContexts, BonePaletteOffset);
+            mEnvironmentInstanceContexts.insert(mEnvironmentInstanceContexts.end(), Other.mEnvironmentInstanceContexts.begin(), Other.mEnvironmentInstanceContexts.end());
+            mEnvironmentSegmentContexts.insert(mEnvironmentSegmentContexts.end(), Other.mEnvironmentSegmentContexts.begin(), Other.mEnvironmentSegmentContexts.end());
+            AppendEnvironmentDrawRecords(Other.mEnvironmentDrawRecords, EnvironmentInstanceContextOffset, EnvironmentSegmentContextOffset, mEnvironmentDrawRecords);
+            AppendShadowRenderContexts(Other.mShadowRenderContexts, BonePaletteOffset, EnvironmentInstanceContextOffset, EnvironmentSegmentContextOffset);
         }
 
         void RenderGatherResult::Append(RenderGatherResult&& Other) {
             const std::size_t ModelContextOffset{ mModelContexts.size() };
             const std::size_t TerrainPatchContextOffset{ mTerrainPatchContexts.size() };
             const std::size_t BonePaletteOffset{ mBonePalette.size() };
+            const std::size_t EnvironmentInstanceContextOffset{ mEnvironmentInstanceContexts.size() };
+            const std::size_t EnvironmentSegmentContextOffset{ mEnvironmentSegmentContexts.size() };
 
             AppendModelContexts(std::move(Other.mModelContexts), ModelContextOffset, BonePaletteOffset, mModelContexts);
             mBoundingBoxContexts.insert(mBoundingBoxContexts.end(), std::make_move_iterator(Other.mBoundingBoxContexts.begin()), std::make_move_iterator(Other.mBoundingBoxContexts.end()));
@@ -209,7 +258,10 @@ namespace Game {
 
             AppendDrawRecords(std::move(Other.mDrawRecords), ModelContextOffset, TerrainPatchContextOffset, mDrawRecords);
             mBonePalette.insert(mBonePalette.end(), std::make_move_iterator(Other.mBonePalette.begin()), std::make_move_iterator(Other.mBonePalette.end()));
-            AppendShadowRenderContexts(std::move(Other.mShadowRenderContexts), BonePaletteOffset);
+            mEnvironmentInstanceContexts.insert(mEnvironmentInstanceContexts.end(), std::make_move_iterator(Other.mEnvironmentInstanceContexts.begin()), std::make_move_iterator(Other.mEnvironmentInstanceContexts.end()));
+            mEnvironmentSegmentContexts.insert(mEnvironmentSegmentContexts.end(), std::make_move_iterator(Other.mEnvironmentSegmentContexts.begin()), std::make_move_iterator(Other.mEnvironmentSegmentContexts.end()));
+            AppendEnvironmentDrawRecords(std::move(Other.mEnvironmentDrawRecords), EnvironmentInstanceContextOffset, EnvironmentSegmentContextOffset, mEnvironmentDrawRecords);
+            AppendShadowRenderContexts(std::move(Other.mShadowRenderContexts), BonePaletteOffset, EnvironmentInstanceContextOffset, EnvironmentSegmentContextOffset);
         }
 
         std::vector<RFD::ModelContext>& RenderGatherResult::GetModelContexts() {
@@ -273,6 +325,30 @@ namespace Game {
             return mBonePalette;
         }
 
+        std::vector<RFD::EnvironmentInstanceContext>& RenderGatherResult::GetEnvironmentInstanceContexts() {
+            return mEnvironmentInstanceContexts;
+        }
+
+        const std::vector<RFD::EnvironmentInstanceContext>& RenderGatherResult::GetEnvironmentInstanceContexts() const {
+            return mEnvironmentInstanceContexts;
+        }
+
+        std::vector<RFD::EnvironmentSegmentContext>& RenderGatherResult::GetEnvironmentSegmentContexts() {
+            return mEnvironmentSegmentContexts;
+        }
+
+        const std::vector<RFD::EnvironmentSegmentContext>& RenderGatherResult::GetEnvironmentSegmentContexts() const {
+            return mEnvironmentSegmentContexts;
+        }
+
+        std::vector<RFD::EnvironmentDrawRecord>& RenderGatherResult::GetEnvironmentDrawRecords() {
+            return mEnvironmentDrawRecords;
+        }
+
+        const std::vector<RFD::EnvironmentDrawRecord>& RenderGatherResult::GetEnvironmentDrawRecords() const {
+            return mEnvironmentDrawRecords;
+        }
+
         std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& RenderGatherResult::GetShadowRenderContexts() {
             return mShadowRenderContexts;
         }
@@ -281,7 +357,7 @@ namespace Game {
             return mShadowRenderContexts;
         }
 
-        void RenderGatherResult::AppendShadowRenderContexts(const std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& OtherShadowRenderContexts, std::size_t BonePaletteOffset) {
+        void RenderGatherResult::AppendShadowRenderContexts(const std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& OtherShadowRenderContexts, std::size_t BonePaletteOffset, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset) {
             for (std::size_t ShadowContextIndex{ 0 }; ShadowContextIndex < mShadowRenderContexts.size(); ++ShadowContextIndex) {
                 RFD::ShadowRenderContext& TargetShadowRenderContext{ mShadowRenderContexts[ShadowContextIndex] };
                 const RFD::ShadowRenderContext& SourceShadowRenderContext{ OtherShadowRenderContexts[ShadowContextIndex] };
@@ -291,10 +367,11 @@ namespace Game {
                 AppendModelContexts(SourceShadowRenderContext.ModelContexts, ModelContextOffset, BonePaletteOffset, TargetShadowRenderContext.ModelContexts);
                 TargetShadowRenderContext.TerrainPatchContexts.insert(TargetShadowRenderContext.TerrainPatchContexts.end(), SourceShadowRenderContext.TerrainPatchContexts.begin(), SourceShadowRenderContext.TerrainPatchContexts.end());
                 AppendDrawRecords(SourceShadowRenderContext.DrawRecords, ModelContextOffset, TerrainPatchContextOffset, TargetShadowRenderContext.DrawRecords);
+                AppendEnvironmentDrawRecords(SourceShadowRenderContext.mEnvironmentDrawRecords, EnvironmentInstanceContextOffset, EnvironmentSegmentContextOffset, TargetShadowRenderContext.mEnvironmentDrawRecords);
             }
         }
 
-        void RenderGatherResult::AppendShadowRenderContexts(std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>&& OtherShadowRenderContexts, std::size_t BonePaletteOffset) {
+        void RenderGatherResult::AppendShadowRenderContexts(std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>&& OtherShadowRenderContexts, std::size_t BonePaletteOffset, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset) {
             for (std::size_t ShadowContextIndex{ 0 }; ShadowContextIndex < mShadowRenderContexts.size(); ++ShadowContextIndex) {
                 RFD::ShadowRenderContext& TargetShadowRenderContext{ mShadowRenderContexts[ShadowContextIndex] };
                 RFD::ShadowRenderContext& SourceShadowRenderContext{ OtherShadowRenderContexts[ShadowContextIndex] };
@@ -304,6 +381,7 @@ namespace Game {
                 AppendModelContexts(std::move(SourceShadowRenderContext.ModelContexts), ModelContextOffset, BonePaletteOffset, TargetShadowRenderContext.ModelContexts);
                 TargetShadowRenderContext.TerrainPatchContexts.insert(TargetShadowRenderContext.TerrainPatchContexts.end(), std::make_move_iterator(SourceShadowRenderContext.TerrainPatchContexts.begin()), std::make_move_iterator(SourceShadowRenderContext.TerrainPatchContexts.end()));
                 AppendDrawRecords(std::move(SourceShadowRenderContext.DrawRecords), ModelContextOffset, TerrainPatchContextOffset, TargetShadowRenderContext.DrawRecords);
+                AppendEnvironmentDrawRecords(std::move(SourceShadowRenderContext.mEnvironmentDrawRecords), EnvironmentInstanceContextOffset, EnvironmentSegmentContextOffset, TargetShadowRenderContext.mEnvironmentDrawRecords);
             }
         }
     }

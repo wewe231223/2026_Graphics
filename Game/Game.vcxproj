@@ -26,6 +26,7 @@
     <ClInclude Include="Base\Shader.h" />
     <ClInclude Include="Base\RootSignature.h" />
     <ClInclude Include="Base\Pipeline.h" />
+    <ClInclude Include="Environment\EnvironmentObjectRenderDataBuilder.h" />
     <ClInclude Include="Environment\EnvironmentObjectTypes.h" />
     <ClInclude Include="Model\AssetRegistry.h" />
     <ClInclude Include="Asset\AnimationGraphAsset.h" />
@@ -141,6 +142,7 @@
     <ClCompile Include="Base\Shader.cpp" />
     <ClCompile Include="Base\RootSignature.cpp" />
     <ClCompile Include="Base\Pipeline.cpp" />
+    <ClCompile Include="Environment\EnvironmentObjectRenderDataBuilder.cpp" />
     <ClCompile Include="Environment\EnvironmentObjectTypes.cpp" />
     <ClCompile Include="Model\AssetRegistry.cpp" />
     <ClCompile Include="Model\AssetRegistryBackEnd.cpp" />
@@ -264,6 +266,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
+    <FxCompile Include="..\Shader\Source\EnvironmentObjectShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="..\Shader\Source\BoundingBoxLineShader.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -310,6 +316,8 @@
     <None Include="..\Resources\ShadowMappingParameter.yaml" />
     <None Include="..\Shader\PSO\DefaultGraphics.json" />
     <None Include="..\Shader\PSO\DebugGeometryGraphics.json" />
+    <None Include="..\Shader\PSO\EnvironmentObjectDepthGraphics.json" />
+    <None Include="..\Shader\PSO\EnvironmentObjectGraphics.json" />
     <None Include="..\Shader\PSO\TerrainGraphics.json" />
     <None Include="..\Shader\PSO\SkinnedGraphics.json" />
     <None Include="..\Shader\PSO\SkyDomeGraphics.json" />

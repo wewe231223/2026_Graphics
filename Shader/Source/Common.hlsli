@@ -120,6 +120,29 @@ struct DrawRecordGpu
     uint TerrainPatchContextIndex;
 };
 
+struct EnvironmentInstanceContextGpu
+{
+    float4 PositionScale;
+    float4 RotationVariation;
+};
+
+struct EnvironmentSegmentContextGpu
+{
+    float4x4 LocalTransform;
+};
+
+struct EnvironmentDrawRecordGpu
+{
+    uint InstanceOffset;
+    uint InstanceCount;
+    uint SegmentContextIndex;
+    uint MaterialIndex;
+    uint Flags;
+    uint Padding0;
+    uint Padding1;
+    uint Padding2;
+};
+
 struct TerrainPatchContextGpu
 {
     float4 OuterTessFactors;

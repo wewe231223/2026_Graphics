@@ -145,6 +145,7 @@ add_library(Game STATIC
     Game/Base/RootSignature.cpp
     Game/Base/Pipeline.cpp
     Game/Base/Input.cpp
+    Game/Environment/EnvironmentObjectRenderDataBuilder.cpp
     Game/Environment/EnvironmentObjectTypes.cpp
     Game/Model/HeightMapLoader.cpp
     Game/Model/TerrainHeightFieldFactory.cpp

@@ -72,6 +72,9 @@
     <ClInclude Include="Environment\EnvironmentObjectTypes.h">
       <Filter>Environment</Filter>
     </ClInclude>
+    <ClInclude Include="Environment\EnvironmentObjectRenderDataBuilder.h">
+      <Filter>Environment</Filter>
+    </ClInclude>
     <ClInclude Include="Model\Model.h">
       <Filter>Model</Filter>
     </ClInclude>
@@ -413,6 +416,9 @@
     <ClCompile Include="Environment\EnvironmentObjectTypes.cpp">
       <Filter>Environment</Filter>
     </ClCompile>
+    <ClCompile Include="Environment\EnvironmentObjectRenderDataBuilder.cpp">
+      <Filter>Environment</Filter>
+    </ClCompile>
     <ClCompile Include="Model\Model.cpp">
       <Filter>Model</Filter>
     </ClCompile>
@@ -736,6 +742,12 @@
     <None Include="..\Shader\PSO\DebugGeometryGraphics.json">
       <Filter>PSO</Filter>
     </None>
+    <None Include="..\Shader\PSO\EnvironmentObjectDepthGraphics.json">
+      <Filter>PSO</Filter>
+    </None>
+    <None Include="..\Shader\PSO\EnvironmentObjectGraphics.json">
+      <Filter>PSO</Filter>
+    </None>
     <None Include="..\Resources\DefaultScene.yaml">
       <Filter>Scene\Scene YAML</Filter>
     </None>
@@ -769,6 +781,9 @@
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="..\Shader\Source\FoliageShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\EnvironmentObjectShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="..\Shader\Source\SkinnedMeshShader.hlsl">

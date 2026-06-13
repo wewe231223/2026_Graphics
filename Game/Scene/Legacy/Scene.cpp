@@ -603,12 +603,16 @@ namespace Game {
                 mFrameContext.RenderData.TerrainPatchContexts.clear();
                 mFrameContext.RenderData.drawRecords.clear();
                 mFrameContext.RenderData.bonePalette.clear();
+                mFrameContext.RenderData.mEnvironmentInstanceContexts.clear();
+                mFrameContext.RenderData.mEnvironmentSegmentContexts.clear();
+                mFrameContext.RenderData.mEnvironmentDrawRecords.clear();
                 mFrameContext.RenderData.mTerrainUploadFuture = Interface::Future{};
                 mFrameContext.RenderData.mHasTerrainUploadFuture = false;
                 for (RFD::ShadowRenderContext& ShadowRenderContext : mFrameContext.RenderData.ShadowRenderContexts) {
                     ShadowRenderContext.ModelContexts.clear();
                     ShadowRenderContext.TerrainPatchContexts.clear();
                     ShadowRenderContext.DrawRecords.clear();
+                    ShadowRenderContext.mEnvironmentDrawRecords.clear();
                 }
 
                 mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
