@@ -54,6 +54,22 @@ namespace {
 		return value.substr(firstIndex, lastIndex - firstIndex + 1);
 	}
 
+	std::wstring RemoveByteOrderMark(const std::wstring& value) {
+		if (value.empty() == true) {
+			return {};
+		}
+
+		if (value[0] == static_cast<wchar_t>(0xfeff)) {
+			return value.substr(1);
+		}
+
+		if (value.size() >= 3 && value[0] == static_cast<wchar_t>(0x00ef) && value[1] == static_cast<wchar_t>(0x00bb) && value[2] == static_cast<wchar_t>(0x00bf)) {
+			return value.substr(3);
+		}
+
+		return value;
+	}
+
 	std::optional<ShaderCompileOption> ParseMetadataLine(const std::wstring& line) {
 		std::wstringstream stream{ line };
 		std::wstring token{};
@@ -108,7 +124,8 @@ namespace {
 
 		std::wstring line{};
 		while (std::getline(file, line)) {
-			std::wstring trimmedLine{ Trim(line) };
+			std::wstring normalizedLine{ RemoveByteOrderMark(line) };
+			std::wstring trimmedLine{ Trim(normalizedLine) };
 			if (trimmedLine.empty()) {
 				continue;
 			}

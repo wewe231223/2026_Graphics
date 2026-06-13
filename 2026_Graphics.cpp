@@ -131,7 +131,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 
 
-    Game::Base::PreCompileShaders();
+    if (not Game::Base::PreCompileShaders()) {
+		ErrorHandler::report(true, "WinMain", "Failed to pre-compile shaders.", ErrorHandler::Level::Critical);
+    }
     if(not Game::Base::PreCompileRootSignatures(directQueue.GetDevice())) {
 		ErrorHandler::report(true, "WinMain", "Failed to pre-compile root signatures.", ErrorHandler::Level::Critical);
     }

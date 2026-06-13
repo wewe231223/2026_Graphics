@@ -163,9 +163,9 @@ namespace Game {
             mPipelineSystemBindingRuntimePipelineAssignmentVersion{} {
             mSynchronousSystems.push_back(std::make_unique<Game::PhysicsActorUpdateSystem>());
             mSynchronousSystems.push_back(std::make_unique<Game::TerrainStreamingSystem>());
-            mSynchronousSystems.push_back(std::make_unique<Game::ProceduralFoliageSystem>());
             mSynchronousSystems.push_back(std::make_unique<Game::CameraRenderSystem>());
             mSynchronousSystems.push_back(std::make_unique<Game::ShadowMappingParameterSystem>());
+            mSynchronousSystems.push_back(std::make_unique<Game::ProceduralFoliageSystem>());
 
             ScenePhysicsRuntimeCoordinator::InitializePhysicsWorld(BuildPhysicsRuntimeContext());
 

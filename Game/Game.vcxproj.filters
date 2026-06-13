@@ -72,6 +72,9 @@
     <ClInclude Include="Environment\EnvironmentObjectTypes.h">
       <Filter>Environment</Filter>
     </ClInclude>
+    <ClInclude Include="Environment\EnvironmentObjectRenderContext.h">
+      <Filter>Environment</Filter>
+    </ClInclude>
     <ClInclude Include="Environment\EnvironmentObjectRenderDataBuilder.h">
       <Filter>Environment</Filter>
     </ClInclude>
@@ -414,6 +417,9 @@
       <Filter>Base</Filter>
     </ClCompile>
     <ClCompile Include="Environment\EnvironmentObjectTypes.cpp">
+      <Filter>Environment</Filter>
+    </ClCompile>
+    <ClCompile Include="Environment\EnvironmentObjectRenderContext.cpp">
       <Filter>Environment</Filter>
     </ClCompile>
     <ClCompile Include="Environment\EnvironmentObjectRenderDataBuilder.cpp">

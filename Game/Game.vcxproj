@@ -26,6 +26,7 @@
     <ClInclude Include="Base\Shader.h" />
     <ClInclude Include="Base\RootSignature.h" />
     <ClInclude Include="Base\Pipeline.h" />
+    <ClInclude Include="Environment\EnvironmentObjectRenderContext.h" />
     <ClInclude Include="Environment\EnvironmentObjectRenderDataBuilder.h" />
     <ClInclude Include="Environment\EnvironmentObjectTypes.h" />
     <ClInclude Include="Model\AssetRegistry.h" />
@@ -142,6 +143,7 @@
     <ClCompile Include="Base\Shader.cpp" />
     <ClCompile Include="Base\RootSignature.cpp" />
     <ClCompile Include="Base\Pipeline.cpp" />
+    <ClCompile Include="Environment\EnvironmentObjectRenderContext.cpp" />
     <ClCompile Include="Environment\EnvironmentObjectRenderDataBuilder.cpp" />
     <ClCompile Include="Environment\EnvironmentObjectTypes.cpp" />
     <ClCompile Include="Model\AssetRegistry.cpp" />

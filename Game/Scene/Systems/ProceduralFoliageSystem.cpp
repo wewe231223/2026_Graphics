@@ -6,10 +6,12 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <limits>
 #include <memory>
+#include <span>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -29,17 +31,17 @@
 #include <ryml_std.hpp>
 
 #include "Core/Config.h"
+#include "Game/Environment/EnvironmentObjectTypes.h"
 #include "Game/Model/AssetRegistry.h"
 #include "Game/Model/TerrainRenderResource.h"
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Camera.h"
-#include "Game/Scene/Components/Culling.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
-#include "Game/Scene/Components/Material.h"
+#include "Game/Scene/Components/Frustum.h"
 #include "Game/Scene/Components/PhysicsActor.h"
-#include "Game/Scene/Components/StaticMeshRenderer.h"
 #include "Game/Scene/Components/TerrainRenderer.h"
 #include "Game/Scene/Components/Transform.h"
+#include "Game/Scene/Base/RenderGatherResultMerger.h"
 #include "PhysicsLib/Actors/PhysicsStaticActor.h"
 #include "PhysicsLib/Runtime/PhysicsRuntime.h"
 #include "Utility/ErrorHandler.h"
@@ -193,7 +195,6 @@ namespace {
     public:
         FoliageCandidateKey mKey{};
         Arche::EntityID mRootEntityId{ Arche::NullEntityID };
-        std::vector<std::vector<Arche::EntityID>> mRenderEntityIdsByLod{};
         PhysicsActorBase* mCollisionActorPointer{ nullptr };
         std::uint32_t mCollisionActorIndex{ 0u };
         float mInactiveHeight{};
@@ -201,6 +202,12 @@ namespace {
         std::uint32_t mActiveLodIndex{ std::numeric_limits<std::uint32_t>::max() };
         bool mActive{ false };
         bool mAssignedThisFrame{ false };
+    };
+
+    struct GeneratedFoliageCell final {
+    public:
+        Game::EnvironmentObjectCell mCell{};
+        std::vector<FoliageCandidate> mCandidates{};
     };
 
     struct TerrainSamplingContext final {
@@ -897,12 +904,6 @@ namespace {
         return AcceptedSampleCount >= RequiredSampleCount;
     }
 
-    bool IsCandidateInPlacementRadius(const SimpleMath::Vector3& FocusPosition, float WorldX, float WorldZ, float RadiusSquared) {
-        const float DistanceX{ WorldX - FocusPosition.x };
-        const float DistanceZ{ WorldZ - FocusPosition.z };
-        return ((DistanceX * DistanceX) + (DistanceZ * DistanceZ)) <= RadiusSquared;
-    }
-
     float ResolveCandidateMinimumSpacing(const std::vector<FoliageRuntimeRule>& Rules, const FoliageCandidate& Candidate) {
         if (Candidate.mKey.mRuleIndex >= Rules.size()) {
             return 0.0f;
@@ -938,6 +939,375 @@ namespace {
         }
 
         return true;
+    }
+
+    void AppendHashValue(std::uint64_t& InOutHash, std::uint64_t Value) {
+        InOutHash ^= Value;
+        InOutHash *= 1099511628211ULL;
+    }
+
+    std::uint32_t GetFloatHashBits(float Value) {
+        std::uint32_t Bits{};
+        std::memcpy(&Bits, &Value, sizeof(Bits));
+        return Bits;
+    }
+
+    std::uint64_t BuildEnvironmentCellGenerationVersion(const Game::EnvironmentObjectCell& Cell) {
+        std::uint64_t Hash{ 1469598103934665603ULL };
+        AppendHashValue(Hash, static_cast<std::uint32_t>(Cell.mKey.mX));
+        AppendHashValue(Hash, static_cast<std::uint32_t>(Cell.mKey.mZ));
+        AppendHashValue(Hash, Cell.mInstances.size());
+        for (const Game::EnvironmentObjectInstance& Instance : Cell.mInstances) {
+            AppendHashValue(Hash, Instance.mPrototypeIndex);
+            AppendHashValue(Hash, Instance.mVariation);
+            AppendHashValue(Hash, GetFloatHashBits(Instance.mPosition.x));
+            AppendHashValue(Hash, GetFloatHashBits(Instance.mPosition.y));
+            AppendHashValue(Hash, GetFloatHashBits(Instance.mPosition.z));
+            AppendHashValue(Hash, GetFloatHashBits(Instance.mYawRadians));
+            AppendHashValue(Hash, GetFloatHashBits(Instance.mScale));
+        }
+
+        return Hash == 0ULL ? 1ULL : Hash;
+    }
+
+    bool ContainsEnvironmentCellKey(std::span<const Game::EnvironmentObjectCellKey> CellKeys, const Game::EnvironmentObjectCellKey& Key) {
+        return std::binary_search(CellKeys.begin(), CellKeys.end(), Key);
+    }
+
+    Game::EnvironmentObjectCellKey BuildEnvironmentCellKey(std::int32_t X, std::int32_t Z) {
+        Game::EnvironmentObjectCellKey Key{};
+        Key.mX = X;
+        Key.mZ = Z;
+        return Key;
+    }
+
+    float CalculateMaximumMinimumSpacing(const std::vector<FoliageRuntimeRule>& Rules) {
+        float MaximumMinimumSpacing{};
+        for (const FoliageRuntimeRule& Rule : Rules) {
+            MaximumMinimumSpacing = std::max(MaximumMinimumSpacing, Rule.mDesc.mMinimumSpacing);
+        }
+
+        return MaximumMinimumSpacing;
+    }
+
+    std::int32_t CalculateMinimumSpacingCellRadius(const std::vector<FoliageRuntimeRule>& Rules, const FoliagePlacementConfig& Config) {
+        const float MaximumMinimumSpacing{ CalculateMaximumMinimumSpacing(Rules) };
+        if (MaximumMinimumSpacing <= FoliageEpsilon) {
+            return 0;
+        }
+
+        const float CellSize{ std::max(Config.mCellSize, FoliageEpsilon) };
+        return static_cast<std::int32_t>(std::ceil(MaximumMinimumSpacing / CellSize)) + 1;
+    }
+
+    bool DoesEnvironmentCellIntersectPlacementRadius(const SimpleMath::Vector3& FocusPosition, const Game::EnvironmentObjectCellKey& CellKey, float CellSize, float RadiusSquared) {
+        const float MinimumX{ static_cast<float>(CellKey.mX) * CellSize };
+        const float MaximumX{ MinimumX + CellSize };
+        const float MinimumZ{ static_cast<float>(CellKey.mZ) * CellSize };
+        const float MaximumZ{ MinimumZ + CellSize };
+        const float ClosestX{ std::clamp(FocusPosition.x, MinimumX, MaximumX) };
+        const float ClosestZ{ std::clamp(FocusPosition.z, MinimumZ, MaximumZ) };
+        const float DistanceX{ FocusPosition.x - ClosestX };
+        const float DistanceZ{ FocusPosition.z - ClosestZ };
+        return ((DistanceX * DistanceX) + (DistanceZ * DistanceZ)) <= RadiusSquared;
+    }
+
+    std::vector<Game::EnvironmentObjectCellKey> BuildEnvironmentCellKeysInPlacementRadius(const SimpleMath::Vector3& FocusPosition, const FoliagePlacementConfig& Config) {
+        const float Radius{ Config.mPlacementRadius };
+        const float RadiusSquared{ Radius * Radius };
+        const float CellSize{ std::max(Config.mCellSize, FoliageEpsilon) };
+        const std::int32_t MinimumCellX{ static_cast<std::int32_t>(std::floor((FocusPosition.x - Radius) / CellSize)) };
+        const std::int32_t MaximumCellX{ static_cast<std::int32_t>(std::floor((FocusPosition.x + Radius) / CellSize)) };
+        const std::int32_t MinimumCellZ{ static_cast<std::int32_t>(std::floor((FocusPosition.z - Radius) / CellSize)) };
+        const std::int32_t MaximumCellZ{ static_cast<std::int32_t>(std::floor((FocusPosition.z + Radius) / CellSize)) };
+        std::vector<Game::EnvironmentObjectCellKey> CellKeys{};
+
+        for (std::int32_t CellZ{ MinimumCellZ }; CellZ <= MaximumCellZ; CellZ += 1) {
+            for (std::int32_t CellX{ MinimumCellX }; CellX <= MaximumCellX; CellX += 1) {
+                Game::EnvironmentObjectCellKey CellKey{ BuildEnvironmentCellKey(CellX, CellZ) };
+                if (DoesEnvironmentCellIntersectPlacementRadius(FocusPosition, CellKey, CellSize, RadiusSquared) == false) {
+                    continue;
+                }
+
+                CellKeys.push_back(CellKey);
+            }
+        }
+
+        std::sort(CellKeys.begin(), CellKeys.end());
+        CellKeys.erase(std::unique(CellKeys.begin(), CellKeys.end()), CellKeys.end());
+        return CellKeys;
+    }
+
+    bool IsEnvironmentObjectCellRenderable(const Game::EnvironmentObjectCell& Cell) {
+        return Cell.mInstances.empty() == false && Cell.mBatchesByLodLevel.empty() == false;
+    }
+
+    constexpr std::uint32_t EnvironmentMainVisibilityMaskBit{ 1u };
+
+    std::uint32_t BuildEnvironmentShadowVisibilityMaskBit(std::uint32_t CascadeIndex) {
+        return 1u << (CascadeIndex + 1u);
+    }
+
+    struct EnvironmentMergedBatchKey final {
+    public:
+        const Interface::IPipeline* mPipeline{};
+        const Interface::IModelNode* mMesh{};
+        std::array<std::uint32_t, 16ULL> mLocalTransformBits{};
+        std::uint32_t mSubMesh{};
+        std::uint32_t mPass{};
+        std::uint32_t mMaterialIndex{};
+        std::uint32_t mFlags{};
+    };
+
+    bool operator==(const EnvironmentMergedBatchKey& Left, const EnvironmentMergedBatchKey& Right) {
+        return Left.mPipeline == Right.mPipeline && Left.mMesh == Right.mMesh && Left.mLocalTransformBits == Right.mLocalTransformBits && Left.mSubMesh == Right.mSubMesh && Left.mPass == Right.mPass && Left.mMaterialIndex == Right.mMaterialIndex && Left.mFlags == Right.mFlags;
+    }
+
+    struct EnvironmentMergedBatchKeyHasher final {
+    public:
+        std::size_t operator()(const EnvironmentMergedBatchKey& Key) const {
+            std::uint64_t Hash{ 1469598103934665603ULL };
+            AppendHashValue(Hash, reinterpret_cast<std::uintptr_t>(Key.mPipeline));
+            AppendHashValue(Hash, reinterpret_cast<std::uintptr_t>(Key.mMesh));
+            AppendHashValue(Hash, Key.mSubMesh);
+            AppendHashValue(Hash, Key.mPass);
+            AppendHashValue(Hash, Key.mMaterialIndex);
+            AppendHashValue(Hash, Key.mFlags);
+            for (std::uint32_t MatrixValue : Key.mLocalTransformBits) {
+                AppendHashValue(Hash, MatrixValue);
+            }
+
+            return static_cast<std::size_t>(Hash);
+        }
+    };
+
+    struct EnvironmentMergedInstanceRun final {
+    public:
+        std::vector<Game::RFD::EnvironmentInstanceContext> mInstanceContexts{};
+        std::uint32_t mVisibilityMask{};
+    };
+
+    struct EnvironmentMergedBatch final {
+    public:
+        EnvironmentMergedBatchKey mKey{};
+        Game::RFD::EnvironmentSegmentContext mSegmentContext{};
+        Game::RFD::EnvironmentDrawRecord mDrawRecord{};
+        std::vector<EnvironmentMergedInstanceRun> mRuns{};
+    };
+
+    std::array<std::uint32_t, 16ULL> BuildMatrixHashBits(const SimpleMath::Matrix& MatrixValue) {
+        return std::array<std::uint32_t, 16ULL>{ GetFloatHashBits(MatrixValue._11), GetFloatHashBits(MatrixValue._12), GetFloatHashBits(MatrixValue._13), GetFloatHashBits(MatrixValue._14), GetFloatHashBits(MatrixValue._21), GetFloatHashBits(MatrixValue._22), GetFloatHashBits(MatrixValue._23), GetFloatHashBits(MatrixValue._24), GetFloatHashBits(MatrixValue._31), GetFloatHashBits(MatrixValue._32), GetFloatHashBits(MatrixValue._33), GetFloatHashBits(MatrixValue._34), GetFloatHashBits(MatrixValue._41), GetFloatHashBits(MatrixValue._42), GetFloatHashBits(MatrixValue._43), GetFloatHashBits(MatrixValue._44) };
+    }
+
+    EnvironmentMergedBatchKey BuildEnvironmentMergedBatchKey(const Game::RFD::EnvironmentDrawRecord& DrawRecord, const Game::RFD::EnvironmentSegmentContext& SegmentContext) {
+        EnvironmentMergedBatchKey Key{};
+        Key.mPipeline = DrawRecord.mPipeline;
+        Key.mMesh = DrawRecord.mMesh;
+        Key.mLocalTransformBits = BuildMatrixHashBits(SegmentContext.mLocalTransform);
+        Key.mSubMesh = DrawRecord.mSubMesh;
+        Key.mPass = DrawRecord.mPass;
+        Key.mMaterialIndex = DrawRecord.mMaterialIndex;
+        Key.mFlags = DrawRecord.mFlags;
+        return Key;
+    }
+
+    EnvironmentMergedInstanceRun& ResolveEnvironmentMergedInstanceRun(EnvironmentMergedBatch& Batch, std::uint32_t VisibilityMask) {
+        for (EnvironmentMergedInstanceRun& Run : Batch.mRuns) {
+            if (Run.mVisibilityMask == VisibilityMask) {
+                return Run;
+            }
+        }
+
+        EnvironmentMergedInstanceRun Run{};
+        Run.mVisibilityMask = VisibilityMask;
+        Batch.mRuns.push_back(std::move(Run));
+        return Batch.mRuns.back();
+    }
+
+    EnvironmentMergedBatch& ResolveEnvironmentMergedBatch(std::vector<EnvironmentMergedBatch>& Batches, std::unordered_map<EnvironmentMergedBatchKey, std::size_t, EnvironmentMergedBatchKeyHasher>& BatchIndexByKey, const Game::RFD::EnvironmentDrawRecord& DrawRecord, const Game::RFD::EnvironmentSegmentContext& SegmentContext) {
+        const EnvironmentMergedBatchKey Key{ BuildEnvironmentMergedBatchKey(DrawRecord, SegmentContext) };
+        const std::unordered_map<EnvironmentMergedBatchKey, std::size_t, EnvironmentMergedBatchKeyHasher>::const_iterator FoundIterator{ BatchIndexByKey.find(Key) };
+        if (FoundIterator != BatchIndexByKey.end()) {
+            return Batches[FoundIterator->second];
+        }
+
+        EnvironmentMergedBatch Batch{};
+        Batch.mKey = Key;
+        Batch.mSegmentContext = SegmentContext;
+        Batch.mDrawRecord = DrawRecord;
+        const std::size_t BatchIndex{ Batches.size() };
+        Batches.push_back(std::move(Batch));
+        BatchIndexByKey.insert_or_assign(Key, BatchIndex);
+        return Batches.back();
+    }
+
+    void AppendEnvironmentInstancesToMergedBatch(EnvironmentMergedBatch& Batch, const Game::EnvironmentObjectRenderPacket& Packet, const Game::RFD::EnvironmentDrawRecord& DrawRecord, std::uint32_t VisibilityMask) {
+        if (VisibilityMask == 0u || DrawRecord.mInstanceCount == 0u) {
+            return;
+        }
+
+        const std::size_t InstanceBegin{ DrawRecord.mInstanceOffset };
+        const std::size_t InstanceEnd{ InstanceBegin + DrawRecord.mInstanceCount };
+        if (InstanceEnd > Packet.mInstanceContexts.size()) {
+            return;
+        }
+
+        EnvironmentMergedInstanceRun& Run{ ResolveEnvironmentMergedInstanceRun(Batch, VisibilityMask) };
+        Run.mInstanceContexts.insert(Run.mInstanceContexts.end(), Packet.mInstanceContexts.begin() + InstanceBegin, Packet.mInstanceContexts.begin() + InstanceEnd);
+    }
+
+    void AppendEnvironmentPacketToMergedBatches(const Game::EnvironmentObjectRenderPacket& Packet, std::uint32_t LodLevel, std::uint32_t VisibilityMask, std::vector<EnvironmentMergedBatch>& Batches, std::unordered_map<EnvironmentMergedBatchKey, std::size_t, EnvironmentMergedBatchKeyHasher>& BatchIndexByKey) {
+        if (VisibilityMask == 0u || Packet.mLods.empty() == true) {
+            return;
+        }
+
+        const std::size_t ResolvedLodLevel{ std::min<std::size_t>(LodLevel, Packet.mLods.size() - 1ULL) };
+        const Game::EnvironmentObjectRenderPacketLod& Lod{ Packet.mLods[ResolvedLodLevel] };
+        for (const Game::RFD::EnvironmentDrawRecord& DrawRecord : Lod.mDrawRecords) {
+            if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mSegmentContextIndex >= Lod.mSegmentContexts.size()) {
+                continue;
+            }
+
+            const Game::RFD::EnvironmentSegmentContext& SegmentContext{ Lod.mSegmentContexts[DrawRecord.mSegmentContextIndex] };
+            EnvironmentMergedBatch& Batch{ ResolveEnvironmentMergedBatch(Batches, BatchIndexByKey, DrawRecord, SegmentContext) };
+            AppendEnvironmentInstancesToMergedBatch(Batch, Packet, DrawRecord, VisibilityMask);
+        }
+    }
+
+    void AppendEnvironmentMergedBatchesToRenderGatherResult(const std::vector<EnvironmentMergedBatch>& Batches, Game::Pipeline::RenderGatherResult& OutRenderGatherResult) {
+        for (const EnvironmentMergedBatch& Batch : Batches) {
+            const std::uint32_t SegmentContextIndex{ static_cast<std::uint32_t>(OutRenderGatherResult.GetEnvironmentSegmentContexts().size()) };
+            bool HasVisibleRun{};
+            for (const EnvironmentMergedInstanceRun& Run : Batch.mRuns) {
+                if (Run.mInstanceContexts.empty() == false) {
+                    HasVisibleRun = true;
+                    break;
+                }
+            }
+
+            if (HasVisibleRun == false) {
+                continue;
+            }
+
+            OutRenderGatherResult.GetEnvironmentSegmentContexts().push_back(Batch.mSegmentContext);
+            for (const EnvironmentMergedInstanceRun& Run : Batch.mRuns) {
+                if (Run.mInstanceContexts.empty() == true) {
+                    continue;
+                }
+
+                const std::uint32_t InstanceOffset{ static_cast<std::uint32_t>(OutRenderGatherResult.GetEnvironmentInstanceContexts().size()) };
+                OutRenderGatherResult.GetEnvironmentInstanceContexts().insert(OutRenderGatherResult.GetEnvironmentInstanceContexts().end(), Run.mInstanceContexts.begin(), Run.mInstanceContexts.end());
+
+                Game::RFD::EnvironmentDrawRecord DrawRecord{ Batch.mDrawRecord };
+                DrawRecord.mInstanceOffset = InstanceOffset;
+                DrawRecord.mInstanceCount = static_cast<std::uint32_t>(Run.mInstanceContexts.size());
+                DrawRecord.mSegmentContextIndex = SegmentContextIndex;
+
+                if ((Run.mVisibilityMask & EnvironmentMainVisibilityMaskBit) != 0u) {
+                    OutRenderGatherResult.GetEnvironmentDrawRecords().push_back(DrawRecord);
+                }
+
+                std::array<Game::RFD::ShadowRenderContext, Game::RFD::ShadowCascadeMaxCount>& ShadowRenderContexts{ OutRenderGatherResult.GetShadowRenderContexts() };
+                for (std::uint32_t CascadeIndex{}; CascadeIndex < ShadowRenderContexts.size(); CascadeIndex += 1u) {
+                    if ((Run.mVisibilityMask & BuildEnvironmentShadowVisibilityMaskBit(CascadeIndex)) != 0u) {
+                        ShadowRenderContexts[CascadeIndex].mEnvironmentDrawRecords.push_back(DrawRecord);
+                    }
+                }
+            }
+        }
+    }
+
+    bool TryResolveActiveCameraFrustum(Arche::World& World, Game::Frustum& OutFrustum) {
+        for (auto [CameraComponent, FrustumComponent] : World.Query<Game::Camera, Game::Frustum>()) {
+            if (CameraComponent.isActive == false) {
+                continue;
+            }
+
+            OutFrustum = FrustumComponent;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool IsEnvironmentPacketVisibleByMainFrustum(const Game::EnvironmentObjectRenderPacket& Packet, const Game::Frustum* ActiveFrustum) {
+        if (ActiveFrustum == nullptr || Packet.mHasWorldBoundingBox == false) {
+            return true;
+        }
+
+        return ActiveFrustum->Intersects(Packet.mWorldBoundingBox);
+    }
+
+    std::uint32_t BuildEnvironmentPacketShadowCascadeMask(const Game::EnvironmentObjectRenderPacket& Packet, const Game::RFD::ShadowMappingParameter& ShadowMappingParameter) {
+        const std::uint32_t ShadowCascadeCount{ Game::RFD::ResolveShadowCascadeCount(ShadowMappingParameter) };
+        if (Packet.mHasWorldBoundingBox == false) {
+            std::uint32_t ShadowCascadeMask{};
+            for (std::uint32_t CascadeIndex{}; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1u) {
+                ShadowCascadeMask |= 1u << CascadeIndex;
+            }
+
+            return ShadowCascadeMask;
+        }
+
+        const std::array<DirectX::BoundingOrientedBox, Game::RFD::ShadowCascadeMaxCount> ShadowCullingBoxes{ Game::RFD::BuildShadowCullingBoxes(ShadowMappingParameter) };
+        std::uint32_t ShadowCascadeMask{};
+        for (std::uint32_t CascadeIndex{}; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1u) {
+            if (ShadowCullingBoxes[CascadeIndex].Intersects(Packet.mWorldBoundingBox) == true) {
+                ShadowCascadeMask |= 1u << CascadeIndex;
+            }
+        }
+
+        return ShadowCascadeMask;
+    }
+
+    std::uint32_t BuildEnvironmentPacketVisibilityMask(bool IsMainVisible, std::uint32_t ShadowCascadeMask) {
+        std::uint32_t VisibilityMask{};
+        if (IsMainVisible == true) {
+            VisibilityMask |= EnvironmentMainVisibilityMaskBit;
+        }
+
+        for (std::uint32_t CascadeIndex{}; CascadeIndex < Game::RFD::ShadowCascadeMaxCount; CascadeIndex += 1u) {
+            if ((ShadowCascadeMask & (1u << CascadeIndex)) != 0u) {
+                VisibilityMask |= BuildEnvironmentShadowVisibilityMaskBit(CascadeIndex);
+            }
+        }
+
+        return VisibilityMask;
+    }
+
+    SimpleMath::Vector3 ResolveEnvironmentObjectLodAnchor(const Game::EnvironmentObjectLod& Lod) {
+        const DirectX::BoundingOrientedBox& BoundingBox{ Lod.mLocalBoundingBox };
+        return SimpleMath::Vector3{ BoundingBox.Center.x, BoundingBox.Center.y - BoundingBox.Extents.y, BoundingBox.Center.z };
+    }
+
+    bool AlignEnvironmentObjectPrototypeLodAnchors(Game::EnvironmentObjectPrototype& Prototype) {
+        if (Prototype.mLods.size() <= 1ULL || Prototype.mLods.front().mHasLocalBoundingBox == false) {
+            return false;
+        }
+
+        const SimpleMath::Vector3 ReferenceAnchor{ ResolveEnvironmentObjectLodAnchor(Prototype.mLods.front()) };
+        bool IsChanged{};
+        for (std::size_t LodIndex{ 1ULL }; LodIndex < Prototype.mLods.size(); LodIndex += 1ULL) {
+            Game::EnvironmentObjectLod& Lod{ Prototype.mLods[LodIndex] };
+            if (Lod.mHasLocalBoundingBox == false) {
+                continue;
+            }
+
+            const SimpleMath::Vector3 CurrentAnchor{ ResolveEnvironmentObjectLodAnchor(Lod) };
+            const SimpleMath::Vector3 AnchorOffset{ ReferenceAnchor - CurrentAnchor };
+            if (std::abs(AnchorOffset.x) <= FoliageEpsilon && std::abs(AnchorOffset.y) <= FoliageEpsilon && std::abs(AnchorOffset.z) <= FoliageEpsilon) {
+                continue;
+            }
+
+            const SimpleMath::Matrix AnchorTransform{ SimpleMath::Matrix::CreateTranslation(AnchorOffset) };
+            for (Game::EnvironmentObjectPart& Part : Lod.mParts) {
+                Part.mLocalTransform = Part.mLocalTransform * AnchorTransform;
+            }
+
+            IsChanged = true;
+        }
+
+        return IsChanged;
     }
 
     std::vector<FoliageCandidate> FilterCandidatesByMinimumSpacing(std::vector<FoliageCandidate> Candidates, const std::vector<FoliageRuntimeRule>& Rules, const FoliagePlacementConfig& Config, std::uint32_t TerrainSeed) {
@@ -1011,30 +1381,6 @@ namespace {
         return EntityId;
     }
 
-    void AddRuntimePipelineAssignment(Game::FrameContext& Ctx, Arche::EntityID UnitEntityId, const std::string& PipelineName) {
-        if (UnitEntityId == Arche::NullEntityID || PipelineName.empty() == true) {
-            return;
-        }
-
-        for (Game::FramePipelineAssignment& Assignment : Ctx.mRuntimePipelineAssignments) {
-            if (Assignment.mUnitEntityId == UnitEntityId) {
-                if (Assignment.mPipelineName == PipelineName) {
-                    return;
-                }
-
-                Assignment.mPipelineName = PipelineName;
-                Ctx.mRuntimePipelineAssignmentVersion += 1ULL;
-                return;
-            }
-        }
-
-        Game::FramePipelineAssignment Assignment{};
-        Assignment.mUnitEntityId = UnitEntityId;
-        Assignment.mPipelineName = PipelineName;
-        Ctx.mRuntimePipelineAssignments.push_back(std::move(Assignment));
-        Ctx.mRuntimePipelineAssignmentVersion += 1ULL;
-    }
-
     void RemoveRuntimePipelineAssignment(Game::FrameContext& Ctx, Arche::EntityID UnitEntityId) {
         if (UnitEntityId == Arche::NullEntityID) {
             return;
@@ -1045,36 +1391,6 @@ namespace {
         Ctx.mRuntimePipelineAssignments.erase(RemoveBegin, Ctx.mRuntimePipelineAssignments.end());
         if (Ctx.mRuntimePipelineAssignments.size() != PreviousAssignmentCount) {
             Ctx.mRuntimePipelineAssignmentVersion += 1ULL;
-        }
-    }
-
-    void AttachChildEntity(Arche::World& World, Arche::EntityID ParentEntityId, Arche::EntityID ChildEntityId) {
-        Game::EntityHierarchy* ParentHierarchy{ World.GetComponent<Game::EntityHierarchy>(ParentEntityId) };
-        Game::EntityHierarchy* ChildHierarchy{ World.GetComponent<Game::EntityHierarchy>(ChildEntityId) };
-        if (ParentHierarchy == nullptr || ChildHierarchy == nullptr) {
-            return;
-        }
-
-        ChildHierarchy->parent = ParentEntityId;
-        ChildHierarchy->nextSibling = Arche::NullEntityID;
-        if (ParentHierarchy->firstChild == Arche::NullEntityID) {
-            ParentHierarchy->firstChild = ChildEntityId;
-            return;
-        }
-
-        Arche::EntityID SiblingEntityId{ ParentHierarchy->firstChild };
-        while (SiblingEntityId != Arche::NullEntityID) {
-            Game::EntityHierarchy* SiblingHierarchy{ World.GetComponent<Game::EntityHierarchy>(SiblingEntityId) };
-            if (SiblingHierarchy == nullptr) {
-                return;
-            }
-
-            if (SiblingHierarchy->nextSibling == Arche::NullEntityID) {
-                SiblingHierarchy->nextSibling = ChildEntityId;
-                return;
-            }
-
-            SiblingEntityId = SiblingHierarchy->nextSibling;
         }
     }
 
@@ -1162,69 +1478,8 @@ namespace {
         return true;
     }
 
-    bool CreateFoliageLodEntities(Arche::World& World, const FoliageRuntimeLod& Lod, std::uint32_t MaterialGroupIndex, Arche::EntityID ParentEntityId, std::vector<Arche::EntityID>& OutRenderEntityIds) {
-        if (Lod.mModel == nullptr || ParentEntityId == Arche::NullEntityID) {
-            return false;
-        }
-
-        const std::vector<Game::ModelNode>& ModelNodes{ Lod.mModel->GetNodes() };
-        const Game::ModelNode* RootNode{ Lod.mModel->GetRootNode() };
-        if (RootNode == nullptr || ModelNodes.empty() == true) {
-            return false;
-        }
-
-        const std::size_t RootNodeIndex{ static_cast<std::size_t>(RootNode - ModelNodes.data()) };
-        std::vector<Arche::EntityID> NodeEntities(ModelNodes.size(), Arche::NullEntityID);
-        for (std::size_t NodeIndex{ 0ULL }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
-            NodeEntities[NodeIndex] = CreateDerivedEntity(World);
-        }
-
-        for (std::size_t NodeIndex{ 0ULL }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
-            const Game::ModelNode& Node{ ModelNodes[NodeIndex] };
-            Game::Transform TransformComponent{};
-            TransformComponent.position = SimpleMath::Vector3::Zero;
-            TransformComponent.nodeToParent = Node.GetNodeToParent();
-            World.AddComponent(NodeEntities[NodeIndex], TransformComponent);
-
-            if (Node.GetSubMeshes().empty() == false && Node.IsSkinnedMesh() == false) {
-                Game::StaticMeshRenderer Renderer{};
-                Renderer.model = Lod.mModel.get();
-                Renderer.nodeIndex = static_cast<std::uint32_t>(NodeIndex);
-                Renderer.active = false;
-                World.AddComponent(NodeEntities[NodeIndex], Renderer);
-
-                Game::Material MaterialComponent{};
-                MaterialComponent.MaterialGroupIndex = MaterialGroupIndex;
-                World.AddComponent(NodeEntities[NodeIndex], MaterialComponent);
-
-                Game::Culling CullingComponent{};
-                CullingComponent.frustumCulling = true;
-                World.AddComponent(NodeEntities[NodeIndex], CullingComponent);
-
-                Game::BoundingBox BoundingBoxComponent{};
-                BoundingBoxComponent.UpdateFromModel(Lod.mModel.get(), static_cast<std::uint32_t>(NodeIndex));
-                World.AddComponent(NodeEntities[NodeIndex], BoundingBoxComponent);
-                OutRenderEntityIds.push_back(NodeEntities[NodeIndex]);
-            }
-        }
-
-        for (std::size_t NodeIndex{ 0ULL }; NodeIndex < ModelNodes.size(); ++NodeIndex) {
-            const std::vector<std::uint32_t>& Children{ ModelNodes[NodeIndex].GetChildren() };
-            for (std::uint32_t ChildNodeIndex : Children) {
-                if (ChildNodeIndex >= NodeEntities.size()) {
-                    continue;
-                }
-
-                AttachChildEntity(World, NodeEntities[NodeIndex], NodeEntities[ChildNodeIndex]);
-            }
-        }
-
-        AttachChildEntity(World, ParentEntityId, NodeEntities[RootNodeIndex]);
-        return OutRenderEntityIds.empty() == false;
-    }
-
     bool CreateFoliageSlotEntities(Arche::World& World, IPhysicsWorld* PhysicsWorldResource, const FoliagePlacementConfig& Config, const FoliageRuntimeRule& Rule, std::uint32_t RuleIndex, FoliageSlot& OutSlot) {
-        if (Rule.mLods.empty() == true) {
+        if (Rule.mDesc.mCollisionActorEnabled == false) {
             return false;
         }
 
@@ -1236,46 +1491,17 @@ namespace {
         OutSlot.mRootEntityId = RootEntityId;
         OutSlot.mInactiveHeight = Config.mInactiveHeight;
         OutSlot.mRuleIndex = RuleIndex;
-        OutSlot.mRenderEntityIdsByLod.clear();
-        OutSlot.mRenderEntityIdsByLod.reserve(Rule.mLods.size());
         const bool IsCollisionActorCreated{ CreateFoliageCollisionActor(World, PhysicsWorldResource, Config, Rule, RootEntityId, OutSlot) };
         if (IsCollisionActorCreated == false) {
             return false;
         }
 
-        for (const FoliageRuntimeLod& Lod : Rule.mLods) {
-            std::vector<Arche::EntityID> LodRenderEntityIds{};
-            const bool IsCreated{ CreateFoliageLodEntities(World, Lod, Rule.mMaterialGroupIndex, RootEntityId, LodRenderEntityIds) };
-            if (IsCreated == false) {
-                return false;
-            }
-
-            OutSlot.mRenderEntityIdsByLod.push_back(std::move(LodRenderEntityIds));
-        }
-
-        return OutSlot.mRootEntityId != Arche::NullEntityID && OutSlot.mRenderEntityIdsByLod.empty() == false;
+        return OutSlot.mRootEntityId != Arche::NullEntityID;
     }
 
-    void SetFoliageRenderEntitiesActive(Arche::World& World, const std::vector<Arche::EntityID>& RenderEntityIds, bool IsActive) {
-        for (Arche::EntityID RenderEntityId : RenderEntityIds) {
-            Game::StaticMeshRenderer* Renderer{ World.GetComponent<Game::StaticMeshRenderer>(RenderEntityId) };
-            if (Renderer == nullptr) {
-                continue;
-            }
-
-            Renderer->active = IsActive;
-        }
-    }
-
-    void SetFoliageSlotActive(Arche::World& World, FoliageSlot& Slot, bool IsActive, std::uint32_t LodIndex) {
-        const std::uint32_t ResolvedLodIndex{ Slot.mRenderEntityIdsByLod.empty() == true ? 0u : std::min(LodIndex, static_cast<std::uint32_t>(Slot.mRenderEntityIdsByLod.size() - 1ULL)) };
-        for (std::size_t CurrentLodIndex{ 0ULL }; CurrentLodIndex < Slot.mRenderEntityIdsByLod.size(); ++CurrentLodIndex) {
-            const bool ShouldActivate{ IsActive == true && CurrentLodIndex == static_cast<std::size_t>(ResolvedLodIndex) };
-            SetFoliageRenderEntitiesActive(World, Slot.mRenderEntityIdsByLod[CurrentLodIndex], ShouldActivate);
-        }
-
+    void SetFoliageSlotActive(FoliageSlot& Slot, bool IsActive, std::uint32_t LodIndex) {
         Slot.mActive = IsActive;
-        Slot.mActiveLodIndex = IsActive == true ? ResolvedLodIndex : std::numeric_limits<std::uint32_t>::max();
+        Slot.mActiveLodIndex = IsActive == true ? LodIndex : std::numeric_limits<std::uint32_t>::max();
     }
 
     void ApplyFoliageCollisionActorToSlot(Arche::World& World, FoliageSlot& Slot, PhysicsRuntime* PhysicsRuntimeResource, bool IsPhysicsRuntimeModeEnabled, const Game::Transform& TransformComponent, bool IsActive) {
@@ -1309,10 +1535,9 @@ namespace {
             }
 
             if (Slot.mActiveLodIndex != Candidate.mLodIndex) {
-                SetFoliageSlotActive(World, Slot, true, Candidate.mLodIndex);
+                SetFoliageSlotActive(Slot, true, Candidate.mLodIndex);
             }
 
-            AddRuntimePipelineAssignment(Ctx, Slot.mRootEntityId, "EnvironmentPipeline");
             return;
         }
 
@@ -1329,8 +1554,7 @@ namespace {
         ApplyFoliageCollisionActorToSlot(World, Slot, Ctx.PhysicsRuntimeResource, Ctx.IsPhysicsRuntimeModeEnabled, *TransformComponent, true);
         Slot.mKey = Candidate.mKey;
         Slot.mAssignedThisFrame = true;
-        SetFoliageSlotActive(World, Slot, true, Candidate.mLodIndex);
-        AddRuntimePipelineAssignment(Ctx, Slot.mRootEntityId, "EnvironmentPipeline");
+        SetFoliageSlotActive(Slot, true, Candidate.mLodIndex);
     }
 
     void DeactivateFoliageSlot(Arche::World& World, Game::FrameContext& Ctx, FoliageSlot& Slot) {
@@ -1355,7 +1579,7 @@ namespace {
             }
         }
 
-        SetFoliageSlotActive(World, Slot, false, 0u);
+        SetFoliageSlotActive(Slot, false, 0u);
         RemoveRuntimePipelineAssignment(Ctx, Slot.mRootEntityId);
     }
 }
@@ -1375,12 +1599,20 @@ namespace Game {
 
     private:
         bool Initialize(FrameContext& Ctx);
-        void BeginFoliageUpdate(const SimpleMath::Vector3& FocusPosition);
+        void BeginFoliageUpdate(FrameContext& Ctx, const SimpleMath::Vector3& FocusPosition);
         void ProcessFoliageUpdateBatch(Arche::World& World, FrameContext& Ctx, const TerrainSamplingContext& TerrainContext);
-        void BuildCandidateBatch(const TerrainSamplingContext& TerrainContext);
+        void BuildCandidateBatch(FrameContext& Ctx, const TerrainSamplingContext& TerrainContext);
         void ApplyCandidateBatch(Arche::World& World, FrameContext& Ctx);
         void RebuildSlotLookupBatch(Arche::World& World, FrameContext& Ctx);
-        bool TryCreateCandidate(const TerrainSamplingContext& TerrainContext, const SimpleMath::Vector3& FocusPosition, std::uint32_t RuleIndex, std::int32_t CellX, std::int32_t CellZ, std::uint32_t InstanceIndex, FoliageCandidate& OutCandidate) const;
+        void BuildEnvironmentPrototypes(const std::vector<RegisteredMaterialGroup>& MaterialGroups);
+        EnvironmentObjectCell BuildEnvironmentObjectCell(const EnvironmentObjectCellKey& CellKey, std::span<const FoliageCandidate> Candidates, std::uint64_t FrameIndex) const;
+        GeneratedFoliageCell GenerateEnvironmentObjectCell(const TerrainSamplingContext& TerrainContext, const EnvironmentObjectCellKey& CellKey, std::uint64_t FrameIndex) const;
+        void RemoveUnloadedEnvironmentObjectCells(FrameContext& Ctx);
+        void RefreshVisibleEnvironmentObjectCells(FrameContext& Ctx);
+        void BuildLoadedCollisionCandidates();
+        void AppendEnvironmentRenderData(Arche::World& World, FrameContext& Ctx);
+        std::uint32_t ResolveEnvironmentCellLodLevel(const EnvironmentObjectRenderPacket& Packet) const;
+        bool TryCreateCandidate(const TerrainSamplingContext& TerrainContext, std::uint32_t RuleIndex, std::int32_t CellX, std::int32_t CellZ, std::uint32_t InstanceIndex, FoliageCandidate& OutCandidate) const;
         std::size_t FindReusableSlot(std::uint32_t RuleIndex) const;
         bool CreateSlot(Arche::World& World, FrameContext& Ctx, std::uint32_t RuleIndex, std::size_t& OutSlotIndex);
 
@@ -1388,18 +1620,18 @@ namespace Game {
         std::string mConfigPath{};
         FoliagePlacementConfig mConfig{};
         std::vector<FoliageRuntimeRule> mRules{};
+        std::vector<EnvironmentObjectPrototype> mEnvironmentPrototypes{};
+        std::vector<EnvironmentObjectCellKey> mVisibleEnvironmentCellKeys{};
         std::vector<FoliageSlot> mSlots{};
         std::unordered_map<FoliageCandidateKey, std::size_t, FoliageCandidateKeyHasher> mSlotByKey{};
+        std::unordered_map<EnvironmentObjectCellKey, GeneratedFoliageCell, EnvironmentObjectCellKeyHasher> mGeneratedEnvironmentCells{};
+        std::vector<EnvironmentObjectCellKey> mDesiredEnvironmentCellKeys{};
+        std::vector<EnvironmentObjectCellKey> mPendingEnvironmentCellKeys{};
         std::vector<FoliageCandidate> mUpdateCandidates{};
         std::unordered_map<FoliageCandidateKey, std::size_t, FoliageCandidateKeyHasher> mUpdateSlotByKey{};
-        SimpleMath::Vector3 mUpdateFocusPosition{ SimpleMath::Vector3::Zero };
+        SimpleMath::Vector3 mCurrentFocusPosition{ SimpleMath::Vector3::Zero };
         FoliageUpdatePhase mUpdatePhase{ FoliageUpdatePhase::Idle };
-        std::int32_t mUpdateMinCellX{};
-        std::int32_t mUpdateMaxCellX{};
-        std::int32_t mUpdateMinCellZ{};
-        std::int32_t mUpdateMaxCellZ{};
-        std::int32_t mUpdateCurrentCellX{};
-        std::int32_t mUpdateCurrentCellZ{};
+        std::size_t mUpdateCellKeyIndex{};
         std::size_t mUpdateCandidateIndex{};
         std::size_t mUpdateSlotIndex{};
         bool mInitialized{ false };
@@ -1412,18 +1644,18 @@ namespace Game {
         : mConfigPath{ std::move(ConfigPath) },
         mConfig{},
         mRules{},
+        mEnvironmentPrototypes{},
+        mVisibleEnvironmentCellKeys{},
         mSlots{},
         mSlotByKey{},
+        mGeneratedEnvironmentCells{},
+        mDesiredEnvironmentCellKeys{},
+        mPendingEnvironmentCellKeys{},
         mUpdateCandidates{},
         mUpdateSlotByKey{},
-        mUpdateFocusPosition{ SimpleMath::Vector3::Zero },
+        mCurrentFocusPosition{ SimpleMath::Vector3::Zero },
         mUpdatePhase{ FoliageUpdatePhase::Idle },
-        mUpdateMinCellX{},
-        mUpdateMaxCellX{},
-        mUpdateMinCellZ{},
-        mUpdateMaxCellZ{},
-        mUpdateCurrentCellX{},
-        mUpdateCurrentCellZ{},
+        mUpdateCellKeyIndex{},
         mUpdateCandidateIndex{},
         mUpdateSlotIndex{},
         mInitialized{ false },
@@ -1439,18 +1671,18 @@ namespace Game {
         : mConfigPath{ Other.mConfigPath },
         mConfig{ Other.mConfig },
         mRules{},
+        mEnvironmentPrototypes{},
+        mVisibleEnvironmentCellKeys{},
         mSlots{},
         mSlotByKey{},
+        mGeneratedEnvironmentCells{},
+        mDesiredEnvironmentCellKeys{},
+        mPendingEnvironmentCellKeys{},
         mUpdateCandidates{},
         mUpdateSlotByKey{},
-        mUpdateFocusPosition{ SimpleMath::Vector3::Zero },
+        mCurrentFocusPosition{ SimpleMath::Vector3::Zero },
         mUpdatePhase{ FoliageUpdatePhase::Idle },
-        mUpdateMinCellX{},
-        mUpdateMaxCellX{},
-        mUpdateMinCellZ{},
-        mUpdateMaxCellZ{},
-        mUpdateCurrentCellX{},
-        mUpdateCurrentCellZ{},
+        mUpdateCellKeyIndex{},
         mUpdateCandidateIndex{},
         mUpdateSlotIndex{},
         mInitialized{ false },
@@ -1467,18 +1699,18 @@ namespace Game {
         mConfigPath = Other.mConfigPath;
         mConfig = Other.mConfig;
         mRules.clear();
+        mEnvironmentPrototypes.clear();
+        mVisibleEnvironmentCellKeys.clear();
         mSlots.clear();
         mSlotByKey.clear();
+        mGeneratedEnvironmentCells.clear();
+        mDesiredEnvironmentCellKeys.clear();
+        mPendingEnvironmentCellKeys.clear();
         mUpdateCandidates.clear();
         mUpdateSlotByKey.clear();
-        mUpdateFocusPosition = SimpleMath::Vector3::Zero;
+        mCurrentFocusPosition = SimpleMath::Vector3::Zero;
         mUpdatePhase = FoliageUpdatePhase::Idle;
-        mUpdateMinCellX = 0;
-        mUpdateMaxCellX = 0;
-        mUpdateMinCellZ = 0;
-        mUpdateMaxCellZ = 0;
-        mUpdateCurrentCellX = 0;
-        mUpdateCurrentCellZ = 0;
+        mUpdateCellKeyIndex = 0ULL;
         mUpdateCandidateIndex = 0ULL;
         mUpdateSlotIndex = 0ULL;
         mInitialized = false;
@@ -1492,18 +1724,18 @@ namespace Game {
         : mConfigPath{ std::move(Other.mConfigPath) },
         mConfig{ std::move(Other.mConfig) },
         mRules{ std::move(Other.mRules) },
+        mEnvironmentPrototypes{ std::move(Other.mEnvironmentPrototypes) },
+        mVisibleEnvironmentCellKeys{ std::move(Other.mVisibleEnvironmentCellKeys) },
         mSlots{ std::move(Other.mSlots) },
         mSlotByKey{ std::move(Other.mSlotByKey) },
+        mGeneratedEnvironmentCells{ std::move(Other.mGeneratedEnvironmentCells) },
+        mDesiredEnvironmentCellKeys{ std::move(Other.mDesiredEnvironmentCellKeys) },
+        mPendingEnvironmentCellKeys{ std::move(Other.mPendingEnvironmentCellKeys) },
         mUpdateCandidates{ std::move(Other.mUpdateCandidates) },
         mUpdateSlotByKey{ std::move(Other.mUpdateSlotByKey) },
-        mUpdateFocusPosition{ Other.mUpdateFocusPosition },
+        mCurrentFocusPosition{ Other.mCurrentFocusPosition },
         mUpdatePhase{ Other.mUpdatePhase },
-        mUpdateMinCellX{ Other.mUpdateMinCellX },
-        mUpdateMaxCellX{ Other.mUpdateMaxCellX },
-        mUpdateMinCellZ{ Other.mUpdateMinCellZ },
-        mUpdateMaxCellZ{ Other.mUpdateMaxCellZ },
-        mUpdateCurrentCellX{ Other.mUpdateCurrentCellX },
-        mUpdateCurrentCellZ{ Other.mUpdateCurrentCellZ },
+        mUpdateCellKeyIndex{ Other.mUpdateCellKeyIndex },
         mUpdateCandidateIndex{ Other.mUpdateCandidateIndex },
         mUpdateSlotIndex{ Other.mUpdateSlotIndex },
         mInitialized{ Other.mInitialized },
@@ -1511,12 +1743,8 @@ namespace Game {
         mHasUpdatedOnce{ Other.mHasUpdatedOnce },
         mUpdateTimer{ Other.mUpdateTimer } {
         Other.mUpdatePhase = FoliageUpdatePhase::Idle;
-        Other.mUpdateMinCellX = 0;
-        Other.mUpdateMaxCellX = 0;
-        Other.mUpdateMinCellZ = 0;
-        Other.mUpdateMaxCellZ = 0;
-        Other.mUpdateCurrentCellX = 0;
-        Other.mUpdateCurrentCellZ = 0;
+        Other.mCurrentFocusPosition = SimpleMath::Vector3::Zero;
+        Other.mUpdateCellKeyIndex = 0ULL;
         Other.mUpdateCandidateIndex = 0ULL;
         Other.mUpdateSlotIndex = 0ULL;
         Other.mInitialized = false;
@@ -1533,18 +1761,18 @@ namespace Game {
         mConfigPath = std::move(Other.mConfigPath);
         mConfig = std::move(Other.mConfig);
         mRules = std::move(Other.mRules);
+        mEnvironmentPrototypes = std::move(Other.mEnvironmentPrototypes);
+        mVisibleEnvironmentCellKeys = std::move(Other.mVisibleEnvironmentCellKeys);
         mSlots = std::move(Other.mSlots);
         mSlotByKey = std::move(Other.mSlotByKey);
+        mGeneratedEnvironmentCells = std::move(Other.mGeneratedEnvironmentCells);
+        mDesiredEnvironmentCellKeys = std::move(Other.mDesiredEnvironmentCellKeys);
+        mPendingEnvironmentCellKeys = std::move(Other.mPendingEnvironmentCellKeys);
         mUpdateCandidates = std::move(Other.mUpdateCandidates);
         mUpdateSlotByKey = std::move(Other.mUpdateSlotByKey);
-        mUpdateFocusPosition = Other.mUpdateFocusPosition;
+        mCurrentFocusPosition = Other.mCurrentFocusPosition;
         mUpdatePhase = Other.mUpdatePhase;
-        mUpdateMinCellX = Other.mUpdateMinCellX;
-        mUpdateMaxCellX = Other.mUpdateMaxCellX;
-        mUpdateMinCellZ = Other.mUpdateMinCellZ;
-        mUpdateMaxCellZ = Other.mUpdateMaxCellZ;
-        mUpdateCurrentCellX = Other.mUpdateCurrentCellX;
-        mUpdateCurrentCellZ = Other.mUpdateCurrentCellZ;
+        mUpdateCellKeyIndex = Other.mUpdateCellKeyIndex;
         mUpdateCandidateIndex = Other.mUpdateCandidateIndex;
         mUpdateSlotIndex = Other.mUpdateSlotIndex;
         mInitialized = Other.mInitialized;
@@ -1552,12 +1780,8 @@ namespace Game {
         mHasUpdatedOnce = Other.mHasUpdatedOnce;
         mUpdateTimer = Other.mUpdateTimer;
         Other.mUpdatePhase = FoliageUpdatePhase::Idle;
-        Other.mUpdateMinCellX = 0;
-        Other.mUpdateMaxCellX = 0;
-        Other.mUpdateMinCellZ = 0;
-        Other.mUpdateMaxCellZ = 0;
-        Other.mUpdateCurrentCellX = 0;
-        Other.mUpdateCurrentCellZ = 0;
+        Other.mCurrentFocusPosition = SimpleMath::Vector3::Zero;
+        Other.mUpdateCellKeyIndex = 0ULL;
         Other.mUpdateCandidateIndex = 0ULL;
         Other.mUpdateSlotIndex = 0ULL;
         Other.mInitialized = false;
@@ -1619,8 +1843,255 @@ namespace Game {
             mRules.push_back(std::move(RuntimeRule));
         }
 
-        mValid = mRules.empty() == false;
+        if (Ctx.MaterialGroups != nullptr) {
+            BuildEnvironmentPrototypes(*Ctx.MaterialGroups);
+        }
+
+        Ctx.mEnvironmentObjectRenderContext.Clear();
+        mGeneratedEnvironmentCells.clear();
+        mDesiredEnvironmentCellKeys.clear();
+        mPendingEnvironmentCellKeys.clear();
+        mVisibleEnvironmentCellKeys.clear();
+        mValid = mRules.empty() == false && mEnvironmentPrototypes.empty() == false;
         return mValid;
+    }
+
+    void ProceduralFoliageRuntime::BuildEnvironmentPrototypes(const std::vector<RegisteredMaterialGroup>& MaterialGroups) {
+        mEnvironmentPrototypes.clear();
+        mEnvironmentPrototypes.reserve(mRules.size());
+        for (const FoliageRuntimeRule& Rule : mRules) {
+            EnvironmentObjectPrototype Prototype{};
+            Prototype.mName = Rule.mDesc.mName;
+            Prototype.mLods.reserve(Rule.mLods.size());
+            for (const FoliageRuntimeLod& Lod : Rule.mLods) {
+                if (Lod.mModel == nullptr) {
+                    continue;
+                }
+
+                EnvironmentObjectPart Part{};
+                Part.mModel = Lod.mModel;
+                Part.mMaterialGroupIndex = Rule.mMaterialGroupIndex;
+
+                EnvironmentObjectLod EnvironmentLod{};
+                EnvironmentLod.mMaximumDistance = Lod.mMaximumDistance;
+                EnvironmentLod.mParts.push_back(std::move(Part));
+                Prototype.mLods.push_back(std::move(EnvironmentLod));
+            }
+
+            RebuildEnvironmentObjectPrototypeRenderData(Prototype, MaterialGroups);
+            const bool IsLodAnchorAdjusted{ AlignEnvironmentObjectPrototypeLodAnchors(Prototype) };
+            if (IsLodAnchorAdjusted == true) {
+                RebuildEnvironmentObjectPrototypeRenderData(Prototype, MaterialGroups);
+            }
+
+            mEnvironmentPrototypes.push_back(std::move(Prototype));
+        }
+    }
+
+    EnvironmentObjectCell ProceduralFoliageRuntime::BuildEnvironmentObjectCell(const EnvironmentObjectCellKey& CellKey, std::span<const FoliageCandidate> Candidates, std::uint64_t FrameIndex) const {
+        EnvironmentObjectCell Cell{};
+        Cell.mKey = CellKey;
+        Cell.mState = EnvironmentObjectCellState::Generated;
+        Cell.mLastTouchedFrame = FrameIndex;
+
+        for (const FoliageCandidate& Candidate : Candidates) {
+            if (Candidate.mKey.mRuleIndex >= mEnvironmentPrototypes.size()) {
+                continue;
+            }
+
+            if (Candidate.mKey.mCellX != CellKey.mX || Candidate.mKey.mCellZ != CellKey.mZ) {
+                continue;
+            }
+
+            EnvironmentObjectInstance Instance{};
+            Instance.mPosition = Candidate.mPosition;
+            Instance.mYawRadians = Candidate.mYawRadians;
+            Instance.mScale = Candidate.mScale;
+            Instance.mPrototypeIndex = Candidate.mKey.mRuleIndex;
+            Instance.mVariation = Candidate.mKey.mInstanceIndex;
+            Cell.mInstances.push_back(Instance);
+        }
+
+        Cell.mGenerationVersion = BuildEnvironmentCellGenerationVersion(Cell);
+        RebuildEnvironmentObjectCellBatches(Cell, mEnvironmentPrototypes);
+        return Cell;
+    }
+
+    GeneratedFoliageCell ProceduralFoliageRuntime::GenerateEnvironmentObjectCell(const TerrainSamplingContext& TerrainContext, const EnvironmentObjectCellKey& CellKey, std::uint64_t FrameIndex) const {
+        std::vector<FoliageCandidate> WindowCandidates{};
+        const std::int32_t SpacingCellRadius{ CalculateMinimumSpacingCellRadius(mRules, mConfig) };
+        const std::int32_t MinimumCellX{ CellKey.mX - SpacingCellRadius };
+        const std::int32_t MaximumCellX{ CellKey.mX + SpacingCellRadius };
+        const std::int32_t MinimumCellZ{ CellKey.mZ - SpacingCellRadius };
+        const std::int32_t MaximumCellZ{ CellKey.mZ + SpacingCellRadius };
+
+        for (std::int32_t CellZ{ MinimumCellZ }; CellZ <= MaximumCellZ; CellZ += 1) {
+            for (std::int32_t CellX{ MinimumCellX }; CellX <= MaximumCellX; CellX += 1) {
+                for (std::uint32_t RuleIndex{ 0u }; RuleIndex < mRules.size(); ++RuleIndex) {
+                    const FoliagePlacementRule& Rule{ mRules[RuleIndex].mDesc };
+                    for (std::uint32_t InstanceIndex{ 0u }; InstanceIndex < Rule.mInstancesPerCell; ++InstanceIndex) {
+                        FoliageCandidate Candidate{};
+                        const bool IsCandidateCreated{ TryCreateCandidate(TerrainContext, RuleIndex, CellX, CellZ, InstanceIndex, Candidate) };
+                        if (IsCandidateCreated == false) {
+                            continue;
+                        }
+
+                        WindowCandidates.push_back(Candidate);
+                    }
+                }
+            }
+        }
+
+        const std::uint32_t TerrainSeed{ TerrainContext.mResource == nullptr ? 0u : TerrainContext.mResource->GetBuildDesc().mProceduralHeightFieldDesc.mSeed };
+        WindowCandidates = FilterCandidatesByMinimumSpacing(std::move(WindowCandidates), mRules, mConfig, TerrainSeed);
+
+        GeneratedFoliageCell GeneratedCell{};
+        GeneratedCell.mCandidates.reserve(WindowCandidates.size());
+        for (const FoliageCandidate& Candidate : WindowCandidates) {
+            if (Candidate.mKey.mCellX != CellKey.mX || Candidate.mKey.mCellZ != CellKey.mZ) {
+                continue;
+            }
+
+            GeneratedCell.mCandidates.push_back(Candidate);
+        }
+
+        GeneratedCell.mCell = BuildEnvironmentObjectCell(CellKey, GeneratedCell.mCandidates, FrameIndex);
+        return GeneratedCell;
+    }
+
+    void ProceduralFoliageRuntime::RemoveUnloadedEnvironmentObjectCells(FrameContext& Ctx) {
+        for (const EnvironmentObjectCellKey& PreviousCellKey : mVisibleEnvironmentCellKeys) {
+            if (ContainsEnvironmentCellKey(mDesiredEnvironmentCellKeys, PreviousCellKey) == false) {
+                Ctx.mEnvironmentObjectRenderContext.RemoveCell(PreviousCellKey);
+            }
+        }
+
+        for (std::unordered_map<EnvironmentObjectCellKey, GeneratedFoliageCell, EnvironmentObjectCellKeyHasher>::iterator Iterator{ mGeneratedEnvironmentCells.begin() }; Iterator != mGeneratedEnvironmentCells.end();) {
+            if (ContainsEnvironmentCellKey(mDesiredEnvironmentCellKeys, Iterator->first) == true) {
+                ++Iterator;
+                continue;
+            }
+
+            Ctx.mEnvironmentObjectRenderContext.RemoveCell(Iterator->first);
+            Iterator = mGeneratedEnvironmentCells.erase(Iterator);
+        }
+    }
+
+    void ProceduralFoliageRuntime::RefreshVisibleEnvironmentObjectCells(FrameContext& Ctx) {
+        Ctx.mEnvironmentObjectRenderContext.SetResidentCellLimit(mDesiredEnvironmentCellKeys.size());
+        std::vector<EnvironmentObjectCellKey> NewVisibleCellKeys{};
+        NewVisibleCellKeys.reserve(mDesiredEnvironmentCellKeys.size());
+        for (const EnvironmentObjectCellKey& CellKey : mDesiredEnvironmentCellKeys) {
+            std::unordered_map<EnvironmentObjectCellKey, GeneratedFoliageCell, EnvironmentObjectCellKeyHasher>::iterator FoundCellIterator{ mGeneratedEnvironmentCells.find(CellKey) };
+            if (FoundCellIterator == mGeneratedEnvironmentCells.end()) {
+                continue;
+            }
+
+            EnvironmentObjectCell& Cell{ FoundCellIterator->second.mCell };
+            if (IsEnvironmentObjectCellRenderable(Cell) == false) {
+                Ctx.mEnvironmentObjectRenderContext.RemoveCell(CellKey);
+                continue;
+            }
+
+            Cell.mLastTouchedFrame = Ctx.RenderData.globals.frameIndex;
+            Ctx.mEnvironmentObjectRenderContext.UpsertCell(Cell);
+            NewVisibleCellKeys.push_back(CellKey);
+        }
+
+        std::sort(NewVisibleCellKeys.begin(), NewVisibleCellKeys.end());
+        NewVisibleCellKeys.erase(std::unique(NewVisibleCellKeys.begin(), NewVisibleCellKeys.end()), NewVisibleCellKeys.end());
+
+        mVisibleEnvironmentCellKeys = std::move(NewVisibleCellKeys);
+        Ctx.mEnvironmentObjectRenderContext.SetResidentCellLimit(mVisibleEnvironmentCellKeys.size());
+    }
+
+    void ProceduralFoliageRuntime::BuildLoadedCollisionCandidates() {
+        mUpdateCandidates.clear();
+        for (const EnvironmentObjectCellKey& CellKey : mDesiredEnvironmentCellKeys) {
+            const std::unordered_map<EnvironmentObjectCellKey, GeneratedFoliageCell, EnvironmentObjectCellKeyHasher>::const_iterator FoundCellIterator{ mGeneratedEnvironmentCells.find(CellKey) };
+            if (FoundCellIterator == mGeneratedEnvironmentCells.end()) {
+                continue;
+            }
+
+            for (const FoliageCandidate& Candidate : FoundCellIterator->second.mCandidates) {
+                if (Candidate.mKey.mRuleIndex >= mRules.size() || mRules[Candidate.mKey.mRuleIndex].mDesc.mCollisionActorEnabled == false) {
+                    continue;
+                }
+
+                mUpdateCandidates.push_back(Candidate);
+            }
+        }
+    }
+
+    std::uint32_t ProceduralFoliageRuntime::ResolveEnvironmentCellLodLevel(const EnvironmentObjectRenderPacket& Packet) const {
+        if (mRules.empty() == true || Packet.mPrototypeIndices.empty() == true) {
+            return 0u;
+        }
+
+        float CellCenterX{ (static_cast<float>(Packet.mCellKey.mX) + 0.5f) * mConfig.mCellSize };
+        float CellCenterZ{ (static_cast<float>(Packet.mCellKey.mZ) + 0.5f) * mConfig.mCellSize };
+        if (Packet.mHasWorldBoundingBox == true) {
+            CellCenterX = Packet.mWorldBoundingBox.Center.x;
+            CellCenterZ = Packet.mWorldBoundingBox.Center.z;
+        }
+
+        std::uint32_t LodLevel{};
+        bool HasMultiLodPrototype{};
+        for (std::uint32_t PrototypeIndex : Packet.mPrototypeIndices) {
+            if (PrototypeIndex >= mRules.size()) {
+                continue;
+            }
+
+            const FoliagePlacementRule& Rule{ mRules[PrototypeIndex].mDesc };
+            if (Rule.mLods.size() <= 1ULL) {
+                continue;
+            }
+
+            HasMultiLodPrototype = true;
+            const std::uint32_t RuleLodLevel{ ResolveFoliageLodIndex(Rule, mCurrentFocusPosition, CellCenterX, CellCenterZ) };
+            LodLevel = std::max(LodLevel, RuleLodLevel);
+        }
+
+        return HasMultiLodPrototype == true ? LodLevel : 0u;
+    }
+
+    void ProceduralFoliageRuntime::AppendEnvironmentRenderData(Arche::World& World, FrameContext& Ctx) {
+        if (mVisibleEnvironmentCellKeys.empty() == true) {
+            return;
+        }
+
+        Frustum ActiveFrustum{};
+        const bool HasActiveFrustum{ TryResolveActiveCameraFrustum(World, ActiveFrustum) };
+        const Frustum* ActiveFrustumPointer{ HasActiveFrustum == true ? &ActiveFrustum : nullptr };
+        std::vector<EnvironmentMergedBatch> EnvironmentMergedBatches{};
+        std::unordered_map<EnvironmentMergedBatchKey, std::size_t, EnvironmentMergedBatchKeyHasher> EnvironmentMergedBatchIndexByKey{};
+        EnvironmentMergedBatches.reserve(mVisibleEnvironmentCellKeys.size());
+        EnvironmentMergedBatchIndexByKey.reserve(mVisibleEnvironmentCellKeys.size());
+
+        for (const EnvironmentObjectCellKey& CellKey : mVisibleEnvironmentCellKeys) {
+            const EnvironmentObjectRenderPacket* Packet{ Ctx.mEnvironmentObjectRenderContext.FindCell(CellKey) };
+            if (Packet == nullptr) {
+                continue;
+            }
+
+            const bool IsMainVisible{ IsEnvironmentPacketVisibleByMainFrustum(*Packet, ActiveFrustumPointer) };
+            const std::uint32_t ShadowCascadeMask{ BuildEnvironmentPacketShadowCascadeMask(*Packet, Ctx.RenderData.shadowMapping) };
+            const std::uint32_t VisibilityMask{ BuildEnvironmentPacketVisibilityMask(IsMainVisible, ShadowCascadeMask) };
+            if (VisibilityMask == 0u) {
+                continue;
+            }
+
+            const std::uint32_t LodLevel{ ResolveEnvironmentCellLodLevel(*Packet) };
+            AppendEnvironmentPacketToMergedBatches(*Packet, LodLevel, VisibilityMask, EnvironmentMergedBatches, EnvironmentMergedBatchIndexByKey);
+        }
+
+        Pipeline::RenderGatherResult RenderGatherResult{};
+        AppendEnvironmentMergedBatchesToRenderGatherResult(EnvironmentMergedBatches, RenderGatherResult);
+
+        if (RenderGatherResult.Empty() == false) {
+            const std::span<const Pipeline::RenderGatherResult> RenderGatherResults{ &RenderGatherResult, 1ULL };
+            Pipeline::RenderGatherResultMerger::Merge(RenderGatherResults, Ctx.RenderData);
+        }
     }
 
     void ProceduralFoliageRuntime::Update(Arche::World& World, FrameContext& Ctx, float Dt) {
@@ -1628,53 +2099,69 @@ namespace Game {
             return;
         }
 
+        SimpleMath::Vector3 FocusPosition{};
+        const bool HasFocusPosition{ TryResolveFocusPosition(World, FocusPosition) };
+        if (HasFocusPosition == true) {
+            mCurrentFocusPosition = FocusPosition;
+        }
+
         if (mUpdatePhase == FoliageUpdatePhase::Idle) {
             mUpdateTimer += Dt;
             if (mHasUpdatedOnce == true && mUpdateTimer < mConfig.mUpdateInterval) {
+                AppendEnvironmentRenderData(World, Ctx);
                 return;
             }
 
-            SimpleMath::Vector3 FocusPosition{};
-            if (TryResolveFocusPosition(World, FocusPosition) == false) {
+            if (HasFocusPosition == false) {
+                AppendEnvironmentRenderData(World, Ctx);
                 return;
             }
 
             TerrainSamplingContext TerrainContext{};
             if (TryResolveTerrainSamplingContext(World, TerrainContext) == false) {
+                AppendEnvironmentRenderData(World, Ctx);
                 return;
             }
 
             mUpdateTimer = 0.0f;
             mHasUpdatedOnce = true;
-            BeginFoliageUpdate(FocusPosition);
+            BeginFoliageUpdate(Ctx, FocusPosition);
             ProcessFoliageUpdateBatch(World, Ctx, TerrainContext);
+            AppendEnvironmentRenderData(World, Ctx);
             return;
         }
 
         TerrainSamplingContext TerrainContext{};
         if (TryResolveTerrainSamplingContext(World, TerrainContext) == false) {
+            AppendEnvironmentRenderData(World, Ctx);
             return;
         }
 
         ProcessFoliageUpdateBatch(World, Ctx, TerrainContext);
+        AppendEnvironmentRenderData(World, Ctx);
     }
 
-    void ProceduralFoliageRuntime::BeginFoliageUpdate(const SimpleMath::Vector3& FocusPosition) {
+    void ProceduralFoliageRuntime::BeginFoliageUpdate(FrameContext& Ctx, const SimpleMath::Vector3& FocusPosition) {
         for (FoliageSlot& Slot : mSlots) {
             Slot.mAssignedThisFrame = false;
         }
 
-        const float Radius{ mConfig.mPlacementRadius };
-        const float CellSize{ mConfig.mCellSize };
         mUpdateCandidates.clear();
         mUpdateSlotByKey.clear();
-        mUpdateFocusPosition = FocusPosition;
-        mUpdateMinCellX = static_cast<std::int32_t>(std::floor((FocusPosition.x - Radius) / CellSize));
-        mUpdateMaxCellX = static_cast<std::int32_t>(std::floor((FocusPosition.x + Radius) / CellSize));
-        mUpdateMinCellZ = static_cast<std::int32_t>(std::floor((FocusPosition.z - Radius) / CellSize));
-        mUpdateMaxCellZ = static_cast<std::int32_t>(std::floor((FocusPosition.z + Radius) / CellSize));
-        mUpdateCurrentCellX = mUpdateMinCellX;
-        mUpdateCurrentCellZ = mUpdateMinCellZ;
+        mDesiredEnvironmentCellKeys = BuildEnvironmentCellKeysInPlacementRadius(FocusPosition, mConfig);
+        RemoveUnloadedEnvironmentObjectCells(Ctx);
+        RefreshVisibleEnvironmentObjectCells(Ctx);
+        mPendingEnvironmentCellKeys.clear();
+        mPendingEnvironmentCellKeys.reserve(mDesiredEnvironmentCellKeys.size());
+        for (const EnvironmentObjectCellKey& CellKey : mDesiredEnvironmentCellKeys) {
+            if (mGeneratedEnvironmentCells.find(CellKey) != mGeneratedEnvironmentCells.end()) {
+                continue;
+            }
+
+            mPendingEnvironmentCellKeys.push_back(CellKey);
+        }
+
+        mUpdateCellKeyIndex = 0ULL;
         mUpdateCandidateIndex = 0ULL;
         mUpdateSlotIndex = 0ULL;
         mUpdatePhase = FoliageUpdatePhase::BuildCandidates;
@@ -1682,7 +2169,7 @@ namespace Game {
 
     void ProceduralFoliageRuntime::ProcessFoliageUpdateBatch(Arche::World& World, FrameContext& Ctx, const TerrainSamplingContext& TerrainContext) {
         if (mUpdatePhase == FoliageUpdatePhase::BuildCandidates) {
-            BuildCandidateBatch(TerrainContext);
+            BuildCandidateBatch(Ctx, TerrainContext);
             return;
         }
 
@@ -1696,37 +2183,22 @@ namespace Game {
         }
     }
 
-    void ProceduralFoliageRuntime::BuildCandidateBatch(const TerrainSamplingContext& TerrainContext) {
-        const float RadiusSquared{ mConfig.mPlacementRadius * mConfig.mPlacementRadius };
+    void ProceduralFoliageRuntime::BuildCandidateBatch(FrameContext& Ctx, const TerrainSamplingContext& TerrainContext) {
         std::uint32_t ProcessedCellCount{};
-        while (mUpdateCurrentCellZ <= mUpdateMaxCellZ && ProcessedCellCount < mConfig.mUpdateCellBatchSize) {
-            for (std::uint32_t RuleIndex{ 0u }; RuleIndex < mRules.size(); ++RuleIndex) {
-                const FoliagePlacementRule& Rule{ mRules[RuleIndex].mDesc };
-                for (std::uint32_t InstanceIndex{ 0u }; InstanceIndex < Rule.mInstancesPerCell; ++InstanceIndex) {
-                    FoliageCandidate Candidate{};
-                    const bool IsCandidateCreated{ TryCreateCandidate(TerrainContext, mUpdateFocusPosition, RuleIndex, mUpdateCurrentCellX, mUpdateCurrentCellZ, InstanceIndex, Candidate) };
-                    if (IsCandidateCreated == false || IsCandidateInPlacementRadius(mUpdateFocusPosition, Candidate.mPosition.x, Candidate.mPosition.z, RadiusSquared) == false) {
-                        continue;
-                    }
-
-                    mUpdateCandidates.push_back(Candidate);
-                }
-            }
-
+        while (mUpdateCellKeyIndex < mPendingEnvironmentCellKeys.size() && ProcessedCellCount < mConfig.mUpdateCellBatchSize) {
+            const EnvironmentObjectCellKey CellKey{ mPendingEnvironmentCellKeys[mUpdateCellKeyIndex] };
+            GeneratedFoliageCell GeneratedCell{ GenerateEnvironmentObjectCell(TerrainContext, CellKey, Ctx.RenderData.globals.frameIndex) };
+            mGeneratedEnvironmentCells.insert_or_assign(CellKey, std::move(GeneratedCell));
+            mUpdateCellKeyIndex += 1ULL;
             ProcessedCellCount += 1u;
-            mUpdateCurrentCellX += 1;
-            if (mUpdateCurrentCellX > mUpdateMaxCellX) {
-                mUpdateCurrentCellX = mUpdateMinCellX;
-                mUpdateCurrentCellZ += 1;
-            }
         }
 
-        if (mUpdateCurrentCellZ <= mUpdateMaxCellZ) {
+        if (mUpdateCellKeyIndex < mPendingEnvironmentCellKeys.size()) {
             return;
         }
 
-        const std::uint32_t TerrainSeed{ TerrainContext.mResource == nullptr ? 0u : TerrainContext.mResource->GetBuildDesc().mProceduralHeightFieldDesc.mSeed };
-        mUpdateCandidates = FilterCandidatesByMinimumSpacing(std::move(mUpdateCandidates), mRules, mConfig, TerrainSeed);
+        RefreshVisibleEnvironmentObjectCells(Ctx);
+        BuildLoadedCollisionCandidates();
         mUpdateCandidateIndex = 0ULL;
         mUpdatePhase = FoliageUpdatePhase::ApplyCandidates;
     }
@@ -1734,7 +2206,14 @@ namespace Game {
     void ProceduralFoliageRuntime::ApplyCandidateBatch(Arche::World& World, FrameContext& Ctx) {
         std::uint32_t ProcessedCandidateCount{};
         while (mUpdateCandidateIndex < mUpdateCandidates.size() && ProcessedCandidateCount < mConfig.mUpdateCandidateBatchSize) {
-            const FoliageCandidate& Candidate{ mUpdateCandidates[mUpdateCandidateIndex] };
+            FoliageCandidate Candidate{ mUpdateCandidates[mUpdateCandidateIndex] };
+            if (Candidate.mKey.mRuleIndex >= mRules.size() || mRules[Candidate.mKey.mRuleIndex].mDesc.mCollisionActorEnabled == false) {
+                mUpdateCandidateIndex += 1ULL;
+                ProcessedCandidateCount += 1u;
+                continue;
+            }
+
+            Candidate.mLodIndex = ResolveFoliageLodIndex(mRules[Candidate.mKey.mRuleIndex].mDesc, mCurrentFocusPosition, Candidate.mPosition.x, Candidate.mPosition.z);
             const std::unordered_map<FoliageCandidateKey, std::size_t, FoliageCandidateKeyHasher>::const_iterator SlotIter{ mSlotByKey.find(Candidate.mKey) };
             if (SlotIter != mSlotByKey.end() && SlotIter->second < mSlots.size() && mSlots[SlotIter->second].mRuleIndex == Candidate.mKey.mRuleIndex) {
                 ApplyFoliageCandidateToSlot(World, Ctx, mSlots[SlotIter->second], Candidate);
@@ -1794,7 +2273,7 @@ namespace Game {
         mUpdatePhase = FoliageUpdatePhase::Idle;
     }
 
-    bool ProceduralFoliageRuntime::TryCreateCandidate(const TerrainSamplingContext& TerrainContext, const SimpleMath::Vector3& FocusPosition, std::uint32_t RuleIndex, std::int32_t CellX, std::int32_t CellZ, std::uint32_t InstanceIndex, FoliageCandidate& OutCandidate) const {
+    bool ProceduralFoliageRuntime::TryCreateCandidate(const TerrainSamplingContext& TerrainContext, std::uint32_t RuleIndex, std::int32_t CellX, std::int32_t CellZ, std::uint32_t InstanceIndex, FoliageCandidate& OutCandidate) const {
         if (RuleIndex >= mRules.size() || TerrainContext.mResource == nullptr) {
             return false;
         }
@@ -1834,7 +2313,7 @@ namespace Game {
         OutCandidate.mPosition = SimpleMath::Vector3{ WorldX, WorldY + Rule.mOffsetY, WorldZ };
         OutCandidate.mYawRadians = DirectX::XMConvertToRadians(Lerp(Rule.mMinimumYawDegrees, Rule.mMaximumYawDegrees, RandomYaw));
         OutCandidate.mScale = Lerp(Rule.mMinimumScale, Rule.mMaximumScale, RandomScale);
-        OutCandidate.mLodIndex = ResolveFoliageLodIndex(Rule, FocusPosition, WorldX, WorldZ);
+        OutCandidate.mLodIndex = 0u;
         return true;
     }
 
@@ -1923,12 +2402,12 @@ namespace Game {
     }
 
     std::span<const ComponentAccess> ProceduralFoliageSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 9> Accesses{ { { typeid(Game::Transform), Access::Write }, { typeid(Game::TerrainRenderer), Access::Read }, { typeid(Game::Camera), Access::Read }, { typeid(Game::EntityHierarchy), Access::Write }, { typeid(Game::StaticMeshRenderer), Access::Write }, { typeid(Game::Material), Access::Write }, { typeid(Game::Culling), Access::Write }, { typeid(Game::BoundingBox), Access::Write }, { typeid(Game::PhysicsActor), Access::Write } } };
+        static std::array<ComponentAccess, 7> Accesses{ { { typeid(Game::Transform), Access::Write }, { typeid(Game::TerrainRenderer), Access::Read }, { typeid(Game::Camera), Access::Read }, { typeid(Game::Frustum), Access::Read }, { typeid(Game::EntityHierarchy), Access::Write }, { typeid(Game::BoundingBox), Access::Write }, { typeid(Game::PhysicsActor), Access::Write } } };
         return Accesses;
     }
 
     std::span<const ResourceAccess> ProceduralFoliageSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 3> Accesses{ { { typeid(AssetRegistry), Access::Write }, { typeid(IPhysicsWorld), Access::Write }, { typeid(PhysicsRuntime), Access::Write } } };
+        static std::array<ResourceAccess, 4> Accesses{ { { typeid(AssetRegistry), Access::Write }, { typeid(IPhysicsWorld), Access::Write }, { typeid(PhysicsRuntime), Access::Write }, { typeid(RFD::RenderFrameData), Access::Write } } };
         return Accesses;
     }
 

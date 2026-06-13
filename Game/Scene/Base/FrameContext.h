@@ -4,6 +4,7 @@
 #include <vector>
 #include "Arche/Common.h"
 #include "Game/Base/RenderFrameData.h"
+#include "Game/Environment/EnvironmentObjectRenderContext.h"
 #include "Game/Scene/Base/SceneWorldSnapshot.h"
 #include "Game/Terrain/TerrainManager.h"
 #include "PhysicsLib/Common.h"
@@ -30,6 +31,7 @@ namespace Game {
 
     struct FrameContext final {
         RFD::RenderFrameData RenderData{};
+        EnvironmentObjectRenderContext mEnvironmentObjectRenderContext{};
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
         AssetRegistry* AssetRegistryResource{ nullptr };
         IPhysicsWorld* PhysicsWorldResource{ nullptr };
