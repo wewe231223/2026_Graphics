@@ -754,6 +754,9 @@
     <None Include="..\Shader\PSO\EnvironmentObjectGraphics.json">
       <Filter>PSO</Filter>
     </None>
+    <None Include="..\Shader\PSO\FoliageCrossBillboardGraphics.json">
+      <Filter>PSO</Filter>
+    </None>
     <None Include="..\Resources\DefaultScene.yaml">
       <Filter>Scene\Scene YAML</Filter>
     </None>
@@ -787,6 +790,9 @@
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="..\Shader\Source\FoliageShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\FoliageCrossBillboardShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="..\Shader\Source\EnvironmentObjectShader.hlsl">

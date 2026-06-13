@@ -158,8 +158,6 @@ ProceduralFoliage:
       ExcludedLayers:
         - Snow
         - Rock
-      ModelPath: Tree1_LOD0.bin
-      MaterialPath: Tree1_materials.json
       InstancesPerCell: 7
       DensityMultiplier: 0.56
       SpawnChance: 0.42
@@ -183,17 +181,20 @@ ProceduralFoliage:
       CollisionRestitution: 0.0
       Lods:
         - ModelPath: Tree1_LOD0.bin
+          MaterialPath: Tree1_materials.json
           MaximumDistance: 15.0
         - ModelPath: Tree1_LOD1.bin
+          MaterialPath: Tree1_materials.json
           MaximumDistance: 30.0
         - ModelPath: Tree1_LOD2.bin
-          MaximumDistance: 240.0
+          MaterialPath: Tree1_materials.json
+          MaximumDistance: 250.0
+        - MaterialPath: Tree1_cross_lod_materials.json
+          MaximumDistance: 480.0
     - Name: Tree2
       ExcludedLayers:
         - Snow
         - Rock
-      ModelPath: Tree2_LOD0.bin
-      MaterialPath: Tree2_materials.json
       InstancesPerCell: 6
       DensityMultiplier: 0.52
       SpawnChance: 0.40
@@ -217,8 +218,13 @@ ProceduralFoliage:
       CollisionRestitution: 0.0
       Lods:
         - ModelPath: Tree2_LOD0.bin
+          MaterialPath: Tree2_materials.json
           MaximumDistance: 15.0
         - ModelPath: Tree2_LOD1.bin
+          MaterialPath: Tree2_materials.json
           MaximumDistance: 30.0
         - ModelPath: Tree2_LOD2.bin
-          MaximumDistance: 240.0
+          MaterialPath: Tree2_materials.json
+          MaximumDistance: 250.0
+        - MaterialPath: Tree2_cross_lod_materials.json
+          MaximumDistance: 480.0

@@ -125,9 +125,49 @@ namespace Game {
             return BoundingBox;
         }
 
+        DirectX::BoundingOrientedBox BuildCrossBillboardLocalBoundingBox(const SimpleMath::Vector4& Parameters) {
+            DirectX::BoundingOrientedBox BoundingBox{};
+            const float Width{ std::max(Parameters.x, 0.0f) };
+            const float Height{ std::max(Parameters.y, 0.0f) };
+            BoundingBox.Center = DirectX::XMFLOAT3{ 0.0f, Height * 0.5f, 0.0f };
+            BoundingBox.Extents = DirectX::XMFLOAT3{ Width * 0.5f, Height * 0.5f, Width * 0.5f };
+            BoundingBox.Orientation = DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 1.0f };
+            return BoundingBox;
+        }
+
+        void RefreshCrossBillboardPartRenderData(EnvironmentObjectPart& Part, std::uint32_t PartIndex, const std::vector<RegisteredMaterialGroup>& MaterialGroups) {
+            const RegisteredMaterialGroup* MaterialGroup{ ResolveRegisteredMaterialGroup(Part.mMaterialGroupIndex, MaterialGroups) };
+            const RegisteredMaterialGroupItem MaterialGroupItem{ ResolveRegisteredMaterialGroupItem(MaterialGroup, 0ULL) };
+
+            EnvironmentObjectRenderSegment Segment{};
+            Segment.mPipeline = MaterialGroupItem.Pipeline;
+            Segment.mLocalTransform = Part.mLocalTransform;
+            Segment.mProceduralParameters = Part.mProceduralParameters;
+            Segment.mMaterialIndex = MaterialGroupItem.MaterialIndex;
+            Segment.mPartIndex = PartIndex;
+            Segment.mFlags = Part.mFlags;
+            Segment.mDrawKind = RFD::EnvironmentDrawKind::Procedural;
+            Segment.mCastsShadow = Part.mCastsShadow;
+
+            if (Part.mProceduralParameters.x > 0.0f && Part.mProceduralParameters.y > 0.0f) {
+                Segment.mLocalBoundingBox = BuildCrossBillboardLocalBoundingBox(Part.mProceduralParameters);
+                Segment.mLocalBoundingBox.Transform(Segment.mLocalBoundingBox, Segment.mLocalTransform);
+                Segment.mHasLocalBoundingBox = true;
+                Part.mLocalBoundingBox = Segment.mLocalBoundingBox;
+                Part.mHasLocalBoundingBox = true;
+            }
+
+            Part.mSegments.push_back(Segment);
+        }
+
         void RefreshEnvironmentObjectPartRenderData(EnvironmentObjectPart& Part, std::uint32_t PartIndex, const std::vector<RegisteredMaterialGroup>& MaterialGroups) {
             Part.mSegments.clear();
             Part.mHasLocalBoundingBox = false;
+
+            if (Part.mKind == EnvironmentObjectPartKind::CrossBillboard) {
+                RefreshCrossBillboardPartRenderData(Part, PartIndex, MaterialGroups);
+                return;
+            }
 
             if (Part.mModel == nullptr) {
                 return;
@@ -159,6 +199,8 @@ namespace Game {
                     Segment.mMaterialIndex = MaterialGroupItem.MaterialIndex;
                     Segment.mPartIndex = PartIndex;
                     Segment.mFlags = Part.mFlags;
+                    Segment.mDrawKind = RFD::EnvironmentDrawKind::Model;
+                    Segment.mCastsShadow = Part.mCastsShadow;
 
                     if (Node.HasBoundingBox() == true) {
                         Segment.mLocalBoundingBox = Node.GetBoundingBox();
@@ -270,6 +312,9 @@ namespace Game {
             Batch.mInstanceOffsetInCell = Range.mInstanceOffsetInCell;
             Batch.mInstanceCount = Range.mInstanceCount;
             Batch.mFlags = Segment.mFlags;
+            Batch.mDrawKind = Segment.mDrawKind;
+            Batch.mProceduralParameters = Segment.mProceduralParameters;
+            Batch.mCastsShadow = Segment.mCastsShadow;
             OutBatches.push_back(Batch);
         }
 

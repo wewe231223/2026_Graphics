@@ -44,23 +44,34 @@ namespace Game {
         const Interface::IPipeline* mPipeline{};
         const Interface::IModelNode* mMesh{};
         SimpleMath::Matrix mLocalTransform{ SimpleMath::Matrix::Identity };
+        SimpleMath::Vector4 mProceduralParameters{};
         DirectX::BoundingOrientedBox mLocalBoundingBox{};
         std::uint32_t mNodeIndex{};
         std::uint32_t mSubMeshIndex{};
         std::uint32_t mMaterialIndex{};
         std::uint32_t mPartIndex{};
         std::uint32_t mFlags{};
+        RFD::EnvironmentDrawKind mDrawKind{ RFD::EnvironmentDrawKind::Model };
+        bool mCastsShadow{ true };
         bool mHasLocalBoundingBox{};
+    };
+
+    enum class EnvironmentObjectPartKind : std::uint32_t {
+        Model,
+        CrossBillboard
     };
 
     struct EnvironmentObjectPart final {
     public:
         std::shared_ptr<Model> mModel{};
         SimpleMath::Matrix mLocalTransform{ SimpleMath::Matrix::Identity };
+        SimpleMath::Vector4 mProceduralParameters{};
         DirectX::BoundingOrientedBox mLocalBoundingBox{};
         std::vector<EnvironmentObjectRenderSegment> mSegments{};
         std::uint32_t mMaterialGroupIndex{};
         std::uint32_t mFlags{};
+        EnvironmentObjectPartKind mKind{ EnvironmentObjectPartKind::Model };
+        bool mCastsShadow{ true };
         bool mHasLocalBoundingBox{};
     };
 
@@ -104,6 +115,9 @@ namespace Game {
         std::uint32_t mInstanceOffsetInCell{};
         std::uint32_t mInstanceCount{};
         std::uint32_t mFlags{};
+        RFD::EnvironmentDrawKind mDrawKind{ RFD::EnvironmentDrawKind::Model };
+        SimpleMath::Vector4 mProceduralParameters{};
+        bool mCastsShadow{ true };
     };
 
     struct EnvironmentObjectCell final {

@@ -17,6 +17,7 @@ namespace Game {
         RFD::EnvironmentSegmentContext BuildEnvironmentSegmentContext(const EnvironmentObjectBatch& Batch) {
             RFD::EnvironmentSegmentContext Context{};
             Context.mLocalTransform = Batch.mLocalTransform;
+            Context.mProceduralParameters = Batch.mProceduralParameters;
             return Context;
         }
 
@@ -31,11 +32,21 @@ namespace Game {
             DrawRecord.mSegmentContextIndex = SegmentContextIndex;
             DrawRecord.mMaterialIndex = Batch.mMaterialIndex;
             DrawRecord.mFlags = Batch.mFlags;
+            DrawRecord.mDrawKind = Batch.mDrawKind;
+            DrawRecord.mCastsShadow = Batch.mCastsShadow;
             return DrawRecord;
         }
 
         bool IsRenderableBatch(const EnvironmentObjectBatch& Batch) {
-            return Batch.mPipeline != nullptr && Batch.mMesh != nullptr && Batch.mInstanceCount > 0u;
+            if (Batch.mPipeline == nullptr || Batch.mInstanceCount == 0u) {
+                return false;
+            }
+
+            if (Batch.mDrawKind == RFD::EnvironmentDrawKind::Procedural) {
+                return true;
+            }
+
+            return Batch.mMesh != nullptr;
         }
 
         bool HasRenderableBatch(const std::vector<EnvironmentObjectBatch>& Batches) {
@@ -159,7 +170,7 @@ namespace Game {
                 OutRenderGatherResult.GetEnvironmentDrawRecords().push_back(DrawRecord);
             }
 
-            if (Options.mEnableShadowPass == false) {
+            if (Options.mEnableShadowPass == false || DrawRecord.mCastsShadow == false) {
                 continue;
             }
 

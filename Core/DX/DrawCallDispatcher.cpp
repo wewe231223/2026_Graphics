@@ -162,11 +162,17 @@ namespace Core {
 			const Interface::IPipeline* ActivePipeline{ nullptr };
 			for (std::size_t DrawRecordIndex{}; DrawRecordIndex < Data.mEnvironmentDrawRecords.size(); DrawRecordIndex += 1ULL) {
 				const Game::RFD::EnvironmentDrawRecord& DrawRecord{ Data.mEnvironmentDrawRecords[DrawRecordIndex] };
-				if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u) {
+				if (DrawRecord.mInstanceCount == 0u) {
 					continue;
 				}
 
-				ActivePipeline = mEnvironmentObjectPipeline.Set(ActivePipeline, CommandList);
+				const bool IsProceduralDraw{ DrawRecord.mDrawKind == Game::RFD::EnvironmentDrawKind::Procedural };
+				const Interface::IPipeline* Pipeline{ IsProceduralDraw == true ? DrawRecord.mPipeline : static_cast<const Interface::IPipeline*>(&mEnvironmentObjectPipeline) };
+				if (Pipeline == nullptr || (IsProceduralDraw == false && DrawRecord.mMesh == nullptr)) {
+					continue;
+				}
+
+				ActivePipeline = Pipeline->Set(ActivePipeline, CommandList);
 
 				DrawRootConstantsB1 RootConstants{};
 				RootConstants.FrameGlobalsSrvIndex = FrameGlobalsSrvHandle.GetIndex();
@@ -183,9 +189,18 @@ namespace Core {
 				RootConstants.Reserved1 = 0u;
 				CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
 
-				CommandList->IASetPrimitiveTopology(mEnvironmentObjectPipeline.GetPrimitiveTopology());
+				CommandList->IASetPrimitiveTopology(Pipeline->GetPrimitiveTopology());
 
-				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(mEnvironmentObjectPipeline, *DrawRecord.mMesh) };
+				if (IsProceduralDraw == true) {
+					const UINT VertexCountPerInstance{ 1u };
+					const UINT InstanceCount{ static_cast<UINT>(DrawRecord.mInstanceCount) };
+					const UINT StartVertexLocation{ 0u };
+					const UINT StartInstanceLocation{ 0u };
+					CommandList->DrawInstanced(VertexCountPerInstance, InstanceCount, StartVertexLocation, StartInstanceLocation);
+					continue;
+				}
+
+				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*Pipeline, *DrawRecord.mMesh) };
 				if (VertexBufferViews.empty() == false) {
 					CommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
 				}
@@ -326,7 +341,7 @@ namespace Core {
 			const Interface::IPipeline* ActivePipeline{ nullptr };
 			for (std::size_t DrawRecordIndex{}; DrawRecordIndex < ShadowRenderContext.mEnvironmentDrawRecords.size(); DrawRecordIndex += 1ULL) {
 				const Game::RFD::EnvironmentDrawRecord& DrawRecord{ ShadowRenderContext.mEnvironmentDrawRecords[DrawRecordIndex] };
-				if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u) {
+				if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mCastsShadow == false || DrawRecord.mDrawKind == Game::RFD::EnvironmentDrawKind::Procedural) {
 					continue;
 				}
 

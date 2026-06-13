@@ -62,6 +62,7 @@ namespace {
     struct FoliagePlacementLodDesc final {
     public:
         std::string mModelPath{};
+        std::string mMaterialPath{};
         float mMaximumDistance{ std::numeric_limits<float>::max() };
     };
 
@@ -149,6 +150,7 @@ namespace {
     public:
         std::shared_ptr<Game::Model> mModel{};
         float mMaximumDistance{ std::numeric_limits<float>::max() };
+        std::uint32_t mMaterialGroupIndex{ 0u };
     };
 
     struct FoliageRuntimeRule final {
@@ -467,13 +469,15 @@ namespace {
 
         FoliagePlacementLodDesc LodDesc{};
         ReadStringChild(LodNode, "ModelPath", LodDesc.mModelPath);
+        ReadStringChild(LodNode, "MaterialPath", LodDesc.mMaterialPath);
         ReadFloatChild(LodNode, "Distance", LodDesc.mMaximumDistance);
         ReadFloatChild(LodNode, "MaximumDistance", LodDesc.mMaximumDistance);
         LodDesc.mModelPath = ResolveFoliageResourcePath(ConfigPath, LodDesc.mModelPath);
+        LodDesc.mMaterialPath = ResolveFoliageResourcePath(ConfigPath, LodDesc.mMaterialPath);
         LodDesc.mMaximumDistance = std::max(LodDesc.mMaximumDistance, 0.0f);
 
-        if (LodDesc.mModelPath.empty() == true) {
-            throw std::runtime_error{ "Procedural foliage lod model path is empty." };
+        if (LodDesc.mModelPath.empty() == true && LodDesc.mMaterialPath.empty() == true) {
+            throw std::runtime_error{ "Procedural foliage lod model path and material path are empty." };
         }
 
         return LodDesc;
@@ -495,6 +499,7 @@ namespace {
         if (Rule.mLods.empty() == true && Rule.mModelPath.empty() == false) {
             FoliagePlacementLodDesc LodDesc{};
             LodDesc.mModelPath = Rule.mModelPath;
+            LodDesc.mMaterialPath = Rule.mMaterialPath;
             LodDesc.mMaximumDistance = std::numeric_limits<float>::max();
             Rule.mLods.push_back(std::move(LodDesc));
         }
@@ -1057,10 +1062,12 @@ namespace {
         std::uint32_t mPass{};
         std::uint32_t mMaterialIndex{};
         std::uint32_t mFlags{};
+        Game::RFD::EnvironmentDrawKind mDrawKind{ Game::RFD::EnvironmentDrawKind::Model };
+        bool mCastsShadow{ true };
     };
 
     bool operator==(const EnvironmentMergedBatchKey& Left, const EnvironmentMergedBatchKey& Right) {
-        return Left.mPipeline == Right.mPipeline && Left.mMesh == Right.mMesh && Left.mLocalTransformBits == Right.mLocalTransformBits && Left.mSubMesh == Right.mSubMesh && Left.mPass == Right.mPass && Left.mMaterialIndex == Right.mMaterialIndex && Left.mFlags == Right.mFlags;
+        return Left.mPipeline == Right.mPipeline && Left.mMesh == Right.mMesh && Left.mLocalTransformBits == Right.mLocalTransformBits && Left.mSubMesh == Right.mSubMesh && Left.mPass == Right.mPass && Left.mMaterialIndex == Right.mMaterialIndex && Left.mFlags == Right.mFlags && Left.mDrawKind == Right.mDrawKind && Left.mCastsShadow == Right.mCastsShadow;
     }
 
     struct EnvironmentMergedBatchKeyHasher final {
@@ -1073,6 +1080,8 @@ namespace {
             AppendHashValue(Hash, Key.mPass);
             AppendHashValue(Hash, Key.mMaterialIndex);
             AppendHashValue(Hash, Key.mFlags);
+            AppendHashValue(Hash, static_cast<std::uint32_t>(Key.mDrawKind));
+            AppendHashValue(Hash, Key.mCastsShadow == true ? 1u : 0u);
             for (std::uint32_t MatrixValue : Key.mLocalTransformBits) {
                 AppendHashValue(Hash, MatrixValue);
             }
@@ -1108,6 +1117,8 @@ namespace {
         Key.mPass = DrawRecord.mPass;
         Key.mMaterialIndex = DrawRecord.mMaterialIndex;
         Key.mFlags = DrawRecord.mFlags;
+        Key.mDrawKind = DrawRecord.mDrawKind;
+        Key.mCastsShadow = DrawRecord.mCastsShadow;
         return Key;
     }
 
@@ -1164,7 +1175,8 @@ namespace {
         const std::size_t ResolvedLodLevel{ std::min<std::size_t>(LodLevel, Packet.mLods.size() - 1ULL) };
         const Game::EnvironmentObjectRenderPacketLod& Lod{ Packet.mLods[ResolvedLodLevel] };
         for (const Game::RFD::EnvironmentDrawRecord& DrawRecord : Lod.mDrawRecords) {
-            if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mSegmentContextIndex >= Lod.mSegmentContexts.size()) {
+            const bool IsProceduralDraw{ DrawRecord.mDrawKind == Game::RFD::EnvironmentDrawKind::Procedural };
+            if ((IsProceduralDraw == false && DrawRecord.mMesh == nullptr) || DrawRecord.mInstanceCount == 0u || DrawRecord.mSegmentContextIndex >= Lod.mSegmentContexts.size()) {
                 continue;
             }
 
@@ -1208,6 +1220,10 @@ namespace {
                 }
 
                 std::array<Game::RFD::ShadowRenderContext, Game::RFD::ShadowCascadeMaxCount>& ShadowRenderContexts{ OutRenderGatherResult.GetShadowRenderContexts() };
+                if (DrawRecord.mCastsShadow == false) {
+                    continue;
+                }
+
                 for (std::uint32_t CascadeIndex{}; CascadeIndex < ShadowRenderContexts.size(); CascadeIndex += 1u) {
                     if ((Run.mVisibilityMask & BuildEnvironmentShadowVisibilityMaskBit(CascadeIndex)) != 0u) {
                         ShadowRenderContexts[CascadeIndex].mEnvironmentDrawRecords.push_back(DrawRecord);
@@ -1275,6 +1291,24 @@ namespace {
         return VisibilityMask;
     }
 
+    std::uint32_t ResolveFoliageMaterialGroupIndex(Game::AssetRegistry& AssetRegistryValue, const std::string& MaterialPath, std::uint32_t FallbackIndex) {
+        if (MaterialPath.empty() == true) {
+            return FallbackIndex;
+        }
+
+        const bool IsLoaded{ AssetRegistryValue.LoadMaterialGroups(MaterialPath) };
+        if (IsLoaded == false) {
+            return FallbackIndex;
+        }
+
+        const std::uint32_t MaterialGroupIndex{ AssetRegistryValue.FindMaterialGroupIndexBySourcePath(MaterialPath) };
+        if (MaterialGroupIndex == static_cast<std::uint32_t>(-1)) {
+            return FallbackIndex;
+        }
+
+        return MaterialGroupIndex;
+    }
+
     SimpleMath::Vector3 ResolveEnvironmentObjectLodAnchor(const Game::EnvironmentObjectLod& Lod) {
         const DirectX::BoundingOrientedBox& BoundingBox{ Lod.mLocalBoundingBox };
         return SimpleMath::Vector3{ BoundingBox.Center.x, BoundingBox.Center.y - BoundingBox.Extents.y, BoundingBox.Center.z };
@@ -1305,6 +1339,46 @@ namespace {
             }
 
             IsChanged = true;
+        }
+
+        return IsChanged;
+    }
+
+    SimpleMath::Vector4 ResolveCrossBillboardParametersFromReferenceLod(const Game::EnvironmentObjectPrototype& Prototype) {
+        if (Prototype.mLods.empty() == true || Prototype.mLods.front().mHasLocalBoundingBox == false) {
+            return SimpleMath::Vector4{};
+        }
+
+        const DirectX::BoundingOrientedBox& BoundingBox{ Prototype.mLods.front().mLocalBoundingBox };
+        const float Width{ std::max(BoundingBox.Extents.x, BoundingBox.Extents.z) * 2.0f };
+        const float Height{ BoundingBox.Extents.y * 2.0f };
+        if (Width <= FoliageEpsilon || Height <= FoliageEpsilon) {
+            return SimpleMath::Vector4{};
+        }
+
+        return SimpleMath::Vector4{ Width, Height, 0.0f, 0.0f };
+    }
+
+    bool ApplyCrossBillboardParameters(Game::EnvironmentObjectPrototype& Prototype) {
+        const SimpleMath::Vector4 Parameters{ ResolveCrossBillboardParametersFromReferenceLod(Prototype) };
+        if (Parameters.x <= FoliageEpsilon || Parameters.y <= FoliageEpsilon) {
+            return false;
+        }
+
+        bool IsChanged{};
+        for (Game::EnvironmentObjectLod& Lod : Prototype.mLods) {
+            for (Game::EnvironmentObjectPart& Part : Lod.mParts) {
+                if (Part.mKind != Game::EnvironmentObjectPartKind::CrossBillboard) {
+                    continue;
+                }
+
+                if (std::abs(Part.mProceduralParameters.x - Parameters.x) <= FoliageEpsilon && std::abs(Part.mProceduralParameters.y - Parameters.y) <= FoliageEpsilon) {
+                    continue;
+                }
+
+                Part.mProceduralParameters = Parameters;
+                IsChanged = true;
+            }
         }
 
         return IsChanged;
@@ -1816,12 +1890,21 @@ namespace Game {
         for (const FoliagePlacementRule& RuleDesc : mConfig.mRules) {
             FoliageRuntimeRule RuntimeRule{};
             RuntimeRule.mDesc = RuleDesc;
+            RuntimeRule.mMaterialGroupIndex = ResolveFoliageMaterialGroupIndex(*Ctx.AssetRegistryResource, RuleDesc.mMaterialPath, 0u);
             RuntimeRule.mLods.reserve(RuleDesc.mLods.size());
             for (const FoliagePlacementLodDesc& LodDesc : RuleDesc.mLods) {
                 FoliageRuntimeLod RuntimeLod{};
-                RuntimeLod.mModel = Ctx.AssetRegistryResource->GetModel(LodDesc.mModelPath);
                 RuntimeLod.mMaximumDistance = LodDesc.mMaximumDistance;
-                if (RuntimeLod.mModel == nullptr) {
+                RuntimeLod.mMaterialGroupIndex = ResolveFoliageMaterialGroupIndex(*Ctx.AssetRegistryResource, LodDesc.mMaterialPath, RuntimeRule.mMaterialGroupIndex);
+
+                if (LodDesc.mModelPath.empty() == false) {
+                    RuntimeLod.mModel = Ctx.AssetRegistryResource->GetModel(LodDesc.mModelPath);
+                    if (RuntimeLod.mModel == nullptr) {
+                        continue;
+                    }
+                }
+
+                if (RuntimeLod.mModel == nullptr && LodDesc.mMaterialPath.empty() == true && RuleDesc.mMaterialPath.empty() == true) {
                     continue;
                 }
 
@@ -1830,14 +1913,6 @@ namespace Game {
 
             if (RuntimeRule.mLods.empty() == true) {
                 continue;
-            }
-
-            if (RuleDesc.mMaterialPath.empty() == false) {
-                const bool IsLoaded{ Ctx.AssetRegistryResource->LoadMaterialGroups(RuleDesc.mMaterialPath) };
-                if (IsLoaded == true) {
-                    const std::uint32_t MaterialGroupIndex{ Ctx.AssetRegistryResource->FindMaterialGroupIndexBySourcePath(RuleDesc.mMaterialPath) };
-                    RuntimeRule.mMaterialGroupIndex = MaterialGroupIndex == static_cast<std::uint32_t>(-1) ? 0u : MaterialGroupIndex;
-                }
             }
 
             mRules.push_back(std::move(RuntimeRule));
@@ -1864,13 +1939,13 @@ namespace Game {
             Prototype.mName = Rule.mDesc.mName;
             Prototype.mLods.reserve(Rule.mLods.size());
             for (const FoliageRuntimeLod& Lod : Rule.mLods) {
-                if (Lod.mModel == nullptr) {
-                    continue;
-                }
-
                 EnvironmentObjectPart Part{};
                 Part.mModel = Lod.mModel;
-                Part.mMaterialGroupIndex = Rule.mMaterialGroupIndex;
+                Part.mMaterialGroupIndex = Lod.mMaterialGroupIndex;
+                if (Lod.mModel == nullptr) {
+                    Part.mKind = EnvironmentObjectPartKind::CrossBillboard;
+                    Part.mCastsShadow = false;
+                }
 
                 EnvironmentObjectLod EnvironmentLod{};
                 EnvironmentLod.mMaximumDistance = Lod.mMaximumDistance;
@@ -1879,6 +1954,11 @@ namespace Game {
             }
 
             RebuildEnvironmentObjectPrototypeRenderData(Prototype, MaterialGroups);
+            const bool IsCrossBillboardParameterChanged{ ApplyCrossBillboardParameters(Prototype) };
+            if (IsCrossBillboardParameterChanged == true) {
+                RebuildEnvironmentObjectPrototypeRenderData(Prototype, MaterialGroups);
+            }
+
             const bool IsLodAnchorAdjusted{ AlignEnvironmentObjectPrototypeLodAnchors(Prototype) };
             if (IsLodAnchorAdjusted == true) {
                 RebuildEnvironmentObjectPrototypeRenderData(Prototype, MaterialGroups);
