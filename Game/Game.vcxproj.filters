@@ -43,6 +43,9 @@
     <Filter Include="Terrain">
       <UniqueIdentifier>{580f3db8-7db0-49d0-a335-9d4fa00e5819}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Environment">
+      <UniqueIdentifier>{cbfe91d6-73c4-4601-8a5b-d8b11a58dd75}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Scene\Legacy">
       <UniqueIdentifier>{b89eb99f-4db0-4592-b9a3-698c3aaefa0b}</UniqueIdentifier>
     </Filter>
@@ -65,6 +68,9 @@
     </ClInclude>
     <ClInclude Include="Base\Pipeline.h">
       <Filter>Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Environment\EnvironmentObjectTypes.h">
+      <Filter>Environment</Filter>
     </ClInclude>
     <ClInclude Include="Model\Model.h">
       <Filter>Model</Filter>
@@ -403,6 +409,9 @@
     </ClCompile>
     <ClCompile Include="Base\Pipeline.cpp">
       <Filter>Base</Filter>
+    </ClCompile>
+    <ClCompile Include="Environment\EnvironmentObjectTypes.cpp">
+      <Filter>Environment</Filter>
     </ClCompile>
     <ClCompile Include="Model\Model.cpp">
       <Filter>Model</Filter>
