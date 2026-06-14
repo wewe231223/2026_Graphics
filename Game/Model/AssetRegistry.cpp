@@ -324,6 +324,20 @@ namespace Game {
         return NewModel;
     }
 
+    std::shared_ptr<Model> AssetRegistry::CreateRuntimeModel(const asset::ModelResult& ModelData) {
+        std::shared_ptr<Model> NewModel{ std::make_shared<Model>() };
+        if (mDevice == nullptr || mCopyQueue == nullptr || mAllocator == nullptr) {
+            return nullptr;
+        }
+
+        const bool IsInitialized{ NewModel->InitializeFromModelResult(ModelData, mAllocator, mCopyQueue) };
+        if (IsInitialized == false) {
+            return nullptr;
+        }
+
+        return NewModel;
+    }
+
     std::shared_ptr<TerrainRenderResource> AssetRegistry::GetTerrainRenderResource(const TerrainBuildDesc& Desc) {
         IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
         AssetRegistryStorage& Storage{ BackEnd->GetStorage() };

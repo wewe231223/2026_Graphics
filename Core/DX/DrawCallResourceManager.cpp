@@ -562,7 +562,7 @@ namespace Core {
 		}
 
 		bool DrawCallResourceManager::CompareEnvironmentDrawRecordByPso(const Game::RFD::EnvironmentDrawRecord& Left, const Game::RFD::EnvironmentDrawRecord& Right) {
-			return std::tie(Left.mPass, Left.mPipeline, Left.mMesh, Left.mSubMesh, Left.mSegmentContextIndex, Left.mMaterialIndex, Left.mDrawKind, Left.mCastsShadow) < std::tie(Right.mPass, Right.mPipeline, Right.mMesh, Right.mSubMesh, Right.mSegmentContextIndex, Right.mMaterialIndex, Right.mDrawKind, Right.mCastsShadow);
+			return std::tie(Left.mPass, Left.mPipeline, Left.mMesh, Left.mSubMesh, Left.mSegmentContextIndex, Left.mMaterialIndex, Left.mCastsShadow) < std::tie(Right.mPass, Right.mPipeline, Right.mMesh, Right.mSubMesh, Right.mSegmentContextIndex, Right.mMaterialIndex, Right.mCastsShadow);
 		}
 
 		void DrawCallResourceManager::SortShadowDrawRecords(std::vector<Game::RFD::DrawRecord>& DrawRecords) {

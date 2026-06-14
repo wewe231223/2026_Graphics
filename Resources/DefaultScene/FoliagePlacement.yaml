@@ -158,22 +158,23 @@ ProceduralFoliage:
       ExcludedLayers:
         - Snow
         - Rock
-      InstancesPerCell: 7
-      DensityMultiplier: 0.56
-      SpawnChance: 0.42
-      MinimumWeight: 0.42
+      InstancesPerCell: 10
+      DensityMultiplier: 0.12
+      SpawnChance: 0.65
+      MinimumWeight: 0.30
       MinimumScale: 1.2
       MaximumScale: 1.75
       MinimumYawDegrees: 0.0
       MaximumYawDegrees: 360.0
-      ClusterStrength: 1.0
-      ClusterScale: 185.0
-      ClusterContrast: 1.85
-      ClusterCoverage: 0.62
-      ClusterEdgeSoftness: 0.14
-      ClusterOutsideDensity: 0.32
+      ClusterStrength: 0.0
+      ClusterScale: 240.0
+      ClusterContrast: 1.0
+      ClusterCoverage: 1.0
+      ClusterEdgeSoftness: 0.0
+      ClusterOutsideDensity: 1.0
+      ForestStrength: 0.0
       OffsetY: 0.0
-      MinimumSpacing: 4.2
+      MinimumSpacing: 2.8
       CollisionActor: true
       CollisionCenter: [0.0, 2.8, 0.0]
       CollisionExtents: [0.35, 2.8, 0.35]
@@ -188,29 +189,30 @@ ProceduralFoliage:
           MaximumDistance: 30.0
         - ModelPath: Tree1_LOD2.bin
           MaterialPath: Tree1_materials.json
-          MaximumDistance: 250.0
+          MaximumDistance: 150.0
         - MaterialPath: Tree1_cross_lod_materials.json
           MaximumDistance: 480.0
     - Name: Tree2
       ExcludedLayers:
         - Snow
         - Rock
-      InstancesPerCell: 6
-      DensityMultiplier: 0.52
-      SpawnChance: 0.40
-      MinimumWeight: 0.42
+      InstancesPerCell: 8
+      DensityMultiplier: 0.12
+      SpawnChance: 0.62
+      MinimumWeight: 0.30
       MinimumScale: 1.1
       MaximumScale: 1.55
       MinimumYawDegrees: 0.0
       MaximumYawDegrees: 360.0
-      ClusterStrength: 1.0
-      ClusterScale: 205.0
-      ClusterContrast: 1.75
-      ClusterCoverage: 0.58
-      ClusterEdgeSoftness: 0.15
-      ClusterOutsideDensity: 0.28
+      ClusterStrength: 0.0
+      ClusterScale: 260.0
+      ClusterContrast: 1.0
+      ClusterCoverage: 1.0
+      ClusterEdgeSoftness: 0.0
+      ClusterOutsideDensity: 1.0
+      ForestStrength: 0.0
       OffsetY: 0.0
-      MinimumSpacing: 4.6
+      MinimumSpacing: 3.0
       CollisionActor: true
       CollisionCenter: [0.0, 2.6, 0.0]
       CollisionExtents: [0.32, 2.6, 0.32]
@@ -225,6 +227,6 @@ ProceduralFoliage:
           MaximumDistance: 30.0
         - ModelPath: Tree2_LOD2.bin
           MaterialPath: Tree2_materials.json
-          MaximumDistance: 250.0
+          MaximumDistance: 150.0
         - MaterialPath: Tree2_cross_lod_materials.json
           MaximumDistance: 480.0

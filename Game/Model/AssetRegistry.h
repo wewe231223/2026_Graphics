@@ -54,6 +54,7 @@ namespace Game {
         std::shared_ptr<IAssetRegistryBackEnd> GetBackEnd() const;
 
         std::shared_ptr<Model> GetModel(const std::string& ModelBinaryPath);
+        std::shared_ptr<Model> CreateRuntimeModel(const asset::ModelResult& ModelData);
         std::shared_ptr<TerrainRenderResource> GetTerrainRenderResource(const TerrainBuildDesc& Desc);
         bool UpdateTerrainStreaming(TerrainRenderResource& Resource, const TerrainManager& TerrainManagerInstance, const SimpleMath::Vector3& FocusPosition, std::uint32_t FrameIndex);
         std::shared_ptr<asset::Animation> GetAnimation(const std::string& AnimationBinaryPath);

@@ -89,6 +89,7 @@ namespace {
         float mClusterCoverage{ 1.0f };
         float mClusterEdgeSoftness{};
         float mClusterOutsideDensity{};
+        float mForestStrength{ 1.0f };
         float mOffsetY{};
         float mMinimumSpacing{};
         bool mCollisionActorEnabled{ false };
@@ -318,6 +319,15 @@ namespace {
         return std::clamp(Lerp(Config.mForestOutsideDensity, 1.0f, ForestMask), 0.0f, 1.0f);
     }
 
+    float ResolveRuleForestFactor(std::uint32_t TerrainSeed, const FoliagePlacementConfig& Config, const FoliagePlacementRule& Rule, float WorldX, float WorldZ) {
+        if (Rule.mForestStrength <= 0.0f) {
+            return 1.0f;
+        }
+
+        const float ForestFactor{ SampleForestAreaFactor(TerrainSeed, Config, WorldX, WorldZ) };
+        return std::clamp(Lerp(1.0f, ForestFactor, Rule.mForestStrength), 0.0f, 1.0f);
+    }
+
     void ApplyFoliageClumpPosition(std::uint32_t TerrainSeed, const FoliagePlacementConfig& Config, const FoliagePlacementRule& Rule, const FoliageCandidateKey& Key, std::uint32_t ClusterIndex, float CellSize, float& WorldX, float& WorldZ) {
         if (Rule.mClusterStrength <= 0.0f) {
             return;
@@ -538,6 +548,7 @@ namespace {
         ReadFloatChild(RuleNode, "ClusterCoverage", Rule.mClusterCoverage);
         ReadFloatChild(RuleNode, "ClusterEdgeSoftness", Rule.mClusterEdgeSoftness);
         ReadFloatChild(RuleNode, "ClusterOutsideDensity", Rule.mClusterOutsideDensity);
+        ReadFloatChild(RuleNode, "ForestStrength", Rule.mForestStrength);
         ReadFloatChild(RuleNode, "OffsetY", Rule.mOffsetY);
         ReadFloatChild(RuleNode, "MinimumSpacing", Rule.mMinimumSpacing);
         ReadFloatChild(RuleNode, "TreeMinimumSpacing", Rule.mMinimumSpacing);
@@ -568,6 +579,7 @@ namespace {
         Rule.mClusterCoverage = std::clamp(Rule.mClusterCoverage, 0.01f, 1.0f);
         Rule.mClusterEdgeSoftness = std::max(Rule.mClusterEdgeSoftness, 0.0f);
         Rule.mClusterOutsideDensity = std::clamp(Rule.mClusterOutsideDensity, 0.0f, 1.0f);
+        Rule.mForestStrength = std::clamp(Rule.mForestStrength, 0.0f, 1.0f);
         Rule.mMinimumSpacing = std::max(Rule.mMinimumSpacing, 0.0f);
         Rule.mCollisionExtents.x = std::max(Rule.mCollisionExtents.x, FoliageEpsilon);
         Rule.mCollisionExtents.y = std::max(Rule.mCollisionExtents.y, FoliageEpsilon);
@@ -878,11 +890,11 @@ namespace {
     }
 
     bool IsForestAreaWideEnough(const TerrainSamplingContext& TerrainContext, const FoliagePlacementConfig& Config, const FoliagePlacementRule& Rule, std::uint32_t TerrainSeed, float WorldX, float WorldZ) {
-        if (Config.mForestEnabled == false || Config.mForestMinimumWidth <= FoliageEpsilon) {
+        if (Config.mForestEnabled == false || Config.mForestMinimumWidth <= FoliageEpsilon || Rule.mForestStrength <= FoliageEpsilon) {
             return true;
         }
 
-        const float CenterForestFactor{ SampleForestAreaFactor(TerrainSeed, Config, WorldX, WorldZ) };
+        const float CenterForestFactor{ ResolveRuleForestFactor(TerrainSeed, Config, Rule, WorldX, WorldZ) };
         if (CenterForestFactor < Config.mForestMinimumAreaFactor) {
             return false;
         }
@@ -900,7 +912,7 @@ namespace {
             float SampleWorldY{};
             float SampleLayerWeight{};
             const bool HasSample{ TrySampleTerrain(TerrainContext, Rule, WorldX + SampleOffset.x, WorldZ + SampleOffset.y, SampleWorldY, SampleLayerWeight) };
-            const float SampleForestFactor{ SampleForestAreaFactor(TerrainSeed, Config, WorldX + SampleOffset.x, WorldZ + SampleOffset.y) };
+            const float SampleForestFactor{ ResolveRuleForestFactor(TerrainSeed, Config, Rule, WorldX + SampleOffset.x, WorldZ + SampleOffset.y) };
             if (HasSample == true && SampleLayerWeight >= Rule.mMinimumWeight && SampleForestFactor >= Config.mForestMinimumAreaFactor) {
                 AcceptedSampleCount += 1u;
             }
@@ -1062,12 +1074,11 @@ namespace {
         std::uint32_t mPass{};
         std::uint32_t mMaterialIndex{};
         std::uint32_t mFlags{};
-        Game::RFD::EnvironmentDrawKind mDrawKind{ Game::RFD::EnvironmentDrawKind::Model };
         bool mCastsShadow{ true };
     };
 
     bool operator==(const EnvironmentMergedBatchKey& Left, const EnvironmentMergedBatchKey& Right) {
-        return Left.mPipeline == Right.mPipeline && Left.mMesh == Right.mMesh && Left.mLocalTransformBits == Right.mLocalTransformBits && Left.mSubMesh == Right.mSubMesh && Left.mPass == Right.mPass && Left.mMaterialIndex == Right.mMaterialIndex && Left.mFlags == Right.mFlags && Left.mDrawKind == Right.mDrawKind && Left.mCastsShadow == Right.mCastsShadow;
+        return Left.mPipeline == Right.mPipeline && Left.mMesh == Right.mMesh && Left.mLocalTransformBits == Right.mLocalTransformBits && Left.mSubMesh == Right.mSubMesh && Left.mPass == Right.mPass && Left.mMaterialIndex == Right.mMaterialIndex && Left.mFlags == Right.mFlags && Left.mCastsShadow == Right.mCastsShadow;
     }
 
     struct EnvironmentMergedBatchKeyHasher final {
@@ -1080,7 +1091,6 @@ namespace {
             AppendHashValue(Hash, Key.mPass);
             AppendHashValue(Hash, Key.mMaterialIndex);
             AppendHashValue(Hash, Key.mFlags);
-            AppendHashValue(Hash, static_cast<std::uint32_t>(Key.mDrawKind));
             AppendHashValue(Hash, Key.mCastsShadow == true ? 1u : 0u);
             for (std::uint32_t MatrixValue : Key.mLocalTransformBits) {
                 AppendHashValue(Hash, MatrixValue);
@@ -1117,7 +1127,6 @@ namespace {
         Key.mPass = DrawRecord.mPass;
         Key.mMaterialIndex = DrawRecord.mMaterialIndex;
         Key.mFlags = DrawRecord.mFlags;
-        Key.mDrawKind = DrawRecord.mDrawKind;
         Key.mCastsShadow = DrawRecord.mCastsShadow;
         return Key;
     }
@@ -1175,8 +1184,7 @@ namespace {
         const std::size_t ResolvedLodLevel{ std::min<std::size_t>(LodLevel, Packet.mLods.size() - 1ULL) };
         const Game::EnvironmentObjectRenderPacketLod& Lod{ Packet.mLods[ResolvedLodLevel] };
         for (const Game::RFD::EnvironmentDrawRecord& DrawRecord : Lod.mDrawRecords) {
-            const bool IsProceduralDraw{ DrawRecord.mDrawKind == Game::RFD::EnvironmentDrawKind::Procedural };
-            if ((IsProceduralDraw == false && DrawRecord.mMesh == nullptr) || DrawRecord.mInstanceCount == 0u || DrawRecord.mSegmentContextIndex >= Lod.mSegmentContexts.size()) {
+            if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mSegmentContextIndex >= Lod.mSegmentContexts.size()) {
                 continue;
             }
 
@@ -1344,39 +1352,91 @@ namespace {
         return IsChanged;
     }
 
-    SimpleMath::Vector4 ResolveCrossBillboardParametersFromReferenceLod(const Game::EnvironmentObjectPrototype& Prototype) {
+    SimpleMath::Vector2 ResolveCrossBillboardSizeFromReferenceLod(const Game::EnvironmentObjectPrototype& Prototype) {
         if (Prototype.mLods.empty() == true || Prototype.mLods.front().mHasLocalBoundingBox == false) {
-            return SimpleMath::Vector4{};
+            return SimpleMath::Vector2{};
         }
 
         const DirectX::BoundingOrientedBox& BoundingBox{ Prototype.mLods.front().mLocalBoundingBox };
         const float Width{ std::max(BoundingBox.Extents.x, BoundingBox.Extents.z) * 2.0f };
         const float Height{ BoundingBox.Extents.y * 2.0f };
         if (Width <= FoliageEpsilon || Height <= FoliageEpsilon) {
-            return SimpleMath::Vector4{};
+            return SimpleMath::Vector2{};
         }
 
-        return SimpleMath::Vector4{ Width, Height, 0.0f, 0.0f };
+        return SimpleMath::Vector2{ Width, Height };
     }
 
-    bool ApplyCrossBillboardParameters(Game::EnvironmentObjectPrototype& Prototype) {
-        const SimpleMath::Vector4 Parameters{ ResolveCrossBillboardParametersFromReferenceLod(Prototype) };
-        if (Parameters.x <= FoliageEpsilon || Parameters.y <= FoliageEpsilon) {
-            return false;
+    void AppendCrossBillboardVertex(asset::VertexAttributes& Vertices, const asset::Vec3& Position, const asset::Vec3& Normal, const asset::Vec2& TexCoord, const asset::Vec3& Tangent, const asset::Vec3& Bitangent) {
+        Vertices.Positions.push_back(Position);
+        Vertices.Normals.push_back(Normal);
+        Vertices.TexCoords[0].push_back(TexCoord);
+        Vertices.Tangents.push_back(Tangent);
+        Vertices.Bitangents.push_back(Bitangent);
+    }
+
+    asset::ModelResult BuildCrossBillboardModelData(float Width, float Height) {
+        asset::ModelResult ModelData{};
+        asset::ModelNode& RootNode{ ModelData.CreateNode("FoliageCrossBillboard", nullptr) };
+        asset::VertexAttributes& Vertices{ RootNode.Vertices() };
+        std::vector<std::uint32_t>& Indices{ RootNode.Indices() };
+        const float HalfWidth{ Width * 0.5f };
+
+        Vertices.Reserve(8ULL);
+        AppendCrossBillboardVertex(Vertices, asset::Vec3{ -HalfWidth, 0.0f, 0.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec2{ 0.0f, 1.0f }, asset::Vec3{ 1.0f, 0.0f, 0.0f }, asset::Vec3{ 0.0f, 1.0f, 0.0f });
+        AppendCrossBillboardVertex(Vertices, asset::Vec3{ -HalfWidth, Height, 0.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec2{ 0.0f, 0.0f }, asset::Vec3{ 1.0f, 0.0f, 0.0f }, asset::Vec3{ 0.0f, 1.0f, 0.0f });
+        AppendCrossBillboardVertex(Vertices, asset::Vec3{ HalfWidth, 0.0f, 0.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec2{ 0.25f, 1.0f }, asset::Vec3{ 1.0f, 0.0f, 0.0f }, asset::Vec3{ 0.0f, 1.0f, 0.0f });
+        AppendCrossBillboardVertex(Vertices, asset::Vec3{ HalfWidth, Height, 0.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec2{ 0.25f, 0.0f }, asset::Vec3{ 1.0f, 0.0f, 0.0f }, asset::Vec3{ 0.0f, 1.0f, 0.0f });
+        AppendCrossBillboardVertex(Vertices, asset::Vec3{ 0.0f, 0.0f, -HalfWidth }, asset::Vec3{ 1.0f, 0.0f, 0.0f }, asset::Vec2{ 0.5f, 1.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec3{ 0.0f, 1.0f, 0.0f });
+        AppendCrossBillboardVertex(Vertices, asset::Vec3{ 0.0f, Height, -HalfWidth }, asset::Vec3{ 1.0f, 0.0f, 0.0f }, asset::Vec2{ 0.5f, 0.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec3{ 0.0f, 1.0f, 0.0f });
+        AppendCrossBillboardVertex(Vertices, asset::Vec3{ 0.0f, 0.0f, HalfWidth }, asset::Vec3{ 1.0f, 0.0f, 0.0f }, asset::Vec2{ 0.75f, 1.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec3{ 0.0f, 1.0f, 0.0f });
+        AppendCrossBillboardVertex(Vertices, asset::Vec3{ 0.0f, Height, HalfWidth }, asset::Vec3{ 1.0f, 0.0f, 0.0f }, asset::Vec2{ 0.75f, 0.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec3{ 0.0f, 1.0f, 0.0f });
+
+        Indices = std::vector<std::uint32_t>{ 0u, 1u, 2u, 2u, 1u, 3u, 4u, 5u, 6u, 6u, 5u, 7u };
+
+        asset::ModelNode::SubMesh SubMesh{};
+        SubMesh.IndexOffset = 0ULL;
+        SubMesh.IndexCount = Indices.size();
+        SubMesh.MaterialGroupItemIndex = 0ULL;
+        RootNode.SubMeshes().push_back(SubMesh);
+
+        DirectX::BoundingOrientedBox BoundingBox{};
+        BoundingBox.Center = DirectX::XMFLOAT3{ 0.0f, Height * 0.5f, 0.0f };
+        BoundingBox.Extents = DirectX::XMFLOAT3{ HalfWidth, Height * 0.5f, HalfWidth };
+        BoundingBox.Orientation = DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 1.0f };
+        RootNode.SetBoundingBox(BoundingBox);
+        return ModelData;
+    }
+
+    std::shared_ptr<Game::Model> CreateCrossBillboardModel(Game::AssetRegistry& AssetRegistryValue, const Game::EnvironmentObjectPrototype& Prototype) {
+        const SimpleMath::Vector2 Size{ ResolveCrossBillboardSizeFromReferenceLod(Prototype) };
+        if (Size.x <= FoliageEpsilon || Size.y <= FoliageEpsilon) {
+            return nullptr;
         }
 
+        asset::ModelResult ModelData{ BuildCrossBillboardModelData(Size.x, Size.y) };
+        return AssetRegistryValue.CreateRuntimeModel(ModelData);
+    }
+
+    bool AssignCrossBillboardModels(Game::AssetRegistry& AssetRegistryValue, Game::EnvironmentObjectPrototype& Prototype) {
+        std::shared_ptr<Game::Model> CrossModel{};
         bool IsChanged{};
         for (Game::EnvironmentObjectLod& Lod : Prototype.mLods) {
             for (Game::EnvironmentObjectPart& Part : Lod.mParts) {
-                if (Part.mKind != Game::EnvironmentObjectPartKind::CrossBillboard) {
+                if (Part.mModel != nullptr) {
                     continue;
                 }
 
-                if (std::abs(Part.mProceduralParameters.x - Parameters.x) <= FoliageEpsilon && std::abs(Part.mProceduralParameters.y - Parameters.y) <= FoliageEpsilon) {
+                if (CrossModel == nullptr) {
+                    CrossModel = CreateCrossBillboardModel(AssetRegistryValue, Prototype);
+                }
+
+                if (CrossModel == nullptr) {
                     continue;
                 }
 
-                Part.mProceduralParameters = Parameters;
+                Part.mModel = CrossModel;
+                Part.mCastsShadow = false;
                 IsChanged = true;
             }
         }
@@ -1678,7 +1738,7 @@ namespace Game {
         void BuildCandidateBatch(FrameContext& Ctx, const TerrainSamplingContext& TerrainContext);
         void ApplyCandidateBatch(Arche::World& World, FrameContext& Ctx);
         void RebuildSlotLookupBatch(Arche::World& World, FrameContext& Ctx);
-        void BuildEnvironmentPrototypes(const std::vector<RegisteredMaterialGroup>& MaterialGroups);
+        void BuildEnvironmentPrototypes(AssetRegistry& AssetRegistryValue, const std::vector<RegisteredMaterialGroup>& MaterialGroups);
         EnvironmentObjectCell BuildEnvironmentObjectCell(const EnvironmentObjectCellKey& CellKey, std::span<const FoliageCandidate> Candidates, std::uint64_t FrameIndex) const;
         GeneratedFoliageCell GenerateEnvironmentObjectCell(const TerrainSamplingContext& TerrainContext, const EnvironmentObjectCellKey& CellKey, std::uint64_t FrameIndex) const;
         void RemoveUnloadedEnvironmentObjectCells(FrameContext& Ctx);
@@ -1919,7 +1979,7 @@ namespace Game {
         }
 
         if (Ctx.MaterialGroups != nullptr) {
-            BuildEnvironmentPrototypes(*Ctx.MaterialGroups);
+            BuildEnvironmentPrototypes(*Ctx.AssetRegistryResource, *Ctx.MaterialGroups);
         }
 
         Ctx.mEnvironmentObjectRenderContext.Clear();
@@ -1931,7 +1991,7 @@ namespace Game {
         return mValid;
     }
 
-    void ProceduralFoliageRuntime::BuildEnvironmentPrototypes(const std::vector<RegisteredMaterialGroup>& MaterialGroups) {
+    void ProceduralFoliageRuntime::BuildEnvironmentPrototypes(AssetRegistry& AssetRegistryValue, const std::vector<RegisteredMaterialGroup>& MaterialGroups) {
         mEnvironmentPrototypes.clear();
         mEnvironmentPrototypes.reserve(mRules.size());
         for (const FoliageRuntimeRule& Rule : mRules) {
@@ -1943,7 +2003,6 @@ namespace Game {
                 Part.mModel = Lod.mModel;
                 Part.mMaterialGroupIndex = Lod.mMaterialGroupIndex;
                 if (Lod.mModel == nullptr) {
-                    Part.mKind = EnvironmentObjectPartKind::CrossBillboard;
                     Part.mCastsShadow = false;
                 }
 
@@ -1954,8 +2013,8 @@ namespace Game {
             }
 
             RebuildEnvironmentObjectPrototypeRenderData(Prototype, MaterialGroups);
-            const bool IsCrossBillboardParameterChanged{ ApplyCrossBillboardParameters(Prototype) };
-            if (IsCrossBillboardParameterChanged == true) {
+            const bool IsCrossBillboardModelAssigned{ AssignCrossBillboardModels(AssetRegistryValue, Prototype) };
+            if (IsCrossBillboardModelAssigned == true) {
                 RebuildEnvironmentObjectPrototypeRenderData(Prototype, MaterialGroups);
             }
 
@@ -2377,7 +2436,7 @@ namespace Game {
         float LayerWeight{};
         const bool HasTerrainSample{ TrySampleTerrain(TerrainContext, Rule, WorldX, WorldZ, WorldY, LayerWeight) };
         const float ClusterFactor{ SampleFoliageClusterFactor(TerrainSeed, mConfig, Rule, ClusterIndex, WorldX, WorldZ) };
-        const float ForestFactor{ SampleForestAreaFactor(TerrainSeed, mConfig, WorldX, WorldZ) };
+        const float ForestFactor{ ResolveRuleForestFactor(TerrainSeed, mConfig, Rule, WorldX, WorldZ) };
         const float EffectiveSpawnChance{ std::clamp(Rule.mSpawnChance * Rule.mDensityMultiplier * mConfig.mDensityMultiplier * LayerWeight * ClusterFactor * ForestFactor, 0.0f, 1.0f) };
         if (HasTerrainSample == false || LayerWeight < Rule.mMinimumWeight || EffectiveSpawnChance <= 0.0f || RandomChance > EffectiveSpawnChance) {
             return false;

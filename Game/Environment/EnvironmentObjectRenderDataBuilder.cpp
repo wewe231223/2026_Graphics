@@ -17,7 +17,6 @@ namespace Game {
         RFD::EnvironmentSegmentContext BuildEnvironmentSegmentContext(const EnvironmentObjectBatch& Batch) {
             RFD::EnvironmentSegmentContext Context{};
             Context.mLocalTransform = Batch.mLocalTransform;
-            Context.mProceduralParameters = Batch.mProceduralParameters;
             return Context;
         }
 
@@ -32,7 +31,6 @@ namespace Game {
             DrawRecord.mSegmentContextIndex = SegmentContextIndex;
             DrawRecord.mMaterialIndex = Batch.mMaterialIndex;
             DrawRecord.mFlags = Batch.mFlags;
-            DrawRecord.mDrawKind = Batch.mDrawKind;
             DrawRecord.mCastsShadow = Batch.mCastsShadow;
             return DrawRecord;
         }
@@ -40,10 +38,6 @@ namespace Game {
         bool IsRenderableBatch(const EnvironmentObjectBatch& Batch) {
             if (Batch.mPipeline == nullptr || Batch.mInstanceCount == 0u) {
                 return false;
-            }
-
-            if (Batch.mDrawKind == RFD::EnvironmentDrawKind::Procedural) {
-                return true;
             }
 
             return Batch.mMesh != nullptr;

@@ -129,7 +129,6 @@ struct EnvironmentInstanceContextGpu
 struct EnvironmentSegmentContextGpu
 {
     float4x4 LocalTransform;
-    float4 ProceduralParameters;
 };
 
 struct EnvironmentDrawRecordGpu

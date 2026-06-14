@@ -4,7 +4,7 @@
             "Name": "Tree2CrossBillboard",
             "Items": [
                 {
-                    "PipelineName": "FoliageCrossBillboardGraphics",
+                    "PipelineName": "EnvironmentObjectGraphics",
                     "MaterialData": {
                         "Name": "Tree2CrossBillboardMaterial",
                         "PBR": true,

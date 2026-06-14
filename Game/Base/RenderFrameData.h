@@ -176,12 +176,6 @@ namespace Game {
 
         struct alignas(16) EnvironmentSegmentContext final {
             SimpleMath::Matrix mLocalTransform{ SimpleMath::Matrix::Identity };
-            SimpleMath::Vector4 mProceduralParameters{};
-        };
-
-        enum class EnvironmentDrawKind : std::uint32_t {
-            Model,
-            Procedural
         };
 
         struct EnvironmentDrawRecord final {
@@ -194,7 +188,6 @@ namespace Game {
             std::uint32_t mSegmentContextIndex{};
             std::uint32_t mMaterialIndex{};
             std::uint32_t mFlags{};
-            EnvironmentDrawKind mDrawKind{ EnvironmentDrawKind::Model };
             bool mCastsShadow{ true };
         };
 
