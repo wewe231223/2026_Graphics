@@ -272,6 +272,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
+    <FxCompile Include="..\Shader\Source\EnvironmentBillboardShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="..\Shader\Source\BoundingBoxLineShader.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -318,6 +322,8 @@
     <None Include="..\Resources\ShadowMappingParameter.yaml" />
     <None Include="..\Shader\PSO\DefaultGraphics.json" />
     <None Include="..\Shader\PSO\DebugGeometryGraphics.json" />
+    <None Include="..\Shader\PSO\EnvironmentBillboardDepthGraphics.json" />
+    <None Include="..\Shader\PSO\EnvironmentBillboardGraphics.json" />
     <None Include="..\Shader\PSO\EnvironmentObjectDepthGraphics.json" />
     <None Include="..\Shader\PSO\EnvironmentObjectGraphics.json" />
     <None Include="..\Shader\PSO\TerrainGraphics.json" />

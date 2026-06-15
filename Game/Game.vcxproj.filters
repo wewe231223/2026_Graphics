@@ -748,6 +748,12 @@
     <None Include="..\Shader\PSO\DebugGeometryGraphics.json">
       <Filter>PSO</Filter>
     </None>
+    <None Include="..\Shader\PSO\EnvironmentBillboardDepthGraphics.json">
+      <Filter>PSO</Filter>
+    </None>
+    <None Include="..\Shader\PSO\EnvironmentBillboardGraphics.json">
+      <Filter>PSO</Filter>
+    </None>
     <None Include="..\Shader\PSO\EnvironmentObjectDepthGraphics.json">
       <Filter>PSO</Filter>
     </None>
@@ -790,6 +796,9 @@
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="..\Shader\Source\EnvironmentObjectShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shader\Source\EnvironmentBillboardShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="..\Shader\Source\SkinnedMeshShader.hlsl">

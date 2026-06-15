@@ -1,0 +1,75 @@
+{
+  "$schema": "./Schema.Pipeline.json",
+  "Name": "EnvironmentBillboardDepthGraphics",
+  "Type": "Graphics",
+  "RootSignature": "DefaultRootSignature",
+  "VS": {
+    "Source": "EnvironmentBillboardShader.hlsl",
+    "Identifier": "vs_6_6:VsMain"
+  },
+  "GS": {
+    "Source": "EnvironmentBillboardShader.hlsl",
+    "Identifier": "gs_6_6:GsMainDepth"
+  },
+  "PS": {
+    "Source": "EnvironmentBillboardShader.hlsl",
+    "Identifier": "ps_6_6:PsMainDepth"
+  },
+  "InputLayout": [
+    {
+      "SemanticName": "POSITION",
+      "SemanticIndex": 0,
+      "Format": "R32G32B32_FLOAT",
+      "InputSlot": 0,
+      "AlignedByteOffset": 0,
+      "InputSlotClass": "PerVertexData",
+      "InstanceDataStepRate": 0
+    }
+  ],
+  "SampleMask": 4294967295,
+  "RasterizerState": {
+    "FillMode": "Solid",
+    "CullMode": "None",
+    "FrontCounterClockwise": false,
+    "DepthBias": 1,
+    "DepthBiasClamp": 0.0005,
+    "SlopeScaledDepthBias": 1.25,
+    "DepthClipEnable": true,
+    "MultisampleEnable": false,
+    "AntialiasedLineEnable": false,
+    "ForcedSampleCount": 0,
+    "ConservativeRaster": "Off"
+  },
+  "DepthStencilState": {
+    "DepthEnable": true,
+    "DepthWriteMask": "All",
+    "DepthFunc": "Less",
+    "StencilEnable": false,
+    "StencilReadMask": 255,
+    "StencilWriteMask": 255,
+    "FrontFace": {
+      "StencilFailOp": "Keep",
+      "StencilDepthFailOp": "Keep",
+      "StencilPassOp": "Keep",
+      "StencilFunc": "Always"
+    },
+    "BackFace": {
+      "StencilFailOp": "Keep",
+      "StencilDepthFailOp": "Keep",
+      "StencilPassOp": "Keep",
+      "StencilFunc": "Always"
+    }
+  },
+  "IBStripCutValue": "Disabled",
+  "PrimitiveTopologyType": "Point",
+  "PrimitiveTopology": "PointList",
+  "DSVFormat": "D24_UNORM_S8_UINT",
+  "SampleDesc": {
+    "Count": 1,
+    "Quality": 0
+  },
+  "NodeMask": 0,
+  "Flags": [
+    "DynamicDepthBias"
+  ]
+}

@@ -4,7 +4,7 @@
             "Name": "Tree1CrossBillboard",
             "Items": [
                 {
-                    "PipelineName": "EnvironmentObjectGraphics",
+                    "PipelineName": "EnvironmentBillboardGraphics",
                     "MaterialData": {
                         "Name": "Tree1CrossBillboardMaterial",
                         "PBR": true,
@@ -27,7 +27,7 @@
                             },
                             "Alpha Cutoff": {
                                 "Kind": "Real",
-                                "Real": 0.2
+                                "Real": 0.5
                             },
                             "Base Color": {
                                 "Kind": "Vec4",

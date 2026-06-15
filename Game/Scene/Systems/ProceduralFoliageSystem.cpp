@@ -33,6 +33,7 @@
 #include "Core/Config.h"
 #include "Game/Environment/EnvironmentObjectTypes.h"
 #include "Game/Model/AssetRegistry.h"
+#include "Game/Model/PrimitiveModelFactory.h"
 #include "Game/Model/TerrainRenderResource.h"
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Camera.h"
@@ -1352,7 +1353,7 @@ namespace {
         return IsChanged;
     }
 
-    SimpleMath::Vector2 ResolveCrossBillboardSizeFromReferenceLod(const Game::EnvironmentObjectPrototype& Prototype) {
+    SimpleMath::Vector2 ResolveBillboardSizeFromReferenceLod(const Game::EnvironmentObjectPrototype& Prototype) {
         if (Prototype.mLods.empty() == true || Prototype.mLods.front().mHasLocalBoundingBox == false) {
             return SimpleMath::Vector2{};
         }
@@ -1367,76 +1368,77 @@ namespace {
         return SimpleMath::Vector2{ Width, Height };
     }
 
-    void AppendCrossBillboardVertex(asset::VertexAttributes& Vertices, const asset::Vec3& Position, const asset::Vec3& Normal, const asset::Vec2& TexCoord, const asset::Vec3& Tangent, const asset::Vec3& Bitangent) {
-        Vertices.Positions.push_back(Position);
-        Vertices.Normals.push_back(Normal);
-        Vertices.TexCoords[0].push_back(TexCoord);
-        Vertices.Tangents.push_back(Tangent);
-        Vertices.Bitangents.push_back(Bitangent);
-    }
+    constexpr const char* BillboardPrimitiveSelector{ "primitive:point" };
 
-    asset::ModelResult BuildCrossBillboardModelData(float Width, float Height) {
+    std::shared_ptr<Game::Model> CreateBillboardPointModel(Game::AssetRegistry& AssetRegistryValue) {
         asset::ModelResult ModelData{};
-        asset::ModelNode& RootNode{ ModelData.CreateNode("FoliageCrossBillboard", nullptr) };
-        asset::VertexAttributes& Vertices{ RootNode.Vertices() };
-        std::vector<std::uint32_t>& Indices{ RootNode.Indices() };
-        const float HalfWidth{ Width * 0.5f };
-
-        Vertices.Reserve(8ULL);
-        AppendCrossBillboardVertex(Vertices, asset::Vec3{ -HalfWidth, 0.0f, 0.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec2{ 0.0f, 1.0f }, asset::Vec3{ 1.0f, 0.0f, 0.0f }, asset::Vec3{ 0.0f, 1.0f, 0.0f });
-        AppendCrossBillboardVertex(Vertices, asset::Vec3{ -HalfWidth, Height, 0.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec2{ 0.0f, 0.0f }, asset::Vec3{ 1.0f, 0.0f, 0.0f }, asset::Vec3{ 0.0f, 1.0f, 0.0f });
-        AppendCrossBillboardVertex(Vertices, asset::Vec3{ HalfWidth, 0.0f, 0.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec2{ 0.25f, 1.0f }, asset::Vec3{ 1.0f, 0.0f, 0.0f }, asset::Vec3{ 0.0f, 1.0f, 0.0f });
-        AppendCrossBillboardVertex(Vertices, asset::Vec3{ HalfWidth, Height, 0.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec2{ 0.25f, 0.0f }, asset::Vec3{ 1.0f, 0.0f, 0.0f }, asset::Vec3{ 0.0f, 1.0f, 0.0f });
-        AppendCrossBillboardVertex(Vertices, asset::Vec3{ 0.0f, 0.0f, -HalfWidth }, asset::Vec3{ 1.0f, 0.0f, 0.0f }, asset::Vec2{ 0.5f, 1.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec3{ 0.0f, 1.0f, 0.0f });
-        AppendCrossBillboardVertex(Vertices, asset::Vec3{ 0.0f, Height, -HalfWidth }, asset::Vec3{ 1.0f, 0.0f, 0.0f }, asset::Vec2{ 0.5f, 0.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec3{ 0.0f, 1.0f, 0.0f });
-        AppendCrossBillboardVertex(Vertices, asset::Vec3{ 0.0f, 0.0f, HalfWidth }, asset::Vec3{ 1.0f, 0.0f, 0.0f }, asset::Vec2{ 0.75f, 1.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec3{ 0.0f, 1.0f, 0.0f });
-        AppendCrossBillboardVertex(Vertices, asset::Vec3{ 0.0f, Height, HalfWidth }, asset::Vec3{ 1.0f, 0.0f, 0.0f }, asset::Vec2{ 0.75f, 0.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec3{ 0.0f, 1.0f, 0.0f });
-
-        Indices = std::vector<std::uint32_t>{ 0u, 1u, 2u, 2u, 1u, 3u, 4u, 5u, 6u, 6u, 5u, 7u };
-
-        asset::ModelNode::SubMesh SubMesh{};
-        SubMesh.IndexOffset = 0ULL;
-        SubMesh.IndexCount = Indices.size();
-        SubMesh.MaterialGroupItemIndex = 0ULL;
-        RootNode.SubMeshes().push_back(SubMesh);
-
-        DirectX::BoundingOrientedBox BoundingBox{};
-        BoundingBox.Center = DirectX::XMFLOAT3{ 0.0f, Height * 0.5f, 0.0f };
-        BoundingBox.Extents = DirectX::XMFLOAT3{ HalfWidth, Height * 0.5f, HalfWidth };
-        BoundingBox.Orientation = DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 1.0f };
-        RootNode.SetBoundingBox(BoundingBox);
-        return ModelData;
-    }
-
-    std::shared_ptr<Game::Model> CreateCrossBillboardModel(Game::AssetRegistry& AssetRegistryValue, const Game::EnvironmentObjectPrototype& Prototype) {
-        const SimpleMath::Vector2 Size{ ResolveCrossBillboardSizeFromReferenceLod(Prototype) };
-        if (Size.x <= FoliageEpsilon || Size.y <= FoliageEpsilon) {
+        const bool IsModelDataCreated{ Game::PrimitiveModelFactory::TryCreateModelResult(BillboardPrimitiveSelector, ModelData) };
+        if (IsModelDataCreated == false) {
             return nullptr;
         }
 
-        asset::ModelResult ModelData{ BuildCrossBillboardModelData(Size.x, Size.y) };
+        asset::ModelNode* RootNode{ ModelData.GetRoot() };
+        if (RootNode != nullptr) {
+            DirectX::BoundingOrientedBox BoundingBox{};
+            BoundingBox.Center = DirectX::XMFLOAT3{ 0.0f, 0.0f, 0.0f };
+            BoundingBox.Extents = DirectX::XMFLOAT3{ 0.5f, 0.5f, 0.5f };
+            BoundingBox.Orientation = DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 1.0f };
+            RootNode->SetBoundingBox(BoundingBox);
+        }
+
         return AssetRegistryValue.CreateRuntimeModel(ModelData);
     }
 
-    bool AssignCrossBillboardModels(Game::AssetRegistry& AssetRegistryValue, Game::EnvironmentObjectPrototype& Prototype) {
-        std::shared_ptr<Game::Model> CrossModel{};
+    SimpleMath::Matrix BuildBillboardLocalTransform(const SimpleMath::Vector2& Size, const SimpleMath::Matrix& SourceTransform) {
+        const SimpleMath::Matrix Scale{ SimpleMath::Matrix::CreateScale(Size.x, Size.y, Size.x) };
+        const SimpleMath::Matrix Translation{ SimpleMath::Matrix::CreateTranslation(SimpleMath::Vector3{ 0.0f, Size.y * 0.5f, 0.0f }) };
+        return Scale * Translation * SourceTransform;
+    }
+
+    Game::EnvironmentObjectPart BuildBillboardPart(const Game::EnvironmentObjectPart& SourcePart, const std::shared_ptr<Game::Model>& ModelValue, const SimpleMath::Vector2& Size) {
+        Game::EnvironmentObjectPart Part{ SourcePart };
+        Part.mModel = ModelValue;
+        Part.mLocalTransform = BuildBillboardLocalTransform(Size, SourcePart.mLocalTransform);
+        Part.mLocalBoundingBox = DirectX::BoundingOrientedBox{};
+        Part.mSegments.clear();
+        Part.mCastsShadow = false;
+        Part.mHasLocalBoundingBox = false;
+        return Part;
+    }
+
+    bool AssignBillboardModel(Game::AssetRegistry& AssetRegistryValue, Game::EnvironmentObjectPrototype& Prototype) {
+        const SimpleMath::Vector2 Size{ ResolveBillboardSizeFromReferenceLod(Prototype) };
+        if (Size.x <= FoliageEpsilon || Size.y <= FoliageEpsilon) {
+            return false;
+        }
+
+        std::shared_ptr<Game::Model> BillboardModel{};
         bool IsChanged{};
         for (Game::EnvironmentObjectLod& Lod : Prototype.mLods) {
-            for (Game::EnvironmentObjectPart& Part : Lod.mParts) {
+            std::vector<Game::EnvironmentObjectPart> Parts{};
+            Parts.reserve(Lod.mParts.size());
+            bool IsLodChanged{};
+            for (const Game::EnvironmentObjectPart& Part : Lod.mParts) {
                 if (Part.mModel != nullptr) {
+                    Parts.push_back(Part);
                     continue;
                 }
 
-                if (CrossModel == nullptr) {
-                    CrossModel = CreateCrossBillboardModel(AssetRegistryValue, Prototype);
+                if (BillboardModel == nullptr) {
+                    BillboardModel = CreateBillboardPointModel(AssetRegistryValue);
                 }
 
-                if (CrossModel == nullptr) {
+                if (BillboardModel == nullptr) {
+                    Parts.push_back(Part);
                     continue;
                 }
 
-                Part.mModel = CrossModel;
-                Part.mCastsShadow = false;
+                Parts.push_back(BuildBillboardPart(Part, BillboardModel, Size));
+                IsLodChanged = true;
+            }
+
+            if (IsLodChanged == true) {
+                Lod.mParts = std::move(Parts);
                 IsChanged = true;
             }
         }
@@ -2013,8 +2015,8 @@ namespace Game {
             }
 
             RebuildEnvironmentObjectPrototypeRenderData(Prototype, MaterialGroups);
-            const bool IsCrossBillboardModelAssigned{ AssignCrossBillboardModels(AssetRegistryValue, Prototype) };
-            if (IsCrossBillboardModelAssigned == true) {
+            const bool IsBillboardModelAssigned{ AssignBillboardModel(AssetRegistryValue, Prototype) };
+            if (IsBillboardModelAssigned == true) {
                 RebuildEnvironmentObjectPrototypeRenderData(Prototype, MaterialGroups);
             }
 

@@ -189,7 +189,7 @@ ProceduralFoliage:
           MaximumDistance: 30.0
         - ModelPath: Tree1_LOD2.bin
           MaterialPath: Tree1_materials.json
-          MaximumDistance: 150.0
+          MaximumDistance: 100.0
         - MaterialPath: Tree1_cross_lod_materials.json
           MaximumDistance: 480.0
     - Name: Tree2
@@ -227,6 +227,6 @@ ProceduralFoliage:
           MaximumDistance: 30.0
         - ModelPath: Tree2_LOD2.bin
           MaterialPath: Tree2_materials.json
-          MaximumDistance: 150.0
+          MaximumDistance: 100.0
         - MaterialPath: Tree2_cross_lod_materials.json
           MaximumDistance: 480.0

@@ -81,7 +81,9 @@ namespace Core {
 			mEnvironmentObjectPipeline{},
 			mIsEnvironmentObjectPipelineInitialized{},
 			mEnvironmentObjectDepthPipeline{},
-			mIsEnvironmentObjectDepthPipelineInitialized{} {
+			mIsEnvironmentObjectDepthPipelineInitialized{},
+			mEnvironmentBillboardDepthPipeline{},
+			mIsEnvironmentBillboardDepthPipelineInitialized{} {
 		}
 
 		DrawCallDispatcher::~DrawCallDispatcher() {
@@ -155,10 +157,6 @@ namespace Core {
 				mIsEnvironmentObjectPipelineInitialized = mEnvironmentObjectPipeline.Initialize("EnvironmentObjectGraphics");
 			}
 
-			if (mIsEnvironmentObjectPipelineInitialized == false) {
-				return;
-			}
-
 			const Interface::IPipeline* ActivePipeline{ nullptr };
 			for (std::size_t DrawRecordIndex{}; DrawRecordIndex < Data.mEnvironmentDrawRecords.size(); DrawRecordIndex += 1ULL) {
 				const Game::RFD::EnvironmentDrawRecord& DrawRecord{ Data.mEnvironmentDrawRecords[DrawRecordIndex] };
@@ -166,7 +164,15 @@ namespace Core {
 					continue;
 				}
 
-				const Interface::IPipeline* Pipeline{ &mEnvironmentObjectPipeline };
+				const bool IsEnvironmentBillboardPipeline{ DrawRecord.mPipeline != nullptr && DrawRecord.mPipeline->GetPrimitiveTopology() == D3D_PRIMITIVE_TOPOLOGY_POINTLIST };
+				const Interface::IPipeline* Pipeline{ IsEnvironmentBillboardPipeline == true ? DrawRecord.mPipeline : nullptr };
+				if (Pipeline == nullptr && mIsEnvironmentObjectPipelineInitialized == true) {
+					Pipeline = &mEnvironmentObjectPipeline;
+				}
+
+				if (Pipeline == nullptr) {
+					continue;
+				}
 
 				ActivePipeline = Pipeline->Set(ActivePipeline, CommandList);
 
@@ -317,14 +323,6 @@ namespace Core {
 				return;
 			}
 
-			if (mIsEnvironmentObjectDepthPipelineInitialized == false) {
-				mIsEnvironmentObjectDepthPipelineInitialized = mEnvironmentObjectDepthPipeline.Initialize("EnvironmentObjectDepthGraphics");
-			}
-
-			if (mIsEnvironmentObjectDepthPipelineInitialized == false) {
-				return;
-			}
-
 			const Interface::IPipeline* ActivePipeline{ nullptr };
 			for (std::size_t DrawRecordIndex{}; DrawRecordIndex < ShadowRenderContext.mEnvironmentDrawRecords.size(); DrawRecordIndex += 1ULL) {
 				const Game::RFD::EnvironmentDrawRecord& DrawRecord{ ShadowRenderContext.mEnvironmentDrawRecords[DrawRecordIndex] };
@@ -332,7 +330,12 @@ namespace Core {
 					continue;
 				}
 
-				ActivePipeline = mEnvironmentObjectDepthPipeline.Set(ActivePipeline, CommandList);
+				const Interface::IPipeline* DepthPipeline{ DrawCallDispatcher::ResolveEnvironmentDepthOnlyPipeline(DrawRecord) };
+				if (DepthPipeline == nullptr) {
+					continue;
+				}
+
+				ActivePipeline = DepthPipeline->Set(ActivePipeline, CommandList);
 				if (DynamicDepthBiasCommandList != nullptr) {
 					DynamicDepthBiasCommandList->RSSetDepthBias(RasterDepthBias, RasterDepthBiasClamp, RasterSlopeScaledDepthBias);
 				}
@@ -352,9 +355,9 @@ namespace Core {
 				RootConstants.Reserved1 = 0u;
 				CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
 
-				CommandList->IASetPrimitiveTopology(mEnvironmentObjectDepthPipeline.GetPrimitiveTopology());
+				CommandList->IASetPrimitiveTopology(DepthPipeline->GetPrimitiveTopology());
 
-				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(mEnvironmentObjectDepthPipeline, *DrawRecord.mMesh) };
+				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*DepthPipeline, *DrawRecord.mMesh) };
 				if (VertexBufferViews.empty() == false) {
 					CommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
 				}
@@ -435,6 +438,22 @@ namespace Core {
 			}
 
 			return mIsDefaultDepthPipelineInitialized == true ? &mDefaultDepthPipeline : nullptr;
+		}
+
+		const Interface::IPipeline* DrawCallDispatcher::ResolveEnvironmentDepthOnlyPipeline(const Game::RFD::EnvironmentDrawRecord& DrawRecord) {
+			if (DrawRecord.mPipeline != nullptr && DrawRecord.mPipeline->GetPrimitiveTopology() == D3D_PRIMITIVE_TOPOLOGY_POINTLIST) {
+				if (mIsEnvironmentBillboardDepthPipelineInitialized == false) {
+					mIsEnvironmentBillboardDepthPipelineInitialized = mEnvironmentBillboardDepthPipeline.Initialize("EnvironmentBillboardDepthGraphics");
+				}
+
+				return mIsEnvironmentBillboardDepthPipelineInitialized == true ? &mEnvironmentBillboardDepthPipeline : nullptr;
+			}
+
+			if (mIsEnvironmentObjectDepthPipelineInitialized == false) {
+				mIsEnvironmentObjectDepthPipelineInitialized = mEnvironmentObjectDepthPipeline.Initialize("EnvironmentObjectDepthGraphics");
+			}
+
+			return mIsEnvironmentObjectDepthPipelineInitialized == true ? &mEnvironmentObjectDepthPipeline : nullptr;
 		}
 
 		void DrawCallDispatcher::DrawSkyDome(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {

@@ -22,6 +22,8 @@ namespace {
 
     struct PrimitiveParameters final {
         float Size{ 1.0f };
+        float mWidth{};
+        float mHeight{};
         asset::Vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };
     };
 
@@ -78,10 +80,40 @@ namespace {
         Data.Vertices.Colors.push_back(Color);
     }
 
+    void AddVertex(MeshData& Data, const asset::Vec3& Position, const asset::Vec3& Normal, const asset::Vec2& TexCoord, const asset::Vec4& Color, const asset::Vec3& Tangent, const asset::Vec3& Bitangent) {
+        AddVertex(Data, Position, Normal, TexCoord, Color);
+        Data.Vertices.Tangents.push_back(Tangent);
+        Data.Vertices.Bitangents.push_back(Bitangent);
+    }
+
     void AddTriangle(MeshData& Data, std::uint32_t A, std::uint32_t B, std::uint32_t C) {
         Data.Indices.push_back(A);
         Data.Indices.push_back(B);
         Data.Indices.push_back(C);
+    }
+
+    bool TryBuildBoundingBox(const asset::VertexAttributes& Vertices, DirectX::BoundingOrientedBox& OutBoundingBox) {
+        if (Vertices.Positions.empty() == true) {
+            return false;
+        }
+
+        asset::Vec3 MinimumPoint{ Vertices.Positions.front() };
+        asset::Vec3 MaximumPoint{ Vertices.Positions.front() };
+        for (const asset::Vec3& Position : Vertices.Positions) {
+            MinimumPoint.x = MinimumPoint.x < Position.x ? MinimumPoint.x : Position.x;
+            MinimumPoint.y = MinimumPoint.y < Position.y ? MinimumPoint.y : Position.y;
+            MinimumPoint.z = MinimumPoint.z < Position.z ? MinimumPoint.z : Position.z;
+            MaximumPoint.x = MaximumPoint.x > Position.x ? MaximumPoint.x : Position.x;
+            MaximumPoint.y = MaximumPoint.y > Position.y ? MaximumPoint.y : Position.y;
+            MaximumPoint.z = MaximumPoint.z > Position.z ? MaximumPoint.z : Position.z;
+        }
+
+        const asset::Vec3 Center{ (MinimumPoint + MaximumPoint) * 0.5f };
+        const asset::Vec3 Extents{ (MaximumPoint - MinimumPoint) * 0.5f };
+        OutBoundingBox.Center = DirectX::XMFLOAT3{ Center.x, Center.y, Center.z };
+        OutBoundingBox.Extents = DirectX::XMFLOAT3{ Extents.x, Extents.y, Extents.z };
+        OutBoundingBox.Orientation = DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 1.0f };
+        return true;
     }
 
     MeshData CreateBox(const PrimitiveParameters& Parameters) {
@@ -119,6 +151,35 @@ namespace {
             AddTriangle(Data, Base + 0, Base + 2, Base + 3);
         }
 
+        return Data;
+    }
+
+    MeshData CreateRectangle(const PrimitiveParameters& Parameters) {
+        MeshData Data{};
+        const float Width{ Parameters.mWidth > 0.0f ? Parameters.mWidth : Parameters.Size };
+        const float Height{ Parameters.mHeight > 0.0f ? Parameters.mHeight : Parameters.Size };
+        const float HalfWidth{ Width * 0.5f };
+        const float HalfHeight{ Height * 0.5f };
+        const asset::Vec3 Normal{ 0.0f, 0.0f, 1.0f };
+        const asset::Vec3 Tangent{ 1.0f, 0.0f, 0.0f };
+        const asset::Vec3 Bitangent{ 0.0f, 1.0f, 0.0f };
+
+        Data.Vertices.Reserve(4ULL);
+        AddVertex(Data, asset::Vec3{ -HalfWidth, -HalfHeight, 0.0f }, Normal, asset::Vec2{ 0.0f, 1.0f }, Parameters.Color, Tangent, Bitangent);
+        AddVertex(Data, asset::Vec3{ -HalfWidth, HalfHeight, 0.0f }, Normal, asset::Vec2{ 0.0f, 0.0f }, Parameters.Color, Tangent, Bitangent);
+        AddVertex(Data, asset::Vec3{ HalfWidth, -HalfHeight, 0.0f }, Normal, asset::Vec2{ 1.0f, 1.0f }, Parameters.Color, Tangent, Bitangent);
+        AddVertex(Data, asset::Vec3{ HalfWidth, HalfHeight, 0.0f }, Normal, asset::Vec2{ 1.0f, 0.0f }, Parameters.Color, Tangent, Bitangent);
+        AddTriangle(Data, 0u, 1u, 2u);
+        AddTriangle(Data, 2u, 1u, 3u);
+
+        return Data;
+    }
+
+    MeshData CreatePoint(const PrimitiveParameters& Parameters) {
+        MeshData Data{};
+        Data.Vertices.Reserve(1ULL);
+        AddVertex(Data, asset::Vec3{ 0.0f, 0.0f, 0.0f }, asset::Vec3{ 0.0f, 0.0f, 1.0f }, asset::Vec2{ 0.0f, 0.0f }, Parameters.Color);
+        Data.Indices.push_back(0u);
         return Data;
     }
 
@@ -430,13 +491,25 @@ namespace {
             const std::string Key{ Token.substr(0, EqualsIndex) };
             const std::string Value{ Token.substr(EqualsIndex + 1) };
 
-            if (Key == "size") {
+            if (Key == "size" || Key == "Size") {
                 const bool IsParsedSize{ TryParseFloat(Value, OutParameters.Size) };
                 if (IsParsedSize == false) {
                     return false;
                 }
             }
-            else if (Key == "color") {
+            else if (Key == "width" || Key == "Width") {
+                const bool IsParsedWidth{ TryParseFloat(Value, OutParameters.mWidth) };
+                if (IsParsedWidth == false) {
+                    return false;
+                }
+            }
+            else if (Key == "height" || Key == "Height") {
+                const bool IsParsedHeight{ TryParseFloat(Value, OutParameters.mHeight) };
+                if (IsParsedHeight == false) {
+                    return false;
+                }
+            }
+            else if (Key == "color" || Key == "Color") {
                 std::vector<float> Parsed{};
                 const bool IsParsed{ TryParseFloatList(Value, Parsed) };
                 if (IsParsed == false || Parsed.size() != 4) {
@@ -879,6 +952,16 @@ namespace {
             return true;
         }
 
+        if (PrimitiveType == "primitive:rectangle" || PrimitiveType == "rectangle" || PrimitiveType == "primitive:quad" || PrimitiveType == "quad") {
+            OutData = CreateRectangle(Parameters);
+            return true;
+        }
+
+        if (PrimitiveType == "primitive:point" || PrimitiveType == "point") {
+            OutData = CreatePoint(Parameters);
+            return true;
+        }
+
         if (PrimitiveType == "primitive:sphere" || PrimitiveType == "sphere") {
             OutData = CreateSphere(Parameters);
             return true;
@@ -924,6 +1007,11 @@ namespace Game {
         asset::ModelNode& RootNode{ OutModelData.CreateNode(Selector, nullptr) };
         RootNode.Vertices() = std::move(Data.Vertices);
         RootNode.Indices() = std::move(Data.Indices);
+        DirectX::BoundingOrientedBox BoundingBox{};
+        const bool HasBoundingBox{ TryBuildBoundingBox(RootNode.Vertices(), BoundingBox) };
+        if (HasBoundingBox == true) {
+            RootNode.SetBoundingBox(BoundingBox);
+        }
 
         asset::ModelNode::SubMesh SubMesh{};
         SubMesh.IndexOffset = 0;

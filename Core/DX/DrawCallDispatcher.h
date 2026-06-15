@@ -32,6 +32,7 @@ namespace Core {
 			const std::vector<D3D12_VERTEX_BUFFER_VIEW>& ResolveVertexBufferViews(const Interface::IPipeline& Pipeline, const Interface::IModelNode& Mesh);
 			bool IsSkyDomePipeline(const Interface::IPipeline* Pipeline);
 			const Interface::IPipeline* ResolveDepthOnlyPipeline(const Game::RFD::DrawRecord& DrawRecord);
+			const Interface::IPipeline* ResolveEnvironmentDepthOnlyPipeline(const Game::RFD::EnvironmentDrawRecord& DrawRecord);
 			void DrawBoundingBoxes(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle);
 			void DrawDebugGeometries(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle DebugGeometryContextSrvHandle);
 
@@ -56,6 +57,8 @@ namespace Core {
 			bool mIsEnvironmentObjectPipelineInitialized{};
 			Game::Base::Pipeline mEnvironmentObjectDepthPipeline{};
 			bool mIsEnvironmentObjectDepthPipelineInitialized{};
+			Game::Base::Pipeline mEnvironmentBillboardDepthPipeline{};
+			bool mIsEnvironmentBillboardDepthPipelineInitialized{};
 			std::map<std::pair<const Interface::IPipeline*, const Interface::IModelNode*>, std::vector<D3D12_VERTEX_BUFFER_VIEW>> mVertexBufferViewCache{};
 		};
 	}

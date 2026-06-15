@@ -1,0 +1,99 @@
+{
+  "$schema": "./Schema.Pipeline.json",
+  "Name": "EnvironmentBillboardGraphics",
+  "Type": "Graphics",
+  "Options": [
+    "DepthAlphaCutoff"
+  ],
+  "RootSignature": "DefaultRootSignature",
+  "VS": {
+    "Source": "EnvironmentBillboardShader.hlsl",
+    "Identifier": "vs_6_6:VsMain"
+  },
+  "GS": {
+    "Source": "EnvironmentBillboardShader.hlsl",
+    "Identifier": "gs_6_6:GsMain"
+  },
+  "PS": {
+    "Source": "EnvironmentBillboardShader.hlsl",
+    "Identifier": "ps_6_6:PsMain"
+  },
+  "InputLayout": [
+    {
+      "SemanticName": "POSITION",
+      "SemanticIndex": 0,
+      "Format": "R32G32B32_FLOAT",
+      "InputSlot": 0,
+      "AlignedByteOffset": 0,
+      "InputSlotClass": "PerVertexData",
+      "InstanceDataStepRate": 0
+    }
+  ],
+  "BlendState": {
+    "AlphaToCoverageEnable": false,
+    "IndependentBlendEnable": false,
+    "RenderTargets": [
+      {
+        "BlendEnable": false,
+        "BlendOp": "Add",
+        "BlendOpAlpha": "Add",
+        "DestBlend": "Zero",
+        "DestBlendAlpha": "Zero",
+        "LogicOp": "Noop",
+        "LogicOpEnable": false,
+        "RenderTargetWriteMask": 15,
+        "SrcBlend": "One",
+        "SrcBlendAlpha": "One"
+      }
+    ]
+  },
+  "SampleMask": 4294967295,
+  "RasterizerState": {
+    "FillMode": "Solid",
+    "CullMode": "None",
+    "FrontCounterClockwise": false,
+    "DepthBias": 0,
+    "DepthBiasClamp": 0,
+    "SlopeScaledDepthBias": 0,
+    "DepthClipEnable": true,
+    "MultisampleEnable": false,
+    "AntialiasedLineEnable": false,
+    "ForcedSampleCount": 0,
+    "ConservativeRaster": "Off"
+  },
+  "DepthStencilState": {
+    "DepthEnable": true,
+    "DepthWriteMask": "All",
+    "DepthFunc": "Less",
+    "StencilEnable": false,
+    "StencilReadMask": 255,
+    "StencilWriteMask": 255,
+    "FrontFace": {
+      "StencilFailOp": "Keep",
+      "StencilDepthFailOp": "Keep",
+      "StencilPassOp": "Keep",
+      "StencilFunc": "Always"
+    },
+    "BackFace": {
+      "StencilFailOp": "Keep",
+      "StencilDepthFailOp": "Keep",
+      "StencilPassOp": "Keep",
+      "StencilFunc": "Always"
+    }
+  },
+  "IBStripCutValue": "Disabled",
+  "PrimitiveTopologyType": "Point",
+  "PrimitiveTopology": "PointList",
+  "RTVFormats": [
+    "R8G8B8A8_UNORM",
+    "R16G16B16A16_FLOAT",
+    "R32G32B32A32_FLOAT"
+  ],
+  "DSVFormat": "D24_UNORM_S8_UINT",
+  "SampleDesc": {
+    "Count": 1,
+    "Quality": 0
+  },
+  "NodeMask": 0,
+  "Flags": []
+}
