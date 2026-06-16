@@ -39,22 +39,25 @@ struct EnvironmentDepthVertexOutput
     uint MaterialIndex : MATERIAL_INDEX;
 };
 
-float3 RotateEnvironmentYaw(float3 Value, float YawRadians) {
-    float SinValue = 0.0f;
-    float CosValue = 1.0f;
+void ResolveEnvironmentYawSinCos(float YawRadians, out float SinValue, out float CosValue) {
+    SinValue = 0.0f;
+    CosValue = 1.0f;
     sincos(YawRadians, SinValue, CosValue);
+}
+
+float3 RotateEnvironmentYaw(float3 Value, float SinValue, float CosValue) {
     return float3((Value.x * CosValue) + (Value.z * SinValue), Value.y, (-Value.x * SinValue) + (Value.z * CosValue));
 }
 
-float3 BuildEnvironmentWorldPosition(float3 LocalPosition, EnvironmentInstanceContextGpu InstanceContext, EnvironmentSegmentContextGpu SegmentContext) {
+float3 BuildEnvironmentWorldPosition(float3 LocalPosition, EnvironmentInstanceContextGpu InstanceContext, EnvironmentSegmentContextGpu SegmentContext, float SinYaw, float CosYaw) {
     const float4 SegmentPosition = mul(float4(LocalPosition, 1.0f), SegmentContext.LocalTransform);
     const float3 ScaledPosition = SegmentPosition.xyz * InstanceContext.PositionScale.w;
-    return RotateEnvironmentYaw(ScaledPosition, InstanceContext.RotationVariation.x) + InstanceContext.PositionScale.xyz;
+    return RotateEnvironmentYaw(ScaledPosition, SinYaw, CosYaw) + InstanceContext.PositionScale.xyz;
 }
 
-float3 BuildEnvironmentWorldDirection(float3 LocalDirection, EnvironmentInstanceContextGpu InstanceContext, EnvironmentSegmentContextGpu SegmentContext) {
+float3 BuildEnvironmentWorldDirection(float3 LocalDirection, EnvironmentInstanceContextGpu InstanceContext, EnvironmentSegmentContextGpu SegmentContext, float SinYaw, float CosYaw) {
     const float3 SegmentDirection = mul(LocalDirection, (float3x3)SegmentContext.LocalTransform);
-    return normalize(RotateEnvironmentYaw(SegmentDirection, InstanceContext.RotationVariation.x));
+    return normalize(RotateEnvironmentYaw(SegmentDirection, SinYaw, CosYaw));
 }
 
 EnvironmentVertexOutput VsMain(EnvironmentVertexInput Input, uint InstanceId : SV_InstanceID) {
@@ -67,13 +70,16 @@ EnvironmentVertexOutput VsMain(EnvironmentVertexInput Input, uint InstanceId : S
     const EnvironmentInstanceContextGpu InstanceContext = InstanceContextBuffer[DrawRecord.InstanceOffset + InstanceId];
     const EnvironmentSegmentContextGpu SegmentContext = SegmentContextBuffer[DrawRecord.SegmentContextIndex];
     const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[RootConstants.FrameGlobalsElementIndex];
-    const float3 WorldPosition = BuildEnvironmentWorldPosition(Input.Position, InstanceContext, SegmentContext);
+    float SinYaw = 0.0f;
+    float CosYaw = 1.0f;
+    ResolveEnvironmentYawSinCos(InstanceContext.RotationVariation.x, SinYaw, CosYaw);
+    const float3 WorldPosition = BuildEnvironmentWorldPosition(Input.Position, InstanceContext, SegmentContext, SinYaw, CosYaw);
 
     EnvironmentVertexOutput Output;
     Output.Position = mul(float4(WorldPosition, 1.0f), FrameGlobals.ViewProj);
-    Output.Normal = BuildEnvironmentWorldDirection(Input.Normal, InstanceContext, SegmentContext);
-    Output.Tangent = BuildEnvironmentWorldDirection(Input.Tangent, InstanceContext, SegmentContext);
-    Output.Bitangent = BuildEnvironmentWorldDirection(Input.Bitangent, InstanceContext, SegmentContext);
+    Output.Normal = BuildEnvironmentWorldDirection(Input.Normal, InstanceContext, SegmentContext, SinYaw, CosYaw);
+    Output.Tangent = BuildEnvironmentWorldDirection(Input.Tangent, InstanceContext, SegmentContext, SinYaw, CosYaw);
+    Output.Bitangent = BuildEnvironmentWorldDirection(Input.Bitangent, InstanceContext, SegmentContext, SinYaw, CosYaw);
     Output.WorldPosition = WorldPosition;
     Output.TexCoord0 = Input.TexCoord0;
     Output.MaterialIndex = DrawRecord.MaterialIndex;
@@ -91,7 +97,10 @@ EnvironmentDepthVertexOutput VsMainDepth(EnvironmentDepthVertexInput Input, uint
     const EnvironmentInstanceContextGpu InstanceContext = InstanceContextBuffer[DrawRecord.InstanceOffset + InstanceId];
     const EnvironmentSegmentContextGpu SegmentContext = SegmentContextBuffer[DrawRecord.SegmentContextIndex];
     const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[RootConstants.FrameGlobalsElementIndex];
-    const float3 WorldPosition = BuildEnvironmentWorldPosition(Input.Position, InstanceContext, SegmentContext);
+    float SinYaw = 0.0f;
+    float CosYaw = 1.0f;
+    ResolveEnvironmentYawSinCos(InstanceContext.RotationVariation.x, SinYaw, CosYaw);
+    const float3 WorldPosition = BuildEnvironmentWorldPosition(Input.Position, InstanceContext, SegmentContext, SinYaw, CosYaw);
 
     EnvironmentDepthVertexOutput Output;
     Output.Position = mul(float4(WorldPosition, 1.0f), FrameGlobals.ViewProj);
@@ -145,10 +154,10 @@ void PsMainDepth(EnvironmentDepthVertexOutput Input) {
     float Alpha = 0.0f;
     if (DiffuseTextureSrvIndex != 0xffffffffu) {
         Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[NonUniformResourceIndex(DiffuseTextureSrvIndex)];
-        Alpha = ApplyMaterialOpacity(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0), MaterialData).a;
+        Alpha = ApplyMaterialOpacityToAlpha(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0).a, MaterialData);
     }
     else {
-        Alpha = ApplyMaterialOpacity(ResolveMaterialColorFallback(MaterialData), MaterialData).a;
+        Alpha = ApplyMaterialOpacityToAlpha(ResolveMaterialColorFallback(MaterialData).a, MaterialData);
     }
 
     ApplyMaterialAlphaCut(Alpha, MaterialData);

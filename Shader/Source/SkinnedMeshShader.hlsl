@@ -50,7 +50,7 @@ VertexOutput VsMain(SkinnedVertexInput Input, uint InstanceId : SV_InstanceID)
     float4x4 World = ModelContext.World;
     const float4 WorldPosition = mul(SkinnedPosition, World);
     Output.Position = mul(WorldPosition, FrameGlobals.ViewProj);
-    Output.Normal = normalize(mul(normalize(SkinnedNormal), (float3x3)World));
+    Output.Normal = normalize(mul(SkinnedNormal, (float3x3)World));
     Output.WorldPosition = WorldPosition.xyz;
     Output.TexCoord0 = Input.TexCoord0;
     Output.MaterialIndex = DrawRecord.MaterialIndex;

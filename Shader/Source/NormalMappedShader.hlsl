@@ -62,9 +62,9 @@ NormalMappedVertexOutput SkinnedVsMain(SkinnedNormalMappedVertexInput Input, uin
 
     NormalMappedVertexOutput Output;
     Output.Position = mul(WorldPosition, FrameGlobals.ViewProj);
-    Output.Normal = normalize(mul(normalize(SkinnedNormal), WorldRotation));
-    Output.Tangent = normalize(mul(normalize(SkinnedTangent), WorldRotation));
-    Output.Bitangent = normalize(mul(normalize(SkinnedBitangent), WorldRotation));
+    Output.Normal = normalize(mul(SkinnedNormal, WorldRotation));
+    Output.Tangent = normalize(mul(SkinnedTangent, WorldRotation));
+    Output.Bitangent = normalize(mul(SkinnedBitangent, WorldRotation));
     Output.WorldPosition = WorldPosition.xyz;
     Output.TexCoord0 = Input.TexCoord0;
     Output.MaterialIndex = DrawRecord.MaterialIndex;

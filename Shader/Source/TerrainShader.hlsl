@@ -239,7 +239,7 @@ TerrainSurfaceFrame BuildTerrainLocalSurfaceFrame(StructuredBuffer<float> Height
     TerrainSurfaceFrame SurfaceFrame = (TerrainSurfaceFrame) 0;
     SurfaceFrame.Normal = normalize(cross(DeltaZ, DeltaX));
     SurfaceFrame.Tangent = normalize(DeltaX);
-    SurfaceFrame.Bitangent = normalize(cross(SurfaceFrame.Tangent, SurfaceFrame.Normal));
+    SurfaceFrame.Bitangent = cross(SurfaceFrame.Tangent, SurfaceFrame.Normal);
     if (PatchContext.HeightFieldParameters.w > 0.5f)
     {
         SurfaceFrame.Bitangent = -SurfaceFrame.Bitangent;
@@ -444,7 +444,7 @@ float3 ResolveTerrainLayerNormalTangent(MaterialGpu MaterialData, StructuredBuff
         }
     }
 
-    return DecodeNormalMapColor(NormalColor, NormalScale);
+    return normalize(DecodeNormalMapColor(NormalColor, NormalScale));
 }
 
 void ResolveTerrainMaterial(MaterialGpu MaterialData, StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer, TerrainPatchContextGpu PatchContext, float2 BaseUv, float2 LayerBaseUv, out float4 OutColor, out float3 OutNormalTangent)
@@ -459,7 +459,7 @@ void ResolveTerrainMaterial(MaterialGpu MaterialData, StructuredBuffer<MaterialT
     if (HasSplatMapValue == false && HasGeneratedSplatMapValue == false)
     {
         OutColor = ResolveTerrainLayerDiffuse(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, 0u, FallbackColor);
-        OutNormalTangent = normalize(ResolveTerrainLayerNormalTangent(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, 0u, NormalScale));
+        OutNormalTangent = ResolveTerrainLayerNormalTangent(MaterialData, MaterialTextureTableBuffer, LayerBaseUv, 0u, NormalScale);
         return;
     }
 

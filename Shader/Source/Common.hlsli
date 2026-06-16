@@ -230,7 +230,7 @@ float ResolveMaterialNormalScale(MaterialGpu MaterialData) {
 float3 DecodeNormalMapColor(float4 NormalColor, float NormalScale) {
     float3 NormalTangent = NormalColor.xyz * 2.0f - 1.0f;
     NormalTangent.xy *= NormalScale;
-    return normalize(NormalTangent);
+    return NormalTangent;
 }
 
 float3 ResolveTbnNormalMappedWorldNormal(float3 WorldNormal, float3 WorldTangent, float3 WorldBitangent, float3 NormalTangent) {
@@ -245,7 +245,7 @@ float3 ResolveTbnNormalMappedWorldNormal(float3 WorldNormal, float3 WorldTangent
 
     const float3 Tangent = WorldTangent * rsqrt(max(TangentLengthSquared, 0.000001f));
     const float3 Bitangent = WorldBitangent * rsqrt(max(BitangentLengthSquared, 0.000001f));
-    return normalize((Tangent * NormalTangent.x) + (Bitangent * NormalTangent.y) + (Normal * NormalTangent.z));
+    return (Tangent * NormalTangent.x) + (Bitangent * NormalTangent.y) + (Normal * NormalTangent.z);
 }
 
 float3 DecodeSrgbColor(float3 Color)
@@ -274,7 +274,18 @@ float4 ApplyMaterialOpacity(float4 BaseColor, MaterialGpu MaterialData)
         ResultColor.a *= saturate(Opacity);
     }
 
-    return saturate(ResultColor);
+    return ResultColor;
+}
+
+float ApplyMaterialOpacityToAlpha(float Alpha, MaterialGpu MaterialData) {
+    const float Opacity = MaterialData.Fields[MATERIAL_TYPE_OPACITY].FloatValue.x;
+    float ResultAlpha = saturate(Alpha);
+
+    if (Opacity > 0.0f) {
+        ResultAlpha *= saturate(Opacity);
+    }
+
+    return ResultAlpha;
 }
 
 float ResolveMaterialAlphaCutoff(MaterialGpu MaterialData) {
@@ -359,15 +370,15 @@ float3 ResolveDirectionalLightDirection(DirectionalLightParameterGpu LightParame
 
 float3 ApplyDirectionalLight(float3 BaseRgb, float3 WorldNormal, DirectionalLightParameterGpu LightParameter)
 {
-    const float3 NormalizedNormal = normalize(WorldNormal);
-    const float3 LightDirection = ResolveDirectionalLightDirection(LightParameter);
-    const float3 LightColor = max(LightParameter.Color.rgb, float3(0.0f, 0.0f, 0.0f)) * max(LightParameter.Intensity, 0.0f);
     const float AmbientIntensity = max(LightParameter.AmbientIntensity, 0.0f);
     if (IsDirectionalLightActive(LightParameter) == false)
     {
         return BaseRgb * AmbientIntensity;
     }
 
+    const float3 NormalizedNormal = normalize(WorldNormal);
+    const float3 LightDirection = ResolveDirectionalLightDirection(LightParameter);
+    const float3 LightColor = max(LightParameter.Color.rgb, float3(0.0f, 0.0f, 0.0f)) * max(LightParameter.Intensity, 0.0f);
     const float DiffuseIntensity = saturate(dot(NormalizedNormal, -LightDirection));
 
     const float3 LitColor = BaseRgb * (AmbientIntensity + (DiffuseIntensity * LightColor));
@@ -481,28 +492,29 @@ float3 ResolveCascadeShadowColor(uint CascadeIndex)
 
 float3 ApplyDirectionalLightWithShadow(float3 BaseRgb, float3 WorldNormal, DirectionalLightParameterGpu LightParameter, float ShadowVisibility, float ShadowStrength, uint CascadeIndex)
 {
-    const float3 NormalizedNormal = normalize(WorldNormal);
-    const float3 NormalizedLightDirection = ResolveDirectionalLightDirection(LightParameter);
-    const float3 LightColor = max(LightParameter.Color.rgb, float3(0.0f, 0.0f, 0.0f)) * max(LightParameter.Intensity, 0.0f);
     const float AmbientIntensity = max(LightParameter.AmbientIntensity, 0.0f);
     if (IsDirectionalLightActive(LightParameter) == false)
     {
         return BaseRgb * AmbientIntensity;
     }
 
+    const float3 NormalizedNormal = normalize(WorldNormal);
+    const float3 NormalizedLightDirection = ResolveDirectionalLightDirection(LightParameter);
+    const float3 LightColor = max(LightParameter.Color.rgb, float3(0.0f, 0.0f, 0.0f)) * max(LightParameter.Intensity, 0.0f);
+    const float SaturatedShadowStrength = saturate(ShadowStrength);
     const float DiffuseIntensity = saturate(dot(NormalizedNormal, -NormalizedLightDirection));
     if (ENABLE_CASCADE_MAP_SHADOW_COLOR)
     {
         const float3 FullyLitColor = BaseRgb * (AmbientIntensity + (DiffuseIntensity * LightColor));
-        const float ShadowColorBlendFactor = saturate((1.0f - ShadowVisibility) * saturate(ShadowStrength));
+        const float ShadowColorBlendFactor = saturate((1.0f - ShadowVisibility) * SaturatedShadowStrength);
         const float3 CascadeShadowColor = ResolveCascadeShadowColor(CascadeIndex);
         const float ShadowMask = (ShadowColorBlendFactor > 0.0f) ? 1.0f : 0.0f;
         const float3 LitColor = lerp(FullyLitColor, CascadeShadowColor, ShadowMask);
         return LitColor;
     }
 
-    const float ShadowBlendFactor = saturate((1.0f - ShadowVisibility) * saturate(ShadowStrength));
-    const float DiffuseShadowFactor = lerp(1.0f - saturate(ShadowStrength), 1.0f, ShadowVisibility);
+    const float ShadowBlendFactor = saturate((1.0f - ShadowVisibility) * SaturatedShadowStrength);
+    const float DiffuseShadowFactor = lerp(1.0f - SaturatedShadowStrength, 1.0f, ShadowVisibility);
     const float3 LitColor = BaseRgb * (AmbientIntensity + (DiffuseIntensity * DiffuseShadowFactor * LightColor));
     return lerp(LitColor, LitColor * ShadowColor, ShadowBlendFactor);
 }

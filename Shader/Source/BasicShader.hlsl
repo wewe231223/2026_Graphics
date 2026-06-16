@@ -102,10 +102,10 @@ void PsMainDepthAlphaCutoff(DepthAlphaCutoffVertexOutput Input) {
     float Alpha = 0.0f;
     if (DiffuseTextureSrvIndex != 0xffffffffu) {
         Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[NonUniformResourceIndex(DiffuseTextureSrvIndex)];
-        Alpha = ApplyMaterialOpacity(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0), MaterialData).a;
+        Alpha = ApplyMaterialOpacityToAlpha(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0).a, MaterialData);
     }
     else {
-        Alpha = ApplyMaterialOpacity(ResolveMaterialColorFallback(MaterialData), MaterialData).a;
+        Alpha = ApplyMaterialOpacityToAlpha(ResolveMaterialColorFallback(MaterialData).a, MaterialData);
     }
 
     ApplyMaterialAlphaCut(Alpha, MaterialData);

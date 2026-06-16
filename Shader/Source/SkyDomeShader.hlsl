@@ -23,12 +23,10 @@ struct SkyDomeVertexOutput
 SkyDomeVertexOutput VsMain(SkyDomeVertexInput Input, uint InstanceId : SV_InstanceID)
 {
     StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
-    StructuredBuffer<ModelContextGpu> ModelContextBuffer = ResourceDescriptorHeap[RootConstants.ModelContextSrvIndex];
     StructuredBuffer<DrawRecordGpu> DrawRecordBuffer = ResourceDescriptorHeap[RootConstants.DrawRecordSrvIndex];
 
     const uint DrawIndex = RootConstants.DrawRecordBaseIndex + InstanceId;
     const DrawRecordGpu DrawRecord = DrawRecordBuffer[DrawIndex];
-    const ModelContextGpu ModelContext = ModelContextBuffer[DrawRecord.ObjectIndex];
     const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[RootConstants.FrameGlobalsElementIndex];
 
     SkyDomeVertexOutput Output;

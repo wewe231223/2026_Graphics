@@ -6,9 +6,6 @@ SamplerComparisonState ShadowComparisonSampler : register(s1);
 
 static const float BillboardEpsilon = 0.0001f;
 static const float BillboardAtlasInset = 0.001f;
-static const float BillboardTwoPi = 6.28318530718f;
-static const float BillboardHalfPi = 1.57079632679f;
-static const float BillboardQuarterPi = 0.78539816339f;
 static const uint BillboardImageCount = 4u;
 
 struct EnvironmentBillboardVertexInput
@@ -22,6 +19,7 @@ struct EnvironmentBillboardVertexOutput
     float Width : WIDTH;
     float Height : HEIGHT;
     float InstanceYaw : INSTANCE_YAW;
+    float2 RotationSinCos : ROTATION_SIN_COS;
     uint MaterialIndex : MATERIAL_INDEX;
     uint Flags : FLAGS;
 };
@@ -45,22 +43,24 @@ struct EnvironmentBillboardDepthPixelInput
     nointerpolation uint MaterialIndex : MATERIAL_INDEX;
 };
 
-float3 RotateEnvironmentYaw(float3 Value, float YawRadians) {
-    float SinValue = 0.0f;
-    float CosValue = 1.0f;
+void ResolveEnvironmentYawSinCos(float YawRadians, out float SinValue, out float CosValue) {
+    SinValue = 0.0f;
+    CosValue = 1.0f;
     sincos(YawRadians, SinValue, CosValue);
+}
+
+float3 RotateEnvironmentYaw(float3 Value, float SinValue, float CosValue) {
     return float3((Value.x * CosValue) + (Value.z * SinValue), Value.y, (-Value.x * SinValue) + (Value.z * CosValue));
 }
 
-float3 BuildEnvironmentWorldPosition(float3 LocalPosition, EnvironmentInstanceContextGpu InstanceContext, EnvironmentSegmentContextGpu SegmentContext) {
+float3 BuildEnvironmentWorldPosition(float3 LocalPosition, EnvironmentInstanceContextGpu InstanceContext, EnvironmentSegmentContextGpu SegmentContext, float SinYaw, float CosYaw) {
     const float4 SegmentPosition = mul(float4(LocalPosition, 1.0f), SegmentContext.LocalTransform);
     const float3 ScaledPosition = SegmentPosition.xyz * InstanceContext.PositionScale.w;
-    return RotateEnvironmentYaw(ScaledPosition, InstanceContext.RotationVariation.x) + InstanceContext.PositionScale.xyz;
+    return RotateEnvironmentYaw(ScaledPosition, SinYaw, CosYaw) + InstanceContext.PositionScale.xyz;
 }
 
-float3 BuildEnvironmentWorldVector(float3 LocalVector, EnvironmentInstanceContextGpu InstanceContext, EnvironmentSegmentContextGpu SegmentContext) {
-    const float3 SegmentVector = mul(LocalVector, (float3x3)SegmentContext.LocalTransform) * InstanceContext.PositionScale.w;
-    return RotateEnvironmentYaw(SegmentVector, InstanceContext.RotationVariation.x);
+float3 BuildEnvironmentScaledVector(float3 LocalVector, EnvironmentInstanceContextGpu InstanceContext, EnvironmentSegmentContextGpu SegmentContext) {
+    return mul(LocalVector, (float3x3)SegmentContext.LocalTransform) * InstanceContext.PositionScale.w;
 }
 
 EnvironmentBillboardVertexOutput VsMain(EnvironmentBillboardVertexInput Input, uint InstanceId : SV_InstanceID) {
@@ -71,32 +71,39 @@ EnvironmentBillboardVertexOutput VsMain(EnvironmentBillboardVertexInput Input, u
     const EnvironmentDrawRecordGpu DrawRecord = DrawRecordBuffer[RootConstants.DrawRecordBaseIndex];
     const EnvironmentInstanceContextGpu InstanceContext = InstanceContextBuffer[DrawRecord.InstanceOffset + InstanceId];
     const EnvironmentSegmentContextGpu SegmentContext = SegmentContextBuffer[DrawRecord.SegmentContextIndex];
-    const float3 WorldWidthVector = BuildEnvironmentWorldVector(float3(1.0f, 0.0f, 0.0f), InstanceContext, SegmentContext);
-    const float3 WorldHeightVector = BuildEnvironmentWorldVector(float3(0.0f, 1.0f, 0.0f), InstanceContext, SegmentContext);
+    float SinYaw = 0.0f;
+    float CosYaw = 1.0f;
+    ResolveEnvironmentYawSinCos(InstanceContext.RotationVariation.x, SinYaw, CosYaw);
+    const float3 WorldWidthVector = BuildEnvironmentScaledVector(float3(1.0f, 0.0f, 0.0f), InstanceContext, SegmentContext);
+    const float3 WorldHeightVector = BuildEnvironmentScaledVector(float3(0.0f, 1.0f, 0.0f), InstanceContext, SegmentContext);
 
     EnvironmentBillboardVertexOutput Output;
-    Output.WorldCenter = BuildEnvironmentWorldPosition(Input.Position, InstanceContext, SegmentContext);
+    Output.WorldCenter = BuildEnvironmentWorldPosition(Input.Position, InstanceContext, SegmentContext, SinYaw, CosYaw);
     Output.Width = max(length(WorldWidthVector), BillboardEpsilon);
     Output.Height = max(length(WorldHeightVector), BillboardEpsilon);
     Output.InstanceYaw = InstanceContext.RotationVariation.x;
+    Output.RotationSinCos = float2(SinYaw, CosYaw);
     Output.MaterialIndex = DrawRecord.MaterialIndex;
     Output.Flags = DrawRecord.Flags;
     return Output;
 }
 
-uint ResolveBillboardImageIndex(float3 WorldCenter, float3 CameraPosition, float InstanceYaw) {
-    float3 CameraDirection = float3(CameraPosition.x - WorldCenter.x, 0.0f, CameraPosition.z - WorldCenter.z);
-    const float DirectionLengthSquared = dot(CameraDirection, CameraDirection);
+uint ResolveBillboardImageIndex(float3 WorldCenter, float3 CameraPosition, float2 RotationSinCos) {
+    const float2 CameraVector = CameraPosition.xz - WorldCenter.xz;
+    const float DirectionLengthSquared = dot(CameraVector, CameraVector);
     if (DirectionLengthSquared <= BillboardEpsilon) {
-        CameraDirection = float3(0.0f, 0.0f, 1.0f);
-    }
-    else {
-        CameraDirection *= rsqrt(DirectionLengthSquared);
+        return 0u;
     }
 
-    float Angle = atan2(CameraDirection.x, CameraDirection.z) - InstanceYaw + BillboardQuarterPi;
-    Angle = Angle - (floor(Angle / BillboardTwoPi) * BillboardTwoPi);
-    return min((uint)floor(Angle / BillboardHalfPi), BillboardImageCount - 1u);
+    const float LocalX = (CameraVector.x * RotationSinCos.y) - (CameraVector.y * RotationSinCos.x);
+    const float LocalZ = (CameraVector.x * RotationSinCos.x) + (CameraVector.y * RotationSinCos.y);
+    const float AbsLocalX = abs(LocalX);
+    const float AbsLocalZ = abs(LocalZ);
+    if (AbsLocalX > AbsLocalZ) {
+        return LocalX > 0.0f ? 1u : 3u;
+    }
+
+    return LocalZ >= 0.0f ? 0u : 2u;
 }
 
 void ResolveBillboardAxes(float3 WorldCenter, float3 CameraPosition, out float3 Normal, out float3 Tangent, out float3 Bitangent) {
@@ -110,7 +117,7 @@ void ResolveBillboardAxes(float3 WorldCenter, float3 CameraPosition, out float3 
     }
 
     Bitangent = float3(0.0f, 1.0f, 0.0f);
-    Tangent = normalize(cross(Bitangent, Normal));
+    Tangent = float3(Normal.z, 0.0f, -Normal.x);
 }
 
 EnvironmentBillboardPixelInput BuildBillboardPixelInput(float3 WorldPosition, float2 TexCoord, float3 Normal, float3 Tangent, float3 Bitangent, uint MaterialIndex, uint Flags, FrameGlobalsGpu FrameGlobals) {
@@ -152,7 +159,7 @@ void GsMain(point EnvironmentBillboardVertexOutput Input[1], inout TriangleStrea
 
     const float HalfWidth = Input[0].Width * 0.5f;
     const float HalfHeight = Input[0].Height * 0.5f;
-    const uint ImageIndex = ResolveBillboardImageIndex(WorldCenter, CameraPosition, Input[0].InstanceYaw);
+    const uint ImageIndex = ResolveBillboardImageIndex(WorldCenter, CameraPosition, Input[0].RotationSinCos);
     const float UMin = ((float)ImageIndex / (float)BillboardImageCount) + BillboardAtlasInset;
     const float UMax = ((float)(ImageIndex + 1u) / (float)BillboardImageCount) - BillboardAtlasInset;
     const float3 BottomLeft = WorldCenter - (Tangent * HalfWidth) - (Bitangent * HalfHeight);
@@ -179,7 +186,7 @@ void GsMainDepth(point EnvironmentBillboardVertexOutput Input[1], inout Triangle
 
     const float HalfWidth = Input[0].Width * 0.5f;
     const float HalfHeight = Input[0].Height * 0.5f;
-    const uint ImageIndex = ResolveBillboardImageIndex(WorldCenter, CameraPosition, Input[0].InstanceYaw);
+    const uint ImageIndex = ResolveBillboardImageIndex(WorldCenter, CameraPosition, Input[0].RotationSinCos);
     const float UMin = ((float)ImageIndex / (float)BillboardImageCount) + BillboardAtlasInset;
     const float UMax = ((float)(ImageIndex + 1u) / (float)BillboardImageCount) - BillboardAtlasInset;
     const float3 BottomLeft = WorldCenter - (Tangent * HalfWidth) - (Bitangent * HalfHeight);
@@ -238,10 +245,10 @@ void PsMainDepth(EnvironmentBillboardDepthPixelInput Input) {
     float Alpha = 0.0f;
     if (DiffuseTextureSrvIndex != 0xffffffffu) {
         Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[NonUniformResourceIndex(DiffuseTextureSrvIndex)];
-        Alpha = ApplyMaterialOpacity(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0), MaterialData).a;
+        Alpha = ApplyMaterialOpacityToAlpha(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0).a, MaterialData);
     }
     else {
-        Alpha = ApplyMaterialOpacity(ResolveMaterialColorFallback(MaterialData), MaterialData).a;
+        Alpha = ApplyMaterialOpacityToAlpha(ResolveMaterialColorFallback(MaterialData).a, MaterialData);
     }
 
     ApplyMaterialAlphaCut(Alpha, MaterialData);
