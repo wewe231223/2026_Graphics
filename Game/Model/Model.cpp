@@ -592,7 +592,7 @@ namespace Game {
         Interface::CopyQueueCopyRequest Request{};
         Request.DestinationDefaultResource = OutAllocation->GetResource();
         Request.DestinationOffset = 0;
-        Request.SourceData = OutRawData;
+        Request.SourceData = std::span<const std::byte>{ OutRawData.data(), OutRawData.size() };
         OutCopyFuture = CopyQueue->EnqueueCopyFuture(Request);
         if (OutCopyFuture.IsValid() == false) {
             return false;
@@ -622,7 +622,7 @@ namespace Game {
         Interface::CopyQueueCopyRequest Request{};
         Request.DestinationDefaultResource = OutAllocation->GetResource();
         Request.DestinationOffset = 0;
-        Request.SourceData = OutRawData;
+        Request.SourceData = std::span<const std::byte>{ OutRawData.data(), OutRawData.size() };
         OutCopyFuture = CopyQueue->EnqueueCopyFuture(Request);
         if (OutCopyFuture.IsValid() == false) {
             OutView = D3D12_INDEX_BUFFER_VIEW{};

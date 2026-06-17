@@ -54,7 +54,7 @@ namespace Interface {
     struct CopyQueueCopyRequest final {
         Microsoft::WRL::ComPtr<ID3D12Resource> DestinationDefaultResource{};
         std::uint64_t DestinationOffset{};
-        std::vector<std::byte> SourceData{};
+        std::span<const std::byte> SourceData{};
     };
 
     struct CopyQueueTextureCopyRequest final {

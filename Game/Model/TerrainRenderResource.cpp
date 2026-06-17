@@ -6,6 +6,7 @@
 #include <cstring>
 #include <future>
 #include <memory>
+#include <span>
 #include <stdexcept>
 #include <utility>
 
@@ -537,14 +538,12 @@ namespace Game {
         Interface::CopyQueueCopyRequest HeightFieldCopyRequest{};
         HeightFieldCopyRequest.DestinationDefaultResource = mHeightFieldFrameResources[ResolvedFrameIndex].mAllocation->GetResource();
         HeightFieldCopyRequest.DestinationOffset = 0;
-        HeightFieldCopyRequest.SourceData.resize(HeightFieldSizeInBytes);
-        std::memcpy(HeightFieldCopyRequest.SourceData.data(), Field.HeightValues.data(), HeightFieldSizeInBytes);
+        HeightFieldCopyRequest.SourceData = std::as_bytes(std::span<const float>{ Field.HeightValues.data(), Field.HeightValues.size() });
 
         Interface::CopyQueueCopyRequest SplatMapCopyRequest{};
         SplatMapCopyRequest.DestinationDefaultResource = mSplatMapFrameResources[ResolvedFrameIndex].mAllocation->GetResource();
         SplatMapCopyRequest.DestinationOffset = 0;
-        SplatMapCopyRequest.SourceData.resize(SplatMapSizeInBytes);
-        std::memcpy(SplatMapCopyRequest.SourceData.data(), SplatMap.WeightValues.data(), SplatMapSizeInBytes);
+        SplatMapCopyRequest.SourceData = std::as_bytes(std::span<const asset::Vec4>{ SplatMap.WeightValues.data(), SplatMap.WeightValues.size() });
 
         std::array<Interface::CopyQueueCopyRequest, 2> CopyRequests{ std::move(HeightFieldCopyRequest), std::move(SplatMapCopyRequest) };
         Interface::Future CopyFuture{ CopyQueue->EnqueueCopyFuture(CopyRequests) };

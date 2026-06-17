@@ -114,11 +114,7 @@ Interface::CopyQueueCopyRequest GraphicsVector::CreateCopyQueueCopyRequest(Graph
     Interface::CopyQueueCopyRequest CopyQueueCopyRequest{};
     CopyQueueCopyRequest.DestinationDefaultResource = mAllocationHandle.GetResourceComPtr();
     CopyQueueCopyRequest.DestinationOffset = DestinationOffset;
-    CopyQueueCopyRequest.SourceData.resize(mSizeInBytes);
-
-    if (mSizeInBytes > 0) {
-        std::copy(mUploadData.cbegin(), mUploadData.cbegin() + static_cast<std::ptrdiff_t>(mSizeInBytes), CopyQueueCopyRequest.SourceData.begin());
-    }
+    CopyQueueCopyRequest.SourceData = std::span<const std::byte>{ mUploadData.data(), mSizeInBytes };
 
     return CopyQueueCopyRequest;
 }
