@@ -1,10 +1,18 @@
 ﻿#include "MaterialResourceManager.h"
+#include <span>
 #include <vector>
 #include "Core/DX/GraphicsAllocator.h"
 #include "Utility/ErrorHandler.h"
 
 namespace Core {
 	namespace DX {
+		namespace {
+			template <typename T>
+			std::span<const std::byte> MakeByteSpan(const std::vector<T>& Values) {
+				return std::as_bytes(std::span<const T>{ Values.data(), Values.size() });
+			}
+		}
+
 		MaterialResourceManager::MaterialResourceManager() {
 		}
 
@@ -28,37 +36,38 @@ namespace Core {
 			GraphicsVector& MaterialTextureTableVector{ mPerFrameMaterialTextureTableVectors[RtvIndex] };
 			std::size_t MaterialSizeInBytes{ sizeof(Game::RFD::MaterialGpu) * Data.materials.size() };
 			std::size_t MaterialTextureTableSizeInBytes{ sizeof(Game::RFD::MaterialTextureTableItemGpu) * Data.materialTextureTable.size() };
+			std::span<const std::byte> MaterialSourceData{ MakeByteSpan(Data.materials) };
+			std::span<const std::byte> MaterialTextureTableSourceData{ MakeByteSpan(Data.materialTextureTable) };
 
-			std::byte DummyByte{ 0 };
-			void* MaterialSourceData{ MaterialSizeInBytes == 0 ? &DummyByte : static_cast<void*>(const_cast<Game::RFD::MaterialGpu*>(Data.materials.data())) };
-			void* MaterialTextureTableSourceData{ MaterialTextureTableSizeInBytes == 0 ? &DummyByte : static_cast<void*>(const_cast<Game::RFD::MaterialTextureTableItemGpu*>(Data.materialTextureTable.data())) };
-
-			std::uint64_t CurrentMaterialHash{ MaterialResourceManager::ComputeDataHash(MaterialSourceData, MaterialSizeInBytes) };
+			std::uint64_t CurrentMaterialHash{ MaterialResourceManager::ComputeDataHash(MaterialSourceData.data(), MaterialSizeInBytes) };
 			bool IsMaterialUploadRequired{ mMaterialVector.IsValid() == false || mMaterialSizeInBytes != MaterialSizeInBytes || mMaterialHash != CurrentMaterialHash };
-			if (IsMaterialUploadRequired == true) {
-				bool MaterialCopyResult{ mMaterialVector.Copy(GraphicsAllocator, MaterialSourceData, MaterialSizeInBytes) };
-				ErrorHandler::report(MaterialCopyResult == false, "MaterialResourceManager", "Failed to copy material data.", ErrorHandler::Level::Critical);
-				mMaterialHash = CurrentMaterialHash;
-				mMaterialSizeInBytes = MaterialSizeInBytes;
-			}
-
-			std::uint64_t CurrentMaterialTextureTableHash{ MaterialResourceManager::ComputeDataHash(MaterialTextureTableSourceData, MaterialTextureTableSizeInBytes) };
+			std::uint64_t CurrentMaterialTextureTableHash{ MaterialResourceManager::ComputeDataHash(MaterialTextureTableSourceData.data(), MaterialTextureTableSizeInBytes) };
 			bool IsMaterialTextureTableUploadRequired{ MaterialTextureTableVector.IsValid() == false || mPerFrameMaterialTextureTableSizesInBytes[RtvIndex] != MaterialTextureTableSizeInBytes || mPerFrameMaterialTextureTableHashes[RtvIndex] != CurrentMaterialTextureTableHash };
-			if (IsMaterialTextureTableUploadRequired == true) {
-				bool MaterialTextureTableCopyResult{ MaterialTextureTableVector.Copy(GraphicsAllocator, MaterialTextureTableSourceData, MaterialTextureTableSizeInBytes) };
-				ErrorHandler::report(MaterialTextureTableCopyResult == false, "MaterialResourceManager", "Failed to copy material texture table data.", ErrorHandler::Level::Critical);
-				mPerFrameMaterialTextureTableHashes[RtvIndex] = CurrentMaterialTextureTableHash;
-				mPerFrameMaterialTextureTableSizesInBytes[RtvIndex] = MaterialTextureTableSizeInBytes;
-			}
 
 			std::vector<Interface::CopyQueueCopyRequest> CopyRequests{};
 			CopyRequests.reserve(2);
 			if (IsMaterialUploadRequired == true) {
-				CopyRequests.push_back(mMaterialVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0));
+				Interface::CopyQueueCopyRequest MaterialCopyRequest{};
+				bool MaterialCopyResult{ mMaterialVector.PrepareCopyRequest(GraphicsAllocator, MaterialSourceData, MaterialCopyRequest, 0) };
+				ErrorHandler::report(MaterialCopyResult == false, "MaterialResourceManager", "Failed to prepare material copy request.", ErrorHandler::Level::Critical);
+				if (MaterialCopyResult == true and MaterialCopyRequest.SourceData.empty() == false and MaterialCopyRequest.DestinationDefaultResource != nullptr) {
+					CopyRequests.push_back(MaterialCopyRequest);
+				}
+
+				mMaterialHash = CurrentMaterialHash;
+				mMaterialSizeInBytes = MaterialSizeInBytes;
 			}
 
 			if (IsMaterialTextureTableUploadRequired == true) {
-				CopyRequests.push_back(MaterialTextureTableVector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0));
+				Interface::CopyQueueCopyRequest MaterialTextureTableCopyRequest{};
+				bool MaterialTextureTableCopyResult{ MaterialTextureTableVector.PrepareCopyRequest(GraphicsAllocator, MaterialTextureTableSourceData, MaterialTextureTableCopyRequest, 0) };
+				ErrorHandler::report(MaterialTextureTableCopyResult == false, "MaterialResourceManager", "Failed to prepare material texture table copy request.", ErrorHandler::Level::Critical);
+				if (MaterialTextureTableCopyResult == true and MaterialTextureTableCopyRequest.SourceData.empty() == false and MaterialTextureTableCopyRequest.DestinationDefaultResource != nullptr) {
+					CopyRequests.push_back(MaterialTextureTableCopyRequest);
+				}
+
+				mPerFrameMaterialTextureTableHashes[RtvIndex] = CurrentMaterialTextureTableHash;
+				mPerFrameMaterialTextureTableSizesInBytes[RtvIndex] = MaterialTextureTableSizeInBytes;
 			}
 
 			if (CopyRequests.empty() == false) {

@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <span>
 #include <tuple>
 #include <vector>
 #include "Core/DX/GraphicsAllocator.h"
@@ -67,24 +68,18 @@ namespace Core {
 				return GpuModelContext;
 			}
 
-			std::vector<Game::RFD::ModelContext> BuildGpuModelContexts(const std::vector<Game::RFD::ModelContext>& SourceModelContexts) {
-				std::vector<Game::RFD::ModelContext> GpuModelContexts{};
-				GpuModelContexts.reserve(SourceModelContexts.size());
-				for (const Game::RFD::ModelContext& SourceModelContext : SourceModelContexts) {
-					GpuModelContexts.push_back(BuildGpuModelContext(SourceModelContext));
+			void BuildGpuModelContexts(const std::vector<Game::RFD::ModelContext>& SourceModelContexts, std::vector<Game::RFD::ModelContext>& OutGpuModelContexts) {
+				OutGpuModelContexts.resize(SourceModelContexts.size());
+				for (std::size_t Index{ 0 }; Index < SourceModelContexts.size(); ++Index) {
+					OutGpuModelContexts[Index] = BuildGpuModelContext(SourceModelContexts[Index]);
 				}
-
-				return GpuModelContexts;
 			}
 
-			std::vector<SimpleMath::Matrix> BuildGpuBonePalette(const std::vector<SimpleMath::Matrix>& SourceBonePalette) {
-				std::vector<SimpleMath::Matrix> GpuBonePalette{};
-				GpuBonePalette.reserve(SourceBonePalette.size());
-				for (const SimpleMath::Matrix& SourceBoneMatrix : SourceBonePalette) {
-					GpuBonePalette.push_back(BuildGpuMatrix(SourceBoneMatrix));
+			void BuildGpuBonePalette(const std::vector<SimpleMath::Matrix>& SourceBonePalette, std::vector<SimpleMath::Matrix>& OutGpuBonePalette) {
+				OutGpuBonePalette.resize(SourceBonePalette.size());
+				for (std::size_t Index{ 0 }; Index < SourceBonePalette.size(); ++Index) {
+					OutGpuBonePalette[Index] = BuildGpuMatrix(SourceBonePalette[Index]);
 				}
-
-				return GpuBonePalette;
 			}
 
 			Game::RFD::EnvironmentSegmentContext BuildGpuEnvironmentSegmentContext(const Game::RFD::EnvironmentSegmentContext& SourceSegmentContext) {
@@ -93,14 +88,35 @@ namespace Core {
 				return GpuSegmentContext;
 			}
 
-			std::vector<Game::RFD::EnvironmentSegmentContext> BuildGpuEnvironmentSegmentContexts(const std::vector<Game::RFD::EnvironmentSegmentContext>& SourceSegmentContexts) {
-				std::vector<Game::RFD::EnvironmentSegmentContext> GpuSegmentContexts{};
-				GpuSegmentContexts.reserve(SourceSegmentContexts.size());
-				for (const Game::RFD::EnvironmentSegmentContext& SourceSegmentContext : SourceSegmentContexts) {
-					GpuSegmentContexts.push_back(BuildGpuEnvironmentSegmentContext(SourceSegmentContext));
+			void BuildGpuEnvironmentSegmentContexts(const std::vector<Game::RFD::EnvironmentSegmentContext>& SourceSegmentContexts, std::vector<Game::RFD::EnvironmentSegmentContext>& OutGpuSegmentContexts) {
+				OutGpuSegmentContexts.resize(SourceSegmentContexts.size());
+				for (std::size_t Index{ 0 }; Index < SourceSegmentContexts.size(); ++Index) {
+					OutGpuSegmentContexts[Index] = BuildGpuEnvironmentSegmentContext(SourceSegmentContexts[Index]);
 				}
+			}
 
-				return GpuSegmentContexts;
+			template <typename T>
+			std::span<const std::byte> MakeByteSpan(const T& Value) {
+				return std::as_bytes(std::span<const T>{ &Value, 1 });
+			}
+
+			template <typename T>
+			std::span<const std::byte> MakeByteSpan(const std::vector<T>& Values) {
+				return std::as_bytes(std::span<const T>{ Values.data(), Values.size() });
+			}
+
+			template <typename T, std::size_t Count>
+			std::span<const std::byte> MakeByteSpan(const std::array<T, Count>& Values, std::size_t ActiveCount) {
+				return std::as_bytes(std::span<const T>{ Values.data(), ActiveCount });
+			}
+
+			void AddGraphicsVectorCopyRequest(GraphicsVector& Vector, GraphicsAllocator& GraphicsAllocatorValue, std::span<const std::byte> SourceData, std::vector<Interface::CopyQueueCopyRequest>& CopyRequests, const char* FailureMessage) {
+				Interface::CopyQueueCopyRequest CopyRequest{};
+				bool PrepareResult{ Vector.PrepareCopyRequest(GraphicsAllocatorValue, SourceData, CopyRequest, 0) };
+				ErrorHandler::report(PrepareResult == false, "DrawCallResourceManager", FailureMessage, ErrorHandler::Level::Critical);
+				if (PrepareResult == true and CopyRequest.SourceData.empty() == false and CopyRequest.DestinationDefaultResource != nullptr) {
+					CopyRequests.push_back(CopyRequest);
+				}
 			}
 		}
 
@@ -172,136 +188,38 @@ namespace Core {
 			}
 
 			Game::RFD::ShadowMappingParameter GpuShadowMappingParameter{ BuildGpuShadowMappingParameter(Data.shadowMapping) };
-			std::vector<Game::RFD::ModelContext> GpuModelContexts{ BuildGpuModelContexts(Data.modelContexts) };
-			std::vector<SimpleMath::Matrix> GpuBonePalette{ BuildGpuBonePalette(Data.bonePalette) };
-			std::vector<Game::RFD::EnvironmentSegmentContext> GpuEnvironmentSegmentContexts{ BuildGpuEnvironmentSegmentContexts(Data.mEnvironmentSegmentContexts) };
-			std::array<std::vector<Game::RFD::ModelContext>, Game::RFD::ShadowCascadeMaxCount> GpuShadowModelContextsArray{};
+			BuildGpuModelContexts(Data.modelContexts, mGpuModelContexts);
+			BuildGpuBonePalette(Data.bonePalette, mGpuBonePalette);
+			BuildGpuEnvironmentSegmentContexts(Data.mEnvironmentSegmentContexts, mGpuEnvironmentSegmentContexts);
 			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
-				GpuShadowModelContextsArray[CascadeIndex] = BuildGpuModelContexts(Data.ShadowRenderContexts[CascadeIndex].ModelContexts);
+				BuildGpuModelContexts(Data.ShadowRenderContexts[CascadeIndex].ModelContexts, mGpuShadowModelContexts[CascadeIndex]);
 			}
 
-			std::size_t FrameGlobalsSizeInBytes{ sizeof(Game::RFD::FrameGlobals) };
-			std::size_t ShadowFrameGlobalsSizeInBytes{ sizeof(Game::RFD::FrameGlobals) * static_cast<std::size_t>(ShadowCascadeCount) };
-			std::size_t ShadowMappingParameterSizeInBytes{ sizeof(Game::RFD::ShadowMappingParameter) };
-			std::size_t ModelContextsSizeInBytes{ sizeof(Game::RFD::ModelContext) * GpuModelContexts.size() };
-			std::size_t BoundingBoxContextsSizeInBytes{ sizeof(Game::RFD::BoundingBoxContext) * Data.boundingBoxContexts.size() };
-			std::size_t DebugGeometryContextsSizeInBytes{ sizeof(Game::RFD::DebugGeometryContext) * Data.debugGeometryContexts.size() };
-			std::size_t TerrainPatchContextsSizeInBytes{ sizeof(Game::RFD::TerrainPatchContext) * Data.TerrainPatchContexts.size() };
-			std::size_t BonePaletteSizeInBytes{ sizeof(SimpleMath::Matrix) * GpuBonePalette.size() };
-			std::size_t DrawRecordsGpuSizeInBytes{ sizeof(DrawRecordGPU) * mDrawRecordsGpu.size() };
-			std::size_t EnvironmentInstanceContextsSizeInBytes{ sizeof(Game::RFD::EnvironmentInstanceContext) * Data.mEnvironmentInstanceContexts.size() };
-			std::size_t EnvironmentSegmentContextsSizeInBytes{ sizeof(Game::RFD::EnvironmentSegmentContext) * GpuEnvironmentSegmentContexts.size() };
-			std::size_t EnvironmentDrawRecordsGpuSizeInBytes{ sizeof(Game::RFD::EnvironmentDrawRecordGpu) * mEnvironmentDrawRecordsGpu.size() };
-			std::array<std::size_t, Game::RFD::ShadowCascadeMaxCount> ShadowModelContextsSizeInBytes{};
-			std::array<std::size_t, Game::RFD::ShadowCascadeMaxCount> ShadowTerrainPatchContextsSizeInBytes{};
-			std::array<std::size_t, Game::RFD::ShadowCascadeMaxCount> ShadowDrawRecordsGpuSizeInBytes{};
-			std::array<std::size_t, Game::RFD::ShadowCascadeMaxCount> ShadowEnvironmentDrawRecordsGpuSizeInBytes{};
-			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
-				const Game::RFD::ShadowRenderContext& ShadowRenderContext{ Data.ShadowRenderContexts[CascadeIndex] };
-				ShadowModelContextsSizeInBytes[CascadeIndex] = sizeof(Game::RFD::ModelContext) * GpuShadowModelContextsArray[CascadeIndex].size();
-				ShadowTerrainPatchContextsSizeInBytes[CascadeIndex] = sizeof(Game::RFD::TerrainPatchContext) * ShadowRenderContext.TerrainPatchContexts.size();
-				ShadowDrawRecordsGpuSizeInBytes[CascadeIndex] = sizeof(DrawRecordGPU) * mShadowDrawRecordsGpu[CascadeIndex].size();
-				ShadowEnvironmentDrawRecordsGpuSizeInBytes[CascadeIndex] = sizeof(Game::RFD::EnvironmentDrawRecordGpu) * mShadowEnvironmentDrawRecordsGpu[CascadeIndex].size();
-			}
-
-			std::byte DummyByte{ 0 };
-			void* FrameGlobalsSourceData{ FrameGlobalsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&GpuFrameGlobals) };
-			void* ShadowFrameGlobalsSourceData{ ShadowFrameGlobalsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(GpuShadowFrameGlobalsArray.data()) };
-			void* ShadowMappingParameterSourceData{ ShadowMappingParameterSizeInBytes == 0 ? &DummyByte : static_cast<void*>(&GpuShadowMappingParameter) };
-			void* ModelContextSourceData{ ModelContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(GpuModelContexts.data()) };
-			void* BoundingBoxContextSourceData{ BoundingBoxContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.boundingBoxContexts.data()) };
-			void* DebugGeometryContextSourceData{ DebugGeometryContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.debugGeometryContexts.data()) };
-			void* TerrainPatchContextSourceData{ TerrainPatchContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.TerrainPatchContexts.data()) };
-			void* BonePaletteSourceData{ BonePaletteSizeInBytes == 0 ? &DummyByte : static_cast<void*>(GpuBonePalette.data()) };
-			void* DrawRecordSourceData{ DrawRecordsGpuSizeInBytes == 0 ? &DummyByte : static_cast<void*>(mDrawRecordsGpu.data()) };
-			void* EnvironmentInstanceContextSourceData{ EnvironmentInstanceContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(Data.mEnvironmentInstanceContexts.data()) };
-			void* EnvironmentSegmentContextSourceData{ EnvironmentSegmentContextsSizeInBytes == 0 ? &DummyByte : static_cast<void*>(GpuEnvironmentSegmentContexts.data()) };
-			void* EnvironmentDrawRecordSourceData{ EnvironmentDrawRecordsGpuSizeInBytes == 0 ? &DummyByte : static_cast<void*>(mEnvironmentDrawRecordsGpu.data()) };
-
-			bool FrameGlobalsCopyResult{ mFrameGlobalsVector.Copy(GraphicsAllocator, FrameGlobalsSourceData, FrameGlobalsSizeInBytes) };
-			ErrorHandler::report(FrameGlobalsCopyResult == false, "DrawCallResourceManager", "Failed to copy frame globals data.", ErrorHandler::Level::Critical);
-
-			bool ShadowFrameGlobalsCopyResult{ mShadowFrameGlobalsVector.Copy(GraphicsAllocator, ShadowFrameGlobalsSourceData, ShadowFrameGlobalsSizeInBytes) };
-			ErrorHandler::report(ShadowFrameGlobalsCopyResult == false, "DrawCallResourceManager", "Failed to copy shadow frame globals data.", ErrorHandler::Level::Critical);
-
-			bool ShadowMappingParameterCopyResult{ mShadowMappingParameterVector.Copy(GraphicsAllocator, ShadowMappingParameterSourceData, ShadowMappingParameterSizeInBytes) };
-			ErrorHandler::report(ShadowMappingParameterCopyResult == false, "DrawCallResourceManager", "Failed to copy shadow mapping parameter data.", ErrorHandler::Level::Critical);
-
-			bool ModelContextCopyResult{ mModelContextVector.Copy(GraphicsAllocator, ModelContextSourceData, ModelContextsSizeInBytes) };
-			ErrorHandler::report(ModelContextCopyResult == false, "DrawCallResourceManager", "Failed to copy model context data.", ErrorHandler::Level::Critical);
-
-			bool BoundingBoxContextCopyResult{ mBoundingBoxContextVector.Copy(GraphicsAllocator, BoundingBoxContextSourceData, BoundingBoxContextsSizeInBytes) };
-			ErrorHandler::report(BoundingBoxContextCopyResult == false, "DrawCallResourceManager", "Failed to copy bounding box context data.", ErrorHandler::Level::Critical);
-
-			bool DebugGeometryContextCopyResult{ mDebugGeometryContextVector.Copy(GraphicsAllocator, DebugGeometryContextSourceData, DebugGeometryContextsSizeInBytes) };
-			ErrorHandler::report(DebugGeometryContextCopyResult == false, "DrawCallResourceManager", "Failed to copy debug geometry context data.", ErrorHandler::Level::Critical);
-
-			bool TerrainPatchContextCopyResult{ mTerrainPatchContextVector.Copy(GraphicsAllocator, TerrainPatchContextSourceData, TerrainPatchContextsSizeInBytes) };
-			ErrorHandler::report(TerrainPatchContextCopyResult == false, "DrawCallResourceManager", "Failed to copy terrain patch context data.", ErrorHandler::Level::Critical);
-
-			bool BonePaletteCopyResult{ mBonePaletteVector.Copy(GraphicsAllocator, BonePaletteSourceData, BonePaletteSizeInBytes) };
-			ErrorHandler::report(BonePaletteCopyResult == false, "DrawCallResourceManager", "Failed to copy bone palette data.", ErrorHandler::Level::Critical);
-
-			bool DrawRecordCopyResult{ mDrawRecordVector.Copy(GraphicsAllocator, DrawRecordSourceData, DrawRecordsGpuSizeInBytes) };
-			ErrorHandler::report(DrawRecordCopyResult == false, "DrawCallResourceManager", "Failed to copy draw record data.", ErrorHandler::Level::Critical);
-
-			bool EnvironmentInstanceContextCopyResult{ mEnvironmentInstanceContextVector.Copy(GraphicsAllocator, EnvironmentInstanceContextSourceData, EnvironmentInstanceContextsSizeInBytes) };
-			ErrorHandler::report(EnvironmentInstanceContextCopyResult == false, "DrawCallResourceManager", "Failed to copy environment instance context data.", ErrorHandler::Level::Critical);
-
-			bool EnvironmentSegmentContextCopyResult{ mEnvironmentSegmentContextVector.Copy(GraphicsAllocator, EnvironmentSegmentContextSourceData, EnvironmentSegmentContextsSizeInBytes) };
-			ErrorHandler::report(EnvironmentSegmentContextCopyResult == false, "DrawCallResourceManager", "Failed to copy environment segment context data.", ErrorHandler::Level::Critical);
-
-			bool EnvironmentDrawRecordCopyResult{ mEnvironmentDrawRecordVector.Copy(GraphicsAllocator, EnvironmentDrawRecordSourceData, EnvironmentDrawRecordsGpuSizeInBytes) };
-			ErrorHandler::report(EnvironmentDrawRecordCopyResult == false, "DrawCallResourceManager", "Failed to copy environment draw record data.", ErrorHandler::Level::Critical);
-
-			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
-				Game::RFD::ShadowRenderContext& ShadowRenderContext{ Data.ShadowRenderContexts[CascadeIndex] };
-				void* ShadowModelContextSourceData{ ShadowModelContextsSizeInBytes[CascadeIndex] == 0 ? &DummyByte : static_cast<void*>(GpuShadowModelContextsArray[CascadeIndex].data()) };
-				void* ShadowTerrainPatchContextSourceData{ ShadowTerrainPatchContextsSizeInBytes[CascadeIndex] == 0 ? &DummyByte : static_cast<void*>(ShadowRenderContext.TerrainPatchContexts.data()) };
-				void* ShadowDrawRecordSourceData{ ShadowDrawRecordsGpuSizeInBytes[CascadeIndex] == 0 ? &DummyByte : static_cast<void*>(mShadowDrawRecordsGpu[CascadeIndex].data()) };
-				void* ShadowEnvironmentDrawRecordSourceData{ ShadowEnvironmentDrawRecordsGpuSizeInBytes[CascadeIndex] == 0 ? &DummyByte : static_cast<void*>(mShadowEnvironmentDrawRecordsGpu[CascadeIndex].data()) };
-
-				bool ShadowModelContextCopyResult{ mShadowModelContextVectors[CascadeIndex].Copy(GraphicsAllocator, ShadowModelContextSourceData, ShadowModelContextsSizeInBytes[CascadeIndex]) };
-				ErrorHandler::report(ShadowModelContextCopyResult == false, "DrawCallResourceManager", "Failed to copy shadow model context data.", ErrorHandler::Level::Critical);
-
-				bool ShadowTerrainPatchContextCopyResult{ mShadowTerrainPatchContextVectors[CascadeIndex].Copy(GraphicsAllocator, ShadowTerrainPatchContextSourceData, ShadowTerrainPatchContextsSizeInBytes[CascadeIndex]) };
-				ErrorHandler::report(ShadowTerrainPatchContextCopyResult == false, "DrawCallResourceManager", "Failed to copy shadow terrain patch context data.", ErrorHandler::Level::Critical);
-
-				bool ShadowDrawRecordCopyResult{ mShadowDrawRecordVectors[CascadeIndex].Copy(GraphicsAllocator, ShadowDrawRecordSourceData, ShadowDrawRecordsGpuSizeInBytes[CascadeIndex]) };
-				ErrorHandler::report(ShadowDrawRecordCopyResult == false, "DrawCallResourceManager", "Failed to copy shadow draw record data.", ErrorHandler::Level::Critical);
-
-				bool ShadowEnvironmentDrawRecordCopyResult{ mShadowEnvironmentDrawRecordVectors[CascadeIndex].Copy(GraphicsAllocator, ShadowEnvironmentDrawRecordSourceData, ShadowEnvironmentDrawRecordsGpuSizeInBytes[CascadeIndex]) };
-				ErrorHandler::report(ShadowEnvironmentDrawRecordCopyResult == false, "DrawCallResourceManager", "Failed to copy shadow environment draw record data.", ErrorHandler::Level::Critical);
+			for (std::uint32_t CascadeIndex{ ShadowCascadeCount }; CascadeIndex < Game::RFD::ShadowCascadeMaxCount; CascadeIndex += 1) {
+				mGpuShadowModelContexts[CascadeIndex].clear();
 			}
 
 			std::vector<Interface::CopyQueueCopyRequest> CopyRequests{};
 			CopyRequests.reserve(12ULL + (static_cast<std::size_t>(ShadowCascadeCount) * 4ULL));
 
-			auto AddCopyRequestIfValid{ [&CopyRequests, &GraphicsAllocator](GraphicsVector& Vector) {
-				if (Vector.IsValid() == false) {
-					return;
-				}
-
-				CopyRequests.push_back(Vector.CreateCopyQueueCopyRequest(GraphicsAllocator, 0));
-			} };
-
-			AddCopyRequestIfValid(mFrameGlobalsVector);
-			AddCopyRequestIfValid(mShadowFrameGlobalsVector);
-			AddCopyRequestIfValid(mShadowMappingParameterVector);
-			AddCopyRequestIfValid(mModelContextVector);
-			AddCopyRequestIfValid(mBoundingBoxContextVector);
-			AddCopyRequestIfValid(mDebugGeometryContextVector);
-			AddCopyRequestIfValid(mTerrainPatchContextVector);
-			AddCopyRequestIfValid(mBonePaletteVector);
-			AddCopyRequestIfValid(mDrawRecordVector);
-			AddCopyRequestIfValid(mEnvironmentInstanceContextVector);
-			AddCopyRequestIfValid(mEnvironmentSegmentContextVector);
-			AddCopyRequestIfValid(mEnvironmentDrawRecordVector);
+			AddGraphicsVectorCopyRequest(mFrameGlobalsVector, GraphicsAllocator, MakeByteSpan(GpuFrameGlobals), CopyRequests, "Failed to prepare frame globals copy request.");
+			AddGraphicsVectorCopyRequest(mShadowFrameGlobalsVector, GraphicsAllocator, MakeByteSpan(GpuShadowFrameGlobalsArray, static_cast<std::size_t>(ShadowCascadeCount)), CopyRequests, "Failed to prepare shadow frame globals copy request.");
+			AddGraphicsVectorCopyRequest(mShadowMappingParameterVector, GraphicsAllocator, MakeByteSpan(GpuShadowMappingParameter), CopyRequests, "Failed to prepare shadow mapping parameter copy request.");
+			AddGraphicsVectorCopyRequest(mModelContextVector, GraphicsAllocator, MakeByteSpan(mGpuModelContexts), CopyRequests, "Failed to prepare model context copy request.");
+			AddGraphicsVectorCopyRequest(mBoundingBoxContextVector, GraphicsAllocator, MakeByteSpan(Data.boundingBoxContexts), CopyRequests, "Failed to prepare bounding box context copy request.");
+			AddGraphicsVectorCopyRequest(mDebugGeometryContextVector, GraphicsAllocator, MakeByteSpan(Data.debugGeometryContexts), CopyRequests, "Failed to prepare debug geometry context copy request.");
+			AddGraphicsVectorCopyRequest(mTerrainPatchContextVector, GraphicsAllocator, MakeByteSpan(Data.TerrainPatchContexts), CopyRequests, "Failed to prepare terrain patch context copy request.");
+			AddGraphicsVectorCopyRequest(mBonePaletteVector, GraphicsAllocator, MakeByteSpan(mGpuBonePalette), CopyRequests, "Failed to prepare bone palette copy request.");
+			AddGraphicsVectorCopyRequest(mDrawRecordVector, GraphicsAllocator, MakeByteSpan(mDrawRecordsGpu), CopyRequests, "Failed to prepare draw record copy request.");
+			AddGraphicsVectorCopyRequest(mEnvironmentInstanceContextVector, GraphicsAllocator, MakeByteSpan(Data.mEnvironmentInstanceContexts), CopyRequests, "Failed to prepare environment instance context copy request.");
+			AddGraphicsVectorCopyRequest(mEnvironmentSegmentContextVector, GraphicsAllocator, MakeByteSpan(mGpuEnvironmentSegmentContexts), CopyRequests, "Failed to prepare environment segment context copy request.");
+			AddGraphicsVectorCopyRequest(mEnvironmentDrawRecordVector, GraphicsAllocator, MakeByteSpan(mEnvironmentDrawRecordsGpu), CopyRequests, "Failed to prepare environment draw record copy request.");
 			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
-				AddCopyRequestIfValid(mShadowModelContextVectors[CascadeIndex]);
-				AddCopyRequestIfValid(mShadowTerrainPatchContextVectors[CascadeIndex]);
-				AddCopyRequestIfValid(mShadowDrawRecordVectors[CascadeIndex]);
-				AddCopyRequestIfValid(mShadowEnvironmentDrawRecordVectors[CascadeIndex]);
+				const Game::RFD::ShadowRenderContext& ShadowRenderContext{ Data.ShadowRenderContexts[CascadeIndex] };
+				AddGraphicsVectorCopyRequest(mShadowModelContextVectors[CascadeIndex], GraphicsAllocator, MakeByteSpan(mGpuShadowModelContexts[CascadeIndex]), CopyRequests, "Failed to prepare shadow model context copy request.");
+				AddGraphicsVectorCopyRequest(mShadowTerrainPatchContextVectors[CascadeIndex], GraphicsAllocator, MakeByteSpan(ShadowRenderContext.TerrainPatchContexts), CopyRequests, "Failed to prepare shadow terrain patch context copy request.");
+				AddGraphicsVectorCopyRequest(mShadowDrawRecordVectors[CascadeIndex], GraphicsAllocator, MakeByteSpan(mShadowDrawRecordsGpu[CascadeIndex]), CopyRequests, "Failed to prepare shadow draw record copy request.");
+				AddGraphicsVectorCopyRequest(mShadowEnvironmentDrawRecordVectors[CascadeIndex], GraphicsAllocator, MakeByteSpan(mShadowEnvironmentDrawRecordsGpu[CascadeIndex]), CopyRequests, "Failed to prepare shadow environment draw record copy request.");
 			}
 
 			mCopyFuture = CopyQueue->EnqueueCopyFuture(CopyRequests);

@@ -1,12 +1,10 @@
 ﻿#include "GraphicsVector.h"
 #include <algorithm>
-#include <cstring>
 
 using namespace Core::DX;
 
 GraphicsVector::GraphicsVector()
     : mAllocationHandle{},
-    mUploadData{},
     mSizeInBytes{},
     mCapacityInBytes{},
     mResourceFlags{ D3D12_RESOURCE_FLAG_NONE },
@@ -26,7 +24,6 @@ GraphicsVector::~GraphicsVector() {
 
 GraphicsVector::GraphicsVector(GraphicsVector&& other) noexcept
     : mAllocationHandle{ std::move(other.mAllocationHandle) },
-    mUploadData{ std::move(other.mUploadData) },
     mSizeInBytes{ other.mSizeInBytes },
     mCapacityInBytes{ other.mCapacityInBytes },
     mResourceFlags{ other.mResourceFlags },
@@ -46,7 +43,6 @@ GraphicsVector& GraphicsVector::operator=(GraphicsVector&& other) noexcept {
 
     Reset();
     mAllocationHandle = std::move(other.mAllocationHandle);
-    mUploadData = std::move(other.mUploadData);
     mSizeInBytes = other.mSizeInBytes;
     mCapacityInBytes = other.mCapacityInBytes;
     mResourceFlags = other.mResourceFlags;
@@ -66,8 +62,6 @@ bool GraphicsVector::Initialize(GraphicsAllocator& graphicsAllocator, SizeType i
 
     mResourceFlags = resourceFlags;
     mResourceState = initialState;
-    mUploadData.clear();
-    mUploadData.resize(initialSizeInBytes);
     mSizeInBytes = initialSizeInBytes;
     mCopyRequestCreationCount = 0;
 
@@ -79,27 +73,20 @@ bool GraphicsVector::Initialize(GraphicsAllocator& graphicsAllocator, SizeType i
     return Reallocate(graphicsAllocator, initialSizeInBytes);
 }
 
-bool GraphicsVector::Copy(GraphicsAllocator& graphicsAllocator, void* sourceData, SizeType copySizeInBytes) {
-    if (sourceData == nullptr) {
-        return false;
-    }
-
-    if (copySizeInBytes > mCapacityInBytes) {
-        bool reallocateResult{ Reallocate(graphicsAllocator, copySizeInBytes) };
+bool GraphicsVector::Resize(GraphicsAllocator& graphicsAllocator, SizeType sizeInBytes) {
+    if (sizeInBytes > mCapacityInBytes) {
+        bool reallocateResult{ Reallocate(graphicsAllocator, sizeInBytes) };
         if (reallocateResult == false) {
             return false;
         }
     }
 
-    mUploadData.resize(copySizeInBytes);
-    std::memcpy(mUploadData.data(), sourceData, copySizeInBytes);
-    mSizeInBytes = copySizeInBytes;
+    mSizeInBytes = sizeInBytes;
     return true;
 }
 
 void GraphicsVector::Reset() {
     mAllocationHandle.Reset();
-    mUploadData.clear();
     mSizeInBytes = 0;
     mCapacityInBytes = 0;
     mResourceFlags = D3D12_RESOURCE_FLAG_NONE;
@@ -107,16 +94,21 @@ void GraphicsVector::Reset() {
     mCopyRequestCreationCount = 0;
 }
 
-Interface::CopyQueueCopyRequest GraphicsVector::CreateCopyQueueCopyRequest(GraphicsAllocator& GraphicsAllocator, UINT64 DestinationOffset) {
+bool GraphicsVector::PrepareCopyRequest(GraphicsAllocator& GraphicsAllocator, std::span<const std::byte> SourceData, Interface::CopyQueueCopyRequest& OutCopyRequest, UINT64 DestinationOffset) {
     mCopyRequestCreationCount += 1;
+
+    bool ResizeResult{ Resize(GraphicsAllocator, SourceData.size()) };
+    if (ResizeResult == false) {
+        return false;
+    }
+
     TryShrink(GraphicsAllocator);
 
-    Interface::CopyQueueCopyRequest CopyQueueCopyRequest{};
-    CopyQueueCopyRequest.DestinationDefaultResource = mAllocationHandle.GetResourceComPtr();
-    CopyQueueCopyRequest.DestinationOffset = DestinationOffset;
-    CopyQueueCopyRequest.SourceData = std::span<const std::byte>{ mUploadData.data(), mSizeInBytes };
-
-    return CopyQueueCopyRequest;
+    OutCopyRequest = Interface::CopyQueueCopyRequest{};
+    OutCopyRequest.DestinationDefaultResource = mAllocationHandle.GetResourceComPtr();
+    OutCopyRequest.DestinationOffset = DestinationOffset;
+    OutCopyRequest.SourceData = SourceData;
+    return true;
 }
 
 void GraphicsVector::CreateShaderResourceView(ID3D12Device* device, D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle, DXGI_FORMAT format, UINT firstElement, UINT numElements, UINT structureByteStride, D3D12_BUFFER_SRV_FLAGS bufferFlags) const {

@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include <cstddef>
 #include <cstdint>
-#include <vector>
+#include <span>
 #include "Utility/DirectXInclude.h"
 #include "Core/DX/AllocationHandle.h"
 #include "Core/DX/GraphicsAllocator.h"
@@ -25,10 +25,10 @@ namespace Core {
 
         public:
             bool Initialize(GraphicsAllocator& graphicsAllocator, SizeType initialSizeInBytes, D3D12_RESOURCE_FLAGS resourceFlags = D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COPY_DEST);
-            bool Copy(GraphicsAllocator& graphicsAllocator, void* sourceData, SizeType copySizeInBytes);
+            bool Resize(GraphicsAllocator& graphicsAllocator, SizeType sizeInBytes);
             void Reset();
 
-            Interface::CopyQueueCopyRequest CreateCopyQueueCopyRequest(GraphicsAllocator& graphicsAllocator, UINT64 destinationOffset = 0);
+            bool PrepareCopyRequest(GraphicsAllocator& graphicsAllocator, std::span<const std::byte> sourceData, Interface::CopyQueueCopyRequest& outCopyRequest, UINT64 destinationOffset = 0);
 
             void CreateShaderResourceView(ID3D12Device* device, D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle, DXGI_FORMAT format, UINT firstElement, UINT numElements, UINT structureByteStride, D3D12_BUFFER_SRV_FLAGS bufferFlags) const;
 
@@ -50,7 +50,6 @@ namespace Core {
 
         private:
             AllocationHandle mAllocationHandle{};
-            std::vector<ValueType> mUploadData{};
 
             SizeType mSizeInBytes{};
             SizeType mCapacityInBytes{};

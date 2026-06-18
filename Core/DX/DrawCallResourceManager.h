@@ -132,6 +132,10 @@ namespace Core {
 			std::array<GraphicsVector, Game::RFD::ShadowCascadeMaxCount> mShadowEnvironmentDrawRecordVectors{};
 
 			Interface::Future mCopyFuture{};
+			std::vector<Game::RFD::ModelContext> mGpuModelContexts{};
+			std::vector<SimpleMath::Matrix> mGpuBonePalette{};
+			std::vector<Game::RFD::EnvironmentSegmentContext> mGpuEnvironmentSegmentContexts{};
+			std::array<std::vector<Game::RFD::ModelContext>, Game::RFD::ShadowCascadeMaxCount> mGpuShadowModelContexts{};
 			std::vector<DrawRecordGPU> mDrawRecordsGpu{};
 			std::array<std::vector<DrawRecordGPU>, Game::RFD::ShadowCascadeMaxCount> mShadowDrawRecordsGpu{};
 			std::vector<Game::RFD::EnvironmentDrawRecordGpu> mEnvironmentDrawRecordsGpu{};
