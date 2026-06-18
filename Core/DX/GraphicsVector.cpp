@@ -94,7 +94,7 @@ void GraphicsVector::Reset() {
     mCopyRequestCreationCount = 0;
 }
 
-bool GraphicsVector::PrepareCopyRequest(GraphicsAllocator& GraphicsAllocator, std::span<const std::byte> SourceData, Interface::CopyQueueCopyRequest& OutCopyRequest, UINT64 DestinationOffset) {
+bool GraphicsVector::PrepareCopyRequest(GraphicsAllocator& GraphicsAllocator, std::span<const std::byte> SourceData, Interface::CopyPriority Priority, Interface::CopyRequest& OutCopyRequest, UINT64 DestinationOffset) {
     mCopyRequestCreationCount += 1;
 
     bool ResizeResult{ Resize(GraphicsAllocator, SourceData.size()) };
@@ -104,7 +104,7 @@ bool GraphicsVector::PrepareCopyRequest(GraphicsAllocator& GraphicsAllocator, st
 
     TryShrink(GraphicsAllocator);
 
-    OutCopyRequest = Interface::CopyQueueCopyRequest{};
+    OutCopyRequest = Interface::CopyRequest{ Priority };
     OutCopyRequest.DestinationDefaultResource = mAllocationHandle.GetResourceComPtr();
     OutCopyRequest.DestinationOffset = DestinationOffset;
     OutCopyRequest.SourceData = SourceData;

@@ -34,8 +34,8 @@ namespace Core {
 
         public:
             bool Initialize(ID3D12Device* Device) override;
-            Interface::Future EnqueueCopyFuture(const Interface::CopyQueueCopyRequest& CopyRequest) override;
-            Interface::Future EnqueueCopyFuture(std::span<const Interface::CopyQueueCopyRequest> CopyRequests) override;
+            Interface::Future EnqueueCopyFuture(const Interface::CopyRequest& CopyRequest) override;
+            Interface::Future EnqueueCopyFuture(std::span<const Interface::CopyRequest> CopyRequests) override;
             Interface::Future EnqueueTextureCopyFuture(const Interface::CopyQueueTextureCopyRequest& CopyRequest) override;
             Interface::Future EnqueueTextureCopyFuture(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests) override;
 
@@ -67,6 +67,7 @@ namespace Core {
 
             struct PreparedCopyRequest final {
                 bool IsTextureCopy{};
+                Interface::CopyPriority Priority{ Interface::CopyPriority::Invalid };
                 Microsoft::WRL::ComPtr<ID3D12Resource> DestinationDefaultResource{};
                 Microsoft::WRL::ComPtr<ID3D12Resource> UploadResource{};
                 std::uint64_t DestinationOffset{};
@@ -76,8 +77,10 @@ namespace Core {
             };
 
             struct CopyRequestBatch final {
+                Interface::CopyPriority Priority{ Interface::CopyPriority::Invalid };
                 std::vector<PreparedCopyRequest> CopyRequests{};
                 std::vector<std::size_t> UploadPageIndices{};
+                std::uint64_t CopySizeInBytes{};
                 std::uint64_t CopyTicket{};
             };
 
@@ -93,16 +96,19 @@ namespace Core {
 
         private:
             void WorkerLoop();
-            void ExecuteRequestBatch(CopyRequestBatch& RequestBatch);
+            void ExecuteRequestBatches(std::vector<CopyRequestBatch>& RequestBatches);
             void StopWorker();
             void WaitForQueueIdle();
             bool IsSubmitFenceComplete(std::uint64_t FenceValue) const;
             void WaitForSubmitFence(std::uint64_t FenceValue) const;
-            bool EnqueuePreparedCopyRequests(std::uint64_t CopyTicket, std::vector<PreparedCopyRequest>& PreparedRequests, std::vector<std::size_t>& UploadPageIndices);
+            bool EnqueuePreparedCopyRequests(std::uint64_t CopyTicket, Interface::CopyPriority Priority, std::vector<PreparedCopyRequest>& PreparedRequests, std::vector<std::size_t>& UploadPageIndices);
             std::uint64_t ResolveCopyTicketToFenceValue(std::uint64_t CopyTicket) const;
             std::uint64_t GenerateCopyTicket();
-            bool PrepareCopyRequests(std::span<const Interface::CopyQueueCopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests, std::vector<std::size_t>& OutUploadPageIndices);
-            bool PrepareTextureCopyRequests(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests, std::vector<std::size_t>& OutUploadPageIndices);
+            bool PrepareCopyRequests(std::span<const Interface::CopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests, std::vector<std::size_t>& OutUploadPageIndices, Interface::CopyPriority& OutPriority);
+            bool PrepareTextureCopyRequests(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests, std::vector<std::size_t>& OutUploadPageIndices, Interface::CopyPriority& OutPriority);
+            bool HasPendingRequestBatchesLocked() const;
+            std::size_t GetPendingRequestBatchCountLocked() const;
+            Interface::CopyPriority SelectSubmitPriorityLocked() const;
             bool AllocateUploadMemory(std::uint64_t Size, std::uint64_t Alignment, std::vector<std::size_t>& UploadPageIndices, UploadAllocation& OutAllocation);
             bool TryAllocateUploadMemoryLocked(std::uint64_t Size, std::uint64_t Alignment, bool IsDedicated, std::vector<std::size_t>& UploadPageIndices, UploadAllocation& OutAllocation);
             bool TryAllocateFromUploadPageLocked(std::size_t PageIndex, std::uint64_t Size, std::uint64_t Alignment, std::vector<std::size_t>& UploadPageIndices, UploadAllocation& OutAllocation);
@@ -115,13 +121,20 @@ namespace Core {
             void ResetUploadPage(UploadPage& Page);
             void ResetUploadPages();
             static std::uint64_t AlignUp(std::uint64_t Value, std::uint64_t Alignment);
-
+            static bool IsValidCopyPriority(Interface::CopyPriority Priority);
+            static bool IsHigherCopyPriority(Interface::CopyPriority Left, Interface::CopyPriority Right);
+            static std::size_t ResolveCopyPriorityIndex(Interface::CopyPriority Priority);
+          
         private:
             static constexpr std::uint64_t UploadPageSizeInBytes{ 64ull * 1024ull * 1024ull };
             static constexpr std::uint64_t LargeUploadThresholdInBytes{ UploadPageSizeInBytes / 2ull };
             static constexpr std::uint64_t MaxUploadMemorySizeInBytes{ 1ull * 1024ull * 1024ull * 1024ull };
             static constexpr std::uint64_t BufferUploadAlignmentInBytes{ 256ull };
             static constexpr std::uint64_t TextureUploadAlignmentInBytes{ D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT };
+            static constexpr std::uint64_t AutoSubmitByteThresholdInBytes{ 4ull * 1024ull * 1024ull };
+            static constexpr std::size_t AutoSubmitBatchThreshold{ 16ull };
+            static constexpr std::uint64_t AutoSubmitCoalesceTimeoutMicroseconds{ 250ull };
+            static constexpr std::size_t CopyPriorityLaneCount{ static_cast<std::size_t>(Interface::CopyPriority::Count) - 1ull };
             static constexpr std::size_t InvalidUploadPageIndex{ static_cast<std::size_t>(-1) };
 
             Microsoft::WRL::ComPtr<ID3D12Device> mDevice{};
@@ -142,7 +155,8 @@ namespace Core {
             mutable std::mutex mUploadPageMutex{};
             std::condition_variable mQueueCondition{};
             mutable std::condition_variable mFenceCondition{};
-            std::queue<CopyRequestBatch> mPendingRequestBatches{};
+            std::array<std::queue<CopyRequestBatch>, CopyPriorityLaneCount> mPendingRequestBatchQueues{};
+            std::uint64_t mPendingCopySizeInBytes{};
             std::vector<UploadPage> mUploadPages{};
             std::deque<RetiredUploadPageUsage> mRetiredUploadPageUsages{};
             std::size_t mCurrentUploadPageIndex{};

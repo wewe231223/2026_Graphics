@@ -28,7 +28,7 @@ namespace Core {
             bool Resize(GraphicsAllocator& graphicsAllocator, SizeType sizeInBytes);
             void Reset();
 
-            bool PrepareCopyRequest(GraphicsAllocator& graphicsAllocator, std::span<const std::byte> sourceData, Interface::CopyQueueCopyRequest& outCopyRequest, UINT64 destinationOffset = 0);
+            bool PrepareCopyRequest(GraphicsAllocator& GraphicsAllocator, std::span<const std::byte> SourceData, Interface::CopyPriority Priority, Interface::CopyRequest& OutCopyRequest, UINT64 DestinationOffset = 0);
 
             void CreateShaderResourceView(ID3D12Device* device, D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle, DXGI_FORMAT format, UINT firstElement, UINT numElements, UINT structureByteStride, D3D12_BUFFER_SRV_FLAGS bufferFlags) const;
 

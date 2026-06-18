@@ -51,13 +51,33 @@ namespace Interface {
         virtual std::uint64_t GetUsedSize() const = 0;
     };
 
-    struct CopyQueueCopyRequest final {
+    enum class CopyPriority : std::uint8_t {
+        Invalid = 0,
+        High,
+        Normal,
+        Background,
+        Count
+    };
+
+    struct CopyRequest final {
+    public:
+        CopyRequest() = delete;
+        explicit CopyRequest(CopyPriority PriorityValue);
+
+    public:
+        CopyPriority Priority{};
         Microsoft::WRL::ComPtr<ID3D12Resource> DestinationDefaultResource{};
         std::uint64_t DestinationOffset{};
         std::span<const std::byte> SourceData{};
     };
 
     struct CopyQueueTextureCopyRequest final {
+    public:
+        CopyQueueTextureCopyRequest() = delete;
+        explicit CopyQueueTextureCopyRequest(CopyPriority PriorityValue);
+
+    public:
+        CopyPriority Priority{};
         Microsoft::WRL::ComPtr<ID3D12Resource> DestinationTextureResource{};
         std::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> SourceLayouts{};
         std::vector<std::byte> SourceData{};
@@ -92,8 +112,8 @@ namespace Interface {
 
     public:
         virtual bool Initialize(ID3D12Device* Device) = 0;
-        virtual Future EnqueueCopyFuture(const CopyQueueCopyRequest& CopyRequest) = 0;
-        virtual Future EnqueueCopyFuture(std::span<const CopyQueueCopyRequest> CopyRequests) = 0;
+        virtual Future EnqueueCopyFuture(const CopyRequest& CopyRequest) = 0;
+        virtual Future EnqueueCopyFuture(std::span<const CopyRequest> CopyRequests) = 0;
         virtual Future EnqueueTextureCopyFuture(const CopyQueueTextureCopyRequest& CopyRequest) = 0;
         virtual Future EnqueueTextureCopyFuture(std::span<const CopyQueueTextureCopyRequest> CopyRequests) = 0;
 

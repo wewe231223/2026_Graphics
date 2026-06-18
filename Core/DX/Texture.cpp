@@ -153,7 +153,7 @@ bool Texture::Load(Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocat
     mResource = mAllocationHandle->GetResource();
 
 
-    Interface::CopyQueueTextureCopyRequest CopyRequest{};
+    Interface::CopyQueueTextureCopyRequest CopyRequest{ Interface::CopyPriority::Background };
     CopyRequest.DestinationTextureResource = mResource;
     CopyRequest.SourceLayouts = mSourceLayouts;
     CopyRequest.SourceData = mSourceData;

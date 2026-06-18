@@ -44,11 +44,11 @@ namespace Core {
 			std::uint64_t CurrentMaterialTextureTableHash{ MaterialResourceManager::ComputeDataHash(MaterialTextureTableSourceData.data(), MaterialTextureTableSizeInBytes) };
 			bool IsMaterialTextureTableUploadRequired{ MaterialTextureTableVector.IsValid() == false || mPerFrameMaterialTextureTableSizesInBytes[RtvIndex] != MaterialTextureTableSizeInBytes || mPerFrameMaterialTextureTableHashes[RtvIndex] != CurrentMaterialTextureTableHash };
 
-			std::vector<Interface::CopyQueueCopyRequest> CopyRequests{};
+			std::vector<Interface::CopyRequest> CopyRequests{};
 			CopyRequests.reserve(2);
 			if (IsMaterialUploadRequired == true) {
-				Interface::CopyQueueCopyRequest MaterialCopyRequest{};
-				bool MaterialCopyResult{ mMaterialVector.PrepareCopyRequest(GraphicsAllocator, MaterialSourceData, MaterialCopyRequest, 0) };
+				Interface::CopyRequest MaterialCopyRequest{ Interface::CopyPriority::High };
+				bool MaterialCopyResult{ mMaterialVector.PrepareCopyRequest(GraphicsAllocator, MaterialSourceData, Interface::CopyPriority::High, MaterialCopyRequest, 0) };
 				ErrorHandler::report(MaterialCopyResult == false, "MaterialResourceManager", "Failed to prepare material copy request.", ErrorHandler::Level::Critical);
 				if (MaterialCopyResult == true and MaterialCopyRequest.SourceData.empty() == false and MaterialCopyRequest.DestinationDefaultResource != nullptr) {
 					CopyRequests.push_back(MaterialCopyRequest);
@@ -59,8 +59,8 @@ namespace Core {
 			}
 
 			if (IsMaterialTextureTableUploadRequired == true) {
-				Interface::CopyQueueCopyRequest MaterialTextureTableCopyRequest{};
-				bool MaterialTextureTableCopyResult{ MaterialTextureTableVector.PrepareCopyRequest(GraphicsAllocator, MaterialTextureTableSourceData, MaterialTextureTableCopyRequest, 0) };
+				Interface::CopyRequest MaterialTextureTableCopyRequest{ Interface::CopyPriority::High };
+				bool MaterialTextureTableCopyResult{ MaterialTextureTableVector.PrepareCopyRequest(GraphicsAllocator, MaterialTextureTableSourceData, Interface::CopyPriority::High, MaterialTextureTableCopyRequest, 0) };
 				ErrorHandler::report(MaterialTextureTableCopyResult == false, "MaterialResourceManager", "Failed to prepare material texture table copy request.", ErrorHandler::Level::Critical);
 				if (MaterialTextureTableCopyResult == true and MaterialTextureTableCopyRequest.SourceData.empty() == false and MaterialTextureTableCopyRequest.DestinationDefaultResource != nullptr) {
 					CopyRequests.push_back(MaterialTextureTableCopyRequest);

@@ -535,17 +535,17 @@ namespace Game {
             return false;
         }
 
-        Interface::CopyQueueCopyRequest HeightFieldCopyRequest{};
+        Interface::CopyRequest HeightFieldCopyRequest{ Interface::CopyPriority::Normal };
         HeightFieldCopyRequest.DestinationDefaultResource = mHeightFieldFrameResources[ResolvedFrameIndex].mAllocation->GetResource();
         HeightFieldCopyRequest.DestinationOffset = 0;
         HeightFieldCopyRequest.SourceData = std::as_bytes(std::span<const float>{ Field.HeightValues.data(), Field.HeightValues.size() });
 
-        Interface::CopyQueueCopyRequest SplatMapCopyRequest{};
+        Interface::CopyRequest SplatMapCopyRequest{ Interface::CopyPriority::Normal };
         SplatMapCopyRequest.DestinationDefaultResource = mSplatMapFrameResources[ResolvedFrameIndex].mAllocation->GetResource();
         SplatMapCopyRequest.DestinationOffset = 0;
         SplatMapCopyRequest.SourceData = std::as_bytes(std::span<const asset::Vec4>{ SplatMap.WeightValues.data(), SplatMap.WeightValues.size() });
 
-        std::array<Interface::CopyQueueCopyRequest, 2> CopyRequests{ std::move(HeightFieldCopyRequest), std::move(SplatMapCopyRequest) };
+        std::array<Interface::CopyRequest, 2> CopyRequests{ std::move(HeightFieldCopyRequest), std::move(SplatMapCopyRequest) };
         Interface::Future CopyFuture{ CopyQueue->EnqueueCopyFuture(CopyRequests) };
         if (CopyFuture.IsValid() == false) {
             return false;

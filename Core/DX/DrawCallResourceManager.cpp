@@ -110,9 +110,9 @@ namespace Core {
 				return std::as_bytes(std::span<const T>{ Values.data(), ActiveCount });
 			}
 
-			void AddGraphicsVectorCopyRequest(GraphicsVector& Vector, GraphicsAllocator& GraphicsAllocatorValue, std::span<const std::byte> SourceData, std::vector<Interface::CopyQueueCopyRequest>& CopyRequests, const char* FailureMessage) {
-				Interface::CopyQueueCopyRequest CopyRequest{};
-				bool PrepareResult{ Vector.PrepareCopyRequest(GraphicsAllocatorValue, SourceData, CopyRequest, 0) };
+			void AddGraphicsVectorCopyRequest(GraphicsVector& Vector, GraphicsAllocator& GraphicsAllocatorValue, std::span<const std::byte> SourceData, std::vector<Interface::CopyRequest>& CopyRequests, const char* FailureMessage) {
+				Interface::CopyRequest CopyRequest{ Interface::CopyPriority::High };
+				bool PrepareResult{ Vector.PrepareCopyRequest(GraphicsAllocatorValue, SourceData, Interface::CopyPriority::High, CopyRequest, 0) };
 				ErrorHandler::report(PrepareResult == false, "DrawCallResourceManager", FailureMessage, ErrorHandler::Level::Critical);
 				if (PrepareResult == true and CopyRequest.SourceData.empty() == false and CopyRequest.DestinationDefaultResource != nullptr) {
 					CopyRequests.push_back(CopyRequest);
@@ -199,7 +199,7 @@ namespace Core {
 				mGpuShadowModelContexts[CascadeIndex].clear();
 			}
 
-			std::vector<Interface::CopyQueueCopyRequest> CopyRequests{};
+			std::vector<Interface::CopyRequest> CopyRequests{};
 			CopyRequests.reserve(12ULL + (static_cast<std::size_t>(ShadowCascadeCount) * 4ULL));
 
 			AddGraphicsVectorCopyRequest(mFrameGlobalsVector, GraphicsAllocator, MakeByteSpan(GpuFrameGlobals), CopyRequests, "Failed to prepare frame globals copy request.");

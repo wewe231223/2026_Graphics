@@ -1,5 +1,6 @@
 ﻿#include "CopyQueue.h"
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <limits>
 #include <vector>
@@ -7,6 +8,20 @@
 #include "Utility/StdOutput.h"
 
 using namespace Core::DX;
+
+Interface::CopyRequest::CopyRequest(Interface::CopyPriority PriorityValue)
+    : Priority{ PriorityValue },
+    DestinationDefaultResource{},
+    DestinationOffset{},
+    SourceData{} {
+}
+
+Interface::CopyQueueTextureCopyRequest::CopyQueueTextureCopyRequest(Interface::CopyPriority PriorityValue)
+    : Priority{ PriorityValue },
+    DestinationTextureResource{},
+    SourceLayouts{},
+    SourceData{} {
+}
 
 CopyQueue::CopyQueue(ID3D12Device* Device)
     : mDevice{},
@@ -22,7 +37,8 @@ CopyQueue::CopyQueue(ID3D12Device* Device)
     mUploadPageMutex{},
     mQueueCondition{},
     mFenceCondition{},
-    mPendingRequestBatches{},
+    mPendingRequestBatchQueues{},
+    mPendingCopySizeInBytes{},
     mUploadPages{},
     mRetiredUploadPageUsages{},
     mCurrentUploadPageIndex{ InvalidUploadPageIndex },
@@ -77,21 +93,26 @@ bool CopyQueue::Initialize(ID3D12Device* Device) {
 }
 
 
-Interface::Future CopyQueue::EnqueueCopyFuture(const Interface::CopyQueueCopyRequest& CopyRequest) {
-    std::span<const Interface::CopyQueueCopyRequest> CopyRequests{ &CopyRequest, 1 };
+Interface::Future CopyQueue::EnqueueCopyFuture(const Interface::CopyRequest& CopyRequest) {
+    std::span<const Interface::CopyRequest> CopyRequests{ &CopyRequest, 1 };
     return EnqueueCopyFuture(CopyRequests);
 }
 
-Interface::Future CopyQueue::EnqueueCopyFuture(std::span<const Interface::CopyQueueCopyRequest> CopyRequests) {
+Interface::Future CopyQueue::EnqueueCopyFuture(std::span<const Interface::CopyRequest> CopyRequests) {
     std::vector<PreparedCopyRequest> PreparedRequests{};
     std::vector<std::size_t> UploadPageIndices{};
-    bool IsPrepared{ PrepareCopyRequests(CopyRequests, PreparedRequests, UploadPageIndices) };
+    Interface::CopyPriority Priority{ Interface::CopyPriority::Invalid };
+    bool IsPrepared{ PrepareCopyRequests(CopyRequests, PreparedRequests, UploadPageIndices, Priority) };
     if (IsPrepared == false) {
         return Interface::Future{};
     }
 
+    if (Priority == Interface::CopyPriority::Invalid) {
+        Priority = Interface::CopyPriority::Normal;
+    }
+
     std::uint64_t CopyTicket{ GenerateCopyTicket() };
-    bool IsEnqueued{ EnqueuePreparedCopyRequests(CopyTicket, PreparedRequests, UploadPageIndices) };
+    bool IsEnqueued{ EnqueuePreparedCopyRequests(CopyTicket, Priority, PreparedRequests, UploadPageIndices) };
     if (IsEnqueued == false) {
         ReleaseUploadPageUsages(UploadPageIndices);
         return Interface::Future{};
@@ -108,13 +129,18 @@ Interface::Future CopyQueue::EnqueueTextureCopyFuture(const Interface::CopyQueue
 Interface::Future CopyQueue::EnqueueTextureCopyFuture(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests) {
     std::vector<PreparedCopyRequest> PreparedRequests{};
     std::vector<std::size_t> UploadPageIndices{};
-    bool IsPrepared{ PrepareTextureCopyRequests(CopyRequests, PreparedRequests, UploadPageIndices) };
+    Interface::CopyPriority Priority{ Interface::CopyPriority::Invalid };
+    bool IsPrepared{ PrepareTextureCopyRequests(CopyRequests, PreparedRequests, UploadPageIndices, Priority) };
     if (IsPrepared == false) {
         return Interface::Future{};
     }
 
+    if (Priority == Interface::CopyPriority::Invalid) {
+        Priority = Interface::CopyPriority::Normal;
+    }
+
     std::uint64_t CopyTicket{ GenerateCopyTicket() };
-    bool IsEnqueued{ EnqueuePreparedCopyRequests(CopyTicket, PreparedRequests, UploadPageIndices) };
+    bool IsEnqueued{ EnqueuePreparedCopyRequests(CopyTicket, Priority, PreparedRequests, UploadPageIndices) };
     if (IsEnqueued == false) {
         ReleaseUploadPageUsages(UploadPageIndices);
         return Interface::Future{};
@@ -166,38 +192,79 @@ std::uint64_t CopyQueue::GetRequiredUploadBufferSize() const {
 
 void CopyQueue::WorkerLoop() {
     while (mIsRunning.load() == true) {
-        CopyRequestBatch RequestBatch{};
+        std::vector<CopyRequestBatch> RequestBatches{};
 
         {
             std::unique_lock<std::mutex> QueueLock{ mQueueMutex };
-            mQueueCondition.wait(QueueLock, [this] { return mIsRunning.load() == false or (mDispatchRequested == true and mPendingRequestBatches.empty() == false); });
+            mQueueCondition.wait(QueueLock, [this] { return mIsRunning.load() == false or mDispatchRequested == true or HasPendingRequestBatchesLocked() == true; });
 
-            if (mIsRunning.load() == false and mPendingRequestBatches.empty() == true) {
+            if (mIsRunning.load() == false and HasPendingRequestBatchesLocked() == false) {
                 return;
             }
 
-            RequestBatch = std::move(mPendingRequestBatches.front());
-            mPendingRequestBatches.pop();
+            if (HasPendingRequestBatchesLocked() == false) {
+                mDispatchRequested = false;
+                continue;
+            }
 
-            if (mPendingRequestBatches.empty() == true) {
+            const bool HasHighPriorityRequestBatches{ mPendingRequestBatchQueues[ResolveCopyPriorityIndex(Interface::CopyPriority::High)].empty() == false };
+            const bool ShouldCoalesce{ mDispatchRequested == false and HasHighPriorityRequestBatches == false and GetPendingRequestBatchCountLocked() < AutoSubmitBatchThreshold and mPendingCopySizeInBytes < AutoSubmitByteThresholdInBytes };
+            if (ShouldCoalesce == true) {
+                mQueueCondition.wait_for(QueueLock, std::chrono::microseconds{ AutoSubmitCoalesceTimeoutMicroseconds }, [this] { return mIsRunning.load() == false or mDispatchRequested == true or mPendingRequestBatchQueues[ResolveCopyPriorityIndex(Interface::CopyPriority::High)].empty() == false or GetPendingRequestBatchCountLocked() >= AutoSubmitBatchThreshold or mPendingCopySizeInBytes >= AutoSubmitByteThresholdInBytes; });
+            }
+
+            if (mIsRunning.load() == false and HasPendingRequestBatchesLocked() == false) {
+                return;
+            }
+
+            Interface::CopyPriority SubmitPriority{ SelectSubmitPriorityLocked() };
+            if (SubmitPriority == Interface::CopyPriority::Invalid) {
+                mDispatchRequested = false;
+                continue;
+            }
+
+            std::queue<CopyRequestBatch>& RequestBatchQueue{ mPendingRequestBatchQueues[ResolveCopyPriorityIndex(SubmitPriority)] };
+            RequestBatches.reserve(RequestBatchQueue.size());
+            while (RequestBatchQueue.empty() == false) {
+                mPendingCopySizeInBytes -= RequestBatchQueue.front().CopySizeInBytes;
+                RequestBatches.push_back(std::move(RequestBatchQueue.front()));
+                RequestBatchQueue.pop();
+            }
+
+            if (HasPendingRequestBatchesLocked() == false) {
                 mDispatchRequested = false;
             }
         }
 
-        ExecuteRequestBatch(RequestBatch);
+        ExecuteRequestBatches(RequestBatches);
     }
 }
 
-void CopyQueue::ExecuteRequestBatch(CopyRequestBatch& RequestBatch) {
+void CopyQueue::ExecuteRequestBatches(std::vector<CopyRequestBatch>& RequestBatches) {
     CollectCompletedUploads();
 
-    if (RequestBatch.CopyRequests.empty() == true) {
+    if (RequestBatches.empty() == true) {
+        return;
+    }
+
+    bool HasCopyRequest{};
+    for (const CopyRequestBatch& RequestBatch : RequestBatches) {
+        if (RequestBatch.CopyRequests.empty() == false) {
+            HasCopyRequest = true;
+            break;
+        }
+    }
+
+    if (HasCopyRequest == false) {
+        const std::uint64_t SubmitFenceValue{ mSubmitFenceValueCounter.load() };
         {
             std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
-            CopyTicketFenceState& FenceState{ mCopyTicketFenceStates[RequestBatch.CopyTicket] };
-            FenceState.LastSubmitFenceValue = mSubmitFenceValueCounter.load();
-            if (FenceState.PendingBatchCount > 0) {
-                FenceState.PendingBatchCount -= 1;
+            for (const CopyRequestBatch& RequestBatch : RequestBatches) {
+                CopyTicketFenceState& FenceState{ mCopyTicketFenceStates[RequestBatch.CopyTicket] };
+                FenceState.LastSubmitFenceValue = SubmitFenceValue;
+                if (FenceState.PendingBatchCount > 0) {
+                    FenceState.PendingBatchCount -= 1;
+                }
             }
         }
 
@@ -214,27 +281,29 @@ void CopyQueue::ExecuteRequestBatch(CopyRequestBatch& RequestBatch) {
     ErrorHandler::report(mCopyCommandAllocators[AllocatorFlightIndex]->Reset(), "CopyQueue", "Failed to reset copy command allocator.", ErrorHandler::Level::Critical);
     ErrorHandler::report(mCopyCommandList->Reset(mCopyCommandAllocators[AllocatorFlightIndex].Get(), nullptr), "CopyQueue", "Failed to reset copy command list.", ErrorHandler::Level::Critical);
 
-    for (PreparedCopyRequest& PreparedCopyRequest : RequestBatch.CopyRequests) {
-        ID3D12Resource* UploadResource{ PreparedCopyRequest.UploadResource.Get() };
+    for (CopyRequestBatch& RequestBatch : RequestBatches) {
+        for (PreparedCopyRequest& PreparedCopyRequest : RequestBatch.CopyRequests) {
+            ID3D12Resource* UploadResource{ PreparedCopyRequest.UploadResource.Get() };
 
-        if (PreparedCopyRequest.IsTextureCopy == true) {
-            UINT SubresourceCount{ static_cast<UINT>(PreparedCopyRequest.Layouts.size()) };
-            for (UINT SubresourceIndex = 0; SubresourceIndex < SubresourceCount; ++SubresourceIndex) {
-                D3D12_TEXTURE_COPY_LOCATION DestinationLocation{};
-                DestinationLocation.pResource = PreparedCopyRequest.DestinationDefaultResource.Get();
-                DestinationLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-                DestinationLocation.SubresourceIndex = SubresourceIndex;
+            if (PreparedCopyRequest.IsTextureCopy == true) {
+                UINT SubresourceCount{ static_cast<UINT>(PreparedCopyRequest.Layouts.size()) };
+                for (UINT SubresourceIndex = 0; SubresourceIndex < SubresourceCount; ++SubresourceIndex) {
+                    D3D12_TEXTURE_COPY_LOCATION DestinationLocation{};
+                    DestinationLocation.pResource = PreparedCopyRequest.DestinationDefaultResource.Get();
+                    DestinationLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+                    DestinationLocation.SubresourceIndex = SubresourceIndex;
 
-                D3D12_TEXTURE_COPY_LOCATION SourceLocation{};
-                SourceLocation.pResource = UploadResource;
-                SourceLocation.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-                SourceLocation.PlacedFootprint = PreparedCopyRequest.Layouts[SubresourceIndex];
+                    D3D12_TEXTURE_COPY_LOCATION SourceLocation{};
+                    SourceLocation.pResource = UploadResource;
+                    SourceLocation.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+                    SourceLocation.PlacedFootprint = PreparedCopyRequest.Layouts[SubresourceIndex];
 
-                mCopyCommandList->CopyTextureRegion(&DestinationLocation, 0, 0, 0, &SourceLocation, nullptr);
+                    mCopyCommandList->CopyTextureRegion(&DestinationLocation, 0, 0, 0, &SourceLocation, nullptr);
+                }
             }
-        }
-        else {
-            mCopyCommandList->CopyBufferRegion(PreparedCopyRequest.DestinationDefaultResource.Get(), PreparedCopyRequest.DestinationOffset, UploadResource, PreparedCopyRequest.SourceOffset, PreparedCopyRequest.CopySize);
+            else {
+                mCopyCommandList->CopyBufferRegion(PreparedCopyRequest.DestinationDefaultResource.Get(), PreparedCopyRequest.DestinationOffset, UploadResource, PreparedCopyRequest.SourceOffset, PreparedCopyRequest.CopySize);
+            }
         }
     }
 
@@ -250,21 +319,25 @@ void CopyQueue::ExecuteRequestBatch(CopyRequestBatch& RequestBatch) {
 
     {
         std::lock_guard<std::mutex> FenceGuard{ mFenceMutex };
-        CopyTicketFenceState& FenceState{ mCopyTicketFenceStates[RequestBatch.CopyTicket] };
-        if (FenceState.LastSubmitFenceValue < SubmitFenceValue) {
-            FenceState.LastSubmitFenceValue = SubmitFenceValue;
-        }
+        for (const CopyRequestBatch& RequestBatch : RequestBatches) {
+            CopyTicketFenceState& FenceState{ mCopyTicketFenceStates[RequestBatch.CopyTicket] };
+            if (FenceState.LastSubmitFenceValue < SubmitFenceValue) {
+                FenceState.LastSubmitFenceValue = SubmitFenceValue;
+            }
 
-        if (FenceState.PendingBatchCount > 0) {
-            FenceState.PendingBatchCount -= 1;
+            if (FenceState.PendingBatchCount > 0) {
+                FenceState.PendingBatchCount -= 1;
+            }
         }
     }
 
-    if (RequestBatch.UploadPageIndices.empty() == false) {
-        RetiredUploadPageUsage RetiredUploadPageUsageValue{};
-        RetiredUploadPageUsageValue.SubmitFenceValue = SubmitFenceValue;
-        RetiredUploadPageUsageValue.UploadPageIndices = std::move(RequestBatch.UploadPageIndices);
+    RetiredUploadPageUsage RetiredUploadPageUsageValue{};
+    RetiredUploadPageUsageValue.SubmitFenceValue = SubmitFenceValue;
+    for (CopyRequestBatch& RequestBatch : RequestBatches) {
+        RetiredUploadPageUsageValue.UploadPageIndices.insert(RetiredUploadPageUsageValue.UploadPageIndices.end(), RequestBatch.UploadPageIndices.begin(), RequestBatch.UploadPageIndices.end());
+    }
 
+    if (RetiredUploadPageUsageValue.UploadPageIndices.empty() == false) {
         std::lock_guard<std::mutex> UploadPageGuard{ mUploadPageMutex };
         mRetiredUploadPageUsages.push_back(std::move(RetiredUploadPageUsageValue));
     }
@@ -288,10 +361,14 @@ void CopyQueue::StopWorker() {
 
 void CopyQueue::WaitForQueueIdle() {
     std::uint64_t IdleCopyTicket{ GenerateCopyTicket() };
-    std::vector<PreparedCopyRequest> PreparedRequests{};
-    std::vector<std::size_t> UploadPageIndices{};
-    bool EnqueueResult{ EnqueuePreparedCopyRequests(IdleCopyTicket, PreparedRequests, UploadPageIndices) };
-    ErrorHandler::report(EnqueueResult == false, "CopyQueue", "Failed to enqueue idle marker.", ErrorHandler::Level::Critical);
+    const std::array<Interface::CopyPriority, CopyPriorityLaneCount> Priorities{ Interface::CopyPriority::High, Interface::CopyPriority::Normal, Interface::CopyPriority::Background };
+    for (Interface::CopyPriority Priority : Priorities) {
+        std::vector<PreparedCopyRequest> PreparedRequests{};
+        std::vector<std::size_t> UploadPageIndices{};
+        bool EnqueueResult{ EnqueuePreparedCopyRequests(IdleCopyTicket, Priority, PreparedRequests, UploadPageIndices) };
+        ErrorHandler::report(EnqueueResult == false, "CopyQueue", "Failed to enqueue idle marker.", ErrorHandler::Level::Critical);
+    }
+
     DispatchCopies();
     WaitFuture(IdleCopyTicket);
 }
@@ -317,9 +394,18 @@ std::uint64_t CopyQueue::GenerateCopyTicket() {
     return mCopyTicketCounter.fetch_add(1) + 1;
 }
 
-bool CopyQueue::EnqueuePreparedCopyRequests(std::uint64_t CopyTicket, std::vector<PreparedCopyRequest>& PreparedRequests, std::vector<std::size_t>& UploadPageIndices) {
+bool CopyQueue::EnqueuePreparedCopyRequests(std::uint64_t CopyTicket, Interface::CopyPriority Priority, std::vector<PreparedCopyRequest>& PreparedRequests, std::vector<std::size_t>& UploadPageIndices) {
+    if (IsValidCopyPriority(Priority) == false) {
+        return false;
+    }
+
     CopyRequestBatch RequestBatch{};
+    RequestBatch.Priority = Priority;
     RequestBatch.CopyTicket = CopyTicket;
+    for (const PreparedCopyRequest& PreparedRequest : PreparedRequests) {
+        RequestBatch.CopySizeInBytes += PreparedRequest.CopySize;
+    }
+
     RequestBatch.CopyRequests = std::move(PreparedRequests);
     RequestBatch.UploadPageIndices = std::move(UploadPageIndices);
 
@@ -331,9 +417,11 @@ bool CopyQueue::EnqueuePreparedCopyRequests(std::uint64_t CopyTicket, std::vecto
 
     {
         std::lock_guard<std::mutex> QueueGuard{ mQueueMutex };
-        mPendingRequestBatches.push(std::move(RequestBatch));
+        mPendingCopySizeInBytes += RequestBatch.CopySizeInBytes;
+        mPendingRequestBatchQueues[ResolveCopyPriorityIndex(Priority)].push(std::move(RequestBatch));
     }
 
+    mQueueCondition.notify_one();
     return true;
 }
 
@@ -361,12 +449,51 @@ std::uint64_t CopyQueue::ResolveCopyTicketToFenceValue(std::uint64_t CopyTicket)
     return FoundFence->second.LastSubmitFenceValue;
 }
 
-bool CopyQueue::PrepareCopyRequests(std::span<const Interface::CopyQueueCopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests, std::vector<std::size_t>& OutUploadPageIndices) {
+bool CopyQueue::HasPendingRequestBatchesLocked() const {
+    for (const std::queue<CopyRequestBatch>& RequestBatchQueue : mPendingRequestBatchQueues) {
+        if (RequestBatchQueue.empty() == false) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+std::size_t CopyQueue::GetPendingRequestBatchCountLocked() const {
+    std::size_t PendingRequestBatchCount{};
+    for (const std::queue<CopyRequestBatch>& RequestBatchQueue : mPendingRequestBatchQueues) {
+        PendingRequestBatchCount += RequestBatchQueue.size();
+    }
+
+    return PendingRequestBatchCount;
+}
+
+Interface::CopyPriority CopyQueue::SelectSubmitPriorityLocked() const {
+    for (std::size_t PriorityIndex{ 0 }; PriorityIndex < CopyPriorityLaneCount; ++PriorityIndex) {
+        if (mPendingRequestBatchQueues[PriorityIndex].empty() == false) {
+            return static_cast<Interface::CopyPriority>(PriorityIndex + 1ull);
+        }
+    }
+
+    return Interface::CopyPriority::Invalid;
+}
+
+bool CopyQueue::PrepareCopyRequests(std::span<const Interface::CopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests, std::vector<std::size_t>& OutUploadPageIndices, Interface::CopyPriority& OutPriority) {
     std::vector<PreparedCopyRequest> PreparedRequests{};
     PreparedRequests.reserve(CopyRequests.size());
     std::vector<std::size_t> UploadPageIndices{};
+    Interface::CopyPriority Priority{ Interface::CopyPriority::Invalid };
 
-    for (const Interface::CopyQueueCopyRequest& CopyRequest : CopyRequests) {
+    for (const Interface::CopyRequest& CopyRequest : CopyRequests) {
+        if (IsValidCopyPriority(CopyRequest.Priority) == false) {
+            ReleaseUploadPageUsages(UploadPageIndices);
+            return false;
+        }
+
+        if (Priority == Interface::CopyPriority::Invalid or IsHigherCopyPriority(CopyRequest.Priority, Priority) == true) {
+            Priority = CopyRequest.Priority;
+        }
+
         if (CopyRequest.SourceData.empty() == true) {
             continue;
         }
@@ -387,6 +514,7 @@ bool CopyQueue::PrepareCopyRequests(std::span<const Interface::CopyQueueCopyRequ
 
         PreparedCopyRequest NewPreparedCopyRequest{};
         NewPreparedCopyRequest.IsTextureCopy = false;
+        NewPreparedCopyRequest.Priority = CopyRequest.Priority;
         NewPreparedCopyRequest.DestinationDefaultResource = CopyRequest.DestinationDefaultResource;
         NewPreparedCopyRequest.UploadResource = NewUploadAllocation.Resource;
         NewPreparedCopyRequest.DestinationOffset = CopyRequest.DestinationOffset;
@@ -397,15 +525,26 @@ bool CopyQueue::PrepareCopyRequests(std::span<const Interface::CopyQueueCopyRequ
 
     OutPreparedRequests = std::move(PreparedRequests);
     OutUploadPageIndices = std::move(UploadPageIndices);
+    OutPriority = Priority;
     return true;
 }
 
-bool CopyQueue::PrepareTextureCopyRequests(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests, std::vector<std::size_t>& OutUploadPageIndices) {
+bool CopyQueue::PrepareTextureCopyRequests(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests, std::vector<std::size_t>& OutUploadPageIndices, Interface::CopyPriority& OutPriority) {
     std::vector<PreparedCopyRequest> PreparedRequests{};
     PreparedRequests.reserve(CopyRequests.size());
     std::vector<std::size_t> UploadPageIndices{};
+    Interface::CopyPriority Priority{ Interface::CopyPriority::Invalid };
 
     for (const Interface::CopyQueueTextureCopyRequest& CopyRequest : CopyRequests) {
+        if (IsValidCopyPriority(CopyRequest.Priority) == false) {
+            ReleaseUploadPageUsages(UploadPageIndices);
+            return false;
+        }
+
+        if (Priority == Interface::CopyPriority::Invalid or IsHigherCopyPriority(CopyRequest.Priority, Priority) == true) {
+            Priority = CopyRequest.Priority;
+        }
+
         if (CopyRequest.DestinationTextureResource == nullptr) {
             ReleaseUploadPageUsages(UploadPageIndices);
             return false;
@@ -426,6 +565,7 @@ bool CopyQueue::PrepareTextureCopyRequests(std::span<const Interface::CopyQueueT
 
         PreparedCopyRequest NewPreparedCopyRequest{};
         NewPreparedCopyRequest.IsTextureCopy = true;
+        NewPreparedCopyRequest.Priority = CopyRequest.Priority;
         NewPreparedCopyRequest.DestinationDefaultResource = CopyRequest.DestinationTextureResource;
         NewPreparedCopyRequest.UploadResource = NewUploadAllocation.Resource;
         NewPreparedCopyRequest.SourceOffset = NewUploadAllocation.Offset;
@@ -439,6 +579,7 @@ bool CopyQueue::PrepareTextureCopyRequests(std::span<const Interface::CopyQueueT
 
     OutPreparedRequests = std::move(PreparedRequests);
     OutUploadPageIndices = std::move(UploadPageIndices);
+    OutPriority = Priority;
     return true;
 }
 
@@ -724,4 +865,16 @@ std::uint64_t CopyQueue::AlignUp(std::uint64_t Value, std::uint64_t Alignment) {
     }
 
     return ((Value + Alignment - 1) / Alignment) * Alignment;
+}
+
+bool CopyQueue::IsValidCopyPriority(Interface::CopyPriority Priority) {
+    return Priority > Interface::CopyPriority::Invalid and Priority < Interface::CopyPriority::Count;
+}
+
+bool CopyQueue::IsHigherCopyPriority(Interface::CopyPriority Left, Interface::CopyPriority Right) {
+    return static_cast<std::uint8_t>(Left) < static_cast<std::uint8_t>(Right);
+}
+
+std::size_t CopyQueue::ResolveCopyPriorityIndex(Interface::CopyPriority Priority) {
+    return static_cast<std::size_t>(Priority) - 1ull;
 }

@@ -589,7 +589,7 @@ namespace Game {
             CurrentOffset += Source.ByteSize;
         }
 
-        Interface::CopyQueueCopyRequest Request{};
+        Interface::CopyRequest Request{ Interface::CopyPriority::Normal };
         Request.DestinationDefaultResource = OutAllocation->GetResource();
         Request.DestinationOffset = 0;
         Request.SourceData = std::span<const std::byte>{ OutRawData.data(), OutRawData.size() };
@@ -619,7 +619,7 @@ namespace Game {
         OutRawData.resize(ByteSize);
         std::memcpy(OutRawData.data(), Indices.data(), ByteSize);
 
-        Interface::CopyQueueCopyRequest Request{};
+        Interface::CopyRequest Request{ Interface::CopyPriority::Normal };
         Request.DestinationDefaultResource = OutAllocation->GetResource();
         Request.DestinationOffset = 0;
         Request.SourceData = std::span<const std::byte>{ OutRawData.data(), OutRawData.size() };
