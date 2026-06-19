@@ -43,6 +43,7 @@ namespace Core {
             bool IsFutureComplete(std::uint64_t CopyTicket) const override;
             void WaitFuture(std::uint64_t CopyTicket) const override;
             void QueueWaitFuture(ID3D12CommandQueue* WaitingQueue, std::uint64_t CopyTicket) const override;
+            void QueueWaitFutures(ID3D12CommandQueue* WaitingQueue, std::span<const std::uint64_t> CopyTickets) const override;
             void Flush() override;
 
             std::uint64_t GetRequiredUploadBufferSize() const override;
@@ -103,6 +104,7 @@ namespace Core {
             void WaitForSubmitFence(std::uint64_t FenceValue) const;
             bool EnqueuePreparedCopyRequests(std::uint64_t CopyTicket, Interface::CopyPriority Priority, std::vector<PreparedCopyRequest>& PreparedRequests, std::vector<std::size_t>& UploadPageIndices);
             std::uint64_t ResolveCopyTicketToFenceValue(std::uint64_t CopyTicket) const;
+            std::uint64_t ResolveCopyTicketsToFenceValue(std::span<const std::uint64_t> CopyTickets) const;
             std::uint64_t GenerateCopyTicket();
             bool PrepareCopyRequests(std::span<const Interface::CopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests, std::vector<std::size_t>& OutUploadPageIndices, Interface::CopyPriority& OutPriority);
             bool PrepareTextureCopyRequests(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests, std::vector<PreparedCopyRequest>& OutPreparedRequests, std::vector<std::size_t>& OutUploadPageIndices, Interface::CopyPriority& OutPriority);

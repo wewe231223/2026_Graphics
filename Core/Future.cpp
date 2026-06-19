@@ -1,8 +1,18 @@
 ﻿#include "Core/Future.h"
+#include <cstddef>
 #include <utility>
 
 using namespace Interface;
 
+void IFutureSyncObject::QueueWaitFutures(ID3D12CommandQueue* WaitingQueue, std::span<const std::uint64_t> FutureTickets) const {
+    if (WaitingQueue == nullptr) {
+        return;
+    }
+
+    for (std::uint64_t FutureTicket : FutureTickets) {
+        QueueWaitFuture(WaitingQueue, FutureTicket);
+    }
+}
 Future::Future()
     : mFuturePoints{} {
 }
@@ -99,15 +109,31 @@ void Future::QueueWait(ID3D12CommandQueue* WaitingQueue) const {
         return;
     }
 
+    std::vector<const IFutureSyncObject*> SyncObjects{};
+    std::vector<std::vector<std::uint64_t>> FutureTicketsBySyncObject{};
+
     for (const FuturePoint& Point : mFuturePoints) {
         if (Point.mSyncObject == nullptr) {
             continue;
         }
 
-        Point.mSyncObject->QueueWaitFuture(WaitingQueue, Point.mTicket);
+        std::size_t SyncObjectIndex{};
+        while (SyncObjectIndex < SyncObjects.size() and SyncObjects[SyncObjectIndex] != Point.mSyncObject) {
+            SyncObjectIndex += 1;
+        }
+
+        if (SyncObjectIndex == SyncObjects.size()) {
+            SyncObjects.push_back(Point.mSyncObject);
+            FutureTicketsBySyncObject.emplace_back();
+        }
+
+        FutureTicketsBySyncObject[SyncObjectIndex].push_back(Point.mTicket);
+    }
+
+    for (std::size_t SyncObjectIndex{}; SyncObjectIndex < SyncObjects.size(); SyncObjectIndex += 1) {
+        SyncObjects[SyncObjectIndex]->QueueWaitFutures(WaitingQueue, FutureTicketsBySyncObject[SyncObjectIndex]);
     }
 }
-
 bool Future::Contains(const IFutureSyncObject* SyncObject, std::uint64_t Ticket) const {
     for (const FuturePoint& Point : mFuturePoints) {
         if (Point.mSyncObject == SyncObject and Point.mTicket == Ticket) {

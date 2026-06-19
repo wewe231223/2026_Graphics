@@ -169,18 +169,22 @@ void CopyQueue::WaitFuture(std::uint64_t CopyTicket) const {
 }
 
 void CopyQueue::QueueWaitFuture(ID3D12CommandQueue* WaitingQueue, std::uint64_t CopyTicket) const {
-    if (WaitingQueue == nullptr) {
+    std::array<std::uint64_t, 1> CopyTickets{ CopyTicket };
+    QueueWaitFutures(WaitingQueue, CopyTickets);
+}
+
+void CopyQueue::QueueWaitFutures(ID3D12CommandQueue* WaitingQueue, std::span<const std::uint64_t> CopyTickets) const {
+    if (WaitingQueue == nullptr or CopyTickets.empty() == true) {
         return;
     }
 
-    std::uint64_t SubmitFenceValue{ ResolveCopyTicketToFenceValue(CopyTicket) };
+    std::uint64_t SubmitFenceValue{ ResolveCopyTicketsToFenceValue(CopyTickets) };
     if (SubmitFenceValue == 0) {
         return;
     }
 
     ErrorHandler::report(WaitingQueue->Wait(mCopyFence.Get(), SubmitFenceValue), "CopyQueue", "Failed to queue wait for copy queue fence.", ErrorHandler::Level::Critical);
 }
-
 void CopyQueue::Flush() {
     DispatchCopies();
     WaitForQueueIdle();
@@ -426,29 +430,36 @@ bool CopyQueue::EnqueuePreparedCopyRequests(std::uint64_t CopyTicket, Interface:
 }
 
 std::uint64_t CopyQueue::ResolveCopyTicketToFenceValue(std::uint64_t CopyTicket) const {
-    std::unique_lock<std::mutex> FenceGuard{ mFenceMutex };
-    std::unordered_map<std::uint64_t, CopyTicketFenceState>::const_iterator FoundFence{ mCopyTicketFenceStates.find(CopyTicket) };
-    if (FoundFence == mCopyTicketFenceStates.end()) {
-        return CopyTicket;
-    }
-
-    mFenceCondition.wait(FenceGuard, [this, CopyTicket] {
-        std::unordered_map<std::uint64_t, CopyTicketFenceState>::const_iterator CurrentFence{ mCopyTicketFenceStates.find(CopyTicket) };
-        if (CurrentFence == mCopyTicketFenceStates.end()) {
-            return true;
-        }
-
-        return CurrentFence->second.PendingBatchCount == 0;
-    });
-
-    FoundFence = mCopyTicketFenceStates.find(CopyTicket);
-    if (FoundFence == mCopyTicketFenceStates.end()) {
-        return CopyTicket;
-    }
-
-    return FoundFence->second.LastSubmitFenceValue;
+    std::array<std::uint64_t, 1> CopyTickets{ CopyTicket };
+    return ResolveCopyTicketsToFenceValue(CopyTickets);
 }
 
+std::uint64_t CopyQueue::ResolveCopyTicketsToFenceValue(std::span<const std::uint64_t> CopyTickets) const {
+    std::unique_lock<std::mutex> FenceGuard{ mFenceMutex };
+    mFenceCondition.wait(FenceGuard, [this, CopyTickets] {
+        for (std::uint64_t CopyTicket : CopyTickets) {
+            std::unordered_map<std::uint64_t, CopyTicketFenceState>::const_iterator CurrentFence{ mCopyTicketFenceStates.find(CopyTicket) };
+            if (CurrentFence != mCopyTicketFenceStates.end() and CurrentFence->second.PendingBatchCount > 0) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    std::uint64_t SubmitFenceValue{};
+    for (std::uint64_t CopyTicket : CopyTickets) {
+        std::unordered_map<std::uint64_t, CopyTicketFenceState>::const_iterator FoundFence{ mCopyTicketFenceStates.find(CopyTicket) };
+        if (FoundFence == mCopyTicketFenceStates.end()) {
+            SubmitFenceValue = std::max(SubmitFenceValue, CopyTicket);
+            continue;
+        }
+
+        SubmitFenceValue = std::max(SubmitFenceValue, FoundFence->second.LastSubmitFenceValue);
+    }
+
+    return SubmitFenceValue;
+}
 bool CopyQueue::HasPendingRequestBatchesLocked() const {
     for (const std::queue<CopyRequestBatch>& RequestBatchQueue : mPendingRequestBatchQueues) {
         if (RequestBatchQueue.empty() == false) {

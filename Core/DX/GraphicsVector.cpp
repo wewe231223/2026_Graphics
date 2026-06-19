@@ -8,16 +8,14 @@ GraphicsVector::GraphicsVector()
     mSizeInBytes{},
     mCapacityInBytes{},
     mResourceFlags{ D3D12_RESOURCE_FLAG_NONE },
-    mResourceState{ D3D12_RESOURCE_STATE_COMMON },
     mCopyRequestCreationCount{} {
 }
 
 
-GraphicsVector::GraphicsVector(GraphicsAllocator& graphicsAllocator, SizeType initialSizeInBytes, D3D12_RESOURCE_FLAGS resourceFlags, D3D12_RESOURCE_STATES initialState)
+GraphicsVector::GraphicsVector(GraphicsAllocator& GraphicsAllocator, SizeType InitialSizeInBytes, D3D12_RESOURCE_FLAGS ResourceFlags)
     : GraphicsVector{} {
-    Initialize(graphicsAllocator, initialSizeInBytes, resourceFlags, initialState);
+    Initialize(GraphicsAllocator, InitialSizeInBytes, ResourceFlags);
 }
-
 GraphicsVector::~GraphicsVector() {
     Reset();
 }
@@ -27,12 +25,10 @@ GraphicsVector::GraphicsVector(GraphicsVector&& other) noexcept
     mSizeInBytes{ other.mSizeInBytes },
     mCapacityInBytes{ other.mCapacityInBytes },
     mResourceFlags{ other.mResourceFlags },
-    mResourceState{ other.mResourceState },
     mCopyRequestCreationCount{ other.mCopyRequestCreationCount } {
     other.mSizeInBytes = 0;
     other.mCapacityInBytes = 0;
     other.mResourceFlags = D3D12_RESOURCE_FLAG_NONE;
-    other.mResourceState = D3D12_RESOURCE_STATE_COMMON;
     other.mCopyRequestCreationCount = 0;
 }
 
@@ -46,33 +42,29 @@ GraphicsVector& GraphicsVector::operator=(GraphicsVector&& other) noexcept {
     mSizeInBytes = other.mSizeInBytes;
     mCapacityInBytes = other.mCapacityInBytes;
     mResourceFlags = other.mResourceFlags;
-    mResourceState = other.mResourceState;
     mCopyRequestCreationCount = other.mCopyRequestCreationCount;
 
     other.mSizeInBytes = 0;
     other.mCapacityInBytes = 0;
     other.mResourceFlags = D3D12_RESOURCE_FLAG_NONE;
-    other.mResourceState = D3D12_RESOURCE_STATE_COMMON;
     other.mCopyRequestCreationCount = 0;
     return *this;
 }
 
-bool GraphicsVector::Initialize(GraphicsAllocator& graphicsAllocator, SizeType initialSizeInBytes, D3D12_RESOURCE_FLAGS resourceFlags, D3D12_RESOURCE_STATES initialState) {
+bool GraphicsVector::Initialize(GraphicsAllocator& GraphicsAllocator, SizeType InitialSizeInBytes, D3D12_RESOURCE_FLAGS ResourceFlags) {
     Reset();
 
-    mResourceFlags = resourceFlags;
-    mResourceState = initialState;
-    mSizeInBytes = initialSizeInBytes;
+    mResourceFlags = ResourceFlags;
+    mSizeInBytes = InitialSizeInBytes;
     mCopyRequestCreationCount = 0;
 
-    if (initialSizeInBytes == 0) {
+    if (InitialSizeInBytes == 0) {
         mCapacityInBytes = 0;
         return true;
     }
 
-    return Reallocate(graphicsAllocator, initialSizeInBytes);
+    return Reallocate(GraphicsAllocator, InitialSizeInBytes);
 }
-
 bool GraphicsVector::Resize(GraphicsAllocator& graphicsAllocator, SizeType sizeInBytes) {
     if (sizeInBytes > mCapacityInBytes) {
         bool reallocateResult{ Reallocate(graphicsAllocator, sizeInBytes) };
@@ -90,7 +82,6 @@ void GraphicsVector::Reset() {
     mSizeInBytes = 0;
     mCapacityInBytes = 0;
     mResourceFlags = D3D12_RESOURCE_FLAG_NONE;
-    mResourceState = D3D12_RESOURCE_STATE_COMMON;
     mCopyRequestCreationCount = 0;
 }
 
@@ -139,22 +130,6 @@ const AllocationHandle& GraphicsVector::GetAllocationHandle() const {
     return mAllocationHandle;
 }
 
-D3D12_RESOURCE_STATES GraphicsVector::GetResourceState() const {
-    return mResourceState;
-}
-
-D3D12_RESOURCE_BARRIER GraphicsVector::CreateTransitionBarrier(D3D12_RESOURCE_STATES nextState) {
-    D3D12_RESOURCE_BARRIER barrier{};
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-    barrier.Transition.pResource = mAllocationHandle.GetResource();
-    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    barrier.Transition.StateBefore = mResourceState;
-    barrier.Transition.StateAfter = nextState;
-    mResourceState = nextState;
-    return barrier;
-}
-
 GraphicsVector::SizeType GraphicsVector::GetSizeInBytes() const {
     return mSizeInBytes;
 }
@@ -195,7 +170,7 @@ bool GraphicsVector::Reallocate(GraphicsAllocator& graphicsAllocator, SizeType r
     resourceDescription.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
     resourceDescription.Flags = mResourceFlags;
 
-    Interface::AllocatePlacedResourceParameters allocationParameters{ resourceDescription, mResourceState, nullptr, L"GraphicsVector.Buffer" };
+    Interface::AllocatePlacedResourceParameters allocationParameters{ resourceDescription, D3D12_RESOURCE_STATE_COMMON, nullptr, L"GraphicsVector.Buffer" };
     AllocationHandle newAllocationHandle{ graphicsAllocator.AllocatePlacedResourceHandle(allocationParameters) };
     if (newAllocationHandle.IsValid() == false) {
         return false;

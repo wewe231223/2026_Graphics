@@ -16,7 +16,7 @@ namespace Core {
 
         public:
             GraphicsVector();
-            GraphicsVector(GraphicsAllocator& graphicsAllocator, SizeType initialSizeInBytes, D3D12_RESOURCE_FLAGS resourceFlags = D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COPY_DEST);
+            GraphicsVector(GraphicsAllocator& GraphicsAllocator, SizeType InitialSizeInBytes, D3D12_RESOURCE_FLAGS ResourceFlags = D3D12_RESOURCE_FLAG_NONE);
             ~GraphicsVector();
             GraphicsVector(const GraphicsVector& other) = delete;
             GraphicsVector& operator=(const GraphicsVector& other) = delete;
@@ -24,7 +24,7 @@ namespace Core {
             GraphicsVector& operator=(GraphicsVector&& other) noexcept;
 
         public:
-            bool Initialize(GraphicsAllocator& graphicsAllocator, SizeType initialSizeInBytes, D3D12_RESOURCE_FLAGS resourceFlags = D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COPY_DEST);
+            bool Initialize(GraphicsAllocator& GraphicsAllocator, SizeType InitialSizeInBytes, D3D12_RESOURCE_FLAGS ResourceFlags = D3D12_RESOURCE_FLAG_NONE);
             bool Resize(GraphicsAllocator& graphicsAllocator, SizeType sizeInBytes);
             void Reset();
 
@@ -35,9 +35,6 @@ namespace Core {
             bool IsValid() const;
             ID3D12Resource* GetResource() const;
             const AllocationHandle& GetAllocationHandle() const;
-            D3D12_RESOURCE_STATES GetResourceState() const;
-
-            D3D12_RESOURCE_BARRIER CreateTransitionBarrier(D3D12_RESOURCE_STATES nextState);
             SizeType GetSizeInBytes() const;
             SizeType GetCapacityInBytes() const;
 
@@ -55,8 +52,6 @@ namespace Core {
             SizeType mCapacityInBytes{};
 
             D3D12_RESOURCE_FLAGS mResourceFlags{};
-            D3D12_RESOURCE_STATES mResourceState{};
-
             uint64_t mCopyRequestCreationCount{};
         };
     }

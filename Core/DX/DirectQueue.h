@@ -94,7 +94,7 @@ namespace Core {
 			void BeginPostProcessFinalPass(std::uint32_t CurrentIndex, const std::array<ID3D12DescriptorHeap*, 1>& DescriptorHeaps, const Interface::Future& PostProcessFuture);
 			void CopyPostProcessToBackBuffer(const TexPtr& PostProcessTarget, const TexPtr& RenderTarget);
 			void DrawFinalOverlays(Game::RFD::RenderFrameData& Data, Widget::WidgetCore* WidgetCore, DrawCallResourceManager& DrawCallResources, D3D12_CPU_DESCRIPTOR_HANDLE Dsv, std::uint32_t CurrentIndex, std::uint32_t ShadowCascadeCount);
-			void FinishPresentTarget(const TexPtr& RenderTarget, DrawCallResourceManager& DrawCallResources, std::uint32_t CurrentIndex);
+			void FinishPresentTarget(const TexPtr& RenderTarget);
 			void ExecutePostProcessFinalPass();
 
 			ComPtr<IDXGIAdapter1> GetBestAdapter();

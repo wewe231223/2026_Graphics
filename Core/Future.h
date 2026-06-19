@@ -13,6 +13,7 @@ namespace Interface {
         virtual bool IsFutureComplete(std::uint64_t FutureTicket) const = 0;
         virtual void WaitFuture(std::uint64_t FutureTicket) const = 0;
         virtual void QueueWaitFuture(ID3D12CommandQueue* WaitingQueue, std::uint64_t FutureTicket) const = 0;
+        virtual void QueueWaitFutures(ID3D12CommandQueue* WaitingQueue, std::span<const std::uint64_t> FutureTickets) const;
     };
 
     class Future final {

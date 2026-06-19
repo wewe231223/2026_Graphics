@@ -82,38 +82,8 @@ namespace Core {
 			MaterialResourceManager::UpdateMaterialTextureTableShaderResourceView(RtvIndex, static_cast<std::uint32_t>(Data.materialTextureTable.size()));
 		}
 
-		void MaterialResourceManager::TransitionToShaderResource(ID3D12GraphicsCommandList* CommandList, std::uint32_t RtvIndex) {
-			if (mMaterialVector.IsValid() == true) {
-				D3D12_RESOURCE_BARRIER MaterialBarrier{ mMaterialVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
-				CommandList->ResourceBarrier(1, &MaterialBarrier);
-			}
-
-			GraphicsVector& MaterialTextureTableVector{ mPerFrameMaterialTextureTableVectors[RtvIndex] };
-			if (MaterialTextureTableVector.IsValid() == true) {
-				D3D12_RESOURCE_BARRIER MaterialTextureTableBarrier{ MaterialTextureTableVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE) };
-				CommandList->ResourceBarrier(1, &MaterialTextureTableBarrier);
-			}
-		}
-
-		void MaterialResourceManager::TransitionToCopyDestination(ID3D12GraphicsCommandList* CommandList, std::uint32_t RtvIndex) {
-			if (mMaterialVector.IsValid() == true) {
-				D3D12_RESOURCE_BARRIER MaterialBarrier{ mMaterialVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST) };
-				CommandList->ResourceBarrier(1, &MaterialBarrier);
-			}
-
-			GraphicsVector& MaterialTextureTableVector{ mPerFrameMaterialTextureTableVectors[RtvIndex] };
-			if (MaterialTextureTableVector.IsValid() == true) {
-				D3D12_RESOURCE_BARRIER MaterialTextureTableBarrier{ MaterialTextureTableVector.CreateTransitionBarrier(D3D12_RESOURCE_STATE_COPY_DEST) };
-				CommandList->ResourceBarrier(1, &MaterialTextureTableBarrier);
-			}
-		}
-
-		void MaterialResourceManager::QueueWaitForUpload(ID3D12CommandQueue* WaitingQueue, std::uint32_t RtvIndex) const {
-			if (mPerFrameCopyFutures[RtvIndex].IsValid() == false) {
-				return;
-			}
-
-			mPerFrameCopyFutures[RtvIndex].QueueWait(WaitingQueue);
+		const Interface::Future& MaterialResourceManager::GetCopyFuture(std::uint32_t RtvIndex) const {
+			return mPerFrameCopyFutures[RtvIndex];
 		}
 
 		DescriptorHandle MaterialResourceManager::GetMaterialSrvHandle() const {

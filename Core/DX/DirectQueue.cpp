@@ -157,9 +157,6 @@ namespace Core {
 			mCommandList->SetDescriptorHeaps(static_cast<UINT>(DescriptorHeaps.size()), DescriptorHeaps.data());
 
 			DrawCallResourceManager& DrawCallResources{ mDrawCallResourceManagers[CurrentIndex] };
-			mMaterialResourceManager.TransitionToShaderResource(mCommandList.Get(), static_cast<std::uint32_t>(CurrentIndex));
-			DrawCallResources.TransitionToShaderResource(mCommandList.Get());
-
 			EnsureShadowMapResources(Data.shadowMapping);
 			const std::uint32_t ShadowCascadeCount{ std::max<std::uint32_t>(1u, std::min<std::uint32_t>(Data.shadowMapping.cascadeCount, mShadowCascadeCount)) };
 			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
@@ -227,11 +224,10 @@ namespace Core {
 			PreparePostProcessJobResources(mCommandList.Get(), ToneMappingJob);
 
 			mCommandList->Close();
-			DrawCallResources.QueueWaitForUpload(mDirectCommandQueue.Get());
-			mMaterialResourceManager.QueueWaitForUpload(mDirectCommandQueue.Get(), static_cast<std::uint32_t>(CurrentIndex));
-			if (Data.mHasTerrainUploadFuture == true) {
-				Data.mTerrainUploadFuture.QueueWait(mDirectCommandQueue.Get());
-			}
+
+			std::array<Interface::Future, 3> UploadFutures{ DrawCallResources.GetCopyFuture(), mMaterialResourceManager.GetCopyFuture(static_cast<std::uint32_t>(CurrentIndex)), Data.mHasTerrainUploadFuture == true ? Data.mTerrainUploadFuture : Interface::Future{} };
+			Interface::Future UploadDependencyFuture{ Interface::Future::Merge(UploadFutures) };
+			QueueWaitFuture(UploadDependencyFuture);
 
 			ID3D12CommandList* MainCommandLists[]{ mCommandList.Get() };
 			mDirectCommandQueue->ExecuteCommandLists(_countof(MainCommandLists), MainCommandLists);
@@ -242,7 +238,7 @@ namespace Core {
 			BeginPostProcessFinalPass(CurrentIndex, DescriptorHeaps, PostProcessFuture);
 			CopyPostProcessToBackBuffer(PostProcessTarget, RenderTarget);
 			DrawFinalOverlays(Data, WidgetCore, DrawCallResources, Dsv, CurrentIndex, ShadowCascadeCount);
-			FinishPresentTarget(RenderTarget, DrawCallResources, CurrentIndex);
+			FinishPresentTarget(RenderTarget);
 			ExecutePostProcessFinalPass();
 
 			ErrorHandler::report(mSwapChain->Present(Constants::AllowTearing ? 0 : 1, Constants::AllowTearing ? DXGI_PRESENT_ALLOW_TEARING : 0), "DirectQueue", "Failed to present SwapChain.", ErrorHandler::Level::Critical);
@@ -620,13 +616,11 @@ namespace Core {
 			}
 		}
 
-		void DirectQueue::FinishPresentTarget(const TexPtr& RenderTarget, DrawCallResourceManager& DrawCallResources, std::uint32_t CurrentIndex) {
+		void DirectQueue::FinishPresentTarget(const TexPtr& RenderTarget) {
 			if (RenderTarget == nullptr) {
 				return;
 			}
 
-			DrawCallResources.TransitionToCopyDestination(mPostProcessCommandList.Get());
-			mMaterialResourceManager.TransitionToCopyDestination(mPostProcessCommandList.Get(), static_cast<std::uint32_t>(CurrentIndex));
 			RenderTarget->Transition(mPostProcessCommandList.Get(), D3D12_RESOURCE_STATE_PRESENT);
 		}
 
