@@ -18,11 +18,82 @@
 #include <utility>
 
 namespace {
+    constexpr std::uint32_t SnapshotWriterReservationBit{ 1U << 31U };
+
     PhysicsCommand CreateResetSceneCommand(std::uint32_t WorldVersion) {
         PhysicsCommand Command{};
         Command.mType = PhysicsCommandType::ResetScene;
         Command.mWorldVersion = WorldVersion;
         return Command;
+    }
+
+    const PhysicsActorSnapshot* FindPhysicsActorSnapshot(const PhysicsSnapshot& Snapshot, ActorId ActorIdValue) {
+        const std::vector<PhysicsActorSnapshot>::const_iterator SnapshotActorIterator{ std::lower_bound(Snapshot.mActors.begin(), Snapshot.mActors.end(), ActorIdValue, [](const PhysicsActorSnapshot& SnapshotActor, ActorId TargetActorId) {
+            return SnapshotActor.mActorId < TargetActorId;
+        }) };
+        if (SnapshotActorIterator == Snapshot.mActors.end() || SnapshotActorIterator->mActorId != ActorIdValue) {
+            return nullptr;
+        }
+
+        return &*SnapshotActorIterator;
+    }
+
+    PhysicsActorSnapshot InterpolatePhysicsActorSnapshot(const PhysicsActorSnapshot& PreviousActor, const PhysicsActorSnapshot& NextActor, float Alpha) {
+        if (PreviousActor.mActorId != NextActor.mActorId || PreviousActor.mActorType != NextActor.mActorType) {
+            return PreviousActor;
+        }
+
+        const float ClampedAlpha{ std::clamp(Alpha, 0.0F, 1.0F) };
+        PhysicsActorSnapshot InterpolatedActor{ PreviousActor };
+        InterpolatedActor.mIsActive = PreviousActor.mIsActive && NextActor.mIsActive;
+        InterpolatedActor.mPosition = DirectX::SimpleMath::Vector3::Lerp(PreviousActor.mPosition, NextActor.mPosition, ClampedAlpha);
+        InterpolatedActor.mOrientation = DirectX::SimpleMath::Quaternion::Slerp(PreviousActor.mOrientation, NextActor.mOrientation, ClampedAlpha);
+        InterpolatedActor.mOrientation.Normalize();
+        InterpolatedActor.mScale = DirectX::SimpleMath::Vector3::Lerp(PreviousActor.mScale, NextActor.mScale, ClampedAlpha);
+        InterpolatedActor.mVelocity = DirectX::SimpleMath::Vector3::Lerp(PreviousActor.mVelocity, NextActor.mVelocity, ClampedAlpha);
+
+        const DirectX::SimpleMath::Vector3 PreviousCenter{ PreviousActor.mWorldBoundingBox.Center };
+        const DirectX::SimpleMath::Vector3 NextCenter{ NextActor.mWorldBoundingBox.Center };
+        const DirectX::SimpleMath::Vector3 PreviousExtents{ PreviousActor.mWorldBoundingBox.Extents };
+        const DirectX::SimpleMath::Vector3 NextExtents{ NextActor.mWorldBoundingBox.Extents };
+        const DirectX::SimpleMath::Quaternion PreviousOrientation{ PreviousActor.mWorldBoundingBox.Orientation };
+        const DirectX::SimpleMath::Quaternion NextOrientation{ NextActor.mWorldBoundingBox.Orientation };
+        const DirectX::SimpleMath::Vector3 InterpolatedCenter{ DirectX::SimpleMath::Vector3::Lerp(PreviousCenter, NextCenter, ClampedAlpha) };
+        const DirectX::SimpleMath::Vector3 InterpolatedExtents{ DirectX::SimpleMath::Vector3::Lerp(PreviousExtents, NextExtents, ClampedAlpha) };
+        DirectX::SimpleMath::Quaternion InterpolatedBoundingBoxOrientation{ DirectX::SimpleMath::Quaternion::Slerp(PreviousOrientation, NextOrientation, ClampedAlpha) };
+        InterpolatedBoundingBoxOrientation.Normalize();
+        InterpolatedActor.mWorldBoundingBox.Center = DirectX::XMFLOAT3{ InterpolatedCenter.x, InterpolatedCenter.y, InterpolatedCenter.z };
+        InterpolatedActor.mWorldBoundingBox.Extents = DirectX::XMFLOAT3{ InterpolatedExtents.x, InterpolatedExtents.y, InterpolatedExtents.z };
+        InterpolatedActor.mWorldBoundingBox.Orientation = DirectX::XMFLOAT4{ InterpolatedBoundingBoxOrientation.x, InterpolatedBoundingBoxOrientation.y, InterpolatedBoundingBoxOrientation.z, InterpolatedBoundingBoxOrientation.w };
+        return InterpolatedActor;
+    }
+
+    void BuildInterpolatedPhysicsSnapshot(const PhysicsSnapshot& PreviousSnapshot, const PhysicsSnapshot& NextSnapshot, double RenderPhysicsTime, PhysicsSnapshot& OutSnapshot) {
+        const double TimeRange{ NextSnapshot.mSimulationTimeSeconds - PreviousSnapshot.mSimulationTimeSeconds };
+        const double RawAlpha{ TimeRange > 0.0 ? (RenderPhysicsTime - PreviousSnapshot.mSimulationTimeSeconds) / TimeRange : 0.0 };
+        const float Alpha{ static_cast<float>(std::clamp(RawAlpha, 0.0, 1.0)) };
+
+        OutSnapshot.mWorldVersion = PreviousSnapshot.mWorldVersion;
+        OutSnapshot.mStepIndex = NextSnapshot.mStepIndex;
+        OutSnapshot.mSimulationTimeSeconds = PreviousSnapshot.mSimulationTimeSeconds + (TimeRange * static_cast<double>(Alpha));
+        OutSnapshot.mPublishIndex = NextSnapshot.mPublishIndex;
+        OutSnapshot.mActorCount = PreviousSnapshot.mActorCount;
+        OutSnapshot.mTotalActorCount = NextSnapshot.mTotalActorCount;
+        OutSnapshot.mLastUpdateStepCount = NextSnapshot.mLastUpdateStepCount;
+        OutSnapshot.mLastUpdateStepElapsedMilliseconds = NextSnapshot.mLastUpdateStepElapsedMilliseconds;
+        OutSnapshot.mLastStepElapsedMilliseconds = NextSnapshot.mLastStepElapsedMilliseconds;
+        OutSnapshot.mActors.clear();
+        OutSnapshot.mActors.reserve(PreviousSnapshot.mActors.size());
+
+        for (const PhysicsActorSnapshot& PreviousActor : PreviousSnapshot.mActors) {
+            const PhysicsActorSnapshot* NextActor{ FindPhysicsActorSnapshot(NextSnapshot, PreviousActor.mActorId) };
+            if (NextActor == nullptr) {
+                OutSnapshot.mActors.push_back(PreviousActor);
+                continue;
+            }
+
+            OutSnapshot.mActors.push_back(InterpolatePhysicsActorSnapshot(PreviousActor, *NextActor, Alpha));
+        }
     }
 }
 
@@ -32,8 +103,8 @@ PhysicsRuntime::PhysicsRuntime()
       mPhysicsWorld{},
       mCurrentWorldVersion{ 1U },
       mSnapshotBuffers{},
-      mSnapshotMutex{},
-      mReadableSnapshotIndex{},
+      mPublishedSnapshotIndex{ InvalidSnapshotBufferIndex },
+      mPreviousSnapshotIndex{ InvalidSnapshotBufferIndex },
       mWriteSnapshotIndex{ 1U },
       mCommandQueue{},
       mCoalescedResetCommand{},
@@ -69,30 +140,11 @@ bool PhysicsRuntime::Initialize(const PhysicsRuntimeScene& SceneTemplate, const 
 
     mCurrentWorldVersion = InitialWorldVersion;
 
-    std::size_t MaxActorCount{ mSceneTemplate.mActorSpawnInfos.size() };
-
-    {
-        std::lock_guard<std::mutex> SnapshotLock{ mSnapshotMutex };
-        for (std::size_t BufferIndex{ 0U }; BufferIndex < SnapshotBufferCount; ++BufferIndex) {
-            PhysicsSnapshot& CurrentBuffer{ mSnapshotBuffers[BufferIndex] };
-            CurrentBuffer.mWorldVersion = mCurrentWorldVersion;
-            CurrentBuffer.mStepIndex = 0U;
-            CurrentBuffer.mSimulationTimeSeconds = 0.0;
-            CurrentBuffer.mPublishIndex = 0U;
-            CurrentBuffer.mActorCount = 0U;
-            CurrentBuffer.mLastUpdateStepCount = 0U;
-            CurrentBuffer.mLastUpdateStepElapsedMilliseconds = 0.0;
-            CurrentBuffer.mLastStepElapsedMilliseconds = 0.0;
-            CurrentBuffer.mActors.clear();
-            CurrentBuffer.mActors.resize(MaxActorCount);
-        }
-    }
+    ResetSnapshotBuffers();
 
     mLatestStepIndex.store(0U, std::memory_order_release);
     mLatestSimulationTimeSeconds.store(0.0, std::memory_order_release);
     mPublishedSnapshotCount.store(0U, std::memory_order_release);
-    mReadableSnapshotIndex.store(0U, std::memory_order_release);
-    mWriteSnapshotIndex = 1U;
     mCoalescedResetCommand.store(0U, std::memory_order_release);
     mHasCoalescedResetCommand.store(false, std::memory_order_release);
     {
@@ -144,102 +196,40 @@ void PhysicsRuntime::PublishKinematicStates(const std::vector<PhysicsKinematicRu
     mPublishedKinematicStates = KinematicStates;
 }
 
-std::uint32_t PhysicsRuntime::GetReadableSnapshotIndex() const {
-    std::uint32_t ReadableSnapshotIndex{ mReadableSnapshotIndex.load(std::memory_order_acquire) };
-    return ReadableSnapshotIndex;
-}
-
-const PhysicsSnapshot& PhysicsRuntime::GetSnapshot(std::uint32_t SnapshotIndex) const {
-    static thread_local PhysicsSnapshot SnapshotCopy{};
-    std::lock_guard<std::mutex> SnapshotLock{ mSnapshotMutex };
-    if (SnapshotIndex >= SnapshotBufferCount) {
-        std::uint32_t ReadableSnapshotIndex{ mReadableSnapshotIndex.load(std::memory_order_acquire) };
-        SnapshotCopy = mSnapshotBuffers[ReadableSnapshotIndex];
-        return SnapshotCopy;
-    }
-
-    SnapshotCopy = mSnapshotBuffers[SnapshotIndex];
-    return SnapshotCopy;
-}
-
-bool PhysicsRuntime::TryGetSnapshotPairForTime(double RenderPhysicsTime, PhysicsSnapshot& OutPrevious, PhysicsSnapshot& OutNext, float& OutAlpha) const {
-    std::array<const PhysicsSnapshot*, SnapshotBufferCount> CandidateSnapshots{};
-    std::size_t CandidateCount{};
-
-    {
-        std::lock_guard<std::mutex> SnapshotLock{ mSnapshotMutex };
-        std::uint32_t ReadableSnapshotIndex{ mReadableSnapshotIndex.load(std::memory_order_acquire) };
-        const PhysicsSnapshot& LatestSnapshot{ mSnapshotBuffers[ReadableSnapshotIndex] };
-        if (LatestSnapshot.mPublishIndex == 0U) {
+bool PhysicsRuntime::CopyInterpolatedSnapshotForTime(double RenderPhysicsTime, PhysicsSnapshot& OutSnapshot) const {
+    constexpr std::size_t MaximumAttemptCount{ 3U };
+    for (std::size_t AttemptIndex{}; AttemptIndex < MaximumAttemptCount; ++AttemptIndex) {
+        PhysicsSnapshotReadHandle LatestHandle{};
+        if (TryAcquireSnapshotBuffer(mPublishedSnapshotIndex, LatestHandle) == false) {
             return false;
         }
 
-        std::uint32_t LatestWorldVersion{ LatestSnapshot.mWorldVersion };
-        for (std::size_t BufferIndex{ 0U }; BufferIndex < SnapshotBufferCount; ++BufferIndex) {
-            const PhysicsSnapshot& CandidateSnapshot{ mSnapshotBuffers[BufferIndex] };
-            if (CandidateSnapshot.mPublishIndex == 0U || CandidateSnapshot.mWorldVersion != LatestWorldVersion) {
-                continue;
+        PhysicsSnapshotReadHandle PreviousHandle{};
+        const bool HasPreviousSnapshot{ TryAcquireSnapshotBuffer(mPreviousSnapshotIndex, PreviousHandle) };
+        const std::uint32_t LatestSnapshotIndex{ mPublishedSnapshotIndex.load(std::memory_order_acquire) };
+        const std::uint32_t PreviousSnapshotIndex{ mPreviousSnapshotIndex.load(std::memory_order_acquire) };
+        const bool IsCurrentPair{ LatestHandle.mBufferIndex == LatestSnapshotIndex && (HasPreviousSnapshot == false || PreviousHandle.mBufferIndex == PreviousSnapshotIndex) };
+        if (IsCurrentPair == true) {
+            if (HasPreviousSnapshot == false) {
+                OutSnapshot = *LatestHandle.mSnapshot;
+                ReleaseSnapshotBuffer(LatestHandle);
+                return OutSnapshot.mPublishIndex != 0U;
             }
 
-            CandidateSnapshots[CandidateCount] = &CandidateSnapshot;
-            ++CandidateCount;
+            BuildInterpolatedPhysicsSnapshot(*PreviousHandle.mSnapshot, *LatestHandle.mSnapshot, RenderPhysicsTime, OutSnapshot);
+            ReleaseSnapshotBuffer(PreviousHandle);
+            ReleaseSnapshotBuffer(LatestHandle);
+            return OutSnapshot.mPublishIndex != 0U;
         }
 
-        if (CandidateCount == 0U) {
-            return false;
+        if (HasPreviousSnapshot == true) {
+            ReleaseSnapshotBuffer(PreviousHandle);
         }
 
-        std::sort(CandidateSnapshots.begin(), CandidateSnapshots.begin() + CandidateCount, [](const PhysicsSnapshot* Left, const PhysicsSnapshot* Right) {
-            if (Left->mSimulationTimeSeconds == Right->mSimulationTimeSeconds) {
-                return Left->mPublishIndex < Right->mPublishIndex;
-            }
-
-            return Left->mSimulationTimeSeconds < Right->mSimulationTimeSeconds;
-        });
-
-        if (CandidateCount == 1U) {
-            OutPrevious = *CandidateSnapshots[0U];
-            OutNext = *CandidateSnapshots[0U];
-            OutAlpha = 0.0F;
-            return true;
-        }
-
-        const PhysicsSnapshot* PreviousSnapshot{ CandidateSnapshots[0U] };
-        const PhysicsSnapshot* NextSnapshot{ CandidateSnapshots[1U] };
-        if (RenderPhysicsTime <= CandidateSnapshots[0U]->mSimulationTimeSeconds) {
-            PreviousSnapshot = CandidateSnapshots[0U];
-            NextSnapshot = CandidateSnapshots[1U];
-        } else if (RenderPhysicsTime >= CandidateSnapshots[CandidateCount - 1U]->mSimulationTimeSeconds) {
-            PreviousSnapshot = CandidateSnapshots[CandidateCount - 2U];
-            NextSnapshot = CandidateSnapshots[CandidateCount - 1U];
-        } else {
-            for (std::size_t CandidateIndex{ 0U }; CandidateIndex + 1U < CandidateCount; ++CandidateIndex) {
-                const PhysicsSnapshot* CurrentPrevious{ CandidateSnapshots[CandidateIndex] };
-                const PhysicsSnapshot* CurrentNext{ CandidateSnapshots[CandidateIndex + 1U] };
-                if (RenderPhysicsTime < CurrentPrevious->mSimulationTimeSeconds || RenderPhysicsTime > CurrentNext->mSimulationTimeSeconds) {
-                    continue;
-                }
-
-                PreviousSnapshot = CurrentPrevious;
-                NextSnapshot = CurrentNext;
-                break;
-            }
-        }
-
-        OutPrevious = *PreviousSnapshot;
-        OutNext = *NextSnapshot;
+        ReleaseSnapshotBuffer(LatestHandle);
     }
 
-    double TimeRange{ OutNext.mSimulationTimeSeconds - OutPrevious.mSimulationTimeSeconds };
-    if (TimeRange <= 0.0) {
-        OutAlpha = 0.0F;
-        return true;
-    }
-
-    double Alpha{ (RenderPhysicsTime - OutPrevious.mSimulationTimeSeconds) / TimeRange };
-    Alpha = std::clamp(Alpha, 0.0, 1.0);
-    OutAlpha = static_cast<float>(Alpha);
-    return true;
+    return false;
 }
 
 bool PhysicsRuntime::IsRunning() const {
@@ -284,6 +274,93 @@ bool PhysicsRuntime::TryConsumeCoalescedResetCommand(PhysicsCommand& OutCommand)
     std::uint64_t PackedCommand{ mCoalescedResetCommand.load(std::memory_order_acquire) };
     OutCommand = UnpackResetSceneCommand(PackedCommand);
     return true;
+}
+
+bool PhysicsRuntime::TryAcquireSnapshotBuffer(const std::atomic<std::uint32_t>& PublishedSnapshotIndex, PhysicsSnapshotReadHandle& OutHandle) const {
+    while (true) {
+        const std::uint32_t BufferIndex{ PublishedSnapshotIndex.load(std::memory_order_acquire) };
+        if (BufferIndex == InvalidSnapshotBufferIndex || BufferIndex >= SnapshotBufferCount) {
+            return false;
+        }
+
+        const PhysicsSnapshotBuffer& Buffer{ mSnapshotBuffers[BufferIndex] };
+        std::uint32_t ReaderCount{ Buffer.mReaderCount.load(std::memory_order_acquire) };
+        while ((ReaderCount & SnapshotWriterReservationBit) == 0U) {
+            if (Buffer.mReaderCount.compare_exchange_weak(ReaderCount, ReaderCount + 1U, std::memory_order_acq_rel, std::memory_order_acquire) == false) {
+                continue;
+            }
+
+            const std::uint64_t Version{ Buffer.mVersion.load(std::memory_order_acquire) };
+            if (PublishedSnapshotIndex.load(std::memory_order_acquire) == BufferIndex && Version != 0U) {
+                OutHandle.mSnapshot = &Buffer.mSnapshot;
+                OutHandle.mBufferIndex = BufferIndex;
+                OutHandle.mVersion = Version;
+                return true;
+            }
+
+            Buffer.mReaderCount.fetch_sub(1U, std::memory_order_release);
+            break;
+        }
+    }
+}
+
+void PhysicsRuntime::ReleaseSnapshotBuffer(PhysicsSnapshotReadHandle& Handle) const {
+    if (Handle.mBufferIndex < SnapshotBufferCount) {
+        PhysicsSnapshotBuffer& Buffer{ mSnapshotBuffers[Handle.mBufferIndex] };
+        Buffer.mReaderCount.fetch_sub(1U, std::memory_order_release);
+    }
+
+    Handle = PhysicsSnapshotReadHandle{};
+}
+
+bool PhysicsRuntime::TrySelectWriteSnapshotBuffer(std::uint32_t& OutBufferIndex) {
+    const std::uint32_t PublishedSnapshotIndex{ mPublishedSnapshotIndex.load(std::memory_order_acquire) };
+    const std::uint32_t PreviousSnapshotIndex{ mPreviousSnapshotIndex.load(std::memory_order_acquire) };
+    for (std::size_t Offset{}; Offset < SnapshotBufferCount; ++Offset) {
+        const std::uint32_t BufferIndex{ static_cast<std::uint32_t>((static_cast<std::size_t>(mWriteSnapshotIndex) + Offset) % SnapshotBufferCount) };
+        if (BufferIndex == PublishedSnapshotIndex || BufferIndex == PreviousSnapshotIndex) {
+            continue;
+        }
+
+        PhysicsSnapshotBuffer& Buffer{ mSnapshotBuffers[BufferIndex] };
+        std::uint32_t ExpectedReaderCount{};
+        if (Buffer.mReaderCount.compare_exchange_strong(ExpectedReaderCount, SnapshotWriterReservationBit, std::memory_order_acq_rel, std::memory_order_acquire) == false) {
+            continue;
+        }
+
+        OutBufferIndex = BufferIndex;
+        return true;
+    }
+
+    return false;
+}
+
+void PhysicsRuntime::ResetSnapshotBuffers() {
+    mPublishedSnapshotIndex.store(InvalidSnapshotBufferIndex, std::memory_order_release);
+    mPreviousSnapshotIndex.store(InvalidSnapshotBufferIndex, std::memory_order_release);
+
+    for (PhysicsSnapshotBuffer& Buffer : mSnapshotBuffers) {
+        while (Buffer.mReaderCount.load(std::memory_order_acquire) != 0U) {
+            std::this_thread::yield();
+        }
+
+        Buffer.mReaderCount.store(SnapshotWriterReservationBit, std::memory_order_release);
+        PhysicsSnapshot& Snapshot{ Buffer.mSnapshot };
+        Snapshot.mWorldVersion = mCurrentWorldVersion;
+        Snapshot.mStepIndex = 0U;
+        Snapshot.mSimulationTimeSeconds = 0.0;
+        Snapshot.mPublishIndex = 0U;
+        Snapshot.mActorCount = 0U;
+        Snapshot.mTotalActorCount = 0U;
+        Snapshot.mLastUpdateStepCount = 0U;
+        Snapshot.mLastUpdateStepElapsedMilliseconds = 0.0;
+        Snapshot.mLastStepElapsedMilliseconds = 0.0;
+        Snapshot.mActors.clear();
+        Buffer.mVersion.store(0U, std::memory_order_release);
+        Buffer.mReaderCount.store(0U, std::memory_order_release);
+    }
+
+    mWriteSnapshotIndex = 0U;
 }
 
 void PhysicsRuntime::RunPhysicsThread() {
@@ -422,23 +499,7 @@ void PhysicsRuntime::ApplyResetSceneCommand(const PhysicsCommand& Command, doubl
 
     mKinematicStateScratch.clear();
 
-    {
-        std::lock_guard<std::mutex> SnapshotLock{ mSnapshotMutex };
-        for (std::size_t BufferIndex{ 0U }; BufferIndex < SnapshotBufferCount; ++BufferIndex) {
-            PhysicsSnapshot& CurrentBuffer{ mSnapshotBuffers[BufferIndex] };
-            CurrentBuffer.mWorldVersion = mCurrentWorldVersion;
-            CurrentBuffer.mStepIndex = 0U;
-            CurrentBuffer.mSimulationTimeSeconds = 0.0;
-            CurrentBuffer.mPublishIndex = 0U;
-            CurrentBuffer.mActorCount = 0U;
-            CurrentBuffer.mLastUpdateStepCount = 0U;
-            CurrentBuffer.mLastUpdateStepElapsedMilliseconds = 0.0;
-            CurrentBuffer.mLastStepElapsedMilliseconds = 0.0;
-        }
-
-        mReadableSnapshotIndex.store(0U, std::memory_order_release);
-        mWriteSnapshotIndex = 0U;
-    }
+    ResetSnapshotBuffers();
 
     PublishSnapshot(0U, 0.0, 0.0);
 }
@@ -697,8 +758,13 @@ void PhysicsRuntime::BuildWorldFromScene() {
 }
 
 void PhysicsRuntime::PublishSnapshot(std::size_t LastUpdateStepCount, double LastUpdateStepElapsedMilliseconds, double LastStepElapsedMilliseconds) {
-    std::lock_guard<std::mutex> SnapshotLock{ mSnapshotMutex };
-    PhysicsSnapshot& WriteBuffer{ mSnapshotBuffers[mWriteSnapshotIndex] };
+    std::uint32_t WriteBufferIndex{};
+    if (TrySelectWriteSnapshotBuffer(WriteBufferIndex) == false) {
+        return;
+    }
+
+    PhysicsSnapshotBuffer& SnapshotBuffer{ mSnapshotBuffers[WriteBufferIndex] };
+    PhysicsSnapshot& WriteBuffer{ SnapshotBuffer.mSnapshot };
     WriteBuffer.mWorldVersion = mCurrentWorldVersion;
     WriteBuffer.mStepIndex = mLatestStepIndex.load(std::memory_order_acquire);
     WriteBuffer.mSimulationTimeSeconds = mLatestSimulationTimeSeconds.load(std::memory_order_acquire);
@@ -708,88 +774,35 @@ void PhysicsRuntime::PublishSnapshot(std::size_t LastUpdateStepCount, double Las
     WriteBuffer.mLastStepElapsedMilliseconds = LastStepElapsedMilliseconds;
 
     const std::size_t ActorCount{ mPhysicsWorld.GetActorCount() };
-    if (ActorCount > WriteBuffer.mActors.size()) {
-        for (PhysicsSnapshot& SnapshotBuffer : mSnapshotBuffers) {
-            SnapshotBuffer.mActors.resize(ActorCount);
-        }
-    }
-
-    WriteBuffer.mActorCount = ActorCount;
+    WriteBuffer.mTotalActorCount = ActorCount;
+    WriteBuffer.mActors.clear();
     for (std::size_t ActorIndex{ 0U }; ActorIndex < ActorCount; ++ActorIndex) {
         const PhysicsActorBase* CurrentActor{ mPhysicsWorld.GetActor(ActorIndex) };
-        PhysicsActorSnapshot& SnapshotActor{ WriteBuffer.mActors[ActorIndex] };
-        if (CurrentActor == nullptr) {
-            SnapshotActor = PhysicsActorSnapshot{};
+        if (CurrentActor == nullptr || CurrentActor->GetActorType() != PhysicsActorBase::PhysicsActorType::Dynamic) {
             continue;
         }
 
+        PhysicsActorSnapshot SnapshotActor{};
         SnapshotActor.mActorId = static_cast<ActorId>(ActorIndex);
-        SnapshotActor.mActorType = CurrentActor->GetActorType();
+        SnapshotActor.mActorType = PhysicsActorBase::PhysicsActorType::Dynamic;
         SnapshotActor.mIsActive = CurrentActor->GetIsActive();
-        SnapshotActor.mVelocity = DirectX::SimpleMath::Vector3{};
-
-        if (CurrentActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Dynamic) {
-            const PhysicsDynamicActor* DynamicActor{ static_cast<const PhysicsDynamicActor*>(CurrentActor) };
-            SnapshotActor.mPosition = DynamicActor->GetPosition();
-            SnapshotActor.mOrientation = DynamicActor->GetOrientation();
-            SnapshotActor.mScale = DynamicActor->GetScale();
-            SnapshotActor.mVelocity = DynamicActor->GetVelocity();
-            SnapshotActor.mWorldBoundingBox = DynamicActor->GetWorldBoundingBox();
-            continue;
-        }
-
-        if (CurrentActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Kinematic) {
-            const PhysicsKinematicActor* KinematicActor{ static_cast<const PhysicsKinematicActor*>(CurrentActor) };
-            SnapshotActor.mPosition = KinematicActor->GetPosition();
-            SnapshotActor.mOrientation = KinematicActor->GetOrientation();
-            SnapshotActor.mScale = KinematicActor->GetScale();
-            SnapshotActor.mVelocity = KinematicActor->GetVelocity();
-            SnapshotActor.mWorldBoundingBox = KinematicActor->GetWorldBoundingBox();
-            continue;
-        }
-
-        const PhysicsTerrainActor* TerrainActor{ mPhysicsWorld.GetTerrainActor(ActorIndex) };
-        if (TerrainActor != nullptr) {
-            PhysicsTerrainActor::ActorDesc TerrainActorDesc{ TerrainActor->GetActorDesc() };
-            SnapshotActor.mPosition = TerrainActorDesc.Position;
-            SnapshotActor.mOrientation = TerrainActor->GetOrientation();
-            SnapshotActor.mScale = TerrainActorDesc.Scale;
-
-            DirectX::BoundingOrientedBox TerrainWorldBoundingBox{};
-            TerrainWorldBoundingBox.Center = DirectX::XMFLOAT3{ TerrainActorDesc.Position.x, TerrainActorDesc.Position.y, TerrainActorDesc.Position.z };
-            float WorldExtentX{ std::abs(TerrainActorDesc.HalfExtentX * TerrainActorDesc.Scale.x) };
-            float WorldExtentZ{ std::abs(TerrainActorDesc.HalfExtentZ * TerrainActorDesc.Scale.z) };
-            float WorldExtentY{ std::max(std::abs(TerrainActorDesc.HeightFieldMaxHeight * TerrainActorDesc.Scale.y), 0.5F) };
-            TerrainWorldBoundingBox.Extents = DirectX::XMFLOAT3{ WorldExtentX, WorldExtentY, WorldExtentZ };
-            TerrainWorldBoundingBox.Orientation = DirectX::XMFLOAT4{ SnapshotActor.mOrientation.x, SnapshotActor.mOrientation.y, SnapshotActor.mOrientation.z, SnapshotActor.mOrientation.w };
-            SnapshotActor.mWorldBoundingBox = TerrainWorldBoundingBox;
-            continue;
-        }
-
-        if (CurrentActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Static) {
-            SnapshotActor.mPosition = CurrentActor->GetPosition();
-            SnapshotActor.mOrientation = CurrentActor->GetOrientation();
-            SnapshotActor.mScale = CurrentActor->GetScale();
-            SnapshotActor.mWorldBoundingBox = CurrentActor->GetWorldBoundingBox();
-            continue;
-        }
-
-        SnapshotActor.mPosition = DirectX::SimpleMath::Vector3{};
-        SnapshotActor.mOrientation = DirectX::SimpleMath::Quaternion{ 0.0F, 0.0F, 0.0F, 1.0F };
-        SnapshotActor.mScale = DirectX::SimpleMath::Vector3{ 1.0F, 1.0F, 1.0F };
-        SnapshotActor.mVelocity = DirectX::SimpleMath::Vector3{};
-        SnapshotActor.mWorldBoundingBox = DirectX::BoundingOrientedBox{};
+        const PhysicsDynamicActor* DynamicActor{ static_cast<const PhysicsDynamicActor*>(CurrentActor) };
+        SnapshotActor.mPosition = DynamicActor->GetPosition();
+        SnapshotActor.mOrientation = DynamicActor->GetOrientation();
+        SnapshotActor.mScale = DynamicActor->GetScale();
+        SnapshotActor.mVelocity = DynamicActor->GetVelocity();
+        SnapshotActor.mWorldBoundingBox = DynamicActor->GetWorldBoundingBox();
+        WriteBuffer.mActors.push_back(SnapshotActor);
     }
 
-    mReadableSnapshotIndex.store(mWriteSnapshotIndex, std::memory_order_release);
+    WriteBuffer.mActorCount = WriteBuffer.mActors.size();
+    SnapshotBuffer.mVersion.store(WriteBuffer.mPublishIndex, std::memory_order_release);
 
-    std::uint32_t NextWriteIndex{ (mWriteSnapshotIndex + 1U) % static_cast<std::uint32_t>(SnapshotBufferCount) };
-    std::uint32_t ReadableSnapshotIndex{ mReadableSnapshotIndex.load(std::memory_order_acquire) };
-    if (NextWriteIndex == ReadableSnapshotIndex) {
-        NextWriteIndex = (NextWriteIndex + 1U) % static_cast<std::uint32_t>(SnapshotBufferCount);
-    }
-
-    mWriteSnapshotIndex = NextWriteIndex;
+    const std::uint32_t PreviousSnapshotIndex{ mPublishedSnapshotIndex.load(std::memory_order_acquire) };
+    mPreviousSnapshotIndex.store(PreviousSnapshotIndex, std::memory_order_release);
+    mPublishedSnapshotIndex.store(WriteBufferIndex, std::memory_order_release);
+    SnapshotBuffer.mReaderCount.store(0U, std::memory_order_release);
+    mWriteSnapshotIndex = static_cast<std::uint32_t>((static_cast<std::size_t>(WriteBufferIndex) + 1U) % SnapshotBufferCount);
 }
 
 

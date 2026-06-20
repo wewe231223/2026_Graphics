@@ -87,6 +87,10 @@ namespace Game {
     }
 
     void PhysicsActor::SetVelocity(const DirectX::SimpleMath::Vector3& Velocity) {
+        if (mActorType == PhysicsActorBase::PhysicsActorType::Static) {
+            return;
+        }
+
         mPendingSetVelocity = Velocity;
         mHasPendingSetVelocity = true;
         mCachedVelocity = Velocity;

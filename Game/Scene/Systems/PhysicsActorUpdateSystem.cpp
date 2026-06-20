@@ -1,5 +1,6 @@
 #include "PhysicsActorUpdateSystem.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include "Game/Scene/Components/BoundingBox.h"
@@ -64,17 +65,14 @@ namespace {
             return nullptr;
         }
 
-        const std::size_t SnapshotActorIndex{ static_cast<std::size_t>(PhysicsActorId) };
-        if (SnapshotActorIndex >= Snapshot.mActorCount || SnapshotActorIndex >= Snapshot.mActors.size()) {
+        const std::vector<PhysicsActorSnapshot>::const_iterator SnapshotActorIterator{ std::lower_bound(Snapshot.mActors.begin(), Snapshot.mActors.end(), static_cast<ActorId>(PhysicsActorId), [](const PhysicsActorSnapshot& SnapshotActor, ActorId TargetActorId) {
+            return SnapshotActor.mActorId < TargetActorId;
+        }) };
+        if (SnapshotActorIterator == Snapshot.mActors.end() || SnapshotActorIterator->mActorId != static_cast<ActorId>(PhysicsActorId)) {
             return nullptr;
         }
 
-        const PhysicsActorSnapshot& SnapshotActor{ Snapshot.mActors[SnapshotActorIndex] };
-        if (SnapshotActor.mActorId != static_cast<ActorId>(PhysicsActorId)) {
-            return nullptr;
-        }
-
-        return &SnapshotActor;
+        return &*SnapshotActorIterator;
     }
 }
 
@@ -102,38 +100,54 @@ namespace Game {
 
         if (Ctx.IsPhysicsRuntimeModeEnabled == true) {
             const PhysicsSnapshot* PhysicsSnapshotResource{ Ctx.PhysicsSnapshotResource };
-            for (auto [PhysicsActorComponent, TransformComponent, EntityHierarchyComponent] : World.Query<PhysicsActor, Transform, EntityHierarchy>()) {
-                if (PhysicsActorComponent.mActorType == PhysicsActorBase::PhysicsActorType::Kinematic) {
-                    ApplySceneKinematicCache(World, PhysicsActorComponent, TransformComponent, EntityHierarchyComponent);
+            const std::vector<Arche::EntityID>* PhysicsSynchronizationEntityIds{ Ctx.PhysicsSynchronizationEntityIds };
+            if (PhysicsSynchronizationEntityIds == nullptr) {
+                return;
+            }
+
+            for (Arche::EntityID EntityId : *PhysicsSynchronizationEntityIds) {
+                PhysicsActor* PhysicsActorComponent{ World.GetComponent<PhysicsActor>(EntityId) };
+                Transform* TransformComponent{ World.GetComponent<Transform>(EntityId) };
+                EntityHierarchy* EntityHierarchyComponent{ World.GetComponent<EntityHierarchy>(EntityId) };
+                if (PhysicsActorComponent == nullptr || TransformComponent == nullptr || EntityHierarchyComponent == nullptr) {
+                    continue;
+                }
+
+                if (PhysicsActorComponent->mActorType == PhysicsActorBase::PhysicsActorType::Static) {
+                    continue;
+                }
+
+                if (PhysicsActorComponent->mActorType == PhysicsActorBase::PhysicsActorType::Kinematic) {
+                    ApplySceneKinematicCache(World, *PhysicsActorComponent, *TransformComponent, *EntityHierarchyComponent);
                     continue;
                 }
 
                 if (PhysicsSnapshotResource == nullptr) {
-                    ApplyCachedPhysicsActorSnapshot(World, PhysicsActorComponent, TransformComponent, EntityHierarchyComponent);
+                    ApplyCachedPhysicsActorSnapshot(World, *PhysicsActorComponent, *TransformComponent, *EntityHierarchyComponent);
                     continue;
                 }
 
-                const PhysicsActorSnapshot* SnapshotActor{ TryResolvePhysicsActorSnapshot(*PhysicsSnapshotResource, PhysicsActorComponent) };
+                const PhysicsActorSnapshot* SnapshotActor{ TryResolvePhysicsActorSnapshot(*PhysicsSnapshotResource, *PhysicsActorComponent) };
                 if (SnapshotActor != nullptr && SnapshotActor->mActorType == PhysicsActorBase::PhysicsActorType::Kinematic) {
-                    PhysicsActorComponent.mActorType = PhysicsActorBase::PhysicsActorType::Kinematic;
-                    ApplySceneKinematicCache(World, PhysicsActorComponent, TransformComponent, EntityHierarchyComponent);
+                    PhysicsActorComponent->mActorType = PhysicsActorBase::PhysicsActorType::Kinematic;
+                    ApplySceneKinematicCache(World, *PhysicsActorComponent, *TransformComponent, *EntityHierarchyComponent);
                     continue;
                 }
 
                 if (SnapshotActor == nullptr) {
-                    ApplyCachedPhysicsActorSnapshot(World, PhysicsActorComponent, TransformComponent, EntityHierarchyComponent);
+                    ApplyCachedPhysicsActorSnapshot(World, *PhysicsActorComponent, *TransformComponent, *EntityHierarchyComponent);
                     continue;
                 }
 
-                PhysicsActorComponent.mActorType = SnapshotActor->mActorType;
-                UpdatePhysicsActorCachedSnapshot(PhysicsActorComponent, SnapshotActor->mPosition, SnapshotActor->mOrientation, SnapshotActor->mScale, SnapshotActor->mVelocity, SnapshotActor->mWorldBoundingBox);
+                PhysicsActorComponent->mActorType = SnapshotActor->mActorType;
+                UpdatePhysicsActorCachedSnapshot(*PhysicsActorComponent, SnapshotActor->mPosition, SnapshotActor->mOrientation, SnapshotActor->mScale, SnapshotActor->mVelocity, SnapshotActor->mWorldBoundingBox);
 
-                TransformComponent.position = SnapshotActor->mPosition;
-                TransformComponent.rotation = SnapshotActor->mOrientation;
-                TransformComponent.scale = SnapshotActor->mScale;
-                TransformComponent.UpdateEulerRadiansFromRotation();
+                TransformComponent->position = SnapshotActor->mPosition;
+                TransformComponent->rotation = SnapshotActor->mOrientation;
+                TransformComponent->scale = SnapshotActor->mScale;
+                TransformComponent->UpdateEulerRadiansFromRotation();
 
-                BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityHierarchyComponent.self) };
+                BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityHierarchyComponent->self) };
                 if (BoundingBoxComponent != nullptr) {
                     BoundingBoxComponent->SetWorldObb(SnapshotActor->mWorldBoundingBox);
                 }
@@ -143,11 +157,22 @@ namespace Game {
         }
 
         const IPhysicsWorld* PhysicsWorldResource{ Ctx.PhysicsWorldResource };
+        const std::vector<Arche::EntityID>* PhysicsSynchronizationEntityIds{ Ctx.PhysicsSynchronizationEntityIds };
+        if (PhysicsSynchronizationEntityIds == nullptr) {
+            return;
+        }
 
-        for (auto [PhysicsActorComponent, TransformComponent, EntityHierarchyComponent] : World.Query<PhysicsActor, Transform, EntityHierarchy>()) {
-            PhysicsActorBase* ActorPointer{ PhysicsActorComponent.mActorPointer };
+        for (Arche::EntityID EntityId : *PhysicsSynchronizationEntityIds) {
+            PhysicsActor* PhysicsActorComponent{ World.GetComponent<PhysicsActor>(EntityId) };
+            Transform* TransformComponent{ World.GetComponent<Transform>(EntityId) };
+            EntityHierarchy* EntityHierarchyComponent{ World.GetComponent<EntityHierarchy>(EntityId) };
+            if (PhysicsActorComponent == nullptr || TransformComponent == nullptr || EntityHierarchyComponent == nullptr) {
+                continue;
+            }
+
+            PhysicsActorBase* ActorPointer{ PhysicsActorComponent->mActorPointer };
             if (ActorPointer == nullptr) {
-                ApplyCachedPhysicsActorSnapshot(World, PhysicsActorComponent, TransformComponent, EntityHierarchyComponent);
+                ApplyCachedPhysicsActorSnapshot(World, *PhysicsActorComponent, *TransformComponent, *EntityHierarchyComponent);
                 continue;
             }
 
@@ -159,14 +184,14 @@ namespace Game {
             }
 
             const DirectX::BoundingOrientedBox& PhysicsWorldBoundingBox{ ActorPointer->GetWorldBoundingBox() };
-            UpdatePhysicsActorCachedSnapshot(PhysicsActorComponent, PhysicsPosition, PhysicsOrientation, PhysicsScale, ActorPointer->GetVelocity(), PhysicsWorldBoundingBox);
+            UpdatePhysicsActorCachedSnapshot(*PhysicsActorComponent, PhysicsPosition, PhysicsOrientation, PhysicsScale, ActorPointer->GetVelocity(), PhysicsWorldBoundingBox);
 
-            TransformComponent.position = PhysicsPosition;
-            TransformComponent.rotation = PhysicsOrientation;
-            TransformComponent.scale = PhysicsScale;
-            TransformComponent.UpdateEulerRadiansFromRotation();
+            TransformComponent->position = PhysicsPosition;
+            TransformComponent->rotation = PhysicsOrientation;
+            TransformComponent->scale = PhysicsScale;
+            TransformComponent->UpdateEulerRadiansFromRotation();
 
-            BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityHierarchyComponent.self) };
+            BoundingBox* BoundingBoxComponent{ World.GetComponent<BoundingBox>(EntityHierarchyComponent->self) };
             if (BoundingBoxComponent != nullptr) {
                 BoundingBoxComponent->SetWorldObb(PhysicsWorldBoundingBox);
             }

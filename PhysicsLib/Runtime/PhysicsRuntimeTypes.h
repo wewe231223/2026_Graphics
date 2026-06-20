@@ -107,6 +107,7 @@ struct PhysicsSnapshot final {
     double mSimulationTimeSeconds{};
     std::uint64_t mPublishIndex{};
     std::size_t mActorCount{};
+    std::size_t mTotalActorCount{};
     std::size_t mLastUpdateStepCount{};
     double mLastUpdateStepElapsedMilliseconds{};
     double mLastStepElapsedMilliseconds{};

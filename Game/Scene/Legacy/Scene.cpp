@@ -74,6 +74,8 @@ namespace Game {
         mKinematicSceneSimulator{},
         mTerrainManager{},
         mKinematicRuntimeStates{},
+        mPhysicsSynchronizationEntityIds{},
+        mPhysicsSynchronizationStructureVersion{ std::numeric_limits<std::uint64_t>::max() },
         mPhysicsWorldVersion{ 1U },
         mPhysicsTime{},
         mFrameContext{},
@@ -208,7 +210,7 @@ namespace Game {
     }
 
     ScenePhysicsRuntimeContext Scene::BuildPhysicsRuntimeContext() {
-        return ScenePhysicsRuntimeContext{ mWorld, mPhysicsWorld, mPhysicsRuntime, mPhysicsRuntimeScene, mPhysicsRuntimeSnapshot, mKinematicSceneSimulator, mTerrainManager, mKinematicRuntimeStates, mPhysicsWorldVersion, mPhysicsTime, mFrameContext, mWorldSnapshot, mTerrainActorDescBindings, mIsPhysicsRuntimeModeEnabled };
+        return ScenePhysicsRuntimeContext{ mWorld, mPhysicsWorld, mPhysicsRuntime, mPhysicsRuntimeScene, mPhysicsRuntimeSnapshot, mKinematicSceneSimulator, mTerrainManager, mKinematicRuntimeStates, mPhysicsSynchronizationEntityIds, mPhysicsSynchronizationStructureVersion, mPhysicsWorldVersion, mPhysicsTime, mFrameContext, mWorldSnapshot, mTerrainActorDescBindings, mIsPhysicsRuntimeModeEnabled };
     }
 
     void Scene::InitializePhysicsWorld() {

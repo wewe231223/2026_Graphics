@@ -1,6 +1,7 @@
 ﻿#include "Game/Scene/Base/ScenePhysicsRuntimeCoordinator.h"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -33,6 +34,7 @@ namespace {
     constexpr std::string_view ObjectTagText{ "ObjectTag" };
     constexpr std::string_view PlayerTagText{ "PlayerTag" };
     constexpr double DefaultRenderPhysicsDelaySeconds{ 1.0 / 60.0 };
+    constexpr std::uint64_t InvalidPhysicsSynchronizationStructureVersion{ std::numeric_limits<std::uint64_t>::max() };
 
     struct PendingPhysicsActorBinding final {
         Arche::EntityID mEntityId{ Arche::NullEntityID };
@@ -193,112 +195,10 @@ namespace {
         return Left.mPosition == Right.mPosition && Left.mRotation == Right.mRotation && Left.mOrientation == Right.mOrientation && Left.mScale == Right.mScale && Left.mHalfExtentX == Right.mHalfExtentX && Left.mHalfExtentZ == Right.mHalfExtentZ && Left.mHeightFieldWidth == Right.mHeightFieldWidth && Left.mHeightFieldHeight == Right.mHeightFieldHeight && Left.mHeightFieldCellSizeX == Right.mHeightFieldCellSizeX && Left.mHeightFieldCellSizeZ == Right.mHeightFieldCellSizeZ && Left.mHeightFieldMaxHeight == Right.mHeightFieldMaxHeight && Left.mHeightFieldCenterOrigin == Right.mHeightFieldCenterOrigin && Left.mHeightFieldValues == Right.mHeightFieldValues;
     }
 
-    DirectX::SimpleMath::Vector3 InterpolateVector3(const DirectX::SimpleMath::Vector3& StartValue, const DirectX::SimpleMath::Vector3& EndValue, float Alpha) {
-        DirectX::SimpleMath::Vector3 InterpolatedValue{ StartValue + ((EndValue - StartValue) * Alpha) };
-        return InterpolatedValue;
-    }
-
-    DirectX::SimpleMath::Quaternion NormalizeQuaternionOrIdentity(const DirectX::SimpleMath::Quaternion& QuaternionValue) {
-        DirectX::SimpleMath::Quaternion NormalizedQuaternion{ QuaternionValue };
-        if (NormalizedQuaternion.LengthSquared() <= 0.0F) {
-            NormalizedQuaternion = DirectX::SimpleMath::Quaternion{ 0.0F, 0.0F, 0.0F, 1.0F };
-        } else {
-            NormalizedQuaternion.Normalize();
-        }
-
-        return NormalizedQuaternion;
-    }
-
-    DirectX::SimpleMath::Quaternion InterpolateQuaternion(const DirectX::SimpleMath::Quaternion& StartValue, const DirectX::SimpleMath::Quaternion& EndValue, float Alpha) {
-        DirectX::SimpleMath::Quaternion StartOrientation{ NormalizeQuaternionOrIdentity(StartValue) };
-        DirectX::SimpleMath::Quaternion EndOrientation{ NormalizeQuaternionOrIdentity(EndValue) };
-        DirectX::SimpleMath::Quaternion InterpolatedOrientation{ DirectX::SimpleMath::Quaternion::Slerp(StartOrientation, EndOrientation, Alpha) };
-        DirectX::SimpleMath::Quaternion NormalizedInterpolatedOrientation{ NormalizeQuaternionOrIdentity(InterpolatedOrientation) };
-        return NormalizedInterpolatedOrientation;
-    }
-
     void ClearPhysicsActorPendingCommands(Game::PhysicsActor& PhysicsActorComponent) {
         PhysicsCommand PendingCommand{};
         while (Game::TryConsumePhysicsActorPendingCommand(PhysicsActorComponent, PendingCommand) == true) {
             PendingCommand = PhysicsCommand{};
-        }
-    }
-
-    const PhysicsActorSnapshot* TryResolvePhysicsActorSnapshotById(const PhysicsSnapshot& Snapshot, ActorId ActorIdValue) {
-        if (ActorIdValue == InvalidActorId) {
-            return nullptr;
-        }
-
-        std::size_t ActorIndex{ static_cast<std::size_t>(ActorIdValue) };
-        if (ActorIndex < Snapshot.mActorCount && ActorIndex < Snapshot.mActors.size()) {
-            const PhysicsActorSnapshot& SnapshotActor{ Snapshot.mActors[ActorIndex] };
-            if (SnapshotActor.mActorId == ActorIdValue) {
-                return &SnapshotActor;
-            }
-        }
-
-        std::size_t ActorCount{ std::min(Snapshot.mActorCount, Snapshot.mActors.size()) };
-        for (std::size_t CurrentActorIndex{ 0U }; CurrentActorIndex < ActorCount; ++CurrentActorIndex) {
-            const PhysicsActorSnapshot& SnapshotActor{ Snapshot.mActors[CurrentActorIndex] };
-            if (SnapshotActor.mActorId == ActorIdValue) {
-                return &SnapshotActor;
-            }
-        }
-
-        return nullptr;
-    }
-
-    DirectX::BoundingOrientedBox InterpolateBoundingOrientedBox(const DirectX::BoundingOrientedBox& StartValue, const DirectX::BoundingOrientedBox& EndValue, float Alpha) {
-        DirectX::SimpleMath::Vector3 StartCenter{ StartValue.Center };
-        DirectX::SimpleMath::Vector3 EndCenter{ EndValue.Center };
-        DirectX::SimpleMath::Vector3 StartExtents{ StartValue.Extents };
-        DirectX::SimpleMath::Vector3 EndExtents{ EndValue.Extents };
-        DirectX::SimpleMath::Quaternion StartOrientation{ StartValue.Orientation };
-        DirectX::SimpleMath::Quaternion EndOrientation{ EndValue.Orientation };
-        DirectX::SimpleMath::Vector3 InterpolatedCenter{ InterpolateVector3(StartCenter, EndCenter, Alpha) };
-        DirectX::SimpleMath::Vector3 InterpolatedExtents{ InterpolateVector3(StartExtents, EndExtents, Alpha) };
-        DirectX::SimpleMath::Quaternion InterpolatedOrientation{ InterpolateQuaternion(StartOrientation, EndOrientation, Alpha) };
-
-        DirectX::BoundingOrientedBox InterpolatedBoundingBox{};
-        InterpolatedBoundingBox.Center = DirectX::XMFLOAT3{ InterpolatedCenter.x, InterpolatedCenter.y, InterpolatedCenter.z };
-        InterpolatedBoundingBox.Extents = DirectX::XMFLOAT3{ InterpolatedExtents.x, InterpolatedExtents.y, InterpolatedExtents.z };
-        InterpolatedBoundingBox.Orientation = DirectX::XMFLOAT4{ InterpolatedOrientation.x, InterpolatedOrientation.y, InterpolatedOrientation.z, InterpolatedOrientation.w };
-        return InterpolatedBoundingBox;
-    }
-
-    PhysicsActorSnapshot InterpolatePhysicsActorSnapshot(const PhysicsActorSnapshot& PreviousActor, const PhysicsActorSnapshot& NextActor, float Alpha) {
-        if (PreviousActor.mActorId != NextActor.mActorId || PreviousActor.mActorType != NextActor.mActorType) {
-            return PreviousActor;
-        }
-
-        PhysicsActorSnapshot InterpolatedActor{ PreviousActor };
-        InterpolatedActor.mIsActive = PreviousActor.mIsActive && NextActor.mIsActive;
-        InterpolatedActor.mPosition = InterpolateVector3(PreviousActor.mPosition, NextActor.mPosition, Alpha);
-        InterpolatedActor.mOrientation = InterpolateQuaternion(PreviousActor.mOrientation, NextActor.mOrientation, Alpha);
-        InterpolatedActor.mScale = InterpolateVector3(PreviousActor.mScale, NextActor.mScale, Alpha);
-        InterpolatedActor.mVelocity = InterpolateVector3(PreviousActor.mVelocity, NextActor.mVelocity, Alpha);
-        InterpolatedActor.mWorldBoundingBox = InterpolateBoundingOrientedBox(PreviousActor.mWorldBoundingBox, NextActor.mWorldBoundingBox, Alpha);
-        return InterpolatedActor;
-    }
-
-    void BuildInterpolatedPhysicsSnapshot(const PhysicsSnapshot& PreviousSnapshot, const PhysicsSnapshot& NextSnapshot, float Alpha, PhysicsSnapshot& OutSnapshot) {
-        const float ClampedAlpha{ std::clamp(Alpha, 0.0F, 1.0F) };
-        const double InterpolatedSimulationTimeSeconds{ PreviousSnapshot.mSimulationTimeSeconds + ((NextSnapshot.mSimulationTimeSeconds - PreviousSnapshot.mSimulationTimeSeconds) * static_cast<double>(ClampedAlpha)) };
-        OutSnapshot = PreviousSnapshot;
-        OutSnapshot.mSimulationTimeSeconds = InterpolatedSimulationTimeSeconds;
-        OutSnapshot.mLastUpdateStepCount = NextSnapshot.mLastUpdateStepCount;
-        OutSnapshot.mLastUpdateStepElapsedMilliseconds = NextSnapshot.mLastUpdateStepElapsedMilliseconds;
-        OutSnapshot.mLastStepElapsedMilliseconds = NextSnapshot.mLastStepElapsedMilliseconds;
-
-        const std::size_t ActorCount{ std::min(OutSnapshot.mActorCount, OutSnapshot.mActors.size()) };
-        for (std::size_t ActorIndex{ 0U }; ActorIndex < ActorCount; ++ActorIndex) {
-            PhysicsActorSnapshot& PreviousActor{ OutSnapshot.mActors[ActorIndex] };
-            const PhysicsActorSnapshot* NextActor{ TryResolvePhysicsActorSnapshotById(NextSnapshot, PreviousActor.mActorId) };
-            if (NextActor == nullptr) {
-                continue;
-            }
-
-            PreviousActor = InterpolatePhysicsActorSnapshot(PreviousActor, *NextActor, ClampedAlpha);
         }
     }
 
@@ -575,9 +475,13 @@ namespace Game {
         Context.mFrameContext.PhysicsWorldResource = &Context.mPhysicsWorld;
         Context.mFrameContext.PhysicsRuntimeResource = &Context.mPhysicsRuntime;
         Context.mFrameContext.PhysicsSnapshotResource = nullptr;
+        Context.mFrameContext.PhysicsSynchronizationEntityIds = &Context.mPhysicsSynchronizationEntityIds;
         Context.mFrameContext.TerrainManagerResource = &Context.mTerrainManager;
         Context.mFrameContext.TerrainQueryResource = &Context.mTerrainManager;
         Context.mFrameContext.IsPhysicsRuntimeModeEnabled = Context.mIsPhysicsRuntimeModeEnabled;
+        Context.mFrameContext.mPhysicsWorldVersion = Context.mPhysicsWorldVersion;
+        Context.mPhysicsSynchronizationEntityIds.clear();
+        Context.mPhysicsSynchronizationStructureVersion = InvalidPhysicsSynchronizationStructureVersion;
         Context.mTerrainManager.Clear();
 
         for (TerrainActorDescBinding& Binding : Context.mTerrainActorDescBindings) {
@@ -631,10 +535,15 @@ namespace Game {
             return;
         }
 
-        for (auto [PhysicsActorComponent] : Context.mWorld.Query<PhysicsActor>()) {
+        for (Arche::EntityID EntityId : Context.mPhysicsSynchronizationEntityIds) {
+            PhysicsActor* PhysicsActorComponent{ Context.mWorld.GetComponent<PhysicsActor>(EntityId) };
+            if (PhysicsActorComponent == nullptr || PhysicsActorComponent->mActorType != PhysicsActorBase::PhysicsActorType::Dynamic) {
+                continue;
+            }
+
             PhysicsCommand PendingCommand{};
-            while (TryConsumePhysicsActorPendingCommand(PhysicsActorComponent, PendingCommand) == true) {
-                if (PendingCommand.mActorId == InvalidActorId || PhysicsActorComponent.mActorType != PhysicsActorBase::PhysicsActorType::Dynamic) {
+            while (TryConsumePhysicsActorPendingCommand(*PhysicsActorComponent, PendingCommand) == true) {
+                if (PendingCommand.mActorId == InvalidActorId) {
                     continue;
                 }
 
@@ -680,25 +589,27 @@ namespace Game {
             return;
         }
 
-        for (auto [PhysicsActorComponent, TransformComponent] : Context.mWorld.Query<PhysicsActor, Transform>()) {
-            if (PhysicsActorComponent.mActorType != PhysicsActorBase::PhysicsActorType::Kinematic) {
+        for (Arche::EntityID EntityId : Context.mPhysicsSynchronizationEntityIds) {
+            PhysicsActor* PhysicsActorComponent{ Context.mWorld.GetComponent<PhysicsActor>(EntityId) };
+            Transform* TransformComponent{ Context.mWorld.GetComponent<Transform>(EntityId) };
+            if (PhysicsActorComponent == nullptr || TransformComponent == nullptr || PhysicsActorComponent->mActorType != PhysicsActorBase::PhysicsActorType::Kinematic) {
                 continue;
             }
 
-            const std::uint32_t PhysicsActorId{ ResolvePhysicsActorId(PhysicsActorComponent) };
+            const std::uint32_t PhysicsActorId{ ResolvePhysicsActorId(*PhysicsActorComponent) };
             if (PhysicsActorId == InvalidPhysicsActorId) {
                 continue;
             }
 
             PhysicsKinematicRuntimeState KinematicState{};
             KinematicState.mActorId = static_cast<ActorId>(PhysicsActorId);
-            KinematicState.mPosition = TransformComponent.position;
-            KinematicState.mOrientation = TransformComponent.rotation;
-            KinematicState.mScale = TransformComponent.scale;
-            KinematicState.mVelocity = PhysicsActorComponent.mCachedVelocity;
+            KinematicState.mPosition = TransformComponent->position;
+            KinematicState.mOrientation = TransformComponent->rotation;
+            KinematicState.mScale = TransformComponent->scale;
+            KinematicState.mVelocity = PhysicsActorComponent->mCachedVelocity;
             KinematicState.mIsActive = true;
 
-            PhysicsActorBase* ActorPointer{ PhysicsActorComponent.mActorPointer };
+            PhysicsActorBase* ActorPointer{ PhysicsActorComponent->mActorPointer };
             if (ActorPointer == nullptr) {
                 ActorPointer = Context.mPhysicsWorld.GetActor(static_cast<std::size_t>(PhysicsActorId));
             }
@@ -723,17 +634,7 @@ namespace Game {
 
         const double RenderPhysicsTimeSeconds{ ResolveRenderPhysicsTimeSeconds(Context) };
 
-        PhysicsSnapshot PreviousSnapshot{};
-        PhysicsSnapshot NextSnapshot{};
-        float SnapshotAlpha{};
-        bool HasSnapshot{ Context.mPhysicsRuntime.TryGetSnapshotPairForTime(RenderPhysicsTimeSeconds, PreviousSnapshot, NextSnapshot, SnapshotAlpha) };
-        if (HasSnapshot == true) {
-            BuildInterpolatedPhysicsSnapshot(PreviousSnapshot, NextSnapshot, SnapshotAlpha, Context.mPhysicsRuntimeSnapshot);
-        } else {
-            const std::uint32_t SnapshotIndex{ Context.mPhysicsRuntime.GetReadableSnapshotIndex() };
-            Context.mPhysicsRuntimeSnapshot = Context.mPhysicsRuntime.GetSnapshot(SnapshotIndex);
-            HasSnapshot = Context.mPhysicsRuntimeSnapshot.mPublishIndex != 0U;
-        }
+        const bool HasSnapshot{ Context.mPhysicsRuntime.CopyInterpolatedSnapshotForTime(RenderPhysicsTimeSeconds, Context.mPhysicsRuntimeSnapshot) };
 
         if (HasSnapshot == false || Context.mPhysicsRuntimeSnapshot.mWorldVersion != Context.mPhysicsWorldVersion) {
             PublishPhysicsRuntimeStatus(Context, nullptr);
@@ -755,7 +656,7 @@ namespace Game {
 
         if (Snapshot != nullptr) {
             Status.mSnapshotStepIndex = Snapshot->mStepIndex;
-            Status.mActorCount = Snapshot->mActorCount;
+            Status.mActorCount = Snapshot->mTotalActorCount;
             const double LatestSimulationTimeSeconds{ Context.mPhysicsRuntime.LatestSimulationTimeSeconds() };
             Status.mSnapshotAgeMilliseconds = std::max(0.0, LatestSimulationTimeSeconds - Snapshot->mSimulationTimeSeconds) * 1000.0;
         }
@@ -772,18 +673,44 @@ namespace Game {
         Context.mFrameContext.TerrainQueryResource = &Context.mTerrainManager;
     }
 
-    void ScenePhysicsRuntimeCoordinator::UpdateSceneKinematicActors(ScenePhysicsRuntimeContext Context, float Dt) {
-        for (auto [PhysicsActorComponent, TransformComponent, BoundingBoxComponent] : Context.mWorld.Query<PhysicsActor, Transform, BoundingBox>()) {
-            if (PhysicsActorComponent.mActorType != PhysicsActorBase::PhysicsActorType::Kinematic) {
+    void ScenePhysicsRuntimeCoordinator::UpdatePhysicsSynchronizationEntityIds(ScenePhysicsRuntimeContext Context) {
+        const std::uint64_t CurrentStructureVersion{ Context.mWorld.GetStructureVersion() };
+        if (Context.mPhysicsSynchronizationStructureVersion == CurrentStructureVersion) {
+            return;
+        }
+
+        Context.mPhysicsSynchronizationEntityIds.clear();
+        for (const auto [PhysicsActorComponent, TransformComponent, EntityHierarchyComponent] : Context.mWorld.Query<PhysicsActor, Transform, EntityHierarchy>()) {
+            (void)TransformComponent;
+            if (PhysicsActorComponent.mActorType == PhysicsActorBase::PhysicsActorType::Static) {
                 continue;
             }
 
-            PhysicsActorBase* ActorPointer{ PhysicsActorComponent.mActorPointer };
-            const std::uint32_t PhysicsActorId{ ResolvePhysicsActorId(PhysicsActorComponent) };
+            Context.mPhysicsSynchronizationEntityIds.push_back(EntityHierarchyComponent.self);
+        }
+
+        Context.mPhysicsSynchronizationStructureVersion = CurrentStructureVersion;
+    }
+
+    void ScenePhysicsRuntimeCoordinator::UpdateSceneKinematicActors(ScenePhysicsRuntimeContext Context, float Dt) {
+        for (Arche::EntityID EntityId : Context.mPhysicsSynchronizationEntityIds) {
+            PhysicsActor* PhysicsActorComponent{ Context.mWorld.GetComponent<PhysicsActor>(EntityId) };
+            Transform* TransformComponent{ Context.mWorld.GetComponent<Transform>(EntityId) };
+            BoundingBox* BoundingBoxComponent{ Context.mWorld.GetComponent<BoundingBox>(EntityId) };
+            if (PhysicsActorComponent == nullptr || TransformComponent == nullptr || BoundingBoxComponent == nullptr) {
+                continue;
+            }
+
+            if (PhysicsActorComponent->mActorType != PhysicsActorBase::PhysicsActorType::Kinematic) {
+                continue;
+            }
+
+            PhysicsActorBase* ActorPointer{ PhysicsActorComponent->mActorPointer };
+            const std::uint32_t PhysicsActorId{ ResolvePhysicsActorId(*PhysicsActorComponent) };
             if (ActorPointer == nullptr && PhysicsActorId != InvalidPhysicsActorId) {
                 ActorPointer = Context.mPhysicsWorld.GetActor(static_cast<std::size_t>(PhysicsActorId));
                 if (ActorPointer != nullptr && ActorPointer->GetActorType() == PhysicsActorBase::PhysicsActorType::Kinematic) {
-                    PhysicsActorComponent.mActorPointer = ActorPointer;
+                    PhysicsActorComponent->mActorPointer = ActorPointer;
                 }
             }
 
@@ -791,9 +718,9 @@ namespace Game {
                 continue;
             }
 
-            SetActorTransformFromComponent(*ActorPointer, TransformComponent);
+            SetActorTransformFromComponent(*ActorPointer, *TransformComponent);
 
-            const DirectX::BoundingOrientedBox& ComponentLocalBoundingBox{ BoundingBoxComponent.GetObb() };
+            const DirectX::BoundingOrientedBox& ComponentLocalBoundingBox{ BoundingBoxComponent->GetObb() };
             const DirectX::BoundingOrientedBox& ActorLocalBoundingBox{ ActorPointer->GetLocalBoundingBox() };
             const std::tuple<DirectX::SimpleMath::Vector3, DirectX::SimpleMath::Vector3, DirectX::SimpleMath::Quaternion> ActorLocalBoundingBoxValue{ DirectX::SimpleMath::Vector3{ ActorLocalBoundingBox.Center }, DirectX::SimpleMath::Vector3{ ActorLocalBoundingBox.Extents }, DirectX::SimpleMath::Quaternion{ ActorLocalBoundingBox.Orientation } };
             const std::tuple<DirectX::SimpleMath::Vector3, DirectX::SimpleMath::Vector3, DirectX::SimpleMath::Quaternion> ComponentLocalBoundingBoxValue{ DirectX::SimpleMath::Vector3{ ComponentLocalBoundingBox.Center }, DirectX::SimpleMath::Vector3{ ComponentLocalBoundingBox.Extents }, DirectX::SimpleMath::Quaternion{ ComponentLocalBoundingBox.Orientation } };
@@ -804,22 +731,25 @@ namespace Game {
 
         Context.mKinematicSceneSimulator.Tick(Context.mPhysicsWorld.GetActorRepository(), Context.mTerrainManager, Context.mPhysicsWorld.GetGravity(), Dt);
 
-        for (auto [PhysicsActorComponent, TransformComponent, BoundingBoxComponent] : Context.mWorld.Query<PhysicsActor, Transform, BoundingBox>()) {
-            if (PhysicsActorComponent.mActorType != PhysicsActorBase::PhysicsActorType::Kinematic) {
+        for (Arche::EntityID EntityId : Context.mPhysicsSynchronizationEntityIds) {
+            PhysicsActor* PhysicsActorComponent{ Context.mWorld.GetComponent<PhysicsActor>(EntityId) };
+            Transform* TransformComponent{ Context.mWorld.GetComponent<Transform>(EntityId) };
+            BoundingBox* BoundingBoxComponent{ Context.mWorld.GetComponent<BoundingBox>(EntityId) };
+            if (PhysicsActorComponent == nullptr || TransformComponent == nullptr || BoundingBoxComponent == nullptr || PhysicsActorComponent->mActorType != PhysicsActorBase::PhysicsActorType::Kinematic) {
                 continue;
             }
 
-            PhysicsActorBase* ActorPointer{ PhysicsActorComponent.mActorPointer };
+            PhysicsActorBase* ActorPointer{ PhysicsActorComponent->mActorPointer };
             if (ActorPointer == nullptr || ActorPointer->GetActorType() != PhysicsActorBase::PhysicsActorType::Kinematic) {
                 continue;
             }
 
-            TransformComponent.position = ActorPointer->GetPosition();
-            TransformComponent.rotation = ActorPointer->GetOrientation();
-            TransformComponent.scale = ActorPointer->GetScale();
-            TransformComponent.UpdateEulerRadiansFromRotation();
-            BoundingBoxComponent.SetWorldObb(ActorPointer->GetWorldBoundingBox());
-            UpdatePhysicsActorCachedSnapshot(PhysicsActorComponent, TransformComponent.position, TransformComponent.rotation, TransformComponent.scale, ActorPointer->GetVelocity(), ActorPointer->GetWorldBoundingBox());
+            TransformComponent->position = ActorPointer->GetPosition();
+            TransformComponent->rotation = ActorPointer->GetOrientation();
+            TransformComponent->scale = ActorPointer->GetScale();
+            TransformComponent->UpdateEulerRadiansFromRotation();
+            BoundingBoxComponent->SetWorldObb(ActorPointer->GetWorldBoundingBox());
+            UpdatePhysicsActorCachedSnapshot(*PhysicsActorComponent, TransformComponent->position, TransformComponent->rotation, TransformComponent->scale, ActorPointer->GetVelocity(), ActorPointer->GetWorldBoundingBox());
         }
     }
 
@@ -836,15 +766,21 @@ namespace Game {
         }
 
         UpdateTerrainManager(Context);
+        Context.mPhysicsSynchronizationEntityIds.clear();
+        Context.mPhysicsSynchronizationStructureVersion = InvalidPhysicsSynchronizationStructureVersion;
         Context.mPhysicsWorldVersion = AdvancePhysicsWorldVersion(Context.mPhysicsWorldVersion);
+        Context.mFrameContext.mPhysicsWorldVersion = Context.mPhysicsWorldVersion;
         InitializePhysicsRuntime(Context);
     }
 
     void ScenePhysicsRuntimeCoordinator::UpdatePhysics(ScenePhysicsRuntimeContext Context, float Dt) {
         Context.mFrameContext.PhysicsWorldResource = &Context.mPhysicsWorld;
         Context.mFrameContext.PhysicsRuntimeResource = &Context.mPhysicsRuntime;
+        Context.mFrameContext.PhysicsSynchronizationEntityIds = &Context.mPhysicsSynchronizationEntityIds;
         Context.mFrameContext.TerrainManagerResource = &Context.mTerrainManager;
         Context.mFrameContext.TerrainQueryResource = &Context.mTerrainManager;
+        Context.mFrameContext.mPhysicsWorldVersion = Context.mPhysicsWorldVersion;
+        UpdatePhysicsSynchronizationEntityIds(Context);
         UpdateTerrainManager(Context);
         UpdateSceneKinematicActors(Context, Dt);
 
@@ -886,8 +822,13 @@ namespace Game {
             }
         }
 
-        for (auto [PhysicsActorComponent] : Context.mWorld.Query<PhysicsActor>()) {
-            ClearPhysicsActorPendingCommands(PhysicsActorComponent);
+        for (Arche::EntityID EntityId : Context.mPhysicsSynchronizationEntityIds) {
+            PhysicsActor* PhysicsActorComponent{ Context.mWorld.GetComponent<PhysicsActor>(EntityId) };
+            if (PhysicsActorComponent == nullptr) {
+                continue;
+            }
+
+            ClearPhysicsActorPendingCommands(*PhysicsActorComponent);
         }
 
         Context.mPhysicsWorld.TickKinematicActors(Dt);

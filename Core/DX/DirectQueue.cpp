@@ -48,6 +48,7 @@ namespace Core {
 			DirectQueue::InitBasements();
 			DirectQueue::InitWorkers();
 			DirectQueue::InitCommandList();
+			DirectQueue::InitGpuTimestampQuery();
 			DirectQueue::InitTargetResources();
 
         }
@@ -142,16 +143,76 @@ namespace Core {
 			mCopyQueue->DispatchCopies();
 		}
 
+		void DirectQueue::ResolveGpuFrameTime(std::uint32_t FrameIndex) {
+			if (mHasGpuTimestampFrame[FrameIndex] == false || mGpuTimestampReadbackBuffer == nullptr || mGpuTimestampFrequency == 0) {
+				return;
+			}
+
+			const std::uint64_t FrameIdentifier{ mGpuTimestampFrameIdentifiers[FrameIndex] };
+			const std::uint32_t QueryBeginIndex{ FrameIndex * GpuTimestampCountPerFrame };
+			const SIZE_T ReadBegin{ static_cast<SIZE_T>(QueryBeginIndex) * sizeof(std::uint64_t) };
+			const D3D12_RANGE ReadRange{ ReadBegin, ReadBegin + static_cast<SIZE_T>(GpuTimestampCountPerFrame) * sizeof(std::uint64_t) };
+			void* MappedData{};
+			const HRESULT MapResult{ mGpuTimestampReadbackBuffer->Map(0, &ReadRange, &MappedData) };
+			if (FAILED(MapResult)) {
+				ErrorHandler::report(MapResult, "DirectQueue", "Failed to map GPU timestamp readback buffer.", ErrorHandler::Level::Critical);
+				return;
+			}
+
+			const std::uint64_t* TimestampValues{ static_cast<const std::uint64_t*>(MappedData) };
+			const std::uint64_t BeginTimestamp{ TimestampValues[QueryBeginIndex] };
+			const std::uint64_t EndTimestamp{ TimestampValues[QueryBeginIndex + 1u] };
+			const D3D12_RANGE WrittenRange{};
+			mGpuTimestampReadbackBuffer->Unmap(0, &WrittenRange);
+			mHasGpuTimestampFrame[FrameIndex] = false;
+
+			if (EndTimestamp < BeginTimestamp) {
+				return;
+			}
+
+			const double GpuTimeMicroseconds{ static_cast<double>(EndTimestamp - BeginTimestamp) * 1000000.0 / static_cast<double>(mGpuTimestampFrequency) };
+			Widget::PerformanceProvider::Get().SubmitGpuFrameTime(FrameIdentifier, GpuTimeMicroseconds);
+		}
+
+		void DirectQueue::BeginGpuFrameTimestampQuery(std::uint32_t FrameIndex) {
+			if (mGpuTimestampQueryHeap == nullptr || mCommandList == nullptr) {
+				return;
+			}
+
+			const std::uint32_t QueryBeginIndex{ FrameIndex * GpuTimestampCountPerFrame };
+			mCommandList->EndQuery(mGpuTimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, QueryBeginIndex);
+			mGpuTimestampFrameIdentifiers[FrameIndex] = Widget::PerformanceProvider::Get().GetCurrentFrameIdentifier();
+			mHasGpuTimestampFrame[FrameIndex] = true;
+		}
+
+		void DirectQueue::EndGpuFrameTimestampQuery(std::uint32_t FrameIndex) {
+			if (mGpuTimestampQueryHeap == nullptr || mGpuTimestampReadbackBuffer == nullptr || mPostProcessCommandList == nullptr) {
+				return;
+			}
+
+			const std::uint32_t QueryBeginIndex{ FrameIndex * GpuTimestampCountPerFrame };
+			const std::uint64_t ReadbackOffset{ static_cast<std::uint64_t>(QueryBeginIndex) * sizeof(std::uint64_t) };
+			mPostProcessCommandList->EndQuery(mGpuTimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, QueryBeginIndex + 1u);
+			mPostProcessCommandList->ResolveQueryData(mGpuTimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, QueryBeginIndex, GpuTimestampCountPerFrame, mGpuTimestampReadbackBuffer.Get(), ReadbackOffset);
+		}
+
 
 		void DirectQueue::Render(Game::RFD::RenderFrameData& Data, Widget::WidgetCore* WidgetCore) {
 			ErrorHandler::report(mCopyQueue == nullptr, "DirectQueue", "CopyQueue is not set.", ErrorHandler::Level::Critical);
 			ErrorHandler::report(mComputeQueue == nullptr, "DirectQueue", "ComputeQueue is not set.", ErrorHandler::Level::Critical);
 
+			const bool IsPerformanceEnabled{ Config::Query()->Get<bool>("Block_ImGui") == false };
 			std::uint32_t CurrentIndex{ mFrameSync.GetCurrentIndex() };
+			if (IsPerformanceEnabled) {
+				ResolveGpuFrameTime(CurrentIndex);
+			}
 
 			ComPtr<ID3D12CommandAllocator>& MainCommandAllocator{ mMainCommandAllocators[CurrentIndex] };
 			MainCommandAllocator->Reset();
 			mCommandList->Reset(MainCommandAllocator.Get(), nullptr);
+			if (IsPerformanceEnabled) {
+				BeginGpuFrameTimestampQuery(CurrentIndex);
+			}
 
 			std::array<ID3D12DescriptorHeap*, 1> DescriptorHeaps{ mSrvHeap.GetHeap() };
 			mCommandList->SetDescriptorHeaps(static_cast<UINT>(DescriptorHeaps.size()), DescriptorHeaps.data());
@@ -239,16 +300,19 @@ namespace Core {
 			CopyPostProcessToBackBuffer(PostProcessTarget, RenderTarget);
 			DrawFinalOverlays(Data, WidgetCore, DrawCallResources, Dsv, CurrentIndex, ShadowCascadeCount);
 			FinishPresentTarget(RenderTarget);
+			if (IsPerformanceEnabled) {
+				EndGpuFrameTimestampQuery(CurrentIndex);
+			}
 			ExecutePostProcessFinalPass();
+			if (IsPerformanceEnabled) {
+				Widget::PerformanceProvider::Get().EndFrame();
+			}
 
 			ErrorHandler::report(mSwapChain->Present(Constants::AllowTearing ? 0 : 1, Constants::AllowTearing ? DXGI_PRESENT_ALLOW_TEARING : 0), "DirectQueue", "Failed to present SwapChain.", ErrorHandler::Level::Critical);
 
 			DirectQueue::DrainDebugMessages();
 
 			mFrameSync.Sync(mDirectCommandQueue.Get());
-			if (!Config::Query()->Get<bool>("Block_ImGui")) {
-				Widget::PerformanceProvider::Get().EndFrame();
-			}
         }
 
         void DirectQueue::InitBasements() {
@@ -366,6 +430,39 @@ namespace Core {
 
 			ErrorHandler::report(mDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mPostProcessCommandAllocators[0].Get(), nullptr, IID_PPV_ARGS(mPostProcessCommandList.GetAddressOf())), "DirectQueue", "Failed to create post process command list.", ErrorHandler::Level::Critical);
 			mPostProcessCommandList->Close();
+		}
+
+		void DirectQueue::InitGpuTimestampQuery() {
+			D3D12_QUERY_HEAP_DESC QueryHeapDescription{};
+			QueryHeapDescription.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
+			QueryHeapDescription.Count = GpuTimestampCountPerFrame * Constants::FrameCount<UINT>;
+			QueryHeapDescription.NodeMask = 0;
+			ErrorHandler::report(mDevice->CreateQueryHeap(&QueryHeapDescription, IID_PPV_ARGS(mGpuTimestampQueryHeap.GetAddressOf())), "DirectQueue", "Failed to create GPU timestamp query heap.", ErrorHandler::Level::Critical);
+
+			D3D12_HEAP_PROPERTIES ReadbackHeapProperties{};
+			ReadbackHeapProperties.Type = D3D12_HEAP_TYPE_READBACK;
+			ReadbackHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+			ReadbackHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+			ReadbackHeapProperties.CreationNodeMask = 1;
+			ReadbackHeapProperties.VisibleNodeMask = 1;
+
+			D3D12_RESOURCE_DESC ReadbackBufferDescription{};
+			ReadbackBufferDescription.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+			ReadbackBufferDescription.Alignment = 0;
+			ReadbackBufferDescription.Width = static_cast<std::uint64_t>(GpuTimestampCountPerFrame) * Constants::FrameCount<std::uint64_t> * sizeof(std::uint64_t);
+			ReadbackBufferDescription.Height = 1;
+			ReadbackBufferDescription.DepthOrArraySize = 1;
+			ReadbackBufferDescription.MipLevels = 1;
+			ReadbackBufferDescription.Format = DXGI_FORMAT_UNKNOWN;
+			ReadbackBufferDescription.SampleDesc.Count = 1;
+			ReadbackBufferDescription.SampleDesc.Quality = 0;
+			ReadbackBufferDescription.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+			ReadbackBufferDescription.Flags = D3D12_RESOURCE_FLAG_NONE;
+			ErrorHandler::report(mDevice->CreateCommittedResource(&ReadbackHeapProperties, D3D12_HEAP_FLAG_NONE, &ReadbackBufferDescription, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(mGpuTimestampReadbackBuffer.GetAddressOf())), "DirectQueue", "Failed to create GPU timestamp readback buffer.", ErrorHandler::Level::Critical);
+
+			ErrorHandler::report(mDirectCommandQueue->GetTimestampFrequency(&mGpuTimestampFrequency), "DirectQueue", "Failed to query GPU timestamp frequency.", ErrorHandler::Level::Critical);
+			mGpuTimestampFrameIdentifiers.fill(0);
+			mHasGpuTimestampFrame.fill(false);
 		}
 
 		void DirectQueue::InitTargetResources() {

@@ -17,7 +17,10 @@ namespace Widget {
     static float ResolveFrameTimePlotMaxMilliseconds(const std::vector<FrameTimeSample>& FrameTimeSamples) {
         float MaxFrameTimeMilliseconds{ 1.0f };
         for (const FrameTimeSample& Sample : FrameTimeSamples) {
-            MaxFrameTimeMilliseconds = std::max(MaxFrameTimeMilliseconds, Sample.TimeMilliseconds);
+            MaxFrameTimeMilliseconds = std::max(MaxFrameTimeMilliseconds, Sample.mCpuTimeMilliseconds);
+            if (Sample.mHasGpuTime) {
+                MaxFrameTimeMilliseconds = std::max(MaxFrameTimeMilliseconds, Sample.mGpuTimeMilliseconds);
+            }
         }
 
         const float PaddedMaxMilliseconds{ MaxFrameTimeMilliseconds * 1.25f };
@@ -99,29 +102,39 @@ namespace Widget {
         }
 
         ImDrawList* DrawList{ ImGui::GetWindowDrawList() };
-        ImVec2 PreviousPoint{};
-        bool HasPreviousPoint{};
-
         DrawList->AddRect(PlotMin, PlotMax, IM_COL32(255, 255, 255, 75), 0.0f, 0, 1.0f);
         DrawList->PushClipRect(PlotMin, PlotMax, true);
-        for (const FrameTimeSample& Sample : FrameTimeSamples) {
-            const float ClampedAgeSeconds{ std::clamp(Sample.AgeSeconds, 0.0f, HistorySeconds) };
-            const float XRatio{ HistorySeconds > 0.0f ? (HistorySeconds - ClampedAgeSeconds) / HistorySeconds : 1.0f };
-            const float YRatio{ PlotMaxMilliseconds > PlotMinMilliseconds ? (Sample.TimeMilliseconds - PlotMinMilliseconds) / (PlotMaxMilliseconds - PlotMinMilliseconds) : 0.0f };
-            const float ClampedYRatio{ std::clamp(YRatio, 0.0f, 1.0f) };
-            const ImVec2 Point{ PlotMin.x + (PlotMax.x - PlotMin.x) * XRatio, PlotMax.y - (PlotMax.y - PlotMin.y) * ClampedYRatio };
+        const auto RenderSeries{ [&FrameTimeSamples, DrawList, PlotMin, PlotMax, PlotMinMilliseconds, PlotMaxMilliseconds, HistorySeconds](bool IsGpuSeries, ImU32 Color) {
+            ImVec2 PreviousPoint{};
+            bool HasPreviousPoint{};
 
-            if (HasPreviousPoint) {
-                DrawList->AddLine(PreviousPoint, Point, IM_COL32(97, 170, 255, 255), 2.0f);
+            for (const FrameTimeSample& Sample : FrameTimeSamples) {
+                if (IsGpuSeries && Sample.mHasGpuTime == false) {
+                    HasPreviousPoint = false;
+                    continue;
+                }
+
+                const float TimeMilliseconds{ IsGpuSeries ? Sample.mGpuTimeMilliseconds : Sample.mCpuTimeMilliseconds };
+                const float ClampedAgeSeconds{ std::clamp(Sample.mAgeSeconds, 0.0f, HistorySeconds) };
+                const float XRatio{ HistorySeconds > 0.0f ? (HistorySeconds - ClampedAgeSeconds) / HistorySeconds : 1.0f };
+                const float YRatio{ PlotMaxMilliseconds > PlotMinMilliseconds ? (TimeMilliseconds - PlotMinMilliseconds) / (PlotMaxMilliseconds - PlotMinMilliseconds) : 0.0f };
+                const float ClampedYRatio{ std::clamp(YRatio, 0.0f, 1.0f) };
+                const ImVec2 Point{ PlotMin.x + (PlotMax.x - PlotMin.x) * XRatio, PlotMax.y - (PlotMax.y - PlotMin.y) * ClampedYRatio };
+
+                if (HasPreviousPoint) {
+                    DrawList->AddLine(PreviousPoint, Point, Color, 2.0f);
+                }
+
+                PreviousPoint = Point;
+                HasPreviousPoint = true;
             }
 
-            PreviousPoint = Point;
-            HasPreviousPoint = true;
-        }
-
-        if (FrameTimeSamples.size() == 1) {
-            DrawList->AddCircleFilled(PreviousPoint, 2.5f, IM_COL32(97, 170, 255, 255));
-        }
+            if (HasPreviousPoint) {
+                DrawList->AddCircleFilled(PreviousPoint, 2.5f, Color);
+            }
+        } };
+        RenderSeries(false, IM_COL32(97, 170, 255, 255));
+        RenderSeries(true, IM_COL32(95, 220, 135, 255));
         DrawList->PopClipRect();
     }
 
@@ -164,25 +177,33 @@ namespace Widget {
         PerformanceProvider& Provider{ PerformanceProvider::Get() };
         const std::vector<FrameTimeSample> FrameTimeSamples{ Provider.GetFrameTimeSamples() };
         const float HistorySeconds{ Provider.GetFrameTimeHistorySeconds() };
+        const FrameTimeSample* LatestCpuTimeSample{ FrameTimeSamples.empty() == true ? nullptr : &FrameTimeSamples.back() };
+        const std::vector<FrameTimeSample>::const_reverse_iterator LatestGpuTimeSampleIterator{ std::find_if(FrameTimeSamples.rbegin(), FrameTimeSamples.rend(), [](const FrameTimeSample& FrameTimeSample) {
+            return FrameTimeSample.mHasGpuTime;
+        }) };
+        const FrameTimeSample* LatestGpuTimeSample{ LatestGpuTimeSampleIterator == FrameTimeSamples.rend() ? nullptr : &*LatestGpuTimeSampleIterator };
 
-        ImGui::Columns(3, "PerformanceFrameTimeColumns", false);
-        ImGui::Text("Avg FPS\n%.2f", Provider.GetAverageFps());
-        ImGui::NextColumn();
-        ImGui::Text("1%% Low\n%.2f", Provider.GetOnePercentLowFps());
-        ImGui::NextColumn();
-        ImGui::Text("0.1%% Low\n%.2f", Provider.GetZeroPointOnePercentLowFps());
-        ImGui::Columns(1);
-
-        if (Snapshot != nullptr) {
-            const Game::PhysicsRuntimeStatus& RuntimeStatus{ Snapshot->GetPhysicsRuntimeStatus() };
-            ImGui::SeparatorText("Physics Runtime");
-            ImGui::Text("PhysicsRuntime %s", RuntimeStatus.mIsRunning == true ? "Running" : "Stopped");
-            ImGui::Text("Mode %s", RuntimeStatus.mIsRuntimeModeEnabled == true ? "Runtime" : "Sync");
-            ImGui::Text("LatestStepIndex %llu", static_cast<unsigned long long>(RuntimeStatus.mLatestStepIndex));
-            ImGui::Text("SnapshotStepIndex %llu", static_cast<unsigned long long>(RuntimeStatus.mSnapshotStepIndex));
-            ImGui::Text("ActorCount %zu", RuntimeStatus.mActorCount);
-            ImGui::Text("SnapshotAgeMs %.2f", RuntimeStatus.mSnapshotAgeMilliseconds);
+        ImGui::Columns(5, "PerformanceFrameTimeColumns", false);
+        if (LatestCpuTimeSample != nullptr) {
+            ImGui::Text("CPU Frame\n%.2f ms", LatestCpuTimeSample->mCpuTimeMilliseconds);
         }
+        else {
+            ImGui::TextUnformatted("CPU Frame\nN/A");
+        }
+        ImGui::NextColumn();
+        if (LatestGpuTimeSample != nullptr) {
+            ImGui::Text("GPU Frame\n%.2f ms", LatestGpuTimeSample->mGpuTimeMilliseconds);
+        }
+        else {
+            ImGui::TextUnformatted("GPU Frame\nN/A");
+        }
+        ImGui::NextColumn();
+        ImGui::Text("CPU Avg FPS\n%.2f", Provider.GetAverageFps());
+        ImGui::NextColumn();
+        ImGui::Text("CPU 1%% Low\n%.2f", Provider.GetOnePercentLowFps());
+        ImGui::NextColumn();
+        ImGui::Text("CPU 0.1%% Low\n%.2f", Provider.GetZeroPointOnePercentLowFps());
+        ImGui::Columns(1);
 
         constexpr float ThresholdMilliseconds{ 16.6f };
         bool IsThresholdVisible{};
@@ -215,7 +236,18 @@ namespace Widget {
             RenderFrameTimeThreshold(PlotMin, PlotMax, PlotMinMilliseconds, PlotMaxMilliseconds, ThresholdMilliseconds);
         }
 
-        ImGui::TextUnformatted("Frame Time (ms)");
+        if (Snapshot != nullptr) {
+            const Game::PhysicsRuntimeStatus& RuntimeStatus{ Snapshot->GetPhysicsRuntimeStatus() };
+            ImGui::SeparatorText("Physics Runtime");
+            ImGui::Text("PhysicsRuntime %s", RuntimeStatus.mIsRunning == true ? "Running" : "Stopped");
+            ImGui::Text("Mode %s", RuntimeStatus.mIsRuntimeModeEnabled == true ? "Runtime" : "Sync");
+            ImGui::Text("LatestStepIndex %llu", static_cast<unsigned long long>(RuntimeStatus.mLatestStepIndex));
+            ImGui::Text("SnapshotStepIndex %llu", static_cast<unsigned long long>(RuntimeStatus.mSnapshotStepIndex));
+            ImGui::Text("ActorCount %zu", RuntimeStatus.mActorCount);
+            ImGui::Text("SnapshotAgeMs %.2f", RuntimeStatus.mSnapshotAgeMilliseconds);
+        }
+
+        ImGui::TextUnformatted("CPU: blue, GPU: green");
         ImGui::SameLine();
         if (IsThresholdVisible) {
             ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.35f, 1.0f), "Red Line: 16.6ms (60 FPS Threshold)");
@@ -241,15 +273,10 @@ namespace Widget {
         }
 
         const std::vector<ProfileEntry> Entries{ PerformanceProvider::Get().GetTimelineAverageProfiles() };
-        std::string PreUpdateLegendText{ "PreUpdate" };
-        std::string UpdateLegendText{ "Update" };
-        std::string PostUpdateLegendText{ "PostUpdate" };
-        std::string PhysicsActorUpdateLegendText{ "PhysicsActorUpdate" };
-        std::string TransformWorldLegendText{ "TransformWorld" };
-        std::string IkLegendText{ "IK" };
-        std::string RenderPrepareLegendText{ "RenderPrepare" };
-        std::string RenderLegendText{ "Render" };
-        std::string PostRenderLegendText{ "PostRender" };
+        std::string FixedPipelineLegendText{ "Fixed Pipeline Stage" };
+        std::string PhysicsEngineLegendText{ "Physics Engine Stage" };
+        std::string ParallelProcessingLegendText{ "Parallel Processing Stage" };
+        std::string CommandSubmissionLegendText{ "Command Submission Stage" };
 
         if (!Entries.empty()) {
             const double MinStart{ Entries.front().StartMicroseconds };
@@ -302,35 +329,20 @@ namespace Widget {
                 return TotalDurationMicroseconds / 1000.0;
             };
 
-            PreUpdateLegendText = std::format("PreUpdate ({:.2f} ms)", ResolvePhaseDurationMilliseconds("PreUpdate"));
-            UpdateLegendText = std::format("Update ({:.2f} ms)", ResolvePhaseDurationMilliseconds("Update"));
-            PostUpdateLegendText = std::format("PostUpdate ({:.2f} ms)", ResolvePhaseDurationMilliseconds("PostUpdate"));
-            PhysicsActorUpdateLegendText = std::format("PhysicsActorUpdate ({:.2f} ms)", ResolvePhaseDurationMilliseconds("PhysicsActorUpdate"));
-            TransformWorldLegendText = std::format("TransformWorld ({:.2f} ms)", ResolvePhaseDurationMilliseconds("TransformWorld"));
-            IkLegendText = std::format("IK ({:.2f} ms)", ResolvePhaseDurationMilliseconds("IK"));
-            RenderPrepareLegendText = std::format("RenderPrepare ({:.2f} ms)", ResolvePhaseDurationMilliseconds("RenderPrepare"));
-            RenderLegendText = std::format("Render ({:.2f} ms)", ResolvePhaseDurationMilliseconds("Render"));
-            PostRenderLegendText = std::format("PostRender ({:.2f} ms)", ResolvePhaseDurationMilliseconds("PostRender"));
+            FixedPipelineLegendText = std::format("Fixed Pipeline Stage ({:.2f} ms)", ResolvePhaseDurationMilliseconds("FixedPipelineStage"));
+            PhysicsEngineLegendText = std::format("Physics Engine Stage ({:.2f} ms)", ResolvePhaseDurationMilliseconds("PhysicsEngineStage"));
+            ParallelProcessingLegendText = std::format("Parallel Processing Stage ({:.2f} ms)", ResolvePhaseDurationMilliseconds("ParallelProcessingStage"));
+            CommandSubmissionLegendText = std::format("Command Submission Stage ({:.2f} ms)", ResolvePhaseDurationMilliseconds("CommandSubmissionStage"));
         }
 
-        ImGui::Columns(2, "PerformanceTimelineLegendColumns", false);
-        RenderLegendItem(PreUpdateLegendText.c_str(), GetColorByName("PreUpdate"));
+        ImGui::Columns(4, "PerformanceTimelineLegendColumns", false);
+        RenderLegendItem(FixedPipelineLegendText.c_str(), GetColorByName("FixedPipelineStage"));
         ImGui::NextColumn();
-        RenderLegendItem(UpdateLegendText.c_str(), GetColorByName("Update"));
+        RenderLegendItem(PhysicsEngineLegendText.c_str(), GetColorByName("PhysicsEngineStage"));
         ImGui::NextColumn();
-        RenderLegendItem(PostUpdateLegendText.c_str(), GetColorByName("PostUpdate"));
+        RenderLegendItem(ParallelProcessingLegendText.c_str(), GetColorByName("ParallelProcessingStage"));
         ImGui::NextColumn();
-        RenderLegendItem(PhysicsActorUpdateLegendText.c_str(), GetColorByName("PhysicsActorUpdate"));
-        ImGui::NextColumn();
-        RenderLegendItem(TransformWorldLegendText.c_str(), GetColorByName("TransformWorld"));
-        ImGui::NextColumn();
-        RenderLegendItem(IkLegendText.c_str(), GetColorByName("IK"));
-        ImGui::NextColumn();
-        RenderLegendItem(RenderPrepareLegendText.c_str(), GetColorByName("RenderPrepare"));
-        ImGui::NextColumn();
-        RenderLegendItem(RenderLegendText.c_str(), GetColorByName("Render"));
-        ImGui::NextColumn();
-        RenderLegendItem(PostRenderLegendText.c_str(), GetColorByName("PostRender"));
+        RenderLegendItem(CommandSubmissionLegendText.c_str(), GetColorByName("CommandSubmissionStage"));
         ImGui::Columns(1);
 
         ImGui::End();
@@ -347,40 +359,20 @@ namespace Widget {
     }
 
     uint32_t TimelineWidget::GetColorByName(const std::string& Name) const {
-        if (Name.find("PreUpdate") != std::string::npos) {
+        if (Name == "FixedPipelineStage") {
             return IM_COL32(52, 152, 219, 255);
         }
 
-        if (Name.find("PostUpdate") != std::string::npos) {
-            return IM_COL32(55, 89, 182, 255);
-        }
-
-        if (Name.find("PhysicsActorUpdate") != std::string::npos) {
-            return IM_COL32(26, 188, 156, 255);
-        }
-
-        if (Name.find("Update") != std::string::npos) {
-            return IM_COL32(46, 204, 113, 255);
-        }
-
-        if (Name.find("TransformWorld") != std::string::npos) {
-            return IM_COL32(230, 126, 34, 255);
-        }
-
-        if (Name.find("IK") != std::string::npos) {
+        if (Name == "PhysicsEngineStage") {
             return IM_COL32(241, 196, 15, 255);
         }
 
-        if (Name.find("RenderPrepare") != std::string::npos) {
-            return IM_COL32(155, 89, 182, 255);
-		}
-
-        if (Name.find("Render") != std::string::npos && Name.find("PostRender") == std::string::npos) {
-            return IM_COL32(52, 73, 94, 255);
+        if (Name == "ParallelProcessingStage") {
+            return IM_COL32(26, 188, 156, 255);
         }
 
-        if (Name.find("PostRender") != std::string::npos) {
-            return IM_COL32(231, 76, 60, 255);
+        if (Name == "CommandSubmissionStage") {
+            return IM_COL32(52, 73, 94, 255);
         }
 
         return IM_COL32(149, 165, 166, 255);

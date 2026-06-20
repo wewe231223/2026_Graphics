@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -77,6 +78,11 @@ namespace Game {
             void SetRenderFrameIndex(std::uint32_t RenderFrameIndex);
             void PrepareRender();
             PipelineFrameExecutionResult ExecuteDataPipelineFrame(float Dt, const PipelineSystemRegistry& Registry);
+            PipelineFrameExecutionResult ExecuteDataPipelineFixedStage(float Dt, const PipelineSystemRegistry& Registry);
+            void ExecuteDataPipelineFixedStageBeforePhysics(float Dt);
+            void ExecuteDataPipelinePhysicsStage(float Dt);
+            PipelineFrameExecutionResult ExecuteDataPipelineFixedStageAfterPhysics(float Dt, const PipelineSystemRegistry& Registry);
+            void ExecuteDataPipelineParallelStage(float Dt);
             void AddSynchronousSystem(std::unique_ptr<Game::ISystem> NewSystem);
 
             AssetRegistry& GetAssetRegistry();
@@ -164,7 +170,7 @@ namespace Game {
             ScenePhysicsRuntimeContext BuildPhysicsRuntimeContext();
             PipelineFrameInput BuildPipelineFrameInput();
             void InitializeDataPipelineFrameRenderData();
-            void ExecuteSynchronousSystems(float Dt);
+            void ExecuteSynchronousSystems(float Dt, bool IsPhysicsSynchronizationStage);
             void AppendDebugWorldAxes();
             bool CanAddPipelineDefinition(const PipelineDefinition& PipelineDefinitionValue) const;
             void InvalidateWorkUnits();
@@ -185,6 +191,8 @@ namespace Game {
             PhysicsSnapshot mPhysicsRuntimeSnapshot{};
             PhysicsKinematicSceneSimulator mKinematicSceneSimulator{};
             std::vector<PhysicsKinematicRuntimeState> mKinematicRuntimeStates{};
+            std::vector<Arche::EntityID> mPhysicsSynchronizationEntityIds{};
+            std::uint64_t mPhysicsSynchronizationStructureVersion{ std::numeric_limits<std::uint64_t>::max() };
             std::uint32_t mPhysicsWorldVersion{ 1U };
             Utility::Time* mPhysicsTime{};
             bool mIsPhysicsRuntimeModeEnabled{};

@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <cstdint>
 #include <filesystem>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -107,6 +108,8 @@ namespace Game {
         PhysicsSnapshot mPhysicsRuntimeSnapshot{};
         PhysicsKinematicSceneSimulator mKinematicSceneSimulator{};
         std::vector<PhysicsKinematicRuntimeState> mKinematicRuntimeStates{};
+        std::vector<Arche::EntityID> mPhysicsSynchronizationEntityIds{};
+        std::uint64_t mPhysicsSynchronizationStructureVersion{ std::numeric_limits<std::uint64_t>::max() };
         std::uint32_t mPhysicsWorldVersion{ 1U };
         Utility::Time* mPhysicsTime{};
         

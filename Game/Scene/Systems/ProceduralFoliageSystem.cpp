@@ -204,8 +204,14 @@ namespace {
         float mInactiveHeight{};
         std::uint32_t mRuleIndex{ 0u };
         std::uint32_t mActiveLodIndex{ std::numeric_limits<std::uint32_t>::max() };
+        SimpleMath::Vector3 mRuntimePosition{ SimpleMath::Vector3::Zero };
+        SimpleMath::Vector3 mRuntimeRotationEuler{ SimpleMath::Vector3::Zero };
+        SimpleMath::Vector3 mRuntimeScale{ SimpleMath::Vector3::One };
+        std::uint32_t mRuntimePhysicsWorldVersion{};
         bool mActive{ false };
         bool mAssignedThisFrame{ false };
+        bool mHasRuntimeState{ false };
+        bool mRuntimeActive{ false };
     };
 
     struct GeneratedFoliageCell final {
@@ -1553,8 +1559,13 @@ namespace {
         return Desc;
     }
 
-    void EnqueueFoliageCollisionActorRuntimeState(PhysicsRuntime* PhysicsRuntimeResource, bool IsPhysicsRuntimeModeEnabled, const FoliageSlot& Slot, const Game::Transform& TransformComponent, bool IsActive) {
+    void EnqueueFoliageCollisionActorRuntimeState(PhysicsRuntime* PhysicsRuntimeResource, bool IsPhysicsRuntimeModeEnabled, std::uint32_t PhysicsWorldVersion, FoliageSlot& Slot, const Game::Transform& TransformComponent, bool IsActive) {
         if (IsPhysicsRuntimeModeEnabled == false || PhysicsRuntimeResource == nullptr || PhysicsRuntimeResource->IsRunning() == false || Slot.mCollisionActorPointer == nullptr) {
+            return;
+        }
+
+        const bool IsRuntimeStateChanged{ Slot.mHasRuntimeState == false || Slot.mRuntimePhysicsWorldVersion != PhysicsWorldVersion || Slot.mRuntimePosition != TransformComponent.position || Slot.mRuntimeRotationEuler != TransformComponent.rotationEuler || Slot.mRuntimeScale != TransformComponent.scale || Slot.mRuntimeActive != IsActive };
+        if (IsRuntimeStateChanged == false) {
             return;
         }
 
@@ -1575,7 +1586,17 @@ namespace {
         Command.mType = PhysicsCommandType::AddStaticActor;
         Command.mActorId = static_cast<ActorId>(Slot.mCollisionActorIndex);
         Command.mStaticActorDesc = Desc;
-        static_cast<void>(PhysicsRuntimeResource->EnqueueCommand(Command));
+        const bool IsCommandEnqueued{ PhysicsRuntimeResource->EnqueueCommand(Command) };
+        if (IsCommandEnqueued == false) {
+            return;
+        }
+
+        Slot.mRuntimePosition = TransformComponent.position;
+        Slot.mRuntimeRotationEuler = TransformComponent.rotationEuler;
+        Slot.mRuntimeScale = TransformComponent.scale;
+        Slot.mRuntimePhysicsWorldVersion = PhysicsWorldVersion;
+        Slot.mRuntimeActive = IsActive;
+        Slot.mHasRuntimeState = true;
     }
 
     bool CreateFoliageCollisionActor(Arche::World& World, IPhysicsWorld* PhysicsWorldResource, const FoliagePlacementConfig& Config, const FoliageRuntimeRule& Rule, Arche::EntityID RootEntityId, FoliageSlot& OutSlot) {
@@ -1640,22 +1661,25 @@ namespace {
         Slot.mActiveLodIndex = IsActive == true ? LodIndex : std::numeric_limits<std::uint32_t>::max();
     }
 
-    void ApplyFoliageCollisionActorToSlot(Arche::World& World, FoliageSlot& Slot, PhysicsRuntime* PhysicsRuntimeResource, bool IsPhysicsRuntimeModeEnabled, const Game::Transform& TransformComponent, bool IsActive) {
+    void ApplyFoliageCollisionActorToSlot(Arche::World& World, FoliageSlot& Slot, PhysicsRuntime* PhysicsRuntimeResource, bool IsPhysicsRuntimeModeEnabled, std::uint32_t PhysicsWorldVersion, const Game::Transform& TransformComponent, bool IsActive) {
         if (Slot.mCollisionActorPointer == nullptr) {
             return;
         }
 
-        Slot.mCollisionActorPointer->SetPosition(TransformComponent.position);
-        Slot.mCollisionActorPointer->SetOrientation(TransformComponent.rotation);
-        Slot.mCollisionActorPointer->SetScale(TransformComponent.scale);
-        Slot.mCollisionActorPointer->SetIsActive(IsActive);
+        const bool IsCollisionActorStateChanged{ Slot.mCollisionActorPointer->GetPosition() != TransformComponent.position || Slot.mCollisionActorPointer->GetOrientation() != TransformComponent.rotation || Slot.mCollisionActorPointer->GetScale() != TransformComponent.scale || Slot.mCollisionActorPointer->GetIsActive() != IsActive };
+        if (IsCollisionActorStateChanged == true) {
+            Slot.mCollisionActorPointer->SetPosition(TransformComponent.position);
+            Slot.mCollisionActorPointer->SetOrientation(TransformComponent.rotation);
+            Slot.mCollisionActorPointer->SetScale(TransformComponent.scale);
+            Slot.mCollisionActorPointer->SetIsActive(IsActive);
 
-        Game::BoundingBox* BoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(Slot.mRootEntityId) };
-        if (BoundingBoxComponent != nullptr) {
-            BoundingBoxComponent->SetWorldObb(Slot.mCollisionActorPointer->GetWorldBoundingBox());
+            Game::BoundingBox* BoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(Slot.mRootEntityId) };
+            if (BoundingBoxComponent != nullptr) {
+                BoundingBoxComponent->SetWorldObb(Slot.mCollisionActorPointer->GetWorldBoundingBox());
+            }
         }
 
-        EnqueueFoliageCollisionActorRuntimeState(PhysicsRuntimeResource, IsPhysicsRuntimeModeEnabled, Slot, TransformComponent, IsActive);
+        EnqueueFoliageCollisionActorRuntimeState(PhysicsRuntimeResource, IsPhysicsRuntimeModeEnabled, PhysicsWorldVersion, Slot, TransformComponent, IsActive);
     }
 
     void ApplyFoliageCandidateToSlot(Arche::World& World, Game::FrameContext& Ctx, FoliageSlot& Slot, const FoliageCandidate& Candidate) {
@@ -1663,7 +1687,7 @@ namespace {
             Slot.mAssignedThisFrame = true;
             Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(Slot.mRootEntityId) };
             if (TransformComponent != nullptr) {
-                ApplyFoliageCollisionActorToSlot(World, Slot, Ctx.PhysicsRuntimeResource, Ctx.IsPhysicsRuntimeModeEnabled, *TransformComponent, true);
+                ApplyFoliageCollisionActorToSlot(World, Slot, Ctx.PhysicsRuntimeResource, Ctx.IsPhysicsRuntimeModeEnabled, Ctx.mPhysicsWorldVersion, *TransformComponent, true);
             }
             else {
                 RemoveRuntimePipelineAssignment(Ctx, Slot.mRootEntityId);
@@ -1687,7 +1711,7 @@ namespace {
         TransformComponent->rotationEuler = SimpleMath::Vector3{ 0.0f, Candidate.mYawRadians, 0.0f };
         TransformComponent->UpdateRotationFromEulerRadians();
         TransformComponent->scale = SimpleMath::Vector3{ Candidate.mScale, Candidate.mScale, Candidate.mScale };
-        ApplyFoliageCollisionActorToSlot(World, Slot, Ctx.PhysicsRuntimeResource, Ctx.IsPhysicsRuntimeModeEnabled, *TransformComponent, true);
+        ApplyFoliageCollisionActorToSlot(World, Slot, Ctx.PhysicsRuntimeResource, Ctx.IsPhysicsRuntimeModeEnabled, Ctx.mPhysicsWorldVersion, *TransformComponent, true);
         Slot.mKey = Candidate.mKey;
         Slot.mAssignedThisFrame = true;
         SetFoliageSlotActive(Slot, true, Candidate.mLodIndex);
@@ -1702,7 +1726,7 @@ namespace {
         Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(Slot.mRootEntityId) };
         if (TransformComponent != nullptr) {
             TransformComponent->position.y = Slot.mInactiveHeight;
-            ApplyFoliageCollisionActorToSlot(World, Slot, Ctx.PhysicsRuntimeResource, Ctx.IsPhysicsRuntimeModeEnabled, *TransformComponent, false);
+            ApplyFoliageCollisionActorToSlot(World, Slot, Ctx.PhysicsRuntimeResource, Ctx.IsPhysicsRuntimeModeEnabled, Ctx.mPhysicsWorldVersion, *TransformComponent, false);
         }
         else if (Slot.mCollisionActorPointer != nullptr) {
             Slot.mCollisionActorPointer->SetIsActive(false);

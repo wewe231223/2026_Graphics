@@ -9,9 +9,11 @@
 #include "Utility/DirectXInclude.h"
 
 namespace Widget {
-    struct FrameTimeSample {
-        float AgeSeconds{};
-        float TimeMilliseconds{};
+    struct FrameTimeSample final {
+        float mAgeSeconds{};
+        float mCpuTimeMilliseconds{};
+        float mGpuTimeMilliseconds{};
+        bool mHasGpuTime{};
     };
 
     struct ProfileEntry {
@@ -22,6 +24,15 @@ namespace Widget {
     };
 
     class PerformanceProvider {
+    private:
+        struct FrameTimeRecord final {
+            std::uint64_t mFrameIdentifier{};
+            double mEndMicroseconds{};
+            float mCpuTimeMicroseconds{};
+            float mGpuTimeMicroseconds{};
+            bool mHasGpuTime{};
+        };
+
     public:
         PerformanceProvider();
         ~PerformanceProvider();
@@ -37,11 +48,14 @@ namespace Widget {
 
         void BeginFrame();
         void EndFrame();
+        void SubmitGpuFrameTime(std::uint64_t FrameIdentifier, double GpuTimeMicroseconds);
 
         void BeginPhaseProfile(const std::string& Name);
         void EndPhaseProfile();
 
-        [[nodiscard]] std::vector<float> GetFrameTimeMilliseconds() const;
+        [[nodiscard]] std::uint64_t GetCurrentFrameIdentifier() const;
+        [[nodiscard]] std::vector<float> GetCpuFrameTimeMilliseconds() const;
+        [[nodiscard]] std::vector<float> GetGpuFrameTimeMilliseconds() const;
         [[nodiscard]] std::vector<FrameTimeSample> GetFrameTimeSamples() const;
         [[nodiscard]] float GetFrameTimeHistorySeconds() const;
         [[nodiscard]] double GetAverageFps() const;
@@ -64,11 +78,11 @@ namespace Widget {
 
     private:
         LARGE_INTEGER mFrequency{};
-        LARGE_INTEGER mFrameBeginCounter{};
         bool mHasFrameBegin{};
         double mFrameBeginMicroseconds{};
+        std::uint64_t mCurrentFrameIdentifier{};
 
-        std::vector<std::pair<double, float>> mFrameTimeRecords{};
+        std::vector<FrameTimeRecord> mFrameTimeRecords{};
 
         IDXGIAdapter3* mAdapter3{};
         double mLastVramUpdateMicroseconds{};

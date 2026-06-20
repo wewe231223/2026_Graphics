@@ -40,9 +40,9 @@ namespace Widget {
     }
 
     void PerformanceProvider::BeginFrame() {
-        QueryPerformanceCounter(&mFrameBeginCounter);
         mHasFrameBegin = true;
         mFrameBeginMicroseconds = QueryNowMicroseconds();
+        mCurrentFrameIdentifier += 1;
         mPhaseDurations.clear();
         mActivePhaseName.clear();
         mActivePhaseStartMicroseconds = 0.0;
@@ -57,12 +57,13 @@ namespace Widget {
             EndPhaseProfile();
         }
 
-        LARGE_INTEGER EndCounter{};
-        QueryPerformanceCounter(&EndCounter);
-
-        const double EndMicroseconds{ static_cast<double>(EndCounter.QuadPart) * 1000000.0 / static_cast<double>(mFrequency.QuadPart) };
-        const double DeltaMicroseconds{ static_cast<double>(EndCounter.QuadPart - mFrameBeginCounter.QuadPart) * 1000000.0 / static_cast<double>(mFrequency.QuadPart) };
-        mFrameTimeRecords.push_back(std::make_pair(EndMicroseconds, static_cast<float>(DeltaMicroseconds)));
+        const double EndMicroseconds{ QueryNowMicroseconds() };
+        const double DeltaMicroseconds{ std::max(0.0, EndMicroseconds - mFrameBeginMicroseconds) };
+        FrameTimeRecord FrameTimeRecord{};
+        FrameTimeRecord.mFrameIdentifier = mCurrentFrameIdentifier;
+        FrameTimeRecord.mEndMicroseconds = EndMicroseconds;
+        FrameTimeRecord.mCpuTimeMicroseconds = static_cast<float>(DeltaMicroseconds);
+        mFrameTimeRecords.push_back(FrameTimeRecord);
         PruneOldFrameTimeRecords(EndMicroseconds);
 
         UpdateVramInfoIfNeeded();
@@ -84,6 +85,22 @@ namespace Widget {
         mCurrentFrameProfiles = std::move(NewFrameProfiles);
 
         mHasFrameBegin = false;
+    }
+
+    void PerformanceProvider::SubmitGpuFrameTime(std::uint64_t FrameIdentifier, double GpuTimeMicroseconds) {
+        if (FrameIdentifier == 0) {
+            return;
+        }
+
+        const std::vector<FrameTimeRecord>::reverse_iterator FoundIterator{ std::find_if(mFrameTimeRecords.rbegin(), mFrameTimeRecords.rend(), [FrameIdentifier](const FrameTimeRecord& FrameTimeRecord) {
+            return FrameTimeRecord.mFrameIdentifier == FrameIdentifier;
+        }) };
+        if (FoundIterator == mFrameTimeRecords.rend()) {
+            return;
+        }
+
+        FoundIterator->mGpuTimeMicroseconds = static_cast<float>(std::max(0.0, GpuTimeMicroseconds));
+        FoundIterator->mHasGpuTime = true;
     }
 
     void PerformanceProvider::BeginPhaseProfile(const std::string& Name) {
@@ -120,13 +137,33 @@ namespace Widget {
         mHasActivePhase = false;
     }
 
-    std::vector<float> PerformanceProvider::GetFrameTimeMilliseconds() const {
+    std::uint64_t PerformanceProvider::GetCurrentFrameIdentifier() const {
+        return mCurrentFrameIdentifier;
+    }
+
+    std::vector<float> PerformanceProvider::GetCpuFrameTimeMilliseconds() const {
         std::vector<float> Values{};
         const std::vector<FrameTimeSample> Samples{ GetFrameTimeSamples() };
         Values.reserve(Samples.size());
 
         for (const FrameTimeSample& Sample : Samples) {
-            Values.push_back(Sample.TimeMilliseconds);
+            Values.push_back(Sample.mCpuTimeMilliseconds);
+        }
+
+        return Values;
+    }
+
+    std::vector<float> PerformanceProvider::GetGpuFrameTimeMilliseconds() const {
+        std::vector<float> Values{};
+        const std::vector<FrameTimeSample> Samples{ GetFrameTimeSamples() };
+        Values.reserve(Samples.size());
+
+        for (const FrameTimeSample& Sample : Samples) {
+            if (Sample.mHasGpuTime == false) {
+                continue;
+            }
+
+            Values.push_back(Sample.mGpuTimeMilliseconds);
         }
 
         return Values;
@@ -137,15 +174,17 @@ namespace Widget {
         const double NowMicroseconds{ QueryNowMicroseconds() };
         Samples.reserve(mFrameTimeRecords.size());
 
-        for (const std::pair<double, float>& FrameTimeRecord : mFrameTimeRecords) {
-            const double AgeMicroseconds{ NowMicroseconds - FrameTimeRecord.first };
+        for (const FrameTimeRecord& FrameTimeRecord : mFrameTimeRecords) {
+            const double AgeMicroseconds{ NowMicroseconds - FrameTimeRecord.mEndMicroseconds };
             if (AgeMicroseconds > FrameTimeHistoryMicroseconds) {
                 continue;
             }
 
             FrameTimeSample Sample{};
-            Sample.AgeSeconds = static_cast<float>(std::max(0.0, AgeMicroseconds) / 1000000.0);
-            Sample.TimeMilliseconds = FrameTimeRecord.second / 1000.0f;
+            Sample.mAgeSeconds = static_cast<float>(std::max(0.0, AgeMicroseconds) / 1000000.0);
+            Sample.mCpuTimeMilliseconds = FrameTimeRecord.mCpuTimeMicroseconds / 1000.0f;
+            Sample.mGpuTimeMilliseconds = FrameTimeRecord.mGpuTimeMicroseconds / 1000.0f;
+            Sample.mHasGpuTime = FrameTimeRecord.mHasGpuTime;
             Samples.push_back(Sample);
         }
 
@@ -193,8 +232,8 @@ namespace Widget {
     }
 
     void PerformanceProvider::PruneOldFrameTimeRecords(double NowMicroseconds) {
-        const std::vector<std::pair<double, float>>::iterator FirstValidIterator{ std::find_if(mFrameTimeRecords.begin(), mFrameTimeRecords.end(), [NowMicroseconds](const std::pair<double, float>& FrameTimeRecord) {
-            return NowMicroseconds - FrameTimeRecord.first <= FrameTimeHistoryMicroseconds;
+        const std::vector<FrameTimeRecord>::iterator FirstValidIterator{ std::find_if(mFrameTimeRecords.begin(), mFrameTimeRecords.end(), [NowMicroseconds](const FrameTimeRecord& FrameTimeRecord) {
+            return NowMicroseconds - FrameTimeRecord.mEndMicroseconds <= FrameTimeHistoryMicroseconds;
         }) };
         mFrameTimeRecords.erase(mFrameTimeRecords.begin(), FirstValidIterator);
     }
@@ -260,8 +299,8 @@ namespace Widget {
         std::vector<float> Samples{};
         Samples.reserve(mFrameTimeRecords.size());
 
-        for (const std::pair<double, float>& FrameTimeRecord : mFrameTimeRecords) {
-            Samples.push_back(FrameTimeRecord.second);
+        for (const FrameTimeRecord& FrameTimeRecord : mFrameTimeRecords) {
+            Samples.push_back(FrameTimeRecord.mCpuTimeMicroseconds);
         }
 
         if (Samples.empty()) {

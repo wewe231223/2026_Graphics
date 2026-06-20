@@ -7,7 +7,7 @@ Role:
 Initialization:
 - Initialize with a PhysicsRuntimeScene template, RuntimeSettings, and world version.
 Usage:
-- Enqueue commands from the application thread, then read snapshots through GetReadableSnapshotIndex and GetSnapshot.
+- Enqueue commands from the application thread, then copy an interpolated snapshot through CopyInterpolatedSnapshotForTime.
 Notes:
 - The runtime owns a copied scene template until the next Initialize call.
 */
@@ -18,6 +18,7 @@ Notes:
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -48,9 +49,7 @@ public:
     bool EnqueueCommand(const PhysicsCommand& Command);
     void PublishKinematicStates(const std::vector<PhysicsKinematicRuntimeState>& KinematicStates);
 
-    std::uint32_t GetReadableSnapshotIndex() const;
-    const PhysicsSnapshot& GetSnapshot(std::uint32_t SnapshotIndex) const;
-    bool TryGetSnapshotPairForTime(double RenderPhysicsTime, PhysicsSnapshot& OutPrevious, PhysicsSnapshot& OutNext, float& OutAlpha) const;
+    bool CopyInterpolatedSnapshotForTime(double RenderPhysicsTime, PhysicsSnapshot& OutSnapshot) const;
 
     bool IsRunning() const;
     std::uint64_t LatestStepIndex() const;
@@ -58,10 +57,26 @@ public:
     std::uint64_t PublishedSnapshotCount() const;
 
 private:
+    struct PhysicsSnapshotBuffer final {
+        PhysicsSnapshot mSnapshot{};
+        std::atomic<std::uint64_t> mVersion{};
+        mutable std::atomic<std::uint32_t> mReaderCount{};
+    };
+
+    struct PhysicsSnapshotReadHandle final {
+        const PhysicsSnapshot* mSnapshot{};
+        std::uint32_t mBufferIndex{ std::numeric_limits<std::uint32_t>::max() };
+        std::uint64_t mVersion{};
+    };
+
     static std::uint64_t PackResetSceneCommand(const PhysicsCommand& Command);
     static PhysicsCommand UnpackResetSceneCommand(std::uint64_t PackedCommand);
 
     bool TryConsumeCoalescedResetCommand(PhysicsCommand& OutCommand);
+    bool TryAcquireSnapshotBuffer(const std::atomic<std::uint32_t>& PublishedSnapshotIndex, PhysicsSnapshotReadHandle& OutHandle) const;
+    void ReleaseSnapshotBuffer(PhysicsSnapshotReadHandle& Handle) const;
+    bool TrySelectWriteSnapshotBuffer(std::uint32_t& OutBufferIndex);
+    void ResetSnapshotBuffers();
     void RunPhysicsThread();
     bool ProcessPendingCommandsAtFixedStepBoundary(double& OutTimeAccumulatorSeconds);
     bool ProcessCommand(const PhysicsCommand& Command, double& OutTimeAccumulatorSeconds);
@@ -82,15 +97,16 @@ private:
 private:
     static constexpr std::size_t SnapshotBufferCount{ 3U };
     static constexpr std::size_t CommandQueueCapacity{ 1024U };
+    static constexpr std::uint32_t InvalidSnapshotBufferIndex{ std::numeric_limits<std::uint32_t>::max() };
 
 private:
     RuntimeSettings mSettings;
     PhysicsRuntimeScene mSceneTemplate;
     PhysicsWorld mPhysicsWorld;
     std::uint32_t mCurrentWorldVersion;
-    std::array<PhysicsSnapshot, SnapshotBufferCount> mSnapshotBuffers;
-    mutable std::mutex mSnapshotMutex;
-    std::atomic<std::uint32_t> mReadableSnapshotIndex;
+    mutable std::array<PhysicsSnapshotBuffer, SnapshotBufferCount> mSnapshotBuffers;
+    std::atomic<std::uint32_t> mPublishedSnapshotIndex;
+    std::atomic<std::uint32_t> mPreviousSnapshotIndex;
     std::uint32_t mWriteSnapshotIndex;
     SpscRingQueue<PhysicsCommand, CommandQueueCapacity> mCommandQueue;
     std::atomic<std::uint64_t> mCoalescedResetCommand;

@@ -200,25 +200,68 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     };
 
     auto ExecuteSceneFrame = [&UsePipelineScene, &LegacySceneInstance, &PipelineSceneInstance, &PipelineRegistry, &IsImGuiBlocked](float SceneDeltaTime) {
-        if (!IsImGuiBlocked) {
-            Widget::PerformanceProvider::Get().BeginPhaseProfile(UsePipelineScene ? "DataPipelineFrame" : "LegacySceneFrame");
+        if (UsePipelineScene) {
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("FixedPipelineStage");
+            }
+
+            PipelineSceneInstance->ExecuteDataPipelineFixedStageBeforePhysics(SceneDeltaTime);
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("PhysicsEngineStage");
+            }
+
+            PipelineSceneInstance->ExecuteDataPipelinePhysicsStage(SceneDeltaTime);
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("FixedPipelineStage");
+            }
+
+            const Game::Pipeline::PipelineFrameExecutionResult FixedStageResult{ PipelineSceneInstance->ExecuteDataPipelineFixedStageAfterPhysics(SceneDeltaTime, PipelineRegistry) };
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            ErrorHandler::report(FixedStageResult.IsSuccess == false, "WinMain", FixedStageResult.FailureMessage, ErrorHandler::Level::Warning);
+            if (FixedStageResult.IsSuccess == false) {
+                return;
+            }
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("ParallelProcessingStage");
+            }
+
+            PipelineSceneInstance->ExecuteDataPipelineParallelStage(SceneDeltaTime);
+
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
+            }
+
+            return;
         }
 
-        if (UsePipelineScene) {
-            const Game::Pipeline::PipelineFrameExecutionResult PipelineResult{ PipelineSceneInstance->ExecuteDataPipelineFrame(SceneDeltaTime, PipelineRegistry) };
-            ErrorHandler::report(PipelineResult.IsSuccess == false, "WinMain", PipelineResult.FailureMessage, ErrorHandler::Level::Warning);
+        if (!IsImGuiBlocked) {
+            Widget::PerformanceProvider::Get().BeginPhaseProfile("FixedPipelineStage");
         }
-        else {
-            LegacySceneInstance->ExecutePhase(Game::Phase::PreUpdate, SceneDeltaTime);
-            LegacySceneInstance->ExecutePhase(Game::Phase::Update, SceneDeltaTime);
-            LegacySceneInstance->ExecutePhase(Game::Phase::PostUpdate, SceneDeltaTime);
-            LegacySceneInstance->ExecutePhase(Game::Phase::PhysicsActorUpdate, SceneDeltaTime);
-            LegacySceneInstance->ExecutePhase(Game::Phase::IK, SceneDeltaTime);
-            LegacySceneInstance->ExecutePhase(Game::Phase::TransformWorld, SceneDeltaTime);
-            LegacySceneInstance->ExecutePhase(Game::Phase::RenderPrepare, SceneDeltaTime);
-            LegacySceneInstance->ExecutePhase(Game::Phase::Render, SceneDeltaTime);
-            LegacySceneInstance->ExecutePhase(Game::Phase::PostRender, SceneDeltaTime);
-        }
+
+        LegacySceneInstance->ExecutePhase(Game::Phase::PreUpdate, SceneDeltaTime);
+        LegacySceneInstance->ExecutePhase(Game::Phase::Update, SceneDeltaTime);
+        LegacySceneInstance->ExecutePhase(Game::Phase::PostUpdate, SceneDeltaTime);
+        LegacySceneInstance->ExecutePhase(Game::Phase::PhysicsActorUpdate, SceneDeltaTime);
+        LegacySceneInstance->ExecutePhase(Game::Phase::IK, SceneDeltaTime);
+        LegacySceneInstance->ExecutePhase(Game::Phase::TransformWorld, SceneDeltaTime);
+        LegacySceneInstance->ExecutePhase(Game::Phase::RenderPrepare, SceneDeltaTime);
+        LegacySceneInstance->ExecutePhase(Game::Phase::Render, SceneDeltaTime);
+        LegacySceneInstance->ExecutePhase(Game::Phase::PostRender, SceneDeltaTime);
 
         if (!IsImGuiBlocked) {
             Widget::PerformanceProvider::Get().EndPhaseProfile();
@@ -283,6 +326,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                 WidgetCoreInstance.SetSceneWorldSnapshot(UpdateSceneWorldSnapshot());
             }
 
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().BeginPhaseProfile("CommandSubmissionStage");
+            }
+
             PrepareSceneRender();
             Game::RFD::RenderFrameData& RenderFrameData{ GetSceneRenderFrameData() };
             directQueue.PreRender(RenderFrameData, SceneDeltaTime);
@@ -291,6 +338,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             }
             else {
                 directQueue.Render(RenderFrameData, nullptr);
+            }
+            if (!IsImGuiBlocked) {
+                Widget::PerformanceProvider::Get().EndPhaseProfile();
             }
 
             ++FrameCount;

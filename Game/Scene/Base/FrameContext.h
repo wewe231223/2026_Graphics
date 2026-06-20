@@ -37,9 +37,11 @@ namespace Game {
         IPhysicsWorld* PhysicsWorldResource{ nullptr };
         PhysicsRuntime* PhysicsRuntimeResource{ nullptr };
         const PhysicsSnapshot* PhysicsSnapshotResource{ nullptr };
+        const std::vector<Arche::EntityID>* PhysicsSynchronizationEntityIds{ nullptr };
         TerrainManager* TerrainManagerResource{ nullptr };
         ITerrainQuery* TerrainQueryResource{ nullptr };
         bool IsPhysicsRuntimeModeEnabled{};
+        std::uint32_t mPhysicsWorldVersion{};
         PhysicsRuntimeStatus PhysicsRuntimeStatus{};
         Arche::EntityID PickedEntityId{ Arche::NullEntityID };
         std::vector<SkinnedMeshPreparedData> SkinnedMeshPreparedDataItems{};

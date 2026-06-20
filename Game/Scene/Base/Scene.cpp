@@ -141,6 +141,8 @@ namespace Game {
             mPhysicsRuntimeSnapshot{},
             mKinematicSceneSimulator{},
             mKinematicRuntimeStates{},
+            mPhysicsSynchronizationEntityIds{},
+            mPhysicsSynchronizationStructureVersion{ InvalidWorkUnitBuildStructureVersion },
             mPhysicsWorldVersion{ 1U },
             mPhysicsTime{},
             mIsPhysicsRuntimeModeEnabled{ ScenePhysicsRuntimeCoordinator::ResolvePhysicsRuntimeModeEnabled() },
@@ -217,13 +219,36 @@ namespace Game {
         }
 
         PipelineFrameExecutionResult Scene::ExecuteDataPipelineFrame(float Dt, const PipelineSystemRegistry& Registry) {
+            PipelineFrameExecutionResult FixedStageResult{ ExecuteDataPipelineFixedStage(Dt, Registry) };
+            if (FixedStageResult.IsSuccess == false) {
+                return FixedStageResult;
+            }
+
+            ExecuteDataPipelineParallelStage(Dt);
+            return PipelineFrameExecutionResult{};
+        }
+
+        PipelineFrameExecutionResult Scene::ExecuteDataPipelineFixedStage(float Dt, const PipelineSystemRegistry& Registry) {
+            ExecuteDataPipelineFixedStageBeforePhysics(Dt);
+            ExecuteDataPipelinePhysicsStage(Dt);
+            return ExecuteDataPipelineFixedStageAfterPhysics(Dt, Registry);
+        }
+
+        void Scene::ExecuteDataPipelineFixedStageBeforePhysics(float Dt) {
             InitializeDataPipelineFrameRenderData();
 
             AttachDefaultCameraControlBehavior();
             mLuaScriptFramework.Update(Dt);
             mLuaScriptFramework.LateUpdate(Dt);
+        }
+
+        void Scene::ExecuteDataPipelinePhysicsStage(float Dt) {
             UpdatePhysics(Dt);
-            ExecuteSynchronousSystems(Dt);
+            ExecuteSynchronousSystems(Dt, true);
+        }
+
+        PipelineFrameExecutionResult Scene::ExecuteDataPipelineFixedStageAfterPhysics(float Dt, const PipelineSystemRegistry& Registry) {
+            ExecuteSynchronousSystems(Dt, false);
             mWorld.FlushDeferredStructuralChanges();
 
             SceneWorkUnitBuildResult WorkUnitBuildResult{ UpdateWorkUnitsIfNeeded() };
@@ -236,11 +261,14 @@ namespace Game {
                 return BuildFailureResult(BuildFailureMessage("Pipeline system binding failed.", BindingResult.FailureMessages));
             }
 
+            return PipelineFrameExecutionResult{};
+        }
+
+        void Scene::ExecuteDataPipelineParallelStage(float Dt) {
             const PipelineFrameInput FrameInput{ BuildPipelineFrameInput() };
             std::span<SceneWorkUnit> WorkUnitSpan{ mWorkUnits.data(), mWorkUnits.size() };
             mPipelineExecutor.Execute(mWorld, WorkUnitSpan, FrameInput, Dt);
             RenderGatherResultMerger::Merge(mPipelineExecutor.GetRenderGatherResults(), mFrameContext.RenderData);
-            return PipelineFrameExecutionResult{};
         }
 
         void Scene::AddSynchronousSystem(std::unique_ptr<Game::ISystem> NewSystem) {
@@ -733,7 +761,7 @@ namespace Game {
         }
 
         ScenePhysicsRuntimeContext Scene::BuildPhysicsRuntimeContext() {
-            return ScenePhysicsRuntimeContext{ mWorld, mPhysicsWorld, mPhysicsRuntime, mPhysicsRuntimeScene, mPhysicsRuntimeSnapshot, mKinematicSceneSimulator, mTerrainManager, mKinematicRuntimeStates, mPhysicsWorldVersion, mPhysicsTime, mFrameContext, mWorldSnapshot, mTerrainActorDescBindings, mIsPhysicsRuntimeModeEnabled };
+            return ScenePhysicsRuntimeContext{ mWorld, mPhysicsWorld, mPhysicsRuntime, mPhysicsRuntimeScene, mPhysicsRuntimeSnapshot, mKinematicSceneSimulator, mTerrainManager, mKinematicRuntimeStates, mPhysicsSynchronizationEntityIds, mPhysicsSynchronizationStructureVersion, mPhysicsWorldVersion, mPhysicsTime, mFrameContext, mWorldSnapshot, mTerrainActorDescBindings, mIsPhysicsRuntimeModeEnabled };
         }
 
         PipelineFrameInput Scene::BuildPipelineFrameInput() {
@@ -797,9 +825,14 @@ namespace Game {
             mFrameContext.SkinnedMeshPreparedDataItems.clear();
         }
 
-        void Scene::ExecuteSynchronousSystems(float Dt) {
+        void Scene::ExecuteSynchronousSystems(float Dt, bool IsPhysicsSynchronizationStage) {
             for (std::unique_ptr<Game::ISystem>& System : mSynchronousSystems) {
                 if (System == nullptr) {
+                    continue;
+                }
+
+                const bool IsPhysicsActorUpdateSystem{ System->Name() == "PhysicsActorUpdateSystem" };
+                if (IsPhysicsActorUpdateSystem != IsPhysicsSynchronizationStage) {
                     continue;
                 }
 

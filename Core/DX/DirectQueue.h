@@ -84,7 +84,11 @@ namespace Core {
 			void InitBasements();
 			void InitWorkers();
 			void InitCommandList();
+			void InitGpuTimestampQuery();
 			void InitTargetResources();
+			void ResolveGpuFrameTime(std::uint32_t FrameIndex);
+			void BeginGpuFrameTimestampQuery(std::uint32_t FrameIndex);
+			void EndGpuFrameTimestampQuery(std::uint32_t FrameIndex);
 			void InitGBufferResources();
 			void EnsureShadowMapResources(const Game::RFD::ShadowMappingParameter& ShadowMappingParameter);
 			PostProcessJob BuildToneMappingPostProcessJob(const TexPtr& SourceTarget, const TexPtr& DestinationTarget, bool IsPostProcessEnabled);
@@ -108,6 +112,7 @@ namespace Core {
 			static constexpr std::uint32_t GBufferAlbedoIndex{ 0 };
 			static constexpr std::uint32_t GBufferNormalIndex{ 1 };
 			static constexpr std::uint32_t GBufferWorldPositionIndex{ 2 };
+			static constexpr std::uint32_t GpuTimestampCountPerFrame{ 2 };
 
 			HWND mHwnd{ nullptr };
 			ComPtr<IDXGIFactory6> mFactory{ nullptr };
@@ -133,6 +138,11 @@ namespace Core {
 			std::array<ComPtr<ID3D12CommandAllocator>, Constants::FrameCount<size_t>> mMainCommandAllocators{};
 			ComPtr<ID3D12GraphicsCommandList> mPostProcessCommandList{ nullptr };
 			std::array<ComPtr<ID3D12CommandAllocator>, Constants::FrameCount<size_t>> mPostProcessCommandAllocators{};
+			ComPtr<ID3D12QueryHeap> mGpuTimestampQueryHeap{ nullptr };
+			ComPtr<ID3D12Resource> mGpuTimestampReadbackBuffer{ nullptr };
+			std::array<std::uint64_t, Constants::FrameCount<size_t>> mGpuTimestampFrameIdentifiers{};
+			std::array<bool, Constants::FrameCount<size_t>> mHasGpuTimestampFrame{};
+			std::uint64_t mGpuTimestampFrequency{};
 
 			DescriptorHeap mRTVHeap{};
 			std::array<TexPtr, Constants::FrameCount<size_t>> mRenderTargets{};

@@ -34,6 +34,8 @@ namespace Game {
         PhysicsKinematicSceneSimulator& mKinematicSceneSimulator;
         TerrainManager& mTerrainManager;
         std::vector<PhysicsKinematicRuntimeState>& mKinematicRuntimeStates;
+        std::vector<Arche::EntityID>& mPhysicsSynchronizationEntityIds;
+        std::uint64_t& mPhysicsSynchronizationStructureVersion;
         std::uint32_t& mPhysicsWorldVersion;
         Utility::Time* mPhysicsTime{};
         FrameContext& mFrameContext;
@@ -61,5 +63,8 @@ namespace Game {
         static void UpdatePhysics(ScenePhysicsRuntimeContext Context, float Dt);
         static void AddTerrainActorDesc(ScenePhysicsRuntimeContext Context, Arche::EntityID EntityId, const PhysicsTerrainActor::ActorDesc& TerrainActorDesc);
         static void ClearTerrainActorDescs(ScenePhysicsRuntimeContext Context);
+
+    private:
+        static void UpdatePhysicsSynchronizationEntityIds(ScenePhysicsRuntimeContext Context);
     };
 }
