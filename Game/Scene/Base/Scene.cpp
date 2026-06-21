@@ -50,77 +50,6 @@ namespace Game {
     namespace Pipeline {
         namespace {
             constexpr std::uint64_t InvalidWorkUnitBuildStructureVersion{ std::numeric_limits<std::uint64_t>::max() };
-
-            void AddFailure(PipelineSystemBindingResult& BindingResult, const std::string& Message);
-            bool IsWorkUnitPipelineBindingCurrent(const SceneWorkUnit& WorkUnit, const PipelineDefinition& PipelineDefinitionValue, const std::unordered_map<std::string, std::unique_ptr<IPipelineSystem>>& PipelineSystemsByName);
-            void TransferReusablePipelineBindings(std::span<const SceneWorkUnit> ExistingWorkUnits, std::vector<SceneWorkUnit>& NewWorkUnits);
-            std::string BuildFailureMessage(const std::string& Prefix, const std::vector<std::string>& FailureMessages);
-            PipelineFrameExecutionResult BuildFailureResult(const std::string& FailureMessage);
-            bool ResolveInitialDebugGeometryDrawEnabled();
-
-            void AddFailure(PipelineSystemBindingResult& BindingResult, const std::string& Message) {
-                BindingResult.IsSuccess = false;
-                BindingResult.FailureMessages.push_back(Message);
-            }
-
-            bool IsWorkUnitPipelineBindingCurrent(const SceneWorkUnit& WorkUnit, const PipelineDefinition& PipelineDefinitionValue, const std::unordered_map<std::string, std::unique_ptr<IPipelineSystem>>& PipelineSystemsByName) {
-                const std::vector<std::string>& SystemNames{ PipelineDefinitionValue.GetSystemNames() };
-                const std::vector<IPipelineSystem*>& PipelineSystems{ WorkUnit.GetPipelineSystems() };
-                if (PipelineSystems.size() != SystemNames.size()) {
-                    return false;
-                }
-
-                for (std::size_t SystemIndex{}; SystemIndex < SystemNames.size(); ++SystemIndex) {
-                    const std::unordered_map<std::string, std::unique_ptr<IPipelineSystem>>::const_iterator PipelineSystemIter{ PipelineSystemsByName.find(SystemNames[SystemIndex]) };
-                    if (PipelineSystemIter == PipelineSystemsByName.end() || PipelineSystems[SystemIndex] != PipelineSystemIter->second.get()) {
-                        return false;
-                    }
-                }
-
-                return true;
-            }
-
-            void TransferReusablePipelineBindings(std::span<const SceneWorkUnit> ExistingWorkUnits, std::vector<SceneWorkUnit>& NewWorkUnits) {
-                for (SceneWorkUnit& NewWorkUnit : NewWorkUnits) {
-                    for (const SceneWorkUnit& ExistingWorkUnit : ExistingWorkUnits) {
-                        if (NewWorkUnit.GetUnitEntityId() != ExistingWorkUnit.GetUnitEntityId() || NewWorkUnit.GetPipelineId() != ExistingWorkUnit.GetPipelineId()) {
-                            continue;
-                        }
-
-                        NewWorkUnit.GetPipelineSystems() = ExistingWorkUnit.GetPipelineSystems();
-                        break;
-                    }
-                }
-            }
-
-            std::string BuildFailureMessage(const std::string& Prefix, const std::vector<std::string>& FailureMessages) {
-                std::string FailureMessage{ Prefix };
-                for (const std::string& Message : FailureMessages) {
-                    if (FailureMessage.empty() == false) {
-                        FailureMessage += "\n";
-                    }
-
-                    FailureMessage += Message;
-                }
-
-                return FailureMessage;
-            }
-
-            PipelineFrameExecutionResult BuildFailureResult(const std::string& FailureMessage) {
-                PipelineFrameExecutionResult Result{};
-                Result.IsSuccess = false;
-                Result.FailureMessage = FailureMessage;
-                return Result;
-            }
-
-            bool ResolveInitialDebugGeometryDrawEnabled() {
-                const IConfig* ConfigInstance{ Config::Query() };
-                if (ConfigInstance == nullptr) {
-                    return false;
-                }
-
-                return ConfigInstance->Get<bool>("Draw_DebugGeometry");
-            }
         }
 
         PipelineFrameExecutionResult::PipelineFrameExecutionResult() = default;
@@ -129,6 +58,33 @@ namespace Game {
         PipelineFrameExecutionResult& PipelineFrameExecutionResult::operator=(const PipelineFrameExecutionResult& Other) = default;
         PipelineFrameExecutionResult::PipelineFrameExecutionResult(PipelineFrameExecutionResult&& Other) noexcept = default;
         PipelineFrameExecutionResult& PipelineFrameExecutionResult::operator=(PipelineFrameExecutionResult&& Other) noexcept = default;
+
+        void PipelineFrameExecutionResult::AddFailure(const std::string& Message) {
+            IsSuccess = false;
+
+            if (FailureMessage.empty() == false) {
+                FailureMessage += "\n";
+            }
+
+            FailureMessage += Message;
+        }
+
+        std::string PipelineFrameExecutionResult::BuildFailureMessage(const std::string& Prefix, const std::vector<std::string>& FailureMessages) const {
+            std::string Message{ Prefix };
+            for (const std::string& FailureMessage : FailureMessages) {
+                if (Message.empty() == false) {
+                    Message += "\n";
+                }
+
+                Message += FailureMessage;
+            }
+
+            return Message;
+        }
+
+        void PipelineFrameExecutionResult::BuildFailureResult(const std::string& FailureMessage) {
+            AddFailure(FailureMessage);
+        }
 
         Scene::Scene()
             : mWorld{},
@@ -248,20 +204,24 @@ namespace Game {
         }
 
         PipelineFrameExecutionResult Scene::ExecuteDataPipelineFixedStageAfterPhysics(float Dt, const PipelineSystemRegistry& Registry) {
+            PipelineFrameExecutionResult Result{};
+
             ExecuteSynchronousSystems(Dt, false);
             mWorld.FlushDeferredStructuralChanges();
 
             SceneWorkUnitBuildResult WorkUnitBuildResult{ UpdateWorkUnitsIfNeeded() };
             if (WorkUnitBuildResult.IsSuccess == false) {
-                return BuildFailureResult(BuildFailureMessage("WorkUnit build failed.", WorkUnitBuildResult.UndecidedItems));
+                Result.BuildFailureResult(Result.BuildFailureMessage("WorkUnit build failed.", WorkUnitBuildResult.UndecidedItems));
+                return Result;
             }
 
             PipelineSystemBindingResult BindingResult{ BuildPipelineSystemBindings(Registry) };
             if (BindingResult.IsSuccess == false) {
-                return BuildFailureResult(BuildFailureMessage("Pipeline system binding failed.", BindingResult.FailureMessages));
+                Result.BuildFailureResult(Result.BuildFailureMessage("Pipeline system binding failed.", BindingResult.FailureMessages));
+                return Result;
             }
 
-            return PipelineFrameExecutionResult{};
+            return Result;
         }
 
         void Scene::ExecuteDataPipelineParallelStage(float Dt) {
@@ -627,7 +587,7 @@ namespace Game {
             for (const PipelineDefinition& PipelineDefinitionValue : mPipelineDefinitions) {
                 for (const std::string& SystemName : PipelineDefinitionValue.GetSystemNames()) {
                     if (Registry.Contains(SystemName) == false) {
-                        AddFailure(BindingResult, std::string{ "Pipeline System factory is missing: " } + SystemName);
+                        BindingResult.AddFailure(std::string{ "Pipeline System factory is missing: " } + SystemName);
                     }
 
                     const bool IsRequiredSystemNameInserted{ RequiredSystemNameSet.insert(SystemName).second };
@@ -640,7 +600,7 @@ namespace Game {
             for (const SceneWorkUnit& WorkUnit : mWorkUnits) {
                 const PipelineId PipelineIdValue{ WorkUnit.GetPipelineId() };
                 if (PipelineIdValue == InvalidPipelineId || static_cast<std::size_t>(PipelineIdValue) >= mPipelineDefinitions.size()) {
-                    AddFailure(BindingResult, std::string{ "WorkUnit PipelineId is invalid: " } + std::to_string(PipelineIdValue));
+                    BindingResult.AddFailure(std::string{ "WorkUnit PipelineId is invalid: " } + std::to_string(PipelineIdValue));
                 }
             }
 
@@ -656,7 +616,7 @@ namespace Game {
 
                 std::unique_ptr<IPipelineSystem> NewPipelineSystem{ Registry.CreateSystem(SystemName) };
                 if (NewPipelineSystem == nullptr) {
-                    AddFailure(BindingResult, std::string{ "Pipeline System factory returned null: " } + SystemName);
+                    BindingResult.AddFailure(std::string{ "Pipeline System factory returned null: " } + SystemName);
                     continue;
                 }
 
@@ -673,7 +633,7 @@ namespace Game {
 
             for (SceneWorkUnit& WorkUnit : mWorkUnits) {
                 const PipelineDefinition& PipelineDefinitionValue{ mPipelineDefinitions[static_cast<std::size_t>(WorkUnit.GetPipelineId())] };
-                if (IsWorkUnitPipelineBindingCurrent(WorkUnit, PipelineDefinitionValue, mPipelineSystemsByName) == true) {
+                if (IsWorkUnitPipelineBindingCurrent(WorkUnit, PipelineDefinitionValue) == true) {
                     continue;
                 }
 
@@ -682,7 +642,7 @@ namespace Game {
                 for (const std::string& SystemName : PipelineDefinitionValue.GetSystemNames()) {
                     IPipelineSystem* PipelineSystem{ FindPipelineSystem(SystemName) };
                     if (PipelineSystem == nullptr) {
-                        AddFailure(BindingResult, std::string{ "Pipeline System instance is missing: " } + SystemName);
+                        BindingResult.AddFailure(std::string{ "Pipeline System instance is missing: " } + SystemName);
                         continue;
                     }
 
@@ -761,7 +721,24 @@ namespace Game {
         }
 
         ScenePhysicsRuntimeContext Scene::BuildPhysicsRuntimeContext() {
-            return ScenePhysicsRuntimeContext{ mWorld, mPhysicsWorld, mPhysicsRuntime, mPhysicsRuntimeScene, mPhysicsRuntimeSnapshot, mKinematicSceneSimulator, mTerrainManager, mKinematicRuntimeStates, mPhysicsSynchronizationEntityIds, mPhysicsSynchronizationStructureVersion, mPhysicsWorldVersion, mPhysicsTime, mFrameContext, mWorldSnapshot, mTerrainActorDescBindings, mIsPhysicsRuntimeModeEnabled };
+            return ScenePhysicsRuntimeContext{ 
+                mWorld, 
+                mPhysicsWorld, 
+                mPhysicsRuntime, 
+                mPhysicsRuntimeScene, 
+                mPhysicsRuntimeSnapshot, 
+                mKinematicSceneSimulator, 
+                mTerrainManager, 
+                mKinematicRuntimeStates, 
+                mPhysicsSynchronizationEntityIds, 
+                mPhysicsSynchronizationStructureVersion, 
+                mPhysicsWorldVersion, 
+                mPhysicsTime, 
+                mFrameContext, 
+                mWorldSnapshot, 
+                mTerrainActorDescBindings, 
+                mIsPhysicsRuntimeModeEnabled 
+            };
         }
 
         PipelineFrameInput Scene::BuildPipelineFrameInput() {
@@ -786,6 +763,45 @@ namespace Game {
             }
 
             return FrameInput;
+        }
+
+        bool Scene::IsWorkUnitPipelineBindingCurrent(const SceneWorkUnit& WorkUnit, const PipelineDefinition& PipelineDefinitionValue) const {
+            const std::vector<std::string>& SystemNames{ PipelineDefinitionValue.GetSystemNames() };
+            const std::vector<IPipelineSystem*>& PipelineSystems{ WorkUnit.GetPipelineSystems() };
+            if (PipelineSystems.size() != SystemNames.size()) {
+                return false;
+            }
+
+            for (std::size_t SystemIndex{}; SystemIndex < SystemNames.size(); ++SystemIndex) {
+                const auto PipelineSystemIter{ mPipelineSystemsByName.find(SystemNames[SystemIndex]) };
+                if (PipelineSystemIter == mPipelineSystemsByName.end() || PipelineSystems[SystemIndex] != PipelineSystemIter->second.get()) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        void Scene::TransferReusablePipelineBindings(std::span<const SceneWorkUnit> ExistingWorkUnits, std::vector<SceneWorkUnit>& NewWorkUnits) const {
+            for (SceneWorkUnit& NewWorkUnit : NewWorkUnits) {
+                for (const SceneWorkUnit& ExistingWorkUnit : ExistingWorkUnits) {
+                    if (NewWorkUnit.GetUnitEntityId() != ExistingWorkUnit.GetUnitEntityId() || NewWorkUnit.GetPipelineId() != ExistingWorkUnit.GetPipelineId()) {
+                        continue;
+                    }
+
+                    NewWorkUnit.GetPipelineSystems() = ExistingWorkUnit.GetPipelineSystems();
+                    break;
+                }
+            }
+        }
+
+        bool Scene::ResolveInitialDebugGeometryDrawEnabled() const {
+            const IConfig* ConfigInstance{ Config::Query() };
+            if (ConfigInstance == nullptr) {
+                return false;
+            }
+
+            return ConfigInstance->Get<bool>("Draw_DebugGeometry");
         }
 
         void Scene::InitializeDataPipelineFrameRenderData() {

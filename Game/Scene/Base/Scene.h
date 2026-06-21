@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -43,6 +44,11 @@ namespace Game {
 
             PipelineFrameExecutionResult(PipelineFrameExecutionResult&& Other) noexcept;
             PipelineFrameExecutionResult& operator=(PipelineFrameExecutionResult&& Other) noexcept;
+
+        public:
+            void AddFailure(const std::string& Message);
+            std::string BuildFailureMessage(const std::string& Prefix, const std::vector<std::string>& FailureMessages) const;
+            void BuildFailureResult(const std::string& FailureMessage);
 
         public:
             bool IsSuccess{ true };
@@ -169,6 +175,10 @@ namespace Game {
         private:
             ScenePhysicsRuntimeContext BuildPhysicsRuntimeContext();
             PipelineFrameInput BuildPipelineFrameInput();
+            bool IsWorkUnitPipelineBindingCurrent(const SceneWorkUnit& WorkUnit, const PipelineDefinition& PipelineDefinitionValue) const;
+            void TransferReusablePipelineBindings(std::span<const SceneWorkUnit> ExistingWorkUnits, std::vector<SceneWorkUnit>& NewWorkUnits) const;
+            bool ResolveInitialDebugGeometryDrawEnabled() const;
+
             void InitializeDataPipelineFrameRenderData();
             void ExecuteSynchronousSystems(float Dt, bool IsPhysicsSynchronizationStage);
             void AppendDebugWorldAxes();

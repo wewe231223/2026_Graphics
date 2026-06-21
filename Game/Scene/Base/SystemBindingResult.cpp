@@ -8,5 +8,10 @@ namespace Game {
         PipelineSystemBindingResult& PipelineSystemBindingResult::operator=(const PipelineSystemBindingResult& Other) = default;
         PipelineSystemBindingResult::PipelineSystemBindingResult(PipelineSystemBindingResult&& Other) noexcept = default;
         PipelineSystemBindingResult& PipelineSystemBindingResult::operator=(PipelineSystemBindingResult&& Other) noexcept = default;
+
+        void PipelineSystemBindingResult::AddFailure(const std::string& Message) {
+            IsSuccess = false;
+            FailureMessages.push_back(Message);
+        }
     }
 }

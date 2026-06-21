@@ -27,6 +27,11 @@ namespace Game {
             std::span<const RenderGatherResult> GetRenderGatherResults() const;
 
         private:
+            void ExecuteWorkUnit(Arche::World& World, SceneWorkUnit& WorkUnit, const PipelineFrameInput& FrameInput, RenderGatherResult& RenderGatherResultValue, float Dt) const;
+            std::size_t ResolveTotalWorkerCount(std::size_t WorkUnitCount) const;
+            std::size_t ResolveWorkUnitChunkSize(std::size_t WorkUnitCount, std::size_t TotalWorkerCount) const;
+            void ExecuteWorkUnitsByDynamicPull(Arche::World& World, std::span<SceneWorkUnit> WorkUnits, const PipelineFrameInput& FrameInput, std::span<RenderGatherResult> RenderGatherResults, float Dt);
+
             void PrepareRenderGatherResults(std::size_t RenderGatherResultCount);
 
         private:

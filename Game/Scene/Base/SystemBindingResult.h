@@ -16,6 +16,9 @@ namespace Game {
             PipelineSystemBindingResult& operator=(PipelineSystemBindingResult&& Other) noexcept;
 
         public:
+            void AddFailure(const std::string& Message);
+
+        public:
             bool IsSuccess{ true };
             std::vector<std::string> FailureMessages{};
         };
