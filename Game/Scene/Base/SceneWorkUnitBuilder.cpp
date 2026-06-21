@@ -1,4 +1,4 @@
-﻿#include "SceneWorkUnitBuilder.h"
+#include "SceneWorkUnitBuilder.h"
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -8,173 +8,163 @@
 
 namespace Game {
     namespace Pipeline {
-        namespace {
-            std::string ToEntityIdText(Arche::EntityID EntityId);
-            void AddFailure(SceneWorkUnitBuildResult& BuildResult, const std::string& Message);
-            void AppendRuntimePipelineAssignments(const Scene& TargetScene, std::vector<UnitPipelineAssignment>& InOutAssignments, SceneWorkUnitBuildResult& BuildResult);
-            bool ValidateAssignment(const Scene& TargetScene, const UnitPipelineAssignment& Assignment, SceneWorkUnitBuildResult& BuildResult);
-            bool TryCollectHierarchyEntityIds(const Arche::World& World, Arche::EntityID UnitEntityId, Arche::EntityID CurrentEntityId, const std::unordered_set<Arche::EntityID>& AssignedUnitEntityIds, std::unordered_set<Arche::EntityID>& LocalVisitedEntityIds, std::vector<Arche::EntityID>& OutEntityIds, SceneWorkUnitBuildResult& BuildResult);
-            bool TryAddWorkUnitEntityOwners(const SceneWorkUnit& WorkUnit, std::unordered_map<Arche::EntityID, Arche::EntityID>& WorkUnitOwnerByEntityId, SceneWorkUnitBuildResult& BuildResult);
-            SceneWorkUnit CreateSceneWorkUnit(const UnitPipelineAssignment& Assignment, std::vector<Arche::EntityID>&& EntityIds);
+        std::string SceneWorkUnitBuilder::ToEntityIdText(Arche::EntityID EntityId) const {
+            return std::to_string(EntityId.index) + ":" + std::to_string(EntityId.generation);
+        }
 
-            std::string ToEntityIdText(Arche::EntityID EntityId) {
-                return std::to_string(EntityId.index) + ":" + std::to_string(EntityId.generation);
-            }
+        void SceneWorkUnitBuilder::AddFailure(SceneWorkUnitBuildResult& BuildResult, const std::string& Message) const {
+            BuildResult.IsSuccess = false;
+            BuildResult.UndecidedItems.push_back(Message);
+        }
 
-            void AddFailure(SceneWorkUnitBuildResult& BuildResult, const std::string& Message) {
-                BuildResult.IsSuccess = false;
-                BuildResult.UndecidedItems.push_back(Message);
-            }
-
-            void AppendRuntimePipelineAssignments(const Scene& TargetScene, std::vector<UnitPipelineAssignment>& InOutAssignments, SceneWorkUnitBuildResult& BuildResult) {
-                std::unordered_set<Arche::EntityID> ExistingUnitEntityIds{};
-                for (const UnitPipelineAssignment& Assignment : InOutAssignments) {
-                    if (Assignment.mUnitEntityId != Arche::NullEntityID) {
-                        ExistingUnitEntityIds.insert(Assignment.mUnitEntityId);
-                    }
-                }
-
-                const FrameContext& FrameContextValue{ TargetScene.GetFrameContext() };
-                for (const FramePipelineAssignment& RuntimeAssignment : FrameContextValue.mRuntimePipelineAssignments) {
-                    const Arche::EntityID EntityId{ RuntimeAssignment.mUnitEntityId };
-                    if (EntityId == Arche::NullEntityID) {
-                        continue;
-                    }
-
-                    if (ExistingUnitEntityIds.find(EntityId) != ExistingUnitEntityIds.end()) {
-                        continue;
-                    }
-
-                    const EntityHierarchy* HierarchyComponent{ TargetScene.GetWorld().GetComponent<EntityHierarchy>(EntityId) };
-                    if (HierarchyComponent == nullptr) {
-                        continue;
-                    }
-
-                    if (RuntimeAssignment.mPipelineName.empty() == true) {
-                        AddFailure(BuildResult, std::string{ "Runtime pipeline assignment name is empty: " } + ToEntityIdText(EntityId));
-                        continue;
-                    }
-
-                    const PipelineDefinition* PipelineDefinitionValue{ TargetScene.FindPipelineDefinition(RuntimeAssignment.mPipelineName) };
-                    if (PipelineDefinitionValue == nullptr) {
-                        AddFailure(BuildResult, std::string{ "Runtime pipeline assignment definition is missing: " } + RuntimeAssignment.mPipelineName);
-                        continue;
-                    }
-
-                    UnitPipelineAssignment NewAssignment{};
-                    NewAssignment.mUnitEntityId = EntityId;
-                    NewAssignment.mPipelineId = PipelineDefinitionValue->GetPipelineId();
-                    NewAssignment.mPipelineName = RuntimeAssignment.mPipelineName;
-                    InOutAssignments.push_back(std::move(NewAssignment));
-                    ExistingUnitEntityIds.insert(EntityId);
-                }
-            }
-
-            bool ValidateAssignment(const Scene& TargetScene, const UnitPipelineAssignment& Assignment, SceneWorkUnitBuildResult& BuildResult) {
-                bool IsValid{ true };
-                if (Assignment.mUnitEntityId == Arche::NullEntityID) {
-                    AddFailure(BuildResult, "Unit EntityId is NullEntityID.");
-                    IsValid = false;
-                }
-
-                if (Assignment.mPipelineId == InvalidPipelineId) {
-                    AddFailure(BuildResult, std::string{ "PipelineId is invalid: " } + ToEntityIdText(Assignment.mUnitEntityId));
-                    IsValid = false;
-                }
-
-                const PipelineDefinition* PipelineDefinitionValue{ TargetScene.FindPipelineDefinition(Assignment.mPipelineName) };
-                if (PipelineDefinitionValue == nullptr) {
-                    AddFailure(BuildResult, std::string{ "Pipeline definition is missing: " } + Assignment.mPipelineName);
-                    IsValid = false;
-                }
-                else if (PipelineDefinitionValue->GetPipelineId() != Assignment.mPipelineId) {
-                    AddFailure(BuildResult, std::string{ "PipelineId does not match Pipeline definition: " } + Assignment.mPipelineName);
-                    IsValid = false;
-                }
-
+        void SceneWorkUnitBuilder::AppendRuntimePipelineAssignments(const Scene& TargetScene, std::vector<UnitPipelineAssignment>& InOutAssignments, SceneWorkUnitBuildResult& BuildResult) const {
+            std::unordered_set<Arche::EntityID> ExistingUnitEntityIds{};
+            for (const UnitPipelineAssignment& Assignment : InOutAssignments) {
                 if (Assignment.mUnitEntityId != Arche::NullEntityID) {
-                    const EntityHierarchy* HierarchyComponent{ TargetScene.GetWorld().GetComponent<EntityHierarchy>(Assignment.mUnitEntityId) };
-                    if (HierarchyComponent == nullptr) {
-                        AddFailure(BuildResult, std::string{ "Unit EntityHierarchy is missing: " } + ToEntityIdText(Assignment.mUnitEntityId));
-                        IsValid = false;
-                    }
+                    ExistingUnitEntityIds.insert(Assignment.mUnitEntityId);
                 }
-
-                return IsValid;
             }
 
-            bool TryCollectHierarchyEntityIds(const Arche::World& World, Arche::EntityID UnitEntityId, Arche::EntityID CurrentEntityId, const std::unordered_set<Arche::EntityID>& AssignedUnitEntityIds, std::unordered_set<Arche::EntityID>& LocalVisitedEntityIds, std::vector<Arche::EntityID>& OutEntityIds, SceneWorkUnitBuildResult& BuildResult) {
-                if (CurrentEntityId == Arche::NullEntityID) {
-                    return true;
+            const FrameContext& FrameContextValue{ TargetScene.GetFrameContext() };
+            for (const FramePipelineAssignment& RuntimeAssignment : FrameContextValue.mRuntimePipelineAssignments) {
+                const Arche::EntityID EntityId{ RuntimeAssignment.mUnitEntityId };
+                if (EntityId == Arche::NullEntityID) {
+                    continue;
                 }
 
-                const bool IsVisitedInserted{ LocalVisitedEntityIds.insert(CurrentEntityId).second };
-                if (IsVisitedInserted == false) {
-                    AddFailure(BuildResult, std::string{ "Entity hierarchy cycle detected: " } + ToEntityIdText(CurrentEntityId));
-                    return false;
+                if (ExistingUnitEntityIds.find(EntityId) != ExistingUnitEntityIds.end()) {
+                    continue;
                 }
 
-                if (CurrentEntityId != UnitEntityId && AssignedUnitEntityIds.find(CurrentEntityId) != AssignedUnitEntityIds.end()) {
-                    AddFailure(BuildResult, std::string{ "Child Entity has its own Unit Pipeline assignment: " } + ToEntityIdText(CurrentEntityId));
-                    return false;
-                }
-
-                const EntityHierarchy* HierarchyComponent{ World.GetComponent<EntityHierarchy>(CurrentEntityId) };
+                const EntityHierarchy* HierarchyComponent{ TargetScene.GetWorld().GetComponent<EntityHierarchy>(EntityId) };
                 if (HierarchyComponent == nullptr) {
-                    AddFailure(BuildResult, std::string{ "EntityHierarchy is missing: " } + ToEntityIdText(CurrentEntityId));
-                    return false;
+                    continue;
                 }
 
-                OutEntityIds.push_back(CurrentEntityId);
-                Arche::EntityID ChildEntityId{ HierarchyComponent->firstChild };
-                while (ChildEntityId != Arche::NullEntityID) {
-                    const EntityHierarchy* ChildHierarchyComponent{ World.GetComponent<EntityHierarchy>(ChildEntityId) };
-                    if (ChildHierarchyComponent == nullptr) {
-                        AddFailure(BuildResult, std::string{ "Child EntityHierarchy is missing: " } + ToEntityIdText(ChildEntityId));
-                        return false;
-                    }
-
-                    if (TryCollectHierarchyEntityIds(World, UnitEntityId, ChildEntityId, AssignedUnitEntityIds, LocalVisitedEntityIds, OutEntityIds, BuildResult) == false) {
-                        return false;
-                    }
-
-                    ChildEntityId = ChildHierarchyComponent->nextSibling;
+                if (RuntimeAssignment.mPipelineName.empty() == true) {
+                    AddFailure(BuildResult, std::string{ "Runtime pipeline assignment name is empty: " } + ToEntityIdText(EntityId));
+                    continue;
                 }
 
-                return true;
-            }
-
-            bool TryAddWorkUnitEntityOwners(const SceneWorkUnit& WorkUnit, std::unordered_map<Arche::EntityID, Arche::EntityID>& WorkUnitOwnerByEntityId, SceneWorkUnitBuildResult& BuildResult) {
-                bool IsValid{ true };
-                for (Arche::EntityID EntityId : WorkUnit.GetEntityIds()) {
-                    const std::unordered_map<Arche::EntityID, Arche::EntityID>::const_iterator OwnerIter{ WorkUnitOwnerByEntityId.find(EntityId) };
-                    if (OwnerIter != WorkUnitOwnerByEntityId.end()) {
-                        AddFailure(BuildResult, std::string{ "Entity belongs to multiple WorkUnits: " } + ToEntityIdText(EntityId));
-                        IsValid = false;
-                        continue;
-                    }
+                const PipelineDefinition* PipelineDefinitionValue{ TargetScene.FindPipelineDefinition(RuntimeAssignment.mPipelineName) };
+                if (PipelineDefinitionValue == nullptr) {
+                    AddFailure(BuildResult, std::string{ "Runtime pipeline assignment definition is missing: " } + RuntimeAssignment.mPipelineName);
+                    continue;
                 }
 
-                if (IsValid == false) {
-                    return false;
-                }
-
-                for (Arche::EntityID EntityId : WorkUnit.GetEntityIds()) {
-                    WorkUnitOwnerByEntityId.emplace(EntityId, WorkUnit.GetUnitEntityId());
-                }
-
-                return true;
-            }
-
-            SceneWorkUnit CreateSceneWorkUnit(const UnitPipelineAssignment& Assignment, std::vector<Arche::EntityID>&& EntityIds) {
-                SceneWorkUnit WorkUnit{};
-                WorkUnit.SetUnitEntityId(Assignment.mUnitEntityId);
-                WorkUnit.SetPipelineId(Assignment.mPipelineId);
-                WorkUnit.GetEntityIds() = std::move(EntityIds);
-                WorkUnit.GetPipelineSystems().clear();
-                return WorkUnit;
+                UnitPipelineAssignment NewAssignment{};
+                NewAssignment.mUnitEntityId = EntityId;
+                NewAssignment.mPipelineId = PipelineDefinitionValue->GetPipelineId();
+                NewAssignment.mPipelineName = RuntimeAssignment.mPipelineName;
+                InOutAssignments.push_back(std::move(NewAssignment));
+                ExistingUnitEntityIds.insert(EntityId);
             }
         }
+
+        bool SceneWorkUnitBuilder::ValidateAssignment(const Scene& TargetScene, const UnitPipelineAssignment& Assignment, SceneWorkUnitBuildResult& BuildResult) const {
+            bool IsValid{ true };
+            if (Assignment.mUnitEntityId == Arche::NullEntityID) {
+                AddFailure(BuildResult, "Unit EntityId is NullEntityID.");
+                IsValid = false;
+            }
+
+            if (Assignment.mPipelineId == InvalidPipelineId) {
+                AddFailure(BuildResult, std::string{ "PipelineId is invalid: " } + ToEntityIdText(Assignment.mUnitEntityId));
+                IsValid = false;
+            }
+
+            const PipelineDefinition* PipelineDefinitionValue{ TargetScene.FindPipelineDefinition(Assignment.mPipelineName) };
+            if (PipelineDefinitionValue == nullptr) {
+                AddFailure(BuildResult, std::string{ "Pipeline definition is missing: " } + Assignment.mPipelineName);
+                IsValid = false;
+            }
+            else if (PipelineDefinitionValue->GetPipelineId() != Assignment.mPipelineId) {
+                AddFailure(BuildResult, std::string{ "PipelineId does not match Pipeline definition: " } + Assignment.mPipelineName);
+                IsValid = false;
+            }
+
+            if (Assignment.mUnitEntityId != Arche::NullEntityID) {
+                const EntityHierarchy* HierarchyComponent{ TargetScene.GetWorld().GetComponent<EntityHierarchy>(Assignment.mUnitEntityId) };
+                if (HierarchyComponent == nullptr) {
+                    AddFailure(BuildResult, std::string{ "Unit EntityHierarchy is missing: " } + ToEntityIdText(Assignment.mUnitEntityId));
+                    IsValid = false;
+                }
+            }
+
+            return IsValid;
+        }
+
+        bool SceneWorkUnitBuilder::TryCollectHierarchyEntityIds(const Arche::World& World, Arche::EntityID UnitEntityId, Arche::EntityID CurrentEntityId, const std::unordered_set<Arche::EntityID>& AssignedUnitEntityIds, std::unordered_set<Arche::EntityID>& LocalVisitedEntityIds, std::vector<Arche::EntityID>& OutEntityIds, SceneWorkUnitBuildResult& BuildResult) const {
+            if (CurrentEntityId == Arche::NullEntityID) {
+                return true;
+            }
+
+            const bool IsVisitedInserted{ LocalVisitedEntityIds.insert(CurrentEntityId).second };
+            if (IsVisitedInserted == false) {
+                AddFailure(BuildResult, std::string{ "Entity hierarchy cycle detected: " } + ToEntityIdText(CurrentEntityId));
+                return false;
+            }
+
+            if (CurrentEntityId != UnitEntityId && AssignedUnitEntityIds.find(CurrentEntityId) != AssignedUnitEntityIds.end()) {
+                AddFailure(BuildResult, std::string{ "Child Entity has its own Unit Pipeline assignment: " } + ToEntityIdText(CurrentEntityId));
+                return false;
+            }
+
+            const EntityHierarchy* HierarchyComponent{ World.GetComponent<EntityHierarchy>(CurrentEntityId) };
+            if (HierarchyComponent == nullptr) {
+                AddFailure(BuildResult, std::string{ "EntityHierarchy is missing: " } + ToEntityIdText(CurrentEntityId));
+                return false;
+            }
+
+            OutEntityIds.push_back(CurrentEntityId);
+            Arche::EntityID ChildEntityId{ HierarchyComponent->firstChild };
+            while (ChildEntityId != Arche::NullEntityID) {
+                const EntityHierarchy* ChildHierarchyComponent{ World.GetComponent<EntityHierarchy>(ChildEntityId) };
+                if (ChildHierarchyComponent == nullptr) {
+                    AddFailure(BuildResult, std::string{ "Child EntityHierarchy is missing: " } + ToEntityIdText(ChildEntityId));
+                    return false;
+                }
+
+                if (TryCollectHierarchyEntityIds(World, UnitEntityId, ChildEntityId, AssignedUnitEntityIds, LocalVisitedEntityIds, OutEntityIds, BuildResult) == false) {
+                    return false;
+                }
+
+                ChildEntityId = ChildHierarchyComponent->nextSibling;
+            }
+
+            return true;
+        }
+
+        bool SceneWorkUnitBuilder::TryAddWorkUnitEntityOwners(const SceneWorkUnit& WorkUnit, std::unordered_map<Arche::EntityID, Arche::EntityID>& WorkUnitOwnerByEntityId, SceneWorkUnitBuildResult& BuildResult) const {
+            bool IsValid{ true };
+            for (Arche::EntityID EntityId : WorkUnit.GetEntityIds()) {
+                const std::unordered_map<Arche::EntityID, Arche::EntityID>::const_iterator OwnerIter{ WorkUnitOwnerByEntityId.find(EntityId) };
+                if (OwnerIter != WorkUnitOwnerByEntityId.end()) {
+                    AddFailure(BuildResult, std::string{ "Entity belongs to multiple WorkUnits: " } + ToEntityIdText(EntityId));
+                    IsValid = false;
+                    continue;
+                }
+            }
+
+            if (IsValid == false) {
+                return false;
+            }
+
+            for (Arche::EntityID EntityId : WorkUnit.GetEntityIds()) {
+                WorkUnitOwnerByEntityId.emplace(EntityId, WorkUnit.GetUnitEntityId());
+            }
+
+            return true;
+        }
+
+        SceneWorkUnit SceneWorkUnitBuilder::CreateSceneWorkUnit(const UnitPipelineAssignment& Assignment, std::vector<Arche::EntityID>&& EntityIds) const {
+            SceneWorkUnit WorkUnit{};
+            WorkUnit.SetUnitEntityId(Assignment.mUnitEntityId);
+            WorkUnit.SetPipelineId(Assignment.mPipelineId);
+            WorkUnit.GetEntityIds() = std::move(EntityIds);
+            WorkUnit.GetPipelineSystems().clear();
+            return WorkUnit;
+    }
 
         SceneWorkUnitBuildResult::SceneWorkUnitBuildResult() = default;
         SceneWorkUnitBuildResult::~SceneWorkUnitBuildResult() = default;
@@ -183,14 +173,14 @@ namespace Game {
         SceneWorkUnitBuildResult::SceneWorkUnitBuildResult(SceneWorkUnitBuildResult&& Other) noexcept = default;
         SceneWorkUnitBuildResult& SceneWorkUnitBuildResult::operator=(SceneWorkUnitBuildResult&& Other) noexcept = default;
 
-        SceneWorkUnitBuilder::SceneWorkUnitBuilder() = default;
-        SceneWorkUnitBuilder::~SceneWorkUnitBuilder() = default;
-        SceneWorkUnitBuilder::SceneWorkUnitBuilder(const SceneWorkUnitBuilder& Other) = default;
-        SceneWorkUnitBuilder& SceneWorkUnitBuilder::operator=(const SceneWorkUnitBuilder& Other) = default;
-        SceneWorkUnitBuilder::SceneWorkUnitBuilder(SceneWorkUnitBuilder&& Other) noexcept = default;
-        SceneWorkUnitBuilder& SceneWorkUnitBuilder::operator=(SceneWorkUnitBuilder&& Other) noexcept = default;
+            SceneWorkUnitBuilder::SceneWorkUnitBuilder() = default;
+            SceneWorkUnitBuilder::~SceneWorkUnitBuilder() = default;
+            SceneWorkUnitBuilder::SceneWorkUnitBuilder(const SceneWorkUnitBuilder& Other) = default;
+            SceneWorkUnitBuilder& SceneWorkUnitBuilder::operator=(const SceneWorkUnitBuilder& Other) = default;
+            SceneWorkUnitBuilder::SceneWorkUnitBuilder(SceneWorkUnitBuilder&& Other) noexcept = default;
+            SceneWorkUnitBuilder& SceneWorkUnitBuilder::operator=(SceneWorkUnitBuilder&& Other) noexcept = default;
 
-        SceneWorkUnitBuildResult SceneWorkUnitBuilder::Build(const Scene& TargetScene, std::vector<SceneWorkUnit>& OutWorkUnits) const {
+            SceneWorkUnitBuildResult SceneWorkUnitBuilder::Build(const Scene& TargetScene, std::vector<SceneWorkUnit>& OutWorkUnits) const {
             SceneWorkUnitBuildResult BuildResult{};
             std::vector<SceneWorkUnit> NewWorkUnits{};
             std::vector<UnitPipelineAssignment> EffectiveAssignments{ TargetScene.GetUnitPipelineAssignments() };

@@ -35,6 +35,11 @@ namespace Game {
         public:
             PipelineSceneYamlLoadResult Deserialize(const std::string& SceneYamlText, const std::string& PipelineYamlText, Scene& OutScene) const;
             PipelineSceneYamlLoadResult DeserializeFromFiles(const std::string& SceneYamlPath, const std::string& PipelineYamlPath, Scene& OutScene) const;
+
+        private:
+            void AppendUndecidedItems(PipelineSceneYamlLoadResult& TargetResult, const std::vector<std::string>& SourceItems) const;
+            bool TryReadTextFile(const std::string& FilePath, std::string& OutText, PipelineSceneYamlLoadResult& OutResult) const;
+            void ClearPipelineSceneLoadProducts(Scene& TargetScene) const;
         };
     }
 }

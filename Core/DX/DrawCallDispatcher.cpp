@@ -1,4 +1,4 @@
-﻿#include "DrawCallDispatcher.h"
+#include "DrawCallDispatcher.h"
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -22,43 +22,43 @@ namespace Core {
 				uint32_t TerrainPatchContextSrvIndex{ 0 };
 				uint32_t Reserved1{ 0 };
 			};
+		}
 
-			bool HasVertexInputBinding(const Interface::IPipeline& Pipeline, Game::VertexAttributeKind Kind) {
-				const std::span<const Game::VertexInputBinding> VertexInputBindings{ Pipeline.GetVertexInputBindings() };
-				for (const Game::VertexInputBinding& VertexInputBinding : VertexInputBindings) {
-					if (VertexInputBinding.Kind == Kind) {
-						return true;
-					}
+		bool DrawCallDispatcher::HasVertexInputBinding(const Interface::IPipeline& Pipeline, Game::VertexAttributeKind Kind) const {
+			const std::span<const Game::VertexInputBinding> VertexInputBindings{ Pipeline.GetVertexInputBindings() };
+			for (const Game::VertexInputBinding& VertexInputBinding : VertexInputBindings) {
+				if (VertexInputBinding.Kind == Kind) {
+					return true;
 				}
-
-				return false;
 			}
 
-			std::vector<D3D12_VERTEX_BUFFER_VIEW> BuildVertexBufferViews(const Interface::IPipeline& Pipeline, const Interface::IModelNode& Mesh) {
-				const std::span<const Game::VertexInputBinding> VertexInputBindings{ Pipeline.GetVertexInputBindings() };
-				std::uint32_t MaxInputSlot{ 0 };
+			return false;
+		}
 
-				for (const Game::VertexInputBinding& VertexInputBinding : VertexInputBindings) {
-					if (VertexInputBinding.InputSlot > MaxInputSlot) {
-						MaxInputSlot = VertexInputBinding.InputSlot;
-					}
+		std::vector<D3D12_VERTEX_BUFFER_VIEW> DrawCallDispatcher::BuildVertexBufferViews(const Interface::IPipeline& Pipeline, const Interface::IModelNode& Mesh) const {
+			const std::span<const Game::VertexInputBinding> VertexInputBindings{ Pipeline.GetVertexInputBindings() };
+			std::uint32_t MaxInputSlot{ 0 };
+
+			for (const Game::VertexInputBinding& VertexInputBinding : VertexInputBindings) {
+				if (VertexInputBinding.InputSlot > MaxInputSlot) {
+					MaxInputSlot = VertexInputBinding.InputSlot;
 				}
-
-				std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{};
-				VertexBufferViews.resize(VertexInputBindings.empty() == true ? 0 : static_cast<std::size_t>(MaxInputSlot + 1));
-
-				for (const Game::VertexInputBinding& VertexInputBinding : VertexInputBindings) {
-					D3D12_VERTEX_BUFFER_VIEW View{};
-					const bool IsResolved{ Mesh.TryGetVertexBufferView(VertexInputBinding.Kind, View) };
-					if (IsResolved == false) {
-						continue;
-					}
-
-					VertexBufferViews[VertexInputBinding.InputSlot] = View;
-				}
-
-				return VertexBufferViews;
 			}
+
+			std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{};
+			VertexBufferViews.resize(VertexInputBindings.empty() == true ? 0 : static_cast<std::size_t>(MaxInputSlot + 1));
+
+			for (const Game::VertexInputBinding& VertexInputBinding : VertexInputBindings) {
+				D3D12_VERTEX_BUFFER_VIEW View{};
+				const bool IsResolved{ Mesh.TryGetVertexBufferView(VertexInputBinding.Kind, View) };
+				if (IsResolved == false) {
+					continue;
+				}
+
+				VertexBufferViews[VertexInputBinding.InputSlot] = View;
+			}
+
+			return VertexBufferViews;
 		}
 
 		DrawCallDispatcher::DrawCallDispatcher()

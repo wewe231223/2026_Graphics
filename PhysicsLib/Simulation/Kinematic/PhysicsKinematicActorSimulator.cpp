@@ -14,8 +14,9 @@
 
 namespace {
 constexpr float KinematicSweepVelocityDeltaTimeEpsilon{ 0.00001F };
+}
 
-DirectX::BoundingOrientedBox CreateKinematicActorBoundingBoxAtTransform(const PhysicsActorBase& Actor, const DirectX::SimpleMath::Vector3& Position, const DirectX::SimpleMath::Quaternion& Orientation, const DirectX::SimpleMath::Vector3& Scale) {
+DirectX::BoundingOrientedBox PhysicsKinematicActorSimulator::CreateKinematicActorBoundingBoxAtTransform(const PhysicsActorBase& Actor, const DirectX::SimpleMath::Vector3& Position, const DirectX::SimpleMath::Quaternion& Orientation, const DirectX::SimpleMath::Vector3& Scale) const {
     DirectX::SimpleMath::Matrix ScalingMatrix{ DirectX::SimpleMath::Matrix::CreateScale(Scale) };
     DirectX::SimpleMath::Matrix RotationMatrix{ DirectX::SimpleMath::Matrix::CreateFromQuaternion(Orientation) };
     DirectX::SimpleMath::Matrix TranslationMatrix{ DirectX::SimpleMath::Matrix::CreateTranslation(Position) };
@@ -25,7 +26,7 @@ DirectX::BoundingOrientedBox CreateKinematicActorBoundingBoxAtTransform(const Ph
     return WorldBoundingBox;
 }
 
-PhysicsKinematicActorSweepBounds MakeKinematicSweepBounds(const DirectX::BoundingOrientedBox& BoundingBox) {
+PhysicsKinematicActorSweepBounds PhysicsKinematicActorSimulator::MakeKinematicSweepBounds(const DirectX::BoundingOrientedBox& BoundingBox) const {
     DirectX::XMFLOAT3 Corners[8]{};
     BoundingBox.GetCorners(Corners);
 
@@ -45,7 +46,7 @@ PhysicsKinematicActorSweepBounds MakeKinematicSweepBounds(const DirectX::Boundin
     return Bounds;
 }
 
-PhysicsKinematicActorSweepBounds MergeKinematicSweepBounds(const PhysicsKinematicActorSweepBounds& FirstBounds, const PhysicsKinematicActorSweepBounds& SecondBounds) {
+PhysicsKinematicActorSweepBounds PhysicsKinematicActorSimulator::MergeKinematicSweepBounds(const PhysicsKinematicActorSweepBounds& FirstBounds, const PhysicsKinematicActorSweepBounds& SecondBounds) const {
     PhysicsKinematicActorSweepBounds MergedBounds{};
     MergedBounds.mMinimum.x = std::min(FirstBounds.mMinimum.x, SecondBounds.mMinimum.x);
     MergedBounds.mMinimum.y = std::min(FirstBounds.mMinimum.y, SecondBounds.mMinimum.y);
@@ -56,7 +57,7 @@ PhysicsKinematicActorSweepBounds MergeKinematicSweepBounds(const PhysicsKinemati
     return MergedBounds;
 }
 
-const PhysicsKinematicActorSweepState* FindSweepStateInStates(const std::vector<PhysicsKinematicActorSweepState>& SweepStates, const PhysicsKinematicActor& Actor) {
+const PhysicsKinematicActorSweepState* PhysicsKinematicActorSimulator::FindSweepStateInStates(const std::vector<PhysicsKinematicActorSweepState>& SweepStates, const PhysicsKinematicActor& Actor) const {
     std::size_t SweepStateCount{ SweepStates.size() };
     for (std::size_t SweepStateIndex{ 0U }; SweepStateIndex < SweepStateCount; ++SweepStateIndex) {
         const PhysicsKinematicActorSweepState& SweepState{ SweepStates[SweepStateIndex] };
@@ -66,7 +67,6 @@ const PhysicsKinematicActorSweepState* FindSweepStateInStates(const std::vector<
     }
 
     return nullptr;
-}
 }
 
 PhysicsKinematicActorSimulator::PhysicsKinematicActorSimulator() = default;

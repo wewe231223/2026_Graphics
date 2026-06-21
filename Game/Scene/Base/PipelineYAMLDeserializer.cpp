@@ -11,34 +11,29 @@
 
 namespace Game {
     namespace Pipeline {
-        namespace {
-            void AppendUndecidedItems(PipelineSceneYamlLoadResult& TargetResult, const std::vector<std::string>& SourceItems);
-            bool TryReadTextFile(const std::string& FilePath, std::string& OutText, PipelineSceneYamlLoadResult& OutResult);
-            void ClearPipelineSceneLoadProducts(Scene& TargetScene);
-            void AppendUndecidedItems(PipelineSceneYamlLoadResult& TargetResult, const std::vector<std::string>& SourceItems) {
-                TargetResult.UndecidedItems.insert(TargetResult.UndecidedItems.end(), SourceItems.begin(), SourceItems.end());
+        void PipelineSceneYamlDeserializer::AppendUndecidedItems(PipelineSceneYamlLoadResult& TargetResult, const std::vector<std::string>& SourceItems) const {
+            TargetResult.UndecidedItems.insert(TargetResult.UndecidedItems.end(), SourceItems.begin(), SourceItems.end());
+        }
+
+        bool PipelineSceneYamlDeserializer::TryReadTextFile(const std::string& FilePath, std::string& OutText, PipelineSceneYamlLoadResult& OutResult) const {
+            std::ifstream InputStream{ FilePath, std::ios::in | std::ios::binary };
+            if (InputStream.is_open() == false) {
+                OutResult.IsSuccess = false;
+                OutResult.UndecidedItems.push_back(std::string{ "YAML file could not be opened: " } + FilePath);
+                return false;
             }
 
-            bool TryReadTextFile(const std::string& FilePath, std::string& OutText, PipelineSceneYamlLoadResult& OutResult) {
-                std::ifstream InputStream{ FilePath, std::ios::in | std::ios::binary };
-                if (InputStream.is_open() == false) {
-                    OutResult.IsSuccess = false;
-                    OutResult.UndecidedItems.push_back(std::string{ "YAML file could not be opened: " } + FilePath);
-                    return false;
-                }
+            std::stringstream Buffer{};
+            Buffer << InputStream.rdbuf();
+            OutText = Buffer.str();
+            return true;
+        }
 
-                std::stringstream Buffer{};
-                Buffer << InputStream.rdbuf();
-                OutText = Buffer.str();
-                return true;
-            }
-
-            void ClearPipelineSceneLoadProducts(Scene& TargetScene) {
-                TargetScene.ClearUnitPipelineAssignments();
-                TargetScene.ClearWorkUnits();
-                TargetScene.GetFrameContext().mRuntimePipelineAssignments.clear();
-                TargetScene.GetFrameContext().mRuntimePipelineAssignmentVersion += 1ULL;
-            }
+        void PipelineSceneYamlDeserializer::ClearPipelineSceneLoadProducts(Scene& TargetScene) const {
+            TargetScene.ClearUnitPipelineAssignments();
+            TargetScene.ClearWorkUnits();
+            TargetScene.GetFrameContext().mRuntimePipelineAssignments.clear();
+            TargetScene.GetFrameContext().mRuntimePipelineAssignmentVersion += 1ULL;
         }
 
         PipelineSceneYamlLoadResult::PipelineSceneYamlLoadResult() = default;

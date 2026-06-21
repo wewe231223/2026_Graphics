@@ -2,7 +2,10 @@
 
 #include <DirectXTK12/SimpleMath.h>
 
+#include "PhysicsLib/Actors/PhysicsKinematicActor.h"
+
 class IPhysicsActorRepository;
+class PhysicsActorBase;
 namespace Game {
     class ITerrainQuery;
 }
@@ -18,4 +21,9 @@ public:
 
 public:
     void Tick(IPhysicsActorRepository& ActorRepository, const Game::ITerrainQuery& TerrainQuery, const DirectX::SimpleMath::Vector3& Gravity, float DeltaTime) const;
+
+private:
+    float GetActorBottomOffsetFromPositionY(const PhysicsActorBase& Actor) const;
+    bool ResolveKinematicActorTerrainContact(const Game::ITerrainQuery& TerrainQuery, PhysicsActorBase& Actor) const;
+    void ResolveKinematicActorStaticContacts(IPhysicsActorRepository& ActorRepository, PhysicsKinematicActor& KinematicActor, float DeltaTime) const;
 };

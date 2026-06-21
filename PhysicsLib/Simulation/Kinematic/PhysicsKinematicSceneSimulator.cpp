@@ -8,8 +8,7 @@
 #include "PhysicsLib/Simulation/Repository/IPhysicsActorRepository.h"
 #include "Game/Terrain/TerrainQuery.h"
 
-namespace {
-float GetActorBottomOffsetFromPositionY(const PhysicsActorBase& Actor) {
+float PhysicsKinematicSceneSimulator::GetActorBottomOffsetFromPositionY(const PhysicsActorBase& Actor) const {
     DirectX::XMFLOAT3 Corners[8]{};
     Actor.GetWorldBoundingBox().GetCorners(Corners);
 
@@ -23,7 +22,7 @@ float GetActorBottomOffsetFromPositionY(const PhysicsActorBase& Actor) {
     return MinimumY - Actor.GetPosition().y;
 }
 
-bool ResolveKinematicActorTerrainContact(const Game::ITerrainQuery& TerrainQuery, PhysicsActorBase& Actor) {
+bool PhysicsKinematicSceneSimulator::ResolveKinematicActorTerrainContact(const Game::ITerrainQuery& TerrainQuery, PhysicsActorBase& Actor) const {
     if (Actor.HasFlag(PhysicsActorBase::PhysicsActorFlags::IgnoreTerrainCollide)) {
         return false;
     }
@@ -51,7 +50,7 @@ bool ResolveKinematicActorTerrainContact(const Game::ITerrainQuery& TerrainQuery
     return true;
 }
 
-void ResolveKinematicActorStaticContacts(IPhysicsActorRepository& ActorRepository, PhysicsKinematicActor& KinematicActor, float DeltaTime) {
+void PhysicsKinematicSceneSimulator::ResolveKinematicActorStaticContacts(IPhysicsActorRepository& ActorRepository, PhysicsKinematicActor& KinematicActor, float DeltaTime) const {
     std::size_t ActorCount{ ActorRepository.GetActorCount() };
     for (std::size_t ActorIndex{ 0U }; ActorIndex < ActorCount; ++ActorIndex) {
         PhysicsActorBase* OtherActor{ ActorRepository.GetActor(ActorIndex) };
@@ -61,7 +60,6 @@ void ResolveKinematicActorStaticContacts(IPhysicsActorRepository& ActorRepositor
 
         static_cast<void>(KinematicActor.ResolveActorCollision(*OtherActor, DeltaTime));
     }
-}
 }
 
 PhysicsKinematicSceneSimulator::PhysicsKinematicSceneSimulator() {

@@ -50,6 +50,11 @@ public:
     const std::vector<PhysicsKinematicActorSweepState>& GetSweepStates() const;
 
 private:
+    DirectX::BoundingOrientedBox CreateKinematicActorBoundingBoxAtTransform(const PhysicsActorBase& Actor, const DirectX::SimpleMath::Vector3& Position, const DirectX::SimpleMath::Quaternion& Orientation, const DirectX::SimpleMath::Vector3& Scale) const;
+    PhysicsKinematicActorSweepBounds MakeKinematicSweepBounds(const DirectX::BoundingOrientedBox& BoundingBox) const;
+    PhysicsKinematicActorSweepBounds MergeKinematicSweepBounds(const PhysicsKinematicActorSweepBounds& FirstBounds, const PhysicsKinematicActorSweepBounds& SecondBounds) const;
+    const PhysicsKinematicActorSweepState* FindSweepStateInStates(const std::vector<PhysicsKinematicActorSweepState>& SweepStates, const PhysicsKinematicActor& Actor) const;
+
     bool IsMarkedTeleported(const PhysicsKinematicActor& Actor) const;
     void ClearTeleportMark(const PhysicsKinematicActor& Actor);
 

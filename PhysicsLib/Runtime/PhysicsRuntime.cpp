@@ -19,15 +19,16 @@
 
 namespace {
     constexpr std::uint32_t SnapshotWriterReservationBit{ 1U << 31U };
+}
 
-    PhysicsCommand CreateResetSceneCommand(std::uint32_t WorldVersion) {
+PhysicsCommand PhysicsRuntime::CreateResetSceneCommand(std::uint32_t WorldVersion) const {
         PhysicsCommand Command{};
         Command.mType = PhysicsCommandType::ResetScene;
         Command.mWorldVersion = WorldVersion;
         return Command;
     }
 
-    const PhysicsActorSnapshot* FindPhysicsActorSnapshot(const PhysicsSnapshot& Snapshot, ActorId ActorIdValue) {
+const PhysicsActorSnapshot* PhysicsRuntime::FindPhysicsActorSnapshot(const PhysicsSnapshot& Snapshot, ActorId ActorIdValue) const {
         const std::vector<PhysicsActorSnapshot>::const_iterator SnapshotActorIterator{ std::lower_bound(Snapshot.mActors.begin(), Snapshot.mActors.end(), ActorIdValue, [](const PhysicsActorSnapshot& SnapshotActor, ActorId TargetActorId) {
             return SnapshotActor.mActorId < TargetActorId;
         }) };
@@ -38,7 +39,7 @@ namespace {
         return &*SnapshotActorIterator;
     }
 
-    PhysicsActorSnapshot InterpolatePhysicsActorSnapshot(const PhysicsActorSnapshot& PreviousActor, const PhysicsActorSnapshot& NextActor, float Alpha) {
+PhysicsActorSnapshot PhysicsRuntime::InterpolatePhysicsActorSnapshot(const PhysicsActorSnapshot& PreviousActor, const PhysicsActorSnapshot& NextActor, float Alpha) const {
         if (PreviousActor.mActorId != NextActor.mActorId || PreviousActor.mActorType != NextActor.mActorType) {
             return PreviousActor;
         }
@@ -68,7 +69,7 @@ namespace {
         return InterpolatedActor;
     }
 
-    void BuildInterpolatedPhysicsSnapshot(const PhysicsSnapshot& PreviousSnapshot, const PhysicsSnapshot& NextSnapshot, double RenderPhysicsTime, PhysicsSnapshot& OutSnapshot) {
+void PhysicsRuntime::BuildInterpolatedPhysicsSnapshot(const PhysicsSnapshot& PreviousSnapshot, const PhysicsSnapshot& NextSnapshot, double RenderPhysicsTime, PhysicsSnapshot& OutSnapshot) const {
         const double TimeRange{ NextSnapshot.mSimulationTimeSeconds - PreviousSnapshot.mSimulationTimeSeconds };
         const double RawAlpha{ TimeRange > 0.0 ? (RenderPhysicsTime - PreviousSnapshot.mSimulationTimeSeconds) / TimeRange : 0.0 };
         const float Alpha{ static_cast<float>(std::clamp(RawAlpha, 0.0, 1.0)) };
@@ -94,7 +95,6 @@ namespace {
 
             OutSnapshot.mActors.push_back(InterpolatePhysicsActorSnapshot(PreviousActor, *NextActor, Alpha));
         }
-    }
 }
 
 PhysicsRuntime::PhysicsRuntime()
@@ -252,13 +252,13 @@ std::uint64_t PhysicsRuntime::PublishedSnapshotCount() const {
     return SnapshotCount;
 }
 
-std::uint64_t PhysicsRuntime::PackResetSceneCommand(const PhysicsCommand& Command) {
+std::uint64_t PhysicsRuntime::PackResetSceneCommand(const PhysicsCommand& Command) const {
     std::uint64_t PackedVersion{ static_cast<std::uint64_t>(Command.mWorldVersion) & 0xFFFFFFFFULL };
     std::uint64_t PackedCommand{ PackedVersion };
     return PackedCommand;
 }
 
-PhysicsCommand PhysicsRuntime::UnpackResetSceneCommand(std::uint64_t PackedCommand) {
+PhysicsCommand PhysicsRuntime::UnpackResetSceneCommand(std::uint64_t PackedCommand) const {
     PhysicsCommand UnpackedCommand{};
     UnpackedCommand.mType = PhysicsCommandType::ResetScene;
     UnpackedCommand.mWorldVersion = static_cast<std::uint32_t>(PackedCommand & 0xFFFFFFFFULL);

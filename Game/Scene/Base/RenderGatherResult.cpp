@@ -1,4 +1,4 @@
-﻿#include "RenderGatherResult.h"
+#include "RenderGatherResult.h"
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
@@ -9,97 +9,85 @@ namespace Game {
         namespace {
             constexpr std::uint32_t InvalidRenderIndex{ 0xffffffffu };
             constexpr std::uint32_t SkinnedModelContextFlagBitMask{ 0x1u };
+        }
 
-            std::uint32_t AddIndexOffset(std::uint32_t Index, std::size_t Offset);
-            RFD::ModelContext BuildAdjustedModelContext(RFD::ModelContext ModelContext, std::size_t ModelContextOffset, std::size_t BonePaletteOffset);
-            RFD::DrawRecord BuildAdjustedDrawRecord(RFD::DrawRecord DrawRecord, std::size_t ModelContextOffset, std::size_t TerrainPatchContextOffset);
-            RFD::EnvironmentDrawRecord BuildAdjustedEnvironmentDrawRecord(RFD::EnvironmentDrawRecord DrawRecord, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset);
-            bool AreShadowRenderContextsEmpty(const std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& ShadowRenderContexts);
-            void AppendModelContexts(const std::vector<RFD::ModelContext>& SourceModelContexts, std::size_t ModelContextOffset, std::size_t BonePaletteOffset, std::vector<RFD::ModelContext>& OutModelContexts);
-            void AppendModelContexts(std::vector<RFD::ModelContext>&& SourceModelContexts, std::size_t ModelContextOffset, std::size_t BonePaletteOffset, std::vector<RFD::ModelContext>& OutModelContexts);
-            void AppendDrawRecords(const std::vector<RFD::DrawRecord>& SourceDrawRecords, std::size_t ModelContextOffset, std::size_t TerrainPatchContextOffset, std::vector<RFD::DrawRecord>& OutDrawRecords);
-            void AppendDrawRecords(std::vector<RFD::DrawRecord>&& SourceDrawRecords, std::size_t ModelContextOffset, std::size_t TerrainPatchContextOffset, std::vector<RFD::DrawRecord>& OutDrawRecords);
-            void AppendEnvironmentDrawRecords(const std::vector<RFD::EnvironmentDrawRecord>& SourceDrawRecords, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset, std::vector<RFD::EnvironmentDrawRecord>& OutDrawRecords);
-            void AppendEnvironmentDrawRecords(std::vector<RFD::EnvironmentDrawRecord>&& SourceDrawRecords, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset, std::vector<RFD::EnvironmentDrawRecord>& OutDrawRecords);
+        std::uint32_t RenderGatherResult::AddIndexOffset(std::uint32_t Index, std::size_t Offset) const {
+            return Index + static_cast<std::uint32_t>(Offset);
+        }
 
-            std::uint32_t AddIndexOffset(std::uint32_t Index, std::size_t Offset) {
-                return Index + static_cast<std::uint32_t>(Offset);
+        RFD::ModelContext RenderGatherResult::BuildAdjustedModelContext(RFD::ModelContext ModelContext, std::size_t ModelContextOffset, std::size_t BonePaletteOffset) const {
+            ModelContext.objectID = AddIndexOffset(ModelContext.objectID, ModelContextOffset);
+            if ((ModelContext.flags & SkinnedModelContextFlagBitMask) != 0u) {
+                ModelContext.boneIndexStart = AddIndexOffset(ModelContext.boneIndexStart, BonePaletteOffset);
             }
 
-            RFD::ModelContext BuildAdjustedModelContext(RFD::ModelContext ModelContext, std::size_t ModelContextOffset, std::size_t BonePaletteOffset) {
-                ModelContext.objectID = AddIndexOffset(ModelContext.objectID, ModelContextOffset);
-                if ((ModelContext.flags & SkinnedModelContextFlagBitMask) != 0u) {
-                    ModelContext.boneIndexStart = AddIndexOffset(ModelContext.boneIndexStart, BonePaletteOffset);
-                }
+            return ModelContext;
+        }
 
-                return ModelContext;
+        RFD::DrawRecord RenderGatherResult::BuildAdjustedDrawRecord(RFD::DrawRecord DrawRecord, std::size_t ModelContextOffset, std::size_t TerrainPatchContextOffset) const {
+            DrawRecord.objectIndex = AddIndexOffset(DrawRecord.objectIndex, ModelContextOffset);
+            if (DrawRecord.TerrainPatchContextIndex != InvalidRenderIndex) {
+                DrawRecord.TerrainPatchContextIndex = AddIndexOffset(DrawRecord.TerrainPatchContextIndex, TerrainPatchContextOffset);
             }
 
-            RFD::DrawRecord BuildAdjustedDrawRecord(RFD::DrawRecord DrawRecord, std::size_t ModelContextOffset, std::size_t TerrainPatchContextOffset) {
-                DrawRecord.objectIndex = AddIndexOffset(DrawRecord.objectIndex, ModelContextOffset);
-                if (DrawRecord.TerrainPatchContextIndex != InvalidRenderIndex) {
-                    DrawRecord.TerrainPatchContextIndex = AddIndexOffset(DrawRecord.TerrainPatchContextIndex, TerrainPatchContextOffset);
-                }
+            return DrawRecord;
+        }
 
-                return DrawRecord;
-            }
+        RFD::EnvironmentDrawRecord RenderGatherResult::BuildAdjustedEnvironmentDrawRecord(RFD::EnvironmentDrawRecord DrawRecord, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset) const {
+            DrawRecord.mInstanceOffset = AddIndexOffset(DrawRecord.mInstanceOffset, EnvironmentInstanceContextOffset);
+            DrawRecord.mSegmentContextIndex = AddIndexOffset(DrawRecord.mSegmentContextIndex, EnvironmentSegmentContextOffset);
+            return DrawRecord;
+        }
 
-            RFD::EnvironmentDrawRecord BuildAdjustedEnvironmentDrawRecord(RFD::EnvironmentDrawRecord DrawRecord, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset) {
-                DrawRecord.mInstanceOffset = AddIndexOffset(DrawRecord.mInstanceOffset, EnvironmentInstanceContextOffset);
-                DrawRecord.mSegmentContextIndex = AddIndexOffset(DrawRecord.mSegmentContextIndex, EnvironmentSegmentContextOffset);
-                return DrawRecord;
-            }
-
-            bool AreShadowRenderContextsEmpty(const std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& ShadowRenderContexts) {
-                for (const RFD::ShadowRenderContext& ShadowRenderContext : ShadowRenderContexts) {
-                    if (ShadowRenderContext.ModelContexts.empty() == false || ShadowRenderContext.TerrainPatchContexts.empty() == false || ShadowRenderContext.DrawRecords.empty() == false || ShadowRenderContext.mEnvironmentDrawRecords.empty() == false) {
-                        return false;
-                    }
-                }
-
-                return true;
-            }
-
-            void AppendModelContexts(const std::vector<RFD::ModelContext>& SourceModelContexts, std::size_t ModelContextOffset, std::size_t BonePaletteOffset, std::vector<RFD::ModelContext>& OutModelContexts) {
-                OutModelContexts.reserve(OutModelContexts.size() + SourceModelContexts.size());
-                for (const RFD::ModelContext& SourceModelContext : SourceModelContexts) {
-                    OutModelContexts.push_back(BuildAdjustedModelContext(SourceModelContext, ModelContextOffset, BonePaletteOffset));
+        bool RenderGatherResult::AreShadowRenderContextsEmpty(const std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& ShadowRenderContexts) const {
+            for (const RFD::ShadowRenderContext& ShadowRenderContext : ShadowRenderContexts) {
+                if (ShadowRenderContext.ModelContexts.empty() == false || ShadowRenderContext.TerrainPatchContexts.empty() == false || ShadowRenderContext.DrawRecords.empty() == false || ShadowRenderContext.mEnvironmentDrawRecords.empty() == false) {
+                    return false;
                 }
             }
 
-            void AppendModelContexts(std::vector<RFD::ModelContext>&& SourceModelContexts, std::size_t ModelContextOffset, std::size_t BonePaletteOffset, std::vector<RFD::ModelContext>& OutModelContexts) {
-                OutModelContexts.reserve(OutModelContexts.size() + SourceModelContexts.size());
-                for (RFD::ModelContext& SourceModelContext : SourceModelContexts) {
-                    OutModelContexts.push_back(BuildAdjustedModelContext(std::move(SourceModelContext), ModelContextOffset, BonePaletteOffset));
-                }
-            }
+            return true;
+        }
 
-            void AppendDrawRecords(const std::vector<RFD::DrawRecord>& SourceDrawRecords, std::size_t ModelContextOffset, std::size_t TerrainPatchContextOffset, std::vector<RFD::DrawRecord>& OutDrawRecords) {
-                OutDrawRecords.reserve(OutDrawRecords.size() + SourceDrawRecords.size());
-                for (const RFD::DrawRecord& SourceDrawRecord : SourceDrawRecords) {
-                    OutDrawRecords.push_back(BuildAdjustedDrawRecord(SourceDrawRecord, ModelContextOffset, TerrainPatchContextOffset));
-                }
+        void RenderGatherResult::AppendModelContexts(const std::vector<RFD::ModelContext>& SourceModelContexts, std::size_t ModelContextOffset, std::size_t BonePaletteOffset, std::vector<RFD::ModelContext>& OutModelContexts) const {
+            OutModelContexts.reserve(OutModelContexts.size() + SourceModelContexts.size());
+            for (const RFD::ModelContext& SourceModelContext : SourceModelContexts) {
+                OutModelContexts.push_back(BuildAdjustedModelContext(SourceModelContext, ModelContextOffset, BonePaletteOffset));
             }
+        }
 
-            void AppendDrawRecords(std::vector<RFD::DrawRecord>&& SourceDrawRecords, std::size_t ModelContextOffset, std::size_t TerrainPatchContextOffset, std::vector<RFD::DrawRecord>& OutDrawRecords) {
-                OutDrawRecords.reserve(OutDrawRecords.size() + SourceDrawRecords.size());
-                for (RFD::DrawRecord& SourceDrawRecord : SourceDrawRecords) {
-                    OutDrawRecords.push_back(BuildAdjustedDrawRecord(std::move(SourceDrawRecord), ModelContextOffset, TerrainPatchContextOffset));
-                }
+        void RenderGatherResult::AppendModelContexts(std::vector<RFD::ModelContext>&& SourceModelContexts, std::size_t ModelContextOffset, std::size_t BonePaletteOffset, std::vector<RFD::ModelContext>& OutModelContexts) const {
+            OutModelContexts.reserve(OutModelContexts.size() + SourceModelContexts.size());
+            for (RFD::ModelContext& SourceModelContext : SourceModelContexts) {
+                OutModelContexts.push_back(BuildAdjustedModelContext(std::move(SourceModelContext), ModelContextOffset, BonePaletteOffset));
             }
+        }
 
-            void AppendEnvironmentDrawRecords(const std::vector<RFD::EnvironmentDrawRecord>& SourceDrawRecords, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset, std::vector<RFD::EnvironmentDrawRecord>& OutDrawRecords) {
-                OutDrawRecords.reserve(OutDrawRecords.size() + SourceDrawRecords.size());
-                for (const RFD::EnvironmentDrawRecord& SourceDrawRecord : SourceDrawRecords) {
-                    OutDrawRecords.push_back(BuildAdjustedEnvironmentDrawRecord(SourceDrawRecord, EnvironmentInstanceContextOffset, EnvironmentSegmentContextOffset));
-                }
+        void RenderGatherResult::AppendDrawRecords(const std::vector<RFD::DrawRecord>& SourceDrawRecords, std::size_t ModelContextOffset, std::size_t TerrainPatchContextOffset, std::vector<RFD::DrawRecord>& OutDrawRecords) const {
+            OutDrawRecords.reserve(OutDrawRecords.size() + SourceDrawRecords.size());
+            for (const RFD::DrawRecord& SourceDrawRecord : SourceDrawRecords) {
+                OutDrawRecords.push_back(BuildAdjustedDrawRecord(SourceDrawRecord, ModelContextOffset, TerrainPatchContextOffset));
             }
+        }
 
-            void AppendEnvironmentDrawRecords(std::vector<RFD::EnvironmentDrawRecord>&& SourceDrawRecords, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset, std::vector<RFD::EnvironmentDrawRecord>& OutDrawRecords) {
-                OutDrawRecords.reserve(OutDrawRecords.size() + SourceDrawRecords.size());
-                for (RFD::EnvironmentDrawRecord& SourceDrawRecord : SourceDrawRecords) {
-                    OutDrawRecords.push_back(BuildAdjustedEnvironmentDrawRecord(std::move(SourceDrawRecord), EnvironmentInstanceContextOffset, EnvironmentSegmentContextOffset));
-                }
+        void RenderGatherResult::AppendDrawRecords(std::vector<RFD::DrawRecord>&& SourceDrawRecords, std::size_t ModelContextOffset, std::size_t TerrainPatchContextOffset, std::vector<RFD::DrawRecord>& OutDrawRecords) const {
+            OutDrawRecords.reserve(OutDrawRecords.size() + SourceDrawRecords.size());
+            for (RFD::DrawRecord& SourceDrawRecord : SourceDrawRecords) {
+                OutDrawRecords.push_back(BuildAdjustedDrawRecord(std::move(SourceDrawRecord), ModelContextOffset, TerrainPatchContextOffset));
+            }
+        }
+
+        void RenderGatherResult::AppendEnvironmentDrawRecords(const std::vector<RFD::EnvironmentDrawRecord>& SourceDrawRecords, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset, std::vector<RFD::EnvironmentDrawRecord>& OutDrawRecords) const {
+            OutDrawRecords.reserve(OutDrawRecords.size() + SourceDrawRecords.size());
+            for (const RFD::EnvironmentDrawRecord& SourceDrawRecord : SourceDrawRecords) {
+                OutDrawRecords.push_back(BuildAdjustedEnvironmentDrawRecord(SourceDrawRecord, EnvironmentInstanceContextOffset, EnvironmentSegmentContextOffset));
+            }
+        }
+
+        void RenderGatherResult::AppendEnvironmentDrawRecords(std::vector<RFD::EnvironmentDrawRecord>&& SourceDrawRecords, std::size_t EnvironmentInstanceContextOffset, std::size_t EnvironmentSegmentContextOffset, std::vector<RFD::EnvironmentDrawRecord>& OutDrawRecords) const {
+            OutDrawRecords.reserve(OutDrawRecords.size() + SourceDrawRecords.size());
+            for (RFD::EnvironmentDrawRecord& SourceDrawRecord : SourceDrawRecords) {
+                OutDrawRecords.push_back(BuildAdjustedEnvironmentDrawRecord(std::move(SourceDrawRecord), EnvironmentInstanceContextOffset, EnvironmentSegmentContextOffset));
             }
         }
 

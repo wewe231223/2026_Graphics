@@ -69,8 +69,13 @@ private:
         std::uint64_t mVersion{};
     };
 
-    static std::uint64_t PackResetSceneCommand(const PhysicsCommand& Command);
-    static PhysicsCommand UnpackResetSceneCommand(std::uint64_t PackedCommand);
+    PhysicsCommand CreateResetSceneCommand(std::uint32_t WorldVersion) const;
+    const PhysicsActorSnapshot* FindPhysicsActorSnapshot(const PhysicsSnapshot& Snapshot, ActorId ActorIdValue) const;
+    PhysicsActorSnapshot InterpolatePhysicsActorSnapshot(const PhysicsActorSnapshot& PreviousActor, const PhysicsActorSnapshot& NextActor, float Alpha) const;
+    void BuildInterpolatedPhysicsSnapshot(const PhysicsSnapshot& PreviousSnapshot, const PhysicsSnapshot& NextSnapshot, double RenderPhysicsTime, PhysicsSnapshot& OutSnapshot) const;
+
+    std::uint64_t PackResetSceneCommand(const PhysicsCommand& Command) const;
+    PhysicsCommand UnpackResetSceneCommand(std::uint64_t PackedCommand) const;
 
     bool TryConsumeCoalescedResetCommand(PhysicsCommand& OutCommand);
     bool TryAcquireSnapshotBuffer(const std::atomic<std::uint32_t>& PublishedSnapshotIndex, PhysicsSnapshotReadHandle& OutHandle) const;

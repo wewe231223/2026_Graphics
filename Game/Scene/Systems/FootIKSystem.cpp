@@ -1,4 +1,4 @@
-﻿#include "FootIKSystem.h"
+#include "FootIKSystem.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -36,64 +36,62 @@ namespace Game {
                 SimpleMath::Vector3 mTargetFootWorldPosition{};
             };
 
-            bool TryResolveRaycastHitOnTerrain(const ITerrainQuery& TerrainQuery, const SimpleMath::Ray& Ray, float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal);
-            void AppendFootCornerDebugLines(PipelineContext& Ctx, const ITerrainQuery& TerrainQuery, Arche::EntityID FootEntityId, Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices);
+        }
 
-            bool TryResolveRaycastHitOnTerrain(const ITerrainQuery& TerrainQuery, const SimpleMath::Ray& Ray, float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal) {
-                if (MathUtility::IsFiniteVector3(Ray.position) == false || MathUtility::IsFiniteVector3(Ray.direction) == false || MathUtility::IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
-                    return false;
-                }
-
-                float HitDistance{};
-                const bool IsHit{ TerrainQuery.TryRaycast(Ray, RayLength, OutHitPoint, OutHitNormal, HitDistance) };
-                if (IsHit == false || MathUtility::IsFiniteVector3(OutHitPoint) == false || MathUtility::IsFiniteVector3(OutHitNormal) == false || MathUtility::IsFiniteFloat(HitDistance) == false || HitDistance < 0.0f || HitDistance > RayLength) {
-                    return false;
-                }
-
-                return true;
+        bool PipelineFootIKSystem::TryResolveRaycastHitOnTerrain(const ITerrainQuery& TerrainQuery, const SimpleMath::Ray& Ray, float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal) const {
+            if (MathUtility::IsFiniteVector3(Ray.position) == false || MathUtility::IsFiniteVector3(Ray.direction) == false || MathUtility::IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
+                return false;
             }
 
-            void AppendFootCornerDebugLines(PipelineContext& Ctx, const ITerrainQuery& TerrainQuery, Arche::EntityID FootEntityId, Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
-                if (Ctx.HasRenderFlag(RFD::FrameGlobalFlagDrawDebugGeometry) == false) {
-                    return;
+            float HitDistance{};
+            const bool IsHit{ TerrainQuery.TryRaycast(Ray, RayLength, OutHitPoint, OutHitNormal, HitDistance) };
+            if (IsHit == false || MathUtility::IsFiniteVector3(OutHitPoint) == false || MathUtility::IsFiniteVector3(OutHitNormal) == false || MathUtility::IsFiniteFloat(HitDistance) == false || HitDistance < 0.0f || HitDistance > RayLength) {
+                return false;
+            }
+
+            return true;
+        }
+
+        void PipelineFootIKSystem::AppendFootCornerDebugLines(PipelineContext& Ctx, const ITerrainQuery& TerrainQuery, Arche::EntityID FootEntityId, Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) const {
+            if (Ctx.HasRenderFlag(RFD::FrameGlobalFlagDrawDebugGeometry) == false) {
+                return;
+            }
+
+            constexpr float RayStartOffset{ 0.3f };
+            constexpr float RayLineLength{ 0.3f + 0.2f };
+            constexpr float HitNormalLineLength{ 0.12f };
+            constexpr float CornerLineThickness{ 0.0025f };
+            constexpr SimpleMath::Vector4 CornerLineColor{ 0.35f, 1.0f, 0.45f, 1.0f };
+            constexpr SimpleMath::Vector4 HitLineColor{ 1.0f, 0.15f, 0.15f, 1.0f };
+            constexpr SimpleMath::Vector4 HitNormalLineColor{ 0.15f, 0.65f, 1.0f, 1.0f };
+
+            std::array<SimpleMath::Vector3, 4ULL> CornerPoints{};
+            std::array<SimpleMath::Vector3, 4ULL> CornerDirections{};
+            const bool IsCornerPointsResolved{ IK::TryResolveFootObbAndToeObbCorners(Ctx.GetWorld(), FootEntityId, ToeEntityId, InOutWorldMatrices, CornerPoints, CornerDirections) };
+            if (IsCornerPointsResolved == false) {
+                return;
+            }
+
+            for (std::size_t CornerIndex{}; CornerIndex < CornerPoints.size(); ++CornerIndex) {
+                const SimpleMath::Vector3& CornerPoint{ CornerPoints[CornerIndex] };
+                const SimpleMath::Vector3& RayDirection{ CornerDirections[CornerIndex] };
+                const SimpleMath::Vector3 RayStartPoint{ CornerPoint - (RayDirection * RayStartOffset) };
+                if (MathUtility::IsFiniteVector3(RayStartPoint) == false) {
+                    continue;
                 }
 
-                constexpr float RayStartOffset{ 0.3f };
-                constexpr float RayLineLength{ 0.3f + 0.2f };
-                constexpr float HitNormalLineLength{ 0.12f };
-                constexpr float CornerLineThickness{ 0.0025f };
-                constexpr SimpleMath::Vector4 CornerLineColor{ 0.35f, 1.0f, 0.45f, 1.0f };
-                constexpr SimpleMath::Vector4 HitLineColor{ 1.0f, 0.15f, 0.15f, 1.0f };
-                constexpr SimpleMath::Vector4 HitNormalLineColor{ 0.15f, 0.65f, 1.0f, 1.0f };
-
-                std::array<SimpleMath::Vector3, 4ULL> CornerPoints{};
-                std::array<SimpleMath::Vector3, 4ULL> CornerDirections{};
-                const bool IsCornerPointsResolved{ IK::TryResolveFootObbAndToeObbCorners(Ctx.GetWorld(), FootEntityId, ToeEntityId, InOutWorldMatrices, CornerPoints, CornerDirections) };
-                if (IsCornerPointsResolved == false) {
-                    return;
+                const SimpleMath::Ray Ray{ RayStartPoint, RayDirection };
+                SimpleMath::Vector3 HitPoint{};
+                SimpleMath::Vector3 HitNormal{ SimpleMath::Vector3::Up };
+                const bool IsTerrainHit{ TryResolveRaycastHitOnTerrain(TerrainQuery, Ray, RayLineLength, HitPoint, HitNormal) };
+                if (IsTerrainHit == true && HitNormal.Dot(RayDirection) > 0.0f) {
+                    HitNormal *= -1.0f;
                 }
 
-                for (std::size_t CornerIndex{}; CornerIndex < CornerPoints.size(); ++CornerIndex) {
-                    const SimpleMath::Vector3& CornerPoint{ CornerPoints[CornerIndex] };
-                    const SimpleMath::Vector3& RayDirection{ CornerDirections[CornerIndex] };
-                    const SimpleMath::Vector3 RayStartPoint{ CornerPoint - (RayDirection * RayStartOffset) };
-                    if (MathUtility::IsFiniteVector3(RayStartPoint) == false) {
-                        continue;
-                    }
-
-                    const SimpleMath::Ray Ray{ RayStartPoint, RayDirection };
-                    SimpleMath::Vector3 HitPoint{};
-                    SimpleMath::Vector3 HitNormal{ SimpleMath::Vector3::Up };
-                    const bool IsTerrainHit{ TryResolveRaycastHitOnTerrain(TerrainQuery, Ray, RayLineLength, HitPoint, HitNormal) };
-                    if (IsTerrainHit == true && HitNormal.Dot(RayDirection) > 0.0f) {
-                        HitNormal *= -1.0f;
-                    }
-
-                    const SimpleMath::Vector4& LineColor{ IsTerrainHit == true ? HitLineColor : CornerLineColor };
-                    Ctx.GetRenderGatherResult().GetDebugGeometryContexts().push_back(RFD::DebugGeometryContext::CreateDirection(RayStartPoint, RayDirection, RayLineLength, LineColor, CornerLineThickness));
-                    if (IsTerrainHit == true) {
-                        Ctx.GetRenderGatherResult().GetDebugGeometryContexts().push_back(RFD::DebugGeometryContext::CreateDirection(HitPoint, HitNormal, HitNormalLineLength, HitNormalLineColor, CornerLineThickness));
-                    }
+                const SimpleMath::Vector4& LineColor{ IsTerrainHit == true ? HitLineColor : CornerLineColor };
+                Ctx.GetRenderGatherResult().GetDebugGeometryContexts().push_back(RFD::DebugGeometryContext::CreateDirection(RayStartPoint, RayDirection, RayLineLength, LineColor, CornerLineThickness));
+                if (IsTerrainHit == true) {
+                    Ctx.GetRenderGatherResult().GetDebugGeometryContexts().push_back(RFD::DebugGeometryContext::CreateDirection(HitPoint, HitNormal, HitNormalLineLength, HitNormalLineColor, CornerLineThickness));
                 }
             }
         }

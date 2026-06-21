@@ -29,6 +29,9 @@ namespace Core {
 			void DrawEnvironmentDepthOnly(ID3D12GraphicsCommandList* CommandList, ID3D12GraphicsCommandList9* DynamicDepthBiasCommandList, float RasterDepthBias, float RasterDepthBiasClamp, float RasterSlopeScaledDepthBias, const Game::RFD::ShadowRenderContext& ShadowRenderContext, std::uint32_t ShadowFrameGlobalsIndex, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle EnvironmentInstanceContextSrvHandle, DescriptorHandle EnvironmentSegmentContextSrvHandle, DescriptorHandle EnvironmentDrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle);
 
 		private:
+			bool HasVertexInputBinding(const Interface::IPipeline& Pipeline, Game::VertexAttributeKind Kind) const;
+			std::vector<D3D12_VERTEX_BUFFER_VIEW> BuildVertexBufferViews(const Interface::IPipeline& Pipeline, const Interface::IModelNode& Mesh) const;
+
 			const std::vector<D3D12_VERTEX_BUFFER_VIEW>& ResolveVertexBufferViews(const Interface::IPipeline& Pipeline, const Interface::IModelNode& Mesh);
 			bool IsSkyDomePipeline(const Interface::IPipeline* Pipeline);
 			const Interface::IPipeline* ResolveDepthOnlyPipeline(const Game::RFD::DrawRecord& DrawRecord);
