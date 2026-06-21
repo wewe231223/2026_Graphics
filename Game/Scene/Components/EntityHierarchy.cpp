@@ -1,4 +1,4 @@
-#include "EntityHierarchy.h"
+﻿#include "EntityHierarchy.h"
 #include <format>
 #include "Game/Scene/Components/ComponentInspection.h"
 

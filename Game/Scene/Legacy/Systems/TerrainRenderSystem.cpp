@@ -85,18 +85,18 @@ namespace {
         SecondTessellationData.OuterTessFactors[SecondEdgeIndex] = SharedFactor;
     }
 
-    Game::RFD::TerrainPatchContext BuildTerrainPatchContext(const Game::TerrainTileMetadata& TileMetadata, const Game::TerrainRenderResource& Resource, const TerrainTileTessellationData& TessellationData, std::uint32_t FrameIndex) {
-        Game::RFD::TerrainPatchContext PatchContext{};
-        PatchContext.OuterTessFactors = SimpleMath::Vector4{ TessellationData.OuterTessFactors[0], TessellationData.OuterTessFactors[1], TessellationData.OuterTessFactors[2], TessellationData.OuterTessFactors[3] };
-        PatchContext.InsideTessFactors = SimpleMath::Vector4{ TessellationData.InsideTessFactors[0], TessellationData.InsideTessFactors[1], 0.0f, 0.0f };
-        PatchContext.TileGrid = SimpleMath::Vector4{ static_cast<float>(TileMetadata.mStartX), static_cast<float>(TileMetadata.mStartZ), static_cast<float>(TileMetadata.mQuadCountX), static_cast<float>(TileMetadata.mQuadCountZ) };
-        PatchContext.HeightFieldParameters = SimpleMath::Vector4{ static_cast<float>(Resource.GetHeightFieldWidth()), static_cast<float>(Resource.GetHeightFieldHeight()), Resource.GetMaxHeight(), Resource.IsHeightFieldFlipV() == true ? 1.0f : 0.0f };
-        PatchContext.TerrainParameters = SimpleMath::Vector4{ Resource.GetCellSizeX(), Resource.GetCellSizeZ(), Resource.GetOriginOffsetX(), Resource.GetOriginOffsetZ() };
+    RenderContract::TerrainPatchContext BuildTerrainPatchContext(const Game::TerrainTileMetadata& TileMetadata, const Game::TerrainRenderResource& Resource, const TerrainTileTessellationData& TessellationData, std::uint32_t FrameIndex) {
+        RenderContract::TerrainPatchContext PatchContext{};
+        PatchContext.mOuterTessFactors = SimpleMath::Vector4{ TessellationData.OuterTessFactors[0], TessellationData.OuterTessFactors[1], TessellationData.OuterTessFactors[2], TessellationData.OuterTessFactors[3] };
+        PatchContext.mInsideTessFactors = SimpleMath::Vector4{ TessellationData.InsideTessFactors[0], TessellationData.InsideTessFactors[1], 0.0f, 0.0f };
+        PatchContext.mTileGrid = SimpleMath::Vector4{ static_cast<float>(TileMetadata.mStartX), static_cast<float>(TileMetadata.mStartZ), static_cast<float>(TileMetadata.mQuadCountX), static_cast<float>(TileMetadata.mQuadCountZ) };
+        PatchContext.mHeightFieldParameters = SimpleMath::Vector4{ static_cast<float>(Resource.GetHeightFieldWidth()), static_cast<float>(Resource.GetHeightFieldHeight()), Resource.GetMaxHeight(), Resource.IsHeightFieldFlipV() == true ? 1.0f : 0.0f };
+        PatchContext.mTerrainParameters = SimpleMath::Vector4{ Resource.GetCellSizeX(), Resource.GetCellSizeZ(), Resource.GetOriginOffsetX(), Resource.GetOriginOffsetZ() };
         PatchContext.mTerrainUvParameters = SimpleMath::Vector4{ static_cast<float>(Resource.GetStreamOriginGridX()), static_cast<float>(Resource.GetStreamOriginGridZ()), 0.0f, 0.0f };
-        PatchContext.HeightFieldSrvDescriptorIndex = Resource.GetHeightFieldSrvDescriptorIndex(FrameIndex);
-        PatchContext.SplatMapSrvDescriptorIndex = Resource.GetSplatMapSrvDescriptorIndex(FrameIndex);
-        PatchContext.SplatMapWidth = Resource.GetSplatMapWidth();
-        PatchContext.SplatMapHeight = Resource.GetSplatMapHeight();
+        PatchContext.mHeightFieldSrvDescriptorIndex = Resource.GetHeightFieldSrvDescriptorIndex(FrameIndex);
+        PatchContext.mSplatMapSrvDescriptorIndex = Resource.GetSplatMapSrvDescriptorIndex(FrameIndex);
+        PatchContext.mSplatMapWidth = Resource.GetSplatMapWidth();
+        PatchContext.mSplatMapHeight = Resource.GetSplatMapHeight();
         return PatchContext;
     }
 
@@ -122,17 +122,17 @@ namespace {
         return false;
     }
 
-    void AppendBoundingBoxContext(const DirectX::BoundingOrientedBox& WorldObb, Game::RFD::RenderFrameData& RenderData) {
-        const bool IsDrawBoundingBoxesEnabled{ (RenderData.globals.flags & Game::RFD::FrameGlobalFlagDrawBoundingBoxes) != 0u };
+    void AppendBoundingBoxContext(const DirectX::BoundingOrientedBox& WorldObb, RenderContract::RenderFrameData& RenderData) {
+        const bool IsDrawBoundingBoxesEnabled{ (RenderData.mFrameGlobals.mFlags & RenderContract::FrameGlobalFlagDrawBoundingBoxes) != 0u };
         if (IsDrawBoundingBoxesEnabled == false) {
             return;
         }
 
-        Game::RFD::BoundingBoxContext BoundingBoxContext{};
-        BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
-        BoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
-        BoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
-        RenderData.boundingBoxContexts.push_back(BoundingBoxContext);
+        RenderContract::BoundingBoxContext BoundingBoxContext{};
+        BoundingBoxContext.mCenter = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
+        BoundingBoxContext.mExtents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
+        BoundingBoxContext.mOrientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
+        RenderData.mBoundingBoxContexts.push_back(BoundingBoxContext);
     }
 
     const Game::RegisteredMaterialGroup* ResolveMaterialGroup(const std::vector<Game::RegisteredMaterialGroup>& MaterialGroups, const Game::Material* MaterialComponent) {
@@ -172,14 +172,14 @@ namespace {
         return CullingBox.Intersects(WorldBoundingBox);
     }
 
-    void AppendTerrainDrawRecord(const Game::TerrainTileMetadata& TileMetadata, const Game::TerrainRenderResource& Resource, const Game::ModelNode& Node, const Game::RegisteredMaterialGroup* ResolvedMaterialGroup, std::uint32_t ObjectIndex, std::uint32_t MaterialFlags, std::uint32_t PickFlags, const TerrainTileTessellationData& TessellationData, std::uint32_t FrameIndex, std::vector<Game::RFD::TerrainPatchContext>& OutTerrainPatchContexts, std::vector<Game::RFD::DrawRecord>& OutDrawRecords) {
+    void AppendTerrainDrawRecord(const Game::TerrainTileMetadata& TileMetadata, const Game::TerrainRenderResource& Resource, const Game::ModelNode& Node, const Game::RegisteredMaterialGroup* ResolvedMaterialGroup, std::uint32_t ObjectIndex, std::uint32_t MaterialFlags, std::uint32_t PickFlags, const TerrainTileTessellationData& TessellationData, std::uint32_t FrameIndex, std::vector<RenderContract::TerrainPatchContext>& OutTerrainPatchContexts, std::vector<RenderContract::DrawRecord>& OutDrawRecords) {
         const std::uint32_t TileSubMeshIndex{ TileMetadata.mSubMeshIndex };
         const Game::ModelSubMesh& SubMesh{ Node.GetSubMesh(TileSubMeshIndex) };
-        const Interface::IPipeline* Pipeline{ nullptr };
+        const RenderContract::IPipeline* Pipeline{ nullptr };
         std::uint32_t ResolvedMaterialIndex{ 0 };
 
         if (ResolvedMaterialGroup != nullptr) {
-            std::size_t ResolvedItemIndex{ SubMesh.MaterialGroupItemIndex };
+            std::size_t ResolvedItemIndex{ SubMesh.mMaterialGroupItemIndex };
             if (ResolvedItemIndex >= ResolvedMaterialGroup->Items.size()) {
                 ResolvedItemIndex = 0;
             }
@@ -191,16 +191,16 @@ namespace {
             }
         }
 
-        Game::RFD::DrawRecord DrawRecord{};
-        DrawRecord.pso = Pipeline;
-        DrawRecord.mesh = &Node;
-        DrawRecord.submesh = TileSubMeshIndex;
-        DrawRecord.pass = 0;
-        DrawRecord.objectIndex = ObjectIndex;
-        DrawRecord.materialIndex = ResolvedMaterialIndex;
-        DrawRecord.flags = MaterialFlags | PickFlags;
-        DrawRecord.TerrainPatchContextIndex = static_cast<std::uint32_t>(OutTerrainPatchContexts.size());
-        DrawRecord.pad0 = 0;
+        RenderContract::DrawRecord DrawRecord{};
+        DrawRecord.mPipeline = Pipeline;
+        DrawRecord.mMesh = &Node;
+        DrawRecord.mSubMesh = TileSubMeshIndex;
+        DrawRecord.mPass = 0;
+        DrawRecord.mObjectIndex = ObjectIndex;
+        DrawRecord.mMaterialIndex = ResolvedMaterialIndex;
+        DrawRecord.mFlags = MaterialFlags | PickFlags;
+        DrawRecord.mTerrainPatchContextIndex = static_cast<std::uint32_t>(OutTerrainPatchContexts.size());
+        DrawRecord.mPadding0 = 0;
         OutTerrainPatchContexts.push_back(BuildTerrainPatchContext(TileMetadata, Resource, TessellationData, FrameIndex));
         OutDrawRecords.push_back(DrawRecord);
     }
@@ -245,19 +245,19 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> TerrainRenderSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 3> Accesses{ { { typeid(RFD::RenderFrameData), Access::Write }, { typeid(std::vector<RegisteredMaterialGroup>), Access::Read }, { typeid(Arche::EntityID), Access::Read } } };
+        static std::array<ResourceAccess, 3> Accesses{ { { typeid(RenderContract::RenderFrameData), Access::Write }, { typeid(std::vector<RegisteredMaterialGroup>), Access::Read }, { typeid(Arche::EntityID), Access::Read } } };
         return Accesses;
     }
 
     void TerrainRenderSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
         (void)Dt;
 
-        RFD::RenderFrameData& RenderData{ Ctx.RenderData };
-        const std::uint32_t FrameIndex{ RenderData.globals.frameIndex };
+        RenderContract::RenderFrameData& RenderData{ Ctx.RenderData };
+        const std::uint32_t FrameIndex{ RenderData.mFrameGlobals.mFrameIndex };
         const std::vector<RegisteredMaterialGroup>& MaterialGroups{ *Ctx.MaterialGroups };
         const Frustum* CullingFrustumComponent{ nullptr };
-        const std::uint32_t ShadowCascadeCount{ RFD::ResolveShadowCascadeCount(RenderData.shadowMapping) };
-        const std::array<DirectX::BoundingOrientedBox, RFD::ShadowCascadeMaxCount> ShadowCullingBoxes{ RFD::BuildShadowCullingBoxes(RenderData.shadowMapping) };
+        const std::uint32_t ShadowCascadeCount{ RenderContract::ResolveShadowCascadeCount(RenderData.mShadowMappingParameter) };
+        const std::array<DirectX::BoundingOrientedBox, RenderContract::ShadowCascadeMaxCount> ShadowCullingBoxes{ RenderContract::BuildShadowCullingBoxes(RenderData.mShadowMappingParameter) };
         SimpleMath::Vector3 CameraPosition{};
         bool HasCameraPosition{ false };
 
@@ -292,7 +292,7 @@ namespace Game {
                 continue;
             }
 
-            const Interface::Future TerrainUploadFuture{ Renderer.mResource->GetFrameUploadFuture(FrameIndex) };
+            const RenderContract::Future TerrainUploadFuture{ Renderer.mResource->GetFrameUploadFuture(FrameIndex) };
             if (TerrainUploadFuture.IsValid() == true) {
                 RenderData.mTerrainUploadFuture = TerrainUploadFuture;
                 RenderData.mHasTerrainUploadFuture = true;
@@ -310,7 +310,7 @@ namespace Game {
                 BoundingBoxComponent->SetWorldObb(ParentWorldBoundingBox);
             }
 
-            std::array<bool, RFD::ShadowCascadeMaxCount> IsParentVisibleByShadowCascade{};
+            std::array<bool, RenderContract::ShadowCascadeMaxCount> IsParentVisibleByShadowCascade{};
             bool HasVisibleShadowParent{ false };
             for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
                 IsParentVisibleByShadowCascade[CascadeIndex] = IsWorldBoundingBoxVisibleByShadowBox(ParentWorldBoundingBox, ShadowCullingBoxes[CascadeIndex], IsFrustumCullingEnabled);
@@ -373,8 +373,8 @@ namespace Game {
 
             bool HasModelContext{ false };
             std::uint32_t ObjectIndex{ 0 };
-            std::array<bool, RFD::ShadowCascadeMaxCount> HasShadowModelContexts{};
-            std::array<std::uint32_t, RFD::ShadowCascadeMaxCount> ShadowObjectIndices{};
+            std::array<bool, RenderContract::ShadowCascadeMaxCount> HasShadowModelContexts{};
+            std::array<std::uint32_t, RenderContract::ShadowCascadeMaxCount> ShadowObjectIndices{};
             for (std::size_t TileMetadataIndex{ 0 }; TileMetadataIndex < TileMetadataItems.size(); ++TileMetadataIndex) {
                 const TerrainTileMetadata& TileMetadata{ TileMetadataItems[TileMetadataIndex] };
                 const std::uint32_t TileSubMeshIndex{ TileMetadata.mSubMeshIndex };
@@ -389,17 +389,17 @@ namespace Game {
 
                 if (IsVisible == true) {
                     if (HasModelContext == false) {
-                        RFD::ModelContext ModelContext{};
-                        ModelContext.world = NodeWorld;
-                        ModelContext.prevWorld = ModelContext.world;
-                        ModelContext.objectID = static_cast<std::uint32_t>(RenderData.modelContexts.size());
-                        ObjectIndex = ModelContext.objectID;
-                        RenderData.modelContexts.push_back(ModelContext);
+                        RenderContract::ModelContext ModelContext{};
+                        ModelContext.mWorld = NodeWorld;
+                        ModelContext.mPrevWorld = ModelContext.mWorld;
+                        ModelContext.mObjectId = static_cast<std::uint32_t>(RenderData.mModelContexts.size());
+                        ObjectIndex = ModelContext.mObjectId;
+                        RenderData.mModelContexts.push_back(ModelContext);
                         HasModelContext = true;
                     }
 
                     AppendBoundingBoxContext(TileWorldBoundingBox, RenderData);
-                    AppendTerrainDrawRecord(TileMetadata, *Renderer.mResource, *NodePointer, ResolvedMaterialGroup, ObjectIndex, MaterialFlags, IsPickedTile == true ? PickedDrawFlagBitMask : 0u, TileTessellationItems[TileMetadataIndex], FrameIndex, RenderData.TerrainPatchContexts, RenderData.drawRecords);
+                    AppendTerrainDrawRecord(TileMetadata, *Renderer.mResource, *NodePointer, ResolvedMaterialGroup, ObjectIndex, MaterialFlags, IsPickedTile == true ? PickedDrawFlagBitMask : 0u, TileTessellationItems[TileMetadataIndex], FrameIndex, RenderData.mTerrainPatchContexts, RenderData.mDrawRecords);
                 }
 
                 for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
@@ -412,18 +412,18 @@ namespace Game {
                         continue;
                     }
 
-                    RFD::ShadowRenderContext& ShadowRenderContext{ RenderData.ShadowRenderContexts[CascadeIndex] };
+                    RenderContract::ShadowRenderContext& ShadowRenderContext{ RenderData.mShadowRenderContexts[CascadeIndex] };
                     if (HasShadowModelContexts[CascadeIndex] == false) {
-                        RFD::ModelContext ShadowModelContext{};
-                        ShadowModelContext.world = NodeWorld;
-                        ShadowModelContext.prevWorld = ShadowModelContext.world;
-                        ShadowModelContext.objectID = static_cast<std::uint32_t>(ShadowRenderContext.ModelContexts.size());
-                        ShadowObjectIndices[CascadeIndex] = ShadowModelContext.objectID;
-                        ShadowRenderContext.ModelContexts.push_back(ShadowModelContext);
+                        RenderContract::ModelContext ShadowModelContext{};
+                        ShadowModelContext.mWorld = NodeWorld;
+                        ShadowModelContext.mPrevWorld = ShadowModelContext.mWorld;
+                        ShadowModelContext.mObjectId = static_cast<std::uint32_t>(ShadowRenderContext.mModelContexts.size());
+                        ShadowObjectIndices[CascadeIndex] = ShadowModelContext.mObjectId;
+                        ShadowRenderContext.mModelContexts.push_back(ShadowModelContext);
                         HasShadowModelContexts[CascadeIndex] = true;
                     }
 
-                    AppendTerrainDrawRecord(TileMetadata, *Renderer.mResource, *NodePointer, ResolvedMaterialGroup, ShadowObjectIndices[CascadeIndex], MaterialFlags, 0u, TileTessellationItems[TileMetadataIndex], FrameIndex, ShadowRenderContext.TerrainPatchContexts, ShadowRenderContext.DrawRecords);
+                    AppendTerrainDrawRecord(TileMetadata, *Renderer.mResource, *NodePointer, ResolvedMaterialGroup, ShadowObjectIndices[CascadeIndex], MaterialFlags, 0u, TileTessellationItems[TileMetadataIndex], FrameIndex, ShadowRenderContext.mTerrainPatchContexts, ShadowRenderContext.mDrawRecords);
                 }
             }
         }

@@ -31,17 +31,17 @@ namespace Game {
         void LoadShadowMappingParameterFile();
         void SaveShadowMappingParameterFile() const;
         void SanitizeShadowMappingParameters();
-        RFD::DirectionalLightParameter BuildDirectionalLightParameter(Arche::World& World) const;
-        RFD::ShadowMappingParameter BuildShadowMappingParameter(const Camera& CameraComponent, const Transform& TransformComponent, const RFD::DirectionalLightParameter& DirectionalLightParameter) const;
+        RenderContract::DirectionalLightParameter BuildDirectionalLightParameter(Arche::World& World) const;
+        RenderContract::ShadowMappingParameter BuildShadowMappingParameter(const Camera& CameraComponent, const Transform& TransformComponent, const RenderContract::DirectionalLightParameter& DirectionalLightParameter) const;
 
     private:
         const std::string mName{ "ShadowMappingParameterSystem" };
         const std::filesystem::path mShadowMappingParameterFilePath{ "Resources/ShadowMappingParameter.yaml" };
-        std::array<float, RFD::ShadowCascadeMaxCount> mShadowMapSizes{};
-        std::array<float, RFD::ShadowCascadeMaxCount> mShadowBiases{};
-        std::array<float, RFD::ShadowCascadeMaxCount> mShadowStrengths{};
-        std::array<float, RFD::ShadowCascadeMaxCount> mRasterDepthBiases{};
-        std::array<float, RFD::ShadowCascadeMaxCount> mRasterSlopeScaledDepthBiases{};
+        std::array<float, RenderContract::ShadowCascadeMaxCount> mShadowMapSizes{};
+        std::array<float, RenderContract::ShadowCascadeMaxCount> mShadowBiases{};
+        std::array<float, RenderContract::ShadowCascadeMaxCount> mShadowStrengths{};
+        std::array<float, RenderContract::ShadowCascadeMaxCount> mRasterDepthBiases{};
+        std::array<float, RenderContract::ShadowCascadeMaxCount> mRasterSlopeScaledDepthBiases{};
         DirectX::SimpleMath::Vector3 mDefaultDirectionalLightDirection{};
         DirectX::SimpleMath::Vector4 mDefaultDirectionalLightColor{};
         std::uint32_t mCascadeCount{};

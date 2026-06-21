@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -14,7 +14,7 @@
 #include "Model.h"
 #include "Game/Base/Common.h"
 #include "Game/Base/Pipeline.h"
-#include "Game/Base/RenderFrameData.h"
+#include "RenderContract/Frame/RenderFrameData.h"
 
 namespace Game {
     class TerrainRenderResource;
@@ -33,11 +33,11 @@ namespace Game {
     struct RegisteredMaterial final {
         std::string Name{};
         asset::Material Data{};
-        RFD::MaterialGpu PackedData{};
+        RenderContract::MaterialGpu PackedData{};
     };
 
     struct RegisteredMaterialGroupItem final {
-        Interface::IPipeline* Pipeline{ nullptr };
+        RenderContract::IPipeline* Pipeline{ nullptr };
         std::uint32_t MaterialIndex{ 0 };
     };
 
@@ -72,7 +72,7 @@ namespace Game {
     };
 
     struct MaterialBucketTag final {
-        using BucketType = ResourceBucket<RegisteredMaterial, RFD::MaterialGpu>;
+        using BucketType = ResourceBucket<RegisteredMaterial, RenderContract::MaterialGpu>;
     };
 
     struct MaterialGroupBucketTag final {
@@ -80,7 +80,7 @@ namespace Game {
     };
 
     struct TextureTableBucketTag final {
-        using BucketType = ResourceBucket<RFD::MaterialTextureTableItemGpu>;
+        using BucketType = ResourceBucket<RenderContract::MaterialTextureTableItemGpu>;
     };
 
     class AssetRegistryStorage final {
@@ -115,17 +115,17 @@ namespace Game {
         const std::unordered_map<std::string, std::uint32_t>& GetMaterialGroupSourcePathLookup() const;
 
         std::vector<std::unique_ptr<Base::Pipeline>>& GetPipelines();
-        std::unordered_map<std::string, Interface::IPipeline*>& GetPipelineLookup();
-        const std::unordered_map<std::string, Interface::IPipeline*>& GetPipelineLookup() const;
+        std::unordered_map<std::string, RenderContract::IPipeline*>& GetPipelineLookup();
+        const std::unordered_map<std::string, RenderContract::IPipeline*>& GetPipelineLookup() const;
 
     private:
         ResourceBucket<std::shared_ptr<Model>> mModelBucket{};
         ResourceBucket<std::shared_ptr<TerrainRenderResource>> mTerrainRenderResourceBucket{};
         ResourceBucket<std::shared_ptr<asset::Animation>> mAnimationBucket{};
         ResourceBucket<std::shared_ptr<AnimationGraphAsset>> mAnimationGraphBucket{};
-        ResourceBucket<RegisteredMaterial, RFD::MaterialGpu> mMaterialBucket{};
+        ResourceBucket<RegisteredMaterial, RenderContract::MaterialGpu> mMaterialBucket{};
         ResourceBucket<RegisteredMaterialGroup> mMaterialGroupBucket{};
-        ResourceBucket<RFD::MaterialTextureTableItemGpu> mTextureTableBucket{};
+        ResourceBucket<RenderContract::MaterialTextureTableItemGpu> mTextureTableBucket{};
 
         std::unordered_set<std::string> mLoadedMaterialJsonPaths{};
         std::vector<AssetRegistryTextureRecord> mTextureRecords{};
@@ -135,7 +135,7 @@ namespace Game {
         std::unordered_map<std::string, std::uint32_t> mMaterialGroupSourcePathLookup{};
 
         std::vector<std::unique_ptr<Base::Pipeline>> mPipelines{};
-        std::unordered_map<std::string, Interface::IPipeline*> mPipelineLookup{};
+        std::unordered_map<std::string, RenderContract::IPipeline*> mPipelineLookup{};
     };
 
     class IAssetRegistryBackEnd {

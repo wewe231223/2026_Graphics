@@ -1,4 +1,4 @@
-#include "DrawCallDispatcher.h"
+﻿#include "DrawCallDispatcher.h"
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -24,10 +24,10 @@ namespace Core {
 			};
 		}
 
-		bool DrawCallDispatcher::HasVertexInputBinding(const Interface::IPipeline& Pipeline, Game::VertexAttributeKind Kind) const {
+		bool DrawCallDispatcher::HasVertexInputBinding(const RenderContract::IPipeline& Pipeline, Game::VertexAttributeKind Kind) const {
 			const std::span<const Game::VertexInputBinding> VertexInputBindings{ Pipeline.GetVertexInputBindings() };
 			for (const Game::VertexInputBinding& VertexInputBinding : VertexInputBindings) {
-				if (VertexInputBinding.Kind == Kind) {
+				if (VertexInputBinding.mKind == Kind) {
 					return true;
 				}
 			}
@@ -35,13 +35,13 @@ namespace Core {
 			return false;
 		}
 
-		std::vector<D3D12_VERTEX_BUFFER_VIEW> DrawCallDispatcher::BuildVertexBufferViews(const Interface::IPipeline& Pipeline, const Interface::IModelNode& Mesh) const {
+		std::vector<D3D12_VERTEX_BUFFER_VIEW> DrawCallDispatcher::BuildVertexBufferViews(const RenderContract::IPipeline& Pipeline, const RenderContract::IModelNode& Mesh) const {
 			const std::span<const Game::VertexInputBinding> VertexInputBindings{ Pipeline.GetVertexInputBindings() };
 			std::uint32_t MaxInputSlot{ 0 };
 
 			for (const Game::VertexInputBinding& VertexInputBinding : VertexInputBindings) {
-				if (VertexInputBinding.InputSlot > MaxInputSlot) {
-					MaxInputSlot = VertexInputBinding.InputSlot;
+				if (VertexInputBinding.mInputSlot > MaxInputSlot) {
+					MaxInputSlot = VertexInputBinding.mInputSlot;
 				}
 			}
 
@@ -50,12 +50,12 @@ namespace Core {
 
 			for (const Game::VertexInputBinding& VertexInputBinding : VertexInputBindings) {
 				D3D12_VERTEX_BUFFER_VIEW View{};
-				const bool IsResolved{ Mesh.TryGetVertexBufferView(VertexInputBinding.Kind, View) };
+				const bool IsResolved{ Mesh.TryGetVertexBufferView(VertexInputBinding.mKind, View) };
 				if (IsResolved == false) {
 					continue;
 				}
 
-				VertexBufferViews[VertexInputBinding.InputSlot] = View;
+				VertexBufferViews[VertexInputBinding.mInputSlot] = View;
 			}
 
 			return VertexBufferViews;
@@ -89,28 +89,28 @@ namespace Core {
 		DrawCallDispatcher::~DrawCallDispatcher() {
 		}
 
-		void DrawCallDispatcher::DrawGBuffer(ID3D12GraphicsCommandList* CommandList, Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
-			const Interface::IPipeline* ActivePipeline{ nullptr };
+		void DrawCallDispatcher::DrawGBuffer(ID3D12GraphicsCommandList* CommandList, RenderContract::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+			const RenderContract::IPipeline* ActivePipeline{ nullptr };
 			size_t DrawRecordIndex{ 0 };
 
-			while (DrawRecordIndex < Data.drawRecords.size()) {
-				Game::RFD::DrawRecord& StartRecord{ Data.drawRecords[DrawRecordIndex] };
-				if (StartRecord.pso == nullptr || StartRecord.mesh == nullptr || DrawCallDispatcher::IsSkyDomePipeline(StartRecord.pso) == true) {
+			while (DrawRecordIndex < Data.mDrawRecords.size()) {
+				RenderContract::DrawRecord& StartRecord{ Data.mDrawRecords[DrawRecordIndex] };
+				if (StartRecord.mPipeline == nullptr || StartRecord.mMesh == nullptr || DrawCallDispatcher::IsSkyDomePipeline(StartRecord.mPipeline) == true) {
 					DrawRecordIndex += 1;
 					continue;
 				}
 
 				size_t RunEndIndex{ DrawRecordIndex + 1 };
-				while (RunEndIndex < Data.drawRecords.size()) {
-					const Game::RFD::DrawRecord& NextRecord{ Data.drawRecords[RunEndIndex] };
-					bool IsSameRun{ std::tie(NextRecord.pass, NextRecord.pso, NextRecord.mesh, NextRecord.submesh) == std::tie(StartRecord.pass, StartRecord.pso, StartRecord.mesh, StartRecord.submesh) };
+				while (RunEndIndex < Data.mDrawRecords.size()) {
+					const RenderContract::DrawRecord& NextRecord{ Data.mDrawRecords[RunEndIndex] };
+					bool IsSameRun{ std::tie(NextRecord.mPass, NextRecord.mPipeline, NextRecord.mMesh, NextRecord.mSubMesh) == std::tie(StartRecord.mPass, StartRecord.mPipeline, StartRecord.mMesh, StartRecord.mSubMesh) };
 					if (IsSameRun == false) {
 						break;
 					}
 					RunEndIndex += 1;
 				}
 
-				ActivePipeline = StartRecord.pso->Set(ActivePipeline, CommandList);
+				ActivePipeline = StartRecord.mPipeline->Set(ActivePipeline, CommandList);
 
 				DrawRootConstantsB1 RootConstants{};
 				RootConstants.FrameGlobalsSrvIndex = FrameGlobalsSrvHandle.GetIndex();
@@ -127,20 +127,20 @@ namespace Core {
 				RootConstants.Reserved1 = 0u;
 				CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
 
-				CommandList->IASetPrimitiveTopology(StartRecord.pso->GetPrimitiveTopology());
+				CommandList->IASetPrimitiveTopology(StartRecord.mPipeline->GetPrimitiveTopology());
 
-				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*StartRecord.pso, *StartRecord.mesh) };
+				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*StartRecord.mPipeline, *StartRecord.mMesh) };
 				if (VertexBufferViews.empty() == false) {
 					CommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
 				}
 
-				const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ StartRecord.mesh->GetIndexBufferView() };
+				const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ StartRecord.mMesh->GetIndexBufferView() };
 				CommandList->IASetIndexBuffer(&IndexBufferView);
 
-				const Game::ModelSubMesh& SubMesh{ StartRecord.mesh->GetSubMesh(StartRecord.submesh) };
-				UINT IndexCountPerInstance{ static_cast<UINT>(SubMesh.IndexCount) };
+				const Game::ModelSubMesh& SubMesh{ StartRecord.mMesh->GetSubMesh(StartRecord.mSubMesh) };
+				UINT IndexCountPerInstance{ static_cast<UINT>(SubMesh.mIndexCount) };
 				UINT InstanceCount{ static_cast<UINT>(RunEndIndex - DrawRecordIndex) };
-				UINT StartIndexLocation{ static_cast<UINT>(SubMesh.IndexOffset) };
+				UINT StartIndexLocation{ static_cast<UINT>(SubMesh.mIndexOffset) };
 				INT BaseVertexLocation{ 0 };
 				UINT StartInstanceLocation{ 0 };
 				CommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
@@ -148,7 +148,7 @@ namespace Core {
 			}
 		}
 
-		void DrawCallDispatcher::DrawEnvironmentGBuffer(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle EnvironmentInstanceContextSrvHandle, DescriptorHandle EnvironmentSegmentContextSrvHandle, DescriptorHandle EnvironmentDrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+		void DrawCallDispatcher::DrawEnvironmentGBuffer(ID3D12GraphicsCommandList* CommandList, const RenderContract::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle EnvironmentInstanceContextSrvHandle, DescriptorHandle EnvironmentSegmentContextSrvHandle, DescriptorHandle EnvironmentDrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			if (CommandList == nullptr || Data.mEnvironmentDrawRecords.empty() == true) {
 				return;
 			}
@@ -157,15 +157,15 @@ namespace Core {
 				mIsEnvironmentObjectPipelineInitialized = mEnvironmentObjectPipeline.Initialize("EnvironmentObjectGraphics");
 			}
 
-			const Interface::IPipeline* ActivePipeline{ nullptr };
+			const RenderContract::IPipeline* ActivePipeline{ nullptr };
 			for (std::size_t DrawRecordIndex{}; DrawRecordIndex < Data.mEnvironmentDrawRecords.size(); DrawRecordIndex += 1ULL) {
-				const Game::RFD::EnvironmentDrawRecord& DrawRecord{ Data.mEnvironmentDrawRecords[DrawRecordIndex] };
+				const RenderContract::EnvironmentDrawRecord& DrawRecord{ Data.mEnvironmentDrawRecords[DrawRecordIndex] };
 				if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u) {
 					continue;
 				}
 
 				const bool IsEnvironmentBillboardPipeline{ DrawRecord.mPipeline != nullptr && DrawRecord.mPipeline->GetPrimitiveTopology() == D3D_PRIMITIVE_TOPOLOGY_POINTLIST };
-				const Interface::IPipeline* Pipeline{ IsEnvironmentBillboardPipeline == true ? DrawRecord.mPipeline : nullptr };
+				const RenderContract::IPipeline* Pipeline{ IsEnvironmentBillboardPipeline == true ? DrawRecord.mPipeline : nullptr };
 				if (Pipeline == nullptr && mIsEnvironmentObjectPipelineInitialized == true) {
 					Pipeline = &mEnvironmentObjectPipeline;
 				}
@@ -202,9 +202,9 @@ namespace Core {
 				CommandList->IASetIndexBuffer(&IndexBufferView);
 
 				const Game::ModelSubMesh& SubMesh{ DrawRecord.mMesh->GetSubMesh(DrawRecord.mSubMesh) };
-				const UINT IndexCountPerInstance{ static_cast<UINT>(SubMesh.IndexCount) };
+				const UINT IndexCountPerInstance{ static_cast<UINT>(SubMesh.mIndexCount) };
 				const UINT InstanceCount{ static_cast<UINT>(DrawRecord.mInstanceCount) };
-				const UINT StartIndexLocation{ static_cast<UINT>(SubMesh.IndexOffset) };
+				const UINT StartIndexLocation{ static_cast<UINT>(SubMesh.mIndexOffset) };
 				const INT BaseVertexLocation{ 0 };
 				const UINT StartInstanceLocation{ 0 };
 				CommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
@@ -245,33 +245,33 @@ namespace Core {
 			CommandList->DrawInstanced(3u, 1u, 0u, 0u);
 		}
 
-		void DrawCallDispatcher::DrawForwardOverlays(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle DebugGeometryContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+		void DrawCallDispatcher::DrawForwardOverlays(ID3D12GraphicsCommandList* CommandList, const RenderContract::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle DebugGeometryContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			DrawBoundingBoxes(CommandList, Data, FrameGlobalsSrvHandle, BoundingBoxContextSrvHandle, BonePaletteSrvHandle, DrawRecordSrvHandle, MaterialSrvHandle, MaterialTextureTableSrvHandle);
 			DrawDebugGeometries(CommandList, Data, FrameGlobalsSrvHandle, DebugGeometryContextSrvHandle);
 		}
 
-		void DrawCallDispatcher::DrawDepthOnly(ID3D12GraphicsCommandList* CommandList, ID3D12GraphicsCommandList9* DynamicDepthBiasCommandList, float RasterDepthBias, float RasterDepthBiasClamp, float RasterSlopeScaledDepthBias, const Game::RFD::ShadowRenderContext& ShadowRenderContext, std::uint32_t ShadowFrameGlobalsIndex, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
-			const Interface::IPipeline* ActivePipeline{ nullptr };
+		void DrawCallDispatcher::DrawDepthOnly(ID3D12GraphicsCommandList* CommandList, ID3D12GraphicsCommandList9* DynamicDepthBiasCommandList, float RasterDepthBias, float RasterDepthBiasClamp, float RasterSlopeScaledDepthBias, const RenderContract::ShadowRenderContext& ShadowRenderContext, std::uint32_t ShadowFrameGlobalsIndex, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+			const RenderContract::IPipeline* ActivePipeline{ nullptr };
 			size_t DrawRecordIndex{ 0 };
 
-			while (DrawRecordIndex < ShadowRenderContext.DrawRecords.size()) {
-				const Game::RFD::DrawRecord& StartRecord{ ShadowRenderContext.DrawRecords[DrawRecordIndex] };
-				if (StartRecord.pso == nullptr || StartRecord.mesh == nullptr || DrawCallDispatcher::IsSkyDomePipeline(StartRecord.pso) == true) {
+			while (DrawRecordIndex < ShadowRenderContext.mDrawRecords.size()) {
+				const RenderContract::DrawRecord& StartRecord{ ShadowRenderContext.mDrawRecords[DrawRecordIndex] };
+				if (StartRecord.mPipeline == nullptr || StartRecord.mMesh == nullptr || DrawCallDispatcher::IsSkyDomePipeline(StartRecord.mPipeline) == true) {
 					DrawRecordIndex += 1;
 					continue;
 				}
 
 				size_t RunEndIndex{ DrawRecordIndex + 1 };
-				while (RunEndIndex < ShadowRenderContext.DrawRecords.size()) {
-					const Game::RFD::DrawRecord& NextRecord{ ShadowRenderContext.DrawRecords[RunEndIndex] };
-					bool IsSameRun{ std::tie(NextRecord.pass, NextRecord.pso, NextRecord.mesh, NextRecord.submesh) == std::tie(StartRecord.pass, StartRecord.pso, StartRecord.mesh, StartRecord.submesh) };
+				while (RunEndIndex < ShadowRenderContext.mDrawRecords.size()) {
+					const RenderContract::DrawRecord& NextRecord{ ShadowRenderContext.mDrawRecords[RunEndIndex] };
+					bool IsSameRun{ std::tie(NextRecord.mPass, NextRecord.mPipeline, NextRecord.mMesh, NextRecord.mSubMesh) == std::tie(StartRecord.mPass, StartRecord.mPipeline, StartRecord.mMesh, StartRecord.mSubMesh) };
 					if (IsSameRun == false) {
 						break;
 					}
 					RunEndIndex += 1;
 				}
 
-				const Interface::IPipeline* DepthPipeline{ DrawCallDispatcher::ResolveDepthOnlyPipeline(StartRecord) };
+				const RenderContract::IPipeline* DepthPipeline{ DrawCallDispatcher::ResolveDepthOnlyPipeline(StartRecord) };
 				if (DepthPipeline == nullptr) {
 					DrawRecordIndex = RunEndIndex;
 					continue;
@@ -299,18 +299,18 @@ namespace Core {
 
 				CommandList->IASetPrimitiveTopology(DepthPipeline->GetPrimitiveTopology());
 
-				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*DepthPipeline, *StartRecord.mesh) };
+				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*DepthPipeline, *StartRecord.mMesh) };
 				if (VertexBufferViews.empty() == false) {
 					CommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
 				}
 
-				const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ StartRecord.mesh->GetIndexBufferView() };
+				const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ StartRecord.mMesh->GetIndexBufferView() };
 				CommandList->IASetIndexBuffer(&IndexBufferView);
 
-				const Game::ModelSubMesh& SubMesh{ StartRecord.mesh->GetSubMesh(StartRecord.submesh) };
-				UINT IndexCountPerInstance{ static_cast<UINT>(SubMesh.IndexCount) };
+				const Game::ModelSubMesh& SubMesh{ StartRecord.mMesh->GetSubMesh(StartRecord.mSubMesh) };
+				UINT IndexCountPerInstance{ static_cast<UINT>(SubMesh.mIndexCount) };
 				UINT InstanceCount{ static_cast<UINT>(RunEndIndex - DrawRecordIndex) };
-				UINT StartIndexLocation{ static_cast<UINT>(SubMesh.IndexOffset) };
+				UINT StartIndexLocation{ static_cast<UINT>(SubMesh.mIndexOffset) };
 				INT BaseVertexLocation{ 0 };
 				UINT StartInstanceLocation{ 0 };
 				CommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
@@ -318,19 +318,19 @@ namespace Core {
 			}
 		}
 
-		void DrawCallDispatcher::DrawEnvironmentDepthOnly(ID3D12GraphicsCommandList* CommandList, ID3D12GraphicsCommandList9* DynamicDepthBiasCommandList, float RasterDepthBias, float RasterDepthBiasClamp, float RasterSlopeScaledDepthBias, const Game::RFD::ShadowRenderContext& ShadowRenderContext, std::uint32_t ShadowFrameGlobalsIndex, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle EnvironmentInstanceContextSrvHandle, DescriptorHandle EnvironmentSegmentContextSrvHandle, DescriptorHandle EnvironmentDrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+		void DrawCallDispatcher::DrawEnvironmentDepthOnly(ID3D12GraphicsCommandList* CommandList, ID3D12GraphicsCommandList9* DynamicDepthBiasCommandList, float RasterDepthBias, float RasterDepthBiasClamp, float RasterSlopeScaledDepthBias, const RenderContract::ShadowRenderContext& ShadowRenderContext, std::uint32_t ShadowFrameGlobalsIndex, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle EnvironmentInstanceContextSrvHandle, DescriptorHandle EnvironmentSegmentContextSrvHandle, DescriptorHandle EnvironmentDrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			if (CommandList == nullptr || ShadowRenderContext.mEnvironmentDrawRecords.empty() == true) {
 				return;
 			}
 
-			const Interface::IPipeline* ActivePipeline{ nullptr };
+			const RenderContract::IPipeline* ActivePipeline{ nullptr };
 			for (std::size_t DrawRecordIndex{}; DrawRecordIndex < ShadowRenderContext.mEnvironmentDrawRecords.size(); DrawRecordIndex += 1ULL) {
-				const Game::RFD::EnvironmentDrawRecord& DrawRecord{ ShadowRenderContext.mEnvironmentDrawRecords[DrawRecordIndex] };
+				const RenderContract::EnvironmentDrawRecord& DrawRecord{ ShadowRenderContext.mEnvironmentDrawRecords[DrawRecordIndex] };
 				if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mCastsShadow == false) {
 					continue;
 				}
 
-				const Interface::IPipeline* DepthPipeline{ DrawCallDispatcher::ResolveEnvironmentDepthOnlyPipeline(DrawRecord) };
+				const RenderContract::IPipeline* DepthPipeline{ DrawCallDispatcher::ResolveEnvironmentDepthOnlyPipeline(DrawRecord) };
 				if (DepthPipeline == nullptr) {
 					continue;
 				}
@@ -366,28 +366,28 @@ namespace Core {
 				CommandList->IASetIndexBuffer(&IndexBufferView);
 
 				const Game::ModelSubMesh& SubMesh{ DrawRecord.mMesh->GetSubMesh(DrawRecord.mSubMesh) };
-				const UINT IndexCountPerInstance{ static_cast<UINT>(SubMesh.IndexCount) };
+				const UINT IndexCountPerInstance{ static_cast<UINT>(SubMesh.mIndexCount) };
 				const UINT InstanceCount{ static_cast<UINT>(DrawRecord.mInstanceCount) };
-				const UINT StartIndexLocation{ static_cast<UINT>(SubMesh.IndexOffset) };
+				const UINT StartIndexLocation{ static_cast<UINT>(SubMesh.mIndexOffset) };
 				const INT BaseVertexLocation{ 0 };
 				const UINT StartInstanceLocation{ 0 };
 				CommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
 			}
 		}
 
-		const std::vector<D3D12_VERTEX_BUFFER_VIEW>& DrawCallDispatcher::ResolveVertexBufferViews(const Interface::IPipeline& Pipeline, const Interface::IModelNode& Mesh) {
-			const std::pair<const Interface::IPipeline*, const Interface::IModelNode*> CacheKey{ &Pipeline, &Mesh };
-			std::map<std::pair<const Interface::IPipeline*, const Interface::IModelNode*>, std::vector<D3D12_VERTEX_BUFFER_VIEW>>::iterator CacheIter{ mVertexBufferViewCache.find(CacheKey) };
+		const std::vector<D3D12_VERTEX_BUFFER_VIEW>& DrawCallDispatcher::ResolveVertexBufferViews(const RenderContract::IPipeline& Pipeline, const RenderContract::IModelNode& Mesh) {
+			const std::pair<const RenderContract::IPipeline*, const RenderContract::IModelNode*> CacheKey{ &Pipeline, &Mesh };
+			std::map<std::pair<const RenderContract::IPipeline*, const RenderContract::IModelNode*>, std::vector<D3D12_VERTEX_BUFFER_VIEW>>::iterator CacheIter{ mVertexBufferViewCache.find(CacheKey) };
 			if (CacheIter != mVertexBufferViewCache.end()) {
 				return CacheIter->second;
 			}
 
 			std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{ BuildVertexBufferViews(Pipeline, Mesh) };
-			std::pair<std::map<std::pair<const Interface::IPipeline*, const Interface::IModelNode*>, std::vector<D3D12_VERTEX_BUFFER_VIEW>>::iterator, bool> InsertResult{ mVertexBufferViewCache.emplace(CacheKey, std::move(VertexBufferViews)) };
+			std::pair<std::map<std::pair<const RenderContract::IPipeline*, const RenderContract::IModelNode*>, std::vector<D3D12_VERTEX_BUFFER_VIEW>>::iterator, bool> InsertResult{ mVertexBufferViewCache.emplace(CacheKey, std::move(VertexBufferViews)) };
 			return InsertResult.first->second;
 		}
 
-		bool DrawCallDispatcher::IsSkyDomePipeline(const Interface::IPipeline* Pipeline) {
+		bool DrawCallDispatcher::IsSkyDomePipeline(const RenderContract::IPipeline* Pipeline) {
 			if (Pipeline == nullptr) {
 				return false;
 			}
@@ -403,12 +403,12 @@ namespace Core {
 			return Pipeline->Get() == mSkyDomePipeline.Get();
 		}
 
-		const Interface::IPipeline* DrawCallDispatcher::ResolveDepthOnlyPipeline(const Game::RFD::DrawRecord& DrawRecord) {
-			if (DrawRecord.pso == nullptr) {
+		const RenderContract::IPipeline* DrawCallDispatcher::ResolveDepthOnlyPipeline(const RenderContract::DrawRecord& DrawRecord) {
+			if (DrawRecord.mPipeline == nullptr) {
 				return nullptr;
 			}
 
-			if (DrawRecord.TerrainPatchContextIndex != InvalidDescriptorIndex) {
+			if (DrawRecord.mTerrainPatchContextIndex != InvalidDescriptorIndex) {
 				if (mIsTerrainDepthPipelineInitialized == false) {
 					mIsTerrainDepthPipelineInitialized = mTerrainDepthPipeline.Initialize("TerrainDepthGraphics");
 				}
@@ -416,8 +416,8 @@ namespace Core {
 				return mIsTerrainDepthPipelineInitialized == true ? &mTerrainDepthPipeline : nullptr;
 			}
 
-			const bool HasSkinningInput{ HasVertexInputBinding(*DrawRecord.pso, Game::VertexAttributeKind::BoneIndices) || HasVertexInputBinding(*DrawRecord.pso, Game::VertexAttributeKind::BoneWeights) };
-			if (DrawRecord.pso->HasOption(Game::PipelineOption::DepthAlphaCutoff) == true && HasSkinningInput == false) {
+			const bool HasSkinningInput{ HasVertexInputBinding(*DrawRecord.mPipeline, Game::VertexAttributeKind::BoneIndices) || HasVertexInputBinding(*DrawRecord.mPipeline, Game::VertexAttributeKind::BoneWeights) };
+			if (DrawRecord.mPipeline->HasOption(Game::PipelineOption::DepthAlphaCutoff) == true && HasSkinningInput == false) {
 				if (mIsDepthAlphaCutoffPipelineInitialized == false) {
 					mIsDepthAlphaCutoffPipelineInitialized = mDepthAlphaCutoffPipeline.Initialize("AlphaCutoffDepthGraphics");
 				}
@@ -440,7 +440,7 @@ namespace Core {
 			return mIsDefaultDepthPipelineInitialized == true ? &mDefaultDepthPipeline : nullptr;
 		}
 
-		const Interface::IPipeline* DrawCallDispatcher::ResolveEnvironmentDepthOnlyPipeline(const Game::RFD::EnvironmentDrawRecord& DrawRecord) {
+		const RenderContract::IPipeline* DrawCallDispatcher::ResolveEnvironmentDepthOnlyPipeline(const RenderContract::EnvironmentDrawRecord& DrawRecord) {
 			if (DrawRecord.mPipeline != nullptr && DrawRecord.mPipeline->GetPrimitiveTopology() == D3D_PRIMITIVE_TOPOLOGY_POINTLIST) {
 				if (mIsEnvironmentBillboardDepthPipelineInitialized == false) {
 					mIsEnvironmentBillboardDepthPipelineInitialized = mEnvironmentBillboardDepthPipeline.Initialize("EnvironmentBillboardDepthGraphics");
@@ -456,7 +456,7 @@ namespace Core {
 			return mIsEnvironmentObjectDepthPipelineInitialized == true ? &mEnvironmentObjectDepthPipeline : nullptr;
 		}
 
-		void DrawCallDispatcher::DrawSkyDome(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+		void DrawCallDispatcher::DrawSkyDome(ID3D12GraphicsCommandList* CommandList, const RenderContract::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			if (CommandList == nullptr) {
 				return;
 			}
@@ -469,27 +469,27 @@ namespace Core {
 				return;
 			}
 
-			const Interface::IPipeline* ActivePipeline{ nullptr };
+			const RenderContract::IPipeline* ActivePipeline{ nullptr };
 			size_t DrawRecordIndex{ 0 };
 
-			while (DrawRecordIndex < Data.drawRecords.size()) {
-				const Game::RFD::DrawRecord& StartRecord{ Data.drawRecords[DrawRecordIndex] };
-				if (StartRecord.pso == nullptr || StartRecord.mesh == nullptr || DrawCallDispatcher::IsSkyDomePipeline(StartRecord.pso) == false) {
+			while (DrawRecordIndex < Data.mDrawRecords.size()) {
+				const RenderContract::DrawRecord& StartRecord{ Data.mDrawRecords[DrawRecordIndex] };
+				if (StartRecord.mPipeline == nullptr || StartRecord.mMesh == nullptr || DrawCallDispatcher::IsSkyDomePipeline(StartRecord.mPipeline) == false) {
 					DrawRecordIndex += 1;
 					continue;
 				}
 
 				size_t RunEndIndex{ DrawRecordIndex + 1 };
-				while (RunEndIndex < Data.drawRecords.size()) {
-					const Game::RFD::DrawRecord& NextRecord{ Data.drawRecords[RunEndIndex] };
-					bool IsSameRun{ std::tie(NextRecord.pass, NextRecord.pso, NextRecord.mesh, NextRecord.submesh) == std::tie(StartRecord.pass, StartRecord.pso, StartRecord.mesh, StartRecord.submesh) };
+				while (RunEndIndex < Data.mDrawRecords.size()) {
+					const RenderContract::DrawRecord& NextRecord{ Data.mDrawRecords[RunEndIndex] };
+					bool IsSameRun{ std::tie(NextRecord.mPass, NextRecord.mPipeline, NextRecord.mMesh, NextRecord.mSubMesh) == std::tie(StartRecord.mPass, StartRecord.mPipeline, StartRecord.mMesh, StartRecord.mSubMesh) };
 					if (IsSameRun == false) {
 						break;
 					}
 					RunEndIndex += 1;
 				}
 
-				ActivePipeline = StartRecord.pso->Set(ActivePipeline, CommandList);
+				ActivePipeline = StartRecord.mPipeline->Set(ActivePipeline, CommandList);
 
 				DrawRootConstantsB1 RootConstants{};
 				RootConstants.FrameGlobalsSrvIndex = FrameGlobalsSrvHandle.GetIndex();
@@ -506,20 +506,20 @@ namespace Core {
 				RootConstants.Reserved1 = 0u;
 				CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
 
-				CommandList->IASetPrimitiveTopology(StartRecord.pso->GetPrimitiveTopology());
+				CommandList->IASetPrimitiveTopology(StartRecord.mPipeline->GetPrimitiveTopology());
 
-				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*StartRecord.pso, *StartRecord.mesh) };
+				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*StartRecord.mPipeline, *StartRecord.mMesh) };
 				if (VertexBufferViews.empty() == false) {
 					CommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
 				}
 
-				const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ StartRecord.mesh->GetIndexBufferView() };
+				const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ StartRecord.mMesh->GetIndexBufferView() };
 				CommandList->IASetIndexBuffer(&IndexBufferView);
 
-				const Game::ModelSubMesh& SubMesh{ StartRecord.mesh->GetSubMesh(StartRecord.submesh) };
-				UINT IndexCountPerInstance{ static_cast<UINT>(SubMesh.IndexCount) };
+				const Game::ModelSubMesh& SubMesh{ StartRecord.mMesh->GetSubMesh(StartRecord.mSubMesh) };
+				UINT IndexCountPerInstance{ static_cast<UINT>(SubMesh.mIndexCount) };
 				UINT InstanceCount{ static_cast<UINT>(RunEndIndex - DrawRecordIndex) };
-				UINT StartIndexLocation{ static_cast<UINT>(SubMesh.IndexOffset) };
+				UINT StartIndexLocation{ static_cast<UINT>(SubMesh.mIndexOffset) };
 				INT BaseVertexLocation{ 0 };
 				UINT StartInstanceLocation{ 0 };
 				CommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
@@ -527,13 +527,13 @@ namespace Core {
 			}
 		}
 
-		void DrawCallDispatcher::DrawBoundingBoxes(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+		void DrawCallDispatcher::DrawBoundingBoxes(ID3D12GraphicsCommandList* CommandList, const RenderContract::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			if (CommandList == nullptr) {
 				return;
 			}
 
-			const bool IsDrawBoundingBoxesEnabled{ (Data.globals.flags & Game::RFD::FrameGlobalFlagDrawBoundingBoxes) != 0u };
-			if (IsDrawBoundingBoxesEnabled == false || Data.boundingBoxContexts.empty()) {
+			const bool IsDrawBoundingBoxesEnabled{ (Data.mFrameGlobals.mFlags & RenderContract::FrameGlobalFlagDrawBoundingBoxes) != 0u };
+			if (IsDrawBoundingBoxesEnabled == false || Data.mBoundingBoxContexts.empty()) {
 				return;
 			}
 
@@ -563,16 +563,16 @@ namespace Core {
 			CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
 
 			CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
-			CommandList->DrawInstanced(1u, static_cast<UINT>(Data.boundingBoxContexts.size()), 0u, 0u);
+			CommandList->DrawInstanced(1u, static_cast<UINT>(Data.mBoundingBoxContexts.size()), 0u, 0u);
 		}
 
-		void DrawCallDispatcher::DrawDebugGeometries(ID3D12GraphicsCommandList* CommandList, const Game::RFD::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle DebugGeometryContextSrvHandle) {
+		void DrawCallDispatcher::DrawDebugGeometries(ID3D12GraphicsCommandList* CommandList, const RenderContract::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle DebugGeometryContextSrvHandle) {
 			if (CommandList == nullptr) {
 				return;
 			}
 
-			const bool IsDrawDebugGeometriesEnabled{ (Data.globals.flags & Game::RFD::FrameGlobalFlagDrawDebugGeometry) != 0u };
-			if (IsDrawDebugGeometriesEnabled == false || Data.debugGeometryContexts.empty()) {
+			const bool IsDrawDebugGeometriesEnabled{ (Data.mFrameGlobals.mFlags & RenderContract::FrameGlobalFlagDrawDebugGeometry) != 0u };
+			if (IsDrawDebugGeometriesEnabled == false || Data.mDebugGeometryContexts.empty()) {
 				return;
 			}
 
@@ -602,7 +602,7 @@ namespace Core {
 			CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
 
 			CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
-			CommandList->DrawInstanced(1u, static_cast<UINT>(Data.debugGeometryContexts.size()), 0u, 0u);
+			CommandList->DrawInstanced(1u, static_cast<UINT>(Data.mDebugGeometryContexts.size()), 0u, 0u);
 		}
 	}
 }

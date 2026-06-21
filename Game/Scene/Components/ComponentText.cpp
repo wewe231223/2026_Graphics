@@ -1,4 +1,4 @@
-#include "Game/Scene/Components/ComponentText.h"
+﻿#include "Game/Scene/Components/ComponentText.h"
 
 #include <algorithm>
 

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <string_view>
 #include "Game/Scene/Components/ComponentText.h"

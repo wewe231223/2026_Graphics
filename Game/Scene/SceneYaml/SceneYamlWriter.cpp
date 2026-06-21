@@ -1,4 +1,4 @@
-#include "SceneYamlInternal.h"
+﻿#include "SceneYamlInternal.h"
 #include "Game/Scene/Components/PrefabInstance.h"
 #include "Game/Scene/Components/StaticMeshRenderer.h"
 
@@ -17,14 +17,14 @@ namespace Game::SceneYaml {
 
             if (ReadOnlyWorld == nullptr) {
                 SaveResult.IsSuccess = false;
-                SaveResult.UndecidedItems.push_back("Scene Snapshot 에 ReadOnlyWorld 가 바인딩되어 있지 않습니다.");
+                SaveResult.UndecidedItems.push_back("Scene Snapshot ??ReadOnlyWorld 媛 諛붿씤?⑸릺???덉? ?딆뒿?덈떎.");
                 OutYamlText.clear();
                 return false;
             }
 
             if (AssetRegistryInstance == nullptr) {
                 SaveResult.IsSuccess = false;
-                SaveResult.UndecidedItems.push_back("Scene Snapshot 에 AssetRegistry 가 바인딩되어 있지 않습니다.");
+                SaveResult.UndecidedItems.push_back("Scene Snapshot ??AssetRegistry 媛 諛붿씤?⑸릺???덉? ?딆뒿?덈떎.");
                 OutYamlText.clear();
                 return false;
             }
@@ -95,7 +95,7 @@ namespace Game::SceneYaml {
                 AppendLine(Stream, 2, std::string{ "prefabId: " } + std::to_string(Descriptor.mPrefabId));
                 if (Descriptor.mModelSelector.empty()) {
                     SaveResult.IsSuccess = false;
-                    SaveResult.UndecidedItems.push_back(std::string{ "PrefabId 에 대응되는 modelPath 를 찾지 못했습니다: " } + std::to_string(Descriptor.mPrefabId));
+                    SaveResult.UndecidedItems.push_back(std::string{ "PrefabId ????묐릺??modelPath 瑜?李얠? 紐삵뻽?듬땲?? " } + std::to_string(Descriptor.mPrefabId));
                 }
 
                 AppendLine(Stream, 2, std::string{ "modelPath: " } + ToYamlText(Descriptor.mModelSelector));

@@ -104,11 +104,11 @@ namespace Game {
         return mPipelines;
     }
 
-    std::unordered_map<std::string, Interface::IPipeline*>& AssetRegistryStorage::GetPipelineLookup() {
+    std::unordered_map<std::string, RenderContract::IPipeline*>& AssetRegistryStorage::GetPipelineLookup() {
         return mPipelineLookup;
     }
 
-    const std::unordered_map<std::string, Interface::IPipeline*>& AssetRegistryStorage::GetPipelineLookup() const {
+    const std::unordered_map<std::string, RenderContract::IPipeline*>& AssetRegistryStorage::GetPipelineLookup() const {
         return mPipelineLookup;
     }
 

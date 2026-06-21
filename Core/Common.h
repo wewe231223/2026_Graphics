@@ -7,7 +7,7 @@
 #include <vector>
 #include <wrl/client.h>
 #include <d3d12.h>
-#include "Core/Future.h"
+#include "RenderContract/Future/Future.h"
 
 namespace Core {
     namespace DX {
@@ -86,7 +86,7 @@ namespace Interface {
     using ComputeCommandRecorder = std::function<void(ID3D12GraphicsCommandList* CommandList)>;
 
     struct ComputeQueueDispatchRequest final {
-        Future WaitFuture{};
+        RenderContract::Future WaitFuture{};
         Microsoft::WRL::ComPtr<ID3D12RootSignature> RootSignature{};
         Microsoft::WRL::ComPtr<ID3D12PipelineState> PipelineState{};
         std::vector<ID3D12DescriptorHeap*> DescriptorHeaps{};
@@ -106,16 +106,16 @@ namespace Interface {
         virtual ID3D12DescriptorHeap* GetHeap() const = 0;
     };
 
-    class ICopyQueue : public IFutureSyncObject {
+    class ICopyQueue : public RenderContract::IFutureSyncObject {
     public:
         virtual ~ICopyQueue() = default;
 
     public:
         virtual bool Initialize(ID3D12Device* Device) = 0;
-        virtual Future EnqueueCopyFuture(const CopyRequest& CopyRequest) = 0;
-        virtual Future EnqueueCopyFuture(std::span<const CopyRequest> CopyRequests) = 0;
-        virtual Future EnqueueTextureCopyFuture(const CopyQueueTextureCopyRequest& CopyRequest) = 0;
-        virtual Future EnqueueTextureCopyFuture(std::span<const CopyQueueTextureCopyRequest> CopyRequests) = 0;
+        virtual RenderContract::Future EnqueueCopyFuture(const CopyRequest& CopyRequest) = 0;
+        virtual RenderContract::Future EnqueueCopyFuture(std::span<const CopyRequest> CopyRequests) = 0;
+        virtual RenderContract::Future EnqueueTextureCopyFuture(const CopyQueueTextureCopyRequest& CopyRequest) = 0;
+        virtual RenderContract::Future EnqueueTextureCopyFuture(std::span<const CopyQueueTextureCopyRequest> CopyRequests) = 0;
 
         virtual void DispatchCopies() = 0;
         virtual void Flush() = 0;
@@ -123,14 +123,14 @@ namespace Interface {
         virtual std::uint64_t GetRequiredUploadBufferSize() const = 0;
     };
 
-    class IComputeQueue : public IFutureSyncObject {
+    class IComputeQueue : public RenderContract::IFutureSyncObject {
     public:
         virtual ~IComputeQueue() = default;
 
     public:
         virtual bool Initialize(ID3D12Device* Device) = 0;
-        virtual Future EnqueueComputeFuture(const ComputeQueueDispatchRequest& DispatchRequest) = 0;
-        virtual Future EnqueueComputeFuture(std::span<const ComputeQueueDispatchRequest> DispatchRequests) = 0;
+        virtual RenderContract::Future EnqueueComputeFuture(const ComputeQueueDispatchRequest& DispatchRequest) = 0;
+        virtual RenderContract::Future EnqueueComputeFuture(std::span<const ComputeQueueDispatchRequest> DispatchRequests) = 0;
 
         virtual void DispatchComputes() = 0;
         virtual void Flush() = 0;

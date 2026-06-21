@@ -6,7 +6,7 @@
 #include <vector>
 #include "Arche/World.h"
 #include "Game/Scene/Components/Frustum.h"
-#include "Game/Scene/Base/RenderGatherResult.h"
+#include "RenderContract/Gather/RenderGatherResult.h"
 
 namespace Game {
     class ITerrainQuery;
@@ -20,7 +20,7 @@ namespace Game {
             Arche::EntityID mPickedEntityId{ Arche::NullEntityID };
             std::uint32_t mFrameIndex{};
             std::uint32_t mRenderFlags{};
-            RFD::ShadowMappingParameter mShadowMappingParameter{};
+            RenderContract::ShadowMappingParameter mShadowMappingParameter{};
             Frustum mActiveCameraFrustum{};
             SimpleMath::Vector3 mActiveCameraPosition{};
             bool mHasActiveCameraFrustum{};
@@ -29,7 +29,7 @@ namespace Game {
 
         class PipelineContext final {
         public:
-            PipelineContext(Arche::World& World, Arche::EntityID UnitEntityId, std::span<const Arche::EntityID> EntityIds, const PipelineFrameInput& FrameInput, RenderGatherResult& RenderGatherResult);
+            PipelineContext(Arche::World& World, Arche::EntityID UnitEntityId, std::span<const Arche::EntityID> EntityIds, const PipelineFrameInput& FrameInput, RenderContract::RenderGatherResult& RenderGatherResultValue);
             ~PipelineContext();
 
             PipelineContext(const PipelineContext& Other);
@@ -49,7 +49,7 @@ namespace Game {
             std::uint32_t GetFrameIndex() const;
             std::uint32_t GetRenderFlags() const;
             bool HasRenderFlag(std::uint32_t Flag) const;
-            const RFD::ShadowMappingParameter& GetShadowMappingParameter() const;
+            const RenderContract::ShadowMappingParameter& GetShadowMappingParameter() const;
             const Frustum* GetActiveCameraFrustum() const;
             bool GetActiveCameraPosition(SimpleMath::Vector3& OutCameraPosition) const;
 
@@ -62,17 +62,17 @@ namespace Game {
             template <TrivialComponent... Ts, typename Func>
             void ForEach(Func&& FuncObject);
 
-            void AddRenderResult(const RenderGatherResult& RenderResult);
-            void AddRenderResult(RenderGatherResult&& RenderResult);
-            RenderGatherResult& GetRenderGatherResult();
-            const RenderGatherResult& GetRenderGatherResult() const;
+            void AddRenderResult(const RenderContract::RenderGatherResult& RenderResult);
+            void AddRenderResult(RenderContract::RenderGatherResult&& RenderResult);
+            RenderContract::RenderGatherResult& GetRenderGatherResult();
+            const RenderContract::RenderGatherResult& GetRenderGatherResult() const;
 
         private:
             Arche::World* mWorld{};
             Arche::EntityID mUnitEntityId{ Arche::NullEntityID };
             std::span<const Arche::EntityID> mEntityIds{};
             PipelineFrameInput mFrameInput{};
-            RenderGatherResult* mRenderGatherResult{};
+            RenderContract::RenderGatherResult* mRenderGatherResult{};
         };
     }
 }

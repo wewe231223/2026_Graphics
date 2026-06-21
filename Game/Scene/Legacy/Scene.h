@@ -43,8 +43,8 @@ namespace Game {
         FrameContext& GetFrameContext();
         const FrameContext& GetFrameContext() const;
 
-        RFD::RenderFrameData& GetRenderFrameData();
-        const RFD::RenderFrameData& GetRenderFrameData() const;
+        RenderContract::RenderFrameData& GetRenderFrameData();
+        const RenderContract::RenderFrameData& GetRenderFrameData() const;
         void SetRenderFrameIndex(std::uint32_t RenderFrameIndex);
 
         AssetRegistry& GetAssetRegistry();

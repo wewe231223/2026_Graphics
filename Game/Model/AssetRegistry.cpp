@@ -574,12 +574,12 @@ namespace Game {
         return BackEnd->GetStorage().GetBucket<MaterialGroupBucketTag>().mAssets;
     }
 
-    const std::vector<RFD::MaterialGpu>& AssetRegistry::GetPackedMaterials() const {
+    const std::vector<RenderContract::MaterialGpu>& AssetRegistry::GetPackedMaterials() const {
         const IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
         return BackEnd->GetStorage().GetBucket<MaterialBucketTag>().mGpuData;
     }
 
-    const std::vector<RFD::MaterialTextureTableItemGpu>& AssetRegistry::GetMaterialTextureTable() const {
+    const std::vector<RenderContract::MaterialTextureTableItemGpu>& AssetRegistry::GetMaterialTextureTable() const {
         const IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
         return BackEnd->GetStorage().GetBucket<TextureTableBucketTag>().mAssets;
     }
@@ -703,7 +703,7 @@ namespace Game {
         return MaterialGroupSourcePaths[MaterialGroupIndex];
     }
 
-    Interface::IPipeline* AssetRegistry::GetPipelineByName(const std::string& PipelineName) {
+    RenderContract::IPipeline* AssetRegistry::GetPipelineByName(const std::string& PipelineName) {
         return ResolvePipelineByName(PipelineName);
     }
 
@@ -720,8 +720,8 @@ namespace Game {
             return FoundTexture->second;
         }
 
-        RFD::MaterialTextureTableItemGpu TableItem{};
-        TableItem.TextureSrvDescriptorIndex = std::numeric_limits<std::uint32_t>::max();
+        RenderContract::MaterialTextureTableItemGpu TableItem{};
+        TableItem.mTextureSrvDescriptorIndex = std::numeric_limits<std::uint32_t>::max();
 
         Core::DX::TexPtr NewTexture{};
         if (mDevice != nullptr) {
@@ -764,8 +764,8 @@ namespace Game {
             return;
         }
 
-        RFD::MaterialTextureTableItemGpu& TextureTableItem{ TextureTableBucket.mAssets[TextureData.TableIndex] };
-        TextureTableItem.TextureSrvDescriptorIndex = std::numeric_limits<std::uint32_t>::max();
+        RenderContract::MaterialTextureTableItemGpu& TextureTableItem{ TextureTableBucket.mAssets[TextureData.TableIndex] };
+        TextureTableItem.mTextureSrvDescriptorIndex = std::numeric_limits<std::uint32_t>::max();
 
         if (TextureData.Texture == nullptr || TextureData.Texture->IsLoaded() == false) {
             return;
@@ -776,11 +776,11 @@ namespace Game {
         const D3D12_GPU_DESCRIPTOR_HANDLE HeapStartHandle{ mSrvHeap->GetHeap()->GetGPUDescriptorHandleForHeapStart() };
         const std::uint64_t DescriptorIncrement{ static_cast<std::uint64_t>(mDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV)) };
         if (TextureSrvHandle.ptr >= HeapStartHandle.ptr && DescriptorIncrement > 0) {
-            TextureTableItem.TextureSrvDescriptorIndex = static_cast<std::uint32_t>((TextureSrvHandle.ptr - HeapStartHandle.ptr) / DescriptorIncrement);
+            TextureTableItem.mTextureSrvDescriptorIndex = static_cast<std::uint32_t>((TextureSrvHandle.ptr - HeapStartHandle.ptr) / DescriptorIncrement);
         }
     }
 
-    std::vector<std::uint32_t> AssetRegistry::BuildMaterialTextureTableIndices(const asset::Material& MaterialData, const RFD::MaterialGpu& PackedMaterial) const {
+    std::vector<std::uint32_t> AssetRegistry::BuildMaterialTextureTableIndices(const asset::Material& MaterialData, const RenderContract::MaterialGpu& PackedMaterial) const {
         const IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
         auto& TextureTableBucket{ BackEnd->GetStorage().GetBucket<TextureTableBucketTag>() };
         std::unordered_set<std::uint32_t> UniqueTextureIndices{};
@@ -795,7 +795,7 @@ namespace Game {
             }
 
             const std::uint32_t TypeIndex{ static_cast<std::uint32_t>(PropertyData.Type) };
-            const std::int64_t FieldIntValue{ PackedMaterial.Fields[TypeIndex].IntValue };
+            const std::int64_t FieldIntValue{ PackedMaterial.mFields[TypeIndex].mIntValue };
             if (FieldIntValue < 0) {
                 continue;
             }
@@ -817,21 +817,8 @@ namespace Game {
         return TextureIndices;
     }
 
-    void AppendUsedTextureTableIndices(const std::vector<std::vector<std::uint32_t>>& MaterialToTextureTableIndices, const std::vector<RFD::DrawRecord>& DrawRecords, std::unordered_set<std::uint32_t>& InOutUsedTextureTableIndices) {
-        for (const RFD::DrawRecord& DrawRecordData : DrawRecords) {
-            if (DrawRecordData.materialIndex >= MaterialToTextureTableIndices.size()) {
-                continue;
-            }
-
-            const std::vector<std::uint32_t>& MaterialTextureIndices{ MaterialToTextureTableIndices[DrawRecordData.materialIndex] };
-            for (const std::uint32_t TextureIndex : MaterialTextureIndices) {
-                InOutUsedTextureTableIndices.insert(TextureIndex);
-            }
-        }
-    }
-
-    void AppendUsedEnvironmentTextureTableIndices(const std::vector<std::vector<std::uint32_t>>& MaterialToTextureTableIndices, const std::vector<RFD::EnvironmentDrawRecord>& DrawRecords, std::unordered_set<std::uint32_t>& InOutUsedTextureTableIndices) {
-        for (const RFD::EnvironmentDrawRecord& DrawRecordData : DrawRecords) {
+    void AppendUsedTextureTableIndices(const std::vector<std::vector<std::uint32_t>>& MaterialToTextureTableIndices, const std::vector<RenderContract::DrawRecord>& DrawRecords, std::unordered_set<std::uint32_t>& InOutUsedTextureTableIndices) {
+        for (const RenderContract::DrawRecord& DrawRecordData : DrawRecords) {
             if (DrawRecordData.mMaterialIndex >= MaterialToTextureTableIndices.size()) {
                 continue;
             }
@@ -843,7 +830,20 @@ namespace Game {
         }
     }
 
-    void AssetRegistry::PrepareRenderTextures(const RFD::RenderFrameData& RenderData) {
+    void AppendUsedEnvironmentTextureTableIndices(const std::vector<std::vector<std::uint32_t>>& MaterialToTextureTableIndices, const std::vector<RenderContract::EnvironmentDrawRecord>& DrawRecords, std::unordered_set<std::uint32_t>& InOutUsedTextureTableIndices) {
+        for (const RenderContract::EnvironmentDrawRecord& DrawRecordData : DrawRecords) {
+            if (DrawRecordData.mMaterialIndex >= MaterialToTextureTableIndices.size()) {
+                continue;
+            }
+
+            const std::vector<std::uint32_t>& MaterialTextureIndices{ MaterialToTextureTableIndices[DrawRecordData.mMaterialIndex] };
+            for (const std::uint32_t TextureIndex : MaterialTextureIndices) {
+                InOutUsedTextureTableIndices.insert(TextureIndex);
+            }
+        }
+    }
+
+    void AssetRegistry::PrepareRenderTextures(const RenderContract::RenderFrameData& RenderData) {
         if (mDevice == nullptr || mCopyQueue == nullptr || mAllocator == nullptr || mSrvHeap == nullptr) {
             return;
         }
@@ -855,10 +855,10 @@ namespace Game {
         auto& TextureTableBucket{ Storage.GetBucket<TextureTableBucketTag>() };
 
         std::unordered_set<std::uint32_t> UsedTextureTableIndices{};
-        AppendUsedTextureTableIndices(MaterialToTextureTableIndices, RenderData.drawRecords, UsedTextureTableIndices);
+        AppendUsedTextureTableIndices(MaterialToTextureTableIndices, RenderData.mDrawRecords, UsedTextureTableIndices);
         AppendUsedEnvironmentTextureTableIndices(MaterialToTextureTableIndices, RenderData.mEnvironmentDrawRecords, UsedTextureTableIndices);
-        for (const RFD::ShadowRenderContext& ShadowRenderContext : RenderData.ShadowRenderContexts) {
-            AppendUsedTextureTableIndices(MaterialToTextureTableIndices, ShadowRenderContext.DrawRecords, UsedTextureTableIndices);
+        for (const RenderContract::ShadowRenderContext& ShadowRenderContext : RenderData.mShadowRenderContexts) {
+            AppendUsedTextureTableIndices(MaterialToTextureTableIndices, ShadowRenderContext.mDrawRecords, UsedTextureTableIndices);
             AppendUsedEnvironmentTextureTableIndices(MaterialToTextureTableIndices, ShadowRenderContext.mEnvironmentDrawRecords, UsedTextureTableIndices);
         }
 
@@ -880,7 +880,7 @@ namespace Game {
 
             if (TextureData.Texture->IsLoaded() == true) {
                 TextureData.Texture->Unload();
-                TextureTableBucket.mAssets[TextureData.TableIndex].TextureSrvDescriptorIndex = std::numeric_limits<std::uint32_t>::max();
+                TextureTableBucket.mAssets[TextureData.TableIndex].mTextureSrvDescriptorIndex = std::numeric_limits<std::uint32_t>::max();
             }
         }
     }
@@ -956,10 +956,10 @@ namespace Game {
         return SimpleMath::Vector4{};
     }
 
-    RFD::MaterialGpu AssetRegistry::BuildPackedMaterial(const asset::Material& MaterialData, const std::string& MaterialSourcePath) {
-        RFD::MaterialGpu PackedMaterial{};
-        for (std::uint32_t FieldIndex{ 0 }; FieldIndex < RFD::MaterialGpu::FieldCount; ++FieldIndex) {
-            PackedMaterial.Fields[FieldIndex].Type = FieldIndex;
+    RenderContract::MaterialGpu AssetRegistry::BuildPackedMaterial(const asset::Material& MaterialData, const std::string& MaterialSourcePath) {
+        RenderContract::MaterialGpu PackedMaterial{};
+        for (std::uint32_t FieldIndex{ 0 }; FieldIndex < RenderContract::MaterialGpu::FieldCount; ++FieldIndex) {
+            PackedMaterial.mFields[FieldIndex].mType = FieldIndex;
         }
 
         for (const asset::MaterialProperty& PropertyData : MaterialData.Properties) {
@@ -968,22 +968,22 @@ namespace Game {
             }
 
             const std::uint32_t TypeIndex{ static_cast<std::uint32_t>(PropertyData.Type) };
-            PackedMaterial.Fields[TypeIndex].Type = TypeIndex;
-            PackedMaterial.Fields[TypeIndex].FloatValue = ToMaterialFloatValue(PropertyData.Data);
-            PackedMaterial.Fields[TypeIndex].IntValue = ToMaterialIntValue(PropertyData.Type, PropertyData.Data, MaterialSourcePath);
+            PackedMaterial.mFields[TypeIndex].mType = TypeIndex;
+            PackedMaterial.mFields[TypeIndex].mFloatValue = ToMaterialFloatValue(PropertyData.Data);
+            PackedMaterial.mFields[TypeIndex].mIntValue = ToMaterialIntValue(PropertyData.Type, PropertyData.Data, MaterialSourcePath);
         }
 
         return PackedMaterial;
     }
 
-    Interface::IPipeline* AssetRegistry::ResolvePipelineByName(const std::string& PipelineName) {
+    RenderContract::IPipeline* AssetRegistry::ResolvePipelineByName(const std::string& PipelineName) {
         if (PipelineName.empty()) {
             return nullptr;
         }
 
         IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
         AssetRegistryStorage& Storage{ BackEnd->GetStorage() };
-        std::unordered_map<std::string, Interface::IPipeline*>& PipelineLookup{ Storage.GetPipelineLookup() };
+        std::unordered_map<std::string, RenderContract::IPipeline*>& PipelineLookup{ Storage.GetPipelineLookup() };
         const auto FoundPipeline{ PipelineLookup.find(PipelineName) };
         if (FoundPipeline != PipelineLookup.end()) {
             return FoundPipeline->second;
@@ -995,7 +995,7 @@ namespace Game {
             return nullptr;
         }
 
-        Interface::IPipeline* PipelinePointer{ NewPipeline.get() };
+        RenderContract::IPipeline* PipelinePointer{ NewPipeline.get() };
         std::vector<std::unique_ptr<Base::Pipeline>>& Pipelines{ Storage.GetPipelines() };
         Pipelines.push_back(std::move(NewPipeline));
         PipelineLookup.insert_or_assign(PipelineName, PipelinePointer);

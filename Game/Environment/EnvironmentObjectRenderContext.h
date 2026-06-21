@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <cstddef>
 #include <cstdint>
@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include "Game/Environment/EnvironmentObjectRenderDataBuilder.h"
 #include "Game/Environment/EnvironmentObjectTypes.h"
-#include "Game/Scene/Base/RenderGatherResult.h"
+#include "RenderContract/Gather/RenderGatherResult.h"
 
 namespace Game {
     struct EnvironmentObjectRenderContextStats final {
@@ -39,8 +39,8 @@ namespace Game {
         void UpsertCell(const EnvironmentObjectCell& Cell);
         void TouchCell(const EnvironmentObjectCellKey& Key, std::uint64_t FrameIndex);
         void TrimResidentCells();
-        bool AppendCellRenderData(const EnvironmentObjectCellKey& Key, const EnvironmentObjectRenderBuildOptions& Options, Pipeline::RenderGatherResult& OutRenderGatherResult);
-        void AppendVisibleCellRenderData(std::span<const EnvironmentObjectCellKey> CellKeys, const EnvironmentObjectRenderBuildOptions& Options, std::uint64_t FrameIndex, Pipeline::RenderGatherResult& OutRenderGatherResult);
+        bool AppendCellRenderData(const EnvironmentObjectCellKey& Key, const EnvironmentObjectRenderBuildOptions& Options, RenderContract::RenderGatherResult& OutRenderGatherResult);
+        void AppendVisibleCellRenderData(std::span<const EnvironmentObjectCellKey> CellKeys, const EnvironmentObjectRenderBuildOptions& Options, std::uint64_t FrameIndex, RenderContract::RenderGatherResult& OutRenderGatherResult);
         EnvironmentObjectRenderContextStats BuildStats() const;
 
     private:

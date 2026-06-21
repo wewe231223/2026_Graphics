@@ -79,8 +79,8 @@ namespace Game {
             FrameContext& GetFrameContext();
             const FrameContext& GetFrameContext() const;
 
-            RFD::RenderFrameData& GetRenderFrameData();
-            const RFD::RenderFrameData& GetRenderFrameData() const;
+            RenderContract::RenderFrameData& GetRenderFrameData();
+            const RenderContract::RenderFrameData& GetRenderFrameData() const;
             void SetRenderFrameIndex(std::uint32_t RenderFrameIndex);
             void PrepareRender();
             PipelineFrameExecutionResult ExecuteDataPipelineFrame(float Dt, const PipelineSystemRegistry& Registry);

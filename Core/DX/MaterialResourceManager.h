@@ -6,7 +6,7 @@
 #include "Core/Common.h"
 #include "Core/DX/DesciptorHeap.h"
 #include "Core/DX/GraphicsVector.h"
-#include "Game/Base/RenderFrameData.h"
+#include "RenderContract/Frame/RenderFrameData.h"
 #include "Utility/CompileTimeConstants.h"
 
 namespace Core {
@@ -24,8 +24,8 @@ namespace Core {
 
 		public:
 			void Initialize(ID3D12Device* Device, DescriptorHeap* SrvHeap);
-			void PrepareFrameResources(std::uint32_t RtvIndex, const Game::RFD::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue* CopyQueue);
-			const Interface::Future& GetCopyFuture(std::uint32_t RtvIndex) const;
+			void PrepareFrameResources(std::uint32_t RtvIndex, const RenderContract::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue* CopyQueue);
+			const RenderContract::Future& GetCopyFuture(std::uint32_t RtvIndex) const;
 
 			DescriptorHandle GetMaterialSrvHandle() const;
 			DescriptorHandle GetMaterialTextureTableSrvHandle(std::uint32_t RtvIndex) const;
@@ -57,7 +57,7 @@ namespace Core {
 			std::array<std::uint64_t, Constants::FrameCount<std::size_t>> mPerFrameMaterialTextureTableHashes{};
 			std::array<std::size_t, Constants::FrameCount<std::size_t>> mPerFrameMaterialTextureTableSizesInBytes{};
 
-			std::array<Interface::Future, Constants::FrameCount<std::size_t>> mPerFrameCopyFutures{};
+			std::array<RenderContract::Future, Constants::FrameCount<std::size_t>> mPerFrameCopyFutures{};
 		};
 	}
 }

@@ -1,4 +1,4 @@
-#include "TerrainRenderResource.h"
+﻿#include "TerrainRenderResource.h"
 
 #include <algorithm>
 #include <chrono>
@@ -546,7 +546,7 @@ namespace Game {
         SplatMapCopyRequest.SourceData = std::as_bytes(std::span<const asset::Vec4>{ SplatMap.WeightValues.data(), SplatMap.WeightValues.size() });
 
         std::array<Interface::CopyRequest, 2> CopyRequests{ std::move(HeightFieldCopyRequest), std::move(SplatMapCopyRequest) };
-        Interface::Future CopyFuture{ CopyQueue->EnqueueCopyFuture(CopyRequests) };
+        RenderContract::Future CopyFuture{ CopyQueue->EnqueueCopyFuture(CopyRequests) };
         if (CopyFuture.IsValid() == false) {
             return false;
         }
@@ -579,7 +579,7 @@ namespace Game {
     }
 
     bool TerrainRenderResource::IsAnyTerrainFrameCopyInFlight() const {
-        for (const Interface::Future& CopyFuture : mTerrainFrameCopyFutures) {
+        for (const RenderContract::Future& CopyFuture : mTerrainFrameCopyFutures) {
             if (CopyFuture.IsInFlight() == true) {
                 return true;
             }
@@ -718,7 +718,7 @@ namespace Game {
         return mStreamWorldOriginZ;
     }
 
-    Interface::Future TerrainRenderResource::GetFrameUploadFuture(std::uint32_t FrameIndex) const {
+    RenderContract::Future TerrainRenderResource::GetFrameUploadFuture(std::uint32_t FrameIndex) const {
         return mTerrainFrameCopyFutures[ResolveTerrainFrameIndex(FrameIndex)];
     }
 }

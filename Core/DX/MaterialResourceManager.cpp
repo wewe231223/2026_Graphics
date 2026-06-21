@@ -26,18 +26,18 @@ namespace Core {
 			mMaterialSrvHandle = mSrvHeap->Allocate();
 			for (std::size_t Index{ 0 }; Index < Constants::FrameCount<std::size_t>; ++Index) {
 				mMaterialTextureTableSrvHandles[Index] = mSrvHeap->Allocate();
-				mPerFrameCopyFutures[Index] = Interface::Future{};
+				mPerFrameCopyFutures[Index] = RenderContract::Future{};
 				mPerFrameMaterialTextureTableHashes[Index] = 0;
 				mPerFrameMaterialTextureTableSizesInBytes[Index] = 0;
 			}
 		}
 
-		void MaterialResourceManager::PrepareFrameResources(std::uint32_t RtvIndex, const Game::RFD::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue* CopyQueue) {
+		void MaterialResourceManager::PrepareFrameResources(std::uint32_t RtvIndex, const RenderContract::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue* CopyQueue) {
 			GraphicsVector& MaterialTextureTableVector{ mPerFrameMaterialTextureTableVectors[RtvIndex] };
-			std::size_t MaterialSizeInBytes{ sizeof(Game::RFD::MaterialGpu) * Data.materials.size() };
-			std::size_t MaterialTextureTableSizeInBytes{ sizeof(Game::RFD::MaterialTextureTableItemGpu) * Data.materialTextureTable.size() };
-			std::span<const std::byte> MaterialSourceData{ MakeByteSpan(Data.materials) };
-			std::span<const std::byte> MaterialTextureTableSourceData{ MakeByteSpan(Data.materialTextureTable) };
+			std::size_t MaterialSizeInBytes{ sizeof(RenderContract::MaterialGpu) * Data.mMaterials.size() };
+			std::size_t MaterialTextureTableSizeInBytes{ sizeof(RenderContract::MaterialTextureTableItemGpu) * Data.mMaterialTextureTable.size() };
+			std::span<const std::byte> MaterialSourceData{ MakeByteSpan(Data.mMaterials) };
+			std::span<const std::byte> MaterialTextureTableSourceData{ MakeByteSpan(Data.mMaterialTextureTable) };
 
 			std::uint64_t CurrentMaterialHash{ MaterialResourceManager::ComputeDataHash(MaterialSourceData.data(), MaterialSizeInBytes) };
 			bool IsMaterialUploadRequired{ mMaterialVector.IsValid() == false || mMaterialSizeInBytes != MaterialSizeInBytes || mMaterialHash != CurrentMaterialHash };
@@ -75,14 +75,14 @@ namespace Core {
 				ErrorHandler::report(mPerFrameCopyFutures[RtvIndex].IsValid() == false, "MaterialResourceManager", "Failed to enqueue material upload copy requests.", ErrorHandler::Level::Critical);
 			}
 			else {
-				mPerFrameCopyFutures[RtvIndex] = Interface::Future{};
+				mPerFrameCopyFutures[RtvIndex] = RenderContract::Future{};
 			}
 
-			MaterialResourceManager::UpdateMaterialShaderResourceView(static_cast<std::uint32_t>(Data.materials.size()));
-			MaterialResourceManager::UpdateMaterialTextureTableShaderResourceView(RtvIndex, static_cast<std::uint32_t>(Data.materialTextureTable.size()));
+			MaterialResourceManager::UpdateMaterialShaderResourceView(static_cast<std::uint32_t>(Data.mMaterials.size()));
+			MaterialResourceManager::UpdateMaterialTextureTableShaderResourceView(RtvIndex, static_cast<std::uint32_t>(Data.mMaterialTextureTable.size()));
 		}
 
-		const Interface::Future& MaterialResourceManager::GetCopyFuture(std::uint32_t RtvIndex) const {
+		const RenderContract::Future& MaterialResourceManager::GetCopyFuture(std::uint32_t RtvIndex) const {
 			return mPerFrameCopyFutures[RtvIndex];
 		}
 
@@ -116,7 +116,7 @@ namespace Core {
 			if (mMaterialVector.IsValid() == true) {
 				bool IsUpdateRequired{ MaterialResourceManager::IsShaderResourceViewUpdateRequired(mMaterialSrvResource, MaterialResource, mMaterialSrvElementCount, MaterialCount) };
 				if (IsUpdateRequired == true) {
-					mMaterialVector.CreateShaderResourceView(mDevice, mMaterialSrvHandle.GetCPU(), DXGI_FORMAT_UNKNOWN, 0, MaterialCount, sizeof(Game::RFD::MaterialGpu), D3D12_BUFFER_SRV_FLAG_NONE);
+					mMaterialVector.CreateShaderResourceView(mDevice, mMaterialSrvHandle.GetCPU(), DXGI_FORMAT_UNKNOWN, 0, MaterialCount, sizeof(RenderContract::MaterialGpu), D3D12_BUFFER_SRV_FLAG_NONE);
 					mMaterialSrvResource = MaterialResource;
 					mMaterialSrvElementCount = MaterialCount;
 				}
@@ -133,7 +133,7 @@ namespace Core {
 			if (MaterialTextureTableVector.IsValid() == true) {
 				bool IsUpdateRequired{ MaterialResourceManager::IsShaderResourceViewUpdateRequired(mMaterialTextureTableSrvResources[RtvIndex], MaterialTextureTableResource, mMaterialTextureTableSrvElementCounts[RtvIndex], MaterialTextureTableCount) };
 				if (IsUpdateRequired == true) {
-					MaterialTextureTableVector.CreateShaderResourceView(mDevice, mMaterialTextureTableSrvHandles[RtvIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, MaterialTextureTableCount, sizeof(Game::RFD::MaterialTextureTableItemGpu), D3D12_BUFFER_SRV_FLAG_NONE);
+					MaterialTextureTableVector.CreateShaderResourceView(mDevice, mMaterialTextureTableSrvHandles[RtvIndex].GetCPU(), DXGI_FORMAT_UNKNOWN, 0, MaterialTextureTableCount, sizeof(RenderContract::MaterialTextureTableItemGpu), D3D12_BUFFER_SRV_FLAG_NONE);
 					mMaterialTextureTableSrvResources[RtvIndex] = MaterialTextureTableResource;
 					mMaterialTextureTableSrvElementCounts[RtvIndex] = MaterialTextureTableCount;
 				}

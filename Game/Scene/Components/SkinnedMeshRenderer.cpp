@@ -1,4 +1,4 @@
-#include "SkinnedMeshRenderer.h"
+﻿#include "SkinnedMeshRenderer.h"
 #include <format>
 #include "Game/Scene/Components/ComponentInspection.h"
 

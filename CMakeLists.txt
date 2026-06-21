@@ -138,9 +138,41 @@ if(MSVC)
     target_compile_options(PhysicsLib PRIVATE /bigobj)
 endif()
 
+add_library(RenderContract STATIC
+    RenderContract/Frame/ShadowMappingParameter.cpp
+    RenderContract/Future/Future.cpp
+    RenderContract/Gather/RenderGatherResult.cpp
+    RenderContract/Gather/RenderGatherResultMerger.cpp
+    RenderContract/Geometry/DebugGeometryContext.cpp
+    RenderContract/Writer/FrameRenderWriter.cpp
+    RenderContract/Writer/EnvironmentRenderWriter.cpp
+    RenderContract/Writer/TerrainRenderWriter.cpp
+)
+
+target_include_directories(RenderContract PUBLIC
+    ${GraphicsRoot}
+    ${ExternalIncludeDir}
+    ${ExternalDirectXIncludeDir}
+    ${ExternalRapidYmlIncludeDir}
+    ${ExternalLuaIncludeDir}
+)
+
+target_link_directories(RenderContract PUBLIC
+    $<$<CONFIG:Debug>:${ExternalLibDirDebug}>
+    $<$<CONFIG:Release>:${ExternalLibDirRelease}>
+)
+
+target_compile_definitions(RenderContract PRIVATE
+    _LIB
+    NOMINMAX
+    UNICODE
+    _UNICODE
+    $<$<CONFIG:Debug>:_DEBUG>
+    $<$<NOT:$<CONFIG:Debug>>:NDEBUG>
+)
+
 add_library(Game STATIC
     Game/Asset/AnimationGraphAsset.cpp
-    Game/Base/RenderFrameData.cpp
     Game/Base/Shader.cpp
     Game/Base/RootSignature.cpp
     Game/Base/Pipeline.cpp
@@ -180,8 +212,6 @@ add_library(Game STATIC
     Game/Scene/SceneYaml/SceneYamlWriter.cpp
     Game/Scene/Legacy/SystemSceduler.cpp
     Game/Scene/Legacy/ParallelSystemBase.cpp
-    Game/Scene/Base/RenderGatherResult.cpp
-    Game/Scene/Base/RenderGatherResultMerger.cpp
     Game/Scene/Base/Context.cpp
     Game/Scene/Base/Types.cpp
     Game/Scene/Base/SceneWorkUnit.cpp
@@ -258,7 +288,7 @@ target_link_directories(Game PUBLIC
     $<$<CONFIG:Release>:${ExternalLibDirRelease}>
 )
 
-target_link_libraries(Game PUBLIC Utility PhysicsLib lua54 DirectXTK12)
+target_link_libraries(Game PUBLIC RenderContract Utility PhysicsLib lua54 DirectXTK12)
 
 target_compile_definitions(Game PRIVATE
     _LIB
@@ -277,7 +307,6 @@ add_executable(2026_Graphics WIN32
     2026_Graphics.cpp
     2026_Graphics.rc
     Core/Config.cpp
-    Core/Future.cpp
     Core/Event/EventQueue.cpp
     Core/DX/AllocationHandle.cpp
     Core/DX/ComputeQueue.cpp

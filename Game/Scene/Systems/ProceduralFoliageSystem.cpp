@@ -42,7 +42,7 @@
 #include "Game/Scene/Components/PhysicsActor.h"
 #include "Game/Scene/Components/TerrainRenderer.h"
 #include "Game/Scene/Components/Transform.h"
-#include "Game/Scene/Base/RenderGatherResultMerger.h"
+#include "RenderContract/Gather/RenderGatherResultMerger.h"
 #include "PhysicsLib/Actors/PhysicsStaticActor.h"
 #include "PhysicsLib/Runtime/PhysicsRuntime.h"
 #include "Utility/ErrorHandler.h"
@@ -1074,8 +1074,8 @@ namespace {
 
     struct EnvironmentMergedBatchKey final {
     public:
-        const Interface::IPipeline* mPipeline{};
-        const Interface::IModelNode* mMesh{};
+        const RenderContract::IPipeline* mPipeline{};
+        const RenderContract::IModelNode* mMesh{};
         std::array<std::uint32_t, 16ULL> mLocalTransformBits{};
         std::uint32_t mSubMesh{};
         std::uint32_t mPass{};
@@ -1109,15 +1109,15 @@ namespace {
 
     struct EnvironmentMergedInstanceRun final {
     public:
-        std::vector<Game::RFD::EnvironmentInstanceContext> mInstanceContexts{};
+        std::vector<RenderContract::EnvironmentInstanceContext> mInstanceContexts{};
         std::uint32_t mVisibilityMask{};
     };
 
     struct EnvironmentMergedBatch final {
     public:
         EnvironmentMergedBatchKey mKey{};
-        Game::RFD::EnvironmentSegmentContext mSegmentContext{};
-        Game::RFD::EnvironmentDrawRecord mDrawRecord{};
+        RenderContract::EnvironmentSegmentContext mSegmentContext{};
+        RenderContract::EnvironmentDrawRecord mDrawRecord{};
         std::vector<EnvironmentMergedInstanceRun> mRuns{};
     };
 
@@ -1125,7 +1125,7 @@ namespace {
         return std::array<std::uint32_t, 16ULL>{ GetFloatHashBits(MatrixValue._11), GetFloatHashBits(MatrixValue._12), GetFloatHashBits(MatrixValue._13), GetFloatHashBits(MatrixValue._14), GetFloatHashBits(MatrixValue._21), GetFloatHashBits(MatrixValue._22), GetFloatHashBits(MatrixValue._23), GetFloatHashBits(MatrixValue._24), GetFloatHashBits(MatrixValue._31), GetFloatHashBits(MatrixValue._32), GetFloatHashBits(MatrixValue._33), GetFloatHashBits(MatrixValue._34), GetFloatHashBits(MatrixValue._41), GetFloatHashBits(MatrixValue._42), GetFloatHashBits(MatrixValue._43), GetFloatHashBits(MatrixValue._44) };
     }
 
-    EnvironmentMergedBatchKey BuildEnvironmentMergedBatchKey(const Game::RFD::EnvironmentDrawRecord& DrawRecord, const Game::RFD::EnvironmentSegmentContext& SegmentContext) {
+    EnvironmentMergedBatchKey BuildEnvironmentMergedBatchKey(const RenderContract::EnvironmentDrawRecord& DrawRecord, const RenderContract::EnvironmentSegmentContext& SegmentContext) {
         EnvironmentMergedBatchKey Key{};
         Key.mPipeline = DrawRecord.mPipeline;
         Key.mMesh = DrawRecord.mMesh;
@@ -1151,7 +1151,7 @@ namespace {
         return Batch.mRuns.back();
     }
 
-    EnvironmentMergedBatch& ResolveEnvironmentMergedBatch(std::vector<EnvironmentMergedBatch>& Batches, std::unordered_map<EnvironmentMergedBatchKey, std::size_t, EnvironmentMergedBatchKeyHasher>& BatchIndexByKey, const Game::RFD::EnvironmentDrawRecord& DrawRecord, const Game::RFD::EnvironmentSegmentContext& SegmentContext) {
+    EnvironmentMergedBatch& ResolveEnvironmentMergedBatch(std::vector<EnvironmentMergedBatch>& Batches, std::unordered_map<EnvironmentMergedBatchKey, std::size_t, EnvironmentMergedBatchKeyHasher>& BatchIndexByKey, const RenderContract::EnvironmentDrawRecord& DrawRecord, const RenderContract::EnvironmentSegmentContext& SegmentContext) {
         const EnvironmentMergedBatchKey Key{ BuildEnvironmentMergedBatchKey(DrawRecord, SegmentContext) };
         const std::unordered_map<EnvironmentMergedBatchKey, std::size_t, EnvironmentMergedBatchKeyHasher>::const_iterator FoundIterator{ BatchIndexByKey.find(Key) };
         if (FoundIterator != BatchIndexByKey.end()) {
@@ -1168,7 +1168,7 @@ namespace {
         return Batches.back();
     }
 
-    void AppendEnvironmentInstancesToMergedBatch(EnvironmentMergedBatch& Batch, const Game::EnvironmentObjectRenderPacket& Packet, const Game::RFD::EnvironmentDrawRecord& DrawRecord, std::uint32_t VisibilityMask) {
+    void AppendEnvironmentInstancesToMergedBatch(EnvironmentMergedBatch& Batch, const Game::EnvironmentObjectRenderPacket& Packet, const RenderContract::EnvironmentDrawRecord& DrawRecord, std::uint32_t VisibilityMask) {
         if (VisibilityMask == 0u || DrawRecord.mInstanceCount == 0u) {
             return;
         }
@@ -1190,18 +1190,18 @@ namespace {
 
         const std::size_t ResolvedLodLevel{ std::min<std::size_t>(LodLevel, Packet.mLods.size() - 1ULL) };
         const Game::EnvironmentObjectRenderPacketLod& Lod{ Packet.mLods[ResolvedLodLevel] };
-        for (const Game::RFD::EnvironmentDrawRecord& DrawRecord : Lod.mDrawRecords) {
+        for (const RenderContract::EnvironmentDrawRecord& DrawRecord : Lod.mDrawRecords) {
             if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mSegmentContextIndex >= Lod.mSegmentContexts.size()) {
                 continue;
             }
 
-            const Game::RFD::EnvironmentSegmentContext& SegmentContext{ Lod.mSegmentContexts[DrawRecord.mSegmentContextIndex] };
+            const RenderContract::EnvironmentSegmentContext& SegmentContext{ Lod.mSegmentContexts[DrawRecord.mSegmentContextIndex] };
             EnvironmentMergedBatch& Batch{ ResolveEnvironmentMergedBatch(Batches, BatchIndexByKey, DrawRecord, SegmentContext) };
             AppendEnvironmentInstancesToMergedBatch(Batch, Packet, DrawRecord, VisibilityMask);
         }
     }
 
-    void AppendEnvironmentMergedBatchesToRenderGatherResult(const std::vector<EnvironmentMergedBatch>& Batches, Game::Pipeline::RenderGatherResult& OutRenderGatherResult) {
+    void AppendEnvironmentMergedBatchesToRenderGatherResult(const std::vector<EnvironmentMergedBatch>& Batches, RenderContract::RenderGatherResult& OutRenderGatherResult) {
         for (const EnvironmentMergedBatch& Batch : Batches) {
             const std::uint32_t SegmentContextIndex{ static_cast<std::uint32_t>(OutRenderGatherResult.GetEnvironmentSegmentContexts().size()) };
             bool HasVisibleRun{};
@@ -1225,7 +1225,7 @@ namespace {
                 const std::uint32_t InstanceOffset{ static_cast<std::uint32_t>(OutRenderGatherResult.GetEnvironmentInstanceContexts().size()) };
                 OutRenderGatherResult.GetEnvironmentInstanceContexts().insert(OutRenderGatherResult.GetEnvironmentInstanceContexts().end(), Run.mInstanceContexts.begin(), Run.mInstanceContexts.end());
 
-                Game::RFD::EnvironmentDrawRecord DrawRecord{ Batch.mDrawRecord };
+                RenderContract::EnvironmentDrawRecord DrawRecord{ Batch.mDrawRecord };
                 DrawRecord.mInstanceOffset = InstanceOffset;
                 DrawRecord.mInstanceCount = static_cast<std::uint32_t>(Run.mInstanceContexts.size());
                 DrawRecord.mSegmentContextIndex = SegmentContextIndex;
@@ -1234,7 +1234,7 @@ namespace {
                     OutRenderGatherResult.GetEnvironmentDrawRecords().push_back(DrawRecord);
                 }
 
-                std::array<Game::RFD::ShadowRenderContext, Game::RFD::ShadowCascadeMaxCount>& ShadowRenderContexts{ OutRenderGatherResult.GetShadowRenderContexts() };
+                std::array<RenderContract::ShadowRenderContext, RenderContract::ShadowCascadeMaxCount>& ShadowRenderContexts{ OutRenderGatherResult.GetShadowRenderContexts() };
                 if (DrawRecord.mCastsShadow == false) {
                     continue;
                 }
@@ -1269,8 +1269,8 @@ namespace {
         return ActiveFrustum->Intersects(Packet.mWorldBoundingBox);
     }
 
-    std::uint32_t BuildEnvironmentPacketShadowCascadeMask(const Game::EnvironmentObjectRenderPacket& Packet, const Game::RFD::ShadowMappingParameter& ShadowMappingParameter) {
-        const std::uint32_t ShadowCascadeCount{ Game::RFD::ResolveShadowCascadeCount(ShadowMappingParameter) };
+    std::uint32_t BuildEnvironmentPacketShadowCascadeMask(const Game::EnvironmentObjectRenderPacket& Packet, const RenderContract::ShadowMappingParameter& ShadowMappingParameter) {
+        const std::uint32_t ShadowCascadeCount{ RenderContract::ResolveShadowCascadeCount(ShadowMappingParameter) };
         if (Packet.mHasWorldBoundingBox == false) {
             std::uint32_t ShadowCascadeMask{};
             for (std::uint32_t CascadeIndex{}; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1u) {
@@ -1280,7 +1280,7 @@ namespace {
             return ShadowCascadeMask;
         }
 
-        const std::array<DirectX::BoundingOrientedBox, Game::RFD::ShadowCascadeMaxCount> ShadowCullingBoxes{ Game::RFD::BuildShadowCullingBoxes(ShadowMappingParameter) };
+        const std::array<DirectX::BoundingOrientedBox, RenderContract::ShadowCascadeMaxCount> ShadowCullingBoxes{ RenderContract::BuildShadowCullingBoxes(ShadowMappingParameter) };
         std::uint32_t ShadowCascadeMask{};
         for (std::uint32_t CascadeIndex{}; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1u) {
             if (ShadowCullingBoxes[CascadeIndex].Intersects(Packet.mWorldBoundingBox) == true) {
@@ -1297,7 +1297,7 @@ namespace {
             VisibilityMask |= EnvironmentMainVisibilityMaskBit;
         }
 
-        for (std::uint32_t CascadeIndex{}; CascadeIndex < Game::RFD::ShadowCascadeMaxCount; CascadeIndex += 1u) {
+        for (std::uint32_t CascadeIndex{}; CascadeIndex < RenderContract::ShadowCascadeMaxCount; CascadeIndex += 1u) {
             if ((ShadowCascadeMask & (1u << CascadeIndex)) != 0u) {
                 VisibilityMask |= BuildEnvironmentShadowVisibilityMaskBit(CascadeIndex);
             }
@@ -2158,7 +2158,7 @@ namespace Game {
                 continue;
             }
 
-            Cell.mLastTouchedFrame = Ctx.RenderData.globals.frameIndex;
+            Cell.mLastTouchedFrame = Ctx.RenderData.mFrameGlobals.mFrameIndex;
             Ctx.mEnvironmentObjectRenderContext.UpsertCell(Cell);
             NewVisibleCellKeys.push_back(CellKey);
         }
@@ -2240,7 +2240,7 @@ namespace Game {
             }
 
             const bool IsMainVisible{ IsEnvironmentPacketVisibleByMainFrustum(*Packet, ActiveFrustumPointer) };
-            const std::uint32_t ShadowCascadeMask{ BuildEnvironmentPacketShadowCascadeMask(*Packet, Ctx.RenderData.shadowMapping) };
+            const std::uint32_t ShadowCascadeMask{ BuildEnvironmentPacketShadowCascadeMask(*Packet, Ctx.RenderData.mShadowMappingParameter) };
             const std::uint32_t VisibilityMask{ BuildEnvironmentPacketVisibilityMask(IsMainVisible, ShadowCascadeMask) };
             if (VisibilityMask == 0u) {
                 continue;
@@ -2250,12 +2250,12 @@ namespace Game {
             AppendEnvironmentPacketToMergedBatches(*Packet, LodLevel, VisibilityMask, EnvironmentMergedBatches, EnvironmentMergedBatchIndexByKey);
         }
 
-        Pipeline::RenderGatherResult RenderGatherResult{};
+        RenderContract::RenderGatherResult RenderGatherResult{};
         AppendEnvironmentMergedBatchesToRenderGatherResult(EnvironmentMergedBatches, RenderGatherResult);
 
         if (RenderGatherResult.Empty() == false) {
-            const std::span<const Pipeline::RenderGatherResult> RenderGatherResults{ &RenderGatherResult, 1ULL };
-            Pipeline::RenderGatherResultMerger::Merge(RenderGatherResults, Ctx.RenderData);
+            const std::span<const RenderContract::RenderGatherResult> RenderGatherResults{ &RenderGatherResult, 1ULL };
+            RenderContract::RenderGatherResultMerger::Merge(RenderGatherResults, Ctx.RenderData);
         }
     }
 
@@ -2352,7 +2352,7 @@ namespace Game {
         std::uint32_t ProcessedCellCount{};
         while (mUpdateCellKeyIndex < mPendingEnvironmentCellKeys.size() && ProcessedCellCount < mConfig.mUpdateCellBatchSize) {
             const EnvironmentObjectCellKey CellKey{ mPendingEnvironmentCellKeys[mUpdateCellKeyIndex] };
-            GeneratedFoliageCell GeneratedCell{ GenerateEnvironmentObjectCell(TerrainContext, CellKey, Ctx.RenderData.globals.frameIndex) };
+            GeneratedFoliageCell GeneratedCell{ GenerateEnvironmentObjectCell(TerrainContext, CellKey, Ctx.RenderData.mFrameGlobals.mFrameIndex) };
             mGeneratedEnvironmentCells.insert_or_assign(CellKey, std::move(GeneratedCell));
             mUpdateCellKeyIndex += 1ULL;
             ProcessedCellCount += 1u;
@@ -2572,7 +2572,7 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> ProceduralFoliageSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 4> Accesses{ { { typeid(AssetRegistry), Access::Write }, { typeid(IPhysicsWorld), Access::Write }, { typeid(PhysicsRuntime), Access::Write }, { typeid(RFD::RenderFrameData), Access::Write } } };
+        static std::array<ResourceAccess, 4> Accesses{ { { typeid(AssetRegistry), Access::Write }, { typeid(IPhysicsWorld), Access::Write }, { typeid(PhysicsRuntime), Access::Write }, { typeid(RenderContract::RenderFrameData), Access::Write } } };
         return Accesses;
     }
 

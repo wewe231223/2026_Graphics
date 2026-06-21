@@ -1,4 +1,4 @@
-#include "ShadowMappingParameterSystem.h"
+﻿#include "ShadowMappingParameterSystem.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -10,6 +10,7 @@
 #include "Game/Scene/Components/DirectionalLight.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Transform.h"
+#include "RenderContract/Writer/FrameRenderWriter.h"
 
 
 #undef min
@@ -106,19 +107,19 @@ namespace {
         return NormalizedDirection;
     }
 
-    Game::RFD::DirectionalLightParameter BuildDefaultDirectionalLightParameter(const DirectX::SimpleMath::Vector3& DefaultLightDirection, const DirectX::SimpleMath::Vector4& DefaultLightColor, float DefaultLightIntensity, float DefaultAmbientLightIntensity, bool DefaultLightCastsShadow) {
+    RenderContract::DirectionalLightParameter BuildDefaultDirectionalLightParameter(const DirectX::SimpleMath::Vector3& DefaultLightDirection, const DirectX::SimpleMath::Vector4& DefaultLightColor, float DefaultLightIntensity, float DefaultAmbientLightIntensity, bool DefaultLightCastsShadow) {
         const DirectX::SimpleMath::Vector3 NormalizedLightDirection{ NormalizeDirection(DefaultLightDirection) };
-        Game::RFD::DirectionalLightParameter Parameter{};
-        Parameter.direction = DirectX::SimpleMath::Vector4{ NormalizedLightDirection.x, NormalizedLightDirection.y, NormalizedLightDirection.z, 0.0f };
-        Parameter.color = DefaultLightColor;
-        Parameter.intensity = std::max(DefaultLightIntensity, 0.0f);
-        Parameter.ambientIntensity = std::max(DefaultAmbientLightIntensity, 0.0f);
-        Parameter.flags = Game::RFD::DirectionalLightParameterFlagActive;
+        RenderContract::DirectionalLightParameter Parameter{};
+        Parameter.mDirection = DirectX::SimpleMath::Vector4{ NormalizedLightDirection.x, NormalizedLightDirection.y, NormalizedLightDirection.z, 0.0f };
+        Parameter.mColor = DefaultLightColor;
+        Parameter.mIntensity = std::max(DefaultLightIntensity, 0.0f);
+        Parameter.mAmbientIntensity = std::max(DefaultAmbientLightIntensity, 0.0f);
+        Parameter.mFlags = RenderContract::DirectionalLightParameterFlagActive;
         if (DefaultLightCastsShadow == true) {
-            Parameter.flags |= Game::RFD::DirectionalLightParameterFlagCastShadow;
+            Parameter.mFlags |= RenderContract::DirectionalLightParameterFlagCastShadow;
         }
 
-        Parameter.padding0 = 0.0f;
+        Parameter.mPadding0 = 0.0f;
         return Parameter;
     }
 
@@ -130,23 +131,23 @@ namespace {
         return LightComponent.mDirection;
     }
 
-    Game::RFD::DirectionalLightParameter BuildDirectionalLightParameterFromComponent(const Game::DirectionalLight& LightComponent, const Game::Transform* TransformComponent) {
+    RenderContract::DirectionalLightParameter BuildDirectionalLightParameterFromComponent(const Game::DirectionalLight& LightComponent, const Game::Transform* TransformComponent) {
         const DirectX::SimpleMath::Vector3 NormalizedLightDirection{ NormalizeDirection(ResolveDirectionalLightDirection(LightComponent, TransformComponent)) };
-        Game::RFD::DirectionalLightParameter Parameter{};
-        Parameter.direction = DirectX::SimpleMath::Vector4{ NormalizedLightDirection.x, NormalizedLightDirection.y, NormalizedLightDirection.z, 0.0f };
-        Parameter.color = DirectX::SimpleMath::Vector4{ LightComponent.mColor.x, LightComponent.mColor.y, LightComponent.mColor.z, 1.0f };
-        Parameter.intensity = std::max(LightComponent.mIntensity, 0.0f);
-        Parameter.ambientIntensity = std::max(LightComponent.mAmbientIntensity, 0.0f);
-        Parameter.flags = 0u;
+        RenderContract::DirectionalLightParameter Parameter{};
+        Parameter.mDirection = DirectX::SimpleMath::Vector4{ NormalizedLightDirection.x, NormalizedLightDirection.y, NormalizedLightDirection.z, 0.0f };
+        Parameter.mColor = DirectX::SimpleMath::Vector4{ LightComponent.mColor.x, LightComponent.mColor.y, LightComponent.mColor.z, 1.0f };
+        Parameter.mIntensity = std::max(LightComponent.mIntensity, 0.0f);
+        Parameter.mAmbientIntensity = std::max(LightComponent.mAmbientIntensity, 0.0f);
+        Parameter.mFlags = 0u;
         if (LightComponent.mIsActive == true) {
-            Parameter.flags |= Game::RFD::DirectionalLightParameterFlagActive;
+            Parameter.mFlags |= RenderContract::DirectionalLightParameterFlagActive;
         }
 
         if (LightComponent.mIsActive == true && LightComponent.mCastsShadow == true) {
-            Parameter.flags |= Game::RFD::DirectionalLightParameterFlagCastShadow;
+            Parameter.mFlags |= RenderContract::DirectionalLightParameterFlagCastShadow;
         }
 
-        Parameter.padding0 = 0.0f;
+        Parameter.mPadding0 = 0.0f;
         return Parameter;
     }
 
@@ -406,7 +407,7 @@ namespace Game {
                     if (CascadeNodes.invalid() == false && CascadeNodes.is_seq() == true) {
                         std::size_t CascadeIndex{ 0 };
                         for (const c4::yml::ConstNodeRef CascadeNode : CascadeNodes.children()) {
-                            if (CascadeIndex >= RFD::ShadowCascadeMaxCount) {
+                            if (CascadeIndex >= RenderContract::ShadowCascadeMaxCount) {
                                 break;
                             }
 
@@ -463,7 +464,7 @@ namespace Game {
                         ShadowMappingNode["RasterSlopeScaledDepthBias"] >> LegacyRasterSlopeScaledDepthBias;
                     }
 
-                    for (std::size_t CascadeIndex{ 0 }; CascadeIndex < RFD::ShadowCascadeMaxCount; CascadeIndex += 1) {
+                    for (std::size_t CascadeIndex{ 0 }; CascadeIndex < RenderContract::ShadowCascadeMaxCount; CascadeIndex += 1) {
                         mShadowMapSizes[CascadeIndex] = LegacyShadowMapSize;
                         mShadowBiases[CascadeIndex] = LegacyShadowBias;
                         mShadowStrengths[CascadeIndex] = LegacyShadowStrength;
@@ -496,7 +497,7 @@ namespace Game {
         OutputStream << "ShadowMapping:\n";
         OutputStream << "  CascadeCount: " << mCascadeCount << "\n";
         OutputStream << "  Cascades:\n";
-        const std::size_t ActiveCascadeCount{ static_cast<std::size_t>(std::min(mCascadeCount, RFD::ShadowCascadeMaxCount)) };
+        const std::size_t ActiveCascadeCount{ static_cast<std::size_t>(std::min(mCascadeCount, RenderContract::ShadowCascadeMaxCount)) };
         for (std::size_t CascadeIndex{ 0 }; CascadeIndex < ActiveCascadeCount; CascadeIndex += 1) {
             OutputStream << "    - ShadowMapSize: " << mShadowMapSizes[CascadeIndex] << "\n";
             OutputStream << "      ShadowBias: " << mShadowBiases[CascadeIndex] << "\n";
@@ -540,7 +541,7 @@ namespace Game {
     }
 
     void ShadowMappingParameterSystem::SanitizeShadowMappingParameters() {
-        mCascadeCount = std::max<std::uint32_t>(1u, std::min<std::uint32_t>(mCascadeCount, RFD::ShadowCascadeMaxCount));
+        mCascadeCount = std::max<std::uint32_t>(1u, std::min<std::uint32_t>(mCascadeCount, RenderContract::ShadowCascadeMaxCount));
         mMinimumShadowMapSize = std::max(mMinimumShadowMapSize, 1.0f);
         const std::size_t ActiveCascadeCount{ static_cast<std::size_t>(mCascadeCount) };
         for (std::size_t CascadeIndex{ 0 }; CascadeIndex < ActiveCascadeCount; CascadeIndex += 1) {
@@ -593,29 +594,30 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> ShadowMappingParameterSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 1> Accesses{ { { typeid(RFD::RenderFrameData), Access::Write } } };
+        static std::array<ResourceAccess, 1> Accesses{ { { typeid(RenderContract::RenderFrameData), Access::Write } } };
         return Accesses;
     }
 
     void ShadowMappingParameterSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
         (void)Dt;
 
-        const RFD::DirectionalLightParameter DirectionalLightParameter{ BuildDirectionalLightParameter(World) };
+        const RenderContract::DirectionalLightParameter DirectionalLightParameter{ BuildDirectionalLightParameter(World) };
+        RenderContract::FrameRenderWriter FrameWriter{ Ctx.RenderData };
 
         for (auto [TransformComponent, CameraComponent] : World.Query<Transform, Camera>()) {
             if (CameraComponent.isActive == false) {
                 continue;
             }
 
-            const RFD::ShadowMappingParameter ShadowMappingParameter{ BuildShadowMappingParameter(CameraComponent, TransformComponent, DirectionalLightParameter) };
-            Ctx.RenderData.shadowMapping = ShadowMappingParameter;
+            const RenderContract::ShadowMappingParameter ShadowMappingParameter{ BuildShadowMappingParameter(CameraComponent, TransformComponent, DirectionalLightParameter) };
+            FrameWriter.SetShadowMappingParameter(ShadowMappingParameter);
             break;
         }
     }
 
-    RFD::DirectionalLightParameter ShadowMappingParameterSystem::BuildDirectionalLightParameter(Arche::World& World) const {
+    RenderContract::DirectionalLightParameter ShadowMappingParameterSystem::BuildDirectionalLightParameter(Arche::World& World) const {
         bool HasDirectionalLightComponent{ false };
-        RFD::DirectionalLightParameter FirstDirectionalLightParameter{};
+        RenderContract::DirectionalLightParameter FirstDirectionalLightParameter{};
 
         for (auto [LightComponent, HierarchyComponent] : World.Query<DirectionalLight, EntityHierarchy>()) {
             const Transform* TransformComponent{ World.GetComponent<Transform>(HierarchyComponent.self) };
@@ -638,23 +640,23 @@ namespace Game {
         return BuildDefaultDirectionalLightParameter(mDefaultDirectionalLightDirection, mDefaultDirectionalLightColor, mDefaultDirectionalLightIntensity, mDefaultAmbientLightIntensity, mDefaultDirectionalLightCastsShadow);
     }
 
-    RFD::ShadowMappingParameter ShadowMappingParameterSystem::BuildShadowMappingParameter(const Camera& CameraComponent, const Transform& TransformComponent, const RFD::DirectionalLightParameter& DirectionalLightParameter) const {
-        RFD::ShadowMappingParameter Parameter{};
-        const DirectX::SimpleMath::Vector3 NormalizedLightDirection{ NormalizeDirection(DirectX::SimpleMath::Vector3{ DirectionalLightParameter.direction.x, DirectionalLightParameter.direction.y, DirectionalLightParameter.direction.z }) };
-        const int CascadeCount{ static_cast<int>(std::max<std::uint32_t>(1u, std::min(mCascadeCount, RFD::ShadowCascadeMaxCount))) };
-        Parameter.directionalLight = DirectionalLightParameter;
-        Parameter.cascadeCount = static_cast<std::uint32_t>(CascadeCount);
-        Parameter.minimumShadowMapSize = mMinimumShadowMapSize;
-        Parameter.minimumProjectionDivisor = mMinimumProjectionDivisor;
-        Parameter.minimumProjectionDepthSpan = mMinimumProjectionDepthSpan;
+    RenderContract::ShadowMappingParameter ShadowMappingParameterSystem::BuildShadowMappingParameter(const Camera& CameraComponent, const Transform& TransformComponent, const RenderContract::DirectionalLightParameter& DirectionalLightParameter) const {
+        RenderContract::ShadowMappingParameter Parameter{};
+        const DirectX::SimpleMath::Vector3 NormalizedLightDirection{ NormalizeDirection(DirectX::SimpleMath::Vector3{ DirectionalLightParameter.mDirection.x, DirectionalLightParameter.mDirection.y, DirectionalLightParameter.mDirection.z }) };
+        const int CascadeCount{ static_cast<int>(std::max<std::uint32_t>(1u, std::min(mCascadeCount, RenderContract::ShadowCascadeMaxCount))) };
+        Parameter.mDirectionalLight = DirectionalLightParameter;
+        Parameter.mCascadeCount = static_cast<std::uint32_t>(CascadeCount);
+        Parameter.mMinimumShadowMapSize = mMinimumShadowMapSize;
+        Parameter.mMinimumProjectionDivisor = mMinimumProjectionDivisor;
+        Parameter.mMinimumProjectionDepthSpan = mMinimumProjectionDepthSpan;
 
         for (int CascadeIndex{ 0 }; CascadeIndex < CascadeCount; CascadeIndex += 1) {
             const std::size_t ShadowCascadeIndex{ static_cast<std::size_t>(CascadeIndex) };
-            Parameter.shadowMapSizes[ShadowCascadeIndex] = mShadowMapSizes[ShadowCascadeIndex];
-            Parameter.shadowBiases[ShadowCascadeIndex] = mShadowBiases[ShadowCascadeIndex];
-            Parameter.shadowStrengths[ShadowCascadeIndex] = mShadowStrengths[ShadowCascadeIndex];
-            Parameter.rasterDepthBiases[ShadowCascadeIndex] = mRasterDepthBiases[ShadowCascadeIndex];
-            Parameter.rasterSlopeScaledDepthBiases[ShadowCascadeIndex] = mRasterSlopeScaledDepthBiases[ShadowCascadeIndex];
+            Parameter.mShadowMapSizes[ShadowCascadeIndex] = mShadowMapSizes[ShadowCascadeIndex];
+            Parameter.mShadowBiases[ShadowCascadeIndex] = mShadowBiases[ShadowCascadeIndex];
+            Parameter.mShadowStrengths[ShadowCascadeIndex] = mShadowStrengths[ShadowCascadeIndex];
+            Parameter.mRasterDepthBiases[ShadowCascadeIndex] = mRasterDepthBiases[ShadowCascadeIndex];
+            Parameter.mRasterSlopeScaledDepthBiases[ShadowCascadeIndex] = mRasterSlopeScaledDepthBiases[ShadowCascadeIndex];
 
             const ShadowCascadeRange CascadeRange{ ComputeCascadeRange(CameraComponent, CascadeIndex, CascadeCount, mCascadeSplitLambda, mCascadeMaximumDistance, mCascadeNearRangeExpansionDistance, mCascadeExpandedBoundaryCount, mMinimumNearPlane, mMinimumViewDistance, mFirstCascadeCoverageDistance, mSecondCascadeCoverageScale) };
             const std::array<DirectX::SimpleMath::Vector3, 8> FrustumCorners{ BuildCameraFrustumCorners(CameraComponent, TransformComponent, CascadeRange, mMinimumNearPlane, mMinimumExtent, mMinimumViewDistance, mMinimumAspectRatio, mMinimumFovDegrees, mMaximumFovDegrees, mClipWMinimum) };
@@ -665,21 +667,21 @@ namespace Game {
             float ShadowNearPlane{ 0.0f };
             float ShadowFarPlane{ 0.0f };
             float ShadowAspectRatio{ 1.0f };
-            BuildShadowCameraFromFrustumCorners(FrustumCorners, NormalizedLightDirection, Parameter.shadowMapSizes[ShadowCascadeIndex], mProjectionCoverageScale, mMinimumExtent, mMinimumNearPlane, mMinimumFarOffset, mNearPlaneOffset, mFarPlaneOffset, mProjectionSizeOffset, mCameraBackOffset, mCasterDepthExpansionScale, mParallelDirectionThreshold, mMinimumGridSize, mMinimumShadowMapSize, mViewProjectionStabilizationEnabled, ShadowView, ShadowProjection, ShadowViewProjection, ShadowCameraPosition, ShadowNearPlane, ShadowFarPlane, ShadowAspectRatio);
+            BuildShadowCameraFromFrustumCorners(FrustumCorners, NormalizedLightDirection, Parameter.mShadowMapSizes[ShadowCascadeIndex], mProjectionCoverageScale, mMinimumExtent, mMinimumNearPlane, mMinimumFarOffset, mNearPlaneOffset, mFarPlaneOffset, mProjectionSizeOffset, mCameraBackOffset, mCasterDepthExpansionScale, mParallelDirectionThreshold, mMinimumGridSize, mMinimumShadowMapSize, mViewProjectionStabilizationEnabled, ShadowView, ShadowProjection, ShadowViewProjection, ShadowCameraPosition, ShadowNearPlane, ShadowFarPlane, ShadowAspectRatio);
 
-            Parameter.shadowCameras[CascadeIndex].view = ShadowView;
-            Parameter.shadowCameras[CascadeIndex].proj = ShadowProjection;
-            Parameter.shadowCameras[CascadeIndex].viewProj = ShadowViewProjection;
-            Parameter.shadowCameras[CascadeIndex].position = DirectX::SimpleMath::Vector4{ ShadowCameraPosition.x, ShadowCameraPosition.y, ShadowCameraPosition.z, 1.0f };
-            Parameter.shadowCameras[CascadeIndex].nearPlane = ShadowNearPlane;
-            Parameter.shadowCameras[CascadeIndex].farPlane = ShadowFarPlane;
-            Parameter.shadowCameras[CascadeIndex].aspectRatio = ShadowAspectRatio;
-            Parameter.shadowCameras[CascadeIndex].fovRadians = 0.0f;
+            Parameter.mShadowCameras[CascadeIndex].mView = ShadowView;
+            Parameter.mShadowCameras[CascadeIndex].mProj = ShadowProjection;
+            Parameter.mShadowCameras[CascadeIndex].mViewProj = ShadowViewProjection;
+            Parameter.mShadowCameras[CascadeIndex].mPosition = DirectX::SimpleMath::Vector4{ ShadowCameraPosition.x, ShadowCameraPosition.y, ShadowCameraPosition.z, 1.0f };
+            Parameter.mShadowCameras[CascadeIndex].mNearPlane = ShadowNearPlane;
+            Parameter.mShadowCameras[CascadeIndex].mFarPlane = ShadowFarPlane;
+            Parameter.mShadowCameras[CascadeIndex].mAspectRatio = ShadowAspectRatio;
+            Parameter.mShadowCameras[CascadeIndex].mFovRadians = 0.0f;
 
-            SetCascadeSplitDistance(Parameter.cascadeSplitDistances, CascadeIndex, CascadeRange.farPlane);
+            SetCascadeSplitDistance(Parameter.mCascadeSplitDistances, CascadeIndex, CascadeRange.farPlane);
         }
 
-        Parameter.directionalLight.direction = DirectX::SimpleMath::Vector4{ NormalizedLightDirection.x, NormalizedLightDirection.y, NormalizedLightDirection.z, 0.0f };
+        Parameter.mDirectionalLight.mDirection = DirectX::SimpleMath::Vector4{ NormalizedLightDirection.x, NormalizedLightDirection.y, NormalizedLightDirection.z, 0.0f };
 
         return Parameter;
     }

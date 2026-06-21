@@ -74,7 +74,7 @@ namespace {
         return true;
     }
 
-    void GatherBonePoseAndBoundingRecursive(Arche::World& World, Arche::EntityID EntityId, Game::Model* ModelData, std::uint32_t SkinArrayIndex, const SimpleMath::Matrix& MeshWorldInverseMatrix, bool IsDrawBoundingBoxesEnabled, std::vector<SimpleMath::Matrix>& InOutBoneMatrices, std::vector<Game::RFD::BoundingBoxContext>& InOutBoundingBoxContexts) {
+    void GatherBonePoseAndBoundingRecursive(Arche::World& World, Arche::EntityID EntityId, Game::Model* ModelData, std::uint32_t SkinArrayIndex, const SimpleMath::Matrix& MeshWorldInverseMatrix, bool IsDrawBoundingBoxesEnabled, std::vector<SimpleMath::Matrix>& InOutBoneMatrices, std::vector<RenderContract::BoundingBoxContext>& InOutBoundingBoxContexts) {
         if (EntityId == Arche::NullEntityID || ModelData == nullptr) {
             return;
         }
@@ -91,12 +91,12 @@ namespace {
             if (IsBoneWorldMatrixResolved == true) {
                 const std::span<const Game::RuntimeBoneInfo> RuntimeBoneInfos{ ModelData->GetRuntimeBoneInfos(BoneComponent->runtimeBoneInfoOffset, BoneComponent->runtimeBoneInfoCount) };
                 for (const Game::RuntimeBoneInfo& RuntimeBoneInfoItem : RuntimeBoneInfos) {
-                    if (RuntimeBoneInfoItem.SkinArrayIndex != SkinArrayIndex) {
+                    if (RuntimeBoneInfoItem.mSkinArrayIndex != SkinArrayIndex) {
                         continue;
                     }
 
-                    if (RuntimeBoneInfoItem.JointArrayIndex < InOutBoneMatrices.size()) {
-                        InOutBoneMatrices[RuntimeBoneInfoItem.JointArrayIndex] = RuntimeBoneInfoItem.InverseBindMatrix * BoneWorldMatrix * MeshWorldInverseMatrix;
+                    if (RuntimeBoneInfoItem.mJointArrayIndex < InOutBoneMatrices.size()) {
+                        InOutBoneMatrices[RuntimeBoneInfoItem.mJointArrayIndex] = RuntimeBoneInfoItem.mInverseBindMatrix * BoneWorldMatrix * MeshWorldInverseMatrix;
                     }
                 }
 
@@ -105,10 +105,10 @@ namespace {
                     DirectX::BoundingOrientedBox BoneWorldObb{};
                     BoundingBoxComponent->GetObb().Transform(BoneWorldObb, BoneWorldMatrix);
 
-                    Game::RFD::BoundingBoxContext BoneBoundingBoxContext{};
-                    BoneBoundingBoxContext.center = SimpleMath::Vector4{ BoneWorldObb.Center.x, BoneWorldObb.Center.y, BoneWorldObb.Center.z, 1.0f };
-                    BoneBoundingBoxContext.extents = SimpleMath::Vector4{ BoneWorldObb.Extents.x, BoneWorldObb.Extents.y, BoneWorldObb.Extents.z, 0.0f };
-                    BoneBoundingBoxContext.orientation = SimpleMath::Vector4{ BoneWorldObb.Orientation.x, BoneWorldObb.Orientation.y, BoneWorldObb.Orientation.z, BoneWorldObb.Orientation.w };
+                    RenderContract::BoundingBoxContext BoneBoundingBoxContext{};
+                    BoneBoundingBoxContext.mCenter = SimpleMath::Vector4{ BoneWorldObb.Center.x, BoneWorldObb.Center.y, BoneWorldObb.Center.z, 1.0f };
+                    BoneBoundingBoxContext.mExtents = SimpleMath::Vector4{ BoneWorldObb.Extents.x, BoneWorldObb.Extents.y, BoneWorldObb.Extents.z, 0.0f };
+                    BoneBoundingBoxContext.mOrientation = SimpleMath::Vector4{ BoneWorldObb.Orientation.x, BoneWorldObb.Orientation.y, BoneWorldObb.Orientation.z, BoneWorldObb.Orientation.w };
                     InOutBoundingBoxContexts.push_back(BoneBoundingBoxContext);
                     Game::BoundingBox* BoneBoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(EntityId) };
                     if (BoneBoundingBoxComponent != nullptr) {
@@ -216,14 +216,14 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> SkinnedMeshPrepareSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 2> Accesses{ { { typeid(std::vector<SkinnedMeshPreparedData>), Access::Write }, { typeid(RFD::RenderFrameData), Access::Read } } };
+        static std::array<ResourceAccess, 2> Accesses{ { { typeid(std::vector<SkinnedMeshPreparedData>), Access::Write }, { typeid(RenderContract::RenderFrameData), Access::Read } } };
         return Accesses;
     }
 
     void SkinnedMeshPrepareSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
         (void)Dt;
 
-        const bool IsDrawBoundingBoxesEnabled{ (Ctx.RenderData.globals.flags & RFD::FrameGlobalFlagDrawBoundingBoxes) != 0u };
+        const bool IsDrawBoundingBoxesEnabled{ (Ctx.RenderData.mFrameGlobals.mFlags & RenderContract::FrameGlobalFlagDrawBoundingBoxes) != 0u };
         std::vector<Arche::EntityID> TargetEntityIds{};
         for (auto [SkinnedMeshRendererComponent, EntityHierarchyComponent] : World.Query<SkinnedMeshRenderer, EntityHierarchy>()) {
             if (SkinnedMeshRendererComponent.active == false || SkinnedMeshRendererComponent.model == nullptr) {

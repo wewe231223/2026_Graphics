@@ -1,4 +1,4 @@
-#include "TerrainStreamingSystem.h"
+﻿#include "TerrainStreamingSystem.h"
 
 #include <array>
 #include <memory>
@@ -154,7 +154,7 @@ namespace Game {
             }
 
             TerrainRenderResource& Resource{ *Renderer.mResource };
-            const bool IsStreamUpdated{ Ctx.AssetRegistryResource->UpdateTerrainStreaming(Resource, *Ctx.TerrainManagerResource, FocusPosition, Ctx.RenderData.globals.frameIndex) };
+            const bool IsStreamUpdated{ Ctx.AssetRegistryResource->UpdateTerrainStreaming(Resource, *Ctx.TerrainManagerResource, FocusPosition, Ctx.RenderData.mFrameGlobals.mFrameIndex) };
             const SimpleMath::Vector3 PreviousPosition{ TransformComponent.position };
             TransformComponent.position.x = Resource.GetStreamWorldOriginX();
             TransformComponent.position.z = Resource.GetStreamWorldOriginZ();

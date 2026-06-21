@@ -15,7 +15,7 @@ namespace Game {
 	    └─ MaterialIndex (전역 Material 배열 인덱스)
 	           │
 	           ▼
-	RenderFrameData.DrawRecord.materialIndex
+	RenderFrameData.DrawRecord.mMaterialIndex
 	*/
     ComponentDecl(
         Material,

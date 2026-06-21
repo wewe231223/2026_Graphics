@@ -49,7 +49,8 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
         #pragma comment(lib, "out/debug/Asset.lib")
         #pragma comment(lib, "out/debug/Widget.lib")
         #pragma comment(lib, "out/debug/Script.lib")
-        #pragma comment(lib, "out/debug/PhysicsLib.lib")
+        #pragma comment(lib, "out/debug/PhysicsLib.lib")    
+        #pragma comment(lib, "out/debug/RenderContract.lib")
     #else 
         #pragma comment(lib, "out/release/Arche.lib")
         #pragma comment(lib, "out/release/Game.lib")
@@ -57,6 +58,7 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
         #pragma comment(lib, "out/release/Widget.lib")
         #pragma comment(lib, "out/release/Script.lib")
         #pragma comment(lib, "out/release/PhysicsLib.lib")
+        #pragma comment(lib, "out/release/RenderContract.lib")
     #endif 
 #endif 
 
@@ -287,7 +289,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         LegacySceneInstance->PrepareRender();
     };
 
-    auto GetSceneRenderFrameData = [&UsePipelineScene, &LegacySceneInstance, &PipelineSceneInstance]() -> Game::RFD::RenderFrameData& {
+    auto GetSceneRenderFrameData = [&UsePipelineScene, &LegacySceneInstance, &PipelineSceneInstance]() -> RenderContract::RenderFrameData& {
         if (UsePipelineScene) {
             return PipelineSceneInstance->GetRenderFrameData();
         }
@@ -331,7 +333,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             }
 
             PrepareSceneRender();
-            Game::RFD::RenderFrameData& RenderFrameData{ GetSceneRenderFrameData() };
+            RenderContract::RenderFrameData& RenderFrameData{ GetSceneRenderFrameData() };
             directQueue.PreRender(RenderFrameData, SceneDeltaTime);
             if (!IsImGuiBlocked) {
                 directQueue.Render(RenderFrameData, &WidgetCoreInstance);

@@ -59,25 +59,25 @@ namespace Game {
             }
 
             void AppendBoundingBoxContext(const DirectX::BoundingOrientedBox& WorldObb, PipelineContext& Ctx) {
-                if (Ctx.HasRenderFlag(RFD::FrameGlobalFlagDrawBoundingBoxes) == false) {
+                if (Ctx.HasRenderFlag(RenderContract::FrameGlobalFlagDrawBoundingBoxes) == false) {
                     return;
                 }
 
-                RFD::BoundingBoxContext BoundingBoxContext{};
-                BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
-                BoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
-                BoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
+                RenderContract::BoundingBoxContext BoundingBoxContext{};
+                BoundingBoxContext.mCenter = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
+                BoundingBoxContext.mExtents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
+                BoundingBoxContext.mOrientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
                 Ctx.GetRenderGatherResult().GetBoundingBoxContexts().push_back(BoundingBoxContext);
             }
 
-            void AppendStaticDrawRecords(const std::vector<ModelSubMesh>& SubMeshes, const ModelNode& Node, const RegisteredMaterialGroup* ResolvedMaterialGroup, std::uint32_t ObjectIndex, std::uint32_t MaterialFlags, std::uint32_t PickFlags, std::vector<RFD::DrawRecord>& OutDrawRecords) {
+            void AppendStaticDrawRecords(const std::vector<ModelSubMesh>& SubMeshes, const ModelNode& Node, const RegisteredMaterialGroup* ResolvedMaterialGroup, std::uint32_t ObjectIndex, std::uint32_t MaterialFlags, std::uint32_t PickFlags, std::vector<RenderContract::DrawRecord>& OutDrawRecords) {
                 for (std::size_t SubMeshIndex{ 0 }; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
                     const ModelSubMesh& SubMesh{ SubMeshes[SubMeshIndex] };
-                    const Interface::IPipeline* Pipeline{ nullptr };
+                    const RenderContract::IPipeline* Pipeline{ nullptr };
                     std::uint32_t ResolvedMaterialIndex{};
 
                     if (ResolvedMaterialGroup != nullptr) {
-                        std::size_t ResolvedItemIndex{ SubMesh.MaterialGroupItemIndex };
+                        std::size_t ResolvedItemIndex{ SubMesh.mMaterialGroupItemIndex };
                         if (ResolvedItemIndex >= ResolvedMaterialGroup->Items.size()) {
                             ResolvedItemIndex = 0u;
                         }
@@ -89,15 +89,15 @@ namespace Game {
                         }
                     }
 
-                    RFD::DrawRecord DrawRecord{};
-                    DrawRecord.pso = Pipeline;
-                    DrawRecord.mesh = &Node;
-                    DrawRecord.submesh = static_cast<std::uint32_t>(SubMeshIndex);
-                    DrawRecord.pass = 0u;
-                    DrawRecord.objectIndex = ObjectIndex;
-                    DrawRecord.materialIndex = ResolvedMaterialIndex;
-                    DrawRecord.flags = MaterialFlags | PickFlags;
-                    DrawRecord.pad0 = 0u;
+                    RenderContract::DrawRecord DrawRecord{};
+                    DrawRecord.mPipeline = Pipeline;
+                    DrawRecord.mMesh = &Node;
+                    DrawRecord.mSubMesh = static_cast<std::uint32_t>(SubMeshIndex);
+                    DrawRecord.mPass = 0u;
+                    DrawRecord.mObjectIndex = ObjectIndex;
+                    DrawRecord.mMaterialIndex = ResolvedMaterialIndex;
+                    DrawRecord.mFlags = MaterialFlags | PickFlags;
+                    DrawRecord.mPadding0 = 0u;
                     OutDrawRecords.push_back(DrawRecord);
                 }
             }
@@ -167,12 +167,12 @@ namespace Game {
         void PipelineStaticRenderSystem::Execute(PipelineContext& Ctx, float Dt) {
             (void)Dt;
 
-            RenderGatherResult& GatherResult{ Ctx.GetRenderGatherResult() };
+            RenderContract::RenderGatherResult& GatherResult{ Ctx.GetRenderGatherResult() };
             const std::vector<RegisteredMaterialGroup>* MaterialGroups{ Ctx.GetMaterialGroups() };
             const Frustum* CullingFrustumComponent{ Ctx.GetActiveCameraFrustum() };
-            const RFD::ShadowMappingParameter& ShadowMappingParameter{ Ctx.GetShadowMappingParameter() };
-            const std::uint32_t ShadowCascadeCount{ RFD::ResolveShadowCascadeCount(ShadowMappingParameter) };
-            const std::array<DirectX::BoundingOrientedBox, RFD::ShadowCascadeMaxCount> ShadowCullingBoxes{ RFD::BuildShadowCullingBoxes(ShadowMappingParameter) };
+            const RenderContract::ShadowMappingParameter& ShadowMappingParameter{ Ctx.GetShadowMappingParameter() };
+            const std::uint32_t ShadowCascadeCount{ RenderContract::ResolveShadowCascadeCount(ShadowMappingParameter) };
+            const std::array<DirectX::BoundingOrientedBox, RenderContract::ShadowCascadeMaxCount> ShadowCullingBoxes{ RenderContract::BuildShadowCullingBoxes(ShadowMappingParameter) };
 
             Ctx.ForEach<Transform, StaticMeshRenderer, EntityHierarchy>([&](Arche::EntityID EntityId, Transform& TransformComponent, StaticMeshRenderer& Renderer, EntityHierarchy& HierarchyComponent) {
                 (void)HierarchyComponent;
@@ -206,17 +206,17 @@ namespace Game {
                 const bool IsVisible{ IsVisibleByFrustum(Ctx, EntityId, CullingFrustumComponent) };
 
                 if (IsVisible == true) {
-                    RFD::ModelContext ModelContext{};
-                    ModelContext.world = NodeWorld;
-                    ModelContext.prevWorld = ModelContext.world;
+                    RenderContract::ModelContext ModelContext{};
+                    ModelContext.mWorld = NodeWorld;
+                    ModelContext.mPrevWorld = ModelContext.mWorld;
 
                     if (BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
                         AppendBoundingBoxContext(BoundingBoxComponent->GetWorldObb(), Ctx);
                     }
 
-                    ModelContext.objectID = static_cast<std::uint32_t>(GatherResult.GetModelContexts().size());
+                    ModelContext.mObjectId = static_cast<std::uint32_t>(GatherResult.GetModelContexts().size());
                     GatherResult.GetModelContexts().push_back(ModelContext);
-                    AppendStaticDrawRecords(SubMeshes, Node, ResolvedMaterialGroup, ModelContext.objectID, MaterialFlags, PickFlags, GatherResult.GetDrawRecords());
+                    AppendStaticDrawRecords(SubMeshes, Node, ResolvedMaterialGroup, ModelContext.mObjectId, MaterialFlags, PickFlags, GatherResult.GetDrawRecords());
                 }
 
                 for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1u) {
@@ -225,13 +225,13 @@ namespace Game {
                         continue;
                     }
 
-                    RFD::ShadowRenderContext& ShadowRenderContext{ GatherResult.GetShadowRenderContexts()[CascadeIndex] };
-                    RFD::ModelContext ShadowModelContext{};
-                    ShadowModelContext.world = NodeWorld;
-                    ShadowModelContext.prevWorld = ShadowModelContext.world;
-                    ShadowModelContext.objectID = static_cast<std::uint32_t>(ShadowRenderContext.ModelContexts.size());
-                    ShadowRenderContext.ModelContexts.push_back(ShadowModelContext);
-                    AppendStaticDrawRecords(SubMeshes, Node, ResolvedMaterialGroup, ShadowModelContext.objectID, MaterialFlags, 0u, ShadowRenderContext.DrawRecords);
+                    RenderContract::ShadowRenderContext& ShadowRenderContext{ GatherResult.GetShadowRenderContexts()[CascadeIndex] };
+                    RenderContract::ModelContext ShadowModelContext{};
+                    ShadowModelContext.mWorld = NodeWorld;
+                    ShadowModelContext.mPrevWorld = ShadowModelContext.mWorld;
+                    ShadowModelContext.mObjectId = static_cast<std::uint32_t>(ShadowRenderContext.mModelContexts.size());
+                    ShadowRenderContext.mModelContexts.push_back(ShadowModelContext);
+                    AppendStaticDrawRecords(SubMeshes, Node, ResolvedMaterialGroup, ShadowModelContext.mObjectId, MaterialFlags, 0u, ShadowRenderContext.mDrawRecords);
                 }
             });
         }

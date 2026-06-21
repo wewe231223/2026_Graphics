@@ -4,7 +4,7 @@
 #include <vector>
 #include "Arche/World.h"
 #include "External/Include/BS_thread_pool.hpp"
-#include "Game/Scene/Base/RenderGatherResult.h"
+#include "RenderContract/Gather/RenderGatherResult.h"
 #include "Game/Scene/Base/SceneWorkUnit.h"
 
 namespace Game {
@@ -24,19 +24,19 @@ namespace Game {
 
         public:
             void Execute(Arche::World& World, std::span<SceneWorkUnit> WorkUnits, const PipelineFrameInput& FrameInput, float Dt);
-            std::span<const RenderGatherResult> GetRenderGatherResults() const;
+            std::span<const RenderContract::RenderGatherResult> GetRenderGatherResults() const;
 
         private:
-            void ExecuteWorkUnit(Arche::World& World, SceneWorkUnit& WorkUnit, const PipelineFrameInput& FrameInput, RenderGatherResult& RenderGatherResultValue, float Dt) const;
+            void ExecuteWorkUnit(Arche::World& World, SceneWorkUnit& WorkUnit, const PipelineFrameInput& FrameInput, RenderContract::RenderGatherResult& RenderGatherResultValue, float Dt) const;
             std::size_t ResolveTotalWorkerCount(std::size_t WorkUnitCount) const;
             std::size_t ResolveWorkUnitChunkSize(std::size_t WorkUnitCount, std::size_t TotalWorkerCount) const;
-            void ExecuteWorkUnitsByDynamicPull(Arche::World& World, std::span<SceneWorkUnit> WorkUnits, const PipelineFrameInput& FrameInput, std::span<RenderGatherResult> RenderGatherResults, float Dt);
+            void ExecuteWorkUnitsByDynamicPull(Arche::World& World, std::span<SceneWorkUnit> WorkUnits, const PipelineFrameInput& FrameInput, std::span<RenderContract::RenderGatherResult> RenderGatherResults, float Dt);
 
             void PrepareRenderGatherResults(std::size_t RenderGatherResultCount);
 
         private:
             BS::thread_pool<BS::tp::none> mThreadPool{};
-            std::vector<RenderGatherResult> mRenderGatherResults{};
+            std::vector<RenderContract::RenderGatherResult> mRenderGatherResults{};
             std::size_t mActiveRenderGatherResultCount{};
         };
     }

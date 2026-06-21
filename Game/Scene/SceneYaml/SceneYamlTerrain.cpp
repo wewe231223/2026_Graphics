@@ -1,4 +1,4 @@
-#include "SceneYamlInternal.h"
+﻿#include "SceneYamlInternal.h"
 #include <algorithm>
 #include <array>
 #include <cmath>

@@ -1,4 +1,4 @@
-#include "FootIKSystem.h"
+﻿#include "FootIKSystem.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -53,7 +53,7 @@ namespace Game {
         }
 
         void PipelineFootIKSystem::AppendFootCornerDebugLines(PipelineContext& Ctx, const ITerrainQuery& TerrainQuery, Arche::EntityID FootEntityId, Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) const {
-            if (Ctx.HasRenderFlag(RFD::FrameGlobalFlagDrawDebugGeometry) == false) {
+            if (Ctx.HasRenderFlag(RenderContract::FrameGlobalFlagDrawDebugGeometry) == false) {
                 return;
             }
 
@@ -89,9 +89,9 @@ namespace Game {
                 }
 
                 const SimpleMath::Vector4& LineColor{ IsTerrainHit == true ? HitLineColor : CornerLineColor };
-                Ctx.GetRenderGatherResult().GetDebugGeometryContexts().push_back(RFD::DebugGeometryContext::CreateDirection(RayStartPoint, RayDirection, RayLineLength, LineColor, CornerLineThickness));
+                Ctx.GetRenderGatherResult().GetDebugGeometryContexts().push_back(RenderContract::DebugGeometryContext::CreateDirection(RayStartPoint, RayDirection, RayLineLength, LineColor, CornerLineThickness));
                 if (IsTerrainHit == true) {
-                    Ctx.GetRenderGatherResult().GetDebugGeometryContexts().push_back(RFD::DebugGeometryContext::CreateDirection(HitPoint, HitNormal, HitNormalLineLength, HitNormalLineColor, CornerLineThickness));
+                    Ctx.GetRenderGatherResult().GetDebugGeometryContexts().push_back(RenderContract::DebugGeometryContext::CreateDirection(HitPoint, HitNormal, HitNormalLineLength, HitNormalLineColor, CornerLineThickness));
                 }
             }
         }

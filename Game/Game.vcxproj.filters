@@ -123,9 +123,6 @@
     <ClInclude Include="Terrain\TerrainQuery.h">
       <Filter>Terrain</Filter>
     </ClInclude>
-    <ClInclude Include="Base\RenderFrameData.h">
-      <Filter>Base</Filter>
-    </ClInclude>
     <ClInclude Include="Scene\Legacy\Scene.h">
       <Filter>Scene\Legacy</Filter>
     </ClInclude>
@@ -211,12 +208,6 @@
       <Filter>Scene\Base</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Base\Types.h">
-      <Filter>Scene\Base</Filter>
-    </ClInclude>
-    <ClInclude Include="Scene\Base\RenderGatherResult.h">
-      <Filter>Scene\Base</Filter>
-    </ClInclude>
-    <ClInclude Include="Scene\Base\RenderGatherResultMerger.h">
       <Filter>Scene\Base</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Base\SceneWorkUnit.h">
@@ -503,12 +494,6 @@
     <ClCompile Include="Scene\Legacy\ParallelSystemBase.cpp">
       <Filter>Scene\Legacy</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\Base\RenderGatherResult.cpp">
-      <Filter>Scene\Base</Filter>
-    </ClCompile>
-    <ClCompile Include="Scene\Base\RenderGatherResultMerger.cpp">
-      <Filter>Scene\Base</Filter>
-    </ClCompile>
     <ClCompile Include="Scene\Base\Context.cpp">
       <Filter>Scene\Base</Filter>
     </ClCompile>
@@ -669,9 +654,6 @@
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Base\Input.cpp">
-      <Filter>Base</Filter>
-    </ClCompile>
-    <ClCompile Include="Base\RenderFrameData.cpp">
       <Filter>Base</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Legacy\Systems\SkinnedMeshRenderSystem.cpp">

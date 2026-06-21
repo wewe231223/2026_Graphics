@@ -34,10 +34,10 @@ namespace Core {
 
         public:
             bool Initialize(ID3D12Device* Device) override;
-            Interface::Future EnqueueCopyFuture(const Interface::CopyRequest& CopyRequest) override;
-            Interface::Future EnqueueCopyFuture(std::span<const Interface::CopyRequest> CopyRequests) override;
-            Interface::Future EnqueueTextureCopyFuture(const Interface::CopyQueueTextureCopyRequest& CopyRequest) override;
-            Interface::Future EnqueueTextureCopyFuture(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests) override;
+            RenderContract::Future EnqueueCopyFuture(const Interface::CopyRequest& CopyRequest) override;
+            RenderContract::Future EnqueueCopyFuture(std::span<const Interface::CopyRequest> CopyRequests) override;
+            RenderContract::Future EnqueueTextureCopyFuture(const Interface::CopyQueueTextureCopyRequest& CopyRequest) override;
+            RenderContract::Future EnqueueTextureCopyFuture(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests) override;
 
             void DispatchCopies() override;
             bool IsFutureComplete(std::uint64_t CopyTicket) const override;

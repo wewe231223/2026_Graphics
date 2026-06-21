@@ -38,7 +38,7 @@
 #include "Game/Scene/Base/Context.h"
 #include "Game/Scene/Base/PipelineYAMLMetadata.h"
 #include "Game/Scene/Base/SystemRegistry.h"
-#include "Game/Scene/Base/RenderGatherResultMerger.h"
+#include "RenderContract/Gather/RenderGatherResultMerger.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
 #include "Game/Scene/Systems/PhysicsActorUpdateSystem.h"
 #include "Game/Scene/Systems/ProceduralFoliageSystem.h"
@@ -157,21 +157,21 @@ namespace Game {
             return mFrameContext;
         }
 
-        RFD::RenderFrameData& Scene::GetRenderFrameData() {
+        RenderContract::RenderFrameData& Scene::GetRenderFrameData() {
             return mFrameContext.RenderData;
         }
 
-        const RFD::RenderFrameData& Scene::GetRenderFrameData() const {
+        const RenderContract::RenderFrameData& Scene::GetRenderFrameData() const {
             return mFrameContext.RenderData;
         }
 
         void Scene::SetRenderFrameIndex(std::uint32_t RenderFrameIndex) {
-            mFrameContext.RenderData.globals.frameIndex = RenderFrameIndex;
+            mFrameContext.RenderData.mFrameGlobals.mFrameIndex = RenderFrameIndex;
         }
 
         void Scene::PrepareRender() {
             mAssetRegistry.PrepareRenderTextures(mFrameContext.RenderData);
-            mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
+            mFrameContext.RenderData.mMaterialTextureTable = mAssetRegistry.GetMaterialTextureTable();
         }
 
         PipelineFrameExecutionResult Scene::ExecuteDataPipelineFrame(float Dt, const PipelineSystemRegistry& Registry) {
@@ -228,7 +228,7 @@ namespace Game {
             const PipelineFrameInput FrameInput{ BuildPipelineFrameInput() };
             std::span<SceneWorkUnit> WorkUnitSpan{ mWorkUnits.data(), mWorkUnits.size() };
             mPipelineExecutor.Execute(mWorld, WorkUnitSpan, FrameInput, Dt);
-            RenderGatherResultMerger::Merge(mPipelineExecutor.GetRenderGatherResults(), mFrameContext.RenderData);
+            RenderContract::RenderGatherResultMerger::Merge(mPipelineExecutor.GetRenderGatherResults(), mFrameContext.RenderData);
         }
 
         void Scene::AddSynchronousSystem(std::unique_ptr<Game::ISystem> NewSystem) {
@@ -258,8 +258,8 @@ namespace Game {
             mAssetRegistry.SetSrvHeap(SrvHeap);
             mFrameContext.MaterialGroups = &mAssetRegistry.GetMaterialGroups();
             mFrameContext.AssetRegistryResource = &mAssetRegistry;
-            mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
-            mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
+            mFrameContext.RenderData.mMaterials = mAssetRegistry.GetPackedMaterials();
+            mFrameContext.RenderData.mMaterialTextureTable = mAssetRegistry.GetMaterialTextureTable();
         }
 
         Script::LuaBehaviorFramework& Scene::GetLuaScriptFramework() {
@@ -746,9 +746,9 @@ namespace Game {
             FrameInput.mMaterialGroups = mFrameContext.MaterialGroups;
             FrameInput.mTerrainQueryResource = mFrameContext.TerrainQueryResource;
             FrameInput.mPickedEntityId = mFrameContext.PickedEntityId;
-            FrameInput.mFrameIndex = mFrameContext.RenderData.globals.frameIndex;
-            FrameInput.mRenderFlags = mFrameContext.RenderData.globals.flags;
-            FrameInput.mShadowMappingParameter = mFrameContext.RenderData.shadowMapping;
+            FrameInput.mFrameIndex = mFrameContext.RenderData.mFrameGlobals.mFrameIndex;
+            FrameInput.mRenderFlags = mFrameContext.RenderData.mFrameGlobals.mFlags;
+            FrameInput.mShadowMappingParameter = mFrameContext.RenderData.mShadowMappingParameter;
 
             for (const auto [TransformComponent, CameraComponent, FrustumComponent] : mWorld.Query<Transform, Camera, Frustum>()) {
                 if (CameraComponent.isActive == false) {
@@ -807,37 +807,37 @@ namespace Game {
         void Scene::InitializeDataPipelineFrameRenderData() {
             UpdateCameraVirtualMouseState();
 
-            mFrameContext.RenderData.modelContexts.clear();
-            mFrameContext.RenderData.boundingBoxContexts.clear();
-            mFrameContext.RenderData.debugGeometryContexts.clear();
-            mFrameContext.RenderData.TerrainPatchContexts.clear();
-            mFrameContext.RenderData.drawRecords.clear();
-            mFrameContext.RenderData.bonePalette.clear();
+            mFrameContext.RenderData.mModelContexts.clear();
+            mFrameContext.RenderData.mBoundingBoxContexts.clear();
+            mFrameContext.RenderData.mDebugGeometryContexts.clear();
+            mFrameContext.RenderData.mTerrainPatchContexts.clear();
+            mFrameContext.RenderData.mDrawRecords.clear();
+            mFrameContext.RenderData.mBonePalette.clear();
             mFrameContext.RenderData.mEnvironmentInstanceContexts.clear();
             mFrameContext.RenderData.mEnvironmentSegmentContexts.clear();
             mFrameContext.RenderData.mEnvironmentDrawRecords.clear();
-            mFrameContext.RenderData.mTerrainUploadFuture = Interface::Future{};
+            mFrameContext.RenderData.mTerrainUploadFuture = RenderContract::Future{};
             mFrameContext.RenderData.mHasTerrainUploadFuture = false;
 
-            for (RFD::ShadowRenderContext& ShadowRenderContext : mFrameContext.RenderData.ShadowRenderContexts) {
-                ShadowRenderContext.ModelContexts.clear();
-                ShadowRenderContext.TerrainPatchContexts.clear();
-                ShadowRenderContext.DrawRecords.clear();
+            for (RenderContract::ShadowRenderContext& ShadowRenderContext : mFrameContext.RenderData.mShadowRenderContexts) {
+                ShadowRenderContext.mModelContexts.clear();
+                ShadowRenderContext.mTerrainPatchContexts.clear();
+                ShadowRenderContext.mDrawRecords.clear();
                 ShadowRenderContext.mEnvironmentDrawRecords.clear();
             }
 
-            mFrameContext.RenderData.materials = mAssetRegistry.GetPackedMaterials();
-            mFrameContext.RenderData.globals.flags = 0u;
+            mFrameContext.RenderData.mMaterials = mAssetRegistry.GetPackedMaterials();
+            mFrameContext.RenderData.mFrameGlobals.mFlags = 0u;
             if (mIsBoundingBoxDrawEnabled == true) {
-                mFrameContext.RenderData.globals.flags |= RFD::FrameGlobalFlagDrawBoundingBoxes;
+                mFrameContext.RenderData.mFrameGlobals.mFlags |= RenderContract::FrameGlobalFlagDrawBoundingBoxes;
             }
 
             if (mIsDebugGeometryDrawEnabled == true) {
-                mFrameContext.RenderData.globals.flags |= RFD::FrameGlobalFlagDrawDebugGeometry;
+                mFrameContext.RenderData.mFrameGlobals.mFlags |= RenderContract::FrameGlobalFlagDrawDebugGeometry;
             }
 
             AppendDebugWorldAxes();
-            mFrameContext.RenderData.materialTextureTable = mAssetRegistry.GetMaterialTextureTable();
+            mFrameContext.RenderData.mMaterialTextureTable = mAssetRegistry.GetMaterialTextureTable();
             mFrameContext.SkinnedMeshPreparedDataItems.clear();
         }
 
@@ -857,7 +857,7 @@ namespace Game {
         }
 
         void Scene::AppendDebugWorldAxes() {
-            const bool IsDrawDebugGeometriesEnabled{ (mFrameContext.RenderData.globals.flags & RFD::FrameGlobalFlagDrawDebugGeometry) != 0u };
+            const bool IsDrawDebugGeometriesEnabled{ (mFrameContext.RenderData.mFrameGlobals.mFlags & RenderContract::FrameGlobalFlagDrawDebugGeometry) != 0u };
             if (IsDrawDebugGeometriesEnabled == false) {
                 return;
             }
@@ -865,9 +865,9 @@ namespace Game {
             constexpr float AxisLength{ 100000.0f };
             constexpr float AxisThickness{ 0.0035f };
             const SimpleMath::Vector3 Origin{ 0.0f, 0.0f, 0.0f };
-            mFrameContext.RenderData.debugGeometryContexts.push_back(RFD::DebugGeometryContext::CreateDirection(Origin, SimpleMath::Vector3{ 1.0f, 0.0f, 0.0f }, AxisLength, SimpleMath::Vector4{ 1.0f, 0.1f, 0.1f, 1.0f }, AxisThickness));
-            mFrameContext.RenderData.debugGeometryContexts.push_back(RFD::DebugGeometryContext::CreateDirection(Origin, SimpleMath::Vector3{ 0.0f, 1.0f, 0.0f }, AxisLength, SimpleMath::Vector4{ 0.1f, 1.0f, 0.1f, 1.0f }, AxisThickness));
-            mFrameContext.RenderData.debugGeometryContexts.push_back(RFD::DebugGeometryContext::CreateDirection(Origin, SimpleMath::Vector3{ 0.0f, 0.0f, 1.0f }, AxisLength, SimpleMath::Vector4{ 0.1f, 0.4f, 1.0f, 1.0f }, AxisThickness));
+            mFrameContext.RenderData.mDebugGeometryContexts.push_back(RenderContract::DebugGeometryContext::CreateDirection(Origin, SimpleMath::Vector3{ 1.0f, 0.0f, 0.0f }, AxisLength, SimpleMath::Vector4{ 1.0f, 0.1f, 0.1f, 1.0f }, AxisThickness));
+            mFrameContext.RenderData.mDebugGeometryContexts.push_back(RenderContract::DebugGeometryContext::CreateDirection(Origin, SimpleMath::Vector3{ 0.0f, 1.0f, 0.0f }, AxisLength, SimpleMath::Vector4{ 0.1f, 1.0f, 0.1f, 1.0f }, AxisThickness));
+            mFrameContext.RenderData.mDebugGeometryContexts.push_back(RenderContract::DebugGeometryContext::CreateDirection(Origin, SimpleMath::Vector3{ 0.0f, 0.0f, 1.0f }, AxisLength, SimpleMath::Vector4{ 0.1f, 0.4f, 1.0f, 1.0f }, AxisThickness));
         }
 
         bool Scene::CanAddPipelineDefinition(const PipelineDefinition& PipelineDefinitionValue) const {

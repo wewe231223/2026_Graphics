@@ -1,4 +1,4 @@
-#include "EnvironmentObjectRenderContext.h"
+﻿#include "EnvironmentObjectRenderContext.h"
 
 #include <limits>
 #include <utility>
@@ -125,7 +125,7 @@ namespace Game {
         }
     }
 
-    bool EnvironmentObjectRenderContext::AppendCellRenderData(const EnvironmentObjectCellKey& Key, const EnvironmentObjectRenderBuildOptions& Options, Pipeline::RenderGatherResult& OutRenderGatherResult) {
+    bool EnvironmentObjectRenderContext::AppendCellRenderData(const EnvironmentObjectCellKey& Key, const EnvironmentObjectRenderBuildOptions& Options, RenderContract::RenderGatherResult& OutRenderGatherResult) {
         const EnvironmentObjectRenderPacket* Packet{ FindCell(Key) };
         if (Packet == nullptr) {
             return false;
@@ -135,7 +135,7 @@ namespace Game {
         return true;
     }
 
-    void EnvironmentObjectRenderContext::AppendVisibleCellRenderData(std::span<const EnvironmentObjectCellKey> CellKeys, const EnvironmentObjectRenderBuildOptions& Options, std::uint64_t FrameIndex, Pipeline::RenderGatherResult& OutRenderGatherResult) {
+    void EnvironmentObjectRenderContext::AppendVisibleCellRenderData(std::span<const EnvironmentObjectCellKey> CellKeys, const EnvironmentObjectRenderBuildOptions& Options, std::uint64_t FrameIndex, RenderContract::RenderGatherResult& OutRenderGatherResult) {
         for (const EnvironmentObjectCellKey& CellKey : CellKeys) {
             TouchCell(CellKey, FrameIndex);
             AppendCellRenderData(CellKey, Options, OutRenderGatherResult);

@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Environment">
+      <UniqueIdentifier>{C10D07A9-5BCE-429A-830A-6115D930A923}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Frame">
+      <UniqueIdentifier>{13A4D68D-949D-4DBE-BF0A-3BBCA2D220B7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Future">
+      <UniqueIdentifier>{8EB5BFF5-A492-4A4C-A395-B58644348CBA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Gather">
+      <UniqueIdentifier>{B99630C4-FDD0-4D8D-9E3B-DBA36E4B4C31}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Geometry">
+      <UniqueIdentifier>{A253C7B5-70DE-4E54-BE2D-BC95F9306495}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Material">
+      <UniqueIdentifier>{CFD47881-2EBD-4295-932C-787FBF85BAA7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Model">
+      <UniqueIdentifier>{4B8B9A4B-DDA6-488C-B1A8-6B93D24A0D66}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Pipeline">
+      <UniqueIdentifier>{8C65C1D3-D18A-4621-B19A-4C9F5E2E4332}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shadow">
+      <UniqueIdentifier>{84111B9A-A326-4B0F-A7DC-D0C99D3F2DE6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Terrain">
+      <UniqueIdentifier>{B2229B89-0A88-4C49-B1D4-F0BA8120A9FE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Writer">
+      <UniqueIdentifier>{0F969852-EEA3-4C4D-8E94-393012B3A51D}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Frame\ShadowMappingParameter.cpp">
+      <Filter>Frame</Filter>
+    </ClCompile>
+    <ClCompile Include="Future\Future.cpp">
+      <Filter>Future</Filter>
+    </ClCompile>
+    <ClCompile Include="Gather\RenderGatherResult.cpp">
+      <Filter>Gather</Filter>
+    </ClCompile>
+    <ClCompile Include="Gather\RenderGatherResultMerger.cpp">
+      <Filter>Gather</Filter>
+    </ClCompile>
+    <ClCompile Include="Geometry\DebugGeometryContext.cpp">
+      <Filter>Geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="Writer\EnvironmentRenderWriter.cpp">
+      <Filter>Writer</Filter>
+    </ClCompile>
+    <ClCompile Include="Writer\FrameRenderWriter.cpp">
+      <Filter>Writer</Filter>
+    </ClCompile>
+    <ClCompile Include="Writer\TerrainRenderWriter.cpp">
+      <Filter>Writer</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Common.h" />
+    <ClInclude Include="Environment\EnvironmentDrawRecord.h">
+      <Filter>Environment</Filter>
+    </ClInclude>
+    <ClInclude Include="Environment\EnvironmentDrawRecordGpu.h">
+      <Filter>Environment</Filter>
+    </ClInclude>
+    <ClInclude Include="Environment\EnvironmentInstanceContext.h">
+      <Filter>Environment</Filter>
+    </ClInclude>
+    <ClInclude Include="Environment\EnvironmentSegmentContext.h">
+      <Filter>Environment</Filter>
+    </ClInclude>
+    <ClInclude Include="Frame\CameraParameter.h">
+      <Filter>Frame</Filter>
+    </ClInclude>
+    <ClInclude Include="Frame\DirectionalLightParameter.h">
+      <Filter>Frame</Filter>
+    </ClInclude>
+    <ClInclude Include="Frame\FrameGlobals.h">
+      <Filter>Frame</Filter>
+    </ClInclude>
+    <ClInclude Include="Frame\RenderFrameData.h">
+      <Filter>Frame</Filter>
+    </ClInclude>
+    <ClInclude Include="Frame\ShadowMappingParameter.h">
+      <Filter>Frame</Filter>
+    </ClInclude>
+    <ClInclude Include="Future\Future.h">
+      <Filter>Future</Filter>
+    </ClInclude>
+    <ClInclude Include="Gather\RenderGatherResult.h">
+      <Filter>Gather</Filter>
+    </ClInclude>
+    <ClInclude Include="Gather\RenderGatherResultMerger.h">
+      <Filter>Gather</Filter>
+    </ClInclude>
+    <ClInclude Include="Geometry\BoundingBoxContext.h">
+      <Filter>Geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="Geometry\DebugGeometryContext.h">
+      <Filter>Geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="Material\MaterialFieldGpu.h">
+      <Filter>Material</Filter>
+    </ClInclude>
+    <ClInclude Include="Material\MaterialGpu.h">
+      <Filter>Material</Filter>
+    </ClInclude>
+    <ClInclude Include="Material\MaterialTextureTableItemGpu.h">
+      <Filter>Material</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\DrawRecord.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\ModelBoneInfo.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\ModelContext.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\ModelSubMesh.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\VertexAttributeKind.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\VertexInputBinding.h">
+      <Filter>Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Pipeline\PipelineOption.h">
+      <Filter>Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="Shadow\ShadowRenderContext.h">
+      <Filter>Shadow</Filter>
+    </ClInclude>
+    <ClInclude Include="Terrain\TerrainPatchContext.h">
+      <Filter>Terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="Writer\EnvironmentRenderWriter.h">
+      <Filter>Writer</Filter>
+    </ClInclude>
+    <ClInclude Include="Writer\FrameRenderWriter.h">
+      <Filter>Writer</Filter>
+    </ClInclude>
+    <ClInclude Include="Writer\TerrainRenderWriter.h">
+      <Filter>Writer</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

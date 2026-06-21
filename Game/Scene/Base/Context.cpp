@@ -3,12 +3,12 @@
 
 namespace Game {
     namespace Pipeline {
-        PipelineContext::PipelineContext(Arche::World& World, Arche::EntityID UnitEntityId, std::span<const Arche::EntityID> EntityIds, const PipelineFrameInput& FrameInput, RenderGatherResult& RenderGatherResult)
+        PipelineContext::PipelineContext(Arche::World& World, Arche::EntityID UnitEntityId, std::span<const Arche::EntityID> EntityIds, const PipelineFrameInput& FrameInput, RenderContract::RenderGatherResult& RenderGatherResultValue)
             : mWorld{ &World },
             mUnitEntityId{ UnitEntityId },
             mEntityIds{ EntityIds },
             mFrameInput{ FrameInput },
-            mRenderGatherResult{ &RenderGatherResult } {
+            mRenderGatherResult{ &RenderGatherResultValue } {
         }
 
         PipelineContext::~PipelineContext() {
@@ -96,7 +96,7 @@ namespace Game {
             return (mFrameInput.mRenderFlags & Flag) != 0u;
         }
 
-        const RFD::ShadowMappingParameter& PipelineContext::GetShadowMappingParameter() const {
+        const RenderContract::ShadowMappingParameter& PipelineContext::GetShadowMappingParameter() const {
             return mFrameInput.mShadowMappingParameter;
         }
 
@@ -117,7 +117,7 @@ namespace Game {
             return true;
         }
 
-        void PipelineContext::AddRenderResult(const RenderGatherResult& RenderResult) {
+        void PipelineContext::AddRenderResult(const RenderContract::RenderGatherResult& RenderResult) {
             if (mRenderGatherResult == nullptr) {
                 return;
             }
@@ -125,7 +125,7 @@ namespace Game {
             mRenderGatherResult->Append(RenderResult);
         }
 
-        void PipelineContext::AddRenderResult(RenderGatherResult&& RenderResult) {
+        void PipelineContext::AddRenderResult(RenderContract::RenderGatherResult&& RenderResult) {
             if (mRenderGatherResult == nullptr) {
                 return;
             }
@@ -133,11 +133,11 @@ namespace Game {
             mRenderGatherResult->Append(std::move(RenderResult));
         }
 
-        RenderGatherResult& PipelineContext::GetRenderGatherResult() {
+        RenderContract::RenderGatherResult& PipelineContext::GetRenderGatherResult() {
             return *mRenderGatherResult;
         }
 
-        const RenderGatherResult& PipelineContext::GetRenderGatherResult() const {
+        const RenderContract::RenderGatherResult& PipelineContext::GetRenderGatherResult() const {
             return *mRenderGatherResult;
         }
     }

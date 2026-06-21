@@ -114,7 +114,7 @@ namespace Core {
             bool IsLoaded() const;
             bool IsCopyInFlight() const;
             void WaitForCopyCompletion() const;
-            Interface::Future GetCopyFuture() const;
+            RenderContract::Future GetCopyFuture() const;
             void CreateSRV(ID3D12Device* Device, Interface::IDescriptorHeap* Heap);
             void CreateRTV(ID3D12Device* Device, Interface::IDescriptorHeap* Heap);
             void CreateDSV(ID3D12Device* Device, Interface::IDescriptorHeap* Heap);
@@ -143,7 +143,7 @@ namespace Core {
             std::string mName{};
             std::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> mSourceLayouts{};
             std::vector<std::byte> mSourceData{};
-            Interface::Future mCopyFuture{};
+            RenderContract::Future mCopyFuture{};
 
             DescriptorHandle mSRVHandle;
             DescriptorHandle mRTVHandle;

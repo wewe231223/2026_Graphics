@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <cstddef>
 #include <cstdint>
@@ -41,8 +41,8 @@ namespace Game {
 
     struct EnvironmentObjectRenderSegment final {
     public:
-        const Interface::IPipeline* mPipeline{};
-        const Interface::IModelNode* mMesh{};
+        const RenderContract::IPipeline* mPipeline{};
+        const RenderContract::IModelNode* mMesh{};
         SimpleMath::Matrix mLocalTransform{ SimpleMath::Matrix::Identity };
         DirectX::BoundingOrientedBox mLocalBoundingBox{};
         std::uint32_t mNodeIndex{};
@@ -93,8 +93,8 @@ namespace Game {
 
     struct EnvironmentObjectBatch final {
     public:
-        const Interface::IPipeline* mPipeline{};
-        const Interface::IModelNode* mMesh{};
+        const RenderContract::IPipeline* mPipeline{};
+        const RenderContract::IModelNode* mMesh{};
         SimpleMath::Matrix mLocalTransform{ SimpleMath::Matrix::Identity };
         std::uint32_t mPrototypeIndex{};
         std::uint32_t mLodIndex{};

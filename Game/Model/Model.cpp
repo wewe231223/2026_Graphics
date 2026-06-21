@@ -351,9 +351,9 @@ namespace Game {
             SubMeshes.reserve(SourceSubMeshes.size());
             for (const asset::ModelNode::SubMesh& SourceSubMesh : SourceSubMeshes) {
                 ModelSubMesh SubMesh{};
-                SubMesh.IndexOffset = SourceSubMesh.IndexOffset;
-                SubMesh.IndexCount = SourceSubMesh.IndexCount;
-                SubMesh.MaterialGroupItemIndex = SourceSubMesh.MaterialGroupItemIndex;
+                SubMesh.mIndexOffset = SourceSubMesh.IndexOffset;
+                SubMesh.mIndexCount = SourceSubMesh.IndexCount;
+                SubMesh.mMaterialGroupItemIndex = SourceSubMesh.MaterialGroupItemIndex;
                 SubMeshes.push_back(SubMesh);
             }
 
@@ -362,10 +362,10 @@ namespace Game {
             BoneInfos.reserve(SourceBoneInfos.size());
             for (const asset::ModelBoneInfo& SourceBoneInfo : SourceBoneInfos) {
                 ModelBoneInfo BoneInfo{};
-                BoneInfo.SkinArrayIndex = SourceBoneInfo.SkinArrayIndex;
-                BoneInfo.JointArrayIndex = SourceBoneInfo.JointArrayIndex;
-                BoneInfo.BoneName = SourceBoneInfo.BoneName;
-                BoneInfo.InverseBindMatrix = SourceBoneInfo.InverseBindMatrix;
+                BoneInfo.mSkinArrayIndex = SourceBoneInfo.SkinArrayIndex;
+                BoneInfo.mJointArrayIndex = SourceBoneInfo.JointArrayIndex;
+                BoneInfo.mBoneName = SourceBoneInfo.BoneName;
+                BoneInfo.mInverseBindMatrix = SourceBoneInfo.InverseBindMatrix;
                 BoneInfos.push_back(BoneInfo);
             }
 
@@ -378,14 +378,14 @@ namespace Game {
                 std::vector<ModelNode::VertexAttributeRange> VertexRanges{};
                 std::unique_ptr<Interface::IAllocationHandle> VertexAllocation{};
                 std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{};
-                Interface::Future VertexCopyFuture{};
+                RenderContract::Future VertexCopyFuture{};
                 UploadVertexData(SourceVertices, Allocator, CopyQueue, VertexRawData, VertexRanges, VertexAllocation, VertexBufferViews, VertexCopyFuture);
                 DestinationNode.SetVertexData(std::move(VertexRawData), std::move(VertexRanges), std::move(VertexAllocation), std::move(VertexBufferViews));
 
                 std::vector<std::byte> IndexRawData{};
                 std::unique_ptr<Interface::IAllocationHandle> IndexAllocation{};
                 D3D12_INDEX_BUFFER_VIEW IndexBufferView{};
-                Interface::Future IndexCopyFuture{};
+                RenderContract::Future IndexCopyFuture{};
                 UploadIndexData(SourceNode.Indices(), Allocator, CopyQueue, IndexRawData, IndexAllocation, IndexBufferView, IndexCopyFuture);
                 DestinationNode.SetIndexData(std::move(IndexRawData), std::move(IndexAllocation), IndexBufferView);
             }
@@ -486,30 +486,30 @@ namespace Game {
         for (const ModelNode& Node : mNodes) {
             const std::vector<ModelBoneInfo>& BoneInfos{ Node.GetBoneInfos() };
             for (const ModelBoneInfo& BoneInfo : BoneInfos) {
-                const std::unordered_map<std::string, std::uint32_t>::const_iterator FoundNodeIndex{ mNodeNameLookup.find(BoneInfo.BoneName) };
+                const std::unordered_map<std::string, std::uint32_t>::const_iterator FoundNodeIndex{ mNodeNameLookup.find(BoneInfo.mBoneName) };
                 if (FoundNodeIndex == mNodeNameLookup.end()) {
                     continue;
                 }
 
                 RuntimeBoneInfo RuntimeBoneRecord{};
-                RuntimeBoneRecord.SkinArrayIndex = BoneInfo.SkinArrayIndex;
-                RuntimeBoneRecord.JointArrayIndex = BoneInfo.JointArrayIndex;
-                RuntimeBoneRecord.InverseBindMatrix = BoneInfo.InverseBindMatrix;
+                RuntimeBoneRecord.mSkinArrayIndex = BoneInfo.mSkinArrayIndex;
+                RuntimeBoneRecord.mJointArrayIndex = BoneInfo.mJointArrayIndex;
+                RuntimeBoneRecord.mInverseBindMatrix = BoneInfo.mInverseBindMatrix;
                 RuntimeBoneInfosByNodeIndex[FoundNodeIndex->second].push_back(RuntimeBoneRecord);
 
-                const std::uint32_t RequiredBoneMatrixCount{ BoneInfo.JointArrayIndex + 1u };
+                const std::uint32_t RequiredBoneMatrixCount{ BoneInfo.mJointArrayIndex + 1u };
                 if (RequiredBoneMatrixCount > mRuntimeBoneMatrixCount) {
                     mRuntimeBoneMatrixCount = RequiredBoneMatrixCount;
                 }
 
-                const std::unordered_map<std::uint32_t, std::uint32_t>::const_iterator FoundCount{ mRuntimeBoneMatrixCountBySkin.find(BoneInfo.SkinArrayIndex) };
+                const std::unordered_map<std::uint32_t, std::uint32_t>::const_iterator FoundCount{ mRuntimeBoneMatrixCountBySkin.find(BoneInfo.mSkinArrayIndex) };
                 if (FoundCount == mRuntimeBoneMatrixCountBySkin.end()) {
-                    mRuntimeBoneMatrixCountBySkin.insert_or_assign(BoneInfo.SkinArrayIndex, RequiredBoneMatrixCount);
+                    mRuntimeBoneMatrixCountBySkin.insert_or_assign(BoneInfo.mSkinArrayIndex, RequiredBoneMatrixCount);
                     continue;
                 }
 
                 if (RequiredBoneMatrixCount > FoundCount->second) {
-                    mRuntimeBoneMatrixCountBySkin.insert_or_assign(BoneInfo.SkinArrayIndex, RequiredBoneMatrixCount);
+                    mRuntimeBoneMatrixCountBySkin.insert_or_assign(BoneInfo.mSkinArrayIndex, RequiredBoneMatrixCount);
                 }
             }
         }
@@ -523,7 +523,7 @@ namespace Game {
         }
     }
 
-    bool Model::UploadVertexData(const asset::VertexAttributes& Vertices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews, Interface::Future& OutCopyFuture) const {
+    bool Model::UploadVertexData(const asset::VertexAttributes& Vertices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::vector<ModelNode::VertexAttributeRange>& OutRanges, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, std::vector<D3D12_VERTEX_BUFFER_VIEW>& OutViews, RenderContract::Future& OutCopyFuture) const {
         std::vector<AttributeUploadSource> Sources{};
         const std::size_t VertexCount{ Vertices.VertexCount() };
         std::vector<asset::UVec4> DefaultBoneIndices{};
@@ -601,10 +601,10 @@ namespace Game {
         return true;
     }
 
-    bool Model::UploadIndexData(const std::vector<std::uint32_t>& Indices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, D3D12_INDEX_BUFFER_VIEW& OutView, Interface::Future& OutCopyFuture) const {
+    bool Model::UploadIndexData(const std::vector<std::uint32_t>& Indices, Interface::IGraphicsAllocator* Allocator, Interface::ICopyQueue* CopyQueue, std::vector<std::byte>& OutRawData, std::unique_ptr<Interface::IAllocationHandle>& OutAllocation, D3D12_INDEX_BUFFER_VIEW& OutView, RenderContract::Future& OutCopyFuture) const {
         if (Indices.empty()) {
             OutView = D3D12_INDEX_BUFFER_VIEW{};
-            OutCopyFuture = Interface::Future{};
+            OutCopyFuture = RenderContract::Future{};
             return false;
         }
 
@@ -612,7 +612,7 @@ namespace Game {
         const bool AllocateResult{ AllocateBufferResource(Allocator, ByteSize, L"Model.IndexBuffer", OutAllocation) };
         if (AllocateResult == false) {
             OutView = D3D12_INDEX_BUFFER_VIEW{};
-            OutCopyFuture = Interface::Future{};
+            OutCopyFuture = RenderContract::Future{};
             return false;
         }
 
@@ -626,7 +626,7 @@ namespace Game {
         OutCopyFuture = CopyQueue->EnqueueCopyFuture(Request);
         if (OutCopyFuture.IsValid() == false) {
             OutView = D3D12_INDEX_BUFFER_VIEW{};
-            OutCopyFuture = Interface::Future{};
+            OutCopyFuture = RenderContract::Future{};
             return false;
         }
 

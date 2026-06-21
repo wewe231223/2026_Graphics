@@ -93,18 +93,18 @@ bool CopyQueue::Initialize(ID3D12Device* Device) {
 }
 
 
-Interface::Future CopyQueue::EnqueueCopyFuture(const Interface::CopyRequest& CopyRequest) {
+RenderContract::Future CopyQueue::EnqueueCopyFuture(const Interface::CopyRequest& CopyRequest) {
     std::span<const Interface::CopyRequest> CopyRequests{ &CopyRequest, 1 };
     return EnqueueCopyFuture(CopyRequests);
 }
 
-Interface::Future CopyQueue::EnqueueCopyFuture(std::span<const Interface::CopyRequest> CopyRequests) {
+RenderContract::Future CopyQueue::EnqueueCopyFuture(std::span<const Interface::CopyRequest> CopyRequests) {
     std::vector<PreparedCopyRequest> PreparedRequests{};
     std::vector<std::size_t> UploadPageIndices{};
     Interface::CopyPriority Priority{ Interface::CopyPriority::Invalid };
     bool IsPrepared{ PrepareCopyRequests(CopyRequests, PreparedRequests, UploadPageIndices, Priority) };
     if (IsPrepared == false) {
-        return Interface::Future{};
+        return RenderContract::Future{};
     }
 
     if (Priority == Interface::CopyPriority::Invalid) {
@@ -115,24 +115,24 @@ Interface::Future CopyQueue::EnqueueCopyFuture(std::span<const Interface::CopyRe
     bool IsEnqueued{ EnqueuePreparedCopyRequests(CopyTicket, Priority, PreparedRequests, UploadPageIndices) };
     if (IsEnqueued == false) {
         ReleaseUploadPageUsages(UploadPageIndices);
-        return Interface::Future{};
+        return RenderContract::Future{};
     }
 
-    return Interface::Future{ this, CopyTicket };
+    return RenderContract::Future{ this, CopyTicket };
 }
 
-Interface::Future CopyQueue::EnqueueTextureCopyFuture(const Interface::CopyQueueTextureCopyRequest& CopyRequest) {
+RenderContract::Future CopyQueue::EnqueueTextureCopyFuture(const Interface::CopyQueueTextureCopyRequest& CopyRequest) {
     std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests{ &CopyRequest, 1 };
     return EnqueueTextureCopyFuture(CopyRequests);
 }
 
-Interface::Future CopyQueue::EnqueueTextureCopyFuture(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests) {
+RenderContract::Future CopyQueue::EnqueueTextureCopyFuture(std::span<const Interface::CopyQueueTextureCopyRequest> CopyRequests) {
     std::vector<PreparedCopyRequest> PreparedRequests{};
     std::vector<std::size_t> UploadPageIndices{};
     Interface::CopyPriority Priority{ Interface::CopyPriority::Invalid };
     bool IsPrepared{ PrepareTextureCopyRequests(CopyRequests, PreparedRequests, UploadPageIndices, Priority) };
     if (IsPrepared == false) {
-        return Interface::Future{};
+        return RenderContract::Future{};
     }
 
     if (Priority == Interface::CopyPriority::Invalid) {
@@ -143,10 +143,10 @@ Interface::Future CopyQueue::EnqueueTextureCopyFuture(std::span<const Interface:
     bool IsEnqueued{ EnqueuePreparedCopyRequests(CopyTicket, Priority, PreparedRequests, UploadPageIndices) };
     if (IsEnqueued == false) {
         ReleaseUploadPageUsages(UploadPageIndices);
-        return Interface::Future{};
+        return RenderContract::Future{};
     }
 
-    return Interface::Future{ this, CopyTicket };
+    return RenderContract::Future{ this, CopyTicket };
 }
 
 void CopyQueue::DispatchCopies() {

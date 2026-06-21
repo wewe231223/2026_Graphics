@@ -15,7 +15,7 @@
 #include "Utility/DirectXInclude.h"
 #include "Utility/CompileTimeConstants.h"
 #include "Utility/FixedArray.h"
-#include "Game/Base/RenderFrameData.h"
+#include "RenderContract/Frame/RenderFrameData.h"
 
 #include "Widget/WidgetCore.h"
 
@@ -48,7 +48,7 @@ namespace Core {
 			std::uint32_t mThreadGroupSizeZ{ 1u };
 		};
 
-		class DirectQueue : public Interface::IFutureSyncObject {
+		class DirectQueue : public RenderContract::IFutureSyncObject {
 		public:
 			DirectQueue(HWND hWnd);
 			~DirectQueue();
@@ -70,15 +70,15 @@ namespace Core {
 
 			DescriptorHeap* GetSrvHeap();
 
-			void QueueWaitFuture(const Interface::Future& Future) const;
+			void QueueWaitFuture(const RenderContract::Future& Future) const;
 			bool IsFutureComplete(std::uint64_t DirectTicket) const override;
 			void WaitFuture(std::uint64_t DirectTicket) const override;
 			void QueueWaitFuture(ID3D12CommandQueue* WaitingQueue, std::uint64_t DirectTicket) const override;
-			Interface::Future SignalFuture();
+			RenderContract::Future SignalFuture();
 			void SetComputeQueue(Interface::IComputeQueue* ComputeQueue);
 			void SetUploadInfrastructure(GraphicsAllocator* GraphicsAllocator, Interface::ICopyQueue* CopyQueue);
-			void PreRender(Game::RFD::RenderFrameData& Data, float Dt);
-			void Render(Game::RFD::RenderFrameData& Data, Widget::WidgetCore* WidgetCore);
+			void PreRender(RenderContract::RenderFrameData& Data, float Dt);
+			void Render(RenderContract::RenderFrameData& Data, Widget::WidgetCore* WidgetCore);
 
 		private:
 			void InitBasements();
@@ -90,14 +90,14 @@ namespace Core {
 			void BeginGpuFrameTimestampQuery(std::uint32_t FrameIndex);
 			void EndGpuFrameTimestampQuery(std::uint32_t FrameIndex);
 			void InitGBufferResources();
-			void EnsureShadowMapResources(const Game::RFD::ShadowMappingParameter& ShadowMappingParameter);
+			void EnsureShadowMapResources(const RenderContract::ShadowMappingParameter& ShadowMappingParameter);
 			PostProcessJob BuildToneMappingPostProcessJob(const TexPtr& SourceTarget, const TexPtr& DestinationTarget, bool IsPostProcessEnabled);
 			void PreparePostProcessJobResources(ID3D12GraphicsCommandList* CommandList, const PostProcessJob& Job);
-			Interface::Future EnqueuePostProcessJob(const Interface::Future& WaitFuture, const PostProcessJob& Job);
+			RenderContract::Future EnqueuePostProcessJob(const RenderContract::Future& WaitFuture, const PostProcessJob& Job);
 			Game::Base::Pipeline* ResolvePostProcessPipeline(const std::string& PipelineName);
-			void BeginPostProcessFinalPass(std::uint32_t CurrentIndex, const std::array<ID3D12DescriptorHeap*, 1>& DescriptorHeaps, const Interface::Future& PostProcessFuture);
+			void BeginPostProcessFinalPass(std::uint32_t CurrentIndex, const std::array<ID3D12DescriptorHeap*, 1>& DescriptorHeaps, const RenderContract::Future& PostProcessFuture);
 			void CopyPostProcessToBackBuffer(const TexPtr& PostProcessTarget, const TexPtr& RenderTarget);
-			void DrawFinalOverlays(Game::RFD::RenderFrameData& Data, Widget::WidgetCore* WidgetCore, DrawCallResourceManager& DrawCallResources, D3D12_CPU_DESCRIPTOR_HANDLE Dsv, std::uint32_t CurrentIndex, std::uint32_t ShadowCascadeCount);
+			void DrawFinalOverlays(RenderContract::RenderFrameData& Data, Widget::WidgetCore* WidgetCore, DrawCallResourceManager& DrawCallResources, D3D12_CPU_DESCRIPTOR_HANDLE Dsv, std::uint32_t CurrentIndex, std::uint32_t ShadowCascadeCount);
 			void FinishPresentTarget(const TexPtr& RenderTarget);
 			void ExecutePostProcessFinalPass();
 
@@ -154,11 +154,11 @@ namespace Core {
 			DescriptorHeap mDSVHeap{};
 			TexPtr mDepthStencilBuffer{};
 			DescriptorHeap mShadowDSVHeap{};
-			std::array<TexPtr, Game::RFD::ShadowCascadeMaxCount> mShadowDepthMaps{};
+			std::array<TexPtr, RenderContract::ShadowCascadeMaxCount> mShadowDepthMaps{};
 			uint32_t mShadowCascadeCount{};
-			std::array<uint32_t, Game::RFD::ShadowCascadeMaxCount> mShadowMapSizes{};
+			std::array<uint32_t, RenderContract::ShadowCascadeMaxCount> mShadowMapSizes{};
 			DescriptorHandle mShadowMapBaseSrvHandle{};
-			std::array<DescriptorHandle, Game::RFD::ShadowCascadeMaxCount> mShadowMapSrvHandles{};
+			std::array<DescriptorHandle, RenderContract::ShadowCascadeMaxCount> mShadowMapSrvHandles{};
 			DescriptorHeap mSrvHeap{};
 			std::array<DrawCallResourceManager, Constants::FrameCount<size_t>> mDrawCallResourceManagers{};
 			MaterialResourceManager mMaterialResourceManager{};
@@ -175,8 +175,8 @@ namespace Core {
 
 			D3D12_VIEWPORT mViewport{ 0, 0, Config::Query()->Get<float>("Window_Width"), Config::Query()->Get<float>("Window_Height"), 0.f, 1.f };
 			D3D12_RECT mScissorRect{ 0, 0, Config::Query()->Get<LONG>("Window_Width"), Config::Query()->Get<LONG>("Window_Height") };
-			std::array<D3D12_VIEWPORT, Game::RFD::ShadowCascadeMaxCount> mShadowViewports{};
-			std::array<D3D12_RECT, Game::RFD::ShadowCascadeMaxCount> mShadowScissorRects{};
+			std::array<D3D12_VIEWPORT, RenderContract::ShadowCascadeMaxCount> mShadowViewports{};
+			std::array<D3D12_RECT, RenderContract::ShadowCascadeMaxCount> mShadowScissorRects{};
 		};
 
 	}

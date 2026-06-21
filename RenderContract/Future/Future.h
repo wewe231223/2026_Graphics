@@ -1,24 +1,16 @@
-﻿#pragma once
+#pragma once
+
 #include <cstdint>
 #include <span>
 #include <vector>
-#include <d3d12.h>
 
-namespace Interface {
-    class IFutureSyncObject {
-    public:
-        virtual ~IFutureSyncObject() = default;
+#include "RenderContract/Common.h"
 
-    public:
-        virtual bool IsFutureComplete(std::uint64_t FutureTicket) const = 0;
-        virtual void WaitFuture(std::uint64_t FutureTicket) const = 0;
-        virtual void QueueWaitFuture(ID3D12CommandQueue* WaitingQueue, std::uint64_t FutureTicket) const = 0;
-        virtual void QueueWaitFutures(ID3D12CommandQueue* WaitingQueue, std::span<const std::uint64_t> FutureTickets) const;
-    };
-
+namespace RenderContract {
     class Future final {
     private:
         struct FuturePoint final {
+        public:
             const IFutureSyncObject* mSyncObject{};
             std::uint64_t mTicket{};
         };

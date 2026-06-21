@@ -4,6 +4,7 @@
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/Frustum.h"
 #include "Game/Scene/Components/Transform.h"
+#include "RenderContract/Writer/FrameRenderWriter.h"
 
 namespace {
     constexpr float ThirdPersonPositionLerpMin{ 0.0f };
@@ -30,7 +31,7 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> CameraRenderSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 1> Accesses{ { { typeid(RFD::RenderFrameData), Access::Write } } };
+        static std::array<ResourceAccess, 1> Accesses{ { { typeid(RenderContract::RenderFrameData), Access::Write } } };
         return Accesses;
     }
 
@@ -96,22 +97,26 @@ namespace Game {
         FrustumComponent.UpdateFromViewProjection(CameraComponent.viewMatrix, CameraComponent.projMatrix);
     }
 
-    void CameraRenderSystem::WriteCameraParameter(const Camera& CameraComponent, const Transform& TransformComponent, RFD::RenderFrameData& RenderData, float Dt) const {
-        RFD::CameraParameter CameraParameter{};
-        CameraParameter.view = CameraComponent.viewMatrix;
-        CameraParameter.proj = CameraComponent.projMatrix;
-        CameraParameter.viewProj = CameraParameter.view * CameraParameter.proj;
-        CameraParameter.position = DirectX::SimpleMath::Vector4{ TransformComponent.position.x, TransformComponent.position.y, TransformComponent.position.z, 1.0f };
-        CameraParameter.nearPlane = CameraComponent.nearPlane;
-        CameraParameter.farPlane = CameraComponent.farPlane;
-        CameraParameter.aspectRatio = CameraComponent.aspectRatio;
-        CameraParameter.fovRadians = DirectX::XMConvertToRadians(CameraComponent.fov);
+    void CameraRenderSystem::WriteCameraParameter(const Camera& CameraComponent, const Transform& TransformComponent, RenderContract::RenderFrameData& RenderData, float Dt) const {
+        RenderContract::CameraParameter CameraParameter{};
+        CameraParameter.mView = CameraComponent.viewMatrix;
+        CameraParameter.mProj = CameraComponent.projMatrix;
+        CameraParameter.mViewProj = CameraParameter.mView * CameraParameter.mProj;
+        CameraParameter.mPosition = DirectX::SimpleMath::Vector4{ TransformComponent.position.x, TransformComponent.position.y, TransformComponent.position.z, 1.0f };
+        CameraParameter.mNearPlane = CameraComponent.nearPlane;
+        CameraParameter.mFarPlane = CameraComponent.farPlane;
+        CameraParameter.mAspectRatio = CameraComponent.aspectRatio;
+        CameraParameter.mFovRadians = DirectX::XMConvertToRadians(CameraComponent.fov);
 
-        RenderData.mainCamera = CameraParameter;
-        RenderData.globals.prevViewProj = RenderData.globals.viewProj;
-        RenderData.globals.view = CameraParameter.view;
-        RenderData.globals.proj = CameraParameter.proj;
-        RenderData.globals.viewProj = CameraParameter.viewProj;
-        RenderData.globals.dt = Dt;
+        RenderContract::FrameGlobals FrameGlobals{ RenderData.mFrameGlobals };
+        FrameGlobals.mPrevViewProj = FrameGlobals.mViewProj;
+        FrameGlobals.mView = CameraParameter.mView;
+        FrameGlobals.mProj = CameraParameter.mProj;
+        FrameGlobals.mViewProj = CameraParameter.mViewProj;
+        FrameGlobals.mDt = Dt;
+
+        RenderContract::FrameRenderWriter FrameWriter{ RenderData };
+        FrameWriter.SetCameraParameter(CameraParameter);
+        FrameWriter.SetFrameGlobals(FrameGlobals);
     }
 }

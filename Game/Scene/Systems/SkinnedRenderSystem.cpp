@@ -42,7 +42,7 @@ namespace Game {
             public:
                 Arche::EntityID mEntityId{ Arche::NullEntityID };
                 std::vector<SimpleMath::Matrix> mBonePalette{};
-                std::vector<RFD::BoundingBoxContext> mBoneBoundingBoxContexts{};
+                std::vector<RenderContract::BoundingBoxContext> mBoneBoundingBoxContexts{};
             };
 
             ResolvedAnimator ResolveAnimatorInHierarchy(PipelineContext& Ctx, Arche::EntityID StartEntityId) {
@@ -93,15 +93,15 @@ namespace Game {
                 return true;
             }
 
-            void AppendBoundingBoxContext(const DirectX::BoundingOrientedBox& WorldObb, std::vector<RFD::BoundingBoxContext>& OutBoundingBoxContexts) {
-                RFD::BoundingBoxContext BoundingBoxContext{};
-                BoundingBoxContext.center = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
-                BoundingBoxContext.extents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
-                BoundingBoxContext.orientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
+            void AppendBoundingBoxContext(const DirectX::BoundingOrientedBox& WorldObb, std::vector<RenderContract::BoundingBoxContext>& OutBoundingBoxContexts) {
+                RenderContract::BoundingBoxContext BoundingBoxContext{};
+                BoundingBoxContext.mCenter = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
+                BoundingBoxContext.mExtents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
+                BoundingBoxContext.mOrientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
                 OutBoundingBoxContexts.push_back(BoundingBoxContext);
             }
 
-            void GatherBonePoseAndBoundingRecursive(PipelineContext& Ctx, Arche::EntityID EntityId, Model* ModelData, std::uint32_t SkinArrayIndex, const SimpleMath::Matrix& MeshWorldInverseMatrix, bool IsDrawBoundingBoxesEnabled, std::vector<SimpleMath::Matrix>& InOutBoneMatrices, std::vector<RFD::BoundingBoxContext>& InOutBoundingBoxContexts) {
+            void GatherBonePoseAndBoundingRecursive(PipelineContext& Ctx, Arche::EntityID EntityId, Model* ModelData, std::uint32_t SkinArrayIndex, const SimpleMath::Matrix& MeshWorldInverseMatrix, bool IsDrawBoundingBoxesEnabled, std::vector<SimpleMath::Matrix>& InOutBoneMatrices, std::vector<RenderContract::BoundingBoxContext>& InOutBoundingBoxContexts) {
                 if (EntityId == Arche::NullEntityID || ModelData == nullptr) {
                     return;
                 }
@@ -118,12 +118,12 @@ namespace Game {
                     if (IsBoneWorldMatrixResolved == true) {
                         const std::span<const RuntimeBoneInfo> RuntimeBoneInfos{ ModelData->GetRuntimeBoneInfos(BoneComponent->runtimeBoneInfoOffset, BoneComponent->runtimeBoneInfoCount) };
                         for (const RuntimeBoneInfo& RuntimeBoneInfoItem : RuntimeBoneInfos) {
-                            if (RuntimeBoneInfoItem.SkinArrayIndex != SkinArrayIndex) {
+                            if (RuntimeBoneInfoItem.mSkinArrayIndex != SkinArrayIndex) {
                                 continue;
                             }
 
-                            if (RuntimeBoneInfoItem.JointArrayIndex < InOutBoneMatrices.size()) {
-                                InOutBoneMatrices[RuntimeBoneInfoItem.JointArrayIndex] = RuntimeBoneInfoItem.InverseBindMatrix * BoneWorldMatrix * MeshWorldInverseMatrix;
+                            if (RuntimeBoneInfoItem.mJointArrayIndex < InOutBoneMatrices.size()) {
+                                InOutBoneMatrices[RuntimeBoneInfoItem.mJointArrayIndex] = RuntimeBoneInfoItem.mInverseBindMatrix * BoneWorldMatrix * MeshWorldInverseMatrix;
                             }
                         }
 
@@ -262,14 +262,14 @@ namespace Game {
                 return CullingBox.Intersects(BoundingBoxComponent->GetWorldObb());
             }
 
-            void AppendSkinnedDrawRecords(const std::vector<ModelSubMesh>& SubMeshes, const ModelNode& Node, const RegisteredMaterialGroup* ResolvedMaterialGroup, std::uint32_t ObjectIndex, std::uint32_t MaterialFlags, std::uint32_t PickFlags, std::vector<RFD::DrawRecord>& OutDrawRecords) {
+            void AppendSkinnedDrawRecords(const std::vector<ModelSubMesh>& SubMeshes, const ModelNode& Node, const RegisteredMaterialGroup* ResolvedMaterialGroup, std::uint32_t ObjectIndex, std::uint32_t MaterialFlags, std::uint32_t PickFlags, std::vector<RenderContract::DrawRecord>& OutDrawRecords) {
                 for (std::size_t SubMeshIndex{}; SubMeshIndex < SubMeshes.size(); ++SubMeshIndex) {
                     const ModelSubMesh& SubMesh{ SubMeshes[SubMeshIndex] };
-                    const Interface::IPipeline* Pipeline{};
+                    const RenderContract::IPipeline* Pipeline{};
                     std::uint32_t ResolvedMaterialIndex{};
 
                     if (ResolvedMaterialGroup != nullptr) {
-                        std::size_t ResolvedItemIndex{ SubMesh.MaterialGroupItemIndex };
+                        std::size_t ResolvedItemIndex{ SubMesh.mMaterialGroupItemIndex };
                         if (ResolvedItemIndex >= ResolvedMaterialGroup->Items.size()) {
                             ResolvedItemIndex = 0u;
                         }
@@ -281,15 +281,15 @@ namespace Game {
                         }
                     }
 
-                    RFD::DrawRecord DrawRecord{};
-                    DrawRecord.pso = Pipeline;
-                    DrawRecord.mesh = &Node;
-                    DrawRecord.submesh = static_cast<std::uint32_t>(SubMeshIndex);
-                    DrawRecord.pass = 0u;
-                    DrawRecord.objectIndex = ObjectIndex;
-                    DrawRecord.materialIndex = ResolvedMaterialIndex;
-                    DrawRecord.flags = MaterialFlags | PickFlags;
-                    DrawRecord.pad0 = 0u;
+                    RenderContract::DrawRecord DrawRecord{};
+                    DrawRecord.mPipeline = Pipeline;
+                    DrawRecord.mMesh = &Node;
+                    DrawRecord.mSubMesh = static_cast<std::uint32_t>(SubMeshIndex);
+                    DrawRecord.mPass = 0u;
+                    DrawRecord.mObjectIndex = ObjectIndex;
+                    DrawRecord.mMaterialIndex = ResolvedMaterialIndex;
+                    DrawRecord.mFlags = MaterialFlags | PickFlags;
+                    DrawRecord.mPadding0 = 0u;
                     OutDrawRecords.push_back(DrawRecord);
                 }
             }
@@ -327,12 +327,12 @@ namespace Game {
         void PipelineSkinnedRenderSystem::Execute(PipelineContext& Ctx, float Dt) {
             (void)Dt;
 
-            RenderGatherResult& GatherResult{ Ctx.GetRenderGatherResult() };
+            RenderContract::RenderGatherResult& GatherResult{ Ctx.GetRenderGatherResult() };
             const std::vector<RegisteredMaterialGroup>* MaterialGroups{ Ctx.GetMaterialGroups() };
-            const RFD::ShadowMappingParameter& ShadowMappingParameter{ Ctx.GetShadowMappingParameter() };
-            const std::uint32_t ShadowCascadeCount{ RFD::ResolveShadowCascadeCount(ShadowMappingParameter) };
-            const std::array<DirectX::BoundingOrientedBox, RFD::ShadowCascadeMaxCount> ShadowCullingBoxes{ RFD::BuildShadowCullingBoxes(ShadowMappingParameter) };
-            const bool IsDrawBoundingBoxesEnabled{ Ctx.HasRenderFlag(RFD::FrameGlobalFlagDrawBoundingBoxes) };
+            const RenderContract::ShadowMappingParameter& ShadowMappingParameter{ Ctx.GetShadowMappingParameter() };
+            const std::uint32_t ShadowCascadeCount{ RenderContract::ResolveShadowCascadeCount(ShadowMappingParameter) };
+            const std::array<DirectX::BoundingOrientedBox, RenderContract::ShadowCascadeMaxCount> ShadowCullingBoxes{ RenderContract::BuildShadowCullingBoxes(ShadowMappingParameter) };
+            const bool IsDrawBoundingBoxesEnabled{ Ctx.HasRenderFlag(RenderContract::FrameGlobalFlagDrawBoundingBoxes) };
             std::unordered_set<Arche::EntityID> AppendedBoundingBoxEntities{};
             AppendedBoundingBoxEntities.reserve(64u);
 
@@ -397,14 +397,14 @@ namespace Game {
                 const std::uint32_t PickFlags{ IsPickedHierarchy == true ? PickedDrawFlagBitMask : 0u };
                 const RegisteredMaterialGroup* ResolvedMaterialGroup{ ResolveMaterialGroup(MaterialGroups, MaterialComponent) };
 
-                RFD::ModelContext ModelContext{};
-                ModelContext.world = TransformComponent.worldMatrix;
-                ModelContext.prevWorld = ModelContext.world;
-                ModelContext.flags = SkinnedModelContextFlagBitMask;
-                ModelContext.boneIndexStart = LocalBoneIndexStart;
-                ModelContext.objectID = static_cast<std::uint32_t>(GatherResult.GetModelContexts().size());
+                RenderContract::ModelContext ModelContext{};
+                ModelContext.mWorld = TransformComponent.worldMatrix;
+                ModelContext.mPrevWorld = ModelContext.mWorld;
+                ModelContext.mFlags = SkinnedModelContextFlagBitMask;
+                ModelContext.mBoneIndexStart = LocalBoneIndexStart;
+                ModelContext.mObjectId = static_cast<std::uint32_t>(GatherResult.GetModelContexts().size());
                 GatherResult.GetModelContexts().push_back(ModelContext);
-                AppendSkinnedDrawRecords(SubMeshes, Node, ResolvedMaterialGroup, ModelContext.objectID, MaterialFlags, PickFlags, GatherResult.GetDrawRecords());
+                AppendSkinnedDrawRecords(SubMeshes, Node, ResolvedMaterialGroup, ModelContext.mObjectId, MaterialFlags, PickFlags, GatherResult.GetDrawRecords());
 
                 for (std::uint32_t CascadeIndex{}; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1u) {
                     const bool IsVisibleByShadow{ IsVisibleByShadowBox(Ctx, EntityId, ShadowCullingBoxes[CascadeIndex]) };
@@ -412,15 +412,15 @@ namespace Game {
                         continue;
                     }
 
-                    RFD::ShadowRenderContext& ShadowRenderContext{ GatherResult.GetShadowRenderContexts()[CascadeIndex] };
-                    RFD::ModelContext ShadowModelContext{};
-                    ShadowModelContext.world = TransformComponent.worldMatrix;
-                    ShadowModelContext.prevWorld = ShadowModelContext.world;
-                    ShadowModelContext.flags = SkinnedModelContextFlagBitMask;
-                    ShadowModelContext.boneIndexStart = LocalBoneIndexStart;
-                    ShadowModelContext.objectID = static_cast<std::uint32_t>(ShadowRenderContext.ModelContexts.size());
-                    ShadowRenderContext.ModelContexts.push_back(ShadowModelContext);
-                    AppendSkinnedDrawRecords(SubMeshes, Node, ResolvedMaterialGroup, ShadowModelContext.objectID, MaterialFlags, 0u, ShadowRenderContext.DrawRecords);
+                    RenderContract::ShadowRenderContext& ShadowRenderContext{ GatherResult.GetShadowRenderContexts()[CascadeIndex] };
+                    RenderContract::ModelContext ShadowModelContext{};
+                    ShadowModelContext.mWorld = TransformComponent.worldMatrix;
+                    ShadowModelContext.mPrevWorld = ShadowModelContext.mWorld;
+                    ShadowModelContext.mFlags = SkinnedModelContextFlagBitMask;
+                    ShadowModelContext.mBoneIndexStart = LocalBoneIndexStart;
+                    ShadowModelContext.mObjectId = static_cast<std::uint32_t>(ShadowRenderContext.mModelContexts.size());
+                    ShadowRenderContext.mModelContexts.push_back(ShadowModelContext);
+                    AppendSkinnedDrawRecords(SubMeshes, Node, ResolvedMaterialGroup, ShadowModelContext.mObjectId, MaterialFlags, 0u, ShadowRenderContext.mDrawRecords);
                 }
             });
         }

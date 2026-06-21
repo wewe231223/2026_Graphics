@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include "Arche/Common.h"
-#include "Game/Base/RenderFrameData.h"
+#include "RenderContract/Frame/RenderFrameData.h"
 #include "Game/Environment/EnvironmentObjectRenderContext.h"
 #include "Game/Scene/Base/SceneWorldSnapshot.h"
 #include "Game/Terrain/TerrainManager.h"
@@ -20,7 +20,7 @@ namespace Game {
     struct SkinnedMeshPreparedData final {
         Arche::EntityID EntityId{ Arche::NullEntityID };
         std::vector<SimpleMath::Matrix> BonePalette{};
-        std::vector<RFD::BoundingBoxContext> BoneBoundingBoxContexts{};
+        std::vector<RenderContract::BoundingBoxContext> BoneBoundingBoxContexts{};
     };
 
     struct FramePipelineAssignment final {
@@ -30,7 +30,7 @@ namespace Game {
     };
 
     struct FrameContext final {
-        RFD::RenderFrameData RenderData{};
+        RenderContract::RenderFrameData RenderData{};
         EnvironmentObjectRenderContext mEnvironmentObjectRenderContext{};
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
         AssetRegistry* AssetRegistryResource{ nullptr };

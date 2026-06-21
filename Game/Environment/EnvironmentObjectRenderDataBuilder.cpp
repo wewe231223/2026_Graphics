@@ -1,27 +1,29 @@
-#include "EnvironmentObjectRenderDataBuilder.h"
+﻿#include "EnvironmentObjectRenderDataBuilder.h"
 
 #include <algorithm>
 #include <array>
 #include <cstddef>
 #include <vector>
 
+#include "RenderContract/Writer/EnvironmentRenderWriter.h"
+
 namespace Game {
     namespace {
-        RFD::EnvironmentInstanceContext BuildEnvironmentInstanceContext(const EnvironmentObjectInstance& Instance) {
-            RFD::EnvironmentInstanceContext Context{};
+        RenderContract::EnvironmentInstanceContext BuildEnvironmentInstanceContext(const EnvironmentObjectInstance& Instance) {
+            RenderContract::EnvironmentInstanceContext Context{};
             Context.mPositionScale = SimpleMath::Vector4{ Instance.mPosition.x, Instance.mPosition.y, Instance.mPosition.z, Instance.mScale };
             Context.mRotationVariation = SimpleMath::Vector4{ Instance.mYawRadians, static_cast<float>(Instance.mVariation), 0.0f, 0.0f };
             return Context;
         }
 
-        RFD::EnvironmentSegmentContext BuildEnvironmentSegmentContext(const EnvironmentObjectBatch& Batch) {
-            RFD::EnvironmentSegmentContext Context{};
+        RenderContract::EnvironmentSegmentContext BuildEnvironmentSegmentContext(const EnvironmentObjectBatch& Batch) {
+            RenderContract::EnvironmentSegmentContext Context{};
             Context.mLocalTransform = Batch.mLocalTransform;
             return Context;
         }
 
-        RFD::EnvironmentDrawRecord BuildEnvironmentDrawRecord(const EnvironmentObjectBatch& Batch, std::uint32_t SegmentContextIndex) {
-            RFD::EnvironmentDrawRecord DrawRecord{};
+        RenderContract::EnvironmentDrawRecord BuildEnvironmentDrawRecord(const EnvironmentObjectBatch& Batch, std::uint32_t SegmentContextIndex) {
+            RenderContract::EnvironmentDrawRecord DrawRecord{};
             DrawRecord.mPipeline = Batch.mPipeline;
             DrawRecord.mMesh = Batch.mMesh;
             DrawRecord.mSubMesh = Batch.mSubMeshIndex;
@@ -53,7 +55,7 @@ namespace Game {
             return false;
         }
 
-        RFD::EnvironmentDrawRecord BuildOffsetEnvironmentDrawRecord(RFD::EnvironmentDrawRecord DrawRecord, std::size_t InstanceContextOffset, std::size_t SegmentContextOffset) {
+        RenderContract::EnvironmentDrawRecord BuildOffsetEnvironmentDrawRecord(RenderContract::EnvironmentDrawRecord DrawRecord, std::size_t InstanceContextOffset, std::size_t SegmentContextOffset) {
             DrawRecord.mInstanceOffset += static_cast<std::uint32_t>(InstanceContextOffset);
             DrawRecord.mSegmentContextIndex += static_cast<std::uint32_t>(SegmentContextOffset);
             return DrawRecord;
@@ -128,56 +130,60 @@ namespace Game {
         return true;
     }
 
-    void AppendEnvironmentObjectRenderPacketData(const EnvironmentObjectRenderPacket& Packet, const EnvironmentObjectRenderBuildOptions& Options, Pipeline::RenderGatherResult& OutRenderGatherResult) {
+    void AppendEnvironmentObjectRenderPacketData(const EnvironmentObjectRenderPacket& Packet, const EnvironmentObjectRenderBuildOptions& Options, RenderContract::RenderGatherResult& OutRenderGatherResult) {
         if (EmptyEnvironmentObjectRenderPacket(Packet) == true || Packet.mLods.empty() == true || (Options.mEnableMainPass == false && Options.mEnableShadowPass == false)) {
             return;
         }
 
+        RenderContract::EnvironmentRenderWriter EnvironmentWriter{ OutRenderGatherResult };
+        std::vector<RenderContract::EnvironmentInstanceContext>& EnvironmentInstanceContexts{ EnvironmentWriter.GetEnvironmentInstanceContexts() };
+        std::vector<RenderContract::EnvironmentSegmentContext>& EnvironmentSegmentContexts{ EnvironmentWriter.GetEnvironmentSegmentContexts() };
+        std::vector<RenderContract::EnvironmentDrawRecord>& EnvironmentDrawRecords{ EnvironmentWriter.GetEnvironmentDrawRecords() };
         const std::size_t LodLevel{ std::min<std::size_t>(Options.mLodLevel, Packet.mLods.size() - 1ULL) };
         const EnvironmentObjectRenderPacketLod& Lod{ Packet.mLods[LodLevel] };
         if (Lod.mDrawRecords.empty() == true) {
             return;
         }
 
-        const std::size_t InstanceContextOffset{ OutRenderGatherResult.GetEnvironmentInstanceContexts().size() };
-        const std::size_t SegmentContextOffset{ OutRenderGatherResult.GetEnvironmentSegmentContexts().size() };
+        const std::size_t InstanceContextOffset{ EnvironmentInstanceContexts.size() };
+        const std::size_t SegmentContextOffset{ EnvironmentSegmentContexts.size() };
 
-        OutRenderGatherResult.GetEnvironmentInstanceContexts().reserve(OutRenderGatherResult.GetEnvironmentInstanceContexts().size() + Packet.mInstanceContexts.size());
-        OutRenderGatherResult.GetEnvironmentInstanceContexts().insert(OutRenderGatherResult.GetEnvironmentInstanceContexts().end(), Packet.mInstanceContexts.begin(), Packet.mInstanceContexts.end());
-        OutRenderGatherResult.GetEnvironmentSegmentContexts().reserve(OutRenderGatherResult.GetEnvironmentSegmentContexts().size() + Lod.mSegmentContexts.size());
-        OutRenderGatherResult.GetEnvironmentSegmentContexts().insert(OutRenderGatherResult.GetEnvironmentSegmentContexts().end(), Lod.mSegmentContexts.begin(), Lod.mSegmentContexts.end());
-        OutRenderGatherResult.GetEnvironmentDrawRecords().reserve(OutRenderGatherResult.GetEnvironmentDrawRecords().size() + Lod.mDrawRecords.size());
+        EnvironmentInstanceContexts.reserve(EnvironmentInstanceContexts.size() + Packet.mInstanceContexts.size());
+        EnvironmentInstanceContexts.insert(EnvironmentInstanceContexts.end(), Packet.mInstanceContexts.begin(), Packet.mInstanceContexts.end());
+        EnvironmentSegmentContexts.reserve(EnvironmentSegmentContexts.size() + Lod.mSegmentContexts.size());
+        EnvironmentSegmentContexts.insert(EnvironmentSegmentContexts.end(), Lod.mSegmentContexts.begin(), Lod.mSegmentContexts.end());
+        EnvironmentDrawRecords.reserve(EnvironmentDrawRecords.size() + Lod.mDrawRecords.size());
 
-        std::array<RFD::ShadowRenderContext, RFD::ShadowCascadeMaxCount>& ShadowRenderContexts{ OutRenderGatherResult.GetShadowRenderContexts() };
         if (Options.mEnableShadowPass == true) {
-            for (std::uint32_t CascadeIndex{}; CascadeIndex < ShadowRenderContexts.size(); CascadeIndex += 1u) {
+            for (std::uint32_t CascadeIndex{}; CascadeIndex < RenderContract::ShadowCascadeMaxCount; CascadeIndex += 1u) {
                 const std::uint32_t CascadeBit{ 1u << CascadeIndex };
                 if ((Options.mShadowCascadeMask & CascadeBit) != 0u) {
-                    ShadowRenderContexts[CascadeIndex].mEnvironmentDrawRecords.reserve(ShadowRenderContexts[CascadeIndex].mEnvironmentDrawRecords.size() + Lod.mDrawRecords.size());
+                    std::vector<RenderContract::EnvironmentDrawRecord>& ShadowEnvironmentDrawRecords{ EnvironmentWriter.GetShadowEnvironmentDrawRecords(CascadeIndex) };
+                    ShadowEnvironmentDrawRecords.reserve(ShadowEnvironmentDrawRecords.size() + Lod.mDrawRecords.size());
                 }
             }
         }
 
-        for (const RFD::EnvironmentDrawRecord& PacketDrawRecord : Lod.mDrawRecords) {
-            const RFD::EnvironmentDrawRecord DrawRecord{ BuildOffsetEnvironmentDrawRecord(PacketDrawRecord, InstanceContextOffset, SegmentContextOffset) };
+        for (const RenderContract::EnvironmentDrawRecord& PacketDrawRecord : Lod.mDrawRecords) {
+            const RenderContract::EnvironmentDrawRecord DrawRecord{ BuildOffsetEnvironmentDrawRecord(PacketDrawRecord, InstanceContextOffset, SegmentContextOffset) };
             if (Options.mEnableMainPass == true) {
-                OutRenderGatherResult.GetEnvironmentDrawRecords().push_back(DrawRecord);
+                EnvironmentDrawRecords.push_back(DrawRecord);
             }
 
             if (Options.mEnableShadowPass == false || DrawRecord.mCastsShadow == false) {
                 continue;
             }
 
-            for (std::uint32_t CascadeIndex{}; CascadeIndex < ShadowRenderContexts.size(); CascadeIndex += 1u) {
+            for (std::uint32_t CascadeIndex{}; CascadeIndex < RenderContract::ShadowCascadeMaxCount; CascadeIndex += 1u) {
                 const std::uint32_t CascadeBit{ 1u << CascadeIndex };
                 if ((Options.mShadowCascadeMask & CascadeBit) != 0u) {
-                    ShadowRenderContexts[CascadeIndex].mEnvironmentDrawRecords.push_back(DrawRecord);
+                    EnvironmentWriter.GetShadowEnvironmentDrawRecords(CascadeIndex).push_back(DrawRecord);
                 }
             }
         }
     }
 
-    void AppendEnvironmentObjectCellRenderData(const EnvironmentObjectCell& Cell, const EnvironmentObjectRenderBuildOptions& Options, Pipeline::RenderGatherResult& OutRenderGatherResult) {
+    void AppendEnvironmentObjectCellRenderData(const EnvironmentObjectCell& Cell, const EnvironmentObjectRenderBuildOptions& Options, RenderContract::RenderGatherResult& OutRenderGatherResult) {
         const EnvironmentObjectRenderPacket Packet{ BuildEnvironmentObjectRenderPacket(Cell) };
         AppendEnvironmentObjectRenderPacketData(Packet, Options, OutRenderGatherResult);
     }

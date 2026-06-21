@@ -1,4 +1,4 @@
-#include "EnvironmentObjectTypes.h"
+﻿#include "EnvironmentObjectTypes.h"
 
 #include <algorithm>
 #include <array>
@@ -149,7 +149,7 @@ namespace Game {
 
                 const SimpleMath::Matrix SegmentLocalTransform{ NodeLocalTransforms[NodeIndex] * Part.mLocalTransform };
                 for (std::uint32_t SubMeshIndex{}; SubMeshIndex < SubMeshes.size(); SubMeshIndex += 1u) {
-                    const RegisteredMaterialGroupItem MaterialGroupItem{ ResolveRegisteredMaterialGroupItem(MaterialGroup, SubMeshes[SubMeshIndex].MaterialGroupItemIndex) };
+                    const RegisteredMaterialGroupItem MaterialGroupItem{ ResolveRegisteredMaterialGroupItem(MaterialGroup, SubMeshes[SubMeshIndex].mMaterialGroupItemIndex) };
                     EnvironmentObjectRenderSegment Segment{};
                     Segment.mPipeline = MaterialGroupItem.Pipeline;
                     Segment.mMesh = &Node;

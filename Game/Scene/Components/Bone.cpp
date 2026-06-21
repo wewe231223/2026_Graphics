@@ -1,4 +1,4 @@
-#include "Game/Scene/Components/Bone.h"
+﻿#include "Game/Scene/Components/Bone.h"
 
 #include <format>
 
@@ -29,7 +29,7 @@ namespace Game {
         const std::span<const RuntimeBoneInfo> RuntimeBoneInfos{ model->GetRuntimeBoneInfos(runtimeBoneInfoOffset, runtimeBoneInfoCount) };
         for (std::size_t RuntimeBoneInfoIndex{ 0 }; RuntimeBoneInfoIndex < RuntimeBoneInfos.size(); ++RuntimeBoneInfoIndex) {
             const RuntimeBoneInfo& RuntimeBoneInfoItem{ RuntimeBoneInfos[RuntimeBoneInfoIndex] };
-            OutFields.push_back(ComponentInspectionField{ std::format("BoneInfo[{}]", RuntimeBoneInfoIndex), std::format("SkinArrayIndex={}, JointArrayIndex={}", RuntimeBoneInfoItem.SkinArrayIndex, RuntimeBoneInfoItem.JointArrayIndex) });
+            OutFields.push_back(ComponentInspectionField{ std::format("BoneInfo[{}]", RuntimeBoneInfoIndex), std::format("SkinArrayIndex={}, JointArrayIndex={}", RuntimeBoneInfoItem.mSkinArrayIndex, RuntimeBoneInfoItem.mJointArrayIndex) });
         }
     }
 }

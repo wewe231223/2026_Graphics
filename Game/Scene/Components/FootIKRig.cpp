@@ -1,4 +1,4 @@
-#include "Game/Scene/Components/FootIKRig.h"
+﻿#include "Game/Scene/Components/FootIKRig.h"
 
 #include <string>
 #include "Game/Scene/Components/ComponentInspection.h"

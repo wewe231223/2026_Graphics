@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <array>
 #include <cstdint>
@@ -66,7 +66,7 @@ namespace Game {
         std::int32_t GetStreamOriginGridZ() const;
         float GetStreamWorldOriginX() const;
         float GetStreamWorldOriginZ() const;
-        Interface::Future GetFrameUploadFuture(std::uint32_t FrameIndex) const;
+        RenderContract::Future GetFrameUploadFuture(std::uint32_t FrameIndex) const;
 
     private:
         bool EnsureHeightFieldFrameResource(const HeightFieldData& Field, std::uint32_t FrameIndex, std::size_t HeightFieldSizeInBytes, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
@@ -93,7 +93,7 @@ namespace Game {
         DirectX::BoundingOrientedBox mLocalBoundingBox{};
         std::array<TerrainFrameBufferResource, Constants::FrameCount<std::size_t>> mHeightFieldFrameResources{};
         std::array<TerrainFrameBufferResource, Constants::FrameCount<std::size_t>> mSplatMapFrameResources{};
-        std::array<Interface::Future, Constants::FrameCount<std::size_t>> mTerrainFrameCopyFutures{};
+        std::array<RenderContract::Future, Constants::FrameCount<std::size_t>> mTerrainFrameCopyFutures{};
         std::array<bool, Constants::FrameCount<std::size_t>> mTerrainFrameDirtyFlags{};
         std::uint32_t mHeightFieldWidth{ 0 };
         std::uint32_t mHeightFieldHeight{ 0 };

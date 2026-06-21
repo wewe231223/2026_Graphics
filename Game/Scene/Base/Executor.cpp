@@ -45,7 +45,7 @@ namespace Game {
             return *this;
         }
 
-        void PipelineExecutor::ExecuteWorkUnit(Arche::World& World, SceneWorkUnit& WorkUnit, const PipelineFrameInput& FrameInput, RenderGatherResult& RenderGatherResultValue, float Dt) const {
+        void PipelineExecutor::ExecuteWorkUnit(Arche::World& World, SceneWorkUnit& WorkUnit, const PipelineFrameInput& FrameInput, RenderContract::RenderGatherResult& RenderGatherResultValue, float Dt) const {
             std::vector<Arche::EntityID>& EntityIds{ WorkUnit.GetEntityIds() };
             PipelineContext Ctx{ World, WorkUnit.GetUnitEntityId(), std::span<const Arche::EntityID>{ EntityIds.data(), EntityIds.size() }, FrameInput, RenderGatherResultValue };
 
@@ -83,14 +83,14 @@ namespace Game {
             return std::clamp(RawChunkSize, std::size_t{ 1 }, MaxChunkSize);
         }
 
-        void PipelineExecutor::ExecuteWorkUnitsByDynamicPull(Arche::World& World, std::span<SceneWorkUnit> WorkUnits, const PipelineFrameInput& FrameInput, std::span<RenderGatherResult> RenderGatherResults, float Dt) {
+        void PipelineExecutor::ExecuteWorkUnitsByDynamicPull(Arche::World& World, std::span<SceneWorkUnit> WorkUnits, const PipelineFrameInput& FrameInput, std::span<RenderContract::RenderGatherResult> RenderGatherResults, float Dt) {
             const std::size_t WorkUnitCount{ WorkUnits.size() };
             const std::size_t TotalWorkerCount{ RenderGatherResults.size() };
             const std::size_t SubmittedWorkerCount{ TotalWorkerCount > 1 ? TotalWorkerCount - 1 : 0 };
             const std::size_t WorkUnitChunkSize{ ResolveWorkUnitChunkSize(WorkUnitCount, TotalWorkerCount) };
             std::atomic<std::size_t> NextWorkUnitIndex{};
             auto WorkerFunction{ [this, &World, WorkUnits, &FrameInput, RenderGatherResults, Dt, WorkUnitCount, WorkUnitChunkSize, &NextWorkUnitIndex](std::size_t RenderGatherResultIndex) {
-                RenderGatherResult& RenderGatherResultValue{ RenderGatherResults[RenderGatherResultIndex] };
+                RenderContract::RenderGatherResult& RenderGatherResultValue{ RenderGatherResults[RenderGatherResultIndex] };
                 while (true) {
                     const std::size_t FirstWorkUnitIndex{ NextWorkUnitIndex.fetch_add(WorkUnitChunkSize, std::memory_order_relaxed) };
                     if (FirstWorkUnitIndex >= WorkUnitCount) {
@@ -129,7 +129,7 @@ namespace Game {
 
             const std::size_t TotalWorkerCount{ ResolveTotalWorkerCount(WorkUnitCount) };
             PrepareRenderGatherResults(TotalWorkerCount);
-            std::span<RenderGatherResult> RenderGatherResultSpan{ mRenderGatherResults.data(), mActiveRenderGatherResultCount };
+            std::span<RenderContract::RenderGatherResult> RenderGatherResultSpan{ mRenderGatherResults.data(), mActiveRenderGatherResultCount };
 
             if (WorkUnitCount == 1) {
                 ExecuteWorkUnit(World, WorkUnits[0], FrameInput, RenderGatherResultSpan[0], Dt);
@@ -139,8 +139,8 @@ namespace Game {
             ExecuteWorkUnitsByDynamicPull(World, WorkUnits, FrameInput, RenderGatherResultSpan, Dt);
         }
 
-        std::span<const RenderGatherResult> PipelineExecutor::GetRenderGatherResults() const {
-            return std::span<const RenderGatherResult>{ mRenderGatherResults.data(), mActiveRenderGatherResultCount };
+        std::span<const RenderContract::RenderGatherResult> PipelineExecutor::GetRenderGatherResults() const {
+            return std::span<const RenderContract::RenderGatherResult>{ mRenderGatherResults.data(), mActiveRenderGatherResultCount };
         }
 
         void PipelineExecutor::PrepareRenderGatherResults(std::size_t RenderGatherResultCount) {

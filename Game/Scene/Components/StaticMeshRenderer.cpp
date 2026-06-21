@@ -1,4 +1,4 @@
-#include "StaticMeshRenderer.h"
+﻿#include "StaticMeshRenderer.h"
 #include <format>
 #include "Game/Scene/Components/ComponentInspection.h"
 

@@ -43,7 +43,7 @@ namespace {
     }
 
     void AppendFootCornerDebugLines(Arche::World& World, const Game::ITerrainQuery& TerrainQuery, Game::FrameContext& Ctx, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
-        const bool IsDrawDebugGeometriesEnabled{ (Ctx.RenderData.globals.flags & Game::RFD::FrameGlobalFlagDrawDebugGeometry) != 0u };
+        const bool IsDrawDebugGeometriesEnabled{ (Ctx.RenderData.mFrameGlobals.mFlags & RenderContract::FrameGlobalFlagDrawDebugGeometry) != 0u };
         if (IsDrawDebugGeometriesEnabled == false) {
             return;
         }
@@ -80,9 +80,9 @@ namespace {
             }
 
             const SimpleMath::Vector4& LineColor{ IsTerrainHit == true ? HitLineColor : CornerLineColor };
-            Ctx.RenderData.debugGeometryContexts.push_back(Game::RFD::DebugGeometryContext::CreateDirection(RayStartPoint, RayDirection, RayLineLength, LineColor, CornerLineThickness));
+            Ctx.RenderData.mDebugGeometryContexts.push_back(RenderContract::DebugGeometryContext::CreateDirection(RayStartPoint, RayDirection, RayLineLength, LineColor, CornerLineThickness));
             if (IsTerrainHit == true) {
-                Ctx.RenderData.debugGeometryContexts.push_back(Game::RFD::DebugGeometryContext::CreateDirection(HitPoint, HitNormal, HitNormalLineLength, HitNormalLineColor, CornerLineThickness));
+                Ctx.RenderData.mDebugGeometryContexts.push_back(RenderContract::DebugGeometryContext::CreateDirection(HitPoint, HitNormal, HitNormalLineLength, HitNormalLineColor, CornerLineThickness));
             }
         }
     }

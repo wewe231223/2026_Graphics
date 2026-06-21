@@ -177,7 +177,7 @@ void Texture::Unload() {
     mResource.Reset();
     mAllocationHandle.reset();
     mCurrentState = D3D12_RESOURCE_STATE_COMMON;
-    mCopyFuture = Interface::Future{};
+    mCopyFuture = RenderContract::Future{};
 
 	StdOutput::Print("Texture unloaded: {}", mName);
     
@@ -192,7 +192,7 @@ void Texture::WaitForCopyCompletion() const {
     mCopyFuture.Wait();
 }
 
-Interface::Future Texture::GetCopyFuture() const {
+RenderContract::Future Texture::GetCopyFuture() const {
     return mCopyFuture;
 }
 

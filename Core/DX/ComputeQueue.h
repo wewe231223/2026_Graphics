@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #define WIN32_LEAN_AND_MEAN
 #include <array>
 #include <atomic>
@@ -31,8 +31,8 @@ namespace Core {
 
         public:
             bool Initialize(ID3D12Device* Device) override;
-            Interface::Future EnqueueComputeFuture(const Interface::ComputeQueueDispatchRequest& DispatchRequest) override;
-            Interface::Future EnqueueComputeFuture(std::span<const Interface::ComputeQueueDispatchRequest> DispatchRequests) override;
+            RenderContract::Future EnqueueComputeFuture(const Interface::ComputeQueueDispatchRequest& DispatchRequest) override;
+            RenderContract::Future EnqueueComputeFuture(std::span<const Interface::ComputeQueueDispatchRequest> DispatchRequests) override;
 
             void DispatchComputes() override;
             bool IsFutureComplete(std::uint64_t ComputeTicket) const override;

@@ -1,4 +1,4 @@
-#include "HeightMapLoader.h"
+﻿#include "HeightMapLoader.h"
 
 #include <algorithm>
 #include <cmath>

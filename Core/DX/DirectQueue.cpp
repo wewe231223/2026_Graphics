@@ -23,16 +23,16 @@ namespace {
 		float SlopeScaledDepthBias{};
 	};
 
-	ShadowDepthBiasParameter BuildShadowDepthBiasParameter(const Game::RFD::ShadowMappingParameter& ShadowMappingParameter, std::uint32_t ShadowCascadeIndex) {
-		const std::uint32_t ClampedShadowCascadeIndex{ std::min<std::uint32_t>(ShadowCascadeIndex, Game::RFD::ShadowCascadeMaxCount - 1u) };
-		const float EffectiveShadowMapSize{ std::max(ShadowMappingParameter.shadowMapSizes[ClampedShadowCascadeIndex], ShadowMappingParameter.minimumShadowMapSize) };
+	ShadowDepthBiasParameter BuildShadowDepthBiasParameter(const RenderContract::ShadowMappingParameter& ShadowMappingParameter, std::uint32_t ShadowCascadeIndex) {
+		const std::uint32_t ClampedShadowCascadeIndex{ std::min<std::uint32_t>(ShadowCascadeIndex, RenderContract::ShadowCascadeMaxCount - 1u) };
+		const float EffectiveShadowMapSize{ std::max(ShadowMappingParameter.mShadowMapSizes[ClampedShadowCascadeIndex], ShadowMappingParameter.mMinimumShadowMapSize) };
 		ShadowDepthBiasParameter Parameter{};
-		Parameter.DepthBias = std::max(ShadowMappingParameter.rasterDepthBiases[ClampedShadowCascadeIndex], 0.0f);
-		Parameter.SlopeScaledDepthBias = std::max(ShadowMappingParameter.rasterSlopeScaledDepthBiases[ClampedShadowCascadeIndex], 0.0f);
+		Parameter.DepthBias = std::max(ShadowMappingParameter.mRasterDepthBiases[ClampedShadowCascadeIndex], 0.0f);
+		Parameter.SlopeScaledDepthBias = std::max(ShadowMappingParameter.mRasterSlopeScaledDepthBiases[ClampedShadowCascadeIndex], 0.0f);
 		if (EffectiveShadowMapSize > 0.0f) {
 			const float MinimumDepthBiasClamp{ 1.0f / EffectiveShadowMapSize };
 			const float MaximumDepthBiasClamp{ 2.0f / EffectiveShadowMapSize };
-			const float RequestedDepthBiasClamp{ std::max(ShadowMappingParameter.shadowBiases[ClampedShadowCascadeIndex], 0.0f) };
+			const float RequestedDepthBiasClamp{ std::max(ShadowMappingParameter.mShadowBiases[ClampedShadowCascadeIndex], 0.0f) };
 			Parameter.DepthBiasClamp = std::clamp(RequestedDepthBiasClamp, MinimumDepthBiasClamp, MaximumDepthBiasClamp);
 		}
 
@@ -80,7 +80,7 @@ namespace Core {
 			return &mSrvHeap;
 		}
 
-		void DirectQueue::QueueWaitFuture(const Interface::Future& Future) const {
+		void DirectQueue::QueueWaitFuture(const RenderContract::Future& Future) const {
 			Future.QueueWait(mDirectCommandQueue.Get());
 		}
 
@@ -110,14 +110,14 @@ namespace Core {
 			ErrorHandler::report(WaitingQueue->Wait(mDirectFence.Get(), DirectTicket), "DirectQueue", "Failed to queue wait for direct queue fence.", ErrorHandler::Level::Critical);
 		}
 
-		Interface::Future DirectQueue::SignalFuture() {
+		RenderContract::Future DirectQueue::SignalFuture() {
 			if (mDirectCommandQueue == nullptr || mDirectFence == nullptr) {
-				return Interface::Future{};
+				return RenderContract::Future{};
 			}
 
 			std::uint64_t DirectTicket{ mDirectFenceValueCounter.fetch_add(1) + 1 };
 			ErrorHandler::report(mDirectCommandQueue->Signal(mDirectFence.Get(), DirectTicket), "DirectQueue", "Failed to signal direct queue fence.", ErrorHandler::Level::Critical);
-			return Interface::Future{ this, DirectTicket };
+			return RenderContract::Future{ this, DirectTicket };
 		}
 
 		void DirectQueue::SetComputeQueue(Interface::IComputeQueue* ComputeQueue) {
@@ -129,8 +129,8 @@ namespace Core {
 			mCopyQueue = CopyQueue;
 		}
 
-		void DirectQueue::PreRender(Game::RFD::RenderFrameData& Data, float Dt) {
-			Data.globals.dt = Dt;
+		void DirectQueue::PreRender(RenderContract::RenderFrameData& Data, float Dt) {
+			Data.mFrameGlobals.mDt = Dt;
 			mRTVIndex = static_cast<uint32_t>(mFrameSync.GetCurrentIndex());
 
 			ErrorHandler::report(mGraphicsAllocator == nullptr, "DirectQueue", "GraphicsAllocator is not set.", ErrorHandler::Level::Critical);
@@ -197,7 +197,7 @@ namespace Core {
 		}
 
 
-		void DirectQueue::Render(Game::RFD::RenderFrameData& Data, Widget::WidgetCore* WidgetCore) {
+		void DirectQueue::Render(RenderContract::RenderFrameData& Data, Widget::WidgetCore* WidgetCore) {
 			ErrorHandler::report(mCopyQueue == nullptr, "DirectQueue", "CopyQueue is not set.", ErrorHandler::Level::Critical);
 			ErrorHandler::report(mComputeQueue == nullptr, "DirectQueue", "ComputeQueue is not set.", ErrorHandler::Level::Critical);
 
@@ -218,8 +218,8 @@ namespace Core {
 			mCommandList->SetDescriptorHeaps(static_cast<UINT>(DescriptorHeaps.size()), DescriptorHeaps.data());
 
 			DrawCallResourceManager& DrawCallResources{ mDrawCallResourceManagers[CurrentIndex] };
-			EnsureShadowMapResources(Data.shadowMapping);
-			const std::uint32_t ShadowCascadeCount{ std::max<std::uint32_t>(1u, std::min<std::uint32_t>(Data.shadowMapping.cascadeCount, mShadowCascadeCount)) };
+			EnsureShadowMapResources(Data.mShadowMappingParameter);
+			const std::uint32_t ShadowCascadeCount{ std::max<std::uint32_t>(1u, std::min<std::uint32_t>(Data.mShadowMappingParameter.mCascadeCount, mShadowCascadeCount)) };
 			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
 				TexPtr& ShadowDepthMap{ mShadowDepthMaps[CascadeIndex] };
 				if (ShadowDepthMap == nullptr) {
@@ -233,10 +233,10 @@ namespace Core {
 				mCommandList->OMSetRenderTargets(0, nullptr, FALSE, &ShadowDsv);
 				mCommandList->RSSetViewports(1, &mShadowViewports[CascadeIndex]);
 				mCommandList->RSSetScissorRects(1, &mShadowScissorRects[CascadeIndex]);
-				const ShadowDepthBiasParameter ShadowDepthBias{ BuildShadowDepthBiasParameter(Data.shadowMapping, CascadeIndex) };
+				const ShadowDepthBiasParameter ShadowDepthBias{ BuildShadowDepthBiasParameter(Data.mShadowMappingParameter, CascadeIndex) };
 				ID3D12GraphicsCommandList9* DynamicDepthBiasCommandList{ mIsDynamicDepthBiasSupported == true ? mCommandList9.Get() : nullptr };
-				mDrawCallDispatcher.DrawDepthOnly(mCommandList.Get(), DynamicDepthBiasCommandList, ShadowDepthBias.DepthBias, ShadowDepthBias.DepthBiasClamp, ShadowDepthBias.SlopeScaledDepthBias, Data.ShadowRenderContexts[CascadeIndex], CascadeIndex, DrawCallResources.GetShadowFrameGlobalsSrvHandle(), DrawCallResources.GetShadowModelContextSrvHandle(CascadeIndex), DrawCallResources.GetShadowTerrainPatchContextSrvHandle(CascadeIndex), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetShadowDrawRecordSrvHandle(CascadeIndex), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
-				mDrawCallDispatcher.DrawEnvironmentDepthOnly(mCommandList.Get(), DynamicDepthBiasCommandList, ShadowDepthBias.DepthBias, ShadowDepthBias.DepthBiasClamp, ShadowDepthBias.SlopeScaledDepthBias, Data.ShadowRenderContexts[CascadeIndex], CascadeIndex, DrawCallResources.GetShadowFrameGlobalsSrvHandle(), DrawCallResources.GetEnvironmentInstanceContextSrvHandle(), DrawCallResources.GetEnvironmentSegmentContextSrvHandle(), DrawCallResources.GetShadowEnvironmentDrawRecordSrvHandle(CascadeIndex), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
+				mDrawCallDispatcher.DrawDepthOnly(mCommandList.Get(), DynamicDepthBiasCommandList, ShadowDepthBias.DepthBias, ShadowDepthBias.DepthBiasClamp, ShadowDepthBias.SlopeScaledDepthBias, Data.mShadowRenderContexts[CascadeIndex], CascadeIndex, DrawCallResources.GetShadowFrameGlobalsSrvHandle(), DrawCallResources.GetShadowModelContextSrvHandle(CascadeIndex), DrawCallResources.GetShadowTerrainPatchContextSrvHandle(CascadeIndex), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetShadowDrawRecordSrvHandle(CascadeIndex), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
+				mDrawCallDispatcher.DrawEnvironmentDepthOnly(mCommandList.Get(), DynamicDepthBiasCommandList, ShadowDepthBias.DepthBias, ShadowDepthBias.DepthBiasClamp, ShadowDepthBias.SlopeScaledDepthBias, Data.mShadowRenderContexts[CascadeIndex], CascadeIndex, DrawCallResources.GetShadowFrameGlobalsSrvHandle(), DrawCallResources.GetEnvironmentInstanceContextSrvHandle(), DrawCallResources.GetEnvironmentSegmentContextSrvHandle(), DrawCallResources.GetShadowEnvironmentDrawRecordSrvHandle(CascadeIndex), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
 
 				ShadowDepthMap->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 			}
@@ -286,15 +286,15 @@ namespace Core {
 
 			mCommandList->Close();
 
-			std::array<Interface::Future, 3> UploadFutures{ DrawCallResources.GetCopyFuture(), mMaterialResourceManager.GetCopyFuture(static_cast<std::uint32_t>(CurrentIndex)), Data.mHasTerrainUploadFuture == true ? Data.mTerrainUploadFuture : Interface::Future{} };
-			Interface::Future UploadDependencyFuture{ Interface::Future::Merge(UploadFutures) };
+			std::array<RenderContract::Future, 3> UploadFutures{ DrawCallResources.GetCopyFuture(), mMaterialResourceManager.GetCopyFuture(static_cast<std::uint32_t>(CurrentIndex)), Data.mHasTerrainUploadFuture == true ? Data.mTerrainUploadFuture : RenderContract::Future{} };
+			RenderContract::Future UploadDependencyFuture{ RenderContract::Future::Merge(UploadFutures) };
 			QueueWaitFuture(UploadDependencyFuture);
 
 			ID3D12CommandList* MainCommandLists[]{ mCommandList.Get() };
 			mDirectCommandQueue->ExecuteCommandLists(_countof(MainCommandLists), MainCommandLists);
 
-			Interface::Future SceneRenderFuture{ SignalFuture() };
-			Interface::Future PostProcessFuture{ EnqueuePostProcessJob(SceneRenderFuture, ToneMappingJob) };
+			RenderContract::Future SceneRenderFuture{ SignalFuture() };
+			RenderContract::Future PostProcessFuture{ EnqueuePostProcessJob(SceneRenderFuture, ToneMappingJob) };
 
 			BeginPostProcessFinalPass(CurrentIndex, DescriptorHeaps, PostProcessFuture);
 			CopyPostProcessToBackBuffer(PostProcessTarget, RenderTarget);
@@ -468,12 +468,12 @@ namespace Core {
 		void DirectQueue::InitTargetResources() {
 			mRTVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, (Constants::FrameCount<std::uint32_t> * 3u) + GBufferTargetCount, false);
 			mSrvHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 512, true);
-			for (std::size_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < Game::RFD::ShadowCascadeMaxCount; ShadowCascadeIndex += 1) {
+			for (std::size_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < RenderContract::ShadowCascadeMaxCount; ShadowCascadeIndex += 1) {
 				mShadowMapSrvHandles[ShadowCascadeIndex] = mSrvHeap.Allocate();
 			}
 
 			mShadowMapBaseSrvHandle = mShadowMapSrvHandles[0];
-			mShadowDSVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, Game::RFD::ShadowCascadeMaxCount, false);
+			mShadowDSVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, RenderContract::ShadowCascadeMaxCount, false);
 
 			for (auto&& [i, rt] : views::enumerate(mRenderTargets)) {
 				ComPtr<ID3D12Resource> backBuffer{ nullptr };
@@ -530,11 +530,11 @@ namespace Core {
 			}
 		}
 
-		void DirectQueue::EnsureShadowMapResources(const Game::RFD::ShadowMappingParameter& ShadowMappingParameter) {
-			const uint32_t RequiredShadowCascadeCount{ std::max<uint32_t>(1u, std::min<uint32_t>(ShadowMappingParameter.cascadeCount, Game::RFD::ShadowCascadeMaxCount)) };
-			std::array<uint32_t, Game::RFD::ShadowCascadeMaxCount> RequiredShadowMapSizes{};
+		void DirectQueue::EnsureShadowMapResources(const RenderContract::ShadowMappingParameter& ShadowMappingParameter) {
+			const uint32_t RequiredShadowCascadeCount{ std::max<uint32_t>(1u, std::min<uint32_t>(ShadowMappingParameter.mCascadeCount, RenderContract::ShadowCascadeMaxCount)) };
+			std::array<uint32_t, RenderContract::ShadowCascadeMaxCount> RequiredShadowMapSizes{};
 			for (uint32_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < RequiredShadowCascadeCount; ShadowCascadeIndex += 1) {
-				const float ShadowMapSizeFloat{ std::max(ShadowMappingParameter.minimumShadowMapSize, ShadowMappingParameter.shadowMapSizes[ShadowCascadeIndex]) };
+				const float ShadowMapSizeFloat{ std::max(ShadowMappingParameter.mMinimumShadowMapSize, ShadowMappingParameter.mShadowMapSizes[ShadowCascadeIndex]) };
 				const uint64_t ShadowMapSize{ static_cast<uint64_t>(ShadowMapSizeFloat) };
 				const uint64_t ClampedShadowMapSize{ std::min<uint64_t>(ShadowMapSize, static_cast<uint64_t>(D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION)) };
 				RequiredShadowMapSizes[ShadowCascadeIndex] = static_cast<uint32_t>(ClampedShadowMapSize);
@@ -564,7 +564,7 @@ namespace Core {
 			mShadowMapSizes = {};
 			mShadowDSVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, RequiredShadowCascadeCount, false);
 
-			for (std::size_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < Game::RFD::ShadowCascadeMaxCount; ShadowCascadeIndex += 1) {
+			for (std::size_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < RenderContract::ShadowCascadeMaxCount; ShadowCascadeIndex += 1) {
 				mShadowDepthMaps[ShadowCascadeIndex].reset();
 			}
 
@@ -608,9 +608,9 @@ namespace Core {
 			Job.mDestinationTarget->Transition(CommandList, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 		}
 
-		Interface::Future DirectQueue::EnqueuePostProcessJob(const Interface::Future& WaitFuture, const PostProcessJob& Job) {
+		RenderContract::Future DirectQueue::EnqueuePostProcessJob(const RenderContract::Future& WaitFuture, const PostProcessJob& Job) {
 			if (mComputeQueue == nullptr || Job.mSourceTarget == nullptr || Job.mDestinationTarget == nullptr) {
-				return Interface::Future{};
+				return RenderContract::Future{};
 			}
 
 			Game::Base::Pipeline* Pipeline{ ResolvePostProcessPipeline(Job.mPipelineName) };
@@ -640,7 +640,7 @@ namespace Core {
 			PostProcessRequest.ThreadGroupCountY = DivideRoundUp(Job.mDestinationTarget->GetHeight(), ThreadGroupSizeY);
 			PostProcessRequest.ThreadGroupCountZ = std::max<std::uint32_t>(1u, Job.mThreadGroupSizeZ);
 
-			Interface::Future PostProcessFuture{ mComputeQueue->EnqueueComputeFuture(PostProcessRequest) };
+			RenderContract::Future PostProcessFuture{ mComputeQueue->EnqueueComputeFuture(PostProcessRequest) };
 			mComputeQueue->DispatchComputes();
 			return PostProcessFuture;
 		}
@@ -668,7 +668,7 @@ namespace Core {
 			return &InsertResult.first->second;
 		}
 
-		void DirectQueue::BeginPostProcessFinalPass(std::uint32_t CurrentIndex, const std::array<ID3D12DescriptorHeap*, 1>& DescriptorHeaps, const Interface::Future& PostProcessFuture) {
+		void DirectQueue::BeginPostProcessFinalPass(std::uint32_t CurrentIndex, const std::array<ID3D12DescriptorHeap*, 1>& DescriptorHeaps, const RenderContract::Future& PostProcessFuture) {
 			ComPtr<ID3D12CommandAllocator>& PostProcessCommandAllocator{ mPostProcessCommandAllocators[CurrentIndex] };
 			PostProcessCommandAllocator->Reset();
 			mPostProcessCommandList->Reset(PostProcessCommandAllocator.Get(), nullptr);
@@ -686,7 +686,7 @@ namespace Core {
 			mPostProcessCommandList->CopyResource(RenderTarget->GetResource(), PostProcessTarget->GetResource());
 		}
 
-		void DirectQueue::DrawFinalOverlays(Game::RFD::RenderFrameData& Data, Widget::WidgetCore* WidgetCore, DrawCallResourceManager& DrawCallResources, D3D12_CPU_DESCRIPTOR_HANDLE Dsv, std::uint32_t CurrentIndex, std::uint32_t ShadowCascadeCount) {
+		void DirectQueue::DrawFinalOverlays(RenderContract::RenderFrameData& Data, Widget::WidgetCore* WidgetCore, DrawCallResourceManager& DrawCallResources, D3D12_CPU_DESCRIPTOR_HANDLE Dsv, std::uint32_t CurrentIndex, std::uint32_t ShadowCascadeCount) {
 			TexPtr& RenderTarget{ mRenderTargets[CurrentIndex] };
 			RenderTarget->Transition(mPostProcessCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 			mPostProcessCommandList->RSSetViewports(1, &mViewport);

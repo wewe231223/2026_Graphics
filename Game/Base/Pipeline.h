@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <span>
 #include <string>
 #include <vector>
@@ -7,7 +7,7 @@
 
 namespace Game {
 	namespace Base {
-		class Pipeline : public Interface::IPipeline {
+		class Pipeline : public RenderContract::IPipeline {
 		public:
 			Pipeline() = default;
 			~Pipeline() = default;
@@ -18,7 +18,7 @@ namespace Game {
 
 		public:
 			bool Initialize(const std::string& pipelineName);
-			const Interface::IPipeline* Set(const Interface::IPipeline* pipeline, ID3D12GraphicsCommandList* commandList) const;
+			const RenderContract::IPipeline* Set(const RenderContract::IPipeline* pipeline, ID3D12GraphicsCommandList* commandList) const;
 			ID3D12PipelineState* Get() const;
 			ID3D12RootSignature* GetRootSignature() const;
 			D3D_PRIMITIVE_TOPOLOGY GetPrimitiveTopology() const;

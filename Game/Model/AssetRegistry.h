@@ -16,7 +16,7 @@
 #include "Model.h"
 #include "Game/Base/Common.h"
 #include "Game/Base/Pipeline.h"
-#include "Game/Base/RenderFrameData.h"
+#include "RenderContract/Frame/RenderFrameData.h"
 #include "Game/Model/AssetRegistryBackEnd.h"
 #include "Game/Model/TerrainMeshTypes.h"
 
@@ -66,30 +66,30 @@ namespace Game {
         std::uint32_t FindMaterialIndexByName(const std::string& MaterialName) const;
         const std::vector<RegisteredMaterial>& GetMaterials() const;
         const std::vector<RegisteredMaterialGroup>& GetMaterialGroups() const;
-        const std::vector<RFD::MaterialGpu>& GetPackedMaterials() const;
-        const std::vector<RFD::MaterialTextureTableItemGpu>& GetMaterialTextureTable() const;
+        const std::vector<RenderContract::MaterialGpu>& GetPackedMaterials() const;
+        const std::vector<RenderContract::MaterialTextureTableItemGpu>& GetMaterialTextureTable() const;
         std::uint32_t FindMaterialGroupIndexBySourcePath(const std::string& MaterialSourcePath) const;
         std::string FindModelSelectorByPointer(const Model* ModelPointer) const;
         std::string FindTerrainRenderResourceSelectorByPointer(const TerrainRenderResource* TerrainRenderResourcePointer) const;
         std::string FindAnimationSelectorByPointer(const asset::Animation* AnimationPointer) const;
         std::string FindAnimationGraphSelectorByPointer(const AnimationGraphAsset* AnimationGraphPointer) const;
         std::string FindMaterialGroupSourcePathByIndex(std::uint32_t MaterialGroupIndex) const;
-        Interface::IPipeline* GetPipelineByName(const std::string& PipelineName);
+        RenderContract::IPipeline* GetPipelineByName(const std::string& PipelineName);
 
         void SetTextureResidencyDecider(TextureResidencyDecider NewDecider);
-        void PrepareRenderTextures(const RFD::RenderFrameData& RenderData);
+        void PrepareRenderTextures(const RenderContract::RenderFrameData& RenderData);
 
     private:
         std::uint32_t ResolveTextureTableIndex(const std::filesystem::path& TexturePath);
         bool ShouldKeepTextureResident(const AssetRegistryTextureRecord& TextureData, const std::unordered_set<std::uint32_t>& UsedTextureTableIndices) const;
         void UpdateTextureTableItem(AssetRegistryTextureRecord& TextureData);
-        std::vector<std::uint32_t> BuildMaterialTextureTableIndices(const asset::Material& MaterialData, const RFD::MaterialGpu& PackedMaterial) const;
+        std::vector<std::uint32_t> BuildMaterialTextureTableIndices(const asset::Material& MaterialData, const RenderContract::MaterialGpu& PackedMaterial) const;
 
         std::filesystem::path BuildTexturePathFromMaterialPath(const std::string& MaterialSourcePath, const std::string& TexturePath) const;
         std::int64_t ToMaterialIntValue(asset::MaterialType MaterialTypeValue, const asset::MaterialMap& MaterialMapData, const std::string& MaterialSourcePath);
         SimpleMath::Vector4 ToMaterialFloatValue(const asset::MaterialMap& MaterialMapData);
-        RFD::MaterialGpu BuildPackedMaterial(const asset::Material& MaterialData, const std::string& MaterialSourcePath);
-        Interface::IPipeline* ResolvePipelineByName(const std::string& PipelineName);
+        RenderContract::MaterialGpu BuildPackedMaterial(const asset::Material& MaterialData, const std::string& MaterialSourcePath);
+        RenderContract::IPipeline* ResolvePipelineByName(const std::string& PipelineName);
         std::uint32_t AddMaterialGroupWithSource(const asset::MaterialGroup& MaterialGroupData, const std::string& SourcePath);
 
         bool ReadModelData(const std::string& ModelBinaryPath, asset::ModelResult& OutModelData) const;

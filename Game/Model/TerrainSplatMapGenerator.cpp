@@ -1,4 +1,4 @@
-#include "TerrainSplatMapGenerator.h"
+﻿#include "TerrainSplatMapGenerator.h"
 
 #include <algorithm>
 #include <array>

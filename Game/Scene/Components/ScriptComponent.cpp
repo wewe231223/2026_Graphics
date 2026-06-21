@@ -1,4 +1,4 @@
-#include "ScriptComponent.h"
+﻿#include "ScriptComponent.h"
 
 #include <string>
 

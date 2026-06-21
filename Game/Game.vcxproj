@@ -22,7 +22,7 @@
     <ClInclude Include="Base\Common.h" />
     <ClInclude Include="Base\RuntimeParameterDefinition.h" />
     <ClInclude Include="Base\Input.h" />
-    <ClInclude Include="Base\RenderFrameData.h" />
+
     <ClInclude Include="Base\Shader.h" />
     <ClInclude Include="Base\RootSignature.h" />
     <ClInclude Include="Base\Pipeline.h" />
@@ -101,8 +101,8 @@
     <ClInclude Include="Scene\Base\Context.h" />
     <ClInclude Include="Scene\Base\Context.inl" />
     <ClInclude Include="Scene\Base\Types.h" />
-    <ClInclude Include="Scene\Base\RenderGatherResult.h" />
-    <ClInclude Include="Scene\Base\RenderGatherResultMerger.h" />
+
+
     <ClInclude Include="Scene\Base\SceneWorkUnit.h" />
     <ClInclude Include="Scene\Base\Executor.h" />
     <ClInclude Include="Scene\Base\SystemBindingResult.h" />
@@ -139,7 +139,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Input.cpp" />
-    <ClCompile Include="Base\RenderFrameData.cpp" />
+
     <ClCompile Include="Base\Shader.cpp" />
     <ClCompile Include="Base\RootSignature.cpp" />
     <ClCompile Include="Base\Pipeline.cpp" />
@@ -188,8 +188,8 @@
     <ClCompile Include="Scene\SceneYaml\SceneYamlWriter.cpp" />
     <ClCompile Include="Scene\Legacy\SystemSceduler.cpp" />
     <ClCompile Include="Scene\Legacy\ParallelSystemBase.cpp" />
-    <ClCompile Include="Scene\Base\RenderGatherResult.cpp" />
-    <ClCompile Include="Scene\Base\RenderGatherResultMerger.cpp" />
+
+
     <ClCompile Include="Scene\Base\Context.cpp" />
     <ClCompile Include="Scene\Base\Types.cpp" />
     <ClCompile Include="Scene\Base\SceneWorkUnit.cpp" />

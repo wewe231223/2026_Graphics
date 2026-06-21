@@ -151,8 +151,8 @@ namespace {
 			}
 
 			Game::VertexInputBinding Binding{};
-			Binding.Kind = Kind.value();
-			Binding.InputSlot = Element.InputSlot;
+            Binding.mKind = Kind.value();
+            Binding.mInputSlot = Element.InputSlot;
 			VertexInputBindings.push_back(Binding);
 		}
 
@@ -1153,7 +1153,7 @@ namespace Game {
 			return true;
 		}
 
-		const Interface::IPipeline* Pipeline::Set(const Interface::IPipeline* pipeline, ID3D12GraphicsCommandList* commandList) const {
+		const RenderContract::IPipeline* Pipeline::Set(const RenderContract::IPipeline* pipeline, ID3D12GraphicsCommandList* commandList) const {
 			if (commandList == nullptr) {
 				return this;
 			}

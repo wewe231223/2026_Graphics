@@ -1,4 +1,4 @@
-#include "ComputeQueue.h"
+﻿#include "ComputeQueue.h"
 #include "Utility/ErrorHandler.h"
 #include "Utility/StdOutput.h"
 
@@ -63,12 +63,12 @@ bool ComputeQueue::Initialize(ID3D12Device* Device) {
     return true;
 }
 
-Interface::Future ComputeQueue::EnqueueComputeFuture(const Interface::ComputeQueueDispatchRequest& DispatchRequest) {
+RenderContract::Future ComputeQueue::EnqueueComputeFuture(const Interface::ComputeQueueDispatchRequest& DispatchRequest) {
     std::span<const Interface::ComputeQueueDispatchRequest> DispatchRequests{ &DispatchRequest, 1 };
     return EnqueueComputeFuture(DispatchRequests);
 }
 
-Interface::Future ComputeQueue::EnqueueComputeFuture(std::span<const Interface::ComputeQueueDispatchRequest> DispatchRequests) {
+RenderContract::Future ComputeQueue::EnqueueComputeFuture(std::span<const Interface::ComputeQueueDispatchRequest> DispatchRequests) {
     std::vector<Interface::ComputeQueueDispatchRequest> PreparedRequests{};
     PreparedRequests.reserve(DispatchRequests.size());
 
@@ -79,10 +79,10 @@ Interface::Future ComputeQueue::EnqueueComputeFuture(std::span<const Interface::
     std::uint64_t ComputeTicket{ GenerateComputeTicket() };
     bool IsEnqueued{ EnqueuePreparedComputeRequests(ComputeTicket, PreparedRequests) };
     if (IsEnqueued == false) {
-        return Interface::Future{};
+        return RenderContract::Future{};
     }
 
-    return Interface::Future{ this, ComputeTicket };
+    return RenderContract::Future{ this, ComputeTicket };
 }
 
 void ComputeQueue::DispatchComputes() {
