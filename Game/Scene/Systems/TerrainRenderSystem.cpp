@@ -1,131 +1,42 @@
-﻿#include "TerrainRenderSystem.h"
-#include <algorithm>
+#include "TerrainRenderSystem.h"
+
 #include <array>
-#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
+
 #include "Game/Model/AssetRegistry.h"
 #include "Game/Model/TerrainRenderResource.h"
+#include "Game/Scene/Base/Context.h"
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Culling.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/Material.h"
 #include "Game/Scene/Components/TerrainRenderer.h"
 #include "Game/Scene/Components/Transform.h"
-#include "Game/Scene/Base/Context.h"
 #include "RenderContract/Writer/TerrainRenderWriter.h"
+#include "Terrain/TerrainRenderDataBuilder.h"
 
 namespace Game {
     namespace Pipeline {
         namespace {
-            constexpr std::uint32_t PickedDrawFlagBitMask{ 0x1u };
-            constexpr std::uint32_t InvalidSrvDescriptorIndex{ 0xffffffffu };
-            constexpr std::uint32_t TerrainEdgeNegativeXIndex{ 0u };
-            constexpr std::uint32_t TerrainEdgeNegativeZIndex{ 1u };
-            constexpr std::uint32_t TerrainEdgePositiveXIndex{ 2u };
-            constexpr std::uint32_t TerrainEdgePositiveZIndex{ 3u };
-            constexpr std::array<std::uint32_t, 8> TerrainTessFactorDivisors{ 1u, 2u, 4u, 8u, 16u, 32u, 64u, 128u };
-
-            struct TerrainTileTessellationData final {
-            public:
-                float mBaseTessFactor{ 1.0f };
-                std::array<float, 4> mOuterTessFactors{ 1.0f, 1.0f, 1.0f, 1.0f };
-                std::array<float, 2> mInsideTessFactors{ 1.0f, 1.0f };
-            };
-
-            std::uint32_t CalculateTerrainTileLinearIndex(std::uint32_t TileCountX, std::uint32_t TileIndexX, std::uint32_t TileIndexZ) {
-                return (TileIndexZ * TileCountX) + TileIndexX;
-            }
-
-            float CalculateTerrainTessFactor(std::uint32_t TileQuadCount, std::uint32_t LodIndex) {
-                const std::uint32_t BaseFactor{ std::max(TileQuadCount, 1u) };
-                const std::uint32_t DivisorIndex{ std::min(LodIndex, static_cast<std::uint32_t>(TerrainTessFactorDivisors.size() - 1u)) };
-                const std::uint32_t Factor{ std::max(BaseFactor / TerrainTessFactorDivisors[DivisorIndex], 1u) };
-                return static_cast<float>(Factor);
-            }
-
-            float ResolveTerrainMaxLodDistance(const std::vector<float>& LodDistances) {
-                float MaxLodDistance{};
-                for (const float LodDistance : LodDistances) {
-                    MaxLodDistance = std::max(MaxLodDistance, LodDistance);
+            const RegisteredMaterialGroup* ResolveMaterialGroup(const std::vector<RegisteredMaterialGroup>* MaterialGroups, const Material* MaterialComponent) {
+                if (MaterialGroups == nullptr || MaterialGroups->empty() == true) {
+                    return nullptr;
                 }
 
-                return MaxLodDistance;
-            }
-
-            float CalculateTerrainExponentialLodRatio(float Distance, float MaxDistance, float LodExponent) {
-                if (MaxDistance <= 0.0f) {
-                    return 0.0f;
+                std::size_t ResolvedMaterialGroupIndex{ MaterialComponent == nullptr ? 0U : MaterialComponent->MaterialGroupIndex };
+                if (ResolvedMaterialGroupIndex >= MaterialGroups->size() || (*MaterialGroups)[ResolvedMaterialGroupIndex].Items.empty() == true) {
+                    ResolvedMaterialGroupIndex = 0U;
                 }
 
-                if (LodExponent <= 0.0f) {
-                    return std::clamp(Distance / MaxDistance, 0.0f, 1.0f);
+                if (ResolvedMaterialGroupIndex >= MaterialGroups->size() || (*MaterialGroups)[ResolvedMaterialGroupIndex].Items.empty() == true) {
+                    return nullptr;
                 }
 
-                const float NormalizedDistance{ std::clamp(Distance / MaxDistance, 0.0f, 1.0f) };
-                const float ExponentDenominator{ static_cast<float>(std::exp(static_cast<double>(LodExponent)) - 1.0) };
-                if (ExponentDenominator <= 0.0f) {
-                    return NormalizedDistance;
-                }
-
-                const double ExponentValue{ static_cast<double>(LodExponent) * static_cast<double>(NormalizedDistance) };
-                const float ExponentNumerator{ static_cast<float>(std::exp(ExponentValue) - 1.0) };
-                return std::clamp(ExponentNumerator / ExponentDenominator, 0.0f, 1.0f);
-            }
-
-            std::uint32_t SelectLodIndex(const TerrainTileMetadata& TileMetadata, const SimpleMath::Matrix& WorldMatrix, const SimpleMath::Vector3& CameraPosition, bool HasCameraPosition, const TerrainRenderResource& Resource) {
-                const std::size_t AvailableLodCount{ static_cast<std::size_t>(Resource.GetLodCount()) };
-                if (AvailableLodCount <= 1u || HasCameraPosition == false) {
-                    return 0u;
-                }
-
-                const std::vector<float>& LodDistances{ Resource.GetLodDistances() };
-                if (LodDistances.empty() == true) {
-                    return 0u;
-                }
-
-                const SimpleMath::Vector3 WorldCenter{ SimpleMath::Vector3::Transform(TileMetadata.mCenter, WorldMatrix) };
-                const SimpleMath::Vector3 CenterToCamera{ WorldCenter - CameraPosition };
-                const float DistanceSquared{ CenterToCamera.LengthSquared() };
-                const float MaxLodDistance{ ResolveTerrainMaxLodDistance(LodDistances) };
-                if (MaxLodDistance <= 0.0f) {
-                    return 0u;
-                }
-
-                const float Distance{ std::sqrt(DistanceSquared) };
-                const float LodRatio{ CalculateTerrainExponentialLodRatio(Distance, MaxLodDistance, Resource.GetLodExponent()) };
-                const float MaxLodIndex{ static_cast<float>(AvailableLodCount - 1u) };
-                const float SelectedLodValue{ std::clamp(LodRatio * MaxLodIndex, 0.0f, MaxLodIndex) };
-                return static_cast<std::uint32_t>(SelectedLodValue);
-            }
-
-            void SetTerrainInsideTessFactors(TerrainTileTessellationData& TessellationData) {
-                TessellationData.mInsideTessFactors[0] = TessellationData.mBaseTessFactor;
-                TessellationData.mInsideTessFactors[1] = TessellationData.mBaseTessFactor;
-            }
-
-            void MatchTerrainSharedEdge(TerrainTileTessellationData& FirstTessellationData, std::uint32_t FirstEdgeIndex, TerrainTileTessellationData& SecondTessellationData, std::uint32_t SecondEdgeIndex) {
-                const float SharedFactor{ std::max(FirstTessellationData.mOuterTessFactors[FirstEdgeIndex], SecondTessellationData.mOuterTessFactors[SecondEdgeIndex]) };
-                FirstTessellationData.mOuterTessFactors[FirstEdgeIndex] = SharedFactor;
-                SecondTessellationData.mOuterTessFactors[SecondEdgeIndex] = SharedFactor;
-            }
-
-            RenderContract::TerrainPatchContext BuildTerrainPatchContext(const TerrainTileMetadata& TileMetadata, const TerrainRenderResource& Resource, const TerrainTileTessellationData& TessellationData, std::uint32_t FrameIndex) {
-                RenderContract::TerrainPatchContext PatchContext{};
-                PatchContext.mOuterTessFactors = SimpleMath::Vector4{ TessellationData.mOuterTessFactors[0], TessellationData.mOuterTessFactors[1], TessellationData.mOuterTessFactors[2], TessellationData.mOuterTessFactors[3] };
-                PatchContext.mInsideTessFactors = SimpleMath::Vector4{ TessellationData.mInsideTessFactors[0], TessellationData.mInsideTessFactors[1], 0.0f, 0.0f };
-                PatchContext.mTileGrid = SimpleMath::Vector4{ static_cast<float>(TileMetadata.mStartX), static_cast<float>(TileMetadata.mStartZ), static_cast<float>(TileMetadata.mQuadCountX), static_cast<float>(TileMetadata.mQuadCountZ) };
-                PatchContext.mHeightFieldParameters = SimpleMath::Vector4{ static_cast<float>(Resource.GetHeightFieldWidth()), static_cast<float>(Resource.GetHeightFieldHeight()), Resource.GetMaxHeight(), Resource.IsHeightFieldFlipV() == true ? 1.0f : 0.0f };
-                PatchContext.mTerrainParameters = SimpleMath::Vector4{ Resource.GetCellSizeX(), Resource.GetCellSizeZ(), Resource.GetOriginOffsetX(), Resource.GetOriginOffsetZ() };
-                PatchContext.mTerrainUvParameters = SimpleMath::Vector4{ static_cast<float>(Resource.GetStreamOriginGridX()), static_cast<float>(Resource.GetStreamOriginGridZ()), 0.0f, 0.0f };
-                PatchContext.mHeightFieldSrvDescriptorIndex = Resource.GetHeightFieldSrvDescriptorIndex(FrameIndex);
-                PatchContext.mSplatMapSrvDescriptorIndex = Resource.GetSplatMapSrvDescriptorIndex(FrameIndex);
-                PatchContext.mSplatMapWidth = Resource.GetSplatMapWidth();
-                PatchContext.mSplatMapHeight = Resource.GetSplatMapHeight();
-                return PatchContext;
+                return &(*MaterialGroups)[ResolvedMaterialGroupIndex];
             }
 
             bool IsEntityWithinPickedHierarchy(PipelineContext& Ctx, Arche::EntityID EntityId, Arche::EntityID PickedEntityId) {
@@ -150,99 +61,31 @@ namespace Game {
                 return false;
             }
 
-            void AppendBoundingBoxContext(const DirectX::BoundingOrientedBox& WorldObb, PipelineContext& Ctx) {
-                if (Ctx.HasRenderFlag(RenderContract::FrameGlobalFlagDrawBoundingBoxes) == false) {
-                    return;
+            std::vector<Terrain::TerrainRenderSubMeshBinding> BuildTerrainRenderSubMeshBindings(const ModelNode& Node, const RegisteredMaterialGroup* MaterialGroup) {
+                std::vector<Terrain::TerrainRenderSubMeshBinding> Bindings{};
+                Bindings.resize(Node.GetSubMeshes().size());
+                if (MaterialGroup == nullptr) {
+                    return Bindings;
                 }
 
-                RenderContract::BoundingBoxContext BoundingBoxContext{};
-                BoundingBoxContext.mCenter = SimpleMath::Vector4{ WorldObb.Center.x, WorldObb.Center.y, WorldObb.Center.z, 1.0f };
-                BoundingBoxContext.mExtents = SimpleMath::Vector4{ WorldObb.Extents.x, WorldObb.Extents.y, WorldObb.Extents.z, 0.0f };
-                BoundingBoxContext.mOrientation = SimpleMath::Vector4{ WorldObb.Orientation.x, WorldObb.Orientation.y, WorldObb.Orientation.z, WorldObb.Orientation.w };
-                Ctx.GetRenderGatherResult().GetBoundingBoxContexts().push_back(BoundingBoxContext);
-            }
-
-            const RegisteredMaterialGroup* ResolveMaterialGroup(const std::vector<RegisteredMaterialGroup>* MaterialGroups, const Material* MaterialComponent) {
-                if (MaterialGroups == nullptr || MaterialGroups->empty() == true) {
-                    return nullptr;
-                }
-
-                std::size_t ResolvedMaterialGroupIndex{ MaterialComponent == nullptr ? 0u : MaterialComponent->MaterialGroupIndex };
-                if (ResolvedMaterialGroupIndex >= MaterialGroups->size() || (*MaterialGroups)[ResolvedMaterialGroupIndex].Items.empty() == true) {
-                    ResolvedMaterialGroupIndex = 0u;
-                }
-
-                if (ResolvedMaterialGroupIndex >= MaterialGroups->size() || (*MaterialGroups)[ResolvedMaterialGroupIndex].Items.empty() == true) {
-                    return nullptr;
-                }
-
-                return &(*MaterialGroups)[ResolvedMaterialGroupIndex];
-            }
-
-            bool IsWorldBoundingBoxVisibleByFrustum(const DirectX::BoundingOrientedBox& WorldBoundingBox, const Frustum* CullingFrustumComponent, bool IsFrustumCullingEnabled) {
-                if (IsFrustumCullingEnabled == false) {
-                    return true;
-                }
-
-                if (CullingFrustumComponent == nullptr) {
-                    return true;
-                }
-
-                return CullingFrustumComponent->Intersects(WorldBoundingBox);
-            }
-
-            bool IsWorldBoundingBoxVisibleByShadowBox(const DirectX::BoundingOrientedBox& WorldBoundingBox, const DirectX::BoundingOrientedBox& CullingBox, bool IsFrustumCullingEnabled) {
-                if (IsFrustumCullingEnabled == false) {
-                    return true;
-                }
-
-                return CullingBox.Intersects(WorldBoundingBox);
-            }
-
-            bool IsTileVisibleByFrustum(const DirectX::BoundingOrientedBox& LocalBoundingBox, const SimpleMath::Matrix& WorldMatrix, const Frustum* CullingFrustumComponent, bool IsFrustumCullingEnabled, DirectX::BoundingOrientedBox& OutWorldBoundingBox) {
-                LocalBoundingBox.Transform(OutWorldBoundingBox, WorldMatrix);
-                if (IsFrustumCullingEnabled == false) {
-                    return true;
-                }
-
-                if (CullingFrustumComponent == nullptr) {
-                    return true;
-                }
-
-                return CullingFrustumComponent->Intersects(OutWorldBoundingBox);
-            }
-
-            void AppendTerrainDrawRecord(const TerrainTileMetadata& TileMetadata, const TerrainRenderResource& Resource, const ModelNode& Node, const RegisteredMaterialGroup* ResolvedMaterialGroup, std::uint32_t ObjectIndex, std::uint32_t MaterialFlags, std::uint32_t PickFlags, const TerrainTileTessellationData& TessellationData, std::uint32_t FrameIndex, std::vector<RenderContract::TerrainPatchContext>& OutTerrainPatchContexts, std::vector<RenderContract::DrawRecord>& OutDrawRecords) {
-                const std::uint32_t TileSubMeshIndex{ TileMetadata.mSubMeshIndex };
-                const ModelSubMesh& SubMesh{ Node.GetSubMesh(TileSubMeshIndex) };
-                const RenderContract::IPipeline* Pipeline{ nullptr };
-                std::uint32_t ResolvedMaterialIndex{};
-
-                if (ResolvedMaterialGroup != nullptr) {
-                    std::size_t ResolvedItemIndex{ SubMesh.mMaterialGroupItemIndex };
-                    if (ResolvedItemIndex >= ResolvedMaterialGroup->Items.size()) {
-                        ResolvedItemIndex = 0u;
+                for (std::size_t SubMeshIndex{}; SubMeshIndex < Node.GetSubMeshes().size(); SubMeshIndex += 1U) {
+                    const ModelSubMesh& SubMesh{ Node.GetSubMesh(SubMeshIndex) };
+                    std::size_t MaterialItemIndex{ SubMesh.mMaterialGroupItemIndex };
+                    if (MaterialItemIndex >= MaterialGroup->Items.size()) {
+                        MaterialItemIndex = 0U;
                     }
 
-                    if (ResolvedItemIndex < ResolvedMaterialGroup->Items.size()) {
-                        const RegisteredMaterialGroupItem& RegisteredGroupItem{ ResolvedMaterialGroup->Items[ResolvedItemIndex] };
-                        Pipeline = RegisteredGroupItem.Pipeline;
-                        ResolvedMaterialIndex = RegisteredGroupItem.MaterialIndex;
+                    if (MaterialItemIndex >= MaterialGroup->Items.size()) {
+                        continue;
                     }
+
+                    const RegisteredMaterialGroupItem& MaterialItem{ MaterialGroup->Items[MaterialItemIndex] };
+                    Terrain::TerrainRenderSubMeshBinding& Binding{ Bindings[SubMeshIndex] };
+                    Binding.mPipeline = MaterialItem.Pipeline;
+                    Binding.mMaterialIndex = MaterialItem.MaterialIndex;
                 }
 
-                RenderContract::DrawRecord DrawRecord{};
-                DrawRecord.mPipeline = Pipeline;
-                DrawRecord.mMesh = &Node;
-                DrawRecord.mSubMesh = TileSubMeshIndex;
-                DrawRecord.mPass = 0u;
-                DrawRecord.mObjectIndex = ObjectIndex;
-                DrawRecord.mMaterialIndex = ResolvedMaterialIndex;
-                DrawRecord.mFlags = MaterialFlags | PickFlags;
-                DrawRecord.mTerrainPatchContextIndex = static_cast<std::uint32_t>(OutTerrainPatchContexts.size());
-                DrawRecord.mPadding0 = 0u;
-                OutTerrainPatchContexts.push_back(BuildTerrainPatchContext(TileMetadata, Resource, TessellationData, FrameIndex));
-                OutDrawRecords.push_back(DrawRecord);
+                return Bindings;
             }
         }
 
@@ -278,8 +121,7 @@ namespace Game {
         void PipelineTerrainRenderSystem::Execute(PipelineContext& Ctx, float Dt) {
             (void)Dt;
 
-            RenderContract::RenderGatherResult& GatherResult{ Ctx.GetRenderGatherResult() };
-            RenderContract::TerrainRenderWriter TerrainWriter{ GatherResult };
+            RenderContract::TerrainRenderWriter TerrainWriter{ Ctx.GetRenderGatherResult() };
             const std::uint32_t FrameIndex{ Ctx.GetFrameIndex() };
             const std::vector<RegisteredMaterialGroup>* MaterialGroups{ Ctx.GetMaterialGroups() };
             const Frustum* CullingFrustumComponent{ Ctx.GetActiveCameraFrustum() };
@@ -306,148 +148,61 @@ namespace Game {
                     return;
                 }
 
-                if (Renderer.mResource->GetHeightFieldSrvDescriptorIndex(FrameIndex) == InvalidSrvDescriptorIndex || Renderer.mResource->GetSplatMapSrvDescriptorIndex(FrameIndex) == InvalidSrvDescriptorIndex) {
-                    return;
-                }
-
-                const RenderContract::Future TerrainUploadFuture{ Renderer.mResource->GetFrameUploadFuture(FrameIndex) };
-                if (TerrainUploadFuture.IsValid() == true) {
-                    TerrainWriter.SetTerrainUploadFuture(TerrainUploadFuture);
-                }
-
-                const SimpleMath::Matrix NodeWorld{ TransformComponent.worldMatrix };
-                const Culling* CullingComponent{ Ctx.ReadComponent<Culling>(EntityId) };
-                const bool IsFrustumCullingEnabled{ CullingComponent == nullptr ? true : CullingComponent->frustumCulling };
-                BoundingBox* BoundingBoxComponent{ Ctx.WriteComponent<BoundingBox>(EntityId) };
-                DirectX::BoundingOrientedBox ParentWorldBoundingBox{};
-                bool IsParentVisible{};
-                if (TransformComponent.mWorldMatrixChanged == false && BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
-                    ParentWorldBoundingBox = BoundingBoxComponent->GetWorldObb();
-                    IsParentVisible = IsWorldBoundingBoxVisibleByFrustum(ParentWorldBoundingBox, CullingFrustumComponent, IsFrustumCullingEnabled);
-                }
-                else {
-                    IsParentVisible = IsTileVisibleByFrustum(Renderer.mResource->GetLocalBoundingBox(), NodeWorld, CullingFrustumComponent, IsFrustumCullingEnabled, ParentWorldBoundingBox);
-                }
-
-                if (BoundingBoxComponent != nullptr && (TransformComponent.mWorldMatrixChanged == true || BoundingBoxComponent->HasWorldObb() == false)) {
-                    BoundingBoxComponent->SetWorldObb(ParentWorldBoundingBox);
-                }
-
-                std::array<bool, RenderContract::ShadowCascadeMaxCount> IsParentVisibleByShadowCascade{};
-                bool HasVisibleShadowParent{};
-                for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1u) {
-                    IsParentVisibleByShadowCascade[CascadeIndex] = IsWorldBoundingBoxVisibleByShadowBox(ParentWorldBoundingBox, ShadowCullingBoxes[CascadeIndex], IsFrustumCullingEnabled);
-                    if (IsParentVisibleByShadowCascade[CascadeIndex] == true) {
-                        HasVisibleShadowParent = true;
-                    }
-                }
-
-                if (IsParentVisible == false && HasVisibleShadowParent == false) {
-                    return;
-                }
-
-                if (IsParentVisible == true && BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
-                    AppendBoundingBoxContext(BoundingBoxComponent->GetWorldObb(), Ctx);
-                }
-
-                const std::vector<TerrainTileMetadata>& TileMetadataItems{ Renderer.mResource->GetTileMetadata() };
-                std::vector<TerrainTileTessellationData> TileTessellationItems{};
-                TileTessellationItems.resize(TileMetadataItems.size());
-                for (std::size_t TileMetadataIndex{}; TileMetadataIndex < TileMetadataItems.size(); ++TileMetadataIndex) {
-                    const TerrainTileMetadata& TileMetadata{ TileMetadataItems[TileMetadataIndex] };
-                    const std::uint32_t SelectedLodIndex{ SelectLodIndex(TileMetadata, NodeWorld, CameraPosition, HasCameraPosition, *Renderer.mResource) };
-                    const float TessFactor{ CalculateTerrainTessFactor(Renderer.mResource->GetTileQuadCount(), SelectedLodIndex) };
-                    TerrainTileTessellationData& TessellationData{ TileTessellationItems[TileMetadataIndex] };
-                    TessellationData.mBaseTessFactor = TessFactor;
-                    TessellationData.mOuterTessFactors[TerrainEdgeNegativeXIndex] = TessFactor;
-                    TessellationData.mOuterTessFactors[TerrainEdgeNegativeZIndex] = TessFactor;
-                    TessellationData.mOuterTessFactors[TerrainEdgePositiveXIndex] = TessFactor;
-                    TessellationData.mOuterTessFactors[TerrainEdgePositiveZIndex] = TessFactor;
-                }
-
-                for (std::size_t TileMetadataIndex{}; TileMetadataIndex < TileMetadataItems.size(); ++TileMetadataIndex) {
-                    const TerrainTileMetadata& TileMetadata{ TileMetadataItems[TileMetadataIndex] };
-                    if (TileMetadata.mTileIndexX + 1u < Renderer.mResource->GetTileCountX()) {
-                        const std::uint32_t NeighborIndex{ CalculateTerrainTileLinearIndex(Renderer.mResource->GetTileCountX(), TileMetadata.mTileIndexX + 1u, TileMetadata.mTileIndexZ) };
-                        if (NeighborIndex < TileTessellationItems.size()) {
-                            MatchTerrainSharedEdge(TileTessellationItems[TileMetadataIndex], TerrainEdgePositiveXIndex, TileTessellationItems[NeighborIndex], TerrainEdgeNegativeXIndex);
-                        }
-                    }
-
-                    if (TileMetadata.mTileIndexZ + 1u < Renderer.mResource->GetTileCountZ()) {
-                        const std::uint32_t NeighborIndex{ CalculateTerrainTileLinearIndex(Renderer.mResource->GetTileCountX(), TileMetadata.mTileIndexX, TileMetadata.mTileIndexZ + 1u) };
-                        if (NeighborIndex < TileTessellationItems.size()) {
-                            MatchTerrainSharedEdge(TileTessellationItems[TileMetadataIndex], TerrainEdgePositiveZIndex, TileTessellationItems[NeighborIndex], TerrainEdgeNegativeZIndex);
-                        }
-                    }
-                }
-
-                for (TerrainTileTessellationData& TessellationData : TileTessellationItems) {
-                    SetTerrainInsideTessFactors(TessellationData);
-                }
-
                 const Material* MaterialComponent{ Ctx.ReadComponent<Material>(EntityId) };
-                const std::uint32_t MaterialFlags{ MaterialComponent == nullptr ? 0u : MaterialComponent->Flags };
+                const RegisteredMaterialGroup* MaterialGroup{ ResolveMaterialGroup(MaterialGroups, MaterialComponent) };
+                const std::vector<Terrain::TerrainRenderSubMeshBinding> SubMeshBindings{ BuildTerrainRenderSubMeshBindings(*NodePointer, MaterialGroup) };
+                BoundingBox* BoundingBoxComponent{ Ctx.WriteComponent<BoundingBox>(EntityId) };
+                const bool HasCachedParentWorldBoundingBox{ TransformComponent.mWorldMatrixChanged == false && BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true };
                 const TerrainRenderer* PickedTerrainRenderer{ Ctx.ReadComponent<TerrainRenderer>(Ctx.GetPickedEntityId()) };
-                const bool IsPickedParentHierarchy{ IsEntityWithinPickedHierarchy(Ctx, EntityId, Ctx.GetPickedEntityId()) };
                 const bool IsPickedTileInThisTerrain{ PickedTerrainRenderer != nullptr && PickedTerrainRenderer->mResource == Renderer.mResource && PickedTerrainRenderer->mTileMetadataIndex != InvalidTerrainTileMetadataIndex && IsEntityWithinPickedHierarchy(Ctx, Ctx.GetPickedEntityId(), EntityId) };
-                const std::uint32_t PickedTileMetadataIndex{ IsPickedTileInThisTerrain == true ? PickedTerrainRenderer->mTileMetadataIndex : InvalidTerrainTileMetadataIndex };
-                const RegisteredMaterialGroup* ResolvedMaterialGroup{ ResolveMaterialGroup(MaterialGroups, MaterialComponent) };
-                bool HasModelContext{};
-                std::uint32_t ObjectIndex{};
-                std::array<bool, RenderContract::ShadowCascadeMaxCount> HasShadowModelContexts{};
-                std::array<std::uint32_t, RenderContract::ShadowCascadeMaxCount> ShadowObjectIndices{};
 
-                for (std::size_t TileMetadataIndex{}; TileMetadataIndex < TileMetadataItems.size(); ++TileMetadataIndex) {
-                    const TerrainTileMetadata& TileMetadata{ TileMetadataItems[TileMetadataIndex] };
-                    const std::uint32_t TileSubMeshIndex{ TileMetadata.mSubMeshIndex };
-                    if (TileSubMeshIndex >= NodePointer->GetSubMeshes().size()) {
-                        continue;
-                    }
+                Terrain::TerrainRenderInput Input{};
+                Input.mTileMetadataItems = &Renderer.mResource->GetTileMetadata();
+                Input.mLodDistances = &Renderer.mResource->GetLodDistances();
+                Input.mMesh = NodePointer;
+                Input.mSubMeshBindings = &SubMeshBindings;
+                Input.mTerrainUploadFuture = Renderer.mResource->GetFrameUploadFuture(FrameIndex);
+                Input.mLocalBoundingBox = Renderer.mResource->GetLocalBoundingBox();
+                Input.mWorld = TransformComponent.worldMatrix;
+                Input.mCameraPosition = CameraPosition;
+                Input.mCullingFrustum = CullingFrustumComponent == nullptr ? nullptr : &CullingFrustumComponent->mValue;
+                Input.mShadowCullingBoxes = ShadowCullingBoxes;
+                Input.mTileQuadCount = Renderer.mResource->GetTileQuadCount();
+                Input.mTileCountX = Renderer.mResource->GetTileCountX();
+                Input.mTileCountZ = Renderer.mResource->GetTileCountZ();
+                Input.mLodCount = Renderer.mResource->GetLodCount();
+                Input.mHeightFieldWidth = Renderer.mResource->GetHeightFieldWidth();
+                Input.mHeightFieldHeight = Renderer.mResource->GetHeightFieldHeight();
+                Input.mSplatMapWidth = Renderer.mResource->GetSplatMapWidth();
+                Input.mSplatMapHeight = Renderer.mResource->GetSplatMapHeight();
+                Input.mHeightFieldSrvDescriptorIndex = Renderer.mResource->GetHeightFieldSrvDescriptorIndex(FrameIndex);
+                Input.mSplatMapSrvDescriptorIndex = Renderer.mResource->GetSplatMapSrvDescriptorIndex(FrameIndex);
+                Input.mShadowCascadeCount = ShadowCascadeCount;
+                Input.mFrameIndex = FrameIndex;
+                Input.mMaterialFlags = MaterialComponent == nullptr ? 0U : MaterialComponent->Flags;
+                Input.mPickedTileMetadataIndex = IsPickedTileInThisTerrain == true ? PickedTerrainRenderer->mTileMetadataIndex : InvalidTerrainTileMetadataIndex;
+                Input.mStreamOriginGridX = Renderer.mResource->GetStreamOriginGridX();
+                Input.mStreamOriginGridZ = Renderer.mResource->GetStreamOriginGridZ();
+                Input.mLodExponent = Renderer.mResource->GetLodExponent();
+                Input.mMaxHeight = Renderer.mResource->GetMaxHeight();
+                Input.mCellSizeX = Renderer.mResource->GetCellSizeX();
+                Input.mCellSizeZ = Renderer.mResource->GetCellSizeZ();
+                Input.mOriginOffsetX = Renderer.mResource->GetOriginOffsetX();
+                Input.mOriginOffsetZ = Renderer.mResource->GetOriginOffsetZ();
+                Input.mHasCameraPosition = HasCameraPosition;
+                Input.mHasParentWorldBoundingBox = HasCachedParentWorldBoundingBox;
+                Input.mIsFrustumCullingEnabled = Ctx.ReadComponent<Culling>(EntityId) == nullptr || Ctx.ReadComponent<Culling>(EntityId)->frustumCulling;
+                Input.mIsDrawBoundingBoxesEnabled = Ctx.HasRenderFlag(RenderContract::FrameGlobalFlagDrawBoundingBoxes);
+                Input.mIsPickedParentHierarchy = IsEntityWithinPickedHierarchy(Ctx, EntityId, Ctx.GetPickedEntityId());
+                Input.mHeightFieldFlipV = Renderer.mResource->IsHeightFieldFlipV();
 
-                    DirectX::BoundingOrientedBox TileWorldBoundingBox{};
-                    TileMetadata.mLocalBoundingBox.Transform(TileWorldBoundingBox, NodeWorld);
-                    const bool IsVisible{ IsWorldBoundingBoxVisibleByFrustum(TileWorldBoundingBox, CullingFrustumComponent, IsFrustumCullingEnabled) };
-                    const bool IsPickedTile{ IsPickedParentHierarchy == true || PickedTileMetadataIndex == static_cast<std::uint32_t>(TileMetadataIndex) };
+                if (HasCachedParentWorldBoundingBox == true) {
+                    Input.mParentWorldBoundingBox = BoundingBoxComponent->GetWorldObb();
+                }
 
-                    if (IsVisible == true) {
-                        if (HasModelContext == false) {
-                            RenderContract::ModelContext ModelContext{};
-                            ModelContext.mWorld = NodeWorld;
-                            ModelContext.mPrevWorld = ModelContext.mWorld;
-                            ModelContext.mObjectId = static_cast<std::uint32_t>(GatherResult.GetModelContexts().size());
-                            ObjectIndex = ModelContext.mObjectId;
-                            GatherResult.GetModelContexts().push_back(ModelContext);
-                            HasModelContext = true;
-                        }
-
-                        AppendBoundingBoxContext(TileWorldBoundingBox, Ctx);
-                        AppendTerrainDrawRecord(TileMetadata, *Renderer.mResource, *NodePointer, ResolvedMaterialGroup, ObjectIndex, MaterialFlags, IsPickedTile == true ? PickedDrawFlagBitMask : 0u, TileTessellationItems[TileMetadataIndex], FrameIndex, TerrainWriter.GetTerrainPatchContexts(), GatherResult.GetDrawRecords());
-                    }
-
-                    for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1u) {
-                        if (IsParentVisibleByShadowCascade[CascadeIndex] == false) {
-                            continue;
-                        }
-
-                        const bool IsVisibleByShadow{ IsWorldBoundingBoxVisibleByShadowBox(TileWorldBoundingBox, ShadowCullingBoxes[CascadeIndex], IsFrustumCullingEnabled) };
-                        if (IsVisibleByShadow == false) {
-                            continue;
-                        }
-
-                        RenderContract::ShadowRenderContext& ShadowRenderContext{ GatherResult.GetShadowRenderContexts()[CascadeIndex] };
-                        if (HasShadowModelContexts[CascadeIndex] == false) {
-                            RenderContract::ModelContext ShadowModelContext{};
-                            ShadowModelContext.mWorld = NodeWorld;
-                            ShadowModelContext.mPrevWorld = ShadowModelContext.mWorld;
-                            ShadowModelContext.mObjectId = static_cast<std::uint32_t>(ShadowRenderContext.mModelContexts.size());
-                            ShadowObjectIndices[CascadeIndex] = ShadowModelContext.mObjectId;
-                            ShadowRenderContext.mModelContexts.push_back(ShadowModelContext);
-                            HasShadowModelContexts[CascadeIndex] = true;
-                        }
-
-                        AppendTerrainDrawRecord(TileMetadata, *Renderer.mResource, *NodePointer, ResolvedMaterialGroup, ShadowObjectIndices[CascadeIndex], MaterialFlags, 0u, TileTessellationItems[TileMetadataIndex], FrameIndex, ShadowRenderContext.mTerrainPatchContexts, ShadowRenderContext.mDrawRecords);
-                    }
+                const Terrain::TerrainRenderResult Result{ Terrain::WriteTerrainRenderData(Input, TerrainWriter) };
+                if (BoundingBoxComponent != nullptr && Result.mHasParentWorldBoundingBox == true && (TransformComponent.mWorldMatrixChanged == true || BoundingBoxComponent->HasWorldObb() == false)) {
+                    BoundingBoxComponent->SetWorldObb(Result.mParentWorldBoundingBox);
                 }
             });
         }

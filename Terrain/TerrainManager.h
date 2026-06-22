@@ -9,10 +9,10 @@
 #include <shared_mutex>
 #include <vector>
 
-#include "Game/Model/TerrainMeshTypes.h"
-#include "Game/Terrain/TerrainQuery.h"
+#include "Terrain/TerrainMeshTypes.h"
+#include "Terrain/TerrainQuery.h"
 
-namespace Game {
+namespace Terrain {
     struct TerrainTileMetadata final {
     public:
         std::uint32_t mTileIndexX{};
@@ -86,6 +86,8 @@ namespace Game {
         bool TryGetSurfaceAtWorldPosition(float WorldX, float WorldZ, float& OutWorldHeight, DirectX::SimpleMath::Vector3& OutWorldNormal) const override;
         bool TryGetSurfaceHeightAtWorldPosition(float WorldX, float WorldZ, float& OutWorldHeight) const override;
         bool TryRaycast(const DirectX::SimpleMath::Ray& Ray, float MaxDistance, DirectX::SimpleMath::Vector3& OutHitPosition, DirectX::SimpleMath::Vector3& OutHitNormal, float& OutHitDistance) const override;
+        bool TryGetSplatWeightsAtWorldPosition(TerrainDataHandle Handle, float WorldX, float WorldZ, asset::Vec4& OutSplatWeights) const override;
+        bool TryGetSplatWeightsAtWorldPosition(float WorldX, float WorldZ, asset::Vec4& OutSplatWeights) const override;
 
     private:
         std::shared_ptr<const TerrainWorldData> BuildTerrainWorldData(std::uint32_t TerrainId, const DirectX::SimpleMath::Vector3& Position, const DirectX::SimpleMath::Vector3& Rotation, const DirectX::SimpleMath::Vector3& Scale, const TerrainBuildDesc& BuildDesc, const std::shared_ptr<const HeightFieldData>& HeightField, TerrainDataHandle Handle) const;

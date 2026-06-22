@@ -18,7 +18,7 @@
 #include "Game/Base/Pipeline.h"
 #include "RenderContract/Frame/RenderFrameData.h"
 #include "Game/Model/AssetRegistryBackEnd.h"
-#include "Game/Model/TerrainMeshTypes.h"
+#include "Terrain/TerrainMeshTypes.h"
 
 
 #ifdef min
@@ -30,8 +30,11 @@
 #endif
 
 
-namespace Game {
+namespace Terrain {
     class TerrainManager;
+}
+
+namespace Game {
     class TerrainRenderResource;
 
     class AssetRegistry final {
@@ -55,8 +58,8 @@ namespace Game {
 
         std::shared_ptr<Model> GetModel(const std::string& ModelBinaryPath);
         std::shared_ptr<Model> CreateRuntimeModel(const asset::ModelResult& ModelData);
-        std::shared_ptr<TerrainRenderResource> GetTerrainRenderResource(const TerrainBuildDesc& Desc);
-        bool UpdateTerrainStreaming(TerrainRenderResource& Resource, const TerrainManager& TerrainManagerInstance, const SimpleMath::Vector3& FocusPosition, std::uint32_t FrameIndex);
+        std::shared_ptr<TerrainRenderResource> GetTerrainRenderResource(const Terrain::TerrainBuildDesc& Desc);
+        bool UpdateTerrainStreaming(TerrainRenderResource& Resource, const Terrain::TerrainManager& TerrainManagerInstance, const SimpleMath::Vector3& FocusPosition, std::uint32_t FrameIndex);
         std::shared_ptr<asset::Animation> GetAnimation(const std::string& AnimationBinaryPath);
         std::shared_ptr<AnimationGraphAsset> GetAnimationGraph(const std::string& AnimationGraphPath);
         bool LoadMaterialGroups(const std::string& MaterialJsonPath);

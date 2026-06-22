@@ -742,7 +742,7 @@ namespace {
         return (Z * Width) + X;
     }
 
-    float SampleHeight01(const Game::HeightFieldData& Field, float GridX, float GridZ) {
+    float SampleHeight01(const Terrain::HeightFieldData& Field, float GridX, float GridZ) {
         const float ClampedGridX{ std::clamp(GridX, 0.0f, static_cast<float>(Field.Width - 1u)) };
         const float ClampedGridZ{ std::clamp(GridZ, 0.0f, static_cast<float>(Field.Height - 1u)) };
         const std::uint32_t X0{ static_cast<std::uint32_t>(std::floor(ClampedGridX)) };
@@ -764,7 +764,7 @@ namespace {
         return asset::Vec4{ Lerp(Start.x, End.x, Alpha), Lerp(Start.y, End.y, Alpha), Lerp(Start.z, End.z, Alpha), Lerp(Start.w, End.w, Alpha) };
     }
 
-    asset::Vec4 SampleSplatWeight(const Game::SplatMapData& SplatMap, float GridX, float GridZ, const Game::HeightFieldData& Field) {
+    asset::Vec4 SampleSplatWeight(const Terrain::SplatMapData& SplatMap, float GridX, float GridZ, const Terrain::HeightFieldData& Field) {
         const float ScaleX{ Field.Width > 1u ? static_cast<float>(SplatMap.Width - 1u) / static_cast<float>(Field.Width - 1u) : 1.0f };
         const float ScaleZ{ Field.Height > 1u ? static_cast<float>(SplatMap.Height - 1u) / static_cast<float>(Field.Height - 1u) : 1.0f };
         const float SplatGridX{ GridX * ScaleX };
@@ -806,8 +806,8 @@ namespace {
         return 0.0f;
     }
 
-    bool TryResolveLayerIndexByName(const Game::TerrainBuildDesc& BuildDesc, const std::string& LayerName, std::uint32_t& OutLayerIndex) {
-        const std::vector<Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc>& Layers{ BuildDesc.mProceduralHeightFieldDesc.mSplatMapDesc.mLayers };
+    bool TryResolveLayerIndexByName(const Terrain::TerrainBuildDesc& BuildDesc, const std::string& LayerName, std::uint32_t& OutLayerIndex) {
+        const std::vector<Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc>& Layers{ BuildDesc.mProceduralHeightFieldDesc.mSplatMapDesc.mLayers };
         for (std::size_t LayerIndex{ 0ULL }; LayerIndex < Layers.size(); ++LayerIndex) {
             if (Layers[LayerIndex].mName == LayerName) {
                 OutLayerIndex = static_cast<std::uint32_t>(LayerIndex);
@@ -818,7 +818,7 @@ namespace {
         return false;
     }
 
-    std::uint32_t ResolveLayerIndex(const FoliagePlacementRule& Rule, const Game::TerrainBuildDesc& BuildDesc) {
+    std::uint32_t ResolveLayerIndex(const FoliagePlacementRule& Rule, const Terrain::TerrainBuildDesc& BuildDesc) {
         if (Rule.mLayerName.empty() == false) {
             std::uint32_t LayerIndex{};
             const bool IsLayerIndexResolved{ TryResolveLayerIndexByName(BuildDesc, Rule.mLayerName, LayerIndex) };
@@ -830,7 +830,7 @@ namespace {
         return Rule.mLayerIndex;
     }
 
-    bool TryResolveExcludedLayerWeight(const FoliagePlacementRule& Rule, const Game::TerrainBuildDesc& BuildDesc, const asset::Vec4& SplatWeights, float& OutLayerWeight) {
+    bool TryResolveExcludedLayerWeight(const FoliagePlacementRule& Rule, const Terrain::TerrainBuildDesc& BuildDesc, const asset::Vec4& SplatWeights, float& OutLayerWeight) {
         if (Rule.mExcludedLayerNames.empty() == true) {
             return false;
         }
@@ -861,8 +861,8 @@ namespace {
             return false;
         }
 
-        const Game::HeightFieldData& HeightField{ TerrainContext.mResource->GetHeightFieldData() };
-        const Game::SplatMapData& SplatMap{ TerrainContext.mResource->GetSplatMapData() };
+        const Terrain::HeightFieldData& HeightField{ TerrainContext.mResource->GetHeightFieldData() };
+        const Terrain::SplatMapData& SplatMap{ TerrainContext.mResource->GetSplatMapData() };
         if (HeightField.Width < 2u || HeightField.Height < 2u || HeightField.HeightValues.empty() == true || SplatMap.Width < 2u || SplatMap.Height < 2u || SplatMap.WeightValues.empty() == true) {
             return false;
         }
@@ -878,7 +878,7 @@ namespace {
             return false;
         }
 
-        const Game::TerrainBuildDesc& BuildDesc{ TerrainContext.mResource->GetBuildDesc() };
+        const Terrain::TerrainBuildDesc& BuildDesc{ TerrainContext.mResource->GetBuildDesc() };
         const float Height01{ SampleHeight01(HeightField, GridX, GridZ) };
         const asset::Vec4 SplatWeights{ SampleSplatWeight(SplatMap, GridX, GridZ, HeightField) };
         OutWorldY = TerrainContext.mTransform.position.y + (Height01 * TerrainContext.mResource->GetMaxHeight() * ScaleY);

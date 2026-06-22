@@ -32,20 +32,10 @@
     <ClInclude Include="Model\AssetRegistry.h" />
     <ClInclude Include="Asset\AnimationGraphAsset.h" />
     <ClInclude Include="Model\AssetRegistryBackEnd.h" />
-    <ClInclude Include="Model\HeightMapLoader.h" />
-    <ClInclude Include="Model\Model.h" />
+<ClInclude Include="Model\Model.h" />
     <ClInclude Include="Model\PrimitiveModelFactory.h" />
-    <ClInclude Include="Model\TerrainHeightFieldFactory.h" />
-    <ClInclude Include="Model\TerrainMeshBuilder.h" />
-    <ClInclude Include="Model\TerrainMeshTypes.h" />
-    <ClInclude Include="Model\TerrainProceduralHeightFieldConfigLoader.h" />
-    <ClInclude Include="Model\TerrainProceduralHeightFieldGenerator.h" />
-    <ClInclude Include="Model\TerrainRenderResource.h" />
-    <ClInclude Include="Model\TerrainSplatMapGenerator.h" />
-    <ClInclude Include="Model\TerrainTiledMeshBuilder.h" />
-    <ClInclude Include="Terrain\TerrainManager.h" />
-    <ClInclude Include="Terrain\TerrainQuery.h" />
-    <ClInclude Include="Scene\Components\BoundingBox.h" />
+<ClInclude Include="Model\TerrainRenderResource.h" />
+<ClInclude Include="Scene\Components\BoundingBox.h" />
     <ClInclude Include="Scene\Components\Bone.h" />
     <ClInclude Include="Scene\Components\BoneSkinReference.h" />
     <ClInclude Include="Scene\Components\Camera.h" />
@@ -148,18 +138,10 @@
     <ClCompile Include="Environment\EnvironmentObjectTypes.cpp" />
     <ClCompile Include="Model\AssetRegistry.cpp" />
     <ClCompile Include="Model\AssetRegistryBackEnd.cpp" />
-    <ClCompile Include="Model\HeightMapLoader.cpp" />
-    <ClCompile Include="Model\TerrainHeightFieldFactory.cpp" />
-    <ClCompile Include="Model\Model.cpp" />
+<ClCompile Include="Model\Model.cpp" />
     <ClCompile Include="Model\PrimitiveModelFactory.cpp" />
-    <ClCompile Include="Model\TerrainMeshBuilder.cpp" />
-    <ClCompile Include="Model\TerrainProceduralHeightFieldConfigLoader.cpp" />
-    <ClCompile Include="Model\TerrainProceduralHeightFieldGenerator.cpp" />
-    <ClCompile Include="Model\TerrainRenderResource.cpp" />
-    <ClCompile Include="Model\TerrainSplatMapGenerator.cpp" />
-    <ClCompile Include="Model\TerrainTiledMeshBuilder.cpp" />
-    <ClCompile Include="Terrain\TerrainManager.cpp" />
-    <ClCompile Include="Asset\AnimationGraphAsset.cpp" />
+<ClCompile Include="Model\TerrainRenderResource.cpp" />
+<ClCompile Include="Asset\AnimationGraphAsset.cpp" />
     <ClCompile Include="Scene\Components\Culling.cpp" />
     <ClCompile Include="Scene\Components\DirectionalLight.cpp" />
     <ClCompile Include="Scene\Components\PrefabInstance.cpp" />
@@ -467,6 +449,11 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Terrain\Terrain.vcxproj">
+      <Project>{F92B4784-ADD4-4C4C-B5D1-8C18D68DC978}</Project>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets"></ImportGroup>
 </Project>

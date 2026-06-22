@@ -18,9 +18,12 @@ namespace Utility {
     class Time;
 }
 
+namespace Terrain {
+    class TerrainManager;
+}
+
 namespace Game {
     class SceneWorldSnapshot;
-    class TerrainManager;
     struct FrameContext;
     struct TerrainActorDescBinding;
 
@@ -32,7 +35,7 @@ namespace Game {
         PhysicsRuntimeScene& mPhysicsRuntimeScene;
         PhysicsSnapshot& mPhysicsRuntimeSnapshot;
         PhysicsKinematicSceneSimulator& mKinematicSceneSimulator;
-        TerrainManager& mTerrainManager;
+        Terrain::TerrainManager& mTerrainManager;
         std::vector<PhysicsKinematicRuntimeState>& mKinematicRuntimeStates;
         std::vector<Arche::EntityID>& mPhysicsSynchronizationEntityIds;
         std::uint64_t& mPhysicsSynchronizationStructureVersion;

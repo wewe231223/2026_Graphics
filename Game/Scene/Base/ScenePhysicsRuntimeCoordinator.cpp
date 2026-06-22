@@ -20,7 +20,7 @@
 #include "Game/Scene/Base/SceneTerrainBindings.h"
 #include "Game/Scene/Base/SceneWorldSnapshot.h"
 #include "Game/Scene/Base/SynchronousSystem.h"
-#include "Game/Terrain/TerrainManager.h"
+#include "Terrain/TerrainManager.h"
 #include "PhysicsLib/Actors/PhysicsActorBase.h"
 #include "PhysicsLib/Actors/PhysicsStaticActor.h"
 #include "PhysicsLib/Actors/PhysicsTerrainActor.h"
@@ -120,18 +120,18 @@ namespace {
         Desc.Rotation = TransformComponent.rotationEuler;
         Desc.Scale = TransformComponent.scale;
         const std::uint32_t TerrainId{ Desc.mTerrainWorldData != nullptr ? Desc.mTerrainWorldData->mTerrainId : 0U };
-        Desc.mTerrainWorldData = std::make_shared<const Game::TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(Desc, TerrainId));
+        Desc.mTerrainWorldData = std::make_shared<const Terrain::TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(Desc, TerrainId));
         return Desc;
     }
 
-    void BindTerrainActorDescToManager(PhysicsTerrainActor::ActorDesc& Desc, std::uint32_t TerrainId, Game::TerrainManager& TerrainManagerInstance) {
-        Desc.mTerrainWorldData = std::make_shared<const Game::TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(Desc, TerrainId));
+    void BindTerrainActorDescToManager(PhysicsTerrainActor::ActorDesc& Desc, std::uint32_t TerrainId, Terrain::TerrainManager& TerrainManagerInstance) {
+        Desc.mTerrainWorldData = std::make_shared<const Terrain::TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(Desc, TerrainId));
         if (Desc.mTerrainWorldData == nullptr) {
             return;
         }
 
-        const Game::TerrainDataHandle TerrainHandle{ TerrainManagerInstance.UpsertTerrainData(*Desc.mTerrainWorldData) };
-        std::shared_ptr<const Game::TerrainWorldData> ManagedTerrainWorldData{};
+        const Terrain::TerrainDataHandle TerrainHandle{ TerrainManagerInstance.UpsertTerrainData(*Desc.mTerrainWorldData) };
+        std::shared_ptr<const Terrain::TerrainWorldData> ManagedTerrainWorldData{};
         if (TerrainManagerInstance.TryGetTerrainWorldData(TerrainHandle, ManagedTerrainWorldData) == false) {
             return;
         }
@@ -141,7 +141,7 @@ namespace {
         Desc.mTerrainWorldData = ManagedTerrainWorldData;
     }
 
-    PhysicsTerrainActor::ActorDesc BuildCurrentPhysicsTerrainActorDesc(const PhysicsTerrainActor::ActorDesc& SourceDesc, const Game::Transform& TransformComponent, std::uint32_t TerrainId, const PhysicsTerrainActor* TerrainActorPointer, Game::TerrainManager& TerrainManagerInstance) {
+    PhysicsTerrainActor::ActorDesc BuildCurrentPhysicsTerrainActorDesc(const PhysicsTerrainActor::ActorDesc& SourceDesc, const Game::Transform& TransformComponent, std::uint32_t TerrainId, const PhysicsTerrainActor* TerrainActorPointer, Terrain::TerrainManager& TerrainManagerInstance) {
         PhysicsTerrainActor::ActorDesc Desc{ TerrainActorPointer != nullptr ? TerrainActorPointer->GetActorDesc() : SourceDesc };
         Desc.Position = TransformComponent.position;
         Desc.Rotation = TransformComponent.rotationEuler;
@@ -164,7 +164,7 @@ namespace {
         return SceneActorDesc;
     }
 
-    ScenePhysicsActorDesc BuildSceneTerrainActorDesc(Arche::EntityID EntityId, const PhysicsTerrainActor::ActorDesc& TerrainActorDesc, std::size_t ActorIndex, Game::TerrainManager& TerrainManagerInstance) {
+    ScenePhysicsActorDesc BuildSceneTerrainActorDesc(Arche::EntityID EntityId, const PhysicsTerrainActor::ActorDesc& TerrainActorDesc, std::size_t ActorIndex, Terrain::TerrainManager& TerrainManagerInstance) {
         ScenePhysicsActorDesc SceneActorDesc{};
         SceneActorDesc.mEntityId = EntityId;
         SceneActorDesc.mTerrainActorDesc = TerrainActorDesc;
@@ -191,7 +191,7 @@ namespace {
         return TerrainActorDesc.HeightFieldWidth > 1u && TerrainActorDesc.HeightFieldHeight > 1u && TerrainActorDesc.HeightFieldCellSizeX > 0.0f && TerrainActorDesc.HeightFieldCellSizeZ > 0.0f && TerrainActorDesc.HeightFieldMaxHeight > 0.0f && TerrainActorDesc.HeightFieldValues != nullptr && TerrainActorDesc.HeightFieldValues->size() == ExpectedHeightValueCount;
     }
 
-    bool AreTerrainWorldDataEquivalent(const Game::TerrainWorldData& Left, const Game::TerrainWorldData& Right) {
+    bool AreTerrainWorldDataEquivalent(const Terrain::TerrainWorldData& Left, const Terrain::TerrainWorldData& Right) {
         return Left.mPosition == Right.mPosition && Left.mRotation == Right.mRotation && Left.mOrientation == Right.mOrientation && Left.mScale == Right.mScale && Left.mHalfExtentX == Right.mHalfExtentX && Left.mHalfExtentZ == Right.mHalfExtentZ && Left.mHeightFieldWidth == Right.mHeightFieldWidth && Left.mHeightFieldHeight == Right.mHeightFieldHeight && Left.mHeightFieldCellSizeX == Right.mHeightFieldCellSizeX && Left.mHeightFieldCellSizeZ == Right.mHeightFieldCellSizeZ && Left.mHeightFieldMaxHeight == Right.mHeightFieldMaxHeight && Left.mHeightFieldCenterOrigin == Right.mHeightFieldCenterOrigin && Left.mHeightFieldValues == Right.mHeightFieldValues;
     }
 
@@ -229,7 +229,7 @@ namespace {
         return false;
     }
 
-    std::vector<ScenePhysicsActorDesc> CollectScenePhysicsActorDescs(Arche::World& World, const std::vector<Game::TerrainActorDescBinding>& TerrainActorDescBindings, Game::TerrainManager& TerrainManagerInstance) {
+    std::vector<ScenePhysicsActorDesc> CollectScenePhysicsActorDescs(Arche::World& World, const std::vector<Game::TerrainActorDescBinding>& TerrainActorDescBindings, Terrain::TerrainManager& TerrainManagerInstance) {
         std::vector<ScenePhysicsActorDesc> ActorDescs{};
         std::unordered_set<Arche::EntityID> ExplicitPhysicsActorEntities{};
 
@@ -283,7 +283,7 @@ namespace {
         if (ActorDesc.mIsTerrainActor == true) {
             SpawnInfo.mTerrainActorDesc = ActorDesc.mTerrainActorDesc;
             if (SpawnInfo.mTerrainActorDesc.mTerrainWorldData == nullptr) {
-                SpawnInfo.mTerrainActorDesc.mTerrainWorldData = std::make_shared<const Game::TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(SpawnInfo.mTerrainActorDesc, ActorDesc.mActorId));
+                SpawnInfo.mTerrainActorDesc.mTerrainWorldData = std::make_shared<const Terrain::TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(SpawnInfo.mTerrainActorDesc, ActorDesc.mActorId));
             }
             return SpawnInfo;
         }
@@ -838,7 +838,7 @@ namespace Game {
 
     void ScenePhysicsRuntimeCoordinator::AddTerrainActorDesc(ScenePhysicsRuntimeContext Context, Arche::EntityID EntityId, const PhysicsTerrainActor::ActorDesc& TerrainActorDesc) {
         PhysicsTerrainActor::ActorDesc StoredTerrainActorDesc{ TerrainActorDesc };
-        StoredTerrainActorDesc.mTerrainWorldData = std::make_shared<const Game::TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(StoredTerrainActorDesc, 0U));
+        StoredTerrainActorDesc.mTerrainWorldData = std::make_shared<const Terrain::TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(StoredTerrainActorDesc, 0U));
         for (TerrainActorDescBinding& Binding : Context.mTerrainActorDescBindings) {
             if (Binding.mEntityId != EntityId) {
                 continue;

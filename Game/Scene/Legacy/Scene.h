@@ -16,7 +16,7 @@
 #include "PhysicsLib/Simulation/Kinematic/PhysicsKinematicSceneSimulator.h"
 #include "PhysicsLib/World/PhysicsWorld.h"
 #include "Game/Scene/Base/SceneTerrainBindings.h"
-#include "Game/Terrain/TerrainManager.h"
+#include "Terrain/TerrainManager.h"
 
 namespace Utility {
     class Time;
@@ -113,7 +113,7 @@ namespace Game {
         std::uint32_t mPhysicsWorldVersion{ 1U };
         Utility::Time* mPhysicsTime{};
         
-        TerrainManager mTerrainManager{};
+        Terrain::TerrainManager mTerrainManager{};
         
         FrameContext mFrameContext{};
         AssetRegistry mAssetRegistry{};

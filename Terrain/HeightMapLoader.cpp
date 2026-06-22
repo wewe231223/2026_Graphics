@@ -46,7 +46,7 @@ namespace {
         return Clamp01(Height01);
     }
 
-    Game::HeightFieldData LoadHeightField01From8Bit(const std::string& Path) {
+    Terrain::HeightFieldData LoadHeightField01From8Bit(const std::string& Path) {
         int WidthInt{ 0 };
         int HeightInt{ 0 };
         int ChannelCount{ 0 };
@@ -56,7 +56,7 @@ namespace {
             throw std::runtime_error{ "Height map decode failed." };
         }
 
-        Game::HeightFieldData Field{};
+        Terrain::HeightFieldData Field{};
         Field.Width = static_cast<std::uint32_t>(WidthInt);
         Field.Height = static_cast<std::uint32_t>(HeightInt);
 
@@ -88,7 +88,7 @@ namespace {
         return Field;
     }
 
-    Game::HeightFieldData LoadHeightField01From16Bit(const std::string& Path) {
+    Terrain::HeightFieldData LoadHeightField01From16Bit(const std::string& Path) {
         int WidthInt{ 0 };
         int HeightInt{ 0 };
         int ChannelCount{ 0 };
@@ -98,7 +98,7 @@ namespace {
             throw std::runtime_error{ "Height map decode failed." };
         }
 
-        Game::HeightFieldData Field{};
+        Terrain::HeightFieldData Field{};
         Field.Width = static_cast<std::uint32_t>(WidthInt);
         Field.Height = static_cast<std::uint32_t>(HeightInt);
 
@@ -131,7 +131,7 @@ namespace {
     }
 }
 
-namespace Game {
+namespace Terrain {
     HeightMapLoader::HeightMapLoader() {
     }
 

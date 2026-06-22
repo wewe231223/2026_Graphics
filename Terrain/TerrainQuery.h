@@ -8,7 +8,9 @@
 #include <memory>
 #include <vector>
 
-namespace Game {
+#include "Terrain/TerrainMeshTypes.h"
+
+namespace Terrain {
     struct TerrainDataHandle final {
     public:
         std::uint32_t mValue{ (std::numeric_limits<std::uint32_t>::max)() };
@@ -32,7 +34,12 @@ namespace Game {
         float mHeightFieldMaxHeight{};
         bool mHeightFieldCenterOrigin{};
         std::shared_ptr<const std::vector<float>> mHeightFieldValues{};
+        std::shared_ptr<const SplatMapData> mSplatMapData{};
     };
+
+    using TerrainHandle = TerrainDataHandle;
+    using TerrainSnapshot = TerrainWorldData;
+    using TerrainVersion = std::uint32_t;
 
     class ITerrainQuery {
     public:
@@ -51,6 +58,8 @@ namespace Game {
         virtual bool TryGetSurfaceAtWorldPosition(float WorldX, float WorldZ, float& OutWorldHeight, DirectX::SimpleMath::Vector3& OutWorldNormal) const = 0;
         virtual bool TryGetSurfaceHeightAtWorldPosition(float WorldX, float WorldZ, float& OutWorldHeight) const = 0;
         virtual bool TryRaycast(const DirectX::SimpleMath::Ray& Ray, float MaxDistance, DirectX::SimpleMath::Vector3& OutHitPosition, DirectX::SimpleMath::Vector3& OutHitNormal, float& OutHitDistance) const = 0;
+        virtual bool TryGetSplatWeightsAtWorldPosition(TerrainDataHandle Handle, float WorldX, float WorldZ, asset::Vec4& OutSplatWeights) const = 0;
+        virtual bool TryGetSplatWeightsAtWorldPosition(float WorldX, float WorldZ, asset::Vec4& OutSplatWeights) const = 0;
     };
 
     bool IsTerrainDataHandleValid(TerrainDataHandle Handle);

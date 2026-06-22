@@ -76,7 +76,7 @@ namespace Game {
             return mFrameInput.mMaterialGroups;
         }
 
-        const ITerrainQuery* PipelineContext::GetTerrainQuery() const {
+        const Terrain::ITerrainQuery* PipelineContext::GetTerrainQuery() const {
             return mFrameInput.mTerrainQueryResource;
         }
 

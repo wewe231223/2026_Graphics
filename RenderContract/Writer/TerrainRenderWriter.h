@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <vector>
 
 #include "RenderContract/Future/Future.h"
@@ -12,7 +13,12 @@ namespace RenderContract {
         explicit TerrainRenderWriter(RenderGatherResult& RenderGatherResultValue);
 
     public:
+        std::vector<ModelContext>& GetModelContexts();
+        std::vector<BoundingBoxContext>& GetBoundingBoxContexts();
         std::vector<TerrainPatchContext>& GetTerrainPatchContexts();
+        std::vector<DrawRecord>& GetDrawRecords();
+        std::array<ShadowRenderContext, ShadowCascadeMaxCount>& GetShadowRenderContexts();
+
         void SetTerrainUploadFuture(const Future& TerrainUploadFuture);
 
     private:

@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <utility>
 
-#include "Game/Model/TerrainSplatMapGenerator.h"
+#include "Terrain/TerrainSplatMapGenerator.h"
 
 namespace {
     constexpr std::uint32_t InvalidTerrainSrvDescriptorIndex{ 0xffffffffu };
@@ -31,7 +31,7 @@ namespace {
         }
     }
 
-    std::uint32_t ResolveStreamingGridStep(const Game::TerrainBuildDesc& Desc) {
+    std::uint32_t ResolveStreamingGridStep(const Terrain::TerrainBuildDesc& Desc) {
         if (Desc.mStreamingGridStep > 0u) {
             return Desc.mStreamingGridStep;
         }
@@ -246,7 +246,7 @@ namespace Game {
         return *this;
     }
 
-    void TerrainRenderResource::Initialize(std::shared_ptr<Model> ModelValue, std::vector<TerrainTileMetadata> TileMetadataValue, std::uint32_t TileQuadCountValue, std::uint32_t TileCountXValue, std::uint32_t TileCountZValue, std::uint32_t LodCountValue, std::vector<float> LodDistancesValue, const DirectX::BoundingOrientedBox& LocalBoundingBoxValue, const TerrainBuildDesc& BuildDescValue) {
+    void TerrainRenderResource::Initialize(std::shared_ptr<Model> ModelValue, std::vector<Terrain::TerrainTileMetadata> TileMetadataValue, std::uint32_t TileQuadCountValue, std::uint32_t TileCountXValue, std::uint32_t TileCountZValue, std::uint32_t LodCountValue, std::vector<float> LodDistancesValue, const DirectX::BoundingOrientedBox& LocalBoundingBoxValue, const Terrain::TerrainBuildDesc& BuildDescValue) {
         mModel = std::move(ModelValue);
         mTileMetadata = std::move(TileMetadataValue);
         mBuildDesc = BuildDescValue;
@@ -263,7 +263,7 @@ namespace Game {
         mHasStreamOrigin = false;
     }
 
-    bool TerrainRenderResource::InitializeHeightField(const std::shared_ptr<const HeightFieldData>& Field, const TerrainBuildDesc& Desc, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
+    bool TerrainRenderResource::InitializeHeightField(const std::shared_ptr<const Terrain::HeightFieldData>& Field, const Terrain::TerrainBuildDesc& Desc, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
         if (Device == nullptr || CopyQueue == nullptr || Allocator == nullptr || SrvHeap == nullptr || Field == nullptr || Field->HeightValues.empty() == true) {
             return false;
         }
@@ -272,8 +272,8 @@ namespace Game {
             return false;
         }
 
-        TerrainSplatMapGenerator SplatMapGenerator{};
-        std::shared_ptr<const SplatMapData> SplatMap{ std::make_shared<const SplatMapData>(SplatMapGenerator.Generate(*Field, Desc)) };
+        Terrain::TerrainSplatMapGenerator SplatMapGenerator{};
+        std::shared_ptr<const Terrain::SplatMapData> SplatMap{ std::make_shared<const Terrain::SplatMapData>(SplatMapGenerator.Generate(*Field, Desc)) };
         if (SplatMap == nullptr || SplatMap->WeightValues.empty() == true) {
             return false;
         }
@@ -307,7 +307,7 @@ namespace Game {
         return true;
     }
 
-    bool TerrainRenderResource::UpdateStreaming(const TerrainManager& TerrainManagerInstance, const SimpleMath::Vector3& FocusPosition, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
+    bool TerrainRenderResource::UpdateStreaming(const Terrain::TerrainManager& TerrainManagerInstance, const SimpleMath::Vector3& FocusPosition, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
         if (IsStreamingEnabled() == false) {
             return false;
         }
@@ -326,7 +326,7 @@ namespace Game {
                     return false;
                 }
 
-                TerrainStreamingBuildResult Result{ mStreamingBuildFuture.get() };
+                Terrain::TerrainStreamingBuildResult Result{ mStreamingBuildFuture.get() };
                 mHasPendingStreamingBuild = false;
                 const bool IsResultCurrent{ Result.mTargetOriginGridX == TargetOriginGridX && Result.mTargetOriginGridZ == TargetOriginGridZ };
                 if (Result.mSucceeded == true && IsResultCurrent == true) {
@@ -348,14 +348,14 @@ namespace Game {
             return false;
         }
 
-        TerrainBuildDesc StreamingDesc{ mBuildDesc };
+        Terrain::TerrainBuildDesc StreamingDesc{ mBuildDesc };
         StreamingDesc.mProceduralHeightFieldDesc.mSampleOffsetX = TargetOriginGridX;
         StreamingDesc.mProceduralHeightFieldDesc.mSampleOffsetZ = TargetOriginGridZ;
         StartStreamingBuild(TerrainManagerInstance, StreamingDesc, TargetOriginGridX, TargetOriginGridZ);
         return false;
     }
 
-    bool TerrainRenderResource::TryCommitStreamingBuild(TerrainStreamingBuildResult&& Result, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
+    bool TerrainRenderResource::TryCommitStreamingBuild(Terrain::TerrainStreamingBuildResult&& Result, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
         if (Result.mSucceeded == false || Result.mHeightField == nullptr || Result.mSplatMap == nullptr || Result.mHeightField->HeightValues.empty() == true || Result.mSplatMap->WeightValues.empty() == true) {
             return false;
         }
@@ -399,7 +399,7 @@ namespace Game {
         return true;
     }
 
-    void TerrainRenderResource::StartStreamingBuild(const TerrainManager& TerrainManagerInstance, const TerrainBuildDesc& StreamingDesc, std::int32_t TargetOriginGridX, std::int32_t TargetOriginGridZ) {
+    void TerrainRenderResource::StartStreamingBuild(const Terrain::TerrainManager& TerrainManagerInstance, const Terrain::TerrainBuildDesc& StreamingDesc, std::int32_t TargetOriginGridX, std::int32_t TargetOriginGridZ) {
         try {
             mStreamingBuildFuture = std::async(std::launch::async, [&TerrainManagerInstance, StreamingDesc, TargetOriginGridX, TargetOriginGridZ]() {
                 return TerrainManagerInstance.BuildStreamingData(StreamingDesc, TargetOriginGridX, TargetOriginGridZ);
@@ -413,7 +413,7 @@ namespace Game {
         }
     }
 
-    bool TerrainRenderResource::EnsureHeightFieldFrameResource(const HeightFieldData& Field, std::uint32_t FrameIndex, std::size_t HeightFieldSizeInBytes, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
+    bool TerrainRenderResource::EnsureHeightFieldFrameResource(const Terrain::HeightFieldData& Field, std::uint32_t FrameIndex, std::size_t HeightFieldSizeInBytes, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
         if (Device == nullptr || Allocator == nullptr || SrvHeap == nullptr || Field.HeightValues.empty() == true || HeightFieldSizeInBytes == 0) {
             return false;
         }
@@ -463,7 +463,7 @@ namespace Game {
         return true;
     }
 
-    bool TerrainRenderResource::EnsureSplatMapFrameResource(const SplatMapData& SplatMap, std::uint32_t FrameIndex, std::size_t SplatMapSizeInBytes, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
+    bool TerrainRenderResource::EnsureSplatMapFrameResource(const Terrain::SplatMapData& SplatMap, std::uint32_t FrameIndex, std::size_t SplatMapSizeInBytes, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
         if (Device == nullptr || Allocator == nullptr || SrvHeap == nullptr || SplatMap.WeightValues.empty() == true || SplatMapSizeInBytes == 0) {
             return false;
         }
@@ -513,7 +513,7 @@ namespace Game {
         return true;
     }
 
-    bool TerrainRenderResource::UploadTerrainFrameData(const HeightFieldData& Field, const SplatMapData& SplatMap, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
+    bool TerrainRenderResource::UploadTerrainFrameData(const Terrain::HeightFieldData& Field, const Terrain::SplatMapData& SplatMap, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
         if (Device == nullptr || CopyQueue == nullptr || Allocator == nullptr || SrvHeap == nullptr || Field.HeightValues.empty() == true || SplatMap.WeightValues.empty() == true) {
             return false;
         }
@@ -596,29 +596,29 @@ namespace Game {
         return mModel;
     }
 
-    const std::vector<TerrainTileMetadata>& TerrainRenderResource::GetTileMetadata() const {
+    const std::vector<Terrain::TerrainTileMetadata>& TerrainRenderResource::GetTileMetadata() const {
         return mTileMetadata;
     }
 
-    const TerrainBuildDesc& TerrainRenderResource::GetBuildDesc() const {
+    const Terrain::TerrainBuildDesc& TerrainRenderResource::GetBuildDesc() const {
         return mBuildDesc;
     }
 
-    const HeightFieldData& TerrainRenderResource::GetHeightFieldData() const {
-        static const HeightFieldData EmptyHeightFieldData{};
+    const Terrain::HeightFieldData& TerrainRenderResource::GetHeightFieldData() const {
+        static const Terrain::HeightFieldData EmptyHeightFieldData{};
         return mHeightFieldData != nullptr ? *mHeightFieldData : EmptyHeightFieldData;
     }
 
-    const std::shared_ptr<const HeightFieldData>& TerrainRenderResource::GetHeightFieldDataPointer() const {
+    const std::shared_ptr<const Terrain::HeightFieldData>& TerrainRenderResource::GetHeightFieldDataPointer() const {
         return mHeightFieldData;
     }
 
-    const SplatMapData& TerrainRenderResource::GetSplatMapData() const {
-        static const SplatMapData EmptySplatMapData{};
+    const Terrain::SplatMapData& TerrainRenderResource::GetSplatMapData() const {
+        static const Terrain::SplatMapData EmptySplatMapData{};
         return mSplatMapData != nullptr ? *mSplatMapData : EmptySplatMapData;
     }
 
-    const std::shared_ptr<const SplatMapData>& TerrainRenderResource::GetSplatMapDataPointer() const {
+    const std::shared_ptr<const Terrain::SplatMapData>& TerrainRenderResource::GetSplatMapDataPointer() const {
         return mSplatMapData;
     }
 
@@ -699,7 +699,7 @@ namespace Game {
     }
 
     bool TerrainRenderResource::IsStreamingEnabled() const {
-        return mBuildDesc.mHeightSourceType == TerrainHeightSourceType::Procedural && mBuildDesc.mStreamingEnabled == true;
+        return mBuildDesc.mHeightSourceType == Terrain::TerrainHeightSourceType::Procedural && mBuildDesc.mStreamingEnabled == true;
     }
 
     std::int32_t TerrainRenderResource::GetStreamOriginGridX() const {

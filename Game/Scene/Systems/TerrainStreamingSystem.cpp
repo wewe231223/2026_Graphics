@@ -28,9 +28,9 @@ namespace {
         return false;
     }
 
-    PhysicsTerrainActor::ActorDesc BuildStreamingTerrainActorDesc(const Game::TerrainRenderResource& Resource, const Game::Transform& TransformComponent, std::uint32_t TerrainId, Game::TerrainManager& TerrainManagerInstance) {
-        const Game::TerrainBuildDesc& BuildDesc{ Resource.GetBuildDesc() };
-        const std::shared_ptr<const Game::HeightFieldData>& HeightField{ Resource.GetHeightFieldDataPointer() };
+    PhysicsTerrainActor::ActorDesc BuildStreamingTerrainActorDesc(const Game::TerrainRenderResource& Resource, const Game::Transform& TransformComponent, std::uint32_t TerrainId, Terrain::TerrainManager& TerrainManagerInstance) {
+        const Terrain::TerrainBuildDesc& BuildDesc{ Resource.GetBuildDesc() };
+        const std::shared_ptr<const Terrain::HeightFieldData>& HeightField{ Resource.GetHeightFieldDataPointer() };
         PhysicsTerrainActor::ActorDesc Desc{};
         if (HeightField == nullptr || HeightField->HeightValues.empty() == true) {
             return Desc;
@@ -43,14 +43,15 @@ namespace {
         Desc.HeightFieldMaxHeight = BuildDesc.MaxHeight;
         Desc.HeightFieldCenterOrigin = BuildDesc.CenterOrigin;
         Desc.HeightFieldValues = std::shared_ptr<const std::vector<float>>{ HeightField, &HeightField->HeightValues };
+        Desc.mSplatMapData = Resource.GetSplatMapDataPointer();
         Desc.HalfExtentX = HeightField->Width > 1U ? static_cast<float>(HeightField->Width - 1U) * BuildDesc.CellSizeX * 0.5F : 0.0F;
         Desc.HalfExtentZ = HeightField->Height > 1U ? static_cast<float>(HeightField->Height - 1U) * BuildDesc.CellSizeZ * 0.5F : 0.0F;
         Desc.Position = TransformComponent.position;
         Desc.Rotation = TransformComponent.rotationEuler;
         Desc.Scale = TransformComponent.scale;
-        Desc.mTerrainWorldData = std::make_shared<const Game::TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(Desc, TerrainId));
-        const Game::TerrainDataHandle TerrainHandle{ TerrainManagerInstance.UpsertTerrainData(*Desc.mTerrainWorldData) };
-        std::shared_ptr<const Game::TerrainWorldData> ManagedTerrainWorldData{};
+        Desc.mTerrainWorldData = std::make_shared<const Terrain::TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(Desc, TerrainId));
+        const Terrain::TerrainDataHandle TerrainHandle{ TerrainManagerInstance.UpsertTerrainData(*Desc.mTerrainWorldData) };
+        std::shared_ptr<const Terrain::TerrainWorldData> ManagedTerrainWorldData{};
         if (TerrainManagerInstance.TryGetTerrainWorldData(TerrainHandle, ManagedTerrainWorldData) == true) {
             Desc.mTerrainHandle = TerrainHandle;
             Desc.mTerrainQuery = &TerrainManagerInstance;
@@ -65,7 +66,7 @@ namespace {
             ParentBoundingBox->SetObb(Resource.GetLocalBoundingBox());
         }
 
-        const std::vector<Game::TerrainTileMetadata>& TileMetadataItems{ Resource.GetTileMetadata() };
+        const std::vector<Terrain::TerrainTileMetadata>& TileMetadataItems{ Resource.GetTileMetadata() };
         for (auto [Renderer, BoundingBoxComponent] : World.Query<Game::TerrainRenderer, Game::BoundingBox>()) {
             if (Renderer.mResource != &Resource || Renderer.mTileMetadataIndex == Game::InvalidTerrainTileMetadataIndex) {
                 continue;
@@ -80,7 +81,7 @@ namespace {
         }
     }
 
-    void UpdateTerrainPhysicsActor(Game::TerrainRenderResource& Resource, const Game::Transform& TransformComponent, const Game::PhysicsActor* PhysicsActorComponent, IPhysicsWorld* PhysicsWorldResource, Game::TerrainManager* TerrainManagerResource) {
+    void UpdateTerrainPhysicsActor(Game::TerrainRenderResource& Resource, const Game::Transform& TransformComponent, const Game::PhysicsActor* PhysicsActorComponent, IPhysicsWorld* PhysicsWorldResource, Terrain::TerrainManager* TerrainManagerResource) {
         if (PhysicsActorComponent == nullptr || PhysicsWorldResource == nullptr || TerrainManagerResource == nullptr) {
             return;
         }
@@ -135,7 +136,7 @@ namespace Game {
     }
 
     std::span<const ResourceAccess> TerrainStreamingSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 3> Accesses{ { { typeid(AssetRegistry), Access::Write }, { typeid(IPhysicsWorld), Access::Write }, { typeid(TerrainManager), Access::Write } } };
+        static std::array<ResourceAccess, 3> Accesses{ { { typeid(AssetRegistry), Access::Write }, { typeid(IPhysicsWorld), Access::Write }, { typeid(Terrain::TerrainManager), Access::Write } } };
         return Accesses;
     }
 

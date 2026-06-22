@@ -9,8 +9,8 @@
 #include "Core/Common.h"
 #include "Core/DX/DesciptorHeap.h"
 #include "Game/Model/Model.h"
-#include "Game/Model/TerrainMeshTypes.h"
-#include "Game/Terrain/TerrainManager.h"
+#include "Terrain/TerrainMeshTypes.h"
+#include "Terrain/TerrainManager.h"
 #include "Utility/CompileTimeConstants.h"
 #include "Utility/DirectXInclude.h"
 
@@ -32,16 +32,16 @@ namespace Game {
         TerrainRenderResource& operator=(TerrainRenderResource&& Other) noexcept;
 
     public:
-        void Initialize(std::shared_ptr<Model> ModelValue, std::vector<TerrainTileMetadata> TileMetadataValue, std::uint32_t TileQuadCountValue, std::uint32_t TileCountXValue, std::uint32_t TileCountZValue, std::uint32_t LodCountValue, std::vector<float> LodDistancesValue, const DirectX::BoundingOrientedBox& LocalBoundingBoxValue, const TerrainBuildDesc& BuildDescValue);
-        bool InitializeHeightField(const std::shared_ptr<const HeightFieldData>& Field, const TerrainBuildDesc& Desc, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
-        bool UpdateStreaming(const TerrainManager& TerrainManagerInstance, const SimpleMath::Vector3& FocusPosition, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        void Initialize(std::shared_ptr<Model> ModelValue, std::vector<Terrain::TerrainTileMetadata> TileMetadataValue, std::uint32_t TileQuadCountValue, std::uint32_t TileCountXValue, std::uint32_t TileCountZValue, std::uint32_t LodCountValue, std::vector<float> LodDistancesValue, const DirectX::BoundingOrientedBox& LocalBoundingBoxValue, const Terrain::TerrainBuildDesc& BuildDescValue);
+        bool InitializeHeightField(const std::shared_ptr<const Terrain::HeightFieldData>& Field, const Terrain::TerrainBuildDesc& Desc, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        bool UpdateStreaming(const Terrain::TerrainManager& TerrainManagerInstance, const SimpleMath::Vector3& FocusPosition, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
         const std::shared_ptr<Model>& GetModel() const;
-        const std::vector<TerrainTileMetadata>& GetTileMetadata() const;
-        const TerrainBuildDesc& GetBuildDesc() const;
-        const HeightFieldData& GetHeightFieldData() const;
-        const std::shared_ptr<const HeightFieldData>& GetHeightFieldDataPointer() const;
-        const SplatMapData& GetSplatMapData() const;
-        const std::shared_ptr<const SplatMapData>& GetSplatMapDataPointer() const;
+        const std::vector<Terrain::TerrainTileMetadata>& GetTileMetadata() const;
+        const Terrain::TerrainBuildDesc& GetBuildDesc() const;
+        const Terrain::HeightFieldData& GetHeightFieldData() const;
+        const std::shared_ptr<const Terrain::HeightFieldData>& GetHeightFieldDataPointer() const;
+        const Terrain::SplatMapData& GetSplatMapData() const;
+        const std::shared_ptr<const Terrain::SplatMapData>& GetSplatMapDataPointer() const;
         std::uint32_t GetTileQuadCount() const;
         std::uint32_t GetTileCountX() const;
         std::uint32_t GetTileCountZ() const;
@@ -69,22 +69,22 @@ namespace Game {
         RenderContract::Future GetFrameUploadFuture(std::uint32_t FrameIndex) const;
 
     private:
-        bool EnsureHeightFieldFrameResource(const HeightFieldData& Field, std::uint32_t FrameIndex, std::size_t HeightFieldSizeInBytes, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
-        bool EnsureSplatMapFrameResource(const SplatMapData& SplatMap, std::uint32_t FrameIndex, std::size_t SplatMapSizeInBytes, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
-        bool UploadTerrainFrameData(const HeightFieldData& Field, const SplatMapData& SplatMap, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        bool EnsureHeightFieldFrameResource(const Terrain::HeightFieldData& Field, std::uint32_t FrameIndex, std::size_t HeightFieldSizeInBytes, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        bool EnsureSplatMapFrameResource(const Terrain::SplatMapData& SplatMap, std::uint32_t FrameIndex, std::size_t SplatMapSizeInBytes, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        bool UploadTerrainFrameData(const Terrain::HeightFieldData& Field, const Terrain::SplatMapData& SplatMap, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
         bool EnsureTerrainFrameData(std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
         bool IsTerrainFrameCopyInFlight(std::uint32_t FrameIndex) const;
         bool IsAnyTerrainFrameCopyInFlight() const;
-        bool TryCommitStreamingBuild(TerrainStreamingBuildResult&& Result, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        bool TryCommitStreamingBuild(Terrain::TerrainStreamingBuildResult&& Result, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
         void MarkTerrainFrameResourcesDirty();
-        void StartStreamingBuild(const TerrainManager& TerrainManagerInstance, const TerrainBuildDesc& StreamingDesc, std::int32_t TargetOriginGridX, std::int32_t TargetOriginGridZ);
+        void StartStreamingBuild(const Terrain::TerrainManager& TerrainManagerInstance, const Terrain::TerrainBuildDesc& StreamingDesc, std::int32_t TargetOriginGridX, std::int32_t TargetOriginGridZ);
 
     private:
         std::shared_ptr<Model> mModel{};
-        std::vector<TerrainTileMetadata> mTileMetadata{};
-        TerrainBuildDesc mBuildDesc{};
-        std::shared_ptr<const HeightFieldData> mHeightFieldData{};
-        std::shared_ptr<const SplatMapData> mSplatMapData{};
+        std::vector<Terrain::TerrainTileMetadata> mTileMetadata{};
+        Terrain::TerrainBuildDesc mBuildDesc{};
+        std::shared_ptr<const Terrain::HeightFieldData> mHeightFieldData{};
+        std::shared_ptr<const Terrain::SplatMapData> mSplatMapData{};
         std::uint32_t mTileQuadCount{ 0 };
         std::uint32_t mTileCountX{ 0 };
         std::uint32_t mTileCountZ{ 0 };
@@ -109,7 +109,7 @@ namespace Game {
         std::int32_t mStreamOriginGridZ{ 0 };
         float mStreamWorldOriginX{ 0.0f };
         float mStreamWorldOriginZ{ 0.0f };
-        std::future<TerrainStreamingBuildResult> mStreamingBuildFuture{};
+        std::future<Terrain::TerrainStreamingBuildResult> mStreamingBuildFuture{};
         std::int32_t mPendingStreamingOriginGridX{ 0 };
         std::int32_t mPendingStreamingOriginGridZ{ 0 };
         bool mHasPendingStreamingBuild{ false };

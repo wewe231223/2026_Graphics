@@ -125,17 +125,17 @@ namespace {
         return static_cast<std::uint32_t>(ClampedValue);
     }
 
-    float SampleHeight01(const Game::HeightFieldData& Field, std::int32_t X, std::int32_t Z) {
+    float SampleHeight01(const Terrain::HeightFieldData& Field, std::int32_t X, std::int32_t Z) {
         const std::uint32_t ClampedX{ ClampCoordinate(X, Field.Width - 1u) };
         const std::uint32_t ClampedZ{ ClampCoordinate(Z, Field.Height - 1u) };
         return Saturate(Field.HeightValues[CalculateIndex(Field.Width, ClampedX, ClampedZ)]);
     }
 
-    float CalculateWorldHeight(const Game::HeightFieldData& Field, const Game::TerrainBuildDesc& Desc, std::int32_t X, std::int32_t Z) {
+    float CalculateWorldHeight(const Terrain::HeightFieldData& Field, const Terrain::TerrainBuildDesc& Desc, std::int32_t X, std::int32_t Z) {
         return SampleHeight01(Field, X, Z) * Desc.MaxHeight;
     }
 
-    float CalculateSlope01(const Game::HeightFieldData& Field, const Game::TerrainBuildDesc& Desc, std::uint32_t X, std::uint32_t Z) {
+    float CalculateSlope01(const Terrain::HeightFieldData& Field, const Terrain::TerrainBuildDesc& Desc, std::uint32_t X, std::uint32_t Z) {
         const std::int32_t SampleX{ static_cast<std::int32_t>(X) };
         const std::int32_t SampleZ{ static_cast<std::int32_t>(Z) };
         const float HeightNegativeX{ CalculateWorldHeight(Field, Desc, SampleX - 1, SampleZ) };
@@ -630,7 +630,7 @@ namespace {
         return EvaluateSplatExpressionNode(Expression, Expression.mRootNodeIndex, Variables);
     }
 
-    CompiledSplatMapDesc CompileSplatMapDesc(const Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& Desc) {
+    CompiledSplatMapDesc CompileSplatMapDesc(const Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& Desc) {
         if (Desc.mLayers.empty() == true) {
             throw std::runtime_error{ "Splat map config must define at least one layer." };
         }
@@ -654,7 +654,7 @@ namespace {
         CompiledDesc.mVariables.reserve(Desc.mVariables.size());
 
         std::vector<std::string> VariableNames{ CreateBaseSplatVariableNames() };
-        for (const Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapVariableDesc& VariableDesc : Desc.mVariables) {
+        for (const Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapVariableDesc& VariableDesc : Desc.mVariables) {
             if (VariableDesc.mName.empty() == true || VariableDesc.mFormula.empty() == true) {
                 throw std::runtime_error{ "Splat map variables must have Name and Formula." };
             }
@@ -673,7 +673,7 @@ namespace {
         }
 
         CompiledDesc.mLayers.reserve(Desc.mLayers.size());
-        for (const Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc& LayerDesc : Desc.mLayers) {
+        for (const Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc& LayerDesc : Desc.mLayers) {
             if (LayerDesc.mName.empty() == true || LayerDesc.mFormula.empty() == true) {
                 throw std::runtime_error{ "Splat map layers must have Name and Formula." };
             }
@@ -711,7 +711,7 @@ namespace {
         return asset::Vec4{ SaturatedWeights[0] * InverseWeightSum, SaturatedWeights[1] * InverseWeightSum, SaturatedWeights[2] * InverseWeightSum, SaturatedWeights[3] * InverseWeightSum };
     }
 
-    asset::Vec4 BuildSplatWeights(const Game::HeightFieldData& Field, const Game::TerrainBuildDesc& Desc, const CompiledSplatMapDesc& SplatMapDesc, std::vector<float>& Variables, std::uint32_t X, std::uint32_t Z) {
+    asset::Vec4 BuildSplatWeights(const Terrain::HeightFieldData& Field, const Terrain::TerrainBuildDesc& Desc, const CompiledSplatMapDesc& SplatMapDesc, std::vector<float>& Variables, std::uint32_t X, std::uint32_t Z) {
         const float HeightValue{ SampleHeight01(Field, static_cast<std::int32_t>(X), static_cast<std::int32_t>(Z)) };
         const float SlopeValue{ CalculateSlope01(Field, Desc, X, Z) };
         const float WorldHeightValue{ HeightValue * Desc.MaxHeight };
@@ -739,7 +739,7 @@ namespace {
         return NormalizeWeights(Weights, SplatMapDesc);
     }
 
-    void ValidateSplatMapInput(const Game::HeightFieldData& Field, const Game::TerrainBuildDesc& Desc) {
+    void ValidateSplatMapInput(const Terrain::HeightFieldData& Field, const Terrain::TerrainBuildDesc& Desc) {
         if (Field.Width < 2u || Field.Height < 2u) {
             throw std::runtime_error{ "Splat map height field size must be at least 2x2." };
         }
@@ -755,7 +755,7 @@ namespace {
     }
 }
 
-namespace Game {
+namespace Terrain {
     TerrainSplatMapGenerator::TerrainSplatMapGenerator() {
     }
 

@@ -30,7 +30,7 @@ namespace Game::SceneYaml {
         }
 
         const c4::yml::ConstNodeRef TerrainNode{ ComponentsNode[TypeName()] };
-        TerrainBuildDesc Desc{};
+        Terrain::TerrainBuildDesc Desc{};
         const bool IsTerrainDescRead{ TryReadTerrainBuildDesc(TerrainNode, LoadContext.mSceneName, Desc) };
         if (IsTerrainDescRead == false) {
             LoadContext.mLoadResult.IsSuccess = false;
@@ -49,7 +49,7 @@ namespace Game::SceneYaml {
         const std::shared_ptr<TerrainRenderResource> TerrainResource{ LoadContext.mScene.GetAssetRegistry().GetTerrainRenderResource(Desc) };
         if (TerrainResource == nullptr) {
             LoadContext.mLoadResult.IsSuccess = false;
-            LoadContext.mLoadResult.UndecidedItems.push_back(std::string{ "Terrain 생성 실패: " } + (Desc.mHeightSourceType == TerrainHeightSourceType::Procedural ? std::string{ "Procedural" } : Desc.HeightMapPath));
+            LoadContext.mLoadResult.UndecidedItems.push_back(std::string{ "Terrain 생성 실패: " } + (Desc.mHeightSourceType == Terrain::TerrainHeightSourceType::Procedural ? std::string{ "Procedural" } : Desc.HeightMapPath));
             return;
         }
 
@@ -97,9 +97,9 @@ namespace Game::SceneYaml {
         }
 
         const Material* ParentTerrainMaterial{ LoadContext.mScene.GetWorld().GetComponent<Material>(Entity) };
-        const std::vector<TerrainTileMetadata>& TileMetadataItems{ TerrainResource->GetTileMetadata() };
+        const std::vector<Terrain::TerrainTileMetadata>& TileMetadataItems{ TerrainResource->GetTileMetadata() };
         for (std::size_t TileMetadataIndex{ 0 }; TileMetadataIndex < TileMetadataItems.size(); ++TileMetadataIndex) {
-            const TerrainTileMetadata& TileMetadata{ TileMetadataItems[TileMetadataIndex] };
+            const Terrain::TerrainTileMetadata& TileMetadata{ TileMetadataItems[TileMetadataIndex] };
             const Arche::EntityID TileEntity{ LoadContext.mEntityFactory.CreateEntity(true) };
             LoadContext.mEntityFactory.AttachChildEntity(Entity, TileEntity);
 
@@ -157,7 +157,7 @@ namespace Game::SceneYaml {
             return;
         }
 
-        TerrainBuildDesc TerrainDesc{};
+        Terrain::TerrainBuildDesc TerrainDesc{};
         const bool IsTerrainResource{ TryParseTerrainModelSelector(TerrainSelector, TerrainDesc) };
         if (IsTerrainResource == true) {
             AppendTerrainBuildDesc(WriteContext.mStream, 3, WriteContext.mTargetSnapshot.GetSceneName(), TerrainDesc);

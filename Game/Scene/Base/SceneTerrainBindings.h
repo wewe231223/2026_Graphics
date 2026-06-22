@@ -1,13 +1,13 @@
 ﻿#pragma once
 #include "Arche/Common.h"
-#include "Game/Terrain/TerrainQuery.h"
+#include "Terrain/TerrainQuery.h"
 #include "PhysicsLib/Actors/PhysicsTerrainActor.h"
 
 namespace Game {
     struct TerrainActorDescBinding final {
         Arche::EntityID mEntityId{ Arche::NullEntityID };
         PhysicsTerrainActor::ActorDesc mTerrainActorDesc{};
-        TerrainDataHandle mTerrainHandle{};
+        Terrain::TerrainDataHandle mTerrainHandle{};
         bool mIsTerrainActorDescApplied{};
     };
 }

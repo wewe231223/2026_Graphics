@@ -6,7 +6,7 @@
 
 #include "Asset/Common.h"
 
-namespace Game {
+namespace Terrain {
     enum class TerrainHeightSourceType : std::uint32_t {
         HeightMap,
         Procedural

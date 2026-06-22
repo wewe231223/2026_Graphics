@@ -60,7 +60,7 @@ namespace {
         GradientVector{ 0.923879533f, -0.382683432f }
     } };
 
-    float ClampHeightValue(const Game::TerrainProceduralHeightFieldDesc& Desc, float Value) {
+    float ClampHeightValue(const Terrain::TerrainProceduralHeightFieldDesc& Desc, float Value) {
         return std::clamp(Value, Desc.mMinimumHeightValue, Desc.mMaximumHeightValue);
     }
 
@@ -89,7 +89,7 @@ namespace {
         return GradientVectors16[GradientIndex];
     }
 
-    float Fade(float Value, const Game::TerrainProceduralHeightFieldDesc& Desc) {
+    float Fade(float Value, const Terrain::TerrainProceduralHeightFieldDesc& Desc) {
         return Value * Value * Value * ((Value * ((Value * Desc.mFadeCoefficientA) + Desc.mFadeCoefficientB)) + Desc.mFadeCoefficientC);
     }
 
@@ -121,8 +121,8 @@ namespace {
         return RandomValueA ^ (RandomValueB << 1u) ^ static_cast<std::uint32_t>(TimeSeed) ^ static_cast<std::uint32_t>(TimeSeed >> 32u);
     }
 
-    Game::TerrainProceduralHeightFieldDesc ResolveRandomSeed(const Game::TerrainProceduralHeightFieldDesc& Desc) {
-        Game::TerrainProceduralHeightFieldDesc ResolvedDesc{ Desc };
+    Terrain::TerrainProceduralHeightFieldDesc ResolveRandomSeed(const Terrain::TerrainProceduralHeightFieldDesc& Desc) {
+        Terrain::TerrainProceduralHeightFieldDesc ResolvedDesc{ Desc };
         if (ResolvedDesc.mUseRandomSeed == true && ResolvedDesc.mHasResolvedRandomSeed == false) {
             ResolvedDesc.mSeed = CreateRandomSeed();
             ResolvedDesc.mHasResolvedRandomSeed = true;
@@ -131,13 +131,13 @@ namespace {
         return ResolvedDesc;
     }
 
-    float SampleHeightValue(const Game::HeightFieldData& Field, std::int32_t X, std::int32_t Z) {
+    float SampleHeightValue(const Terrain::HeightFieldData& Field, std::int32_t X, std::int32_t Z) {
         const std::uint32_t ClampedX{ ClampCoordinate(X, Field.Width - 1u) };
         const std::uint32_t ClampedZ{ ClampCoordinate(Z, Field.Height - 1u) };
         return Field.HeightValues[CalculateHeightIndex(Field.Width, ClampedX, ClampedZ)];
     }
 
-    float GradientDot(std::int32_t GridX, std::int32_t GridZ, float X, float Z, std::uint32_t Seed, const Game::TerrainProceduralHeightFieldDesc& Desc) {
+    float GradientDot(std::int32_t GridX, std::int32_t GridZ, float X, float Z, std::uint32_t Seed, const Terrain::TerrainProceduralHeightFieldDesc& Desc) {
         const float DistanceX{ X - static_cast<float>(GridX) };
         const float DistanceZ{ Z - static_cast<float>(GridZ) };
         const std::uint32_t Hash{ HashGrid(GridX, GridZ, Seed) };
@@ -145,7 +145,7 @@ namespace {
         return (Gradient.mX * DistanceX) + (Gradient.mZ * DistanceZ);
     }
 
-    float PerlinNoise(float X, float Z, std::uint32_t Seed, const Game::TerrainProceduralHeightFieldDesc& Desc) {
+    float PerlinNoise(float X, float Z, std::uint32_t Seed, const Terrain::TerrainProceduralHeightFieldDesc& Desc) {
         const std::int32_t X0{ static_cast<std::int32_t>(std::floor(X)) };
         const std::int32_t Z0{ static_cast<std::int32_t>(std::floor(Z)) };
         const std::int32_t X1{ X0 + 1 };
@@ -161,7 +161,7 @@ namespace {
         return Lerp(NoiseX0, NoiseX1, AlphaZ);
     }
 
-    void ValidateProceduralHeightFieldDesc(const Game::TerrainProceduralHeightFieldDesc& Desc) {
+    void ValidateProceduralHeightFieldDesc(const Terrain::TerrainProceduralHeightFieldDesc& Desc) {
         if (Desc.mMinimumWidth == 0u || Desc.mMinimumHeight == 0u) {
             throw std::runtime_error{ "Procedural height field minimum size must be greater than zero." };
         }
@@ -227,7 +227,7 @@ namespace {
         }
     }
 
-    float CalculateFractalHeight01(const Game::TerrainProceduralHeightFieldDesc& Desc, std::int32_t X, std::int32_t Z) {
+    float CalculateFractalHeight01(const Terrain::TerrainProceduralHeightFieldDesc& Desc, std::int32_t X, std::int32_t Z) {
         float Frequency{ Desc.mInitialFrequency / Desc.mNoiseScale };
         float Amplitude{ Desc.mInitialAmplitude };
         float NoiseSum{ 0.0f };
@@ -251,7 +251,7 @@ namespace {
         return ClampHeightValue(Desc, Desc.mBaseHeight + (NormalizedNoise * Desc.mHeightAmplitude));
     }
 
-    void ApplySmoothingPass(Game::HeightFieldData& Field, std::vector<float>& TemporaryValues, const std::vector<std::uint32_t>& RowIndices, const Game::TerrainProceduralHeightFieldDesc& Desc) {
+    void ApplySmoothingPass(Terrain::HeightFieldData& Field, std::vector<float>& TemporaryValues, const std::vector<std::uint32_t>& RowIndices, const Terrain::TerrainProceduralHeightFieldDesc& Desc) {
         std::for_each(std::execution::par, RowIndices.cbegin(), RowIndices.cend(), [&](std::uint32_t Z) {
             for (std::uint32_t X{ 0u }; X < Field.Width; ++X) {
                 const float Height00{ SampleHeightValue(Field, static_cast<std::int32_t>(X) - 1, static_cast<std::int32_t>(Z) - 1) };
@@ -272,7 +272,7 @@ namespace {
         Field.HeightValues.swap(TemporaryValues);
     }
 
-    void SmoothHeightField(Game::HeightFieldData& Field, const Game::TerrainProceduralHeightFieldDesc& Desc) {
+    void SmoothHeightField(Terrain::HeightFieldData& Field, const Terrain::TerrainProceduralHeightFieldDesc& Desc) {
         if (Desc.mSmoothingPassCount == 0u) {
             return;
         }
@@ -286,8 +286,8 @@ namespace {
         }
     }
 
-    Game::HeightFieldData GenerateRawHeightField(const Game::TerrainProceduralHeightFieldDesc& Desc, std::uint32_t Width, std::uint32_t Height, std::int32_t SampleOffsetX, std::int32_t SampleOffsetZ) {
-        Game::HeightFieldData Field{};
+    Terrain::HeightFieldData GenerateRawHeightField(const Terrain::TerrainProceduralHeightFieldDesc& Desc, std::uint32_t Width, std::uint32_t Height, std::int32_t SampleOffsetX, std::int32_t SampleOffsetZ) {
+        Terrain::HeightFieldData Field{};
         Field.Width = Width;
         Field.Height = Height;
         const std::size_t PixelCount{ static_cast<std::size_t>(Field.Width) * static_cast<std::size_t>(Field.Height) };
@@ -306,8 +306,8 @@ namespace {
         return Field;
     }
 
-    Game::HeightFieldData CropHeightField(const Game::HeightFieldData& SourceField, std::uint32_t Width, std::uint32_t Height, std::uint32_t StartX, std::uint32_t StartZ) {
-        Game::HeightFieldData Field{};
+    Terrain::HeightFieldData CropHeightField(const Terrain::HeightFieldData& SourceField, std::uint32_t Width, std::uint32_t Height, std::uint32_t StartX, std::uint32_t StartZ) {
+        Terrain::HeightFieldData Field{};
         Field.Width = Width;
         Field.Height = Height;
         const std::size_t PixelCount{ static_cast<std::size_t>(Field.Width) * static_cast<std::size_t>(Field.Height) };
@@ -326,7 +326,7 @@ namespace {
     }
 }
 
-namespace Game {
+namespace Terrain {
     TerrainProceduralHeightFieldGenerator::TerrainProceduralHeightFieldGenerator()
         : mConfigLoader{} {
     }

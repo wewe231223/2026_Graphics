@@ -304,7 +304,7 @@ namespace Game::IK {
         return true;
     }
 
-    bool TryResolveNearestTerrainRaycastHit(const ITerrainQuery& TerrainQuery, const SimpleMath::Ray& Ray, const float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal, float& OutHitDistance) {
+    bool TryResolveNearestTerrainRaycastHit(const Terrain::ITerrainQuery& TerrainQuery, const SimpleMath::Ray& Ray, const float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal, float& OutHitDistance) {
         if (MathUtility::IsFiniteVector3(Ray.position) == false || MathUtility::IsFiniteVector3(Ray.direction) == false || MathUtility::IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
             return false;
         }
@@ -428,7 +428,7 @@ namespace Game::IK {
         return true;
     }
 
-    bool TryResolveFootTargetOffset(Arche::World& World, const ITerrainQuery& TerrainQuery, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutRayOppositeDirection, SimpleMath::Vector3& OutGroundNormal, SimpleMath::Vector3& OutTargetFootPosition, std::size_t& OutHitCount) {
+    bool TryResolveFootTargetOffset(Arche::World& World, const Terrain::ITerrainQuery& TerrainQuery, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, float& OutTargetOffsetY, SimpleMath::Vector3& OutRayOppositeDirection, SimpleMath::Vector3& OutGroundNormal, SimpleMath::Vector3& OutTargetFootPosition, std::size_t& OutHitCount) {
         OutHitCount = 0;
         if (FootEntityId == Arche::NullEntityID || ToeEntityId == Arche::NullEntityID) {
             return false;
@@ -829,7 +829,7 @@ namespace Game::IK {
         return IsAnyBoneUpdated;
     }
 
-    bool TryResolveToeContactCorrectionDeltaRotation(Arche::World& World, const ITerrainQuery& TerrainQuery, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& FootWorldPosition, const SimpleMath::Quaternion& SurfaceAlignDeltaRotation, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, SimpleMath::Quaternion& OutToeContactCorrectionDeltaRotation) {
+    bool TryResolveToeContactCorrectionDeltaRotation(Arche::World& World, const Terrain::ITerrainQuery& TerrainQuery, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& FootWorldPosition, const SimpleMath::Quaternion& SurfaceAlignDeltaRotation, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, SimpleMath::Quaternion& OutToeContactCorrectionDeltaRotation) {
         OutToeContactCorrectionDeltaRotation = SimpleMath::Quaternion::Identity;
         if (ToeEntityId == Arche::NullEntityID || MathUtility::IsFiniteVector3(FootWorldPosition) == false || MathUtility::IsFiniteVector3(SurfaceNormal) == false || MathUtility::IsFiniteFloat(AlignmentWeight) == false) {
             return false;
@@ -937,7 +937,7 @@ namespace Game::IK {
         return TryResolveNormalizedQuaternion(ToeContactCorrectionDeltaRotation, OutToeContactCorrectionDeltaRotation);
     }
 
-    bool TryAlignFootToSurface(Arche::World& World, const ITerrainQuery& TerrainQuery, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& RayOppositeDirection, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
+    bool TryAlignFootToSurface(Arche::World& World, const Terrain::ITerrainQuery& TerrainQuery, const Arche::EntityID FootEntityId, const Arche::EntityID ToeEntityId, const SimpleMath::Vector3& RayOppositeDirection, const SimpleMath::Vector3& SurfaceNormal, const float AlignmentWeight, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) {
         if (FootEntityId == Arche::NullEntityID || MathUtility::IsFiniteVector3(RayOppositeDirection) == false || MathUtility::IsFiniteVector3(SurfaceNormal) == false) {
             return false;
         }

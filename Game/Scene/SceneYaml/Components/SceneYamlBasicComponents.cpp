@@ -583,7 +583,7 @@ namespace Game::SceneYaml {
             return;
         }
 
-        TerrainBuildDesc TerrainDesc{};
+        Terrain::TerrainBuildDesc TerrainDesc{};
         const bool IsTerrainModel{ TryParseTerrainModelSelector(ModelSelector, TerrainDesc) };
         if (IsTerrainModel == true) {
             AppendTerrainBuildDesc(WriteContext.mStream, 3, WriteContext.mTargetSnapshot.GetSceneName(), TerrainDesc);

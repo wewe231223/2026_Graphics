@@ -171,6 +171,47 @@ target_compile_definitions(RenderContract PRIVATE
     $<$<NOT:$<CONFIG:Debug>>:NDEBUG>
 )
 
+add_library(Terrain STATIC
+    Terrain/HeightMapLoader.cpp
+    Terrain/TerrainHeightFieldFactory.cpp
+    Terrain/TerrainManager.cpp
+    Terrain/TerrainMeshBuilder.cpp
+    Terrain/TerrainProceduralHeightFieldConfigLoader.cpp
+    Terrain/TerrainProceduralHeightFieldGenerator.cpp
+    Terrain/TerrainRenderDataBuilder.cpp
+    Terrain/TerrainSplatMapGenerator.cpp
+    Terrain/TerrainTiledMeshBuilder.cpp
+)
+
+target_include_directories(Terrain PUBLIC
+    ${GraphicsRoot}
+    ${ExternalIncludeDir}
+    ${ExternalDirectXIncludeDir}
+    ${ExternalRapidYmlIncludeDir}
+)
+
+target_link_directories(Terrain PUBLIC
+    $<$<CONFIG:Debug>:${ExternalLibDirDebug}>
+    $<$<CONFIG:Release>:${ExternalLibDirRelease}>
+)
+
+target_link_libraries(Terrain PUBLIC Asset RenderContract Utility DirectXTK12)
+
+target_compile_definitions(Terrain PRIVATE
+    _LIB
+    NOMINMAX
+    UNICODE
+    _UNICODE
+    $<$<CONFIG:Debug>:_DEBUG>
+    $<$<NOT:$<CONFIG:Debug>>:NDEBUG>
+)
+
+target_link_libraries(PhysicsLib PUBLIC Terrain)
+
+if(MSVC)
+    target_compile_options(Terrain PRIVATE /bigobj)
+endif()
+
 add_library(Game STATIC
     Game/Asset/AnimationGraphAsset.cpp
     Game/Base/Shader.cpp
@@ -180,19 +221,11 @@ add_library(Game STATIC
     Game/Environment/EnvironmentObjectRenderContext.cpp
     Game/Environment/EnvironmentObjectRenderDataBuilder.cpp
     Game/Environment/EnvironmentObjectTypes.cpp
-    Game/Model/HeightMapLoader.cpp
-    Game/Model/TerrainHeightFieldFactory.cpp
-    Game/Model/TerrainProceduralHeightFieldConfigLoader.cpp
-    Game/Model/TerrainProceduralHeightFieldGenerator.cpp
-    Game/Model/TerrainSplatMapGenerator.cpp
     Game/Model/AssetRegistry.cpp
     Game/Model/AssetRegistryBackEnd.cpp
     Game/Model/Model.cpp
     Game/Model/PrimitiveModelFactory.cpp
-    Game/Model/TerrainMeshBuilder.cpp
     Game/Model/TerrainRenderResource.cpp
-    Game/Model/TerrainTiledMeshBuilder.cpp
-    Game/Terrain/TerrainManager.cpp
     Game/Scene/Legacy/Scene.cpp
     Game/Scene/Base/SceneEntityFactory.cpp
     Game/Scene/Base/ScenePhysicsRuntimeCoordinator.cpp
@@ -288,7 +321,7 @@ target_link_directories(Game PUBLIC
     $<$<CONFIG:Release>:${ExternalLibDirRelease}>
 )
 
-target_link_libraries(Game PUBLIC RenderContract Utility PhysicsLib lua54 DirectXTK12)
+target_link_libraries(Game PUBLIC RenderContract Terrain Utility PhysicsLib lua54 DirectXTK12)
 
 target_compile_definitions(Game PRIVATE
     _LIB

@@ -17,7 +17,7 @@ namespace {
     }
 }
 
-namespace Game {
+namespace Terrain {
     TerrainTiledMeshBuilder::TerrainTiledMeshBuilder() {
     }
 

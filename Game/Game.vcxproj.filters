@@ -90,40 +90,10 @@
     <ClInclude Include="Model\AssetRegistryBackEnd.h">
       <Filter>Model</Filter>
     </ClInclude>
-    <ClInclude Include="Model\HeightMapLoader.h">
+<ClInclude Include="Model\TerrainRenderResource.h">
       <Filter>Model</Filter>
     </ClInclude>
-    <ClInclude Include="Model\TerrainHeightFieldFactory.h">
-      <Filter>Model</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\TerrainMeshBuilder.h">
-      <Filter>Model</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\TerrainMeshTypes.h">
-      <Filter>Model</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\TerrainProceduralHeightFieldConfigLoader.h">
-      <Filter>Model</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\TerrainProceduralHeightFieldGenerator.h">
-      <Filter>Model</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\TerrainRenderResource.h">
-      <Filter>Model</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\TerrainSplatMapGenerator.h">
-      <Filter>Model</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\TerrainTiledMeshBuilder.h">
-      <Filter>Model</Filter>
-    </ClInclude>
-    <ClInclude Include="Terrain\TerrainManager.h">
-      <Filter>Terrain</Filter>
-    </ClInclude>
-    <ClInclude Include="Terrain\TerrainQuery.h">
-      <Filter>Terrain</Filter>
-    </ClInclude>
-    <ClInclude Include="Scene\Legacy\Scene.h">
+<ClInclude Include="Scene\Legacy\Scene.h">
       <Filter>Scene\Legacy</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Base\SceneEntityFactory.h">
@@ -425,19 +395,7 @@
     <ClCompile Include="Model\AssetRegistryBackEnd.cpp">
       <Filter>Model</Filter>
     </ClCompile>
-    <ClCompile Include="Model\HeightMapLoader.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
-    <ClCompile Include="Model\TerrainHeightFieldFactory.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
-    <ClCompile Include="Model\TerrainProceduralHeightFieldGenerator.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
-    <ClCompile Include="Model\TerrainProceduralHeightFieldConfigLoader.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
-    <ClCompile Include="Scene\Legacy\Scene.cpp">
+<ClCompile Include="Scene\Legacy\Scene.cpp">
       <Filter>Scene\Legacy</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Base\SceneEntityFactory.cpp">
@@ -680,22 +638,10 @@
     <ClCompile Include="Model\PrimitiveModelFactory.cpp">
       <Filter>Model</Filter>
     </ClCompile>
-    <ClCompile Include="Model\TerrainMeshBuilder.cpp">
+<ClCompile Include="Model\TerrainRenderResource.cpp">
       <Filter>Model</Filter>
     </ClCompile>
-    <ClCompile Include="Model\TerrainRenderResource.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
-    <ClCompile Include="Model\TerrainSplatMapGenerator.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
-    <ClCompile Include="Model\TerrainTiledMeshBuilder.cpp">
-      <Filter>Model</Filter>
-    </ClCompile>
-    <ClCompile Include="Terrain\TerrainManager.cpp">
-      <Filter>Terrain</Filter>
-    </ClCompile>
-    <ClCompile Include="Scene\Components\PrefabInstance.cpp">
+<ClCompile Include="Scene\Components\PrefabInstance.cpp">
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Components\DirectionalLight.cpp">

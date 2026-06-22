@@ -513,8 +513,8 @@ namespace Game::SceneYaml {
         return true;
     }
 
-    std::string BuildTerrainHeightSourceTypeText(Game::TerrainHeightSourceType SourceType) {
-        if (SourceType == Game::TerrainHeightSourceType::Procedural) {
+    std::string BuildTerrainHeightSourceTypeText(Terrain::TerrainHeightSourceType SourceType) {
+        if (SourceType == Terrain::TerrainHeightSourceType::Procedural) {
             return "Procedural";
         }
 
@@ -535,14 +535,14 @@ namespace Game::SceneYaml {
         return false;
     }
 
-    bool TryParseTerrainHeightSourceTypeText(const std::string& ValueText, Game::TerrainHeightSourceType& OutValue) {
+    bool TryParseTerrainHeightSourceTypeText(const std::string& ValueText, Terrain::TerrainHeightSourceType& OutValue) {
         if (ValueText == "HeightMap" || ValueText == "heightmap" || ValueText == "HeightMapPath") {
-            OutValue = Game::TerrainHeightSourceType::HeightMap;
+            OutValue = Terrain::TerrainHeightSourceType::HeightMap;
             return true;
         }
 
         if (ValueText == "Procedural" || ValueText == "procedural") {
-            OutValue = Game::TerrainHeightSourceType::Procedural;
+            OutValue = Terrain::TerrainHeightSourceType::Procedural;
             return true;
         }
 

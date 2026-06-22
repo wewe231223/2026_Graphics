@@ -2,9 +2,9 @@
 
 #include <string>
 
-#include "Game/Model/TerrainMeshTypes.h"
+#include "Terrain/TerrainMeshTypes.h"
 
-namespace Game {
+namespace Terrain {
     class HeightMapLoader final {
     public:
         HeightMapLoader();

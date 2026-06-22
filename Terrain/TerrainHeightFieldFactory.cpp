@@ -3,9 +3,9 @@
 #include <chrono>
 #include <random>
 
-#include "Game/Model/HeightMapLoader.h"
-#include "Game/Model/TerrainProceduralHeightFieldConfigLoader.h"
-#include "Game/Model/TerrainProceduralHeightFieldGenerator.h"
+#include "Terrain/HeightMapLoader.h"
+#include "Terrain/TerrainProceduralHeightFieldConfigLoader.h"
+#include "Terrain/TerrainProceduralHeightFieldGenerator.h"
 
 namespace {
     std::uint32_t CreateRandomSeed() {
@@ -16,7 +16,7 @@ namespace {
         return RandomValueA ^ (RandomValueB << 1u) ^ static_cast<std::uint32_t>(TimeSeed) ^ static_cast<std::uint32_t>(TimeSeed >> 32u);
     }
 
-    void ResolveRandomSeed(Game::TerrainProceduralHeightFieldDesc& Desc) {
+    void ResolveRandomSeed(Terrain::TerrainProceduralHeightFieldDesc& Desc) {
         if (Desc.mUseRandomSeed == false || Desc.mHasResolvedRandomSeed == true) {
             return;
         }
@@ -26,7 +26,7 @@ namespace {
     }
 }
 
-namespace Game {
+namespace Terrain {
     TerrainHeightFieldFactory::TerrainHeightFieldFactory() {
     }
 

@@ -18,7 +18,7 @@
 #include "Game/Scene/Base/ScenePhysicsRuntimeCoordinator.h"
 #include "Game/Scene/Base/SceneTerrainBindings.h"
 #include "Game/Scene/Base/SceneWorldSnapshot.h"
-#include "Game/Terrain/TerrainManager.h"
+#include "Terrain/TerrainManager.h"
 #include "PhysicsLib/Runtime/PhysicsRuntime.h"
 #include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
 #include "PhysicsLib/Simulation/Kinematic/PhysicsKinematicSceneSimulator.h"
@@ -116,8 +116,8 @@ namespace Game {
             std::vector<PhysicsKinematicRuntimeState>& GetKinematicRuntimeStates();
             const std::vector<PhysicsKinematicRuntimeState>& GetKinematicRuntimeStates() const;
 
-            TerrainManager& GetTerrainManager();
-            const TerrainManager& GetTerrainManager() const;
+            Terrain::TerrainManager& GetTerrainManager();
+            const Terrain::TerrainManager& GetTerrainManager() const;
 
             std::uint32_t GetPhysicsWorldVersion() const;
             void SetPhysicsWorldVersion(std::uint32_t PhysicsWorldVersion);
@@ -210,7 +210,7 @@ namespace Game {
             bool mIsBoundingBoxDrawEnabled{};
             bool mIsDefaultCameraControlBehaviorAttached{};
 
-            TerrainManager mTerrainManager{};
+            Terrain::TerrainManager mTerrainManager{};
             std::vector<TerrainActorDescBinding> mTerrainActorDescBindings{};
 
             SceneWorldSnapshot mWorldSnapshot{};

@@ -18,7 +18,7 @@
 #include "Game/Scene/IK/FabrikFootIKSolver.h"
 #include "Game/Scene/IK/FootIKAlgorithms.h"
 #include "Game/Scene/Base/Context.h"
-#include "Game/Terrain/TerrainQuery.h"
+#include "Terrain/TerrainQuery.h"
 #include "Utility/MathValidation.h"
 
 namespace Game {
@@ -38,7 +38,7 @@ namespace Game {
 
         }
 
-        bool PipelineFootIKSystem::TryResolveRaycastHitOnTerrain(const ITerrainQuery& TerrainQuery, const SimpleMath::Ray& Ray, float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal) const {
+        bool PipelineFootIKSystem::TryResolveRaycastHitOnTerrain(const Terrain::ITerrainQuery& TerrainQuery, const SimpleMath::Ray& Ray, float RayLength, SimpleMath::Vector3& OutHitPoint, SimpleMath::Vector3& OutHitNormal) const {
             if (MathUtility::IsFiniteVector3(Ray.position) == false || MathUtility::IsFiniteVector3(Ray.direction) == false || MathUtility::IsFiniteFloat(RayLength) == false || RayLength <= 0.0f) {
                 return false;
             }
@@ -52,7 +52,7 @@ namespace Game {
             return true;
         }
 
-        void PipelineFootIKSystem::AppendFootCornerDebugLines(PipelineContext& Ctx, const ITerrainQuery& TerrainQuery, Arche::EntityID FootEntityId, Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) const {
+        void PipelineFootIKSystem::AppendFootCornerDebugLines(PipelineContext& Ctx, const Terrain::ITerrainQuery& TerrainQuery, Arche::EntityID FootEntityId, Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices) const {
             if (Ctx.HasRenderFlag(RenderContract::FrameGlobalFlagDrawDebugGeometry) == false) {
                 return;
             }
@@ -142,7 +142,7 @@ namespace Game {
         }
 
         void PipelineFootIKSystem::Execute(PipelineContext& Ctx, float Dt) {
-            const ITerrainQuery* TerrainQueryResource{ Ctx.GetTerrainQuery() };
+            const Terrain::ITerrainQuery* TerrainQueryResource{ Ctx.GetTerrainQuery() };
             Arche::World& World{ Ctx.GetWorld() };
             const Arche::World::WorldReadOnlyView& ReadOnlyWorld{ std::as_const(World).GetReadOnlyView() };
 

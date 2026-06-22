@@ -1,4 +1,4 @@
-﻿#include "Game/Terrain/TerrainManager.h"
+﻿#include "Terrain/TerrainManager.h"
 
 #include <algorithm>
 #include <cmath>
@@ -7,9 +7,9 @@
 #include <mutex>
 #include <utility>
 
-#include "Game/Model/TerrainHeightFieldFactory.h"
-#include "Game/Model/TerrainSplatMapGenerator.h"
-#include "Game/Model/TerrainTiledMeshBuilder.h"
+#include "Terrain/TerrainHeightFieldFactory.h"
+#include "Terrain/TerrainSplatMapGenerator.h"
+#include "Terrain/TerrainTiledMeshBuilder.h"
 #include "Utility/MathValidation.h"
 
 #undef min
@@ -19,7 +19,7 @@ namespace {
     constexpr float RaycastDistanceEpsilon{ 1.0E-4F };
     constexpr float RaycastDeltaEpsilon{ 1.0E-4F };
 
-    std::uint32_t ResolveStreamingGridStep(const Game::TerrainBuildDesc& Desc) {
+    std::uint32_t ResolveStreamingGridStep(const Terrain::TerrainBuildDesc& Desc) {
         if (Desc.mStreamingGridStep > 0U) {
             return Desc.mStreamingGridStep;
         }
@@ -45,7 +45,7 @@ namespace {
         return static_cast<float>(OriginGrid) * CellSize;
     }
 
-    DirectX::SimpleMath::Matrix BuildTerrainWorldMatrix(const Game::TerrainWorldData& TerrainData) {
+    DirectX::SimpleMath::Matrix BuildTerrainWorldMatrix(const Terrain::TerrainWorldData& TerrainData) {
         DirectX::SimpleMath::Matrix ScalingMatrix{ DirectX::SimpleMath::Matrix::CreateScale(TerrainData.mScale) };
         DirectX::SimpleMath::Matrix RotationMatrix{ DirectX::SimpleMath::Matrix::CreateFromQuaternion(TerrainData.mOrientation) };
         DirectX::SimpleMath::Matrix TranslationMatrix{ DirectX::SimpleMath::Matrix::CreateTranslation(TerrainData.mPosition) };
@@ -53,7 +53,7 @@ namespace {
         return WorldMatrix;
     }
 
-    bool IsTerrainWorldDataValid(const Game::TerrainWorldData& TerrainData) {
+    bool IsTerrainWorldDataValid(const Terrain::TerrainWorldData& TerrainData) {
         if (TerrainData.mHeightFieldValues == nullptr) {
             return false;
         }
@@ -62,18 +62,18 @@ namespace {
         return TerrainData.mHeightFieldWidth > 1U && TerrainData.mHeightFieldHeight > 1U && TerrainData.mHeightFieldCellSizeX > 0.0F && TerrainData.mHeightFieldCellSizeZ > 0.0F && TerrainData.mHeightFieldMaxHeight > 0.0F && TerrainData.mHeightFieldValues->size() == ExpectedHeightValueCount;
     }
 
-    std::size_t CalculateHeightFieldIndex(const Game::TerrainWorldData& TerrainData, std::uint32_t X, std::uint32_t Z) {
+    std::size_t CalculateHeightFieldIndex(const Terrain::TerrainWorldData& TerrainData, std::uint32_t X, std::uint32_t Z) {
         std::size_t Index{ static_cast<std::size_t>(Z) * static_cast<std::size_t>(TerrainData.mHeightFieldWidth) + static_cast<std::size_t>(X) };
         return Index;
     }
 
-    float SampleCellHeight(const Game::TerrainWorldData& TerrainData, std::uint32_t X, std::uint32_t Z) {
+    float SampleCellHeight(const Terrain::TerrainWorldData& TerrainData, std::uint32_t X, std::uint32_t Z) {
         const std::size_t HeightFieldIndex{ CalculateHeightFieldIndex(TerrainData, X, Z) };
         const float Height01Value{ std::clamp((*TerrainData.mHeightFieldValues)[HeightFieldIndex], 0.0F, 1.0F) };
         return Height01Value * TerrainData.mHeightFieldMaxHeight;
     }
 
-    bool TryResolveTerrainSurfaceAtLocalPosition(const Game::TerrainWorldData& TerrainData, float LocalX, float LocalZ, float& OutLocalHeight, DirectX::SimpleMath::Vector3& OutLocalNormal) {
+    bool TryResolveTerrainSurfaceAtLocalPosition(const Terrain::TerrainWorldData& TerrainData, float LocalX, float LocalZ, float& OutLocalHeight, DirectX::SimpleMath::Vector3& OutLocalNormal) {
         if (IsTerrainWorldDataValid(TerrainData) == false) {
             return false;
         }
@@ -130,7 +130,7 @@ namespace {
         return true;
     }
 
-    bool TryGetTerrainSurfaceAtWorldPosition(const Game::TerrainWorldData& TerrainData, float WorldX, float WorldZ, float& OutWorldHeight, DirectX::SimpleMath::Vector3& OutWorldNormal) {
+    bool TryGetTerrainSurfaceAtWorldPosition(const Terrain::TerrainWorldData& TerrainData, float WorldX, float WorldZ, float& OutWorldHeight, DirectX::SimpleMath::Vector3& OutWorldNormal) {
         if (IsTerrainWorldDataValid(TerrainData) == false) {
             return false;
         }
@@ -162,7 +162,39 @@ namespace {
         return true;
     }
 
-    bool TryResolveTerrainRaySample(const Game::TerrainWorldData& TerrainData, const DirectX::SimpleMath::Ray& Ray, float RayDistance, float& OutTerrainDelta, DirectX::SimpleMath::Vector3& OutSurfacePosition, DirectX::SimpleMath::Vector3& OutSurfaceNormal) {
+    bool TryGetTerrainSplatWeightsAtWorldPosition(const Terrain::TerrainWorldData& TerrainData, float WorldX, float WorldZ, asset::Vec4& OutSplatWeights) {
+        if (IsTerrainWorldDataValid(TerrainData) == false || TerrainData.mSplatMapData == nullptr || TerrainData.mSplatMapData->WeightValues.empty() == true || TerrainData.mSplatMapData->Width == 0U || TerrainData.mSplatMapData->Height == 0U) {
+            return false;
+        }
+
+        const DirectX::SimpleMath::Matrix WorldMatrix{ BuildTerrainWorldMatrix(TerrainData) };
+        const DirectX::SimpleMath::Matrix InverseWorldMatrix{ WorldMatrix.Invert() };
+        DirectX::SimpleMath::Vector3 LocalPoint{ DirectX::SimpleMath::Vector3::Transform(DirectX::SimpleMath::Vector3{ WorldX, 0.0F, WorldZ }, InverseWorldMatrix) };
+        if (TerrainData.mHeightFieldCenterOrigin == true) {
+            LocalPoint.x += (static_cast<float>(TerrainData.mHeightFieldWidth) - 1.0F) * TerrainData.mHeightFieldCellSizeX * 0.5F;
+            LocalPoint.z += (static_cast<float>(TerrainData.mHeightFieldHeight) - 1.0F) * TerrainData.mHeightFieldCellSizeZ * 0.5F;
+        }
+
+        const float MaxGridPositionX{ static_cast<float>(TerrainData.mHeightFieldWidth - 1U) * TerrainData.mHeightFieldCellSizeX };
+        const float MaxGridPositionZ{ static_cast<float>(TerrainData.mHeightFieldHeight - 1U) * TerrainData.mHeightFieldCellSizeZ };
+        if (LocalPoint.x < 0.0F || LocalPoint.z < 0.0F || LocalPoint.x > MaxGridPositionX || LocalPoint.z > MaxGridPositionZ) {
+            return false;
+        }
+
+        const float GridX{ LocalPoint.x / TerrainData.mHeightFieldCellSizeX };
+        const float GridZ{ LocalPoint.z / TerrainData.mHeightFieldCellSizeZ };
+        const std::uint32_t SplatX{ std::min(static_cast<std::uint32_t>(std::round(GridX)), TerrainData.mSplatMapData->Width - 1U) };
+        const std::uint32_t SplatZ{ std::min(static_cast<std::uint32_t>(std::round(GridZ)), TerrainData.mSplatMapData->Height - 1U) };
+        const std::size_t SplatIndex{ static_cast<std::size_t>(SplatZ) * static_cast<std::size_t>(TerrainData.mSplatMapData->Width) + static_cast<std::size_t>(SplatX) };
+        if (SplatIndex >= TerrainData.mSplatMapData->WeightValues.size()) {
+            return false;
+        }
+
+        OutSplatWeights = TerrainData.mSplatMapData->WeightValues[SplatIndex];
+        return true;
+    }
+
+    bool TryResolveTerrainRaySample(const Terrain::TerrainWorldData& TerrainData, const DirectX::SimpleMath::Ray& Ray, float RayDistance, float& OutTerrainDelta, DirectX::SimpleMath::Vector3& OutSurfacePosition, DirectX::SimpleMath::Vector3& OutSurfaceNormal) {
         const DirectX::SimpleMath::Vector3 RayPosition{ Ray.position + (Ray.direction * RayDistance) };
         if (MathUtility::IsFiniteVector3(RayPosition) == false) {
             return false;
@@ -185,7 +217,7 @@ namespace {
         return true;
     }
 
-    bool TryRaycastTerrainWorldData(const Game::TerrainWorldData& TerrainData, const DirectX::SimpleMath::Ray& Ray, float MaxDistance, DirectX::SimpleMath::Vector3& OutHitPosition, DirectX::SimpleMath::Vector3& OutHitNormal, float& OutHitDistance) {
+    bool TryRaycastTerrainWorldData(const Terrain::TerrainWorldData& TerrainData, const DirectX::SimpleMath::Ray& Ray, float MaxDistance, DirectX::SimpleMath::Vector3& OutHitPosition, DirectX::SimpleMath::Vector3& OutHitNormal, float& OutHitDistance) {
         if (MathUtility::IsFiniteVector3(Ray.position) == false || MathUtility::IsFiniteVector3(Ray.direction) == false || MathUtility::IsFiniteFloat(MaxDistance) == false) {
             return false;
         }
@@ -278,7 +310,7 @@ namespace {
     }
 }
 
-namespace Game {
+namespace Terrain {
     ITerrainQuery::ITerrainQuery() {
     }
 
@@ -563,6 +595,43 @@ namespace Game {
         return true;
     }
 
+    bool TerrainManager::TryGetSplatWeightsAtWorldPosition(TerrainDataHandle Handle, float WorldX, float WorldZ, asset::Vec4& OutSplatWeights) const {
+        std::shared_ptr<const TerrainWorldData> TerrainData{};
+        if (TryGetTerrainWorldData(Handle, TerrainData) == false) {
+            return false;
+        }
+
+        return TryGetTerrainSplatWeightsAtWorldPosition(*TerrainData, WorldX, WorldZ, OutSplatWeights);
+    }
+
+    bool TerrainManager::TryGetSplatWeightsAtWorldPosition(float WorldX, float WorldZ, asset::Vec4& OutSplatWeights) const {
+        const std::vector<std::shared_ptr<const TerrainWorldData>> TerrainDataItems{ CollectTerrainDataSnapshot() };
+        bool HasSplatWeights{};
+        float HighestSurfaceHeight{};
+        for (const std::shared_ptr<const TerrainWorldData>& TerrainData : TerrainDataItems) {
+            if (TerrainData == nullptr) {
+                continue;
+            }
+
+            float SurfaceHeight{};
+            DirectX::SimpleMath::Vector3 SurfaceNormal{ DirectX::SimpleMath::Vector3::Up };
+            if (TryGetTerrainSurfaceAtWorldPosition(*TerrainData, WorldX, WorldZ, SurfaceHeight, SurfaceNormal) == false) {
+                continue;
+            }
+
+            asset::Vec4 SplatWeights{};
+            if (TryGetTerrainSplatWeightsAtWorldPosition(*TerrainData, WorldX, WorldZ, SplatWeights) == false || (HasSplatWeights == true && SurfaceHeight <= HighestSurfaceHeight)) {
+                continue;
+            }
+
+            HighestSurfaceHeight = SurfaceHeight;
+            OutSplatWeights = SplatWeights;
+            HasSplatWeights = true;
+        }
+
+        return HasSplatWeights;
+    }
+
     std::shared_ptr<const TerrainWorldData> TerrainManager::BuildTerrainWorldData(std::uint32_t TerrainId, const DirectX::SimpleMath::Vector3& Position, const DirectX::SimpleMath::Vector3& Rotation, const DirectX::SimpleMath::Vector3& Scale, const TerrainBuildDesc& BuildDesc, const std::shared_ptr<const HeightFieldData>& HeightField, TerrainDataHandle Handle) const {
         TerrainWorldData TerrainData{};
         TerrainData.mHandle = Handle;
@@ -587,6 +656,15 @@ namespace Game {
         TerrainData.mHalfExtentX = TerrainData.mHeightFieldWidth > 1U ? static_cast<float>(TerrainData.mHeightFieldWidth - 1U) * BuildDesc.CellSizeX * 0.5F : 0.0F;
         TerrainData.mHalfExtentZ = TerrainData.mHeightFieldHeight > 1U ? static_cast<float>(TerrainData.mHeightFieldHeight - 1U) * BuildDesc.CellSizeZ * 0.5F : 0.0F;
         TerrainData.mHeightFieldValues = std::shared_ptr<const std::vector<float>>{ HeightField, &HeightField->HeightValues };
+
+        try {
+            TerrainSplatMapGenerator SplatMapGenerator{};
+            TerrainData.mSplatMapData = std::make_shared<const SplatMapData>(SplatMapGenerator.Generate(*HeightField, BuildDesc));
+        }
+        catch (const std::exception&) {
+            TerrainData.mSplatMapData.reset();
+        }
+
         return std::make_shared<const TerrainWorldData>(std::move(TerrainData));
     }
 

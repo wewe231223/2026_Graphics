@@ -6,7 +6,7 @@
 #include "RenderContract/Frame/RenderFrameData.h"
 #include "Game/Environment/EnvironmentObjectRenderContext.h"
 #include "Game/Scene/Base/SceneWorldSnapshot.h"
-#include "Game/Terrain/TerrainManager.h"
+#include "Terrain/TerrainManager.h"
 #include "PhysicsLib/Common.h"
 #include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
 #include "Utility/SimpleMathWrapper.h"
@@ -38,8 +38,8 @@ namespace Game {
         PhysicsRuntime* PhysicsRuntimeResource{ nullptr };
         const PhysicsSnapshot* PhysicsSnapshotResource{ nullptr };
         const std::vector<Arche::EntityID>* PhysicsSynchronizationEntityIds{ nullptr };
-        TerrainManager* TerrainManagerResource{ nullptr };
-        ITerrainQuery* TerrainQueryResource{ nullptr };
+        Terrain::TerrainManager* TerrainManagerResource{ nullptr };
+        Terrain::ITerrainQuery* TerrainQueryResource{ nullptr };
         bool IsPhysicsRuntimeModeEnabled{};
         std::uint32_t mPhysicsWorldVersion{};
         PhysicsRuntimeStatus PhysicsRuntimeStatus{};

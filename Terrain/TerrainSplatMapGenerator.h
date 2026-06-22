@@ -1,8 +1,8 @@
 ﻿#pragma once
 
-#include "Game/Model/TerrainMeshTypes.h"
+#include "Terrain/TerrainMeshTypes.h"
 
-namespace Game {
+namespace Terrain {
     class TerrainSplatMapGenerator final {
     public:
         TerrainSplatMapGenerator();

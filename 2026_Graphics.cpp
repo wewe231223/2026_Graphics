@@ -51,6 +51,7 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
         #pragma comment(lib, "out/debug/Script.lib")
         #pragma comment(lib, "out/debug/PhysicsLib.lib")    
         #pragma comment(lib, "out/debug/RenderContract.lib")
+        #pragma comment(lib, "out/debug/Terrain.lib")
     #else 
         #pragma comment(lib, "out/release/Arche.lib")
         #pragma comment(lib, "out/release/Game.lib")
@@ -59,6 +60,7 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".//D3D/"; 
         #pragma comment(lib, "out/release/Script.lib")
         #pragma comment(lib, "out/release/PhysicsLib.lib")
         #pragma comment(lib, "out/release/RenderContract.lib")
+        #pragma comment(lib, "out/release/Terrain.lib")
     #endif 
 #endif 
 

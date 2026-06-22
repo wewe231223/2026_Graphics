@@ -8,15 +8,18 @@
 #include "Game/Scene/Components/Frustum.h"
 #include "RenderContract/Gather/RenderGatherResult.h"
 
-namespace Game {
+namespace Terrain {
     class ITerrainQuery;
+}
+
+namespace Game {
     struct RegisteredMaterialGroup;
 
     namespace Pipeline {
         struct PipelineFrameInput final {
         public:
             const std::vector<RegisteredMaterialGroup>* mMaterialGroups{};
-            const ITerrainQuery* mTerrainQueryResource{};
+            const Terrain::ITerrainQuery* mTerrainQueryResource{};
             Arche::EntityID mPickedEntityId{ Arche::NullEntityID };
             std::uint32_t mFrameIndex{};
             std::uint32_t mRenderFlags{};
@@ -44,7 +47,7 @@ namespace Game {
             const Arche::World& GetWorld() const;
             const PipelineFrameInput& GetFrameInput() const;
             const std::vector<RegisteredMaterialGroup>* GetMaterialGroups() const;
-            const ITerrainQuery* GetTerrainQuery() const;
+            const Terrain::ITerrainQuery* GetTerrainQuery() const;
             Arche::EntityID GetPickedEntityId() const;
             std::uint32_t GetFrameIndex() const;
             std::uint32_t GetRenderFlags() const;

@@ -9,9 +9,11 @@
 #include "Game/Scene/IK/FootIKSolver.h"
 #include "Game/Scene/Base/System.h"
 
-namespace Game {
+namespace Terrain {
     class ITerrainQuery;
+}
 
+namespace Game {
     namespace Pipeline {
         class PipelineFootIKSystem final : public IPipelineSystem {
         public:
@@ -29,8 +31,8 @@ namespace Game {
             void Execute(PipelineContext& Ctx, float Dt) override;
 
         private:
-            bool TryResolveRaycastHitOnTerrain(const ITerrainQuery& TerrainQuery, const DirectX::SimpleMath::Ray& Ray, float RayLength, DirectX::SimpleMath::Vector3& OutHitPoint, DirectX::SimpleMath::Vector3& OutHitNormal) const;
-            void AppendFootCornerDebugLines(PipelineContext& Ctx, const ITerrainQuery& TerrainQuery, Arche::EntityID FootEntityId, Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices) const;
+            bool TryResolveRaycastHitOnTerrain(const Terrain::ITerrainQuery& TerrainQuery, const DirectX::SimpleMath::Ray& Ray, float RayLength, DirectX::SimpleMath::Vector3& OutHitPoint, DirectX::SimpleMath::Vector3& OutHitNormal) const;
+            void AppendFootCornerDebugLines(PipelineContext& Ctx, const Terrain::ITerrainQuery& TerrainQuery, Arche::EntityID FootEntityId, Arche::EntityID ToeEntityId, std::unordered_map<Arche::EntityID, DirectX::SimpleMath::Matrix>& InOutWorldMatrices) const;
 
             std::unique_ptr<IFootIKSolver> mFootIKSolver{};
         };

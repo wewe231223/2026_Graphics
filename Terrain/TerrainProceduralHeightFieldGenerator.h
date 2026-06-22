@@ -2,10 +2,10 @@
 
 #include <string>
 
-#include "Game/Model/TerrainProceduralHeightFieldConfigLoader.h"
-#include "Game/Model/TerrainMeshTypes.h"
+#include "Terrain/TerrainProceduralHeightFieldConfigLoader.h"
+#include "Terrain/TerrainMeshTypes.h"
 
-namespace Game {
+namespace Terrain {
     class TerrainProceduralHeightFieldGenerator final {
     public:
         TerrainProceduralHeightFieldGenerator();

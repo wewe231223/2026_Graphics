@@ -4,10 +4,10 @@
 #include <vector>
 
 #include "Asset/ModelResult.h"
-#include "Game/Model/TerrainMeshTypes.h"
-#include "Game/Terrain/TerrainManager.h"
+#include "Terrain/TerrainMeshTypes.h"
+#include "Terrain/TerrainManager.h"
 
-namespace Game {
+namespace Terrain {
     struct TerrainTiledMeshData final {
     public:
         asset::ModelResult mModelData{};

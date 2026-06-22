@@ -15,10 +15,10 @@
 #include "Asset/AnimationBinaryReader.h"
 #include "Asset/MaterialGroupJsonSerializer.h"
 #include "PrimitiveModelFactory.h"
-#include "TerrainHeightFieldFactory.h"
+#include "Terrain/TerrainHeightFieldFactory.h"
 #include "TerrainRenderResource.h"
-#include "TerrainTiledMeshBuilder.h"
-#include "Game/Terrain/TerrainManager.h"
+#include "Terrain/TerrainTiledMeshBuilder.h"
+#include "Terrain/TerrainManager.h"
 #include "Utility/ErrorHandler.h"
 
 namespace {
@@ -56,8 +56,8 @@ namespace {
             || (TypeValue >= TerrainNormalTextureStart && TypeValue <= TerrainNormalTextureEnd);
     }
 
-    std::string BuildTerrainHeightSourceTypeText(Game::TerrainHeightSourceType SourceType) {
-        if (SourceType == Game::TerrainHeightSourceType::Procedural) {
+    std::string BuildTerrainHeightSourceTypeText(Terrain::TerrainHeightSourceType SourceType) {
+        if (SourceType == Terrain::TerrainHeightSourceType::Procedural) {
             return "Procedural";
         }
 
@@ -104,15 +104,15 @@ namespace {
         return Hash;
     }
 
-    void AppendTerrainKeyHashSplatMapDesc(std::uint64_t& Hash, const Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& Desc) {
+    void AppendTerrainKeyHashSplatMapDesc(std::uint64_t& Hash, const Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& Desc) {
         AppendTerrainKeyHashUInt32(Hash, static_cast<std::uint32_t>(Desc.mVariables.size()));
-        for (const Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapVariableDesc& VariableDesc : Desc.mVariables) {
+        for (const Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapVariableDesc& VariableDesc : Desc.mVariables) {
             AppendTerrainKeyHashString(Hash, VariableDesc.mName);
             AppendTerrainKeyHashString(Hash, VariableDesc.mFormula);
         }
 
         AppendTerrainKeyHashUInt32(Hash, static_cast<std::uint32_t>(Desc.mLayers.size()));
-        for (const Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc& LayerDesc : Desc.mLayers) {
+        for (const Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc& LayerDesc : Desc.mLayers) {
             AppendTerrainKeyHashString(Hash, LayerDesc.mName);
             AppendTerrainKeyHashString(Hash, LayerDesc.mFormula);
         }
@@ -122,7 +122,7 @@ namespace {
         AppendTerrainKeyHashFloat(Hash, Desc.mMinimumWeightSum);
     }
 
-    std::uint64_t BuildTerrainProceduralHeightFieldDescHash(const Game::TerrainProceduralHeightFieldDesc& Desc) {
+    std::uint64_t BuildTerrainProceduralHeightFieldDescHash(const Terrain::TerrainProceduralHeightFieldDesc& Desc) {
         std::uint64_t Hash{ TerrainKeyHashOffset };
         AppendTerrainKeyHashUInt32(Hash, Desc.mWidth);
         AppendTerrainKeyHashUInt32(Hash, Desc.mHeight);
@@ -172,7 +172,7 @@ namespace {
         return Hash;
     }
 
-    std::uint64_t BuildTerrainMeshDescHash(const Game::TerrainBuildDesc& Desc) {
+    std::uint64_t BuildTerrainMeshDescHash(const Terrain::TerrainBuildDesc& Desc) {
         std::uint64_t Hash{ TerrainKeyHashOffset };
         AppendTerrainKeyHashFloat(Hash, Desc.MaxHeight);
         AppendTerrainKeyHashFloat(Hash, Desc.CellSizeX);
@@ -191,10 +191,10 @@ namespace {
         return std::to_string(Hash);
     }
 
-    std::string BuildTerrainRenderResourceKey(const Game::TerrainBuildDesc& Desc) {
+    std::string BuildTerrainRenderResourceKey(const Terrain::TerrainBuildDesc& Desc) {
         std::string Key{ "terrain:" };
         Key += std::string{ "HeightSourceType=" } + BuildTerrainHeightSourceTypeText(Desc.mHeightSourceType);
-        if (Desc.mHeightSourceType == Game::TerrainHeightSourceType::HeightMap) {
+        if (Desc.mHeightSourceType == Terrain::TerrainHeightSourceType::HeightMap) {
             Key += std::string{ ";HeightMapPathHash=" } + BuildTerrainKeyHashText(BuildTerrainStringHash(Desc.HeightMapPath));
         }
         else if (Desc.mProceduralHeightFieldPath.empty() == false) {
@@ -338,14 +338,14 @@ namespace Game {
         return NewModel;
     }
 
-    std::shared_ptr<TerrainRenderResource> AssetRegistry::GetTerrainRenderResource(const TerrainBuildDesc& Desc) {
+    std::shared_ptr<TerrainRenderResource> AssetRegistry::GetTerrainRenderResource(const Terrain::TerrainBuildDesc& Desc) {
         IAssetRegistryBackEnd* BackEnd{ mBackEnd.get() };
         AssetRegistryStorage& Storage{ BackEnd->GetStorage() };
         auto& TerrainBucket{ Storage.GetBucket<TerrainRenderResourceBucketTag>() };
-        TerrainBuildDesc ResolvedDesc{ Desc };
+        Terrain::TerrainBuildDesc ResolvedDesc{ Desc };
         try {
-            TerrainHeightFieldFactory HeightFieldFactory{};
-            if (ResolvedDesc.mHeightSourceType == TerrainHeightSourceType::Procedural) {
+            Terrain::TerrainHeightFieldFactory HeightFieldFactory{};
+            if (ResolvedDesc.mHeightSourceType == Terrain::TerrainHeightSourceType::Procedural) {
                 ResolvedDesc.mProceduralHeightFieldDesc = HeightFieldFactory.ResolveProceduralHeightFieldDesc(ResolvedDesc);
             }
         }
@@ -361,11 +361,11 @@ namespace Game {
             return TerrainBucket.mAssets[FoundTerrain->second];
         }
 
-        TerrainTiledMeshData TiledMeshData{};
-        HeightFieldData HeightField{};
+        Terrain::TerrainTiledMeshData TiledMeshData{};
+        Terrain::HeightFieldData HeightField{};
         try {
-            TerrainHeightFieldFactory HeightFieldFactory{};
-            TerrainTiledMeshBuilder Builder{};
+            Terrain::TerrainHeightFieldFactory HeightFieldFactory{};
+            Terrain::TerrainTiledMeshBuilder Builder{};
             HeightField = HeightFieldFactory.Build(ResolvedDesc);
             TiledMeshData = Builder.Build(HeightField, ResolvedDesc);
         }
@@ -383,7 +383,7 @@ namespace Game {
         }
 
         std::shared_ptr<TerrainRenderResource> NewResource{ std::make_shared<TerrainRenderResource>() };
-        std::shared_ptr<const HeightFieldData> HeightFieldPointer{ std::make_shared<const HeightFieldData>(std::move(HeightField)) };
+        std::shared_ptr<const Terrain::HeightFieldData> HeightFieldPointer{ std::make_shared<const Terrain::HeightFieldData>(std::move(HeightField)) };
         NewResource->Initialize(NewModel, std::move(TiledMeshData.mTileMetadata), TiledMeshData.mTileQuadCount, TiledMeshData.mTileCountX, TiledMeshData.mTileCountZ, TiledMeshData.mLodCount, std::move(TiledMeshData.mLodDistances), TiledMeshData.mLocalBoundingBox, ResolvedDesc);
         if (mDevice != nullptr && mCopyQueue != nullptr && mAllocator != nullptr && mSrvHeap != nullptr) {
             const bool IsHeightFieldInitialized{ NewResource->InitializeHeightField(HeightFieldPointer, ResolvedDesc, mDevice, mCopyQueue, mAllocator, mSrvHeap) };
@@ -399,7 +399,7 @@ namespace Game {
         return NewResource;
     }
 
-    bool AssetRegistry::UpdateTerrainStreaming(TerrainRenderResource& Resource, const TerrainManager& TerrainManagerInstance, const SimpleMath::Vector3& FocusPosition, std::uint32_t FrameIndex) {
+    bool AssetRegistry::UpdateTerrainStreaming(TerrainRenderResource& Resource, const Terrain::TerrainManager& TerrainManagerInstance, const SimpleMath::Vector3& FocusPosition, std::uint32_t FrameIndex) {
         if (mDevice == nullptr || mCopyQueue == nullptr || mAllocator == nullptr || mSrvHeap == nullptr) {
             return false;
         }

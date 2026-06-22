@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <stdexcept>
 
-namespace Game {
+namespace Terrain {
     TerrainMeshBuilder::TerrainMeshBuilder() {
     }
 

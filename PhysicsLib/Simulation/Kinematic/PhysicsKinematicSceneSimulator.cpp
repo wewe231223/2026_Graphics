@@ -6,7 +6,7 @@
 #include "PhysicsLib/Actors/PhysicsActorBase.h"
 #include "PhysicsLib/Actors/PhysicsKinematicActor.h"
 #include "PhysicsLib/Simulation/Repository/IPhysicsActorRepository.h"
-#include "Game/Terrain/TerrainQuery.h"
+#include "Terrain/TerrainQuery.h"
 
 float PhysicsKinematicSceneSimulator::GetActorBottomOffsetFromPositionY(const PhysicsActorBase& Actor) const {
     DirectX::XMFLOAT3 Corners[8]{};
@@ -22,7 +22,7 @@ float PhysicsKinematicSceneSimulator::GetActorBottomOffsetFromPositionY(const Ph
     return MinimumY - Actor.GetPosition().y;
 }
 
-bool PhysicsKinematicSceneSimulator::ResolveKinematicActorTerrainContact(const Game::ITerrainQuery& TerrainQuery, PhysicsActorBase& Actor) const {
+bool PhysicsKinematicSceneSimulator::ResolveKinematicActorTerrainContact(const Terrain::ITerrainQuery& TerrainQuery, PhysicsActorBase& Actor) const {
     if (Actor.HasFlag(PhysicsActorBase::PhysicsActorFlags::IgnoreTerrainCollide)) {
         return false;
     }
@@ -86,7 +86,7 @@ PhysicsKinematicSceneSimulator& PhysicsKinematicSceneSimulator::operator=(Physic
     return *this;
 }
 
-void PhysicsKinematicSceneSimulator::Tick(IPhysicsActorRepository& ActorRepository, const Game::ITerrainQuery& TerrainQuery, const DirectX::SimpleMath::Vector3& Gravity, float DeltaTime) const {
+void PhysicsKinematicSceneSimulator::Tick(IPhysicsActorRepository& ActorRepository, const Terrain::ITerrainQuery& TerrainQuery, const DirectX::SimpleMath::Vector3& Gravity, float DeltaTime) const {
     if (DeltaTime <= 0.0F) {
         return;
     }

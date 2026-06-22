@@ -10,8 +10,8 @@
 #include <string>
 #include <vector>
 #include <ryml_std.hpp>
-#include "Game/Model/TerrainHeightFieldFactory.h"
-#include "Game/Model/TerrainMeshTypes.h"
+#include "Terrain/TerrainHeightFieldFactory.h"
+#include "Terrain/TerrainMeshTypes.h"
 #include "Game/Model/TerrainRenderResource.h"
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Camera.h"
@@ -158,7 +158,7 @@ namespace Game::SceneYaml {
         return true;
     }
 
-    bool TryBuildTerrainActorDescFromHeightFieldPointer(const std::shared_ptr<const Game::HeightFieldData>& HeightFieldDataValue, const Game::TerrainBuildDesc& TerrainBuildDescValue, PhysicsTerrainActor::ActorDesc& OutTerrainActorDesc) {
+    bool TryBuildTerrainActorDescFromHeightFieldPointer(const std::shared_ptr<const Terrain::HeightFieldData>& HeightFieldDataValue, const Terrain::TerrainBuildDesc& TerrainBuildDescValue, PhysicsTerrainActor::ActorDesc& OutTerrainActorDesc) {
         if (HeightFieldDataValue == nullptr || HeightFieldDataValue->Width == 0u || HeightFieldDataValue->Height == 0u || HeightFieldDataValue->HeightValues.empty() == true) {
             return false;
         }
@@ -174,26 +174,28 @@ namespace Game::SceneYaml {
         OutTerrainActorDesc.HalfExtentX = HeightFieldDataValue->Width > 1u ? static_cast<float>(HeightFieldDataValue->Width - 1u) * TerrainBuildDescValue.CellSizeX * 0.5f : 0.0f;
         OutTerrainActorDesc.HalfExtentZ = HeightFieldDataValue->Height > 1u ? static_cast<float>(HeightFieldDataValue->Height - 1u) * TerrainBuildDescValue.CellSizeZ * 0.5f : 0.0f;
         OutTerrainActorDesc.Scale = SimpleMath::Vector3{ 1.0f, 1.0f, 1.0f };
-        OutTerrainActorDesc.mTerrainWorldData = std::make_shared<const Game::TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(OutTerrainActorDesc, 0u));
+        OutTerrainActorDesc.mTerrainWorldData = std::make_shared<const Terrain::TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(OutTerrainActorDesc, 0u));
         return true;
     }
 
-    bool TryBuildTerrainActorDescFromHeightField(const Game::HeightFieldData& HeightFieldDataValue, const Game::TerrainBuildDesc& TerrainBuildDescValue, PhysicsTerrainActor::ActorDesc& OutTerrainActorDesc) {
-        const std::shared_ptr<const Game::HeightFieldData> HeightFieldDataPointer{ std::make_shared<const Game::HeightFieldData>(HeightFieldDataValue) };
+    bool TryBuildTerrainActorDescFromHeightField(const Terrain::HeightFieldData& HeightFieldDataValue, const Terrain::TerrainBuildDesc& TerrainBuildDescValue, PhysicsTerrainActor::ActorDesc& OutTerrainActorDesc) {
+        const std::shared_ptr<const Terrain::HeightFieldData> HeightFieldDataPointer{ std::make_shared<const Terrain::HeightFieldData>(HeightFieldDataValue) };
         return TryBuildTerrainActorDescFromHeightFieldPointer(HeightFieldDataPointer, TerrainBuildDescValue, OutTerrainActorDesc);
     }
 
     bool TryBuildTerrainActorDescFromRenderResource(const Game::TerrainRenderResource& TerrainResource, PhysicsTerrainActor::ActorDesc& OutTerrainActorDesc) {
-        const Game::TerrainBuildDesc& TerrainBuildDescValue{ TerrainResource.GetBuildDesc() };
-        const std::shared_ptr<const Game::HeightFieldData>& ResourceHeightFieldData{ TerrainResource.GetHeightFieldDataPointer() };
+        const Terrain::TerrainBuildDesc& TerrainBuildDescValue{ TerrainResource.GetBuildDesc() };
+        const std::shared_ptr<const Terrain::HeightFieldData>& ResourceHeightFieldData{ TerrainResource.GetHeightFieldDataPointer() };
         const bool IsResourceHeightFieldResolved{ TryBuildTerrainActorDescFromHeightFieldPointer(ResourceHeightFieldData, TerrainBuildDescValue, OutTerrainActorDesc) };
         if (IsResourceHeightFieldResolved == true) {
+            OutTerrainActorDesc.mSplatMapData = TerrainResource.GetSplatMapDataPointer();
+            OutTerrainActorDesc.mTerrainWorldData = std::make_shared<const Terrain::TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(OutTerrainActorDesc, 0U));
             return true;
         }
 
         try {
-            Game::TerrainHeightFieldFactory HeightFieldFactory{};
-            const std::shared_ptr<const Game::HeightFieldData> BuiltHeightFieldData{ std::make_shared<const Game::HeightFieldData>(HeightFieldFactory.Build(TerrainBuildDescValue)) };
+            Terrain::TerrainHeightFieldFactory HeightFieldFactory{};
+            const std::shared_ptr<const Terrain::HeightFieldData> BuiltHeightFieldData{ std::make_shared<const Terrain::HeightFieldData>(HeightFieldFactory.Build(TerrainBuildDescValue)) };
             return TryBuildTerrainActorDescFromHeightFieldPointer(BuiltHeightFieldData, TerrainBuildDescValue, OutTerrainActorDesc);
         }
         catch (const std::exception&) {
@@ -201,7 +203,7 @@ namespace Game::SceneYaml {
         }
     }
 
-    std::uint32_t ResolveTerrainStreamingGridStep(const Game::TerrainBuildDesc& TerrainBuildDescValue) {
+    std::uint32_t ResolveTerrainStreamingGridStep(const Terrain::TerrainBuildDesc& TerrainBuildDescValue) {
         if (TerrainBuildDescValue.mStreamingGridStep > 0u) {
             return TerrainBuildDescValue.mStreamingGridStep;
         }
@@ -248,13 +250,13 @@ namespace Game::SceneYaml {
         return false;
     }
 
-    bool TryPrepareInitialStreamingTerrainBuildDesc(Arche::World& World, Game::TerrainBuildDesc& InOutTerrainBuildDesc) {
-        if (InOutTerrainBuildDesc.mStreamingEnabled == false || InOutTerrainBuildDesc.mHeightSourceType != Game::TerrainHeightSourceType::Procedural) {
+    bool TryPrepareInitialStreamingTerrainBuildDesc(Arche::World& World, Terrain::TerrainBuildDesc& InOutTerrainBuildDesc) {
+        if (InOutTerrainBuildDesc.mStreamingEnabled == false || InOutTerrainBuildDesc.mHeightSourceType != Terrain::TerrainHeightSourceType::Procedural) {
             return true;
         }
 
         try {
-            Game::TerrainHeightFieldFactory HeightFieldFactory{};
+            Terrain::TerrainHeightFieldFactory HeightFieldFactory{};
             InOutTerrainBuildDesc.mProceduralHeightFieldDesc = HeightFieldFactory.ResolveProceduralHeightFieldDesc(InOutTerrainBuildDesc);
         }
         catch (const std::exception&) {
@@ -278,8 +280,8 @@ namespace Game::SceneYaml {
             return;
         }
 
-        const Game::TerrainBuildDesc& TerrainBuildDescValue{ TerrainResource.GetBuildDesc() };
-        if (TerrainBuildDescValue.mStreamingEnabled == false || TerrainBuildDescValue.mHeightSourceType != Game::TerrainHeightSourceType::Procedural) {
+        const Terrain::TerrainBuildDesc& TerrainBuildDescValue{ TerrainResource.GetBuildDesc() };
+        if (TerrainBuildDescValue.mStreamingEnabled == false || TerrainBuildDescValue.mHeightSourceType != Terrain::TerrainHeightSourceType::Procedural) {
             return;
         }
 
@@ -328,7 +330,7 @@ namespace Game::SceneYaml {
         return OutName.empty() == false && OutFormula.empty() == false;
     }
 
-    bool TryReadTerrainSplatMapDesc(c4::yml::ConstNodeRef SplatMapNode, Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& OutDesc) {
+    bool TryReadTerrainSplatMapDesc(c4::yml::ConstNodeRef SplatMapNode, Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& OutDesc) {
         if (SplatMapNode.readable() == false || SplatMapNode.is_map() == false) {
             return false;
         }
@@ -351,7 +353,7 @@ namespace Game::SceneYaml {
 
             OutDesc.mVariables.clear();
             for (const c4::yml::ConstNodeRef VariableNode : VariablesNode.children()) {
-                Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapVariableDesc VariableDesc{};
+                Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapVariableDesc VariableDesc{};
                 if (TryReadTerrainSplatMapExpressionEntry(VariableNode, VariableDesc.mName, VariableDesc.mFormula) == false) {
                     return false;
                 }
@@ -368,7 +370,7 @@ namespace Game::SceneYaml {
 
             OutDesc.mLayers.clear();
             for (const c4::yml::ConstNodeRef LayerNode : LayersNode.children()) {
-                Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc LayerDesc{};
+                Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc LayerDesc{};
                 if (TryReadTerrainSplatMapExpressionEntry(LayerNode, LayerDesc.mName, LayerDesc.mFormula) == false) {
                     return false;
                 }
@@ -380,7 +382,7 @@ namespace Game::SceneYaml {
         return true;
     }
 
-    bool TryReadTerrainProceduralHeightFieldDesc(c4::yml::ConstNodeRef ProceduralNode, Game::TerrainProceduralHeightFieldDesc& OutDesc) {
+    bool TryReadTerrainProceduralHeightFieldDesc(c4::yml::ConstNodeRef ProceduralNode, Terrain::TerrainProceduralHeightFieldDesc& OutDesc) {
         if (ProceduralNode.readable() == false || ProceduralNode.is_map() == false) {
             return false;
         }
@@ -564,7 +566,7 @@ namespace Game::SceneYaml {
         return true;
     }
 
-    bool TryReadTerrainBuildDesc(c4::yml::ConstNodeRef TerrainNode, const std::string& SceneName, Game::TerrainBuildDesc& OutDesc) {
+    bool TryReadTerrainBuildDesc(c4::yml::ConstNodeRef TerrainNode, const std::string& SceneName, Terrain::TerrainBuildDesc& OutDesc) {
         if (TerrainNode.readable() == false || TerrainNode.is_map() == false) {
             return false;
         }
@@ -591,7 +593,7 @@ namespace Game::SceneYaml {
             }
 
             if (TerrainNode.has_child("HeightSourceType") == false && TerrainNode.has_child("HeightSource") == false && TerrainNode.has_child("HeightMapPath") == false) {
-                OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
             }
         }
 
@@ -603,7 +605,7 @@ namespace Game::SceneYaml {
             }
 
             OutDesc.mProceduralHeightFieldPath = ResolveSceneResourcePath(SceneName, ProceduralHeightFieldPath);
-            OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+            OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
         }
 
         if (TerrainNode.has_child("HeightMapPath")) {
@@ -616,7 +618,7 @@ namespace Game::SceneYaml {
             OutDesc.HeightMapPath = ResolveSceneResourcePath(SceneName, HeightMapPath);
         }
 
-        if (OutDesc.mHeightSourceType == Game::TerrainHeightSourceType::HeightMap && OutDesc.HeightMapPath.empty() == true) {
+        if (OutDesc.mHeightSourceType == Terrain::TerrainHeightSourceType::HeightMap && OutDesc.HeightMapPath.empty() == true) {
             return false;
         }
 
@@ -694,7 +696,7 @@ namespace Game::SceneYaml {
         return true;
     }
 
-    bool TryParseTerrainModelSelector(const std::string& Selector, Game::TerrainBuildDesc& OutDesc) {
+    bool TryParseTerrainModelSelector(const std::string& Selector, Terrain::TerrainBuildDesc& OutDesc) {
         if (StartsWith(Selector, "terrain:") == false) {
             return false;
         }
@@ -727,19 +729,19 @@ namespace Game::SceneYaml {
                 }
                 else if (Key == "ProceduralHeightFieldPath") {
                     OutDesc.mProceduralHeightFieldPath = Value;
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralWidth") {
                     OutDesc.mProceduralHeightFieldDesc.mWidth = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralHeight") {
                     OutDesc.mProceduralHeightFieldDesc.mHeight = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralSeed") {
                     OutDesc.mProceduralHeightFieldDesc.mSeed = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralUseRandomSeed") {
                     bool BoolValue{};
@@ -748,163 +750,163 @@ namespace Game::SceneYaml {
                     }
 
                     OutDesc.mProceduralHeightFieldDesc.mUseRandomSeed = BoolValue;
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralOctaveCount") {
                     OutDesc.mProceduralHeightFieldDesc.mOctaveCount = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralNoiseScale") {
                     OutDesc.mProceduralHeightFieldDesc.mNoiseScale = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralPersistence") {
                     OutDesc.mProceduralHeightFieldDesc.mPersistence = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralLacunarity") {
                     OutDesc.mProceduralHeightFieldDesc.mLacunarity = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralBaseHeight") {
                     OutDesc.mProceduralHeightFieldDesc.mBaseHeight = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralHeightAmplitude") {
                     OutDesc.mProceduralHeightFieldDesc.mHeightAmplitude = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralLodExponent") {
                     OutDesc.mProceduralHeightFieldDesc.mLodExponent = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralSmoothingPassCount") {
                     OutDesc.mProceduralHeightFieldDesc.mSmoothingPassCount = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralMinimumWidth") {
                     OutDesc.mProceduralHeightFieldDesc.mMinimumWidth = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralMinimumHeight") {
                     OutDesc.mProceduralHeightFieldDesc.mMinimumHeight = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralMaximumOctaveCount") {
                     OutDesc.mProceduralHeightFieldDesc.mMaximumOctaveCount = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralMaximumSmoothingPassCount") {
                     OutDesc.mProceduralHeightFieldDesc.mMaximumSmoothingPassCount = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralMinimumHeightValue") {
                     OutDesc.mProceduralHeightFieldDesc.mMinimumHeightValue = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralMaximumHeightValue") {
                     OutDesc.mProceduralHeightFieldDesc.mMaximumHeightValue = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralSampleScaleX") {
                     OutDesc.mProceduralHeightFieldDesc.mSampleScaleX = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralSampleScaleZ") {
                     OutDesc.mProceduralHeightFieldDesc.mSampleScaleZ = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralSampleOffsetX") {
                     OutDesc.mProceduralHeightFieldDesc.mSampleOffsetX = static_cast<std::int32_t>(std::stol(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralSampleOffsetZ") {
                     OutDesc.mProceduralHeightFieldDesc.mSampleOffsetZ = static_cast<std::int32_t>(std::stol(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralInitialFrequency") {
                     OutDesc.mProceduralHeightFieldDesc.mInitialFrequency = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralInitialAmplitude") {
                     OutDesc.mProceduralHeightFieldDesc.mInitialAmplitude = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralOctaveSeedStep") {
                     OutDesc.mProceduralHeightFieldDesc.mOctaveSeedStep = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralNoiseNormalizationScale") {
                     OutDesc.mProceduralHeightFieldDesc.mNoiseNormalizationScale = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralNoiseNormalizationBias") {
                     OutDesc.mProceduralHeightFieldDesc.mNoiseNormalizationBias = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralHashShiftA") {
                     OutDesc.mProceduralHeightFieldDesc.mHashShiftA = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralHashShiftB") {
                     OutDesc.mProceduralHeightFieldDesc.mHashShiftB = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralHashShiftC") {
                     OutDesc.mProceduralHeightFieldDesc.mHashShiftC = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralHashShiftLimitExclusive") {
                     OutDesc.mProceduralHeightFieldDesc.mHashShiftLimitExclusive = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralHashMultiplierA") {
                     OutDesc.mProceduralHeightFieldDesc.mHashMultiplierA = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralHashMultiplierB") {
                     OutDesc.mProceduralHeightFieldDesc.mHashMultiplierB = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralHashCoordinateOffsetX") {
                     OutDesc.mProceduralHeightFieldDesc.mHashCoordinateOffsetX = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralHashCoordinateOffsetZ") {
                     OutDesc.mProceduralHeightFieldDesc.mHashCoordinateOffsetZ = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralGradientDirectionCount") {
                     OutDesc.mProceduralHeightFieldDesc.mGradientDirectionCount = static_cast<std::uint32_t>(std::stoul(Value));
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralFadeCoefficientA") {
                     OutDesc.mProceduralHeightFieldDesc.mFadeCoefficientA = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralFadeCoefficientB") {
                     OutDesc.mProceduralHeightFieldDesc.mFadeCoefficientB = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralFadeCoefficientC") {
                     OutDesc.mProceduralHeightFieldDesc.mFadeCoefficientC = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralSmoothingCornerWeight") {
                     OutDesc.mProceduralHeightFieldDesc.mSmoothingCornerWeight = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralSmoothingEdgeWeight") {
                     OutDesc.mProceduralHeightFieldDesc.mSmoothingEdgeWeight = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralSmoothingCenterWeight") {
                     OutDesc.mProceduralHeightFieldDesc.mSmoothingCenterWeight = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "ProceduralSmoothingWeightSum") {
                     OutDesc.mProceduralHeightFieldDesc.mSmoothingWeightSum = std::stof(Value);
-                    OutDesc.mHeightSourceType = Game::TerrainHeightSourceType::Procedural;
+                    OutDesc.mHeightSourceType = Terrain::TerrainHeightSourceType::Procedural;
                 }
                 else if (Key == "MaxHeight") {
                     OutDesc.MaxHeight = std::stof(Value);
@@ -971,14 +973,14 @@ namespace Game::SceneYaml {
             return false;
         }
 
-        if (OutDesc.mHeightSourceType == Game::TerrainHeightSourceType::Procedural) {
+        if (OutDesc.mHeightSourceType == Terrain::TerrainHeightSourceType::Procedural) {
             return true;
         }
 
         return OutDesc.HeightMapPath.empty() == false;
     }
 
-    void AppendTerrainSplatMapDesc(std::ostringstream& Stream, std::size_t IndentLevel, const Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& Desc) {
+    void AppendTerrainSplatMapDesc(std::ostringstream& Stream, std::size_t IndentLevel, const Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& Desc) {
         if (Desc.mVariables.empty() == true && Desc.mLayers.empty() == true) {
             return;
         }
@@ -990,7 +992,7 @@ namespace Game::SceneYaml {
 
         if (Desc.mVariables.empty() == false) {
             AppendLine(Stream, IndentLevel + 1, "Variables:");
-            for (const Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapVariableDesc& VariableDesc : Desc.mVariables) {
+            for (const Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapVariableDesc& VariableDesc : Desc.mVariables) {
                 AppendLine(Stream, IndentLevel + 2, "- Name: " + ToYamlText(VariableDesc.mName));
                 AppendLine(Stream, IndentLevel + 3, "Formula: " + ToYamlText(VariableDesc.mFormula));
             }
@@ -998,14 +1000,14 @@ namespace Game::SceneYaml {
 
         if (Desc.mLayers.empty() == false) {
             AppendLine(Stream, IndentLevel + 1, "Layers:");
-            for (const Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc& LayerDesc : Desc.mLayers) {
+            for (const Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc& LayerDesc : Desc.mLayers) {
                 AppendLine(Stream, IndentLevel + 2, "- Name: " + ToYamlText(LayerDesc.mName));
                 AppendLine(Stream, IndentLevel + 3, "Formula: " + ToYamlText(LayerDesc.mFormula));
             }
         }
     }
 
-    void AppendTerrainProceduralHeightFieldDesc(std::ostringstream& Stream, std::size_t IndentLevel, const Game::TerrainProceduralHeightFieldDesc& Desc) {
+    void AppendTerrainProceduralHeightFieldDesc(std::ostringstream& Stream, std::size_t IndentLevel, const Terrain::TerrainProceduralHeightFieldDesc& Desc) {
         AppendLine(Stream, IndentLevel, "ProceduralHeightField:");
         AppendLine(Stream, IndentLevel + 1, std::string{ "Width: " } + std::to_string(Desc.mWidth));
         AppendLine(Stream, IndentLevel + 1, std::string{ "Height: " } + std::to_string(Desc.mHeight));
@@ -1053,10 +1055,10 @@ namespace Game::SceneYaml {
         AppendTerrainSplatMapDesc(Stream, IndentLevel + 1, Desc.mSplatMapDesc);
     }
 
-    void AppendTerrainBuildDesc(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& SceneName, const Game::TerrainBuildDesc& Desc) {
+    void AppendTerrainBuildDesc(std::ostringstream& Stream, std::size_t IndentLevel, const std::string& SceneName, const Terrain::TerrainBuildDesc& Desc) {
         AppendLine(Stream, IndentLevel, std::string{ TerrainTypeName } + std::string{ ":" });
         AppendLine(Stream, IndentLevel + 1, std::string{ "HeightSourceType: " } + BuildTerrainHeightSourceTypeText(Desc.mHeightSourceType));
-        if (Desc.mHeightSourceType == Game::TerrainHeightSourceType::HeightMap) {
+        if (Desc.mHeightSourceType == Terrain::TerrainHeightSourceType::HeightMap) {
             AppendLine(Stream, IndentLevel + 1, std::string{ "HeightMapPath: " } + ToYamlText(MakeSceneRelativeResourcePath(SceneName, Desc.HeightMapPath)));
         }
         else if (Desc.mProceduralHeightFieldPath.empty() == false) {

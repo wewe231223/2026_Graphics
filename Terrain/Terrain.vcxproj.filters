@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Domain">
+      <UniqueIdentifier>{3A9B20FD-4DD7-4F46-A11A-041605AAFD9D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Generation">
+      <UniqueIdentifier>{ED971217-A0B4-42A9-996A-F80E75E05DC3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Rendering">
+      <UniqueIdentifier>{44D1EC57-59FA-4D67-80A7-838A7B164D0A}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="HeightMapLoader.cpp">
+      <Filter>Generation</Filter>
+    </ClCompile>
+    <ClCompile Include="TerrainHeightFieldFactory.cpp">
+      <Filter>Generation</Filter>
+    </ClCompile>
+    <ClCompile Include="TerrainManager.cpp">
+      <Filter>Domain</Filter>
+    </ClCompile>
+    <ClCompile Include="TerrainMeshBuilder.cpp">
+      <Filter>Generation</Filter>
+    </ClCompile>
+    <ClCompile Include="TerrainProceduralHeightFieldConfigLoader.cpp">
+      <Filter>Generation</Filter>
+    </ClCompile>
+    <ClCompile Include="TerrainProceduralHeightFieldGenerator.cpp">
+      <Filter>Generation</Filter>
+    </ClCompile>
+    <ClCompile Include="TerrainRenderDataBuilder.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="TerrainSplatMapGenerator.cpp">
+      <Filter>Generation</Filter>
+    </ClCompile>
+    <ClCompile Include="TerrainTiledMeshBuilder.cpp">
+      <Filter>Generation</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="HeightMapLoader.h">
+      <Filter>Generation</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainHeightFieldFactory.h">
+      <Filter>Generation</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainManager.h">
+      <Filter>Domain</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainMeshBuilder.h">
+      <Filter>Generation</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainMeshTypes.h">
+      <Filter>Domain</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainProceduralHeightFieldConfigLoader.h">
+      <Filter>Generation</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainProceduralHeightFieldGenerator.h">
+      <Filter>Generation</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainQuery.h">
+      <Filter>Domain</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainRenderDataBuilder.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainSplatMapGenerator.h">
+      <Filter>Generation</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainTiledMeshBuilder.h">
+      <Filter>Generation</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

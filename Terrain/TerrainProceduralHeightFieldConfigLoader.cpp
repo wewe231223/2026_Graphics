@@ -85,7 +85,7 @@ namespace {
         return OutName.empty() == false && OutFormula.empty() == false;
     }
 
-    void ReadSplatMapVariables(c4::yml::ConstNodeRef SplatMapNode, Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& OutDesc) {
+    void ReadSplatMapVariables(c4::yml::ConstNodeRef SplatMapNode, Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& OutDesc) {
         if (SplatMapNode.has_child("Variables") == false) {
             return;
         }
@@ -97,7 +97,7 @@ namespace {
 
         OutDesc.mVariables.clear();
         for (const c4::yml::ConstNodeRef VariableNode : VariablesNode.children()) {
-            Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapVariableDesc VariableDesc{};
+            Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapVariableDesc VariableDesc{};
             if (TryReadSplatMapExpressionEntry(VariableNode, VariableDesc.mName, VariableDesc.mFormula) == false) {
                 throw std::runtime_error{ "Splat map variable must have Name and Formula." };
             }
@@ -106,7 +106,7 @@ namespace {
         }
     }
 
-    void ReadSplatMapLayers(c4::yml::ConstNodeRef SplatMapNode, Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& OutDesc) {
+    void ReadSplatMapLayers(c4::yml::ConstNodeRef SplatMapNode, Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& OutDesc) {
         if (SplatMapNode.has_child("Layers") == false) {
             return;
         }
@@ -118,7 +118,7 @@ namespace {
 
         OutDesc.mLayers.clear();
         for (const c4::yml::ConstNodeRef LayerNode : LayersNode.children()) {
-            Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc LayerDesc{};
+            Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc LayerDesc{};
             if (TryReadSplatMapExpressionEntry(LayerNode, LayerDesc.mName, LayerDesc.mFormula) == false) {
                 throw std::runtime_error{ "Splat map layer must have Name and Formula." };
             }
@@ -127,7 +127,7 @@ namespace {
         }
     }
 
-    void ReadSplatMapDesc(c4::yml::ConstNodeRef ConfigNode, Game::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& OutDesc) {
+    void ReadSplatMapDesc(c4::yml::ConstNodeRef ConfigNode, Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& OutDesc) {
         if (ConfigNode.has_child("SplatMap") == false) {
             return;
         }
@@ -144,8 +144,8 @@ namespace {
         ReadSplatMapLayers(SplatMapNode, OutDesc);
     }
 
-    Game::TerrainProceduralHeightFieldDesc ReadConfig(c4::yml::ConstNodeRef ConfigNode) {
-        Game::TerrainProceduralHeightFieldDesc Desc{};
+    Terrain::TerrainProceduralHeightFieldDesc ReadConfig(c4::yml::ConstNodeRef ConfigNode) {
+        Terrain::TerrainProceduralHeightFieldDesc Desc{};
         ReadUInt32Child(ConfigNode, "Width", Desc.mWidth);
         ReadUInt32Child(ConfigNode, "Height", Desc.mHeight);
         ReadUInt32Child(ConfigNode, "Seed", Desc.mSeed);
@@ -194,7 +194,7 @@ namespace {
     }
 }
 
-namespace Game {
+namespace Terrain {
     TerrainProceduralHeightFieldConfigLoader::TerrainProceduralHeightFieldConfigLoader() {
     }
 

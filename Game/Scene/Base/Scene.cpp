@@ -319,11 +319,11 @@ namespace Game {
             return mKinematicRuntimeStates;
         }
 
-        TerrainManager& Scene::GetTerrainManager() {
+        Terrain::TerrainManager& Scene::GetTerrainManager() {
             return mTerrainManager;
         }
 
-        const TerrainManager& Scene::GetTerrainManager() const {
+        const Terrain::TerrainManager& Scene::GetTerrainManager() const {
             return mTerrainManager;
         }
 

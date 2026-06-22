@@ -19,7 +19,7 @@ Notes:
 
 #include <DirectXTK12/SimpleMath.h>
 
-#include "Game/Terrain/TerrainQuery.h"
+#include "Terrain/TerrainQuery.h"
 #include "PhysicsLib/Actors/PhysicsStaticActor.h"
 
 class PhysicsTerrainActor final : public PhysicsStaticActor {
@@ -37,9 +37,10 @@ public:
         float HeightFieldMaxHeight{};
         bool HeightFieldCenterOrigin{};
         std::shared_ptr<const std::vector<float>> HeightFieldValues{};
-        std::shared_ptr<const Game::TerrainWorldData> mTerrainWorldData{};
-        Game::TerrainDataHandle mTerrainHandle{};
-        const Game::ITerrainQuery* mTerrainQuery{};
+        std::shared_ptr<const Terrain::TerrainWorldData> mTerrainWorldData{};
+        std::shared_ptr<const Terrain::SplatMapData> mSplatMapData{};
+        Terrain::TerrainDataHandle mTerrainHandle{};
+        const Terrain::ITerrainQuery* mTerrainQuery{};
     };
 
 public:
@@ -55,11 +56,11 @@ public:
 public:
     void SetActorDesc(const ActorDesc& Desc);
     ActorDesc GetActorDesc() const;
-    const std::shared_ptr<const Game::TerrainWorldData>& GetTerrainWorldData() const;
-    Game::TerrainDataHandle GetTerrainHandle() const;
+    const std::shared_ptr<const Terrain::TerrainWorldData>& GetTerrainWorldData() const;
+    Terrain::TerrainDataHandle GetTerrainHandle() const;
     bool HasHeightFieldData() const;
-    static Game::TerrainWorldData BuildTerrainWorldDataFromActorDesc(const ActorDesc& Desc, std::uint32_t TerrainId);
-    static ActorDesc BuildActorDescFromTerrainWorldData(const Game::TerrainWorldData& TerrainData);
+    static Terrain::TerrainWorldData BuildTerrainWorldDataFromActorDesc(const ActorDesc& Desc, std::uint32_t TerrainId);
+    static ActorDesc BuildActorDescFromTerrainWorldData(const Terrain::TerrainWorldData& TerrainData);
     static ActorDesc BuildHeightFieldActorDesc(std::uint32_t HeightFieldWidth, std::uint32_t HeightFieldHeight, const std::vector<float>& HeightFieldValues, float HeightFieldMaxHeight, float HeightFieldCellSizeX, float HeightFieldCellSizeZ, bool HeightFieldCenterOrigin);
     bool IsTerrainActor() const override;
 
@@ -70,10 +71,10 @@ public:
     std::unique_ptr<PhysicsActorBase> Clone() const override;
 
 private:
-    bool TryResolveTerrainWorldData(std::shared_ptr<const Game::TerrainWorldData>& OutTerrainData) const;
+    bool TryResolveTerrainWorldData(std::shared_ptr<const Terrain::TerrainWorldData>& OutTerrainData) const;
 
 private:
-    std::shared_ptr<const Game::TerrainWorldData> mTerrainWorldData;
-    Game::TerrainDataHandle mTerrainHandle;
-    const Game::ITerrainQuery* mTerrainQuery;
+    std::shared_ptr<const Terrain::TerrainWorldData> mTerrainWorldData;
+    Terrain::TerrainDataHandle mTerrainHandle;
+    const Terrain::ITerrainQuery* mTerrainQuery;
 };
