@@ -298,7 +298,7 @@ namespace Core {
 
 			BeginPostProcessFinalPass(CurrentIndex, DescriptorHeaps, PostProcessFuture);
 			CopyPostProcessToBackBuffer(PostProcessTarget, RenderTarget);
-			DrawFinalOverlays(Data, WidgetCore, DrawCallResources, Dsv, CurrentIndex, ShadowCascadeCount);
+			DrawFinalOverlays(Data, WidgetCore, DrawCallResources, Dsv, CurrentIndex, ShadowCascadeCount, IsPerformanceEnabled);
 			FinishPresentTarget(RenderTarget);
 			if (IsPerformanceEnabled) {
 				EndGpuFrameTimestampQuery(CurrentIndex);
@@ -686,7 +686,7 @@ namespace Core {
 			mPostProcessCommandList->CopyResource(RenderTarget->GetResource(), PostProcessTarget->GetResource());
 		}
 
-		void DirectQueue::DrawFinalOverlays(RenderContract::RenderFrameData& Data, Widget::WidgetCore* WidgetCore, DrawCallResourceManager& DrawCallResources, D3D12_CPU_DESCRIPTOR_HANDLE Dsv, std::uint32_t CurrentIndex, std::uint32_t ShadowCascadeCount) {
+		void DirectQueue::DrawFinalOverlays(RenderContract::RenderFrameData& Data, Widget::WidgetCore* WidgetCore, DrawCallResourceManager& DrawCallResources, D3D12_CPU_DESCRIPTOR_HANDLE Dsv, std::uint32_t CurrentIndex, std::uint32_t ShadowCascadeCount, bool IsPerformanceEnabled) {
 			TexPtr& RenderTarget{ mRenderTargets[CurrentIndex] };
 			RenderTarget->Transition(mPostProcessCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 			mPostProcessCommandList->RSSetViewports(1, &mViewport);
@@ -696,6 +696,9 @@ namespace Core {
 			mPostProcessCommandList->OMSetRenderTargets(1, &Rtv, FALSE, &Dsv);
 			mDrawCallDispatcher.DrawForwardOverlays(mPostProcessCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBoundingBoxContextSrvHandle(), DrawCallResources.GetDebugGeometryContextSrvHandle(), DrawCallResources.GetTerrainPatchContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
 			if (WidgetCore != nullptr) {
+				if (IsPerformanceEnabled == true) {
+					Widget::PerformanceProvider::Get().BeginPhaseProfile("ImGuiRenderStage");
+				}
 #pragma region TemporaryShadowMapPreview
 				std::array<ID3D12Resource*, Widget::WidgetCore::ShadowMapPreviewCapacity> ShadowMapResources{};
 				const std::uint32_t ShadowMapPreviewCount{ std::min<std::uint32_t>(ShadowCascadeCount, Widget::WidgetCore::ShadowMapPreviewCapacity) };
@@ -710,6 +713,9 @@ namespace Core {
 				WidgetCore->SetShadowMapTextures(ShadowMapResources, ShadowMapPreviewCount, mShadowMapSizes[0]);
 #pragma endregion
 				WidgetCore->Render(mPostProcessCommandList);
+				if (IsPerformanceEnabled == true) {
+					Widget::PerformanceProvider::Get().EndPhaseProfile();
+				}
 			}
 		}
 

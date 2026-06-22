@@ -277,6 +277,7 @@ namespace Widget {
         std::string PhysicsEngineLegendText{ "Physics Engine Stage" };
         std::string ParallelProcessingLegendText{ "Parallel Processing Stage" };
         std::string CommandSubmissionLegendText{ "Command Submission Stage" };
+        std::string ImGuiRenderLegendText{ "ImGui Render Stage" };
 
         if (!Entries.empty()) {
             const double MinStart{ Entries.front().StartMicroseconds };
@@ -333,9 +334,10 @@ namespace Widget {
             PhysicsEngineLegendText = std::format("Physics Engine Stage ({:.2f} ms)", ResolvePhaseDurationMilliseconds("PhysicsEngineStage"));
             ParallelProcessingLegendText = std::format("Parallel Processing Stage ({:.2f} ms)", ResolvePhaseDurationMilliseconds("ParallelProcessingStage"));
             CommandSubmissionLegendText = std::format("Command Submission Stage ({:.2f} ms)", ResolvePhaseDurationMilliseconds("CommandSubmissionStage"));
+            ImGuiRenderLegendText = std::format("ImGui Render Stage ({:.2f} ms)", ResolvePhaseDurationMilliseconds("ImGuiRenderStage"));
         }
 
-        ImGui::Columns(4, "PerformanceTimelineLegendColumns", false);
+        ImGui::Columns(5, "PerformanceTimelineLegendColumns", false);
         RenderLegendItem(FixedPipelineLegendText.c_str(), GetColorByName("FixedPipelineStage"));
         ImGui::NextColumn();
         RenderLegendItem(PhysicsEngineLegendText.c_str(), GetColorByName("PhysicsEngineStage"));
@@ -343,6 +345,8 @@ namespace Widget {
         RenderLegendItem(ParallelProcessingLegendText.c_str(), GetColorByName("ParallelProcessingStage"));
         ImGui::NextColumn();
         RenderLegendItem(CommandSubmissionLegendText.c_str(), GetColorByName("CommandSubmissionStage"));
+        ImGui::NextColumn();
+        RenderLegendItem(ImGuiRenderLegendText.c_str(), GetColorByName("ImGuiRenderStage"));
         ImGui::Columns(1);
 
         ImGui::End();
@@ -373,6 +377,10 @@ namespace Widget {
 
         if (Name == "CommandSubmissionStage") {
             return IM_COL32(52, 73, 94, 255);
+        }
+
+        if (Name == "ImGuiRenderStage") {
+            return IM_COL32(230, 126, 34, 255);
         }
 
         return IM_COL32(149, 165, 166, 255);

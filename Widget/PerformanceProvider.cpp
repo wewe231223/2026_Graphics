@@ -2,10 +2,15 @@
 
 #include <algorithm>
 #include <numeric>
+#include <tuple>
 #include <utility>
 
 #ifdef max
 #undef max
+#endif
+
+#ifdef min
+#undef min
 #endif
 
 namespace Widget {
@@ -43,17 +48,15 @@ namespace Widget {
         mHasFrameBegin = true;
         mFrameBeginMicroseconds = QueryNowMicroseconds();
         mCurrentFrameIdentifier += 1;
-        mPhaseDurations.clear();
-        mActivePhaseName.clear();
-        mActivePhaseStartMicroseconds = 0.0;
-        mHasActivePhase = false;
+        mActiveProfiles.clear();
+        mCurrentFrameProfiles.clear();
     }
 
     void PerformanceProvider::EndFrame() {
         if (!mHasFrameBegin) {
             return;
         }
-        if (mHasActivePhase) {
+        while (mActiveProfiles.empty() == false) {
             EndPhaseProfile();
         }
 
@@ -69,20 +72,10 @@ namespace Widget {
         UpdateVramInfoIfNeeded();
         UpdatePercentileCache();
 
-        std::vector<ProfileEntry> NewFrameProfiles{};
-        NewFrameProfiles.reserve(mPhaseDurations.size());
-        double CurrentStartMicroseconds{ mFrameBeginMicroseconds };
-        for (const std::pair<std::string, double>& PhaseDuration : mPhaseDurations) {
-            ProfileEntry Entry{};
-            Entry.Name = PhaseDuration.first;
-            Entry.StartMicroseconds = CurrentStartMicroseconds;
-            Entry.EndMicroseconds = CurrentStartMicroseconds + PhaseDuration.second;
-            Entry.Depth = 0;
-            NewFrameProfiles.push_back(Entry);
-            CurrentStartMicroseconds = Entry.EndMicroseconds;
-        }
-        UpdateTimelineAverageProfiles(NewFrameProfiles, EndMicroseconds);
-        mCurrentFrameProfiles = std::move(NewFrameProfiles);
+        std::sort(mCurrentFrameProfiles.begin(), mCurrentFrameProfiles.end(), [](const ProfileEntry& Left, const ProfileEntry& Right) {
+            return std::tie(Left.StartMicroseconds, Left.Depth) < std::tie(Right.StartMicroseconds, Right.Depth);
+        });
+        UpdateTimelineAverageProfiles(mCurrentFrameProfiles, EndMicroseconds);
 
         mHasFrameBegin = false;
     }
@@ -104,37 +97,31 @@ namespace Widget {
     }
 
     void PerformanceProvider::BeginPhaseProfile(const std::string& Name) {
-        if (!mHasFrameBegin || mHasActivePhase) {
+        if (!mHasFrameBegin) {
             return;
         }
 
-        mActivePhaseName = Name;
-        mActivePhaseStartMicroseconds = QueryNowMicroseconds();
-        mHasActivePhase = true;
+        ActiveProfile Profile{};
+        Profile.mName = Name;
+        Profile.mStartMicroseconds = QueryNowMicroseconds();
+        Profile.mDepth = mActiveProfiles.size();
+        mActiveProfiles.push_back(std::move(Profile));
     }
 
     void PerformanceProvider::EndPhaseProfile() {
-        if (!mHasFrameBegin || !mHasActivePhase) {
+        if (!mHasFrameBegin || mActiveProfiles.empty()) {
             return;
         }
 
+        ActiveProfile Profile{ std::move(mActiveProfiles.back()) };
+        mActiveProfiles.pop_back();
         const double EndMicroseconds{ QueryNowMicroseconds() };
-        const double DurationMicroseconds{ std::max(0.0, EndMicroseconds - mActivePhaseStartMicroseconds) };
-        bool IsFound{};
-        for (std::pair<std::string, double>& PhaseDuration : mPhaseDurations) {
-            if (PhaseDuration.first == mActivePhaseName) {
-                PhaseDuration.second += DurationMicroseconds;
-                IsFound = true;
-                break;
-            }
-        }
-        if (!IsFound) {
-            mPhaseDurations.push_back(std::make_pair(mActivePhaseName, DurationMicroseconds));
-        }
-
-        mActivePhaseName.clear();
-        mActivePhaseStartMicroseconds = 0.0;
-        mHasActivePhase = false;
+        ProfileEntry Entry{};
+        Entry.Name = std::move(Profile.mName);
+        Entry.StartMicroseconds = Profile.mStartMicroseconds;
+        Entry.EndMicroseconds = std::max(Profile.mStartMicroseconds, EndMicroseconds);
+        Entry.Depth = Profile.mDepth;
+        mCurrentFrameProfiles.push_back(std::move(Entry));
     }
 
     std::uint64_t PerformanceProvider::GetCurrentFrameIdentifier() const {
@@ -243,19 +230,41 @@ namespace Widget {
             mTimelineProfileAverageBeginMicroseconds = EndMicroseconds;
         }
 
-        for (const ProfileEntry& Entry : Entries) {
+        for (std::size_t EntryIndex{}; EntryIndex < Entries.size(); EntryIndex += 1ULL) {
+            const ProfileEntry& Entry{ Entries[EntryIndex] };
             const double DurationMicroseconds{ std::max(0.0, Entry.EndMicroseconds - Entry.StartMicroseconds) };
+            std::string ParentName{};
+            double ParentStartMicroseconds{ Entry.StartMicroseconds };
+            if (Entry.Depth > 0ULL) {
+                for (std::size_t ParentIndex{ EntryIndex }; ParentIndex > 0ULL; ParentIndex -= 1ULL) {
+                    const ProfileEntry& ParentEntry{ Entries[ParentIndex - 1ULL] };
+                    if (ParentEntry.Depth == Entry.Depth - 1ULL && ParentEntry.StartMicroseconds <= Entry.StartMicroseconds && ParentEntry.EndMicroseconds >= Entry.EndMicroseconds) {
+                        ParentName = ParentEntry.Name;
+                        ParentStartMicroseconds = ParentEntry.StartMicroseconds;
+                        break;
+                    }
+                }
+            }
+
+            const double StartOffsetMicroseconds{ std::max(0.0, Entry.StartMicroseconds - ParentStartMicroseconds) };
             bool IsFound{};
-            for (std::pair<std::string, double>& DurationSum : mTimelineProfileDurationSums) {
-                if (DurationSum.first == Entry.Name) {
-                    DurationSum.second += DurationMicroseconds;
+            for (TimelineProfileAggregate& Aggregate : mTimelineProfileAggregates) {
+                if (Aggregate.mName == Entry.Name && Aggregate.mParentName == ParentName && Aggregate.mDepth == Entry.Depth) {
+                    Aggregate.mDurationMicrosecondsSum += DurationMicroseconds;
+                    Aggregate.mStartOffsetMicrosecondsSum += StartOffsetMicroseconds;
                     IsFound = true;
                     break;
                 }
             }
 
             if (!IsFound) {
-                mTimelineProfileDurationSums.push_back(std::pair<std::string, double>{ Entry.Name, DurationMicroseconds });
+                TimelineProfileAggregate Aggregate{};
+                Aggregate.mName = Entry.Name;
+                Aggregate.mParentName = ParentName;
+                Aggregate.mDepth = Entry.Depth;
+                Aggregate.mDurationMicrosecondsSum = DurationMicroseconds;
+                Aggregate.mStartOffsetMicrosecondsSum = StartOffsetMicroseconds;
+                mTimelineProfileAggregates.push_back(std::move(Aggregate));
             }
         }
 
@@ -267,22 +276,40 @@ namespace Widget {
         }
 
         std::vector<ProfileEntry> AverageProfiles{};
-        AverageProfiles.reserve(mTimelineProfileDurationSums.size());
+        AverageProfiles.reserve(mTimelineProfileAggregates.size());
 
         const double FrameCount{ static_cast<double>(mTimelineProfileFrameCount) };
         double CurrentStartMicroseconds{};
-        for (const std::pair<std::string, double>& DurationSum : mTimelineProfileDurationSums) {
+        for (const TimelineProfileAggregate& Aggregate : mTimelineProfileAggregates) {
             ProfileEntry Entry{};
-            Entry.Name = DurationSum.first;
-            Entry.StartMicroseconds = CurrentStartMicroseconds;
-            Entry.EndMicroseconds = CurrentStartMicroseconds + DurationSum.second / FrameCount;
-            Entry.Depth = 0;
+            Entry.Name = Aggregate.mName;
+            Entry.Depth = Aggregate.mDepth;
+            const double DurationMicroseconds{ Aggregate.mDurationMicrosecondsSum / FrameCount };
+            if (Aggregate.mDepth == 0ULL) {
+                Entry.StartMicroseconds = CurrentStartMicroseconds;
+                Entry.EndMicroseconds = CurrentStartMicroseconds + DurationMicroseconds;
+                CurrentStartMicroseconds = Entry.EndMicroseconds;
+            }
+            else {
+                const std::vector<ProfileEntry>::reverse_iterator ParentIterator{ std::find_if(AverageProfiles.rbegin(), AverageProfiles.rend(), [&Aggregate](const ProfileEntry& ParentEntry) {
+                    return ParentEntry.Name == Aggregate.mParentName && ParentEntry.Depth == Aggregate.mDepth - 1ULL;
+                }) };
+                if (ParentIterator == AverageProfiles.rend()) {
+                    Entry.StartMicroseconds = CurrentStartMicroseconds;
+                    Entry.EndMicroseconds = CurrentStartMicroseconds + DurationMicroseconds;
+                }
+                else {
+                    const double StartOffsetMicroseconds{ Aggregate.mStartOffsetMicrosecondsSum / FrameCount };
+                    Entry.StartMicroseconds = ParentIterator->StartMicroseconds + StartOffsetMicroseconds;
+                    const double RequestedEndMicroseconds{ Entry.StartMicroseconds + DurationMicroseconds };
+                    Entry.EndMicroseconds = std::max(Entry.StartMicroseconds, std::min(ParentIterator->EndMicroseconds, RequestedEndMicroseconds));
+                }
+            }
             AverageProfiles.push_back(Entry);
-            CurrentStartMicroseconds = Entry.EndMicroseconds;
         }
 
         mTimelineAverageProfiles = std::move(AverageProfiles);
-        mTimelineProfileDurationSums.clear();
+        mTimelineProfileAggregates.clear();
         mTimelineProfileFrameCount = 0;
         mTimelineProfileAverageBeginMicroseconds = EndMicroseconds;
     }

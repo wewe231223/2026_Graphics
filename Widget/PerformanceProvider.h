@@ -25,12 +25,29 @@ namespace Widget {
 
     class PerformanceProvider {
     private:
+        struct ActiveProfile final {
+        public:
+            std::string mName{};
+            double mStartMicroseconds{};
+            std::size_t mDepth{};
+        };
+
         struct FrameTimeRecord final {
+        public:
             std::uint64_t mFrameIdentifier{};
             double mEndMicroseconds{};
             float mCpuTimeMicroseconds{};
             float mGpuTimeMicroseconds{};
             bool mHasGpuTime{};
+        };
+
+        struct TimelineProfileAggregate final {
+        public:
+            std::string mName{};
+            std::string mParentName{};
+            std::size_t mDepth{};
+            double mDurationMicrosecondsSum{};
+            double mStartOffsetMicrosecondsSum{};
         };
 
     public:
@@ -89,13 +106,10 @@ namespace Widget {
         uint64_t mVramBudgetBytes{};
         uint64_t mVramUsageBytes{};
 
-        std::vector<std::pair<std::string, double>> mPhaseDurations{};
-        std::string mActivePhaseName{};
-        double mActivePhaseStartMicroseconds{};
-        bool mHasActivePhase{};
+        std::vector<ActiveProfile> mActiveProfiles{};
         std::vector<ProfileEntry> mCurrentFrameProfiles{};
         std::vector<ProfileEntry> mTimelineAverageProfiles{};
-        std::vector<std::pair<std::string, double>> mTimelineProfileDurationSums{};
+        std::vector<TimelineProfileAggregate> mTimelineProfileAggregates{};
         std::size_t mTimelineProfileFrameCount{};
         double mTimelineProfileAverageBeginMicroseconds{};
 

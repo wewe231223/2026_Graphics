@@ -97,7 +97,7 @@ namespace Core {
 			Game::Base::Pipeline* ResolvePostProcessPipeline(const std::string& PipelineName);
 			void BeginPostProcessFinalPass(std::uint32_t CurrentIndex, const std::array<ID3D12DescriptorHeap*, 1>& DescriptorHeaps, const RenderContract::Future& PostProcessFuture);
 			void CopyPostProcessToBackBuffer(const TexPtr& PostProcessTarget, const TexPtr& RenderTarget);
-			void DrawFinalOverlays(RenderContract::RenderFrameData& Data, Widget::WidgetCore* WidgetCore, DrawCallResourceManager& DrawCallResources, D3D12_CPU_DESCRIPTOR_HANDLE Dsv, std::uint32_t CurrentIndex, std::uint32_t ShadowCascadeCount);
+			void DrawFinalOverlays(RenderContract::RenderFrameData& Data, Widget::WidgetCore* WidgetCore, DrawCallResourceManager& DrawCallResources, D3D12_CPU_DESCRIPTOR_HANDLE Dsv, std::uint32_t CurrentIndex, std::uint32_t ShadowCascadeCount, bool IsPerformanceEnabled);
 			void FinishPresentTarget(const TexPtr& RenderTarget);
 			void ExecutePostProcessFinalPass();
 
