@@ -11,6 +11,8 @@ namespace RenderContract {
         explicit FrameRenderWriter(RenderFrameData& RenderFrameDataValue);
 
     public:
+        void BeginFrame();
+
         void SetFrameGlobals(const FrameGlobals& FrameGlobalsValue);
         void SetCameraParameter(const CameraParameter& CameraParameterValue);
         void SetShadowMappingParameter(const ShadowMappingParameter& ShadowMappingParameterValue);

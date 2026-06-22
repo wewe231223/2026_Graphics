@@ -39,6 +39,7 @@
 #include "Game/Scene/Base/PipelineYAMLMetadata.h"
 #include "Game/Scene/Base/SystemRegistry.h"
 #include "RenderContract/Gather/RenderGatherResultMerger.h"
+#include "RenderContract/Writer/FrameRenderWriter.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
 #include "Game/Scene/Systems/PhysicsActorUpdateSystem.h"
 #include "Game/Scene/Systems/ProceduralFoliageSystem.h"
@@ -807,27 +808,10 @@ namespace Game {
         void Scene::InitializeDataPipelineFrameRenderData() {
             UpdateCameraVirtualMouseState();
 
-            mFrameContext.RenderData.mModelContexts.clear();
-            mFrameContext.RenderData.mBoundingBoxContexts.clear();
-            mFrameContext.RenderData.mDebugGeometryContexts.clear();
-            mFrameContext.RenderData.mTerrainPatchContexts.clear();
-            mFrameContext.RenderData.mDrawRecords.clear();
-            mFrameContext.RenderData.mBonePalette.clear();
-            mFrameContext.RenderData.mEnvironmentInstanceContexts.clear();
-            mFrameContext.RenderData.mEnvironmentSegmentContexts.clear();
-            mFrameContext.RenderData.mEnvironmentDrawRecords.clear();
-            mFrameContext.RenderData.mTerrainUploadFuture = RenderContract::Future{};
-            mFrameContext.RenderData.mHasTerrainUploadFuture = false;
-
-            for (RenderContract::ShadowRenderContext& ShadowRenderContext : mFrameContext.RenderData.mShadowRenderContexts) {
-                ShadowRenderContext.mModelContexts.clear();
-                ShadowRenderContext.mTerrainPatchContexts.clear();
-                ShadowRenderContext.mDrawRecords.clear();
-                ShadowRenderContext.mEnvironmentDrawRecords.clear();
-            }
+            RenderContract::FrameRenderWriter FrameWriter{ mFrameContext.RenderData };
+            FrameWriter.BeginFrame();
 
             mFrameContext.RenderData.mMaterials = mAssetRegistry.GetPackedMaterials();
-            mFrameContext.RenderData.mFrameGlobals.mFlags = 0u;
             if (mIsBoundingBoxDrawEnabled == true) {
                 mFrameContext.RenderData.mFrameGlobals.mFlags |= RenderContract::FrameGlobalFlagDrawBoundingBoxes;
             }
