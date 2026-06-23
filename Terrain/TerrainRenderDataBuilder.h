@@ -43,7 +43,7 @@ namespace Terrain {
         std::uint32_t mSplatMapWidth{};
         std::uint32_t mSplatMapHeight{};
         std::uint32_t mHeightFieldSrvDescriptorIndex{ (std::numeric_limits<std::uint32_t>::max)() };
-        std::uint32_t mSplatMapSrvDescriptorIndex{ (std::numeric_limits<std::uint32_t>::max)() };
+        std::array<std::uint32_t, SplatMapData::WeightMapCount> mSplatMapSrvDescriptorIndices{ (std::numeric_limits<std::uint32_t>::max)(), (std::numeric_limits<std::uint32_t>::max)() };
         std::uint32_t mShadowCascadeCount{};
         std::uint32_t mFrameIndex{};
         std::uint32_t mMaterialFlags{};

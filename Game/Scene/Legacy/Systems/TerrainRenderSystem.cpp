@@ -199,7 +199,8 @@ namespace Game {
             Input.mSplatMapWidth = Renderer.mResource->GetSplatMapWidth();
             Input.mSplatMapHeight = Renderer.mResource->GetSplatMapHeight();
             Input.mHeightFieldSrvDescriptorIndex = Renderer.mResource->GetHeightFieldSrvDescriptorIndex(FrameIndex);
-            Input.mSplatMapSrvDescriptorIndex = Renderer.mResource->GetSplatMapSrvDescriptorIndex(FrameIndex);
+            Input.mSplatMapSrvDescriptorIndices[0] = Renderer.mResource->GetSplatMapSrvDescriptorIndex(FrameIndex, 0u);
+            Input.mSplatMapSrvDescriptorIndices[1] = Renderer.mResource->GetSplatMapSrvDescriptorIndex(FrameIndex, 1u);
             Input.mShadowCascadeCount = ShadowCascadeCount;
             Input.mFrameIndex = FrameIndex;
             Input.mMaterialFlags = MaterialComponent == nullptr ? 0U : MaterialComponent->Flags;

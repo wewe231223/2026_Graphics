@@ -22,6 +22,13 @@ namespace Game {
         std::uint32_t mSrvDescriptorIndex{ 0xffffffffu };
     };
 
+    struct TerrainFrameTextureResource final {
+    public:
+        std::unique_ptr<Interface::IAllocationHandle> mAllocation{};
+        Core::DX::DescriptorHandle mSrvHandle{};
+        std::uint32_t mSrvDescriptorIndex{ 0xffffffffu };
+    };
+
     class TerrainRenderResource final {
     public:
         TerrainRenderResource();
@@ -50,7 +57,7 @@ namespace Game {
         float GetLodExponent() const;
         const DirectX::BoundingOrientedBox& GetLocalBoundingBox() const;
         std::uint32_t GetHeightFieldSrvDescriptorIndex(std::uint32_t FrameIndex) const;
-        std::uint32_t GetSplatMapSrvDescriptorIndex(std::uint32_t FrameIndex) const;
+        std::uint32_t GetSplatMapSrvDescriptorIndex(std::uint32_t FrameIndex, std::uint32_t WeightMapIndex) const;
         std::uint32_t GetHeightFieldWidth() const;
         std::uint32_t GetHeightFieldHeight() const;
         std::uint32_t GetSplatMapWidth() const;
@@ -70,7 +77,7 @@ namespace Game {
 
     private:
         bool EnsureHeightFieldFrameResource(const Terrain::HeightFieldData& Field, std::uint32_t FrameIndex, std::size_t HeightFieldSizeInBytes, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
-        bool EnsureSplatMapFrameResource(const Terrain::SplatMapData& SplatMap, std::uint32_t FrameIndex, std::size_t SplatMapSizeInBytes, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
+        bool EnsureSplatMapFrameResources(const Terrain::SplatMapData& SplatMap, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
         bool UploadTerrainFrameData(const Terrain::HeightFieldData& Field, const Terrain::SplatMapData& SplatMap, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
         bool EnsureTerrainFrameData(std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap);
         bool IsTerrainFrameCopyInFlight(std::uint32_t FrameIndex) const;
@@ -92,7 +99,7 @@ namespace Game {
         std::vector<float> mLodDistances{};
         DirectX::BoundingOrientedBox mLocalBoundingBox{};
         std::array<TerrainFrameBufferResource, Constants::FrameCount<std::size_t>> mHeightFieldFrameResources{};
-        std::array<TerrainFrameBufferResource, Constants::FrameCount<std::size_t>> mSplatMapFrameResources{};
+        std::array<std::array<TerrainFrameTextureResource, Terrain::SplatMapData::WeightMapCount>, Constants::FrameCount<std::size_t>> mSplatMapFrameResources{};
         std::array<RenderContract::Future, Constants::FrameCount<std::size_t>> mTerrainFrameCopyFutures{};
         std::array<bool, Constants::FrameCount<std::size_t>> mTerrainFrameDirtyFlags{};
         std::uint32_t mHeightFieldWidth{ 0 };

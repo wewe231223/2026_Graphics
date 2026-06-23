@@ -163,7 +163,7 @@ namespace {
     }
 
     bool TryGetTerrainSplatWeightsAtWorldPosition(const Terrain::TerrainWorldData& TerrainData, float WorldX, float WorldZ, asset::Vec4& OutSplatWeights) {
-        if (IsTerrainWorldDataValid(TerrainData) == false || TerrainData.mSplatMapData == nullptr || TerrainData.mSplatMapData->WeightValues.empty() == true || TerrainData.mSplatMapData->Width == 0U || TerrainData.mSplatMapData->Height == 0U) {
+        if (IsTerrainWorldDataValid(TerrainData) == false || TerrainData.mSplatMapData == nullptr || TerrainData.mSplatMapData->WeightMapValues[0].empty() == true || TerrainData.mSplatMapData->Width == 0U || TerrainData.mSplatMapData->Height == 0U) {
             return false;
         }
 
@@ -186,11 +186,11 @@ namespace {
         const std::uint32_t SplatX{ std::min(static_cast<std::uint32_t>(std::round(GridX)), TerrainData.mSplatMapData->Width - 1U) };
         const std::uint32_t SplatZ{ std::min(static_cast<std::uint32_t>(std::round(GridZ)), TerrainData.mSplatMapData->Height - 1U) };
         const std::size_t SplatIndex{ static_cast<std::size_t>(SplatZ) * static_cast<std::size_t>(TerrainData.mSplatMapData->Width) + static_cast<std::size_t>(SplatX) };
-        if (SplatIndex >= TerrainData.mSplatMapData->WeightValues.size()) {
+        if (SplatIndex >= TerrainData.mSplatMapData->WeightMapValues[0].size()) {
             return false;
         }
 
-        OutSplatWeights = TerrainData.mSplatMapData->WeightValues[SplatIndex];
+        OutSplatWeights = TerrainData.mSplatMapData->WeightMapValues[0][SplatIndex];
         return true;
     }
 

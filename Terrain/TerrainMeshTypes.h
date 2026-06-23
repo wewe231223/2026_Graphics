@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -101,10 +103,20 @@ namespace Terrain {
         std::vector<float> HeightValues{};
     };
 
-    struct SplatMapData final {
+    struct SplatMapMipLevelData final {
         std::uint32_t Width{ 0 };
         std::uint32_t Height{ 0 };
         std::vector<asset::Vec4> WeightValues{};
+    };
+
+    struct SplatMapData final {
+        static constexpr std::size_t WeightMapCount{ 2ULL };
+        static constexpr std::size_t LayerCount{ WeightMapCount * 4ULL };
+
+        std::uint32_t Width{ 0 };
+        std::uint32_t Height{ 0 };
+        std::array<std::vector<asset::Vec4>, WeightMapCount> WeightMapValues{};
+        std::array<std::vector<SplatMapMipLevelData>, WeightMapCount> WeightMapMipLevels{};
     };
 
     struct TerrainMeshData final {

@@ -31,6 +31,91 @@ namespace {
         }
     }
 
+    void ResetTerrainFrameTextureResource(Game::TerrainFrameTextureResource& Resource) {
+        Resource.mAllocation.reset();
+        Resource.mSrvHandle = Core::DX::DescriptorHandle{};
+        Resource.mSrvDescriptorIndex = InvalidTerrainSrvDescriptorIndex;
+    }
+
+    void ResetTerrainSplatMapFrameResources(std::array<std::array<Game::TerrainFrameTextureResource, Terrain::SplatMapData::WeightMapCount>, Constants::FrameCount<std::size_t>>& Resources) {
+        for (std::array<Game::TerrainFrameTextureResource, Terrain::SplatMapData::WeightMapCount>& FrameResources : Resources) {
+            for (Game::TerrainFrameTextureResource& Resource : FrameResources) {
+                ResetTerrainFrameTextureResource(Resource);
+            }
+        }
+    }
+
+    struct SplatMapMipLevelSource final {
+        const std::vector<asset::Vec4>* mWeightValues{};
+        std::uint32_t mWidth{};
+        std::uint32_t mHeight{};
+    };
+
+    SplatMapMipLevelSource ResolveSplatMapMipLevelSource(const Terrain::SplatMapData& SplatMap, std::size_t WeightMapIndex, std::uint32_t MipLevelIndex) {
+        if (MipLevelIndex == 0u) {
+            return SplatMapMipLevelSource{ &SplatMap.WeightMapValues[WeightMapIndex], SplatMap.Width, SplatMap.Height };
+        }
+
+        const Terrain::SplatMapMipLevelData& MipLevel{ SplatMap.WeightMapMipLevels[WeightMapIndex][MipLevelIndex - 1u] };
+        return SplatMapMipLevelSource{ &MipLevel.WeightValues, MipLevel.Width, MipLevel.Height };
+    }
+
+    std::uint16_t ResolveSplatMapMipLevelCount(const Terrain::SplatMapData& SplatMap) {
+        return static_cast<std::uint16_t>(SplatMap.WeightMapMipLevels[0].size() + 1ULL);
+    }
+
+    bool IsSplatMapDataValid(const Terrain::SplatMapData& SplatMap) {
+        if (SplatMap.Width == 0u || SplatMap.Height == 0u) {
+            return false;
+        }
+
+        const std::size_t PixelCount{ static_cast<std::size_t>(SplatMap.Width) * static_cast<std::size_t>(SplatMap.Height) };
+        const std::uint16_t MipLevelCount{ ResolveSplatMapMipLevelCount(SplatMap) };
+        for (std::size_t WeightMapIndex{ 0ULL }; WeightMapIndex < Terrain::SplatMapData::WeightMapCount; ++WeightMapIndex) {
+            if (SplatMap.WeightMapValues[WeightMapIndex].size() != PixelCount || SplatMap.WeightMapMipLevels[WeightMapIndex].size() + 1ULL != MipLevelCount) {
+                return false;
+            }
+
+            std::uint32_t ExpectedWidth{ SplatMap.Width };
+            std::uint32_t ExpectedHeight{ SplatMap.Height };
+            for (std::uint32_t MipLevelIndex{ 1u }; MipLevelIndex < MipLevelCount; ++MipLevelIndex) {
+                ExpectedWidth = std::max(ExpectedWidth / 2u, 1u);
+                ExpectedHeight = std::max(ExpectedHeight / 2u, 1u);
+                const SplatMapMipLevelSource MipLevel{ ResolveSplatMapMipLevelSource(SplatMap, WeightMapIndex, MipLevelIndex) };
+                if (MipLevel.mWidth != ExpectedWidth || MipLevel.mHeight != ExpectedHeight || MipLevel.mWeightValues == nullptr || MipLevel.mWeightValues->size() != static_cast<std::size_t>(ExpectedWidth) * static_cast<std::size_t>(ExpectedHeight)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    D3D12_RESOURCE_DESC CreateSplatMapTextureResourceDescription(const Terrain::SplatMapData& SplatMap) {
+        D3D12_RESOURCE_DESC ResourceDescription{};
+        ResourceDescription.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        ResourceDescription.Alignment = 0;
+        ResourceDescription.Width = SplatMap.Width;
+        ResourceDescription.Height = SplatMap.Height;
+        ResourceDescription.DepthOrArraySize = 1;
+        ResourceDescription.MipLevels = ResolveSplatMapMipLevelCount(SplatMap);
+        ResourceDescription.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+        ResourceDescription.SampleDesc.Count = 1;
+        ResourceDescription.SampleDesc.Quality = 0;
+        ResourceDescription.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+        ResourceDescription.Flags = D3D12_RESOURCE_FLAG_NONE;
+        return ResourceDescription;
+    }
+
+    bool IsSplatMapTextureResourceCompatible(const Game::TerrainFrameTextureResource& Resource, const D3D12_RESOURCE_DESC& ResourceDescription) {
+        if (Resource.mAllocation == nullptr || Resource.mAllocation->IsValid() == false || Resource.mAllocation->GetResource() == nullptr) {
+            return false;
+        }
+
+        const D3D12_RESOURCE_DESC ExistingResourceDescription{ Resource.mAllocation->GetResource()->GetDesc() };
+        return ExistingResourceDescription.Dimension == ResourceDescription.Dimension && ExistingResourceDescription.Width == ResourceDescription.Width && ExistingResourceDescription.Height == ResourceDescription.Height && ExistingResourceDescription.DepthOrArraySize == ResourceDescription.DepthOrArraySize && ExistingResourceDescription.MipLevels == ResourceDescription.MipLevels && ExistingResourceDescription.Format == ResourceDescription.Format;
+    }
+
     std::uint32_t ResolveStreamingGridStep(const Terrain::TerrainBuildDesc& Desc) {
         if (Desc.mStreamingGridStep > 0u) {
             return Desc.mStreamingGridStep;
@@ -151,7 +236,7 @@ namespace Game {
         Other.mLodCount = 1;
         Other.mLocalBoundingBox = DirectX::BoundingOrientedBox{};
         ResetTerrainFrameBufferResources(Other.mHeightFieldFrameResources);
-        ResetTerrainFrameBufferResources(Other.mSplatMapFrameResources);
+        ResetTerrainSplatMapFrameResources(Other.mSplatMapFrameResources);
         Other.mTerrainFrameCopyFutures = {};
         Other.mTerrainFrameDirtyFlags = {};
         Other.mHeightFieldWidth = 0;
@@ -222,7 +307,7 @@ namespace Game {
         Other.mLodCount = 1;
         Other.mLocalBoundingBox = DirectX::BoundingOrientedBox{};
         ResetTerrainFrameBufferResources(Other.mHeightFieldFrameResources);
-        ResetTerrainFrameBufferResources(Other.mSplatMapFrameResources);
+        ResetTerrainSplatMapFrameResources(Other.mSplatMapFrameResources);
         Other.mTerrainFrameCopyFutures = {};
         Other.mTerrainFrameDirtyFlags = {};
         Other.mHeightFieldWidth = 0;
@@ -274,7 +359,7 @@ namespace Game {
 
         Terrain::TerrainSplatMapGenerator SplatMapGenerator{};
         std::shared_ptr<const Terrain::SplatMapData> SplatMap{ std::make_shared<const Terrain::SplatMapData>(SplatMapGenerator.Generate(*Field, Desc)) };
-        if (SplatMap == nullptr || SplatMap->WeightValues.empty() == true) {
+        if (SplatMap == nullptr || IsSplatMapDataValid(*SplatMap) == false) {
             return false;
         }
 
@@ -356,7 +441,7 @@ namespace Game {
     }
 
     bool TerrainRenderResource::TryCommitStreamingBuild(Terrain::TerrainStreamingBuildResult&& Result, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
-        if (Result.mSucceeded == false || Result.mHeightField == nullptr || Result.mSplatMap == nullptr || Result.mHeightField->HeightValues.empty() == true || Result.mSplatMap->WeightValues.empty() == true) {
+        if (Result.mSucceeded == false || Result.mHeightField == nullptr || Result.mSplatMap == nullptr || Result.mHeightField->HeightValues.empty() == true || IsSplatMapDataValid(*Result.mSplatMap) == false) {
             return false;
         }
 
@@ -463,58 +548,49 @@ namespace Game {
         return true;
     }
 
-    bool TerrainRenderResource::EnsureSplatMapFrameResource(const Terrain::SplatMapData& SplatMap, std::uint32_t FrameIndex, std::size_t SplatMapSizeInBytes, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
-        if (Device == nullptr || Allocator == nullptr || SrvHeap == nullptr || SplatMap.WeightValues.empty() == true || SplatMapSizeInBytes == 0) {
+    bool TerrainRenderResource::EnsureSplatMapFrameResources(const Terrain::SplatMapData& SplatMap, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
+        if (Device == nullptr || Allocator == nullptr || SrvHeap == nullptr || IsSplatMapDataValid(SplatMap) == false) {
             return false;
         }
 
-        TerrainFrameBufferResource& FrameResource{ mSplatMapFrameResources[ResolveTerrainFrameIndex(FrameIndex)] };
-        const bool IsAllocationRequired{ FrameResource.mAllocation == nullptr || FrameResource.mAllocation->IsValid() == false || FrameResource.mAllocation->GetSize() < SplatMapSizeInBytes };
-        if (IsAllocationRequired == true) {
-            D3D12_RESOURCE_DESC ResourceDescription{};
-            ResourceDescription.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-            ResourceDescription.Alignment = 0;
-            ResourceDescription.Width = static_cast<UINT64>(SplatMapSizeInBytes);
-            ResourceDescription.Height = 1;
-            ResourceDescription.DepthOrArraySize = 1;
-            ResourceDescription.MipLevels = 1;
-            ResourceDescription.Format = DXGI_FORMAT_UNKNOWN;
-            ResourceDescription.SampleDesc.Count = 1;
-            ResourceDescription.SampleDesc.Quality = 0;
-            ResourceDescription.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-            ResourceDescription.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-            if (Allocator->CanAllocate(ResourceDescription) == false) {
-                return false;
-            }
-
-            Interface::AllocatePlacedResourceParameters AllocationParameters{ ResourceDescription, D3D12_RESOURCE_STATE_COMMON, nullptr, L"Terrain.SplatMapBuffer" };
-            FrameResource.mAllocation = Allocator->AllocatePlacedResource(AllocationParameters);
-            if (FrameResource.mAllocation == nullptr || FrameResource.mAllocation->IsValid() == false) {
-                FrameResource.mAllocation.reset();
-                return false;
-            }
+        const D3D12_RESOURCE_DESC ResourceDescription{ CreateSplatMapTextureResourceDescription(SplatMap) };
+        if (Allocator->CanAllocate(ResourceDescription) == false) {
+            return false;
         }
 
-        if (FrameResource.mSrvDescriptorIndex == InvalidTerrainSrvDescriptorIndex || FrameResource.mSrvHandle.IsValid() == false) {
-            FrameResource.mSrvHandle = SrvHeap->Allocate();
-            FrameResource.mSrvDescriptorIndex = FrameResource.mSrvHandle.GetIndex();
+        std::array<TerrainFrameTextureResource, Terrain::SplatMapData::WeightMapCount>& FrameResources{ mSplatMapFrameResources[ResolveTerrainFrameIndex(FrameIndex)] };
+        for (std::size_t WeightMapIndex{ 0ULL }; WeightMapIndex < Terrain::SplatMapData::WeightMapCount; ++WeightMapIndex) {
+            TerrainFrameTextureResource& FrameResource{ FrameResources[WeightMapIndex] };
+            if (IsSplatMapTextureResourceCompatible(FrameResource, ResourceDescription) == false) {
+                const wchar_t* ResourceName{ WeightMapIndex == 0ULL ? L"Terrain.SplatMapTexture0" : L"Terrain.SplatMapTexture1" };
+                Interface::AllocatePlacedResourceParameters AllocationParameters{ ResourceDescription, D3D12_RESOURCE_STATE_COMMON, nullptr, ResourceName };
+                FrameResource.mAllocation = Allocator->AllocatePlacedResource(AllocationParameters);
+                if (FrameResource.mAllocation == nullptr || FrameResource.mAllocation->IsValid() == false) {
+                    FrameResource.mAllocation.reset();
+                    return false;
+                }
+            }
+
+            if (FrameResource.mSrvDescriptorIndex == InvalidTerrainSrvDescriptorIndex || FrameResource.mSrvHandle.IsValid() == false) {
+                FrameResource.mSrvHandle = SrvHeap->Allocate();
+                FrameResource.mSrvDescriptorIndex = FrameResource.mSrvHandle.GetIndex();
+            }
+
+            D3D12_SHADER_RESOURCE_VIEW_DESC ShaderResourceViewDescription{};
+            ShaderResourceViewDescription.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+            ShaderResourceViewDescription.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+            ShaderResourceViewDescription.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            ShaderResourceViewDescription.Texture2D.MostDetailedMip = 0;
+            ShaderResourceViewDescription.Texture2D.MipLevels = ResourceDescription.MipLevels;
+            ShaderResourceViewDescription.Texture2D.ResourceMinLODClamp = 0.0f;
+            Device->CreateShaderResourceView(FrameResource.mAllocation->GetResource(), &ShaderResourceViewDescription, FrameResource.mSrvHandle.GetCPU());
         }
 
-        D3D12_SHADER_RESOURCE_VIEW_DESC ShaderResourceViewDescription{};
-        ShaderResourceViewDescription.Format = DXGI_FORMAT_UNKNOWN;
-        ShaderResourceViewDescription.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-        ShaderResourceViewDescription.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        ShaderResourceViewDescription.Buffer.FirstElement = 0;
-        ShaderResourceViewDescription.Buffer.NumElements = static_cast<UINT>(SplatMap.WeightValues.size());
-        ShaderResourceViewDescription.Buffer.StructureByteStride = sizeof(asset::Vec4);
-        ShaderResourceViewDescription.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-        Device->CreateShaderResourceView(FrameResource.mAllocation->GetResource(), &ShaderResourceViewDescription, FrameResource.mSrvHandle.GetCPU());
         return true;
     }
 
     bool TerrainRenderResource::UploadTerrainFrameData(const Terrain::HeightFieldData& Field, const Terrain::SplatMapData& SplatMap, std::uint32_t FrameIndex, ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Interface::IDescriptorHeap* SrvHeap) {
-        if (Device == nullptr || CopyQueue == nullptr || Allocator == nullptr || SrvHeap == nullptr || Field.HeightValues.empty() == true || SplatMap.WeightValues.empty() == true) {
+        if (Device == nullptr || CopyQueue == nullptr || Allocator == nullptr || SrvHeap == nullptr || Field.HeightValues.empty() == true || IsSplatMapDataValid(SplatMap) == false) {
             return false;
         }
 
@@ -524,13 +600,12 @@ namespace Game {
         }
 
         const std::size_t HeightFieldSizeInBytes{ Field.HeightValues.size() * sizeof(float) };
-        const std::size_t SplatMapSizeInBytes{ SplatMap.WeightValues.size() * sizeof(asset::Vec4) };
         const bool IsHeightFieldResourceReady{ EnsureHeightFieldFrameResource(Field, ResolvedFrameIndex, HeightFieldSizeInBytes, Device, Allocator, SrvHeap) };
         if (IsHeightFieldResourceReady == false) {
             return false;
         }
 
-        const bool IsSplatMapResourceReady{ EnsureSplatMapFrameResource(SplatMap, ResolvedFrameIndex, SplatMapSizeInBytes, Device, Allocator, SrvHeap) };
+        const bool IsSplatMapResourceReady{ EnsureSplatMapFrameResources(SplatMap, ResolvedFrameIndex, Device, Allocator, SrvHeap) };
         if (IsSplatMapResourceReady == false) {
             return false;
         }
@@ -540,18 +615,51 @@ namespace Game {
         HeightFieldCopyRequest.DestinationOffset = 0;
         HeightFieldCopyRequest.SourceData = std::as_bytes(std::span<const float>{ Field.HeightValues.data(), Field.HeightValues.size() });
 
-        Interface::CopyRequest SplatMapCopyRequest{ Interface::CopyPriority::Normal };
-        SplatMapCopyRequest.DestinationDefaultResource = mSplatMapFrameResources[ResolvedFrameIndex].mAllocation->GetResource();
-        SplatMapCopyRequest.DestinationOffset = 0;
-        SplatMapCopyRequest.SourceData = std::as_bytes(std::span<const asset::Vec4>{ SplatMap.WeightValues.data(), SplatMap.WeightValues.size() });
-
-        std::array<Interface::CopyRequest, 2> CopyRequests{ std::move(HeightFieldCopyRequest), std::move(SplatMapCopyRequest) };
-        RenderContract::Future CopyFuture{ CopyQueue->EnqueueCopyFuture(CopyRequests) };
-        if (CopyFuture.IsValid() == false) {
+        RenderContract::Future HeightFieldCopyFuture{ CopyQueue->EnqueueCopyFuture(HeightFieldCopyRequest) };
+        if (HeightFieldCopyFuture.IsValid() == false) {
             return false;
         }
 
-        mTerrainFrameCopyFutures[ResolvedFrameIndex] = std::move(CopyFuture);
+        const D3D12_RESOURCE_DESC ResourceDescription{ CreateSplatMapTextureResourceDescription(SplatMap) };
+        std::array<Interface::CopyQueueTextureCopyRequest, Terrain::SplatMapData::WeightMapCount> SplatMapCopyRequests{ Interface::CopyQueueTextureCopyRequest{ Interface::CopyPriority::Normal }, Interface::CopyQueueTextureCopyRequest{ Interface::CopyPriority::Normal } };
+        for (std::size_t WeightMapIndex{ 0ULL }; WeightMapIndex < Terrain::SplatMapData::WeightMapCount; ++WeightMapIndex) {
+            Interface::CopyQueueTextureCopyRequest& SplatMapCopyRequest{ SplatMapCopyRequests[WeightMapIndex] };
+            SplatMapCopyRequest.DestinationTextureResource = mSplatMapFrameResources[ResolvedFrameIndex][WeightMapIndex].mAllocation->GetResource();
+
+            const std::uint32_t MipLevelCount{ ResourceDescription.MipLevels };
+            std::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> SourceLayouts(MipLevelCount);
+            std::vector<UINT> RowCounts(MipLevelCount);
+            std::vector<UINT64> RowSizesInBytes(MipLevelCount);
+            UINT64 RequiredSizeInBytes{};
+            Device->GetCopyableFootprints(&ResourceDescription, 0, MipLevelCount, 0, SourceLayouts.data(), RowCounts.data(), RowSizesInBytes.data(), &RequiredSizeInBytes);
+            SplatMapCopyRequest.SourceLayouts = SourceLayouts;
+            SplatMapCopyRequest.SourceData.resize(static_cast<std::size_t>(RequiredSizeInBytes));
+
+            for (std::uint32_t MipLevelIndex{ 0u }; MipLevelIndex < MipLevelCount; ++MipLevelIndex) {
+                const SplatMapMipLevelSource MipLevel{ ResolveSplatMapMipLevelSource(SplatMap, WeightMapIndex, MipLevelIndex) };
+                if (MipLevel.mWeightValues == nullptr) {
+                    return false;
+                }
+
+                const std::size_t SourceRowSizeInBytes{ static_cast<std::size_t>(MipLevel.mWidth) * sizeof(asset::Vec4) };
+                if (RowSizesInBytes[MipLevelIndex] != SourceRowSizeInBytes || RowCounts[MipLevelIndex] != MipLevel.mHeight) {
+                    return false;
+                }
+
+                for (std::uint32_t RowIndex{ 0u }; RowIndex < MipLevel.mHeight; ++RowIndex) {
+                    const std::byte* SourceRow{ reinterpret_cast<const std::byte*>(MipLevel.mWeightValues->data()) + (static_cast<std::size_t>(RowIndex) * SourceRowSizeInBytes) };
+                    std::byte* DestinationRow{ SplatMapCopyRequest.SourceData.data() + SourceLayouts[MipLevelIndex].Offset + (static_cast<std::size_t>(RowIndex) * SourceLayouts[MipLevelIndex].Footprint.RowPitch) };
+                    std::memcpy(DestinationRow, SourceRow, SourceRowSizeInBytes);
+                }
+            }
+        }
+
+        RenderContract::Future SplatMapCopyFuture{ CopyQueue->EnqueueTextureCopyFuture(SplatMapCopyRequests) };
+        if (SplatMapCopyFuture.IsValid() == false) {
+            return false;
+        }
+
+        mTerrainFrameCopyFutures[ResolvedFrameIndex] = std::move(SplatMapCopyFuture);
         return true;
     }
 
@@ -561,7 +669,7 @@ namespace Game {
             return true;
         }
 
-        if (mHeightFieldData == nullptr || mSplatMapData == nullptr || mHeightFieldData->HeightValues.empty() == true || mSplatMapData->WeightValues.empty() == true) {
+        if (mHeightFieldData == nullptr || mSplatMapData == nullptr || mHeightFieldData->HeightValues.empty() == true || IsSplatMapDataValid(*mSplatMapData) == false) {
             return false;
         }
 
@@ -654,8 +762,12 @@ namespace Game {
         return mHeightFieldFrameResources[ResolveTerrainFrameIndex(FrameIndex)].mSrvDescriptorIndex;
     }
 
-    std::uint32_t TerrainRenderResource::GetSplatMapSrvDescriptorIndex(std::uint32_t FrameIndex) const {
-        return mSplatMapFrameResources[ResolveTerrainFrameIndex(FrameIndex)].mSrvDescriptorIndex;
+    std::uint32_t TerrainRenderResource::GetSplatMapSrvDescriptorIndex(std::uint32_t FrameIndex, std::uint32_t WeightMapIndex) const {
+        if (WeightMapIndex >= Terrain::SplatMapData::WeightMapCount) {
+            return InvalidTerrainSrvDescriptorIndex;
+        }
+
+        return mSplatMapFrameResources[ResolveTerrainFrameIndex(FrameIndex)][WeightMapIndex].mSrvDescriptorIndex;
     }
 
     std::uint32_t TerrainRenderResource::GetHeightFieldWidth() const {

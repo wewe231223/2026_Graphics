@@ -351,7 +351,7 @@ bool HasTerrainSplatMap(MaterialGpu MaterialData)
 
 bool HasGeneratedTerrainSplatMap(TerrainPatchContextGpu PatchContext)
 {
-    return PatchContext.SplatMapSrvDescriptorIndex != InvalidSrvDescriptorIndex && PatchContext.SplatMapWidth > 0u && PatchContext.SplatMapHeight > 0u;
+    return PatchContext.SplatMap0SrvDescriptorIndex != InvalidSrvDescriptorIndex && PatchContext.SplatMap1SrvDescriptorIndex != InvalidSrvDescriptorIndex && PatchContext.SplatMapWidth > 0u && PatchContext.SplatMapHeight > 0u;
 }
 
 uint ResolveTerrainLayerCount(MaterialGpu MaterialData, bool HasSplatMapValue, bool HasGeneratedSplatMapValue)
@@ -365,29 +365,15 @@ uint ResolveTerrainLayerCount(MaterialGpu MaterialData, bool HasSplatMapValue, b
     return (HasSplatMapValue || HasGeneratedSplatMapValue) ? TERRAIN_MAX_LAYER_COUNT : 1u;
 }
 
-float4 SampleGeneratedTerrainSplatMap(TerrainPatchContextGpu PatchContext, float2 BaseUv)
+float4 SampleGeneratedTerrainSplatMap(TerrainPatchContextGpu PatchContext, float2 BaseUv, uint SplatMapIndex)
 {
-    StructuredBuffer<float4> SplatMapBuffer = ResourceDescriptorHeap[NonUniformResourceIndex(PatchContext.SplatMapSrvDescriptorIndex)];
     const uint Width = max(PatchContext.SplatMapWidth, 1u);
     const uint Height = max(PatchContext.SplatMapHeight, 1u);
-    const uint WidthMinusOne = Width - 1u;
-    const uint HeightMinusOne = Height - 1u;
-    const float2 SplatPosition = saturate(BaseUv) * float2((float) WidthMinusOne, (float) HeightMinusOne);
-    const float2 FloorPosition = floor(SplatPosition);
-    const uint X0 = min((uint) FloorPosition.x, WidthMinusOne);
-    const uint Z0 = min((uint) FloorPosition.y, HeightMinusOne);
-    const uint X1 = min(X0 + 1u, WidthMinusOne);
-    const uint Z1 = min(Z0 + 1u, HeightMinusOne);
-    const float2 Blend = saturate(SplatPosition - FloorPosition);
-    const uint Z0Row = Z0 * Width;
-    const uint Z1Row = Z1 * Width;
-    const float4 Splat00 = SplatMapBuffer[Z0Row + X0];
-    const float4 Splat10 = SplatMapBuffer[Z0Row + X1];
-    const float4 Splat01 = SplatMapBuffer[Z1Row + X0];
-    const float4 Splat11 = SplatMapBuffer[Z1Row + X1];
-    const float4 SplatX0 = lerp(Splat00, Splat10, Blend.x);
-    const float4 SplatX1 = lerp(Splat01, Splat11, Blend.x);
-    return saturate(lerp(SplatX0, SplatX1, Blend.y));
+    const float2 TexelSize = 1.0f / float2((float) Width, (float) Height);
+    const float2 SplatUv = (saturate(BaseUv) * (1.0f - TexelSize)) + (TexelSize * 0.5f);
+    const uint SplatMapSrvDescriptorIndex = SplatMapIndex == 0u ? PatchContext.SplatMap0SrvDescriptorIndex : PatchContext.SplatMap1SrvDescriptorIndex;
+    Texture2D<float4> SplatMapTexture = ResourceDescriptorHeap[NonUniformResourceIndex(SplatMapSrvDescriptorIndex)];
+    return saturate(SplatMapTexture.Sample(LinearWrapSampler, SplatUv));
 }
 
 float4 ResolveTerrainSplatMapWeights(MaterialGpu MaterialData, StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer, float2 BaseUv, uint SplatMapIndex)
@@ -463,7 +449,7 @@ void ResolveTerrainMaterial(MaterialGpu MaterialData, StructuredBuffer<MaterialT
         return;
     }
 
-    const uint EffectiveLayerCount = (HasSplatMapValue == false && HasGeneratedSplatMapValue == true) ? min(LayerCount, 4u) : LayerCount;
+    const uint EffectiveLayerCount = (HasSplatMapValue == false && HasGeneratedSplatMapValue == true) ? min(LayerCount, 8u) : LayerCount;
 
     float4 AccumulatedColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
     float3 AccumulatedNormal = float3(0.0f, 0.0f, 0.0f);
@@ -516,11 +502,23 @@ void ResolveTerrainMaterial(MaterialGpu MaterialData, StructuredBuffer<MaterialT
     }
     else
     {
-        const float4 GeneratedSplatCache = SampleGeneratedTerrainSplatMap(PatchContext, BaseUv);
-        [loop]
-        for (uint LayerIndex = 0u; LayerIndex < EffectiveLayerCount; LayerIndex += 1u)
+        const float4 GeneratedSplatMap0Weights = SampleGeneratedTerrainSplatMap(PatchContext, BaseUv, 0u);
+        float4 GeneratedSplatMap1Weights = float4(0.0f, 0.0f, 0.0f, 0.0f);
+        if (EffectiveLayerCount > 4u)
         {
-            const float LayerWeight = saturate(GeneratedSplatCache[LayerIndex]);
+            GeneratedSplatMap1Weights = SampleGeneratedTerrainSplatMap(PatchContext, BaseUv, 1u);
+        }
+
+        [unroll]
+        for (uint LayerIndex = 0u; LayerIndex < 8u; LayerIndex += 1u)
+        {
+            if (LayerIndex >= EffectiveLayerCount)
+            {
+                break;
+            }
+
+            const float4 GeneratedSplatMapWeights = LayerIndex < 4u ? GeneratedSplatMap0Weights : GeneratedSplatMap1Weights;
+            const float LayerWeight = saturate(GeneratedSplatMapWeights[LayerIndex % 4u]);
             if (LayerWeight <= 0.0f)
             {
                 continue;

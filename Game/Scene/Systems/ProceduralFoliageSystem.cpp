@@ -764,7 +764,9 @@ namespace {
         return asset::Vec4{ Lerp(Start.x, End.x, Alpha), Lerp(Start.y, End.y, Alpha), Lerp(Start.z, End.z, Alpha), Lerp(Start.w, End.w, Alpha) };
     }
 
-    asset::Vec4 SampleSplatWeight(const Terrain::SplatMapData& SplatMap, float GridX, float GridZ, const Terrain::HeightFieldData& Field) {
+    using SplatWeightMapValues = std::array<asset::Vec4, Terrain::SplatMapData::WeightMapCount>;
+
+    SplatWeightMapValues SampleSplatWeight(const Terrain::SplatMapData& SplatMap, float GridX, float GridZ, const Terrain::HeightFieldData& Field) {
         const float ScaleX{ Field.Width > 1u ? static_cast<float>(SplatMap.Width - 1u) / static_cast<float>(Field.Width - 1u) : 1.0f };
         const float ScaleZ{ Field.Height > 1u ? static_cast<float>(SplatMap.Height - 1u) / static_cast<float>(Field.Height - 1u) : 1.0f };
         const float SplatGridX{ GridX * ScaleX };
@@ -777,29 +779,43 @@ namespace {
         const std::uint32_t Z1{ std::min(Z0 + 1u, SplatMap.Height - 1u) };
         const float BlendX{ ClampedGridX - static_cast<float>(X0) };
         const float BlendZ{ ClampedGridZ - static_cast<float>(Z0) };
-        const asset::Vec4 Weight00{ SplatMap.WeightValues[CalculateIndex(SplatMap.Width, X0, Z0)] };
-        const asset::Vec4 Weight10{ SplatMap.WeightValues[CalculateIndex(SplatMap.Width, X1, Z0)] };
-        const asset::Vec4 Weight01{ SplatMap.WeightValues[CalculateIndex(SplatMap.Width, X0, Z1)] };
-        const asset::Vec4 Weight11{ SplatMap.WeightValues[CalculateIndex(SplatMap.Width, X1, Z1)] };
-        const asset::Vec4 WeightX0{ LerpSplatWeight(Weight00, Weight10, BlendX) };
-        const asset::Vec4 WeightX1{ LerpSplatWeight(Weight01, Weight11, BlendX) };
-        return LerpSplatWeight(WeightX0, WeightX1, BlendZ);
+
+        SplatWeightMapValues SampledWeights{};
+        for (std::size_t WeightMapIndex{ 0ULL }; WeightMapIndex < Terrain::SplatMapData::WeightMapCount; ++WeightMapIndex) {
+            const std::vector<asset::Vec4>& WeightMapValues{ SplatMap.WeightMapValues[WeightMapIndex] };
+            const asset::Vec4 Weight00{ WeightMapValues[CalculateIndex(SplatMap.Width, X0, Z0)] };
+            const asset::Vec4 Weight10{ WeightMapValues[CalculateIndex(SplatMap.Width, X1, Z0)] };
+            const asset::Vec4 Weight01{ WeightMapValues[CalculateIndex(SplatMap.Width, X0, Z1)] };
+            const asset::Vec4 Weight11{ WeightMapValues[CalculateIndex(SplatMap.Width, X1, Z1)] };
+            const asset::Vec4 WeightX0{ LerpSplatWeight(Weight00, Weight10, BlendX) };
+            const asset::Vec4 WeightX1{ LerpSplatWeight(Weight01, Weight11, BlendX) };
+            SampledWeights[WeightMapIndex] = LerpSplatWeight(WeightX0, WeightX1, BlendZ);
+        }
+
+        return SampledWeights;
     }
 
-    float GetSplatLayerWeight(const asset::Vec4& Weights, std::uint32_t LayerIndex) {
-        if (LayerIndex == 0u) {
+    float GetSplatLayerWeight(const SplatWeightMapValues& WeightMapValues, std::uint32_t LayerIndex) {
+        const std::size_t WeightMapIndex{ static_cast<std::size_t>(LayerIndex / 4u) };
+        if (WeightMapIndex >= Terrain::SplatMapData::WeightMapCount) {
+            return 0.0f;
+        }
+
+        const asset::Vec4& Weights{ WeightMapValues[WeightMapIndex] };
+        const std::uint32_t ChannelIndex{ LayerIndex % 4u };
+        if (ChannelIndex == 0u) {
             return Weights.x;
         }
 
-        if (LayerIndex == 1u) {
+        if (ChannelIndex == 1u) {
             return Weights.y;
         }
 
-        if (LayerIndex == 2u) {
+        if (ChannelIndex == 2u) {
             return Weights.z;
         }
 
-        if (LayerIndex == 3u) {
+        if (ChannelIndex == 3u) {
             return Weights.w;
         }
 
@@ -830,7 +846,7 @@ namespace {
         return Rule.mLayerIndex;
     }
 
-    bool TryResolveExcludedLayerWeight(const FoliagePlacementRule& Rule, const Terrain::TerrainBuildDesc& BuildDesc, const asset::Vec4& SplatWeights, float& OutLayerWeight) {
+    bool TryResolveExcludedLayerWeight(const FoliagePlacementRule& Rule, const Terrain::TerrainBuildDesc& BuildDesc, const SplatWeightMapValues& SplatWeights, float& OutLayerWeight) {
         if (Rule.mExcludedLayerNames.empty() == true) {
             return false;
         }
@@ -840,7 +856,7 @@ namespace {
         for (const std::string& LayerName : Rule.mExcludedLayerNames) {
             std::uint32_t LayerIndex{};
             const bool IsLayerIndexResolved{ TryResolveLayerIndexByName(BuildDesc, LayerName, LayerIndex) };
-            if (IsLayerIndexResolved == false || LayerIndex >= 4u) {
+            if (IsLayerIndexResolved == false || LayerIndex >= Terrain::SplatMapData::LayerCount) {
                 continue;
             }
 
@@ -863,7 +879,7 @@ namespace {
 
         const Terrain::HeightFieldData& HeightField{ TerrainContext.mResource->GetHeightFieldData() };
         const Terrain::SplatMapData& SplatMap{ TerrainContext.mResource->GetSplatMapData() };
-        if (HeightField.Width < 2u || HeightField.Height < 2u || HeightField.HeightValues.empty() == true || SplatMap.Width < 2u || SplatMap.Height < 2u || SplatMap.WeightValues.empty() == true) {
+        if (HeightField.Width < 2u || HeightField.Height < 2u || HeightField.HeightValues.empty() == true || SplatMap.Width < 2u || SplatMap.Height < 2u || SplatMap.WeightMapValues[0].empty() == true || SplatMap.WeightMapValues[1].empty() == true) {
             return false;
         }
 
@@ -880,7 +896,7 @@ namespace {
 
         const Terrain::TerrainBuildDesc& BuildDesc{ TerrainContext.mResource->GetBuildDesc() };
         const float Height01{ SampleHeight01(HeightField, GridX, GridZ) };
-        const asset::Vec4 SplatWeights{ SampleSplatWeight(SplatMap, GridX, GridZ, HeightField) };
+        const SplatWeightMapValues SplatWeights{ SampleSplatWeight(SplatMap, GridX, GridZ, HeightField) };
         OutWorldY = TerrainContext.mTransform.position.y + (Height01 * TerrainContext.mResource->GetMaxHeight() * ScaleY);
         const bool HasExcludedLayerWeight{ TryResolveExcludedLayerWeight(Rule, BuildDesc, SplatWeights, OutLayerWeight) };
         if (HasExcludedLayerWeight == true) {
@@ -888,7 +904,7 @@ namespace {
         }
 
         const std::uint32_t LayerIndex{ ResolveLayerIndex(Rule, BuildDesc) };
-        if (LayerIndex >= 4u) {
+        if (LayerIndex >= Terrain::SplatMapData::LayerCount) {
             return false;
         }
 

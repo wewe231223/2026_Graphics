@@ -34,35 +34,6 @@ namespace {
         return static_cast<float>(Factor);
     }
 
-    float ResolveTerrainMaxLodDistance(const std::vector<float>& LodDistances) {
-        float MaxLodDistance{};
-        for (const float LodDistance : LodDistances) {
-            MaxLodDistance = std::max(MaxLodDistance, LodDistance);
-        }
-
-        return MaxLodDistance;
-    }
-
-    float CalculateTerrainExponentialLodRatio(float Distance, float MaxDistance, float LodExponent) {
-        if (MaxDistance <= 0.0F) {
-            return 0.0F;
-        }
-
-        if (LodExponent <= 0.0F) {
-            return std::clamp(Distance / MaxDistance, 0.0F, 1.0F);
-        }
-
-        const float NormalizedDistance{ std::clamp(Distance / MaxDistance, 0.0F, 1.0F) };
-        const float ExponentDenominator{ static_cast<float>(std::exp(static_cast<double>(LodExponent)) - 1.0) };
-        if (ExponentDenominator <= 0.0F) {
-            return NormalizedDistance;
-        }
-
-        const double ExponentValue{ static_cast<double>(LodExponent) * static_cast<double>(NormalizedDistance) };
-        const float ExponentNumerator{ static_cast<float>(std::exp(ExponentValue) - 1.0) };
-        return std::clamp(ExponentNumerator / ExponentDenominator, 0.0F, 1.0F);
-    }
-
     std::uint32_t SelectLodIndex(const TerrainRenderInput& Input, const TerrainTileMetadata& TileMetadata) {
         const std::size_t AvailableLodCount{ static_cast<std::size_t>(Input.mLodCount) };
         if (AvailableLodCount <= 1U || Input.mHasCameraPosition == false || Input.mLodDistances == nullptr || Input.mLodDistances->empty() == true) {
@@ -71,16 +42,18 @@ namespace {
 
         const DirectX::SimpleMath::Vector3 WorldCenter{ DirectX::SimpleMath::Vector3::Transform(TileMetadata.mCenter, Input.mWorld) };
         const DirectX::SimpleMath::Vector3 CenterToCamera{ WorldCenter - Input.mCameraPosition };
-        const float MaxLodDistance{ ResolveTerrainMaxLodDistance(*Input.mLodDistances) };
-        if (MaxLodDistance <= 0.0F) {
-            return 0U;
+        const float Distance{ std::sqrt(CenterToCamera.LengthSquared()) };
+        const std::size_t TransitionCount{ std::min(Input.mLodDistances->size(), AvailableLodCount - 1ULL) };
+        std::uint32_t SelectedLodIndex{};
+        for (std::size_t TransitionIndex{ 0ULL }; TransitionIndex < TransitionCount; ++TransitionIndex) {
+            if (Distance < (*Input.mLodDistances)[TransitionIndex]) {
+                break;
+            }
+
+            SelectedLodIndex += 1U;
         }
 
-        const float Distance{ std::sqrt(CenterToCamera.LengthSquared()) };
-        const float LodRatio{ CalculateTerrainExponentialLodRatio(Distance, MaxLodDistance, Input.mLodExponent) };
-        const float MaxLodIndex{ static_cast<float>(AvailableLodCount - 1U) };
-        const float SelectedLodValue{ std::clamp(LodRatio * MaxLodIndex, 0.0F, MaxLodIndex) };
-        return static_cast<std::uint32_t>(SelectedLodValue);
+        return SelectedLodIndex;
     }
 
     void SetTerrainInsideTessFactors(TerrainTileTessellationData& TessellationData) {
@@ -119,7 +92,8 @@ namespace {
         PatchContext.mTerrainParameters = DirectX::SimpleMath::Vector4{ Input.mCellSizeX, Input.mCellSizeZ, Input.mOriginOffsetX, Input.mOriginOffsetZ };
         PatchContext.mTerrainUvParameters = DirectX::SimpleMath::Vector4{ static_cast<float>(Input.mStreamOriginGridX), static_cast<float>(Input.mStreamOriginGridZ), 0.0F, 0.0F };
         PatchContext.mHeightFieldSrvDescriptorIndex = Input.mHeightFieldSrvDescriptorIndex;
-        PatchContext.mSplatMapSrvDescriptorIndex = Input.mSplatMapSrvDescriptorIndex;
+        PatchContext.mSplatMap0SrvDescriptorIndex = Input.mSplatMapSrvDescriptorIndices[0];
+        PatchContext.mSplatMap1SrvDescriptorIndex = Input.mSplatMapSrvDescriptorIndices[1];
         PatchContext.mSplatMapWidth = Input.mSplatMapWidth;
         PatchContext.mSplatMapHeight = Input.mSplatMapHeight;
         return PatchContext;
@@ -156,7 +130,7 @@ namespace {
 
 TerrainRenderResult Terrain::WriteTerrainRenderData(const TerrainRenderInput& Input, RenderContract::TerrainRenderWriter& Writer) {
     TerrainRenderResult Result{};
-    if (Input.mTileMetadataItems == nullptr || Input.mMesh == nullptr || Input.mSubMeshBindings == nullptr || Input.mHeightFieldSrvDescriptorIndex == (std::numeric_limits<std::uint32_t>::max)() || Input.mSplatMapSrvDescriptorIndex == (std::numeric_limits<std::uint32_t>::max)()) {
+    if (Input.mTileMetadataItems == nullptr || Input.mMesh == nullptr || Input.mSubMeshBindings == nullptr || Input.mHeightFieldSrvDescriptorIndex == (std::numeric_limits<std::uint32_t>::max)() || Input.mSplatMapSrvDescriptorIndices[0] == (std::numeric_limits<std::uint32_t>::max)() || Input.mSplatMapSrvDescriptorIndices[1] == (std::numeric_limits<std::uint32_t>::max)()) {
         return Result;
     }
 

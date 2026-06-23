@@ -14,8 +14,12 @@ namespace RenderContract {
         DirectX::SimpleMath::Vector4 mTerrainParameters{};
         DirectX::SimpleMath::Vector4 mTerrainUvParameters{};
         std::uint32_t mHeightFieldSrvDescriptorIndex{ 0xffffffffu };
-        std::uint32_t mSplatMapSrvDescriptorIndex{ 0xffffffffu };
+        std::uint32_t mSplatMap0SrvDescriptorIndex{ 0xffffffffu };
+        std::uint32_t mSplatMap1SrvDescriptorIndex{ 0xffffffffu };
         std::uint32_t mSplatMapWidth{};
         std::uint32_t mSplatMapHeight{};
+        std::uint32_t mPadding0{};
+        std::uint32_t mPadding1{};
+        std::uint32_t mPadding2{};
     };
 }

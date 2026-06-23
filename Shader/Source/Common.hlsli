@@ -152,9 +152,13 @@ struct TerrainPatchContextGpu
     float4 TerrainParameters;
     float4 TerrainUvParameters;
     uint HeightFieldSrvDescriptorIndex;
-    uint SplatMapSrvDescriptorIndex;
+    uint SplatMap0SrvDescriptorIndex;
+    uint SplatMap1SrvDescriptorIndex;
     uint SplatMapWidth;
     uint SplatMapHeight;
+    uint Padding0;
+    uint Padding1;
+    uint Padding2;
 };
 
 struct MaterialFieldGpu

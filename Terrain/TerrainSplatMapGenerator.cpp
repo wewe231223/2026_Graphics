@@ -51,7 +51,7 @@ namespace {
 
     constexpr std::size_t InvalidSplatExpressionNodeIndex{ std::numeric_limits<std::size_t>::max() };
     constexpr std::size_t InvalidSplatExpressionVariableIndex{ std::numeric_limits<std::size_t>::max() };
-    constexpr std::size_t MaxGeneratedSplatLayerCount{ 4ULL };
+    constexpr std::size_t MaxGeneratedSplatLayerCount{ Terrain::SplatMapData::LayerCount };
     constexpr std::size_t BaseSplatVariableCount{ 8ULL };
     constexpr float SplatExpressionEpsilon{ 0.000001f };
 
@@ -636,7 +636,7 @@ namespace {
         }
 
         if (Desc.mLayers.size() > MaxGeneratedSplatLayerCount) {
-            throw std::runtime_error{ "Generated splat map supports up to four layers." };
+            throw std::runtime_error{ "Generated splat map supports up to eight layers." };
         }
 
         if (Desc.mFallbackLayerIndex >= Desc.mLayers.size()) {
@@ -689,7 +689,7 @@ namespace {
         return CompiledDesc;
     }
 
-    asset::Vec4 NormalizeWeights(const std::array<float, MaxGeneratedSplatLayerCount>& Weights, const CompiledSplatMapDesc& Desc) {
+    std::array<float, MaxGeneratedSplatLayerCount> NormalizeWeights(const std::array<float, MaxGeneratedSplatLayerCount>& Weights, const CompiledSplatMapDesc& Desc) {
         std::array<float, MaxGeneratedSplatLayerCount> SaturatedWeights{};
         float WeightSum{ 0.0f };
         for (std::size_t LayerIndex{ 0ULL }; LayerIndex < Desc.mLayers.size(); ++LayerIndex) {
@@ -700,18 +700,22 @@ namespace {
         if (WeightSum <= Desc.mMinimumWeightSum) {
             std::array<float, MaxGeneratedSplatLayerCount> FallbackWeights{};
             FallbackWeights[static_cast<std::size_t>(Desc.mFallbackLayerIndex)] = 1.0f;
-            return asset::Vec4{ FallbackWeights[0], FallbackWeights[1], FallbackWeights[2], FallbackWeights[3] };
+            return FallbackWeights;
         }
 
         if (Desc.mNormalizeWeights == false) {
-            return asset::Vec4{ SaturatedWeights[0], SaturatedWeights[1], SaturatedWeights[2], SaturatedWeights[3] };
+            return SaturatedWeights;
         }
 
         const float InverseWeightSum{ 1.0f / WeightSum };
-        return asset::Vec4{ SaturatedWeights[0] * InverseWeightSum, SaturatedWeights[1] * InverseWeightSum, SaturatedWeights[2] * InverseWeightSum, SaturatedWeights[3] * InverseWeightSum };
+        for (std::size_t LayerIndex{ 0ULL }; LayerIndex < Desc.mLayers.size(); ++LayerIndex) {
+            SaturatedWeights[LayerIndex] *= InverseWeightSum;
+        }
+
+        return SaturatedWeights;
     }
 
-    asset::Vec4 BuildSplatWeights(const Terrain::HeightFieldData& Field, const Terrain::TerrainBuildDesc& Desc, const CompiledSplatMapDesc& SplatMapDesc, std::vector<float>& Variables, std::uint32_t X, std::uint32_t Z) {
+    std::array<float, MaxGeneratedSplatLayerCount> BuildSplatWeights(const Terrain::HeightFieldData& Field, const Terrain::TerrainBuildDesc& Desc, const CompiledSplatMapDesc& SplatMapDesc, std::vector<float>& Variables, std::uint32_t X, std::uint32_t Z) {
         const float HeightValue{ SampleHeight01(Field, static_cast<std::int32_t>(X), static_cast<std::int32_t>(Z)) };
         const float SlopeValue{ CalculateSlope01(Field, Desc, X, Z) };
         const float WorldHeightValue{ HeightValue * Desc.MaxHeight };
@@ -737,6 +741,53 @@ namespace {
         }
 
         return NormalizeWeights(Weights, SplatMapDesc);
+    }
+
+    void StoreSplatWeights(Terrain::SplatMapData& SplatMap, std::size_t PixelIndex, const std::array<float, MaxGeneratedSplatLayerCount>& Weights) {
+        for (std::size_t WeightMapIndex{ 0ULL }; WeightMapIndex < Terrain::SplatMapData::WeightMapCount; ++WeightMapIndex) {
+            const std::size_t LayerIndex{ WeightMapIndex * 4ULL };
+            SplatMap.WeightMapValues[WeightMapIndex][PixelIndex] = asset::Vec4{ Weights[LayerIndex], Weights[LayerIndex + 1ULL], Weights[LayerIndex + 2ULL], Weights[LayerIndex + 3ULL] };
+        }
+    }
+
+    asset::Vec4 AverageSplatWeights(const asset::Vec4& Weight00, const asset::Vec4& Weight10, const asset::Vec4& Weight01, const asset::Vec4& Weight11) {
+        return asset::Vec4{ (Weight00.x + Weight10.x + Weight01.x + Weight11.x) * 0.25f, (Weight00.y + Weight10.y + Weight01.y + Weight11.y) * 0.25f, (Weight00.z + Weight10.z + Weight01.z + Weight11.z) * 0.25f, (Weight00.w + Weight10.w + Weight01.w + Weight11.w) * 0.25f };
+    }
+
+    void GenerateSplatMapMipLevels(Terrain::SplatMapData& SplatMap) {
+        for (std::size_t WeightMapIndex{ 0ULL }; WeightMapIndex < Terrain::SplatMapData::WeightMapCount; ++WeightMapIndex) {
+            std::vector<Terrain::SplatMapMipLevelData>& MipLevels{ SplatMap.WeightMapMipLevels[WeightMapIndex] };
+            MipLevels.clear();
+
+            const std::vector<asset::Vec4>* ParentWeightValues{ &SplatMap.WeightMapValues[WeightMapIndex] };
+            std::uint32_t ParentWidth{ SplatMap.Width };
+            std::uint32_t ParentHeight{ SplatMap.Height };
+            while (ParentWidth > 1u || ParentHeight > 1u) {
+                Terrain::SplatMapMipLevelData MipLevel{};
+                MipLevel.Width = std::max(ParentWidth / 2u, 1u);
+                MipLevel.Height = std::max(ParentHeight / 2u, 1u);
+                MipLevel.WeightValues.resize(static_cast<std::size_t>(MipLevel.Width) * static_cast<std::size_t>(MipLevel.Height));
+
+                for (std::uint32_t Z{ 0u }; Z < MipLevel.Height; ++Z) {
+                    const std::uint32_t ParentZ0{ std::min(Z * 2u, ParentHeight - 1u) };
+                    const std::uint32_t ParentZ1{ std::min(ParentZ0 + 1u, ParentHeight - 1u) };
+                    for (std::uint32_t X{ 0u }; X < MipLevel.Width; ++X) {
+                        const std::uint32_t ParentX0{ std::min(X * 2u, ParentWidth - 1u) };
+                        const std::uint32_t ParentX1{ std::min(ParentX0 + 1u, ParentWidth - 1u) };
+                        const asset::Vec4& Weight00{ (*ParentWeightValues)[CalculateIndex(ParentWidth, ParentX0, ParentZ0)] };
+                        const asset::Vec4& Weight10{ (*ParentWeightValues)[CalculateIndex(ParentWidth, ParentX1, ParentZ0)] };
+                        const asset::Vec4& Weight01{ (*ParentWeightValues)[CalculateIndex(ParentWidth, ParentX0, ParentZ1)] };
+                        const asset::Vec4& Weight11{ (*ParentWeightValues)[CalculateIndex(ParentWidth, ParentX1, ParentZ1)] };
+                        MipLevel.WeightValues[CalculateIndex(MipLevel.Width, X, Z)] = AverageSplatWeights(Weight00, Weight10, Weight01, Weight11);
+                    }
+                }
+
+                MipLevels.push_back(std::move(MipLevel));
+                ParentWeightValues = &MipLevels.back().WeightValues;
+                ParentWidth = MipLevels.back().Width;
+                ParentHeight = MipLevels.back().Height;
+            }
+        }
     }
 
     void ValidateSplatMapInput(const Terrain::HeightFieldData& Field, const Terrain::TerrainBuildDesc& Desc) {
@@ -788,7 +839,9 @@ namespace Terrain {
         SplatMap.Width = Field.Width;
         SplatMap.Height = Field.Height;
         const std::size_t PixelCount{ static_cast<std::size_t>(SplatMap.Width) * static_cast<std::size_t>(SplatMap.Height) };
-        SplatMap.WeightValues.resize(PixelCount);
+        for (std::vector<asset::Vec4>& WeightMapValues : SplatMap.WeightMapValues) {
+            WeightMapValues.resize(PixelCount);
+        }
 
         const std::vector<std::uint32_t> RowIndices{ CreateRowIndices(Field.Height) };
         std::for_each(std::execution::par, RowIndices.cbegin(), RowIndices.cend(), [&](std::uint32_t Z) {
@@ -797,9 +850,12 @@ namespace Terrain {
 
             for (std::uint32_t X{ 0u }; X < Field.Width; ++X) {
                 const std::size_t Index{ CalculateIndex(Field.Width, X, Z) };
-                SplatMap.WeightValues[Index] = BuildSplatWeights(Field, Desc, SplatMapDesc, Variables, X, Z);
+                const std::array<float, MaxGeneratedSplatLayerCount> Weights{ BuildSplatWeights(Field, Desc, SplatMapDesc, Variables, X, Z) };
+                StoreSplatWeights(SplatMap, Index, Weights);
             }
         });
+
+        GenerateSplatMapMipLevels(SplatMap);
 
         return SplatMap;
     }
