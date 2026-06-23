@@ -85,6 +85,10 @@ std::unique_ptr<IPhysicsSpatialQuery> BruteForcePhysicsSpatialQuery::Clone() con
     return ClonedQuery;
 }
 
+void BruteForcePhysicsSpatialQuery::Synchronize(IPhysicsActorRepository& ActorRepository) {
+    (void)ActorRepository;
+}
+
 std::vector<PhysicsDynamicCollisionPairCandidate> BruteForcePhysicsSpatialQuery::QueryDynamicCollisionPairs(IPhysicsActorRepository& ActorRepository) const {
     std::vector<PhysicsDynamicActor*> DynamicActors{};
     ActorRepository.CollectDynamicActors(DynamicActors);
@@ -132,4 +136,25 @@ std::vector<PhysicsDynamicCollisionPairCandidate> BruteForcePhysicsSpatialQuery:
     }
 
     return PairCandidates;
+}
+
+void BruteForcePhysicsSpatialQuery::QueryActorCollisionCandidates(IPhysicsActorRepository& ActorRepository, const PhysicsActorBase& Actor, std::vector<PhysicsActorBase*>& OutActors) const {
+    OutActors.clear();
+    const AxisAlignedBounds ActorBounds{ MakeAxisAlignedBounds(Actor.GetFatWorldBoundingBox()) };
+    const std::size_t ActorCount{ ActorRepository.GetActorCount() };
+    OutActors.reserve(ActorCount);
+
+    for (std::size_t ActorIndex{}; ActorIndex < ActorCount; ++ActorIndex) {
+        PhysicsActorBase* CandidateActor{ ActorRepository.GetActor(ActorIndex) };
+        if (CandidateActor == nullptr || CandidateActor == &Actor || CandidateActor->GetIsActive() == false || CandidateActor->IsTerrainActor() == true) {
+            continue;
+        }
+
+        const AxisAlignedBounds CandidateBounds{ MakeAxisAlignedBounds(CandidateActor->GetFatWorldBoundingBox()) };
+        if (IsOverlappingAxisAlignedBounds(ActorBounds, CandidateBounds) == false) {
+            continue;
+        }
+
+        OutActors.push_back(CandidateActor);
+    }
 }

@@ -727,8 +727,11 @@ namespace Game {
             if (ActorLocalBoundingBoxValue != ComponentLocalBoundingBoxValue) {
                 ActorPointer->SetLocalBoundingBox(ComponentLocalBoundingBox);
             }
+
+            static_cast<void>(Context.mPhysicsWorld.ResolveKinematicTerrainContact(*ActorPointer));
+            TransformComponent->position = ActorPointer->GetPosition();
             BoundingBoxComponent->SetWorldObb(ActorPointer->GetWorldBoundingBox());
-            UpdatePhysicsActorCachedSnapshot(*PhysicsActorComponent, TransformComponent->position, TransformComponent->rotation, TransformComponent->scale, ActorPointer->GetVelocity(), ActorPointer->GetWorldBoundingBox());
+            UpdatePhysicsActorCachedSnapshot(*PhysicsActorComponent, ActorPointer->GetPosition(), ActorPointer->GetOrientation(), ActorPointer->GetScale(), ActorPointer->GetVelocity(), ActorPointer->GetWorldBoundingBox());
         }
     }
 

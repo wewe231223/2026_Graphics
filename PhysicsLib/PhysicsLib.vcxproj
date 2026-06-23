@@ -36,6 +36,7 @@
     <ClCompile Include="Simulation\Repository\IPhysicsActorRepository.cpp" />
     <ClCompile Include="Simulation\Repository\PhysicsActorRepository.cpp" />
     <ClCompile Include="Simulation\SpatialQuery\BruteForcePhysicsSpatialQuery.cpp" />
+    <ClCompile Include="Simulation\SpatialQuery\DynamicAabbTreePhysicsSpatialQuery.cpp" />
     <ClCompile Include="Simulation\SpatialQuery\IPhysicsSpatialQuery.cpp" />
     <ClCompile Include="Runtime\PhysicsRuntime.cpp" />
     <ClCompile Include="World\PhysicsWorld.cpp" />
@@ -63,6 +64,7 @@
     <ClInclude Include="Simulation\Repository\IPhysicsActorRepository.h" />
     <ClInclude Include="Simulation\Repository\PhysicsActorRepository.h" />
     <ClInclude Include="Simulation\SpatialQuery\BruteForcePhysicsSpatialQuery.h" />
+    <ClInclude Include="Simulation\SpatialQuery\DynamicAabbTreePhysicsSpatialQuery.h" />
     <ClInclude Include="Simulation\SpatialQuery\IPhysicsSpatialQuery.h" />
     <ClInclude Include="Simulation\Types\PhysicsSimulationTypes.h" />
     <ClInclude Include="Simulation\Types\RigidBody.h" />

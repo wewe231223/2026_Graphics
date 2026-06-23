@@ -88,6 +88,9 @@
     <ClCompile Include="Simulation\SpatialQuery\BruteForcePhysicsSpatialQuery.cpp">
       <Filter>Simulation\SpatialQuery</Filter>
     </ClCompile>
+    <ClCompile Include="Simulation\SpatialQuery\DynamicAabbTreePhysicsSpatialQuery.cpp">
+      <Filter>Simulation\SpatialQuery</Filter>
+    </ClCompile>
     <ClCompile Include="Simulation\SpatialQuery\IPhysicsSpatialQuery.cpp">
       <Filter>Simulation\SpatialQuery</Filter>
     </ClCompile>
@@ -161,6 +164,9 @@
       <Filter>Simulation\Repository</Filter>
     </ClInclude>
     <ClInclude Include="Simulation\SpatialQuery\BruteForcePhysicsSpatialQuery.h">
+      <Filter>Simulation\SpatialQuery</Filter>
+    </ClInclude>
+    <ClInclude Include="Simulation\SpatialQuery\DynamicAabbTreePhysicsSpatialQuery.h">
       <Filter>Simulation\SpatialQuery</Filter>
     </ClInclude>
     <ClInclude Include="Simulation\SpatialQuery\IPhysicsSpatialQuery.h">

@@ -135,6 +135,7 @@ private:
     std::vector<PhysicsSimulationEvent> mPublishedEvents;
     std::vector<PhysicsDynamicActor*> mDynamicActorScratch;
     std::vector<PhysicsDynamicActor*> mIntegrateDynamicActorScratch;
-    std::vector<const PhysicsStaticActor*> mStaticActorScratch;
     std::vector<PhysicsKinematicActor*> mKinematicActorScratch;
+    std::vector<const PhysicsTerrainActor*> mTerrainActorScratch;
+    std::vector<PhysicsActorBase*> mCollisionCandidateScratch;
 };

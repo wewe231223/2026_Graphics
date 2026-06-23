@@ -28,5 +28,8 @@ public:
 
 public:
     std::unique_ptr<IPhysicsSpatialQuery> Clone() const override;
+    void Synchronize(IPhysicsActorRepository& ActorRepository) override;
+
     std::vector<PhysicsDynamicCollisionPairCandidate> QueryDynamicCollisionPairs(IPhysicsActorRepository& ActorRepository) const override;
+    void QueryActorCollisionCandidates(IPhysicsActorRepository& ActorRepository, const PhysicsActorBase& Actor, std::vector<PhysicsActorBase*>& OutActors) const override;
 };

@@ -29,7 +29,10 @@ public:
 
 public:
     virtual std::unique_ptr<IPhysicsSpatialQuery> Clone() const = 0;
+    virtual void Synchronize(IPhysicsActorRepository& ActorRepository) = 0;
+
     virtual std::vector<PhysicsDynamicCollisionPairCandidate> QueryDynamicCollisionPairs(IPhysicsActorRepository& ActorRepository) const = 0;
+    virtual void QueryActorCollisionCandidates(IPhysicsActorRepository& ActorRepository, const PhysicsActorBase& Actor, std::vector<PhysicsActorBase*>& OutActors) const = 0;
 };
 
 

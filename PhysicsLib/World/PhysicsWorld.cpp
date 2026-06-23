@@ -5,12 +5,13 @@
 #include <chrono>
 #include <cstdint>
 #include <cmath>
+#include <functional>
 #include <limits>
 #include <utility>
 
 #include "PhysicsLib/Simulation/Repository/IPhysicsActorRepository.h"
 #include "PhysicsLib/Simulation/Repository/PhysicsActorRepository.h"
-#include "PhysicsLib/Simulation/SpatialQuery/BruteForcePhysicsSpatialQuery.h"
+#include "PhysicsLib/Simulation/SpatialQuery/DynamicAabbTreePhysicsSpatialQuery.h"
 #include "PhysicsLib/Simulation/SpatialQuery/IPhysicsSpatialQuery.h"
 
 #undef min
@@ -454,50 +455,32 @@ void IntegrateDynamicActors(IPhysicsWorldMediator& WorldMediator, IPhysicsActorR
     }
 }
 
-void ResolveKinematicCollisions(IPhysicsActorRepository& ActorRepository, const DirectX::SimpleMath::Vector3& Gravity, float DeltaTime) {
+void ResolveKinematicCollisions(IPhysicsActorRepository& ActorRepository, IPhysicsSpatialQuery& SpatialQuery, std::vector<PhysicsKinematicActor*>& KinematicActors, std::vector<PhysicsActorBase*>& CollisionCandidates, const DirectX::SimpleMath::Vector3& Gravity, float DeltaTime) {
     if (DeltaTime <= 0.0F) {
         return;
     }
 
-    std::size_t ActorCount{ ActorRepository.GetActorCount() };
-    if (ActorCount < 2U) {
-        return;
-    }
-
-    for (std::size_t FirstActorIndex{ 0U }; FirstActorIndex < ActorCount; ++FirstActorIndex) {
-        PhysicsActorBase* FirstActor{ ActorRepository.GetActor(FirstActorIndex) };
-        if (FirstActor == nullptr) {
+    ActorRepository.CollectKinematicActors(KinematicActors);
+    const std::less<PhysicsActorBase*> ActorOrder{};
+    for (PhysicsKinematicActor* KinematicActor : KinematicActors) {
+        if (KinematicActor == nullptr || KinematicActor->GetIsActive() == false) {
             continue;
         }
 
-        for (std::size_t SecondActorIndex{ FirstActorIndex + 1U }; SecondActorIndex < ActorCount; ++SecondActorIndex) {
-            PhysicsActorBase* SecondActor{ ActorRepository.GetActor(SecondActorIndex) };
-            if (SecondActor == nullptr) {
+        CollisionCandidates.clear();
+        SpatialQuery.QueryActorCollisionCandidates(ActorRepository, *KinematicActor, CollisionCandidates);
+        for (PhysicsActorBase* CandidateActor : CollisionCandidates) {
+            if (CandidateActor == nullptr || CandidateActor->GetIsActive() == false || CandidateActor->IsTerrainActor() || CandidateActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Static) {
                 continue;
             }
 
-            if (FirstActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Kinematic) {
-                if (SecondActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Static) {
-                    continue;
-                }
-
-                bool HasCollision{ FirstActor->ResolveActorCollision(*SecondActor, DeltaTime) };
-                if (HasCollision && SecondActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Dynamic) {
-                    SecondActor->UpdateSleepState(ResolveActorGravity(Gravity, *SecondActor));
-                }
-
+            if (CandidateActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Kinematic && ActorOrder(KinematicActor, CandidateActor) == false) {
                 continue;
             }
 
-            if (SecondActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Kinematic) {
-                if (FirstActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Static) {
-                    continue;
-                }
-
-                bool HasCollision{ SecondActor->ResolveActorCollision(*FirstActor, DeltaTime) };
-                if (HasCollision && FirstActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Dynamic) {
-                    FirstActor->UpdateSleepState(ResolveActorGravity(Gravity, *FirstActor));
-                }
+            const bool HasCollision{ KinematicActor->ResolveActorCollision(*CandidateActor, DeltaTime) };
+            if (HasCollision && CandidateActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Dynamic) {
+                CandidateActor->UpdateSleepState(ResolveActorGravity(Gravity, *CandidateActor));
             }
         }
     }
@@ -818,14 +801,9 @@ void ResolveSweptKinematicDynamicCollisions(IPhysicsWorldMediator& WorldMediator
     }
 }
 
-void ResolveStaticCollisions(IPhysicsWorldMediator& WorldMediator, const std::vector<PhysicsDynamicActor*>& DynamicActors, const std::vector<const PhysicsStaticActor*>& StaticActors, float DeltaTime) {
+void ResolveStaticCollisions(IPhysicsWorldMediator& WorldMediator, IPhysicsActorRepository& ActorRepository, IPhysicsSpatialQuery& SpatialQuery, const std::vector<PhysicsDynamicActor*>& DynamicActors, std::vector<PhysicsActorBase*>& CollisionCandidates, float DeltaTime) {
     std::size_t DynamicActorCount{ DynamicActors.size() };
     if (DynamicActorCount == 0U) {
-        return;
-    }
-
-    std::size_t StaticActorCount{ StaticActors.size() };
-    if (StaticActorCount == 0U) {
         return;
     }
 
@@ -839,18 +817,46 @@ void ResolveStaticCollisions(IPhysicsWorldMediator& WorldMediator, const std::ve
             continue;
         }
 
-        for (std::size_t StaticActorIndex{ 0U }; StaticActorIndex < StaticActorCount; ++StaticActorIndex) {
-            const PhysicsStaticActor* StaticActor{ StaticActors[StaticActorIndex] };
-            if (StaticActor == nullptr) {
+        CollisionCandidates.clear();
+        SpatialQuery.QueryActorCollisionCandidates(ActorRepository, *DynamicActor, CollisionCandidates);
+        for (PhysicsActorBase* CandidateActor : CollisionCandidates) {
+            if (CandidateActor == nullptr || CandidateActor->GetIsActive() == false || CandidateActor->GetActorType() != PhysicsActorBase::PhysicsActorType::Static || CandidateActor->IsTerrainActor()) {
                 continue;
             }
 
+            const PhysicsStaticActor* StaticActor{ static_cast<const PhysicsStaticActor*>(CandidateActor) };
             bool HasCollision{ StaticActor->ResolveDynamicCollision(*DynamicActor, DeltaTime) };
             if (!HasCollision) {
                 continue;
             }
 
             WorldMediator.PublishEvent(PhysicsSimulationEventType::StaticCollisionResolved, DynamicActor, StaticActor);
+            DynamicActor->UpdateSleepState(ResolveActorGravity(WorldMediator, *DynamicActor));
+        }
+    }
+}
+
+void ResolveTerrainCollisions(IPhysicsWorldMediator& WorldMediator, const std::vector<PhysicsDynamicActor*>& DynamicActors, const std::vector<const PhysicsTerrainActor*>& TerrainActors, float DeltaTime) {
+    if (DynamicActors.empty() || TerrainActors.empty()) {
+        return;
+    }
+
+    for (PhysicsDynamicActor* DynamicActor : DynamicActors) {
+        if (DynamicActor == nullptr || DynamicActor->GetIsActive() == false || DynamicActor->GetInverseMass() <= 0.0F) {
+            continue;
+        }
+
+        for (const PhysicsTerrainActor* TerrainActor : TerrainActors) {
+            if (TerrainActor == nullptr || TerrainActor->GetIsActive() == false) {
+                continue;
+            }
+
+            const bool HasCollision{ TerrainActor->ResolveDynamicCollision(*DynamicActor, DeltaTime) };
+            if (HasCollision == false) {
+                continue;
+            }
+
+            WorldMediator.PublishEvent(PhysicsSimulationEventType::StaticCollisionResolved, DynamicActor, TerrainActor);
             DynamicActor->UpdateSleepState(ResolveActorGravity(WorldMediator, *DynamicActor));
         }
     }
@@ -903,12 +909,12 @@ float GetActorBottomOffsetFromPositionY(const PhysicsActorBase& Actor) {
     return MinimumY - Actor.GetPosition().y;
 }
 
-bool ResolveKinematicCharacterStaticContacts(IPhysicsActorRepository& ActorRepository, PhysicsActorBase& Actor, float DeltaTime) {
+bool ResolveKinematicCharacterStaticContacts(IPhysicsActorRepository& ActorRepository, IPhysicsSpatialQuery& SpatialQuery, PhysicsActorBase& Actor, std::vector<PhysicsActorBase*>& CollisionCandidates, float DeltaTime) {
     bool HasResolved{};
-    const std::size_t ActorCount{ ActorRepository.GetActorCount() };
-    for (std::size_t ActorIndex{}; ActorIndex < ActorCount; ++ActorIndex) {
-        PhysicsActorBase* OtherActor{ ActorRepository.GetActor(ActorIndex) };
-        if (OtherActor == nullptr || OtherActor == &Actor || OtherActor->GetActorType() != PhysicsActorBase::PhysicsActorType::Static || OtherActor->IsTerrainActor() == true) {
+    CollisionCandidates.clear();
+    SpatialQuery.QueryActorCollisionCandidates(ActorRepository, Actor, CollisionCandidates);
+    for (PhysicsActorBase* OtherActor : CollisionCandidates) {
+        if (OtherActor == nullptr || OtherActor->GetIsActive() == false || OtherActor->GetActorType() != PhysicsActorBase::PhysicsActorType::Static || OtherActor->IsTerrainActor()) {
             continue;
         }
 
@@ -960,7 +966,7 @@ bool ResolveKinematicActorTerrainContactInternal(const IPhysicsActorRepository& 
     DirectX::SimpleMath::Vector3 NextPosition{ Actor.GetPosition() };
     const float ActorBottomOffsetFromPositionY{ GetActorBottomOffsetFromPositionY(Actor) };
     const float ActorBottomY{ NextPosition.y + ActorBottomOffsetFromPositionY };
-    if (ActorBottomY >= SurfaceHeight || Actor.GetVelocity().y >= 0.0F) {
+    if (ActorBottomY >= SurfaceHeight) {
         return false;
     }
 
@@ -1165,8 +1171,9 @@ PhysicsWorld::PhysicsWorld()
       mPublishedEvents{},
       mDynamicActorScratch{},
       mIntegrateDynamicActorScratch{},
-      mStaticActorScratch{},
-      mKinematicActorScratch{} {
+      mKinematicActorScratch{},
+      mTerrainActorScratch{},
+      mCollisionCandidateScratch{} {
     InitializeDependencies();
     mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
@@ -1188,8 +1195,9 @@ PhysicsWorld::PhysicsWorld(const PhysicsWorld& Other)
       mPublishedEvents{},
       mDynamicActorScratch{},
       mIntegrateDynamicActorScratch{},
-      mStaticActorScratch{},
-      mKinematicActorScratch{} {
+      mKinematicActorScratch{},
+      mTerrainActorScratch{},
+      mCollisionCandidateScratch{} {
     InitializeDependencies();
     mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.Initialize(mSettings.FixedTimeStep);
@@ -1212,8 +1220,9 @@ PhysicsWorld& PhysicsWorld::operator=(const PhysicsWorld& Other) {
     mPublishedEvents.clear();
     mDynamicActorScratch.clear();
     mIntegrateDynamicActorScratch.clear();
-    mStaticActorScratch.clear();
     mKinematicActorScratch.clear();
+    mTerrainActorScratch.clear();
+    mCollisionCandidateScratch.clear();
     InitializeDependencies();
     mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.Initialize(mSettings.FixedTimeStep);
@@ -1235,8 +1244,9 @@ PhysicsWorld::PhysicsWorld(PhysicsWorld&& Other) noexcept
       mPublishedEvents{ std::move(Other.mPublishedEvents) },
       mDynamicActorScratch{},
       mIntegrateDynamicActorScratch{},
-      mStaticActorScratch{},
-      mKinematicActorScratch{} {
+      mKinematicActorScratch{},
+      mTerrainActorScratch{},
+      mCollisionCandidateScratch{} {
     if (mActorRepository != nullptr) {
         mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
     }
@@ -1247,8 +1257,9 @@ PhysicsWorld::PhysicsWorld(PhysicsWorld&& Other) noexcept
     Other.mLastStepElapsedMilliseconds = 0.0;
     Other.mDynamicActorScratch.clear();
     Other.mIntegrateDynamicActorScratch.clear();
-    Other.mStaticActorScratch.clear();
     Other.mKinematicActorScratch.clear();
+    Other.mTerrainActorScratch.clear();
+    Other.mCollisionCandidateScratch.clear();
     Other.InitializeDependencies();
     Other.mFrameAccumulator.Initialize(Other.mSettings.FixedTimeStep);
     Other.mKinematicActorSimulator.Synchronize(*Other.mActorRepository);
@@ -1273,8 +1284,9 @@ PhysicsWorld& PhysicsWorld::operator=(PhysicsWorld&& Other) noexcept {
     mPublishedEvents = std::move(Other.mPublishedEvents);
     mDynamicActorScratch.clear();
     mIntegrateDynamicActorScratch.clear();
-    mStaticActorScratch.clear();
     mKinematicActorScratch.clear();
+    mTerrainActorScratch.clear();
+    mCollisionCandidateScratch.clear();
     if (mActorRepository != nullptr) {
         mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
     }
@@ -1285,8 +1297,9 @@ PhysicsWorld& PhysicsWorld::operator=(PhysicsWorld&& Other) noexcept {
     Other.mLastStepElapsedMilliseconds = 0.0;
     Other.mDynamicActorScratch.clear();
     Other.mIntegrateDynamicActorScratch.clear();
-    Other.mStaticActorScratch.clear();
     Other.mKinematicActorScratch.clear();
+    Other.mTerrainActorScratch.clear();
+    Other.mCollisionCandidateScratch.clear();
     Other.InitializeDependencies();
     Other.mFrameAccumulator.Initialize(Other.mSettings.FixedTimeStep);
     Other.mKinematicActorSimulator.Synchronize(*Other.mActorRepository);
@@ -1308,8 +1321,9 @@ PhysicsWorld::PhysicsWorld(const WorldSettings& Settings)
       mPublishedEvents{},
       mDynamicActorScratch{},
       mIntegrateDynamicActorScratch{},
-      mStaticActorScratch{},
-      mKinematicActorScratch{} {
+      mKinematicActorScratch{},
+      mTerrainActorScratch{},
+      mCollisionCandidateScratch{} {
     InitializeDependencies();
     mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
@@ -1327,8 +1341,9 @@ void PhysicsWorld::Initialize(const WorldSettings& Settings) {
 
     mDynamicActorScratch.clear();
     mIntegrateDynamicActorScratch.clear();
-    mStaticActorScratch.clear();
     mKinematicActorScratch.clear();
+    mTerrainActorScratch.clear();
+    mCollisionCandidateScratch.clear();
 
     if (mActorRepository != nullptr) {
         mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
@@ -1367,8 +1382,9 @@ void PhysicsWorld::ClearActors() {
     mActorRepository->ClearActors();
     mDynamicActorScratch.clear();
     mIntegrateDynamicActorScratch.clear();
-    mStaticActorScratch.clear();
     mKinematicActorScratch.clear();
+    mTerrainActorScratch.clear();
+    mCollisionCandidateScratch.clear();
     mKinematicActorSimulator.Synchronize(*mActorRepository);
     mFrameAccumulator.SynchronizeStatePair(*mActorRepository);
 }
@@ -1450,8 +1466,10 @@ void PhysicsWorld::MarkKinematicActorTeleported(const PhysicsKinematicActor& Act
 void PhysicsWorld::StepSimulation() {
     ClearPublishedEvents();
     IPhysicsActorRepository& ActorRepository{ GetActorRepository() };
+    IPhysicsSpatialQuery& SpatialQuery{ GetSpatialQuery() };
+    SpatialQuery.Synchronize(ActorRepository);
     ActorRepository.CollectDynamicActors(mDynamicActorScratch);
-    ActorRepository.CollectStaticActors(mStaticActorScratch);
+    ActorRepository.CollectTerrainActors(mTerrainActorScratch);
     std::size_t DynamicActorCount{ mDynamicActorScratch.size() };
     for (std::size_t ActorIndex{ 0U }; ActorIndex < DynamicActorCount; ++ActorIndex) {
         PhysicsDynamicActor* DynamicActor{ mDynamicActorScratch[ActorIndex] };
@@ -1462,10 +1480,13 @@ void PhysicsWorld::StepSimulation() {
         DynamicActor->ClearContactState();
     }
 
-    std::vector<PhysicsDynamicCollisionPairCandidate> PreviousDynamicPairCandidates{ GetSpatialQuery().QueryDynamicCollisionPairs(ActorRepository) };
+    std::vector<PhysicsDynamicCollisionPairCandidate> PreviousDynamicPairCandidates{ SpatialQuery.QueryDynamicCollisionPairs(ActorRepository) };
     ResolveDynamicCollisions(*this, PreviousDynamicPairCandidates, mSettings.FixedTimeStep);
-    ResolveStaticCollisions(*this, mDynamicActorScratch, mStaticActorScratch, mSettings.FixedTimeStep);
-    ResolveKinematicCollisions(ActorRepository, mSettings.Gravity, mSettings.FixedTimeStep);
+    ResolveTerrainCollisions(*this, mDynamicActorScratch, mTerrainActorScratch, mSettings.FixedTimeStep);
+    SpatialQuery.Synchronize(ActorRepository);
+    ResolveStaticCollisions(*this, ActorRepository, SpatialQuery, mDynamicActorScratch, mCollisionCandidateScratch, mSettings.FixedTimeStep);
+    SpatialQuery.Synchronize(ActorRepository);
+    ResolveKinematicCollisions(ActorRepository, SpatialQuery, mKinematicActorScratch, mCollisionCandidateScratch, mSettings.Gravity, mSettings.FixedTimeStep);
 
     std::vector<DynamicActorSweepState> DynamicActorSweepStates{ CaptureDynamicActorSweepStates(mDynamicActorScratch) };
     const std::vector<PhysicsKinematicActorSweepState>& KinematicActorSweepStates{ mKinematicActorSimulator.GetSweepStates() };
@@ -1476,10 +1497,14 @@ void PhysicsWorld::StepSimulation() {
     ResolveSweptDynamicCollisions(*this, DynamicActorSweepStates, SweptDynamicPairCandidates, mSettings.FixedTimeStep);
     ResolveSweptKinematicDynamicCollisions(*this, KinematicActorSweepStates, DynamicActorSweepStates, mSettings.FixedTimeStep, mSettings.KinematicDynamicCcdImpulseMagnitudeClamp);
 
-    std::vector<PhysicsDynamicCollisionPairCandidate> CurrentDynamicPairCandidates{ GetSpatialQuery().QueryDynamicCollisionPairs(ActorRepository) };
+    SpatialQuery.Synchronize(ActorRepository);
+    std::vector<PhysicsDynamicCollisionPairCandidate> CurrentDynamicPairCandidates{ SpatialQuery.QueryDynamicCollisionPairs(ActorRepository) };
     ResolveDynamicCollisions(*this, CurrentDynamicPairCandidates, mSettings.FixedTimeStep);
-    ResolveStaticCollisions(*this, mDynamicActorScratch, mStaticActorScratch, mSettings.FixedTimeStep);
-    ResolveKinematicCollisions(ActorRepository, mSettings.Gravity, mSettings.FixedTimeStep);
+    ResolveTerrainCollisions(*this, mDynamicActorScratch, mTerrainActorScratch, mSettings.FixedTimeStep);
+    SpatialQuery.Synchronize(ActorRepository);
+    ResolveStaticCollisions(*this, ActorRepository, SpatialQuery, mDynamicActorScratch, mCollisionCandidateScratch, mSettings.FixedTimeStep);
+    SpatialQuery.Synchronize(ActorRepository);
+    ResolveKinematicCollisions(ActorRepository, SpatialQuery, mKinematicActorScratch, mCollisionCandidateScratch, mSettings.Gravity, mSettings.FixedTimeStep);
     mKinematicActorSimulator.MarkSweepStatesConsumed();
 }
 
@@ -1517,10 +1542,11 @@ PhysicsCharacterMoveResult PhysicsWorld::MoveKinematicCharacter(PhysicsActorBase
     const float StepDeltaTime{ DeltaTime / static_cast<float>(StepCount) };
     const float GroundSnapDistance{ std::max(0.0F, Request.mGroundSnapDistance) };
 
+    mSpatialQuery->Synchronize(*mActorRepository);
     bool IsGrounded{};
     for (std::size_t StepIndex{}; StepIndex < StepCount; ++StepIndex) {
         Actor.SetPosition(Actor.GetPosition() + StepDisplacement);
-        static_cast<void>(ResolveKinematicCharacterStaticContacts(*mActorRepository, Actor, StepDeltaTime));
+        static_cast<void>(ResolveKinematicCharacterStaticContacts(*mActorRepository, *mSpatialQuery, Actor, mCollisionCandidateScratch, StepDeltaTime));
         const bool IsGroundedAtStep{ TrySnapKinematicCharacterToTerrain(*mActorRepository, Actor, GroundSnapDistance) };
         IsGrounded = IsGroundedAtStep;
     }
@@ -1595,6 +1621,6 @@ void PhysicsWorld::InitializeDependencies() {
     }
 
     if (mSpatialQuery == nullptr) {
-        mSpatialQuery = std::make_unique<BruteForcePhysicsSpatialQuery>();
+        mSpatialQuery = std::make_unique<DynamicAabbTreePhysicsSpatialQuery>();
     }
 }
