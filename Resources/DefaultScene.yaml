@@ -4,6 +4,7 @@ Systems:
   - Type: AnimationGraphSystem
   - Type: AnimateSystem
   - Type: FootIKSystem
+  - Type: CharacterControllerSystem
   - Type: PhysicsActorUpdateSystem
   - Type: TerrainStreamingSystem
   - Type: ProceduralFoliageSystem
@@ -235,6 +236,11 @@ Entities:
         BB:
           Center: [0.00, 0.00, 0.00]
           Extents: [0.60, 0.85, 0.60]
+      CharacterController:
+        active: true
+        horizontalAcceleration: 900.0
+        jumpSpeed: 8.0
+        groundSnapDistance: 0.25
       Script:
         path: Script/Lua/PlayerBehavior.lua
   - EntityId: 10

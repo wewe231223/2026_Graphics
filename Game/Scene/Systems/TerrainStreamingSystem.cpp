@@ -50,13 +50,7 @@ namespace {
         Desc.Rotation = TransformComponent.rotationEuler;
         Desc.Scale = TransformComponent.scale;
         Desc.mTerrainWorldData = std::make_shared<const Terrain::TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(Desc, TerrainId));
-        const Terrain::TerrainDataHandle TerrainHandle{ TerrainManagerInstance.UpsertTerrainData(*Desc.mTerrainWorldData) };
-        std::shared_ptr<const Terrain::TerrainWorldData> ManagedTerrainWorldData{};
-        if (TerrainManagerInstance.TryGetTerrainWorldData(TerrainHandle, ManagedTerrainWorldData) == true) {
-            Desc.mTerrainHandle = TerrainHandle;
-            Desc.mTerrainQuery = &TerrainManagerInstance;
-            Desc.mTerrainWorldData = ManagedTerrainWorldData;
-        }
+        static_cast<void>(TerrainManagerInstance.UpsertTerrainData(*Desc.mTerrainWorldData));
 
         return Desc;
     }

@@ -15,6 +15,7 @@
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
 #include "Game/Scene/Components/BoundingBox.h"
+#include "Game/Scene/Components/CharacterController.h"
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/ComponentLuaTypeDefinitions.h"
 #include "Game/Scene/Components/Culling.h"
@@ -41,6 +42,7 @@
 #include "RenderContract/Gather/RenderGatherResultMerger.h"
 #include "RenderContract/Writer/FrameRenderWriter.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
+#include "Game/Scene/Systems/CharacterControllerSystem.h"
 #include "Game/Scene/Systems/PhysicsActorUpdateSystem.h"
 #include "Game/Scene/Systems/ProceduralFoliageSystem.h"
 #include "Game/Scene/Systems/ShadowMappingParameterSystem.h"
@@ -120,6 +122,7 @@ namespace Game {
             mWorkUnitBuildRuntimePipelineAssignmentVersion{},
             mPipelineSystemBindingStructureVersion{ InvalidWorkUnitBuildStructureVersion },
             mPipelineSystemBindingRuntimePipelineAssignmentVersion{} {
+            mSynchronousSystems.push_back(std::make_unique<Game::CharacterControllerSystem>());
             mSynchronousSystems.push_back(std::make_unique<Game::PhysicsActorUpdateSystem>());
             mSynchronousSystems.push_back(std::make_unique<Game::TerrainStreamingSystem>());
             mSynchronousSystems.push_back(std::make_unique<Game::CameraRenderSystem>());
@@ -197,6 +200,10 @@ namespace Game {
             AttachDefaultCameraControlBehavior();
             mLuaScriptFramework.Update(Dt);
             mLuaScriptFramework.LateUpdate(Dt);
+            mFrameContext.PhysicsWorldResource = &mPhysicsWorld;
+            mFrameContext.TerrainManagerResource = &mTerrainManager;
+            mFrameContext.TerrainQueryResource = &mTerrainManager;
+            ExecuteCharacterControllerSystems(Dt);
         }
 
         void Scene::ExecuteDataPipelinePhysicsStage(float Dt) {
@@ -301,14 +308,6 @@ namespace Game {
 
         const PhysicsSnapshot& Scene::GetPhysicsRuntimeSnapshot() const {
             return mPhysicsRuntimeSnapshot;
-        }
-
-        PhysicsKinematicSceneSimulator& Scene::GetKinematicSceneSimulator() {
-            return mKinematicSceneSimulator;
-        }
-
-        const PhysicsKinematicSceneSimulator& Scene::GetKinematicSceneSimulator() const {
-            return mKinematicSceneSimulator;
         }
 
         std::vector<PhysicsKinematicRuntimeState>& Scene::GetKinematicRuntimeStates() {
@@ -825,9 +824,23 @@ namespace Game {
             mFrameContext.SkinnedMeshPreparedDataItems.clear();
         }
 
+        void Scene::ExecuteCharacterControllerSystems(float Dt) {
+            for (std::unique_ptr<Game::ISystem>& System : mSynchronousSystems) {
+                if (System == nullptr || System->Name() != "CharacterControllerSystem") {
+                    continue;
+                }
+
+                System->Execute(mWorld, mFrameContext, Dt);
+            }
+        }
+
         void Scene::ExecuteSynchronousSystems(float Dt, bool IsPhysicsSynchronizationStage) {
             for (std::unique_ptr<Game::ISystem>& System : mSynchronousSystems) {
                 if (System == nullptr) {
+                    continue;
+                }
+
+                if (System->Name() == "CharacterControllerSystem") {
                     continue;
                 }
 
@@ -1000,6 +1013,7 @@ namespace Game {
             mLuaScriptFramework.RegisterComponentByDefinition<Game::PrefabInstance>();
             mLuaScriptFramework.RegisterComponentByDefinition<Game::PhysicsActorSettings>();
             mLuaScriptFramework.RegisterComponentByDefinition<Game::PhysicsActor>();
+            mLuaScriptFramework.RegisterComponentByDefinition<Game::CharacterController>();
             mLuaScriptFramework.RegisterComponentByDefinition<Game::Tag>();
             mLuaScriptFramework.RegisterComponentByDefinition<Game::BehaviorInstanceComponent>();
         }

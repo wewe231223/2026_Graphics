@@ -20,10 +20,6 @@ namespace {
     constexpr float TerrainRaycastDistanceEpsilon{ 1.0E-4F };
     constexpr float TerrainRaycastDeltaEpsilon{ 1.0E-4F };
 
-    bool IsPhysicsTerrainDataHandleValid(Terrain::TerrainDataHandle Handle) {
-        return Handle.mValue != (std::numeric_limits<std::uint32_t>::max)() && Handle.mGeneration != 0U;
-    }
-
     DirectX::SimpleMath::Matrix BuildTerrainWorldMatrix(const Terrain::TerrainWorldData& TerrainData) {
         DirectX::SimpleMath::Matrix ScalingMatrix{ DirectX::SimpleMath::Matrix::CreateScale(TerrainData.mScale) };
         DirectX::SimpleMath::Matrix RotationMatrix{ DirectX::SimpleMath::Matrix::CreateFromQuaternion(TerrainData.mOrientation) };
@@ -351,9 +347,7 @@ namespace {
 
 PhysicsTerrainActor::PhysicsTerrainActor()
     : PhysicsStaticActor{},
-      mTerrainWorldData{},
-      mTerrainHandle{},
-      mTerrainQuery{} {
+      mTerrainWorldData{} {
 }
 
 PhysicsTerrainActor::~PhysicsTerrainActor() {
@@ -361,9 +355,7 @@ PhysicsTerrainActor::~PhysicsTerrainActor() {
 
 PhysicsTerrainActor::PhysicsTerrainActor(const PhysicsTerrainActor& Other)
     : PhysicsStaticActor{ Other },
-      mTerrainWorldData{ Other.mTerrainWorldData },
-      mTerrainHandle{ Other.mTerrainHandle },
-      mTerrainQuery{ Other.mTerrainQuery } {
+      mTerrainWorldData{ Other.mTerrainWorldData } {
 }
 
 PhysicsTerrainActor& PhysicsTerrainActor::operator=(const PhysicsTerrainActor& Other) {
@@ -373,19 +365,13 @@ PhysicsTerrainActor& PhysicsTerrainActor::operator=(const PhysicsTerrainActor& O
 
     PhysicsStaticActor::operator=(Other);
     mTerrainWorldData = Other.mTerrainWorldData;
-    mTerrainHandle = Other.mTerrainHandle;
-    mTerrainQuery = Other.mTerrainQuery;
 
     return *this;
 }
 
 PhysicsTerrainActor::PhysicsTerrainActor(PhysicsTerrainActor&& Other) noexcept
     : PhysicsStaticActor{ std::move(Other) },
-      mTerrainWorldData{ std::move(Other.mTerrainWorldData) },
-      mTerrainHandle{ Other.mTerrainHandle },
-      mTerrainQuery{ Other.mTerrainQuery } {
-    Other.mTerrainHandle = Terrain::TerrainDataHandle{};
-    Other.mTerrainQuery = nullptr;
+      mTerrainWorldData{ std::move(Other.mTerrainWorldData) } {
 }
 
 PhysicsTerrainActor& PhysicsTerrainActor::operator=(PhysicsTerrainActor&& Other) noexcept {
@@ -395,19 +381,13 @@ PhysicsTerrainActor& PhysicsTerrainActor::operator=(PhysicsTerrainActor&& Other)
 
     PhysicsStaticActor::operator=(std::move(Other));
     mTerrainWorldData = std::move(Other.mTerrainWorldData);
-    mTerrainHandle = Other.mTerrainHandle;
-    mTerrainQuery = Other.mTerrainQuery;
-    Other.mTerrainHandle = Terrain::TerrainDataHandle{};
-    Other.mTerrainQuery = nullptr;
 
     return *this;
 }
 
 PhysicsTerrainActor::PhysicsTerrainActor(const ActorDesc& Desc)
     : PhysicsStaticActor{},
-      mTerrainWorldData{},
-      mTerrainHandle{},
-      mTerrainQuery{} {
+      mTerrainWorldData{} {
     SetActorDesc(Desc);
 }
 
@@ -415,20 +395,14 @@ void PhysicsTerrainActor::SetActorDesc(const ActorDesc& Desc) {
     SetPosition(Desc.Position);
     SetRotation(Desc.Rotation);
     SetScale(Desc.Scale);
-    mTerrainHandle = Desc.mTerrainHandle;
-    mTerrainQuery = Desc.mTerrainQuery;
 
     if (Desc.mTerrainWorldData != nullptr) {
         mTerrainWorldData = Desc.mTerrainWorldData;
-        if (IsPhysicsTerrainDataHandleValid(mTerrainHandle) == false) {
-            mTerrainHandle = Desc.mTerrainWorldData->mHandle;
-        }
         return;
     }
 
-    const std::uint32_t TerrainId{ IsPhysicsTerrainDataHandleValid(mTerrainHandle) == true ? mTerrainHandle.mValue : 0U };
     if (Desc.HeightFieldValues != nullptr) {
-        mTerrainWorldData = std::make_shared<const Terrain::TerrainWorldData>(BuildTerrainWorldDataFromActorDesc(Desc, TerrainId));
+        mTerrainWorldData = std::make_shared<const Terrain::TerrainWorldData>(BuildTerrainWorldDataFromActorDesc(Desc, 0U));
     }
     else {
         mTerrainWorldData.reset();
@@ -437,14 +411,11 @@ void PhysicsTerrainActor::SetActorDesc(const ActorDesc& Desc) {
 
 PhysicsTerrainActor::ActorDesc PhysicsTerrainActor::GetActorDesc() const {
     ActorDesc Desc{};
-    std::shared_ptr<const Terrain::TerrainWorldData> TerrainData{};
-    if (TryResolveTerrainWorldData(TerrainData) == false) {
+    if (mTerrainWorldData == nullptr) {
         return Desc;
     }
 
-    Desc = BuildActorDescFromTerrainWorldData(*TerrainData);
-    Desc.mTerrainHandle = mTerrainHandle;
-    Desc.mTerrainQuery = mTerrainQuery;
+    Desc = BuildActorDescFromTerrainWorldData(*mTerrainWorldData);
     return Desc;
 }
 
@@ -452,17 +423,12 @@ const std::shared_ptr<const Terrain::TerrainWorldData>& PhysicsTerrainActor::Get
     return mTerrainWorldData;
 }
 
-Terrain::TerrainDataHandle PhysicsTerrainActor::GetTerrainHandle() const {
-    return mTerrainHandle;
-}
-
 bool PhysicsTerrainActor::HasHeightFieldData() const {
-    std::shared_ptr<const Terrain::TerrainWorldData> TerrainData{};
-    if (TryResolveTerrainWorldData(TerrainData) == false) {
+    if (mTerrainWorldData == nullptr) {
         return false;
     }
 
-    return IsTerrainWorldDataValid(*TerrainData);
+    return IsTerrainWorldDataValid(*mTerrainWorldData);
 }
 
 Terrain::TerrainWorldData PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(const ActorDesc& Desc, std::uint32_t TerrainId) {
@@ -471,7 +437,7 @@ Terrain::TerrainWorldData PhysicsTerrainActor::BuildTerrainWorldDataFromActorDes
         TerrainData = *Desc.mTerrainWorldData;
     }
 
-    TerrainData.mHandle = Desc.mTerrainHandle;
+    TerrainData.mHandle = Terrain::TerrainDataHandle{};
     TerrainData.mTerrainId = TerrainId;
     TerrainData.mPosition = Desc.Position;
     TerrainData.mRotation = Desc.Rotation;
@@ -517,7 +483,6 @@ PhysicsTerrainActor::ActorDesc PhysicsTerrainActor::BuildActorDescFromTerrainWor
     Desc.HeightFieldValues = TerrainData.mHeightFieldValues;
     Desc.mSplatMapData = TerrainData.mSplatMapData;
     Desc.mTerrainWorldData = std::make_shared<const Terrain::TerrainWorldData>(TerrainData);
-    Desc.mTerrainHandle = TerrainData.mHandle;
     return Desc;
 }
 
@@ -555,30 +520,20 @@ bool PhysicsTerrainActor::TryGetSurfaceHeightAtWorldPosition(float WorldX, float
 }
 
 bool PhysicsTerrainActor::TryGetSurfaceAtWorldPosition(float WorldX, float WorldZ, float& OutWorldHeight, DirectX::SimpleMath::Vector3& OutWorldNormal) const {
-    if (mTerrainQuery != nullptr && IsPhysicsTerrainDataHandleValid(mTerrainHandle) == true) {
-        return mTerrainQuery->TryGetSurfaceAtWorldPosition(mTerrainHandle, WorldX, WorldZ, OutWorldHeight, OutWorldNormal);
-    }
-
-    std::shared_ptr<const Terrain::TerrainWorldData> TerrainData{};
-    if (TryResolveTerrainWorldData(TerrainData) == false) {
+    if (mTerrainWorldData == nullptr) {
         return false;
     }
 
-    bool HasSurface{ TryGetTerrainSurfaceAtWorldPosition(*TerrainData, WorldX, WorldZ, OutWorldHeight, OutWorldNormal) };
+    bool HasSurface{ TryGetTerrainSurfaceAtWorldPosition(*mTerrainWorldData, WorldX, WorldZ, OutWorldHeight, OutWorldNormal) };
     return HasSurface;
 }
 
 bool PhysicsTerrainActor::TryRaycast(const DirectX::SimpleMath::Ray& Ray, float MaxDistance, DirectX::SimpleMath::Vector3& OutHitPosition, DirectX::SimpleMath::Vector3& OutHitNormal, float& OutHitDistance) const {
-    if (mTerrainQuery != nullptr && IsPhysicsTerrainDataHandleValid(mTerrainHandle) == true) {
-        return mTerrainQuery->TryRaycast(mTerrainHandle, Ray, MaxDistance, OutHitPosition, OutHitNormal, OutHitDistance);
-    }
-
-    std::shared_ptr<const Terrain::TerrainWorldData> TerrainData{};
-    if (TryResolveTerrainWorldData(TerrainData) == false) {
+    if (mTerrainWorldData == nullptr) {
         return false;
     }
 
-    bool HasHit{ TryRaycastTerrainWorldData(*TerrainData, Ray, MaxDistance, OutHitPosition, OutHitNormal, OutHitDistance) };
+    bool HasHit{ TryRaycastTerrainWorldData(*mTerrainWorldData, Ray, MaxDistance, OutHitPosition, OutHitNormal, OutHitDistance) };
     return HasHit;
 }
 
@@ -598,26 +553,25 @@ bool PhysicsTerrainActor::ResolveDynamicCollision(PhysicsActorBase& DynamicActor
         return false;
     }
 
-    std::shared_ptr<const Terrain::TerrainWorldData> TerrainData{};
-    if (TryResolveTerrainWorldData(TerrainData) == false || IsTerrainWorldDataValid(*TerrainData) == false) {
+    if (mTerrainWorldData == nullptr || IsTerrainWorldDataValid(*mTerrainWorldData) == false) {
         return false;
     }
 
-    const DirectX::SimpleMath::Vector3& Position{ TerrainData->mPosition };
-    const DirectX::SimpleMath::Quaternion& Orientation{ TerrainData->mOrientation };
-    const DirectX::SimpleMath::Vector3& Scale{ TerrainData->mScale };
-    float TerrainHalfExtentX{ TerrainData->mHalfExtentX * std::abs(Scale.x) };
-    float TerrainHalfExtentZ{ TerrainData->mHalfExtentZ * std::abs(Scale.z) };
+    const DirectX::SimpleMath::Vector3& Position{ mTerrainWorldData->mPosition };
+    const DirectX::SimpleMath::Quaternion& Orientation{ mTerrainWorldData->mOrientation };
+    const DirectX::SimpleMath::Vector3& Scale{ mTerrainWorldData->mScale };
+    float TerrainHalfExtentX{ mTerrainWorldData->mHalfExtentX * std::abs(Scale.x) };
+    float TerrainHalfExtentZ{ mTerrainWorldData->mHalfExtentZ * std::abs(Scale.z) };
 
-    if (TerrainData->mHeightFieldWidth > 1U && TerrainData->mHeightFieldHeight > 1U && TerrainData->mHeightFieldCellSizeX > 0.0F && TerrainData->mHeightFieldCellSizeZ > 0.0F) {
-        float HeightFieldHalfExtentX{ (static_cast<float>(TerrainData->mHeightFieldWidth - 1U) * TerrainData->mHeightFieldCellSizeX * 0.5F) * std::abs(Scale.x) };
-        float HeightFieldHalfExtentZ{ (static_cast<float>(TerrainData->mHeightFieldHeight - 1U) * TerrainData->mHeightFieldCellSizeZ * 0.5F) * std::abs(Scale.z) };
+    if (mTerrainWorldData->mHeightFieldWidth > 1U && mTerrainWorldData->mHeightFieldHeight > 1U && mTerrainWorldData->mHeightFieldCellSizeX > 0.0F && mTerrainWorldData->mHeightFieldCellSizeZ > 0.0F) {
+        float HeightFieldHalfExtentX{ (static_cast<float>(mTerrainWorldData->mHeightFieldWidth - 1U) * mTerrainWorldData->mHeightFieldCellSizeX * 0.5F) * std::abs(Scale.x) };
+        float HeightFieldHalfExtentZ{ (static_cast<float>(mTerrainWorldData->mHeightFieldHeight - 1U) * mTerrainWorldData->mHeightFieldCellSizeZ * 0.5F) * std::abs(Scale.z) };
         TerrainHalfExtentX = std::max(TerrainHalfExtentX, HeightFieldHalfExtentX);
         TerrainHalfExtentZ = std::max(TerrainHalfExtentZ, HeightFieldHalfExtentZ);
     }
 
     const DirectX::BoundingOrientedBox& PredictedWorldBoundingBox{ DynamicActor.GetWorldBoundingBox() };
-    float TerrainHalfExtentY{ TerrainData->mHeightFieldMaxHeight * std::abs(Scale.y) + PredictedWorldBoundingBox.Extents.y };
+    float TerrainHalfExtentY{ mTerrainWorldData->mHeightFieldMaxHeight * std::abs(Scale.y) + PredictedWorldBoundingBox.Extents.y };
     DirectX::BoundingOrientedBox TerrainBoundingBox{};
     TerrainBoundingBox.Center = DirectX::XMFLOAT3{ Position.x, Position.y + (TerrainHalfExtentY * 0.5F), Position.z };
     TerrainBoundingBox.Extents = DirectX::XMFLOAT3{ TerrainHalfExtentX, TerrainHalfExtentY, TerrainHalfExtentZ };
@@ -675,20 +629,4 @@ bool PhysicsTerrainActor::ResolveDynamicCollision(PhysicsActorBase& DynamicActor
 std::unique_ptr<PhysicsActorBase> PhysicsTerrainActor::Clone() const {
     std::unique_ptr<PhysicsActorBase> ClonedActor{ std::make_unique<PhysicsTerrainActor>(*this) };
     return ClonedActor;
-}
-
-bool PhysicsTerrainActor::TryResolveTerrainWorldData(std::shared_ptr<const Terrain::TerrainWorldData>& OutTerrainData) const {
-    OutTerrainData.reset();
-    if (mTerrainQuery != nullptr && IsPhysicsTerrainDataHandleValid(mTerrainHandle) == true) {
-        if (mTerrainQuery->TryGetTerrainWorldData(mTerrainHandle, OutTerrainData) == true) {
-            return true;
-        }
-    }
-
-    if (mTerrainWorldData == nullptr) {
-        return false;
-    }
-
-    OutTerrainData = mTerrainWorldData;
-    return true;
 }

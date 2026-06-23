@@ -32,12 +32,9 @@ namespace {
         return WorldBoundingBox;
     }
 
-    void ApplySceneKinematicCache(Arche::World& World, Game::PhysicsActor& PhysicsActorComponent, Game::Transform& TransformComponent, const Game::EntityHierarchy& EntityHierarchyComponent) {
+    void UpdateSceneKinematicCache(Arche::World& World, Game::PhysicsActor& PhysicsActorComponent, Game::Transform& TransformComponent, const Game::EntityHierarchy& EntityHierarchyComponent) {
         PhysicsActorBase* ActorPointer{ PhysicsActorComponent.mActorPointer };
         if (ActorPointer != nullptr && ActorPointer->GetActorType() == PhysicsActorBase::PhysicsActorType::Kinematic) {
-            ActorPointer->SetScale(TransformComponent.scale);
-            ActorPointer->SetOrientation(TransformComponent.rotation);
-            ActorPointer->SetPosition(TransformComponent.position);
             Game::UpdatePhysicsActorCachedSnapshot(PhysicsActorComponent, TransformComponent.position, TransformComponent.rotation, TransformComponent.scale, ActorPointer->GetVelocity(), ActorPointer->GetWorldBoundingBox());
 
             Game::BoundingBox* BoundingBoxComponent{ World.GetComponent<Game::BoundingBox>(EntityHierarchyComponent.self) };
@@ -118,7 +115,7 @@ namespace Game {
                 }
 
                 if (PhysicsActorComponent->mActorType == PhysicsActorBase::PhysicsActorType::Kinematic) {
-                    ApplySceneKinematicCache(World, *PhysicsActorComponent, *TransformComponent, *EntityHierarchyComponent);
+                    UpdateSceneKinematicCache(World, *PhysicsActorComponent, *TransformComponent, *EntityHierarchyComponent);
                     continue;
                 }
 
@@ -130,7 +127,7 @@ namespace Game {
                 const PhysicsActorSnapshot* SnapshotActor{ TryResolvePhysicsActorSnapshot(*PhysicsSnapshotResource, *PhysicsActorComponent) };
                 if (SnapshotActor != nullptr && SnapshotActor->mActorType == PhysicsActorBase::PhysicsActorType::Kinematic) {
                     PhysicsActorComponent->mActorType = PhysicsActorBase::PhysicsActorType::Kinematic;
-                    ApplySceneKinematicCache(World, *PhysicsActorComponent, *TransformComponent, *EntityHierarchyComponent);
+                    UpdateSceneKinematicCache(World, *PhysicsActorComponent, *TransformComponent, *EntityHierarchyComponent);
                     continue;
                 }
 

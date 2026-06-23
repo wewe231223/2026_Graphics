@@ -477,6 +477,10 @@ void ResolveKinematicCollisions(IPhysicsActorRepository& ActorRepository, const 
             }
 
             if (FirstActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Kinematic) {
+                if (SecondActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Static) {
+                    continue;
+                }
+
                 bool HasCollision{ FirstActor->ResolveActorCollision(*SecondActor, DeltaTime) };
                 if (HasCollision && SecondActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Dynamic) {
                     SecondActor->UpdateSleepState(ResolveActorGravity(Gravity, *SecondActor));
@@ -486,6 +490,10 @@ void ResolveKinematicCollisions(IPhysicsActorRepository& ActorRepository, const 
             }
 
             if (SecondActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Kinematic) {
+                if (FirstActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Static) {
+                    continue;
+                }
+
                 bool HasCollision{ SecondActor->ResolveActorCollision(*FirstActor, DeltaTime) };
                 if (HasCollision && FirstActor->GetActorType() == PhysicsActorBase::PhysicsActorType::Dynamic) {
                     FirstActor->UpdateSleepState(ResolveActorGravity(Gravity, *FirstActor));
@@ -893,6 +901,45 @@ float GetActorBottomOffsetFromPositionY(const PhysicsActorBase& Actor) {
     }
 
     return MinimumY - Actor.GetPosition().y;
+}
+
+bool ResolveKinematicCharacterStaticContacts(IPhysicsActorRepository& ActorRepository, PhysicsActorBase& Actor, float DeltaTime) {
+    bool HasResolved{};
+    const std::size_t ActorCount{ ActorRepository.GetActorCount() };
+    for (std::size_t ActorIndex{}; ActorIndex < ActorCount; ++ActorIndex) {
+        PhysicsActorBase* OtherActor{ ActorRepository.GetActor(ActorIndex) };
+        if (OtherActor == nullptr || OtherActor == &Actor || OtherActor->GetActorType() != PhysicsActorBase::PhysicsActorType::Static || OtherActor->IsTerrainActor() == true) {
+            continue;
+        }
+
+        const bool IsResolved{ Actor.ResolveActorCollision(*OtherActor, DeltaTime) };
+        HasResolved = HasResolved || IsResolved;
+    }
+
+    return HasResolved;
+}
+
+bool TrySnapKinematicCharacterToTerrain(const IPhysicsActorRepository& ActorRepository, PhysicsActorBase& Actor, float GroundSnapDistance) {
+    if (Actor.HasFlag(PhysicsActorBase::PhysicsActorFlags::IgnoreTerrainCollide) || Actor.GetVelocity().y > 0.0F) {
+        return false;
+    }
+
+    float SurfaceHeight{};
+    const bool HasSurfaceHeight{ TryGetHighestTerrainSurfaceHeight(ActorRepository, Actor.GetPosition().x, Actor.GetPosition().z, SurfaceHeight) };
+    if (HasSurfaceHeight == false) {
+        return false;
+    }
+
+    const float ActorBottomOffsetFromPositionY{ GetActorBottomOffsetFromPositionY(Actor) };
+    const float ActorBottomY{ Actor.GetPosition().y + ActorBottomOffsetFromPositionY };
+    if (ActorBottomY - SurfaceHeight > GroundSnapDistance) {
+        return false;
+    }
+
+    DirectX::SimpleMath::Vector3 NextPosition{ Actor.GetPosition() };
+    NextPosition.y = SurfaceHeight - ActorBottomOffsetFromPositionY;
+    Actor.SetPosition(NextPosition);
+    return true;
 }
 
 bool ResolveKinematicActorTerrainContactInternal(const IPhysicsActorRepository& ActorRepository, PhysicsActorBase& Actor) {
@@ -1453,6 +1500,42 @@ void PhysicsWorld::Update(float DeltaTime) {
         mLastStepElapsedMilliseconds = StepElapsedTime.count();
         ++mLastUpdateStepCount;
     }
+}
+
+PhysicsCharacterMoveResult PhysicsWorld::MoveKinematicCharacter(PhysicsActorBase& Actor, const PhysicsCharacterMoveRequest& Request, float DeltaTime) {
+    PhysicsCharacterMoveResult Result{};
+    Result.mPosition = Actor.GetPosition();
+    Result.mVelocity = Actor.GetVelocity();
+    if (Actor.GetActorType() != PhysicsActorBase::PhysicsActorType::Kinematic || Actor.GetIsActive() == false || DeltaTime <= 0.0F) {
+        return Result;
+    }
+
+    const DirectX::SimpleMath::Vector3 StartingPosition{ Actor.GetPosition() };
+    const float DisplacementLength{ Request.mDisplacement.Length() };
+    const std::size_t StepCount{ std::clamp(static_cast<std::size_t>(std::ceil(DisplacementLength / 0.25F)), std::size_t{ 1U }, std::size_t{ 8U }) };
+    const DirectX::SimpleMath::Vector3 StepDisplacement{ Request.mDisplacement / static_cast<float>(StepCount) };
+    const float StepDeltaTime{ DeltaTime / static_cast<float>(StepCount) };
+    const float GroundSnapDistance{ std::max(0.0F, Request.mGroundSnapDistance) };
+
+    bool IsGrounded{};
+    for (std::size_t StepIndex{}; StepIndex < StepCount; ++StepIndex) {
+        Actor.SetPosition(Actor.GetPosition() + StepDisplacement);
+        static_cast<void>(ResolveKinematicCharacterStaticContacts(*mActorRepository, Actor, StepDeltaTime));
+        const bool IsGroundedAtStep{ TrySnapKinematicCharacterToTerrain(*mActorRepository, Actor, GroundSnapDistance) };
+        IsGrounded = IsGroundedAtStep;
+    }
+
+    DirectX::SimpleMath::Vector3 FinalVelocity{ (Actor.GetPosition() - StartingPosition) / DeltaTime };
+    if (IsGrounded == true) {
+        FinalVelocity.y = 0.0F;
+    }
+
+    Actor.SetVelocity(FinalVelocity);
+
+    Result.mPosition = Actor.GetPosition();
+    Result.mVelocity = FinalVelocity;
+    Result.mIsGrounded = IsGrounded;
+    return Result;
 }
 
 bool PhysicsWorld::ResolveKinematicTerrainContact(PhysicsActorBase& Actor) {

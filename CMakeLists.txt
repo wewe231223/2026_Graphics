@@ -236,6 +236,7 @@ add_library(Game STATIC
     Game/Scene/SceneYaml/Components/SceneYamlAnimationComponent.cpp
     Game/Scene/SceneYaml/Components/SceneYamlBasicComponents.cpp
     Game/Scene/SceneYaml/Components/SceneYamlCameraComponent.cpp
+    Game/Scene/SceneYaml/Components/SceneYamlCharacterControllerComponent.cpp
     Game/Scene/SceneYaml/Components/SceneYamlNameComponent.cpp
     Game/Scene/SceneYaml/Components/SceneYamlPhysicsComponent.cpp
     Game/Scene/SceneYaml/Components/SceneYamlTerrainComponent.cpp
@@ -287,6 +288,7 @@ add_library(Game STATIC
     Game/Scene/Components/Animator.cpp
     Game/Scene/Components/AnimatorGraphPlayer.cpp
     Game/Scene/Components/ComponentInspection.cpp
+    Game/Scene/Components/CharacterController.cpp
     Game/Scene/Components/FootIKRig.cpp
     Game/Scene/Components/FootIKRuntime.cpp
     Game/Scene/Components/PhysicsActor.cpp
@@ -297,6 +299,7 @@ add_library(Game STATIC
     Game/Scene/IK/FabrikFootIKSolver.cpp
     Game/Scene/IK/FootIKAlgorithms.cpp
     Game/Scene/Legacy/Systems/FootIKSystem.cpp
+    Game/Scene/Systems/CharacterControllerSystem.cpp
     Game/Scene/Systems/PhysicsActorUpdateSystem.cpp
     Game/Scene/Systems/ProceduralFoliageSystem.cpp
     Game/Scene/Legacy/Systems/TransformWorldSystem.cpp

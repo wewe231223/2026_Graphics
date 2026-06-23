@@ -110,9 +110,6 @@ namespace Game {
             PhysicsSnapshot& GetPhysicsRuntimeSnapshot();
             const PhysicsSnapshot& GetPhysicsRuntimeSnapshot() const;
 
-            PhysicsKinematicSceneSimulator& GetKinematicSceneSimulator();
-            const PhysicsKinematicSceneSimulator& GetKinematicSceneSimulator() const;
-
             std::vector<PhysicsKinematicRuntimeState>& GetKinematicRuntimeStates();
             const std::vector<PhysicsKinematicRuntimeState>& GetKinematicRuntimeStates() const;
 
@@ -180,6 +177,7 @@ namespace Game {
             bool ResolveInitialDebugGeometryDrawEnabled() const;
 
             void InitializeDataPipelineFrameRenderData();
+            void ExecuteCharacterControllerSystems(float Dt);
             void ExecuteSynchronousSystems(float Dt, bool IsPhysicsSynchronizationStage);
             void AppendDebugWorldAxes();
             bool CanAddPipelineDefinition(const PipelineDefinition& PipelineDefinitionValue) const;

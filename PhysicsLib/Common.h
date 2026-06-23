@@ -15,6 +15,17 @@
 #include "PhysicsLib/Simulation/SpatialQuery/IPhysicsSpatialQuery.h"
 #include "PhysicsLib/Simulation/Types/PhysicsSimulationTypes.h"
 
+struct PhysicsCharacterMoveRequest final {
+    DirectX::SimpleMath::Vector3 mDisplacement{};
+    float mGroundSnapDistance{};
+};
+
+struct PhysicsCharacterMoveResult final {
+    DirectX::SimpleMath::Vector3 mPosition{};
+    DirectX::SimpleMath::Vector3 mVelocity{};
+    bool mIsGrounded{};
+};
+
 class IPhysicsWorld : public IPhysicsWorldMediator {
 public:
     struct WorldSettings {
@@ -60,6 +71,7 @@ public:
     virtual void MarkKinematicActorTeleported(const PhysicsKinematicActor& Actor) = 0;
     virtual void StepSimulation() = 0;
     virtual void Update(float DeltaTime) = 0;
+    virtual PhysicsCharacterMoveResult MoveKinematicCharacter(PhysicsActorBase& Actor, const PhysicsCharacterMoveRequest& Request, float DeltaTime) = 0;
     virtual bool ResolveKinematicTerrainContact(PhysicsActorBase& Actor) = 0;
     virtual void ResolveKinematicTerrainContacts() = 0;
 };

@@ -39,8 +39,6 @@ public:
         std::shared_ptr<const std::vector<float>> HeightFieldValues{};
         std::shared_ptr<const Terrain::TerrainWorldData> mTerrainWorldData{};
         std::shared_ptr<const Terrain::SplatMapData> mSplatMapData{};
-        Terrain::TerrainDataHandle mTerrainHandle{};
-        const Terrain::ITerrainQuery* mTerrainQuery{};
     };
 
 public:
@@ -57,7 +55,6 @@ public:
     void SetActorDesc(const ActorDesc& Desc);
     ActorDesc GetActorDesc() const;
     const std::shared_ptr<const Terrain::TerrainWorldData>& GetTerrainWorldData() const;
-    Terrain::TerrainDataHandle GetTerrainHandle() const;
     bool HasHeightFieldData() const;
     static Terrain::TerrainWorldData BuildTerrainWorldDataFromActorDesc(const ActorDesc& Desc, std::uint32_t TerrainId);
     static ActorDesc BuildActorDescFromTerrainWorldData(const Terrain::TerrainWorldData& TerrainData);
@@ -71,10 +68,5 @@ public:
     std::unique_ptr<PhysicsActorBase> Clone() const override;
 
 private:
-    bool TryResolveTerrainWorldData(std::shared_ptr<const Terrain::TerrainWorldData>& OutTerrainData) const;
-
-private:
     std::shared_ptr<const Terrain::TerrainWorldData> mTerrainWorldData;
-    Terrain::TerrainDataHandle mTerrainHandle;
-    const Terrain::ITerrainQuery* mTerrainQuery;
 };

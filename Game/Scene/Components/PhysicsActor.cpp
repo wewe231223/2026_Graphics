@@ -7,8 +7,6 @@
 #include "Game/Scene/Components/ComponentInspection.h"
 
 namespace {
-    constexpr float KinematicControlTimeStep{ 1.0F / 60.0F };
-
     std::string FormatVector3(const DirectX::SimpleMath::Vector3& Value) {
         return std::format("{:.3f}, {:.3f}, {:.3f}", Value.x, Value.y, Value.z);
     }
@@ -27,27 +25,6 @@ namespace {
             default:
                 return "Unknown";
         }
-    }
-
-    DirectX::SimpleMath::Vector3 ResolvePhysicsActorControlVelocity(const Game::PhysicsActor& PhysicsActorComponent) {
-        if (PhysicsActorComponent.mHasPendingSetVelocity == true) {
-            return PhysicsActorComponent.mPendingSetVelocity;
-        }
-
-        return PhysicsActorComponent.mCachedVelocity;
-    }
-
-    void ApplyPhysicsActorControlVelocity(Game::PhysicsActor& PhysicsActorComponent, const DirectX::SimpleMath::Vector3& Velocity) {
-        PhysicsActorComponent.mPendingSetVelocity = Velocity;
-        PhysicsActorComponent.mHasPendingSetVelocity = true;
-        PhysicsActorComponent.mCachedVelocity = Velocity;
-
-        if (PhysicsActorComponent.mActorPointer == nullptr) {
-            return;
-        }
-
-        PhysicsActorComponent.mActorPointer->SetVelocity(Velocity);
-        PhysicsActorComponent.mCachedVelocity = PhysicsActorComponent.mActorPointer->GetVelocity();
     }
 }
 
@@ -91,6 +68,17 @@ namespace Game {
             return;
         }
 
+        if (mActorType == PhysicsActorBase::PhysicsActorType::Kinematic) {
+            mCachedVelocity = Velocity;
+
+            if (mActorPointer != nullptr) {
+                mActorPointer->SetVelocity(Velocity);
+                mCachedVelocity = mActorPointer->GetVelocity();
+            }
+
+            return;
+        }
+
         mPendingSetVelocity = Velocity;
         mHasPendingSetVelocity = true;
         mCachedVelocity = Velocity;
@@ -105,8 +93,6 @@ namespace Game {
 
     void PhysicsActor::AddForce(const DirectX::SimpleMath::Vector3& Force) {
         if (mActorType == PhysicsActorBase::PhysicsActorType::Kinematic) {
-            DirectX::SimpleMath::Vector3 NextVelocity{ ResolvePhysicsActorControlVelocity(*this) + (Force * KinematicControlTimeStep) };
-            ApplyPhysicsActorControlVelocity(*this, NextVelocity);
             return;
         }
 
@@ -127,8 +113,6 @@ namespace Game {
 
     void PhysicsActor::AddImpulse(const DirectX::SimpleMath::Vector3& Impulse) {
         if (mActorType == PhysicsActorBase::PhysicsActorType::Kinematic) {
-            DirectX::SimpleMath::Vector3 NextVelocity{ ResolvePhysicsActorControlVelocity(*this) + Impulse };
-            ApplyPhysicsActorControlVelocity(*this, NextVelocity);
             return;
         }
 

@@ -372,8 +372,9 @@ namespace Terrain {
 
     void TerrainManager::Clear() {
         std::unique_lock<std::shared_mutex> TerrainDataLock{ mTerrainDataMutex };
-        mTerrainDataItems.clear();
-        mTerrainDataGenerations.clear();
+        for (std::shared_ptr<const TerrainWorldData>& TerrainDataItem : mTerrainDataItems) {
+            TerrainDataItem.reset();
+        }
     }
 
     TerrainDataHandle TerrainManager::UpsertTerrainData(std::uint32_t TerrainId, const DirectX::SimpleMath::Vector3& Position, const DirectX::SimpleMath::Vector3& Rotation, const DirectX::SimpleMath::Vector3& Scale, const TerrainBuildDesc& BuildDesc, const std::shared_ptr<const HeightFieldData>& HeightField) {
@@ -391,9 +392,11 @@ namespace Terrain {
                 mTerrainDataGenerations.resize(static_cast<std::size_t>(Handle.mValue) + 1U);
             }
 
-            mTerrainDataGenerations[Handle.mValue] += 1U;
-            if (mTerrainDataGenerations[Handle.mValue] == 0U) {
-                mTerrainDataGenerations[Handle.mValue] = 1U;
+            if (mTerrainDataItems[Handle.mValue] == nullptr) {
+                mTerrainDataGenerations[Handle.mValue] += 1U;
+                if (mTerrainDataGenerations[Handle.mValue] == 0U) {
+                    mTerrainDataGenerations[Handle.mValue] = 1U;
+                }
             }
 
             Handle.mGeneration = mTerrainDataGenerations[Handle.mValue];
@@ -418,9 +421,11 @@ namespace Terrain {
                 mTerrainDataGenerations.resize(static_cast<std::size_t>(Handle.mValue) + 1U);
             }
 
-            mTerrainDataGenerations[Handle.mValue] += 1U;
-            if (mTerrainDataGenerations[Handle.mValue] == 0U) {
-                mTerrainDataGenerations[Handle.mValue] = 1U;
+            if (mTerrainDataItems[Handle.mValue] == nullptr) {
+                mTerrainDataGenerations[Handle.mValue] += 1U;
+                if (mTerrainDataGenerations[Handle.mValue] == 0U) {
+                    mTerrainDataGenerations[Handle.mValue] = 1U;
+                }
             }
 
             Handle.mGeneration = mTerrainDataGenerations[Handle.mValue];
@@ -445,6 +450,9 @@ namespace Terrain {
 
         mTerrainDataItems[Handle.mValue].reset();
         mTerrainDataGenerations[Handle.mValue] += 1U;
+        if (mTerrainDataGenerations[Handle.mValue] == 0U) {
+            mTerrainDataGenerations[Handle.mValue] = 1U;
+        }
         return true;
     }
 

@@ -5,6 +5,7 @@
 #include "Game/Scene/SceneYaml/Components/SceneYamlAnimationComponent.h"
 #include "Game/Scene/SceneYaml/Components/SceneYamlBasicComponents.h"
 #include "Game/Scene/SceneYaml/Components/SceneYamlCameraComponent.h"
+#include "Game/Scene/SceneYaml/Components/SceneYamlCharacterControllerComponent.h"
 #include "Game/Scene/SceneYaml/Components/SceneYamlNameComponent.h"
 #include "Game/Scene/SceneYaml/Components/SceneYamlPhysicsComponent.h"
 #include "Game/Scene/SceneYaml/Components/SceneYamlTerrainComponent.h"
@@ -18,6 +19,7 @@ namespace Game::SceneYaml {
             SceneYamlComponentReader{ SceneYamlDirectionalLightComponentReader::TypeName, SceneYamlDirectionalLightComponentReader::Read },
             SceneYamlComponentReader{ SceneYamlBoundingBoxComponentReader::TypeName, SceneYamlBoundingBoxComponentReader::Read },
             SceneYamlComponentReader{ SceneYamlPhysicsComponentReader::TypeName, SceneYamlPhysicsComponentReader::Read },
+            SceneYamlComponentReader{ SceneYamlCharacterControllerComponentReader::TypeName, SceneYamlCharacterControllerComponentReader::Read },
             SceneYamlComponentReader{ SceneYamlPrefabInstanceComponentReader::TypeName, SceneYamlPrefabInstanceComponentReader::Read },
             SceneYamlComponentReader{ SceneYamlBoneSkinReferenceComponentReader::TypeName, SceneYamlBoneSkinReferenceComponentReader::Read },
             SceneYamlComponentReader{ SceneYamlFootIKRigComponentReader::TypeName, SceneYamlFootIKRigComponentReader::Read },
@@ -60,6 +62,7 @@ namespace Game::SceneYaml {
             SceneYamlComponentWriter{ SceneYamlCullingComponentWriter::TypeName, SceneYamlCullingComponentWriter::Write },
             SceneYamlComponentWriter{ SceneYamlAnimationComponentWriter::TypeName, SceneYamlAnimationComponentWriter::Write },
             SceneYamlComponentWriter{ SceneYamlPhysicsComponentWriter::TypeName, SceneYamlPhysicsComponentWriter::Write },
+            SceneYamlComponentWriter{ SceneYamlCharacterControllerComponentWriter::TypeName, SceneYamlCharacterControllerComponentWriter::Write },
             SceneYamlComponentWriter{ SceneYamlBoundingBoxComponentWriter::TypeName, SceneYamlBoundingBoxComponentWriter::Write },
             SceneYamlComponentWriter{ SceneYamlPrefabInstanceComponentWriter::TypeName, SceneYamlPrefabInstanceComponentWriter::Write },
             SceneYamlComponentWriter{ SceneYamlStaticMeshRendererComponentWriter::TypeName, SceneYamlStaticMeshRendererComponentWriter::Write },

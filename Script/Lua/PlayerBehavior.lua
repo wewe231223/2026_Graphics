@@ -1,15 +1,7 @@
 local WalkMoveSpeed = 5.0
 local RunMoveSpeed = 15.0
-local WalkMoveForce = 24.0
-local RunMoveForce = 52.0
-local BrakingForce = 48.0
-local StopSpeed = 0.08
-local JumpImpulse = 8.0
 local GroundRayLength = 1.35
 local GroundedDistance = 0.98
-local LandingDistance = 1.25
-local LandingVelocityThreshold = -0.15
-local AirborneVelocityThreshold = 0.25
 local MaxRotationDegreesPerSecond = 720.0
 local IsMovingParameterIndex = 0
 local CurrentSpeedParameterIndex = 1
@@ -20,6 +12,8 @@ local IsRunningParameterIndex = 5
 local LandAnimationClipIndex = 3
 local Pi = math.pi
 local TwoPi = Pi * 2.0
+local HasAnimationGroundState = false
+local WasAnimationGrounded = false
 
 local function BuildMoveInput()
     local MoveInput = Vector2.new(0.0, 0.0)
@@ -101,72 +95,36 @@ local function GetHorizontalVelocity(Velocity)
     return Vector3.new(Velocity.x, 0.0, Velocity.z)
 end
 
-local function ApplyHorizontalVelocityLimit(PhysicsActorComponent, CurrentVelocity, MaxSpeed)
-    local HorizontalVelocity = GetHorizontalVelocity(CurrentVelocity)
-    local HorizontalSpeed = Vector3Length(HorizontalVelocity)
-
-    if HorizontalSpeed <= MaxSpeed then
-        return HorizontalSpeed
-    end
-
-    local ClampedHorizontalVelocity = ScaleVector3(NormalizeVector3(HorizontalVelocity), MaxSpeed)
-    PhysicsActorComponent:SetVelocity(Vector3.new(ClampedHorizontalVelocity.x, CurrentVelocity.y, ClampedHorizontalVelocity.z))
-    return MaxSpeed
-end
-
-local function ApplyMovementForce(Context, TransformComponent, MoveInput, IsRunningInput)
-    local PhysicsActorComponent = Context:GetComponent("PhysicsActor")
-    if PhysicsActorComponent == nil or PhysicsActorComponent:HasActor() == false then
+local function ApplyCharacterMovement(CharacterControllerComponent, TransformComponent, MoveInput, IsRunningInput)
+    if CharacterControllerComponent == nil then
         return 0.0
     end
 
     local InputMagnitude = math.sqrt((MoveInput.x * MoveInput.x) + (MoveInput.y * MoveInput.y))
     local CurrentForwardDirection = TransformComponent:GetForwardDirection()
     local FlatForwardDirection = NormalizeVector3(Vector3.new(CurrentForwardDirection.x, 0.0, CurrentForwardDirection.z))
-    local CurrentVelocity = PhysicsActorComponent:GetVelocity()
+    local CurrentVelocity = CharacterControllerComponent:GetVelocity()
     local HorizontalVelocity = GetHorizontalVelocity(CurrentVelocity)
     local HorizontalSpeed = Vector3Length(HorizontalVelocity)
 
     if InputMagnitude <= 0.0 or IsZeroVector3(FlatForwardDirection) then
-        if HorizontalSpeed <= StopSpeed then
-            PhysicsActorComponent:SetVelocity(Vector3.new(0.0, CurrentVelocity.y, 0.0))
-            return 0.0
-        end
-
-        local BrakeForce = ScaleVector3(HorizontalVelocity, -BrakingForce)
-        PhysicsActorComponent:AddForce(Vector3.new(BrakeForce.x, 0.0, BrakeForce.z))
+        CharacterControllerComponent:SetDesiredHorizontalVelocity(Vector3.new(0.0, 0.0, 0.0))
         return HorizontalSpeed
     end
 
     local TargetSpeed = WalkMoveSpeed
-    local MoveForce = WalkMoveForce
     if IsRunningInput then
         TargetSpeed = RunMoveSpeed
-        MoveForce = RunMoveForce
     end
 
     TargetSpeed = TargetSpeed * InputMagnitude
-    HorizontalSpeed = ApplyHorizontalVelocityLimit(PhysicsActorComponent, CurrentVelocity, TargetSpeed * 1.35)
-    CurrentVelocity = PhysicsActorComponent:GetVelocity()
-    HorizontalVelocity = GetHorizontalVelocity(CurrentVelocity)
-
     local DesiredVelocity = ScaleVector3(FlatForwardDirection, TargetSpeed)
-    local VelocityDelta = SubtractVector3(DesiredVelocity, HorizontalVelocity)
-    local MovementForce = ScaleVector3(VelocityDelta, MoveForce)
-    PhysicsActorComponent:AddForce(Vector3.new(MovementForce.x, 0.0, MovementForce.z))
+    CharacterControllerComponent:SetDesiredHorizontalVelocity(DesiredVelocity)
 
     return HorizontalSpeed
 end
 
-local function GetPhysicsVelocity(PhysicsActorComponent)
-    if PhysicsActorComponent == nil or PhysicsActorComponent:HasActor() == false then
-        return Vector3.new(0.0, 0.0, 0.0)
-    end
-
-    return PhysicsActorComponent:GetVelocity()
-end
-
-local function GetGroundDistance(TransformComponent)
+local function GetAnimationGroundDistance(TransformComponent)
     if TransformComponent == nil then
         return -1.0
     end
@@ -174,14 +132,17 @@ local function GetGroundDistance(TransformComponent)
     return RaycastTerrainDistance(TransformComponent.position, Vector3.new(0.0, -1.0, 0.0), GroundRayLength)
 end
 
-local function ResolveAirState(GroundDistance, Velocity)
-    local IsGrounded = GroundDistance >= 0.0 and GroundDistance <= GroundedDistance and Velocity.y <= AirborneVelocityThreshold
-    local IsLanding = GroundDistance >= 0.0 and GroundDistance <= LandingDistance and Velocity.y < LandingVelocityThreshold
+local function UpdateAnimationGroundState(TransformComponent)
+    local GroundDistance = GetAnimationGroundDistance(TransformComponent)
+    local IsAnimationGrounded = GroundDistance >= 0.0 and GroundDistance <= GroundedDistance
+    local IsLandingDetected = HasAnimationGroundState == true and WasAnimationGrounded == false and IsAnimationGrounded == true
 
-    return IsGrounded, IsLanding
+    WasAnimationGrounded = IsAnimationGrounded
+    HasAnimationGroundState = true
+    return IsLandingDetected
 end
 
-local function ApplyJumpImpulse(Context, IsGrounded, IsJumpInputLocked)
+local function ApplyJumpRequest(CharacterControllerComponent, IsGrounded, IsJumpInputLocked)
     if IsJumpInputLocked == true then
         return false
     end
@@ -194,12 +155,11 @@ local function ApplyJumpImpulse(Context, IsGrounded, IsJumpInputLocked)
         return false
     end
 
-    local PhysicsActorComponent = Context:GetComponent("PhysicsActor")
-    if PhysicsActorComponent == nil or PhysicsActorComponent:HasActor() == false then
+    if CharacterControllerComponent == nil then
         return false
     end
 
-    PhysicsActorComponent:AddImpulse(Vector3.new(0.0, JumpImpulse, 0.0))
+    CharacterControllerComponent:RequestJump()
     return true
 end
 
@@ -259,6 +219,8 @@ function Awake(Context)
 end
 
 function OnEnable(Context)
+    HasAnimationGroundState = false
+    WasAnimationGrounded = false
 end
 
 function Start(Context)
@@ -271,7 +233,14 @@ function Update(Context, DeltaSeconds)
     end
 
     local RuntimeVariableTableComponent = Context:GetComponent("RuntimeVariableTable")
+    local CharacterControllerComponent = Context:GetComponent("CharacterController")
     if IsActiveCameraFreeLookMode() then
+        UpdateAnimationGroundState(TransformComponent)
+
+        if CharacterControllerComponent ~= nil then
+            CharacterControllerComponent:SetDesiredHorizontalVelocity(Vector3.new(0.0, 0.0, 0.0))
+        end
+
         SetMovingState(RuntimeVariableTableComponent, false)
         SetRunningState(RuntimeVariableTableComponent, false)
         SetMotionParameters(RuntimeVariableTableComponent, 0.0, 0.0)
@@ -280,10 +249,8 @@ function Update(Context, DeltaSeconds)
     end
 
     local IsLandClipActive = IsLandClipPlaying(Context)
-    local PhysicsActorComponent = Context:GetComponent("PhysicsActor")
-    local CurrentVelocity = GetPhysicsVelocity(PhysicsActorComponent)
-    local GroundDistance = GetGroundDistance(TransformComponent)
-    local IsGrounded, IsLandingDetected = ResolveAirState(GroundDistance, CurrentVelocity)
+    local IsLandingDetected = UpdateAnimationGroundState(TransformComponent)
+    local IsControllerGrounded = CharacterControllerComponent ~= nil and CharacterControllerComponent:GetIsGrounded()
     local IsInputLocked = IsLandClipActive
     local IsRunningInput = IsInputLocked == false and IsRunInputDown()
     local MoveInput = BuildMoveInput()
@@ -293,10 +260,10 @@ function Update(Context, DeltaSeconds)
 
     local FinalTargetDirection = BuildFinalTargetDirection(MoveInput)
     local RemainingDirectionDeltaRadians = ApplySmoothedYawRotation(TransformComponent, FinalTargetDirection, DeltaSeconds)
-    local CurrentSpeed = ApplyMovementForce(Context, TransformComponent, MoveInput, IsRunningInput)
+    local CurrentSpeed = ApplyCharacterMovement(CharacterControllerComponent, TransformComponent, MoveInput, IsRunningInput)
     local IsMoving = CurrentSpeed > 0.0
     local IsRunning = IsMoving and IsRunningInput
-    local IsJumpStarted = ApplyJumpImpulse(Context, IsGrounded, IsInputLocked)
+    local IsJumpStarted = ApplyJumpRequest(CharacterControllerComponent, IsControllerGrounded, IsInputLocked)
 
     if IsJumpStarted == true then
         SetJumpTrigger(RuntimeVariableTableComponent)

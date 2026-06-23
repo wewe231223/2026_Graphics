@@ -24,6 +24,7 @@
 #include "Game/Scene/Legacy/Systems/AnimationGraphSystem.h"
 #include "Game/Scene/Legacy/Systems/AnimateSystem.h"
 #include "Game/Scene/Systems/CameraRenderSystem.h"
+#include "Game/Scene/Systems/CharacterControllerSystem.h"
 #include "Game/Scene/Legacy/Systems/FootIKSystem.h"
 #include "Game/Scene/Systems/PhysicsActorUpdateSystem.h"
 #include "Game/Scene/Systems/ProceduralFoliageSystem.h"
@@ -176,6 +177,7 @@ namespace Game::SceneYaml {
             { "AnimationGraphSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimationGraphSystem>(); } },
             { "AnimateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::AnimateSystem>(); } },
             { "FootIKSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::FootIKSystem>(); } },
+            { "CharacterControllerSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CharacterControllerSystem>(); } },
             { "PhysicsActorUpdateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::PhysicsActorUpdateSystem>(); } },
             { "ProceduralFoliageSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::ProceduralFoliageSystem>(); } },
             { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },

@@ -144,6 +144,9 @@
     <ClInclude Include="Scene\SceneYaml\Components\SceneYamlPhysicsComponent.h">
       <Filter>Scene\Scene YAML\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\SceneYaml\Components\SceneYamlCharacterControllerComponent.h">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\SceneYaml\Components\SceneYamlTerrainComponent.h">
       <Filter>Scene\Scene YAML\Components</Filter>
     </ClInclude>
@@ -303,6 +306,9 @@
     <ClInclude Include="Scene\Systems\PhysicsActorUpdateSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Systems\CharacterControllerSystem.h">
+      <Filter>Scene\Systems</Filter>
+    </ClInclude>
     <ClInclude Include="Scene\Systems\ProceduralFoliageSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
@@ -355,6 +361,9 @@
       <Filter>Model</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Components\PhysicsActor.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Components\CharacterController.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Components\ScriptComponent.h">
@@ -426,6 +435,9 @@
       <Filter>Scene\Scene YAML\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\SceneYaml\Components\SceneYamlPhysicsComponent.cpp">
+      <Filter>Scene\Scene YAML\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SceneYaml\Components\SceneYamlCharacterControllerComponent.cpp">
       <Filter>Scene\Scene YAML\Components</Filter>
     </ClCompile>
     <ClCompile Include="Scene\SceneYaml\Components\SceneYamlTerrainComponent.cpp">
@@ -554,6 +566,9 @@
     <ClCompile Include="Scene\Components\PhysicsActor.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Components\CharacterController.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
     <ClCompile Include="Scene\Components\Bone.cpp">
       <Filter>Scene\Components</Filter>
     </ClCompile>
@@ -606,6 +621,9 @@
       <Filter>Scene\Legacy\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\PhysicsActorUpdateSystem.cpp">
+      <Filter>Scene\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systems\CharacterControllerSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\ProceduralFoliageSystem.cpp">

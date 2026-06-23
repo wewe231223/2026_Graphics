@@ -53,6 +53,7 @@
     <ClInclude Include="Scene\Components\FootIKRuntime.h" />
     <ClInclude Include="Scene\Components\Name.h" />
     <ClInclude Include="Scene\Components\ComponentInspection.h" />
+    <ClInclude Include="Scene\Components\CharacterController.h" />
     <ClInclude Include="Scene\Components\PrefabInstance.h" />
     <ClInclude Include="Scene\Components\PhysicsActor.h" />
     <ClInclude Include="Scene\Components\ScriptComponent.h" />
@@ -71,6 +72,7 @@
     <ClInclude Include="Scene\SceneYaml\Components\SceneYamlAnimationComponent.h" />
     <ClInclude Include="Scene\SceneYaml\Components\SceneYamlBasicComponents.h" />
     <ClInclude Include="Scene\SceneYaml\Components\SceneYamlCameraComponent.h" />
+    <ClInclude Include="Scene\SceneYaml\Components\SceneYamlCharacterControllerComponent.h" />
     <ClInclude Include="Scene\SceneYaml\Components\SceneYamlNameComponent.h" />
     <ClInclude Include="Scene\SceneYaml\Components\SceneYamlPhysicsComponent.h" />
     <ClInclude Include="Scene\SceneYaml\Components\SceneYamlTerrainComponent.h" />
@@ -116,6 +118,7 @@
     <ClInclude Include="Scene\IK\FabrikFootIKSolver.h" />
     <ClInclude Include="Scene\IK\FootIKAlgorithms.h" />
     <ClInclude Include="Scene\Legacy\Systems\FootIKSystem.h" />
+    <ClInclude Include="Scene\Systems\CharacterControllerSystem.h" />
     <ClInclude Include="Scene\Systems\PhysicsActorUpdateSystem.h" />
     <ClInclude Include="Scene\Systems\ProceduralFoliageSystem.h" />
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
@@ -159,6 +162,7 @@
     <ClCompile Include="Scene\SceneYaml\Components\SceneYamlAnimationComponent.cpp" />
     <ClCompile Include="Scene\SceneYaml\Components\SceneYamlBasicComponents.cpp" />
     <ClCompile Include="Scene\SceneYaml\Components\SceneYamlCameraComponent.cpp" />
+    <ClCompile Include="Scene\SceneYaml\Components\SceneYamlCharacterControllerComponent.cpp" />
     <ClCompile Include="Scene\SceneYaml\Components\SceneYamlNameComponent.cpp" />
     <ClCompile Include="Scene\SceneYaml\Components\SceneYamlPhysicsComponent.cpp" />
     <ClCompile Include="Scene\SceneYaml\Components\SceneYamlTerrainComponent.cpp" />
@@ -205,6 +209,7 @@
     <ClCompile Include="Scene\Components\EntityHierarchy.cpp" />
     <ClCompile Include="Scene\Components\Tags.cpp" />
     <ClCompile Include="Scene\Components\BoundingBox.cpp" />
+    <ClCompile Include="Scene\Components\CharacterController.cpp" />
     <ClCompile Include="Scene\Components\PhysicsActor.cpp" />
     <ClCompile Include="Scene\Components\Camera.cpp" />
     <ClCompile Include="Scene\Components\Frustum.cpp" />
@@ -224,6 +229,7 @@
     <ClCompile Include="Scene\Legacy\Systems\FootIKSystem.cpp">
       <ObjectFileName>$(IntDir)Scene_Legacy_Systems_FootIKSystem.obj</ObjectFileName>
     </ClCompile>
+    <ClCompile Include="Scene\Systems\CharacterControllerSystem.cpp" />
     <ClCompile Include="Scene\Systems\PhysicsActorUpdateSystem.cpp" />
     <ClCompile Include="Scene\Systems\ProceduralFoliageSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />

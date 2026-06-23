@@ -26,7 +26,6 @@
 #include "PhysicsLib/Actors/PhysicsTerrainActor.h"
 #include "PhysicsLib/Runtime/PhysicsRuntime.h"
 #include "PhysicsLib/Runtime/PhysicsRuntimeTypes.h"
-#include "PhysicsLib/Simulation/Kinematic/PhysicsKinematicSceneSimulator.h"
 #include "Utility/MathValidation.h"
 #include "Utility/Time.hpp"
 
@@ -124,21 +123,16 @@ namespace {
         return Desc;
     }
 
-    void BindTerrainActorDescToManager(PhysicsTerrainActor::ActorDesc& Desc, std::uint32_t TerrainId, Terrain::TerrainManager& TerrainManagerInstance) {
+    void RebuildTerrainActorSnapshot(PhysicsTerrainActor::ActorDesc& Desc, std::uint32_t TerrainId) {
         Desc.mTerrainWorldData = std::make_shared<const Terrain::TerrainWorldData>(PhysicsTerrainActor::BuildTerrainWorldDataFromActorDesc(Desc, TerrainId));
+    }
+
+    void RegisterTerrainActorSnapshot(const PhysicsTerrainActor::ActorDesc& Desc, Terrain::TerrainManager& TerrainManagerInstance) {
         if (Desc.mTerrainWorldData == nullptr) {
             return;
         }
 
-        const Terrain::TerrainDataHandle TerrainHandle{ TerrainManagerInstance.UpsertTerrainData(*Desc.mTerrainWorldData) };
-        std::shared_ptr<const Terrain::TerrainWorldData> ManagedTerrainWorldData{};
-        if (TerrainManagerInstance.TryGetTerrainWorldData(TerrainHandle, ManagedTerrainWorldData) == false) {
-            return;
-        }
-
-        Desc.mTerrainHandle = TerrainHandle;
-        Desc.mTerrainQuery = &TerrainManagerInstance;
-        Desc.mTerrainWorldData = ManagedTerrainWorldData;
+        static_cast<void>(TerrainManagerInstance.UpsertTerrainData(*Desc.mTerrainWorldData));
     }
 
     PhysicsTerrainActor::ActorDesc BuildCurrentPhysicsTerrainActorDesc(const PhysicsTerrainActor::ActorDesc& SourceDesc, const Game::Transform& TransformComponent, std::uint32_t TerrainId, const PhysicsTerrainActor* TerrainActorPointer, Terrain::TerrainManager& TerrainManagerInstance) {
@@ -146,7 +140,8 @@ namespace {
         Desc.Position = TransformComponent.position;
         Desc.Rotation = TransformComponent.rotationEuler;
         Desc.Scale = TransformComponent.scale;
-        BindTerrainActorDescToManager(Desc, TerrainId, TerrainManagerInstance);
+        RebuildTerrainActorSnapshot(Desc, TerrainId);
+        RegisterTerrainActorSnapshot(Desc, TerrainManagerInstance);
         return Desc;
     }
 
@@ -177,7 +172,8 @@ namespace {
         SceneActorDesc.mInitialOrientation = DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(TerrainActorDesc.Rotation.y, TerrainActorDesc.Rotation.x, TerrainActorDesc.Rotation.z);
         SceneActorDesc.mIsTerrainActor = true;
         AssignScenePhysicsActorIndex(SceneActorDesc, ActorIndex);
-        BindTerrainActorDescToManager(SceneActorDesc.mTerrainActorDesc, SceneActorDesc.mActorId, TerrainManagerInstance);
+        RebuildTerrainActorSnapshot(SceneActorDesc.mTerrainActorDesc, SceneActorDesc.mActorId);
+        RegisterTerrainActorSnapshot(SceneActorDesc.mTerrainActorDesc, TerrainManagerInstance);
         return SceneActorDesc;
     }
 
@@ -563,20 +559,22 @@ namespace Game {
                 continue;
             }
 
+            const PhysicsTerrainActor* TerrainActorPointer{ Context.mPhysicsWorld.GetTerrainActor(PhysicsActorId) };
             const bool IsTransformChanged{ PhysicsActorComponent->mHasCachedSnapshot == false || std::make_tuple(PhysicsActorComponent->mCachedPosition, PhysicsActorComponent->mCachedOrientation, PhysicsActorComponent->mCachedScale) != std::make_tuple(TransformComponent->position, TransformComponent->rotation, TransformComponent->scale) };
-            if (BindingSource.mIsTerrainActorDescApplied == true && IsTransformChanged == false) {
+            const bool IsTerrainDataChanged{ TerrainActorPointer != nullptr && (TerrainActorPointer->GetTerrainWorldData() == nullptr || BindingSource.mTerrainActorDesc.mTerrainWorldData == nullptr || AreTerrainWorldDataEquivalent(*TerrainActorPointer->GetTerrainWorldData(), *BindingSource.mTerrainActorDesc.mTerrainWorldData) == false) };
+            if (BindingSource.mIsTerrainActorDescApplied == true && IsTransformChanged == false && IsTerrainDataChanged == false) {
                 continue;
             }
 
-            const PhysicsTerrainActor* TerrainActorPointer{ Context.mPhysicsWorld.GetTerrainActor(PhysicsActorId) };
             PhysicsTerrainActor::ActorDesc Desc{ BuildCurrentPhysicsTerrainActorDesc(BindingSource.mTerrainActorDesc, *TransformComponent, PhysicsActorId, TerrainActorPointer, Context.mTerrainManager) };
-            const std::shared_ptr<const PhysicsTerrainActor::ActorDesc> RuntimeTerrainActorDesc{ std::make_shared<const PhysicsTerrainActor::ActorDesc>(std::move(Desc)) };
+            const std::shared_ptr<const PhysicsTerrainActor::ActorDesc> RuntimeTerrainActorDesc{ std::make_shared<const PhysicsTerrainActor::ActorDesc>(Desc) };
             PhysicsCommand Command{};
             Command.mType = PhysicsCommandType::SetTerrainActorDesc;
             Command.mActorId = static_cast<ActorId>(PhysicsActorId);
             Command.mTerrainActorDesc = RuntimeTerrainActorDesc;
             const bool IsCommandSubmitted{ Context.mPhysicsRuntime.EnqueueCommand(Command) };
             if (IsCommandSubmitted == true) {
+                BindingSource.mTerrainActorDesc = std::move(Desc);
                 BindingSource.mIsTerrainActorDescApplied = true;
             }
         }
@@ -693,6 +691,8 @@ namespace Game {
     }
 
     void ScenePhysicsRuntimeCoordinator::UpdateSceneKinematicActors(ScenePhysicsRuntimeContext Context, float Dt) {
+        (void)Dt;
+
         for (Arche::EntityID EntityId : Context.mPhysicsSynchronizationEntityIds) {
             PhysicsActor* PhysicsActorComponent{ Context.mWorld.GetComponent<PhysicsActor>(EntityId) };
             Transform* TransformComponent{ Context.mWorld.GetComponent<Transform>(EntityId) };
@@ -727,27 +727,6 @@ namespace Game {
             if (ActorLocalBoundingBoxValue != ComponentLocalBoundingBoxValue) {
                 ActorPointer->SetLocalBoundingBox(ComponentLocalBoundingBox);
             }
-        }
-
-        Context.mKinematicSceneSimulator.Tick(Context.mPhysicsWorld.GetActorRepository(), Context.mTerrainManager, Context.mPhysicsWorld.GetGravity(), Dt);
-
-        for (Arche::EntityID EntityId : Context.mPhysicsSynchronizationEntityIds) {
-            PhysicsActor* PhysicsActorComponent{ Context.mWorld.GetComponent<PhysicsActor>(EntityId) };
-            Transform* TransformComponent{ Context.mWorld.GetComponent<Transform>(EntityId) };
-            BoundingBox* BoundingBoxComponent{ Context.mWorld.GetComponent<BoundingBox>(EntityId) };
-            if (PhysicsActorComponent == nullptr || TransformComponent == nullptr || BoundingBoxComponent == nullptr || PhysicsActorComponent->mActorType != PhysicsActorBase::PhysicsActorType::Kinematic) {
-                continue;
-            }
-
-            PhysicsActorBase* ActorPointer{ PhysicsActorComponent->mActorPointer };
-            if (ActorPointer == nullptr || ActorPointer->GetActorType() != PhysicsActorBase::PhysicsActorType::Kinematic) {
-                continue;
-            }
-
-            TransformComponent->position = ActorPointer->GetPosition();
-            TransformComponent->rotation = ActorPointer->GetOrientation();
-            TransformComponent->scale = ActorPointer->GetScale();
-            TransformComponent->UpdateEulerRadiansFromRotation();
             BoundingBoxComponent->SetWorldObb(ActorPointer->GetWorldBoundingBox());
             UpdatePhysicsActorCachedSnapshot(*PhysicsActorComponent, TransformComponent->position, TransformComponent->rotation, TransformComponent->scale, ActorPointer->GetVelocity(), ActorPointer->GetWorldBoundingBox());
         }
@@ -810,15 +789,18 @@ namespace Game {
                 const std::uint32_t PhysicsActorId{ ResolvePhysicsActorId(*PhysicsActorComponent) };
                 PhysicsTerrainActor::ActorDesc Desc{ BuildCurrentPhysicsTerrainActorDesc(BindingSource.mTerrainActorDesc, *TransformComponent, PhysicsActorId, TerrainActorPointer, Context.mTerrainManager) };
                 TerrainActorPointer->SetActorDesc(Desc);
+                BindingSource.mTerrainActorDesc = std::move(Desc);
                 BindingSource.mIsTerrainActorDescApplied = true;
                 continue;
             }
 
             const bool IsTransformChanged{ std::make_tuple(TerrainActorPointer->GetPosition(), TerrainActorPointer->GetRotation(), TerrainActorPointer->GetScale()) != std::make_tuple(TransformComponent->position, TransformComponent->rotationEuler, TransformComponent->scale) };
-            if (IsTransformChanged == true) {
+            const bool IsTerrainDataChanged{ TerrainActorPointer->GetTerrainWorldData() == nullptr || BindingSource.mTerrainActorDesc.mTerrainWorldData == nullptr || AreTerrainWorldDataEquivalent(*TerrainActorPointer->GetTerrainWorldData(), *BindingSource.mTerrainActorDesc.mTerrainWorldData) == false };
+            if (IsTransformChanged == true || IsTerrainDataChanged == true) {
                 const std::uint32_t PhysicsActorId{ ResolvePhysicsActorId(*PhysicsActorComponent) };
                 PhysicsTerrainActor::ActorDesc Desc{ BuildCurrentPhysicsTerrainActorDesc(BindingSource.mTerrainActorDesc, *TransformComponent, PhysicsActorId, TerrainActorPointer, Context.mTerrainManager) };
                 TerrainActorPointer->SetActorDesc(Desc);
+                BindingSource.mTerrainActorDesc = std::move(Desc);
             }
         }
 

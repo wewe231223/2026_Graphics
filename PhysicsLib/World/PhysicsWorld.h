@@ -107,6 +107,7 @@ public:
     void MarkKinematicActorTeleported(const PhysicsKinematicActor& Actor) override;
     void StepSimulation() override;
     void Update(float DeltaTime) override;
+    PhysicsCharacterMoveResult MoveKinematicCharacter(PhysicsActorBase& Actor, const PhysicsCharacterMoveRequest& Request, float DeltaTime) override;
     bool ResolveKinematicTerrainContact(PhysicsActorBase& Actor) override;
     void ResolveKinematicTerrainContacts() override;
 
