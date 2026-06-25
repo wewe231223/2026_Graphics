@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <vector>
 #include "Arche/World.h"
+#include "Game/Environment/EnvironmentRuntime.h"
 #include "Game/Model/AssetRegistry.h"
 #include "Game/Scene/Base/FrameContext.h"
 #include "Game/Scene/Base/Executor.h"
@@ -93,7 +94,7 @@ namespace Game {
 
             AssetRegistry& GetAssetRegistry();
             const AssetRegistry& GetAssetRegistry() const;
-            void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap);
+            void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap, Interface::IComputeQueue* ComputeQueue);
 
             Script::LuaBehaviorFramework& GetLuaScriptFramework();
             const Script::LuaBehaviorFramework& GetLuaScriptFramework() const;
@@ -210,6 +211,7 @@ namespace Game {
 
             Terrain::TerrainManager mTerrainManager{};
             std::vector<TerrainActorDescBinding> mTerrainActorDescBindings{};
+            EnvironmentRuntime mEnvironmentRuntime{};
 
             SceneWorldSnapshot mWorldSnapshot{};
             std::uint64_t mWorldSnapshotVersion{};

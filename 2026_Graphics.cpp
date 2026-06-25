@@ -171,7 +171,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     if (UsePipelineScene) {
         PipelineSceneInstance = std::make_unique<Game::Pipeline::Scene>();
         PipelineSceneInstance->SetPhysicsTime(&PhysicsTime);
-        PipelineSceneInstance->InitializeAssetRegistry(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator, directQueue.GetSrvHeap());
+        PipelineSceneInstance->InitializeAssetRegistry(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator, directQueue.GetSrvHeap(), &computeQueue);
 
         Game::Pipeline::RegisterDefaultPipelineSystems(PipelineRegistry);
 
@@ -184,7 +184,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     else {
         LegacySceneInstance = std::make_unique<Game::Scene>();
         LegacySceneInstance->SetPhysicsTime(&PhysicsTime);
-        LegacySceneInstance->InitializeAssetRegistry(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator, directQueue.GetSrvHeap());
+        LegacySceneInstance->InitializeAssetRegistry(directQueue.GetDevice(), &copyQueue, &defaultHeapAllocator, directQueue.GetSrvHeap(), &computeQueue);
 
         Game::SceneYamlSerializer SceneYamlDeserializer{};
         const Game::SceneYamlLoadResult SceneYamlLoadResult{ SceneYamlDeserializer.DeserializeFromFile("Resources/DefaultScene.yaml", *LegacySceneInstance) };

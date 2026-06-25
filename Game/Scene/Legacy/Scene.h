@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include "Arche/World.h"
+#include "Game/Environment/EnvironmentRuntime.h"
 #include "Game/Scene/Base/SynchronousSystem.h"
 #include "SystemSceduler.h"
 #include "Game/Scene/Base/SceneWorldSnapshot.h"
@@ -58,7 +59,7 @@ namespace Game {
         std::uint32_t GetPhysicsWorldVersion() const;
         bool IsPhysicsRuntimeModeEnabled() const;
 
-        void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap);
+        void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap, Interface::IComputeQueue* ComputeQueue);
         void InitializePhysicsWorld();
         void RebuildPhysicsActors();
         void UpdatePhysics(float Dt);
@@ -114,6 +115,7 @@ namespace Game {
         Utility::Time* mPhysicsTime{};
         
         Terrain::TerrainManager mTerrainManager{};
+        EnvironmentRuntime mEnvironmentRuntime{};
         
         FrameContext mFrameContext{};
         AssetRegistry mAssetRegistry{};

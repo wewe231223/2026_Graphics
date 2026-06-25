@@ -723,6 +723,9 @@
     <FxCompile Include="..\Shader\Source\EnvironmentObjectShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
+    <FxCompile Include="..\Shader\Source\EnvironmentObjectPrepareShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
     <FxCompile Include="..\Shader\Source\EnvironmentBillboardShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>

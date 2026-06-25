@@ -110,6 +110,7 @@ namespace Game {
             mIsDefaultCameraControlBehaviorAttached{},
             mTerrainManager{},
             mTerrainActorDescBindings{},
+            mEnvironmentRuntime{},
             mWorldSnapshot{},
             mWorldSnapshotVersion{},
             mPipelineDefinitions{},
@@ -176,6 +177,10 @@ namespace Game {
         void Scene::PrepareRender() {
             mAssetRegistry.PrepareRenderTextures(mFrameContext.RenderData);
             mFrameContext.RenderData.mMaterialTextureTable = mAssetRegistry.GetMaterialTextureTable();
+
+            EnvironmentFrameInput EnvironmentInput{};
+            EnvironmentInput.mFrameIndex = mFrameContext.RenderData.mFrameGlobals.mFrameIndex;
+            mEnvironmentRuntime.DispatchGpu(EnvironmentInput);
         }
 
         PipelineFrameExecutionResult Scene::ExecuteDataPipelineFrame(float Dt, const PipelineSystemRegistry& Registry) {
@@ -261,13 +266,23 @@ namespace Game {
             return mAssetRegistry;
         }
 
-        void Scene::InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap) {
+        void Scene::InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap, Interface::IComputeQueue* ComputeQueue) {
             mAssetRegistry.Initialize(Device, CopyQueue, Allocator);
             mAssetRegistry.SetSrvHeap(SrvHeap);
             mFrameContext.MaterialGroups = &mAssetRegistry.GetMaterialGroups();
             mFrameContext.AssetRegistryResource = &mAssetRegistry;
             mFrameContext.RenderData.mMaterials = mAssetRegistry.GetPackedMaterials();
             mFrameContext.RenderData.mMaterialTextureTable = mAssetRegistry.GetMaterialTextureTable();
+
+            EnvironmentRuntimeDesc EnvironmentDesc{};
+            EnvironmentDesc.mDevice = Device;
+            EnvironmentDesc.mAllocator = Allocator;
+            EnvironmentDesc.mSrvHeap = SrvHeap;
+            EnvironmentDesc.mCopyQueue = CopyQueue;
+            EnvironmentDesc.mComputeQueue = ComputeQueue;
+            EnvironmentDesc.mPhysicsAdapter = nullptr;
+            EnvironmentDesc.mGpuDrivenEnabled = Config::Query()->Get<bool>("EnvironmentObjects_Enabled");
+            mEnvironmentRuntime.Initialize(EnvironmentDesc);
         }
 
         Script::LuaBehaviorFramework& Scene::GetLuaScriptFramework() {

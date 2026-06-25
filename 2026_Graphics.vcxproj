@@ -129,13 +129,14 @@ copy $(SolutionDir)c4core.dll $(TargetDir) /Y
 copy $(SolutionDir)ryml.dll $(TargetDir) /Y
 
 robocopy $(SolutionDir)D3D $(TargetDir)D3D /E
-exit 0
+if %ERRORLEVEL% GEQ 8 exit /b %ERRORLEVEL%
 
 robocopy $(SolutionDir)Shader $(TargetDir)Shader /E
-exit 0
+if %ERRORLEVEL% GEQ 8 exit /b %ERRORLEVEL%
 
 robocopy $(SolutionDir)Resources $(TargetDir)Resources /E
-exit 0
+if %ERRORLEVEL% GEQ 8 exit /b %ERRORLEVEL%
+exit /b 0
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -163,13 +164,14 @@ copy $(SolutionDir)c4core.dll $(TargetDir) /Y
 copy $(SolutionDir)ryml.dll $(TargetDir) /Y
 
 robocopy $(SolutionDir)D3D $(TargetDir)D3D /E
-exit 0
+if %ERRORLEVEL% GEQ 8 exit /b %ERRORLEVEL%
 
 robocopy $(SolutionDir)Shader $(TargetDir)Shader /E
-exit 0
+if %ERRORLEVEL% GEQ 8 exit /b %ERRORLEVEL%
 
 robocopy $(SolutionDir)Resources $(TargetDir)Resources /E
-exit 0
+if %ERRORLEVEL% GEQ 8 exit /b %ERRORLEVEL%
+exit /b 0
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>

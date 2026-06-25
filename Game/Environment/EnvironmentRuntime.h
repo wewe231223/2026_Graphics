@@ -7,6 +7,7 @@
 #include <DirectXCollision.h>
 #include <DirectXTK12/SimpleMath.h>
 #include <d3d12.h>
+#include <wrl/client.h>
 
 #include "Core/Common.h"
 #include "Game/Environment/EnvironmentObjectRenderContext.h"
@@ -18,8 +19,8 @@ namespace Game {
     public:
         ID3D12Resource* mHeightResource{};
         ID3D12Resource* mSplatResource{};
-        std::uint32_t mHeightSrvIndex{};
-        std::uint32_t mSplatSrvIndex{};
+        std::uint32_t mHeightSrvIndex{ 0xffffffffu };
+        std::uint32_t mSplatSrvIndex{ 0xffffffffu };
         std::uint32_t mWidth{};
         std::uint32_t mHeight{};
         float mCellSizeX{ 1.0f };
@@ -103,6 +104,13 @@ namespace Game {
         bool IsGpuDrivenEnabled() const;
 
     private:
+        bool InitializeGpuResources();
+        bool CreateComputeRootSignature();
+        bool CreateComputePipelineState();
+        bool CreateGpuStatusBuffer();
+        void ResetGpuResources();
+
+    private:
         ID3D12Device* mDevice{};
         Interface::IGraphicsAllocator* mAllocator{};
         Interface::IDescriptorHeap* mSrvHeap{};
@@ -110,9 +118,14 @@ namespace Game {
         Interface::IComputeQueue* mComputeQueue{};
         EnvironmentPhysicsAdapter* mPhysicsAdapter{};
         EnvironmentObjectRenderContext mRenderContext{};
+        Microsoft::WRL::ComPtr<ID3D12RootSignature> mComputeRootSignature{};
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> mPreparePipelineState{};
+        Microsoft::WRL::ComPtr<ID3D12Resource> mGpuStatusBuffer{};
         RenderContract::Future mLastGpuDispatchFuture{};
         std::string mConfigPath{};
+        std::uint32_t mGpuStatusUavIndex{ 0xffffffffu };
         bool mInitialized{};
         bool mGpuDrivenEnabled{};
+        bool mGpuResourcesInitialized{};
     };
 }
