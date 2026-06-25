@@ -1,4 +1,5 @@
 ﻿#include "DrawCallDispatcher.h"
+#include <array>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -83,7 +84,8 @@ namespace Core {
 			mEnvironmentObjectDepthPipeline{},
 			mIsEnvironmentObjectDepthPipelineInitialized{},
 			mEnvironmentBillboardDepthPipeline{},
-			mIsEnvironmentBillboardDepthPipelineInitialized{} {
+			mIsEnvironmentBillboardDepthPipelineInitialized{},
+			mDrawIndexedIndirectCommandSignature{} {
 		}
 
 		DrawCallDispatcher::~DrawCallDispatcher() {
@@ -150,6 +152,11 @@ namespace Core {
 
 		void DrawCallDispatcher::DrawEnvironmentGBuffer(ID3D12GraphicsCommandList* CommandList, const RenderContract::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle EnvironmentInstanceContextSrvHandle, DescriptorHandle EnvironmentSegmentContextSrvHandle, DescriptorHandle EnvironmentDrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			if (CommandList == nullptr || Data.mEnvironmentDrawRecords.empty() == true) {
+				return;
+			}
+
+			if (Data.mEnvironmentGpuDrivenFrame.mEnabled == true) {
+				DrawEnvironmentGBufferIndirect(CommandList, Data, FrameGlobalsSrvHandle, MaterialSrvHandle, MaterialTextureTableSrvHandle);
 				return;
 			}
 
@@ -403,6 +410,34 @@ namespace Core {
 			return Pipeline->Get() == mSkyDomePipeline.Get();
 		}
 
+		bool DrawCallDispatcher::EnsureDrawIndexedIndirectCommandSignature(ID3D12GraphicsCommandList* CommandList) {
+			if (mDrawIndexedIndirectCommandSignature != nullptr) {
+				return true;
+			}
+
+			if (CommandList == nullptr) {
+				return false;
+			}
+
+			Microsoft::WRL::ComPtr<ID3D12Device> Device{};
+			HRESULT DeviceResult{ CommandList->GetDevice(IID_PPV_ARGS(Device.GetAddressOf())) };
+			if (FAILED(DeviceResult) == true || Device == nullptr) {
+				return false;
+			}
+
+			D3D12_INDIRECT_ARGUMENT_DESC ArgumentDesc{};
+			ArgumentDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+
+			D3D12_COMMAND_SIGNATURE_DESC CommandSignatureDesc{};
+			CommandSignatureDesc.ByteStride = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
+			CommandSignatureDesc.NumArgumentDescs = 1u;
+			CommandSignatureDesc.pArgumentDescs = &ArgumentDesc;
+			CommandSignatureDesc.NodeMask = 0u;
+
+			HRESULT CreateResult{ Device->CreateCommandSignature(&CommandSignatureDesc, nullptr, IID_PPV_ARGS(mDrawIndexedIndirectCommandSignature.GetAddressOf())) };
+			return SUCCEEDED(CreateResult) == true && mDrawIndexedIndirectCommandSignature != nullptr;
+		}
+
 		const RenderContract::IPipeline* DrawCallDispatcher::ResolveDepthOnlyPipeline(const RenderContract::DrawRecord& DrawRecord) {
 			if (DrawRecord.mPipeline == nullptr) {
 				return nullptr;
@@ -454,6 +489,96 @@ namespace Core {
 			}
 
 			return mIsEnvironmentObjectDepthPipelineInitialized == true ? &mEnvironmentObjectDepthPipeline : nullptr;
+		}
+
+		void DrawCallDispatcher::DrawEnvironmentGBufferIndirect(ID3D12GraphicsCommandList* CommandList, const RenderContract::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
+			const RenderContract::EnvironmentGpuDrivenFrameData& GpuFrame{ Data.mEnvironmentGpuDrivenFrame };
+			if (CommandList == nullptr || GpuFrame.mEnabled == false || GpuFrame.mVisibleInstanceIndexResource == nullptr || GpuFrame.mIndirectArgumentResource == nullptr || EnsureDrawIndexedIndirectCommandSignature(CommandList) == false) {
+				return;
+			}
+
+			if (mIsEnvironmentObjectPipelineInitialized == false) {
+				mIsEnvironmentObjectPipelineInitialized = mEnvironmentObjectPipeline.Initialize("EnvironmentObjectGraphics");
+			}
+
+			std::array<D3D12_RESOURCE_BARRIER, 2> Barriers{};
+			Barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			Barriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			Barriers[0].Transition.pResource = GpuFrame.mVisibleInstanceIndexResource;
+			Barriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			Barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			Barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+			Barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			Barriers[1].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			Barriers[1].Transition.pResource = GpuFrame.mIndirectArgumentResource;
+			Barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			Barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			Barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
+			CommandList->ResourceBarrier(static_cast<UINT>(Barriers.size()), Barriers.data());
+
+			const RenderContract::IPipeline* ActivePipeline{ nullptr };
+			const std::size_t DrawRecordCount{ std::min<std::size_t>(Data.mEnvironmentDrawRecords.size(), GpuFrame.mDrawRecordCount) };
+			for (std::size_t DrawRecordIndex{}; DrawRecordIndex < DrawRecordCount; DrawRecordIndex += 1ULL) {
+				const RenderContract::EnvironmentDrawRecord& DrawRecord{ Data.mEnvironmentDrawRecords[DrawRecordIndex] };
+				if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u) {
+					continue;
+				}
+
+				const bool IsEnvironmentBillboardPipeline{ DrawRecord.mPipeline != nullptr && DrawRecord.mPipeline->GetPrimitiveTopology() == D3D_PRIMITIVE_TOPOLOGY_POINTLIST };
+				const RenderContract::IPipeline* Pipeline{ IsEnvironmentBillboardPipeline == true ? DrawRecord.mPipeline : nullptr };
+				if (Pipeline == nullptr && mIsEnvironmentObjectPipelineInitialized == true) {
+					Pipeline = &mEnvironmentObjectPipeline;
+				}
+
+				if (Pipeline == nullptr) {
+					continue;
+				}
+
+				ActivePipeline = Pipeline->Set(ActivePipeline, CommandList);
+
+				DrawRootConstantsB1 RootConstants{};
+				RootConstants.FrameGlobalsSrvIndex = FrameGlobalsSrvHandle.GetIndex();
+				RootConstants.ModelContextSrvIndex = GpuFrame.mInstanceContextSrvIndex;
+				RootConstants.BonePaletteSrvIndex = GpuFrame.mSegmentContextSrvIndex;
+				RootConstants.DrawRecordSrvIndex = GpuFrame.mDrawRecordSrvIndex;
+				RootConstants.DrawRecordBaseIndex = static_cast<uint32_t>(DrawRecordIndex);
+				RootConstants.MaterialSrvIndex = MaterialSrvHandle.GetIndex();
+				RootConstants.MaterialTextureTableSrvIndex = MaterialTextureTableSrvHandle.GetIndex();
+				RootConstants.ShadowMappingParameterSrvIndex = InvalidDescriptorIndex;
+				RootConstants.ShadowMapTextureBaseSrvIndex = InvalidDescriptorIndex;
+				RootConstants.FrameGlobalsElementIndex = 0u;
+				RootConstants.TerrainPatchContextSrvIndex = InvalidDescriptorIndex;
+				RootConstants.Reserved1 = GpuFrame.mVisibleInstanceIndexSrvIndex;
+				CommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(uint32_t), &RootConstants, 0);
+
+				CommandList->IASetPrimitiveTopology(Pipeline->GetPrimitiveTopology());
+
+				const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*Pipeline, *DrawRecord.mMesh) };
+				if (VertexBufferViews.empty() == false) {
+					CommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
+				}
+
+				const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ DrawRecord.mMesh->GetIndexBufferView() };
+				CommandList->IASetIndexBuffer(&IndexBufferView);
+
+				const std::uint64_t IndirectArgumentOffset{ sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) * DrawRecordIndex };
+				CommandList->ExecuteIndirect(mDrawIndexedIndirectCommandSignature.Get(), 1u, GpuFrame.mIndirectArgumentResource, IndirectArgumentOffset, nullptr, 0u);
+			}
+
+			std::array<D3D12_RESOURCE_BARRIER, 2> RestoreBarriers{};
+			RestoreBarriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			RestoreBarriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			RestoreBarriers[0].Transition.pResource = GpuFrame.mVisibleInstanceIndexResource;
+			RestoreBarriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			RestoreBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+			RestoreBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COMMON;
+			RestoreBarriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+			RestoreBarriers[1].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			RestoreBarriers[1].Transition.pResource = GpuFrame.mIndirectArgumentResource;
+			RestoreBarriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			RestoreBarriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
+			RestoreBarriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COMMON;
+			CommandList->ResourceBarrier(static_cast<UINT>(RestoreBarriers.size()), RestoreBarriers.data());
 		}
 
 		void DrawCallDispatcher::DrawSkyDome(ID3D12GraphicsCommandList* CommandList, const RenderContract::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {

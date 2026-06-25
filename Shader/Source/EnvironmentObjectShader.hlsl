@@ -60,6 +60,15 @@ float3 BuildEnvironmentWorldDirection(float3 LocalDirection, EnvironmentInstance
     return normalize(RotateEnvironmentYaw(SegmentDirection, SinYaw, CosYaw));
 }
 
+uint ResolveEnvironmentInstanceIndex(EnvironmentDrawRecordGpu DrawRecord, uint InstanceId) {
+    if ((DrawRecord.GpuDrivenFlags & EnvironmentDrawRecordFlagGpuDriven) != 0u && RootConstants.Reserved1 != 0xffffffffu) {
+        StructuredBuffer<uint> VisibleInstanceIndexBuffer = ResourceDescriptorHeap[RootConstants.Reserved1];
+        return VisibleInstanceIndexBuffer[DrawRecord.VisibleInstanceOffset + InstanceId];
+    }
+
+    return DrawRecord.InstanceOffset + InstanceId;
+}
+
 EnvironmentVertexOutput VsMain(EnvironmentVertexInput Input, uint InstanceId : SV_InstanceID) {
     StructuredBuffer<FrameGlobalsGpu> FrameGlobalsBuffer = ResourceDescriptorHeap[RootConstants.FrameGlobalsSrvIndex];
     StructuredBuffer<EnvironmentInstanceContextGpu> InstanceContextBuffer = ResourceDescriptorHeap[RootConstants.ModelContextSrvIndex];
@@ -67,7 +76,7 @@ EnvironmentVertexOutput VsMain(EnvironmentVertexInput Input, uint InstanceId : S
     StructuredBuffer<EnvironmentDrawRecordGpu> DrawRecordBuffer = ResourceDescriptorHeap[RootConstants.DrawRecordSrvIndex];
 
     const EnvironmentDrawRecordGpu DrawRecord = DrawRecordBuffer[RootConstants.DrawRecordBaseIndex];
-    const EnvironmentInstanceContextGpu InstanceContext = InstanceContextBuffer[DrawRecord.InstanceOffset + InstanceId];
+    const EnvironmentInstanceContextGpu InstanceContext = InstanceContextBuffer[ResolveEnvironmentInstanceIndex(DrawRecord, InstanceId)];
     const EnvironmentSegmentContextGpu SegmentContext = SegmentContextBuffer[DrawRecord.SegmentContextIndex];
     const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[RootConstants.FrameGlobalsElementIndex];
     float SinYaw = 0.0f;
@@ -94,7 +103,7 @@ EnvironmentDepthVertexOutput VsMainDepth(EnvironmentDepthVertexInput Input, uint
     StructuredBuffer<EnvironmentDrawRecordGpu> DrawRecordBuffer = ResourceDescriptorHeap[RootConstants.DrawRecordSrvIndex];
 
     const EnvironmentDrawRecordGpu DrawRecord = DrawRecordBuffer[RootConstants.DrawRecordBaseIndex];
-    const EnvironmentInstanceContextGpu InstanceContext = InstanceContextBuffer[DrawRecord.InstanceOffset + InstanceId];
+    const EnvironmentInstanceContextGpu InstanceContext = InstanceContextBuffer[ResolveEnvironmentInstanceIndex(DrawRecord, InstanceId)];
     const EnvironmentSegmentContextGpu SegmentContext = SegmentContextBuffer[DrawRecord.SegmentContextIndex];
     const FrameGlobalsGpu FrameGlobals = FrameGlobalsBuffer[RootConstants.FrameGlobalsElementIndex];
     float SinYaw = 0.0f;

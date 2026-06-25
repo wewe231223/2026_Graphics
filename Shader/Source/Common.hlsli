@@ -13,6 +13,7 @@ static const float DefaultAlphaCutoff = 0.5f;
 static const float DefaultGBufferSurfaceMarker = 1.0f;
 static const float FoliageGBufferSurfaceMarker = 2.0f;
 static const float FoliageBaseColorBlendFactor = 0.7f;
+static const uint EnvironmentDrawRecordFlagGpuDriven = 0x1u;
 
 struct VertexInput
 {
@@ -138,8 +139,8 @@ struct EnvironmentDrawRecordGpu
     uint SegmentContextIndex;
     uint MaterialIndex;
     uint Flags;
-    uint Padding0;
-    uint Padding1;
+    uint VisibleInstanceOffset;
+    uint GpuDrivenFlags;
     uint Padding2;
 };
 

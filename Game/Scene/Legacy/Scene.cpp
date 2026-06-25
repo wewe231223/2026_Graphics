@@ -216,7 +216,7 @@ namespace Game {
         EnvironmentDesc.mCopyQueue = CopyQueue;
         EnvironmentDesc.mComputeQueue = ComputeQueue;
         EnvironmentDesc.mPhysicsAdapter = nullptr;
-        EnvironmentDesc.mGpuDrivenEnabled = Config::Query()->Get<bool>("EnvironmentObjects_Enabled");
+        EnvironmentDesc.mGpuDrivenEnabled = Config::Query()->Get<bool>("EnvironmentObjects_GpuDrivenEnabled");
         mEnvironmentRuntime.Initialize(EnvironmentDesc);
     }
 
@@ -296,10 +296,17 @@ namespace Game {
     void Scene::PrepareRender() {
         mAssetRegistry.PrepareRenderTextures(mFrameContext.RenderData);
         mFrameContext.RenderData.mMaterialTextureTable = mAssetRegistry.GetMaterialTextureTable();
+        if (mEnvironmentRuntime.IsGpuDrivenEnabled() == false) {
+            return;
+        }
 
         EnvironmentFrameInput EnvironmentInput{};
         EnvironmentInput.mFrameIndex = mFrameContext.RenderData.mFrameGlobals.mFrameIndex;
-        mEnvironmentRuntime.DispatchGpu(EnvironmentInput);
+        EnvironmentInput.mFocusPosition = SimpleMath::Vector3{ mFrameContext.RenderData.mMainCamera.mPosition.x, mFrameContext.RenderData.mMainCamera.mPosition.y, mFrameContext.RenderData.mMainCamera.mPosition.z };
+        EnvironmentInput.mView = mFrameContext.RenderData.mFrameGlobals.mView;
+        EnvironmentInput.mProjection = mFrameContext.RenderData.mFrameGlobals.mProj;
+        EnvironmentInput.mViewProjection = mFrameContext.RenderData.mFrameGlobals.mViewProj;
+        mEnvironmentRuntime.PrepareGpuDrivenFrame(EnvironmentInput, mFrameContext.RenderData);
     }
 
     void Scene::OnFileDropped(const std::filesystem::path& FilePath) {
@@ -615,6 +622,8 @@ namespace Game {
         switch (TargetPhase) {
             case Phase::PreUpdate:
                 UpdateCameraVirtualMouseState();
+                mFrameContext.MaterialGroups = &mAssetRegistry.GetMaterialGroups();
+                mFrameContext.AssetRegistryResource = &mAssetRegistry;
                 mFrameContext.RenderData.mModelContexts.clear();
                 mFrameContext.RenderData.mBoundingBoxContexts.clear();
                 mFrameContext.RenderData.mDebugGeometryContexts.clear();
@@ -624,6 +633,7 @@ namespace Game {
                 mFrameContext.RenderData.mEnvironmentInstanceContexts.clear();
                 mFrameContext.RenderData.mEnvironmentSegmentContexts.clear();
                 mFrameContext.RenderData.mEnvironmentDrawRecords.clear();
+                mFrameContext.RenderData.mEnvironmentGpuDrivenFrame = RenderContract::EnvironmentGpuDrivenFrameData{};
                 mFrameContext.RenderData.mTerrainUploadFuture = RenderContract::Future{};
                 mFrameContext.RenderData.mHasTerrainUploadFuture = false;
                 for (RenderContract::ShadowRenderContext& ShadowRenderContext : mFrameContext.RenderData.mShadowRenderContexts) {
@@ -673,6 +683,9 @@ namespace Game {
 
         for (const SystemSceduler::SystemBatch& Batch : *PhaseBatches) {
             for (ISystem* System : Batch) {
+                mFrameContext.MaterialGroups = &mAssetRegistry.GetMaterialGroups();
+                mFrameContext.AssetRegistryResource = &mAssetRegistry;
+
                 System->Execute(mWorld, mFrameContext, Dt);
             }
         }

@@ -5,5 +5,6 @@ Block_ImGui = true
 Draw_DebugGeometry = true
 Use_PipelineScene = true
 EnvironmentObjects_Enabled = true
+EnvironmentObjects_GpuDrivenEnabled = false
 PhysicsRuntime_Enabled = true
 RenderPhysicsDelaySeconds = 0.016667

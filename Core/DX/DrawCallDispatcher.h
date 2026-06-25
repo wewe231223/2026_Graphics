@@ -3,6 +3,7 @@
 #include <map>
 #include <utility>
 #include <vector>
+#include <wrl/client.h>
 #include "Core/DX/DesciptorHeap.h"
 #include "RenderContract/Frame/RenderFrameData.h"
 #include "Game/Base/Pipeline.h"
@@ -34,8 +35,10 @@ namespace Core {
 
 			const std::vector<D3D12_VERTEX_BUFFER_VIEW>& ResolveVertexBufferViews(const RenderContract::IPipeline& Pipeline, const RenderContract::IModelNode& Mesh);
 			bool IsSkyDomePipeline(const RenderContract::IPipeline* Pipeline);
+			bool EnsureDrawIndexedIndirectCommandSignature(ID3D12GraphicsCommandList* CommandList);
 			const RenderContract::IPipeline* ResolveDepthOnlyPipeline(const RenderContract::DrawRecord& DrawRecord);
 			const RenderContract::IPipeline* ResolveEnvironmentDepthOnlyPipeline(const RenderContract::EnvironmentDrawRecord& DrawRecord);
+			void DrawEnvironmentGBufferIndirect(ID3D12GraphicsCommandList* CommandList, const RenderContract::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle);
 			void DrawBoundingBoxes(ID3D12GraphicsCommandList* CommandList, const RenderContract::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle);
 			void DrawDebugGeometries(ID3D12GraphicsCommandList* CommandList, const RenderContract::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle DebugGeometryContextSrvHandle);
 
@@ -62,6 +65,7 @@ namespace Core {
 			bool mIsEnvironmentObjectDepthPipelineInitialized{};
 			Game::Base::Pipeline mEnvironmentBillboardDepthPipeline{};
 			bool mIsEnvironmentBillboardDepthPipelineInitialized{};
+			Microsoft::WRL::ComPtr<ID3D12CommandSignature> mDrawIndexedIndirectCommandSignature{};
 			std::map<std::pair<const RenderContract::IPipeline*, const RenderContract::IModelNode*>, std::vector<D3D12_VERTEX_BUFFER_VIEW>> mVertexBufferViewCache{};
 		};
 	}

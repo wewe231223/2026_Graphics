@@ -177,10 +177,17 @@ namespace Game {
         void Scene::PrepareRender() {
             mAssetRegistry.PrepareRenderTextures(mFrameContext.RenderData);
             mFrameContext.RenderData.mMaterialTextureTable = mAssetRegistry.GetMaterialTextureTable();
+            if (mEnvironmentRuntime.IsGpuDrivenEnabled() == false) {
+                return;
+            }
 
             EnvironmentFrameInput EnvironmentInput{};
             EnvironmentInput.mFrameIndex = mFrameContext.RenderData.mFrameGlobals.mFrameIndex;
-            mEnvironmentRuntime.DispatchGpu(EnvironmentInput);
+            EnvironmentInput.mFocusPosition = SimpleMath::Vector3{ mFrameContext.RenderData.mMainCamera.mPosition.x, mFrameContext.RenderData.mMainCamera.mPosition.y, mFrameContext.RenderData.mMainCamera.mPosition.z };
+            EnvironmentInput.mView = mFrameContext.RenderData.mFrameGlobals.mView;
+            EnvironmentInput.mProjection = mFrameContext.RenderData.mFrameGlobals.mProj;
+            EnvironmentInput.mViewProjection = mFrameContext.RenderData.mFrameGlobals.mViewProj;
+            mEnvironmentRuntime.PrepareGpuDrivenFrame(EnvironmentInput, mFrameContext.RenderData);
         }
 
         PipelineFrameExecutionResult Scene::ExecuteDataPipelineFrame(float Dt, const PipelineSystemRegistry& Registry) {
@@ -281,7 +288,7 @@ namespace Game {
             EnvironmentDesc.mCopyQueue = CopyQueue;
             EnvironmentDesc.mComputeQueue = ComputeQueue;
             EnvironmentDesc.mPhysicsAdapter = nullptr;
-            EnvironmentDesc.mGpuDrivenEnabled = Config::Query()->Get<bool>("EnvironmentObjects_Enabled");
+            EnvironmentDesc.mGpuDrivenEnabled = Config::Query()->Get<bool>("EnvironmentObjects_GpuDrivenEnabled");
             mEnvironmentRuntime.Initialize(EnvironmentDesc);
         }
 
@@ -821,6 +828,8 @@ namespace Game {
 
         void Scene::InitializeDataPipelineFrameRenderData() {
             UpdateCameraVirtualMouseState();
+            mFrameContext.MaterialGroups = &mAssetRegistry.GetMaterialGroups();
+            mFrameContext.AssetRegistryResource = &mAssetRegistry;
 
             RenderContract::FrameRenderWriter FrameWriter{ mFrameContext.RenderData };
             FrameWriter.BeginFrame();
@@ -845,6 +854,9 @@ namespace Game {
                     continue;
                 }
 
+                mFrameContext.MaterialGroups = &mAssetRegistry.GetMaterialGroups();
+                mFrameContext.AssetRegistryResource = &mAssetRegistry;
+
                 System->Execute(mWorld, mFrameContext, Dt);
             }
         }
@@ -863,6 +875,9 @@ namespace Game {
                 if (IsPhysicsActorUpdateSystem != IsPhysicsSynchronizationStage) {
                     continue;
                 }
+
+                mFrameContext.MaterialGroups = &mAssetRegistry.GetMaterialGroups();
+                mFrameContext.AssetRegistryResource = &mAssetRegistry;
 
                 System->Execute(mWorld, mFrameContext, Dt);
             }

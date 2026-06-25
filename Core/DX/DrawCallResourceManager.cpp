@@ -367,8 +367,8 @@ namespace Core {
 				DestinationRecord.mSegmentContextIndex = SourceRecord.mSegmentContextIndex;
 				DestinationRecord.mMaterialIndex = SourceRecord.mMaterialIndex;
 				DestinationRecord.mFlags = SourceRecord.mFlags;
-				DestinationRecord.mPadding0 = 0u;
-				DestinationRecord.mPadding1 = 0u;
+				DestinationRecord.mVisibleInstanceOffset = 0u;
+				DestinationRecord.mGpuDrivenFlags = 0u;
 				DestinationRecord.mPadding2 = 0u;
 			}
 		}

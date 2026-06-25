@@ -286,7 +286,7 @@ namespace Core {
 
 			mCommandList->Close();
 
-			std::array<RenderContract::Future, 3> UploadFutures{ DrawCallResources.GetCopyFuture(), mMaterialResourceManager.GetCopyFuture(static_cast<std::uint32_t>(CurrentIndex)), Data.mHasTerrainUploadFuture == true ? Data.mTerrainUploadFuture : RenderContract::Future{} };
+			std::array<RenderContract::Future, 4> UploadFutures{ DrawCallResources.GetCopyFuture(), mMaterialResourceManager.GetCopyFuture(static_cast<std::uint32_t>(CurrentIndex)), Data.mHasTerrainUploadFuture == true ? Data.mTerrainUploadFuture : RenderContract::Future{}, Data.mEnvironmentGpuDrivenFrame.mEnabled == true ? Data.mEnvironmentGpuDrivenFrame.mGpuDispatchFuture : RenderContract::Future{} };
 			RenderContract::Future UploadDependencyFuture{ RenderContract::Future::Merge(UploadFutures) };
 			QueueWaitFuture(UploadDependencyFuture);
 
