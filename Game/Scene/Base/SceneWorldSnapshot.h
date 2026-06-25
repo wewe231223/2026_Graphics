@@ -16,7 +16,10 @@ namespace Game {
         std::uint64_t mLatestStepIndex{};
         std::uint64_t mSnapshotStepIndex{};
         std::size_t mActorCount{};
+        std::size_t mLastUpdateStepCount{};
         double mSnapshotAgeMilliseconds{};
+        double mLastUpdateStepElapsedMilliseconds{};
+        double mLastStepElapsedMilliseconds{};
     };
 
     class SceneWorldSnapshot final {

@@ -13,6 +13,7 @@
 #include "Game/Scene/Components/BoundingBox.h"
 #include "Game/Scene/Components/Bone.h"
 #include "Game/Scene/Components/BoneSkinReference.h"
+#include "Game/Scene/Components/CharacterController.h"
 #include "Game/Scene/Components/Culling.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
 #include "Game/Scene/Components/FootIKRig.h"
@@ -435,6 +436,7 @@ namespace Game {
         mLuaScriptFramework.RegisterComponentByDefinition<Game::PrefabInstance>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::PhysicsActorSettings>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::PhysicsActor>();
+        mLuaScriptFramework.RegisterComponentByDefinition<Game::CharacterController>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::Tag>();
         mLuaScriptFramework.RegisterComponentByDefinition<Game::BehaviorInstanceComponent>();
     }

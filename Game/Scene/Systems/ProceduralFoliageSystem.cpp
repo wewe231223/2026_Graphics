@@ -65,6 +65,7 @@ namespace {
         std::string mModelPath{};
         std::string mMaterialPath{};
         float mMaximumDistance{ std::numeric_limits<float>::max() };
+        bool mEnabled{ true };
     };
 
     struct FoliagePlacementRule final {
@@ -153,6 +154,7 @@ namespace {
         std::shared_ptr<Game::Model> mModel{};
         float mMaximumDistance{ std::numeric_limits<float>::max() };
         std::uint32_t mMaterialGroupIndex{ 0u };
+        bool mEnabled{ true };
     };
 
     struct FoliageRuntimeRule final {
@@ -489,12 +491,14 @@ namespace {
         ReadStringChild(LodNode, "MaterialPath", LodDesc.mMaterialPath);
         ReadFloatChild(LodNode, "Distance", LodDesc.mMaximumDistance);
         ReadFloatChild(LodNode, "MaximumDistance", LodDesc.mMaximumDistance);
+        ReadBoolChild(LodNode, "Enabled", LodDesc.mEnabled);
+        ReadBoolChild(LodNode, "Visible", LodDesc.mEnabled);
         LodDesc.mModelPath = ResolveFoliageResourcePath(ConfigPath, LodDesc.mModelPath);
         LodDesc.mMaterialPath = ResolveFoliageResourcePath(ConfigPath, LodDesc.mMaterialPath);
         LodDesc.mMaximumDistance = std::max(LodDesc.mMaximumDistance, 0.0f);
 
         if (LodDesc.mModelPath.empty() == true && LodDesc.mMaterialPath.empty() == true) {
-            throw std::runtime_error{ "Procedural foliage lod model path and material path are empty." };
+            LodDesc.mEnabled = false;
         }
 
         return LodDesc;
@@ -1199,21 +1203,40 @@ namespace {
         Run.mInstanceContexts.insert(Run.mInstanceContexts.end(), Packet.mInstanceContexts.begin() + InstanceBegin, Packet.mInstanceContexts.begin() + InstanceEnd);
     }
 
-    void AppendEnvironmentPacketToMergedBatches(const Game::EnvironmentObjectRenderPacket& Packet, std::uint32_t LodLevel, std::uint32_t VisibilityMask, std::vector<EnvironmentMergedBatch>& Batches, std::unordered_map<EnvironmentMergedBatchKey, std::size_t, EnvironmentMergedBatchKeyHasher>& BatchIndexByKey) {
+    std::uint32_t ResolveEnvironmentDrawRecordPrototypeIndex(const Game::EnvironmentObjectRenderPacket& Packet, const RenderContract::EnvironmentDrawRecord& DrawRecord) {
+        if (DrawRecord.mInstanceOffset >= Packet.mInstancePrototypeIndices.size()) {
+            return Game::InvalidEnvironmentObjectIndex;
+        }
+
+        return Packet.mInstancePrototypeIndices[DrawRecord.mInstanceOffset];
+    }
+
+    void AppendEnvironmentPacketToMergedBatches(const Game::EnvironmentObjectRenderPacket& Packet, std::span<const std::uint32_t> PrototypeLodLevels, std::uint32_t VisibilityMask, std::vector<EnvironmentMergedBatch>& Batches, std::unordered_map<EnvironmentMergedBatchKey, std::size_t, EnvironmentMergedBatchKeyHasher>& BatchIndexByKey) {
         if (VisibilityMask == 0u || Packet.mLods.empty() == true) {
             return;
         }
 
-        const std::size_t ResolvedLodLevel{ std::min<std::size_t>(LodLevel, Packet.mLods.size() - 1ULL) };
-        const Game::EnvironmentObjectRenderPacketLod& Lod{ Packet.mLods[ResolvedLodLevel] };
-        for (const RenderContract::EnvironmentDrawRecord& DrawRecord : Lod.mDrawRecords) {
-            if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mSegmentContextIndex >= Lod.mSegmentContexts.size()) {
-                continue;
-            }
+        for (std::size_t LodLevel{}; LodLevel < Packet.mLods.size(); LodLevel += 1ULL) {
+            const Game::EnvironmentObjectRenderPacketLod& Lod{ Packet.mLods[LodLevel] };
+            for (const RenderContract::EnvironmentDrawRecord& DrawRecord : Lod.mDrawRecords) {
+                if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mSegmentContextIndex >= Lod.mSegmentContexts.size()) {
+                    continue;
+                }
 
-            const RenderContract::EnvironmentSegmentContext& SegmentContext{ Lod.mSegmentContexts[DrawRecord.mSegmentContextIndex] };
-            EnvironmentMergedBatch& Batch{ ResolveEnvironmentMergedBatch(Batches, BatchIndexByKey, DrawRecord, SegmentContext) };
-            AppendEnvironmentInstancesToMergedBatch(Batch, Packet, DrawRecord, VisibilityMask);
+                const std::uint32_t PrototypeIndex{ ResolveEnvironmentDrawRecordPrototypeIndex(Packet, DrawRecord) };
+                std::uint32_t TargetLodLevel{};
+                if (PrototypeIndex < PrototypeLodLevels.size()) {
+                    TargetLodLevel = PrototypeLodLevels[PrototypeIndex];
+                }
+
+                if (static_cast<std::size_t>(TargetLodLevel) != LodLevel) {
+                    continue;
+                }
+
+                const RenderContract::EnvironmentSegmentContext& SegmentContext{ Lod.mSegmentContexts[DrawRecord.mSegmentContextIndex] };
+                EnvironmentMergedBatch& Batch{ ResolveEnvironmentMergedBatch(Batches, BatchIndexByKey, DrawRecord, SegmentContext) };
+                AppendEnvironmentInstancesToMergedBatch(Batch, Packet, DrawRecord, VisibilityMask);
+            }
         }
     }
 
@@ -1787,7 +1810,7 @@ namespace Game {
         void RefreshVisibleEnvironmentObjectCells(FrameContext& Ctx);
         void BuildLoadedCollisionCandidates();
         void AppendEnvironmentRenderData(Arche::World& World, FrameContext& Ctx);
-        std::uint32_t ResolveEnvironmentCellLodLevel(const EnvironmentObjectRenderPacket& Packet) const;
+        std::vector<std::uint32_t> ResolveEnvironmentPrototypeLodLevels(const EnvironmentObjectRenderPacket& Packet) const;
         bool TryCreateCandidate(const TerrainSamplingContext& TerrainContext, std::uint32_t RuleIndex, std::int32_t CellX, std::int32_t CellZ, std::uint32_t InstanceIndex, FoliageCandidate& OutCandidate) const;
         std::size_t FindReusableSlot(std::uint32_t RuleIndex) const;
         bool CreateSlot(Arche::World& World, FrameContext& Ctx, std::uint32_t RuleIndex, std::size_t& OutSlotIndex);
@@ -1996,8 +2019,14 @@ namespace Game {
             RuntimeRule.mLods.reserve(RuleDesc.mLods.size());
             for (const FoliagePlacementLodDesc& LodDesc : RuleDesc.mLods) {
                 FoliageRuntimeLod RuntimeLod{};
+                RuntimeLod.mEnabled = LodDesc.mEnabled;
                 RuntimeLod.mMaximumDistance = LodDesc.mMaximumDistance;
                 RuntimeLod.mMaterialGroupIndex = ResolveFoliageMaterialGroupIndex(*Ctx.AssetRegistryResource, LodDesc.mMaterialPath, RuntimeRule.mMaterialGroupIndex);
+
+                if (RuntimeLod.mEnabled == false) {
+                    RuntimeRule.mLods.push_back(std::move(RuntimeLod));
+                    continue;
+                }
 
                 if (LodDesc.mModelPath.empty() == false) {
                     RuntimeLod.mModel = Ctx.AssetRegistryResource->GetModel(LodDesc.mModelPath);
@@ -2041,6 +2070,13 @@ namespace Game {
             Prototype.mName = Rule.mDesc.mName;
             Prototype.mLods.reserve(Rule.mLods.size());
             for (const FoliageRuntimeLod& Lod : Rule.mLods) {
+                EnvironmentObjectLod EnvironmentLod{};
+                EnvironmentLod.mMaximumDistance = Lod.mMaximumDistance;
+                if (Lod.mEnabled == false) {
+                    Prototype.mLods.push_back(std::move(EnvironmentLod));
+                    continue;
+                }
+
                 EnvironmentObjectPart Part{};
                 Part.mModel = Lod.mModel;
                 Part.mMaterialGroupIndex = Lod.mMaterialGroupIndex;
@@ -2048,8 +2084,6 @@ namespace Game {
                     Part.mCastsShadow = false;
                 }
 
-                EnvironmentObjectLod EnvironmentLod{};
-                EnvironmentLod.mMaximumDistance = Lod.mMaximumDistance;
                 EnvironmentLod.mParts.push_back(std::move(Part));
                 Prototype.mLods.push_back(std::move(EnvironmentLod));
             }
@@ -2204,9 +2238,11 @@ namespace Game {
         }
     }
 
-    std::uint32_t ProceduralFoliageRuntime::ResolveEnvironmentCellLodLevel(const EnvironmentObjectRenderPacket& Packet) const {
+    std::vector<std::uint32_t> ProceduralFoliageRuntime::ResolveEnvironmentPrototypeLodLevels(const EnvironmentObjectRenderPacket& Packet) const {
+        std::vector<std::uint32_t> LodLevels{};
+        LodLevels.resize(mRules.size(), 0u);
         if (mRules.empty() == true || Packet.mPrototypeIndices.empty() == true) {
-            return 0u;
+            return LodLevels;
         }
 
         float CellCenterX{ (static_cast<float>(Packet.mCellKey.mX) + 0.5f) * mConfig.mCellSize };
@@ -2216,8 +2252,6 @@ namespace Game {
             CellCenterZ = Packet.mWorldBoundingBox.Center.z;
         }
 
-        std::uint32_t LodLevel{};
-        bool HasMultiLodPrototype{};
         for (std::uint32_t PrototypeIndex : Packet.mPrototypeIndices) {
             if (PrototypeIndex >= mRules.size()) {
                 continue;
@@ -2228,12 +2262,10 @@ namespace Game {
                 continue;
             }
 
-            HasMultiLodPrototype = true;
-            const std::uint32_t RuleLodLevel{ ResolveFoliageLodIndex(Rule, mCurrentFocusPosition, CellCenterX, CellCenterZ) };
-            LodLevel = std::max(LodLevel, RuleLodLevel);
+            LodLevels[PrototypeIndex] = ResolveFoliageLodIndex(Rule, mCurrentFocusPosition, CellCenterX, CellCenterZ);
         }
 
-        return HasMultiLodPrototype == true ? LodLevel : 0u;
+        return LodLevels;
     }
 
     void ProceduralFoliageRuntime::AppendEnvironmentRenderData(Arche::World& World, FrameContext& Ctx) {
@@ -2262,8 +2294,8 @@ namespace Game {
                 continue;
             }
 
-            const std::uint32_t LodLevel{ ResolveEnvironmentCellLodLevel(*Packet) };
-            AppendEnvironmentPacketToMergedBatches(*Packet, LodLevel, VisibilityMask, EnvironmentMergedBatches, EnvironmentMergedBatchIndexByKey);
+            const std::vector<std::uint32_t> PrototypeLodLevels{ ResolveEnvironmentPrototypeLodLevels(*Packet) };
+            AppendEnvironmentPacketToMergedBatches(*Packet, std::span<const std::uint32_t>{ PrototypeLodLevels.data(), PrototypeLodLevels.size() }, VisibilityMask, EnvironmentMergedBatches, EnvironmentMergedBatchIndexByKey);
         }
 
         RenderContract::RenderGatherResult RenderGatherResult{};

@@ -44,8 +44,8 @@ ProceduralFoliage:
       Layer: Grass
       ModelPath: Foilage1.bin
       MaterialPath: Foilage1_materials.json
-      InstancesPerCell: 5
-      DensityMultiplier: 1.18
+      InstancesPerCell: 8
+      DensityMultiplier: 1.38
       SpawnChance: 0.86
       MinimumWeight: 0.30
       MinimumScale: 0.85
@@ -59,12 +59,18 @@ ProceduralFoliage:
       ClusterEdgeSoftness: 0.10
       ClusterOutsideDensity: 0.12
       OffsetY: 0.0
+      Lods:
+        - ModelPath: Foilage1.bin
+          MaterialPath: Foilage1_materials.json
+          MaximumDistance: 72.0
+        - Enabled: false
+          MaximumDistance: 480.0
     - Name: Foliage2Grass
       Layer: Grass
       ModelPath: Foilage2.bin
       MaterialPath: Foilage2_materials.json
-      InstancesPerCell: 4
-      DensityMultiplier: 1.08
+      InstancesPerCell: 6
+      DensityMultiplier: 1.28
       SpawnChance: 0.80
       MinimumWeight: 0.30
       MinimumScale: 0.75
@@ -78,12 +84,18 @@ ProceduralFoliage:
       ClusterEdgeSoftness: 0.10
       ClusterOutsideDensity: 0.10
       OffsetY: 0.0
+      Lods:
+        - ModelPath: Foilage2.bin
+          MaterialPath: Foilage2_materials.json
+          MaximumDistance: 72.0
+        - Enabled: false
+          MaximumDistance: 480.0
     - Name: Foliage3Grass
       Layer: Grass
       ModelPath: Foilage3.bin
       MaterialPath: Foilage3_materials.json
-      InstancesPerCell: 4
-      DensityMultiplier: 1.02
+      InstancesPerCell: 6
+      DensityMultiplier: 1.24
       SpawnChance: 0.76
       MinimumWeight: 0.30
       MinimumScale: 0.90
@@ -97,12 +109,18 @@ ProceduralFoliage:
       ClusterEdgeSoftness: 0.095
       ClusterOutsideDensity: 0.10
       OffsetY: 0.0
+      Lods:
+        - ModelPath: Foilage3.bin
+          MaterialPath: Foilage3_materials.json
+          MaximumDistance: 72.0
+        - Enabled: false
+          MaximumDistance: 480.0
     - Name: Foliage1LowGround
       Layer: LowGround
       ModelPath: Foilage1.bin
       MaterialPath: Foilage1_materials.json
-      InstancesPerCell: 5
-      DensityMultiplier: 1.12
+      InstancesPerCell: 8
+      DensityMultiplier: 1.34
       SpawnChance: 0.84
       MinimumWeight: 0.28
       MinimumScale: 0.85
@@ -116,12 +134,18 @@ ProceduralFoliage:
       ClusterEdgeSoftness: 0.11
       ClusterOutsideDensity: 0.12
       OffsetY: 0.0
+      Lods:
+        - ModelPath: Foilage1.bin
+          MaterialPath: Foilage1_materials.json
+          MaximumDistance: 72.0
+        - Enabled: false
+          MaximumDistance: 480.0
     - Name: Foliage2LowGround
       Layer: LowGround
       ModelPath: Foilage2.bin
       MaterialPath: Foilage2_materials.json
-      InstancesPerCell: 4
-      DensityMultiplier: 1.04
+      InstancesPerCell: 6
+      DensityMultiplier: 1.26
       SpawnChance: 0.78
       MinimumWeight: 0.28
       MinimumScale: 0.75
@@ -135,12 +159,18 @@ ProceduralFoliage:
       ClusterEdgeSoftness: 0.105
       ClusterOutsideDensity: 0.10
       OffsetY: 0.0
+      Lods:
+        - ModelPath: Foilage2.bin
+          MaterialPath: Foilage2_materials.json
+          MaximumDistance: 72.0
+        - Enabled: false
+          MaximumDistance: 480.0
     - Name: Foliage3LowGround
       Layer: LowGround
       ModelPath: Foilage3.bin
       MaterialPath: Foilage3_materials.json
-      InstancesPerCell: 4
-      DensityMultiplier: 1.14
+      InstancesPerCell: 6
+      DensityMultiplier: 1.34
       SpawnChance: 0.82
       MinimumWeight: 0.28
       MinimumScale: 0.90
@@ -154,6 +184,12 @@ ProceduralFoliage:
       ClusterEdgeSoftness: 0.10
       ClusterOutsideDensity: 0.10
       OffsetY: 0.0
+      Lods:
+        - ModelPath: Foilage3.bin
+          MaterialPath: Foilage3_materials.json
+          MaximumDistance: 72.0
+        - Enabled: false
+          MaximumDistance: 480.0
     - Name: Tree1
       ExcludedLayers:
         - Snow

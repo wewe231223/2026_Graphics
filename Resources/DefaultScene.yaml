@@ -263,8 +263,2967 @@ Entities:
         text: knight.animbin
         initclip: 0
         AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
       Physics:
         name: "Dummy1"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 100
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow01Column01
+      Transform:
+        <<: *DefaultTransform
+        position: [-20.00, 25.00, -10.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow01Column01"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 101
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow01Column02
+      Transform:
+        <<: *DefaultTransform
+        position: [-15.00, 25.00, -10.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow01Column02"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 102
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow01Column03
+      Transform:
+        <<: *DefaultTransform
+        position: [-10.00, 25.00, -10.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow01Column03"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 103
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow01Column04
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 25.00, -10.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow01Column04"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 104
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow01Column05
+      Transform:
+        <<: *DefaultTransform
+        position: [0.00, 25.00, -10.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow01Column05"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 105
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow01Column06
+      Transform:
+        <<: *DefaultTransform
+        position: [5.00, 25.00, -10.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow01Column06"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 106
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow01Column07
+      Transform:
+        <<: *DefaultTransform
+        position: [10.00, 25.00, -10.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow01Column07"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 107
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow01Column08
+      Transform:
+        <<: *DefaultTransform
+        position: [15.00, 25.00, -10.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow01Column08"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 108
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow02Column01
+      Transform:
+        <<: *DefaultTransform
+        position: [-20.00, 25.00, -5.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow02Column01"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 109
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow02Column02
+      Transform:
+        <<: *DefaultTransform
+        position: [-15.00, 25.00, -5.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow02Column02"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 110
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow02Column03
+      Transform:
+        <<: *DefaultTransform
+        position: [-10.00, 25.00, -5.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow02Column03"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 111
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow02Column04
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 25.00, -5.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow02Column04"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 112
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow02Column05
+      Transform:
+        <<: *DefaultTransform
+        position: [0.00, 25.00, -5.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow02Column05"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 113
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow02Column06
+      Transform:
+        <<: *DefaultTransform
+        position: [5.00, 25.00, -5.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow02Column06"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 114
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow02Column07
+      Transform:
+        <<: *DefaultTransform
+        position: [10.00, 25.00, -5.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow02Column07"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 115
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow02Column08
+      Transform:
+        <<: *DefaultTransform
+        position: [15.00, 25.00, -5.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow02Column08"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 116
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow03Column01
+      Transform:
+        <<: *DefaultTransform
+        position: [-20.00, 25.00, 0.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow03Column01"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 117
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow03Column02
+      Transform:
+        <<: *DefaultTransform
+        position: [-15.00, 25.00, 0.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow03Column02"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 118
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow03Column03
+      Transform:
+        <<: *DefaultTransform
+        position: [-10.00, 25.00, 0.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow03Column03"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 119
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow03Column04
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 25.00, 0.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow03Column04"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 120
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow03Column05
+      Transform:
+        <<: *DefaultTransform
+        position: [0.00, 25.00, 0.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow03Column05"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 121
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow03Column06
+      Transform:
+        <<: *DefaultTransform
+        position: [5.00, 25.00, 0.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow03Column06"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 122
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow03Column07
+      Transform:
+        <<: *DefaultTransform
+        position: [10.00, 25.00, 0.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow03Column07"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 123
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow03Column08
+      Transform:
+        <<: *DefaultTransform
+        position: [15.00, 25.00, 0.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow03Column08"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 124
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow04Column01
+      Transform:
+        <<: *DefaultTransform
+        position: [-20.00, 25.00, 5.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow04Column01"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 125
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow04Column02
+      Transform:
+        <<: *DefaultTransform
+        position: [-15.00, 25.00, 5.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow04Column02"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 126
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow04Column03
+      Transform:
+        <<: *DefaultTransform
+        position: [-10.00, 25.00, 5.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow04Column03"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 127
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow04Column04
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 25.00, 5.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow04Column04"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 128
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow04Column05
+      Transform:
+        <<: *DefaultTransform
+        position: [0.00, 25.00, 5.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow04Column05"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 129
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow04Column06
+      Transform:
+        <<: *DefaultTransform
+        position: [5.00, 25.00, 5.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow04Column06"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 130
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow04Column07
+      Transform:
+        <<: *DefaultTransform
+        position: [10.00, 25.00, 5.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow04Column07"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 131
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow04Column08
+      Transform:
+        <<: *DefaultTransform
+        position: [15.00, 25.00, 5.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow04Column08"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 132
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow05Column01
+      Transform:
+        <<: *DefaultTransform
+        position: [-20.00, 25.00, 15.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow05Column01"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 133
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow05Column02
+      Transform:
+        <<: *DefaultTransform
+        position: [-15.00, 25.00, 15.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow05Column02"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 134
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow05Column03
+      Transform:
+        <<: *DefaultTransform
+        position: [-10.00, 25.00, 15.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow05Column03"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 135
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow05Column04
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 25.00, 15.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow05Column04"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 136
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow05Column05
+      Transform:
+        <<: *DefaultTransform
+        position: [0.00, 25.00, 15.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow05Column05"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 137
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow05Column06
+      Transform:
+        <<: *DefaultTransform
+        position: [5.00, 25.00, 15.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow05Column06"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 138
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow05Column07
+      Transform:
+        <<: *DefaultTransform
+        position: [10.00, 25.00, 15.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow05Column07"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 139
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow05Column08
+      Transform:
+        <<: *DefaultTransform
+        position: [15.00, 25.00, 15.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow05Column08"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 140
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow06Column01
+      Transform:
+        <<: *DefaultTransform
+        position: [-20.00, 25.00, 20.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow06Column01"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 141
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow06Column02
+      Transform:
+        <<: *DefaultTransform
+        position: [-15.00, 25.00, 20.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow06Column02"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 142
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow06Column03
+      Transform:
+        <<: *DefaultTransform
+        position: [-10.00, 25.00, 20.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow06Column03"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 143
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow06Column04
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 25.00, 20.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow06Column04"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 144
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow06Column05
+      Transform:
+        <<: *DefaultTransform
+        position: [0.00, 25.00, 20.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow06Column05"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 145
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow06Column06
+      Transform:
+        <<: *DefaultTransform
+        position: [5.00, 25.00, 20.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow06Column06"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 146
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow06Column07
+      Transform:
+        <<: *DefaultTransform
+        position: [10.00, 25.00, 20.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow06Column07"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 147
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow06Column08
+      Transform:
+        <<: *DefaultTransform
+        position: [15.00, 25.00, 20.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow06Column08"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 148
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow07Column01
+      Transform:
+        <<: *DefaultTransform
+        position: [-20.00, 25.00, 25.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow07Column01"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 149
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow07Column02
+      Transform:
+        <<: *DefaultTransform
+        position: [-15.00, 25.00, 25.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow07Column02"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 150
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow07Column03
+      Transform:
+        <<: *DefaultTransform
+        position: [-10.00, 25.00, 25.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow07Column03"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 151
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow07Column04
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 25.00, 25.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow07Column04"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 152
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow07Column05
+      Transform:
+        <<: *DefaultTransform
+        position: [0.00, 25.00, 25.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow07Column05"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 153
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow07Column06
+      Transform:
+        <<: *DefaultTransform
+        position: [5.00, 25.00, 25.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow07Column06"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 154
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow07Column07
+      Transform:
+        <<: *DefaultTransform
+        position: [10.00, 25.00, 25.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow07Column07"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 155
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow07Column08
+      Transform:
+        <<: *DefaultTransform
+        position: [15.00, 25.00, 25.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow07Column08"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 156
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow08Column01
+      Transform:
+        <<: *DefaultTransform
+        position: [-20.00, 25.00, 30.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow08Column01"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 157
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow08Column02
+      Transform:
+        <<: *DefaultTransform
+        position: [-15.00, 25.00, 30.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow08Column02"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 158
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow08Column03
+      Transform:
+        <<: *DefaultTransform
+        position: [-10.00, 25.00, 30.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow08Column03"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 159
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow08Column04
+      Transform:
+        <<: *DefaultTransform
+        position: [-5.00, 25.00, 30.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow08Column04"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 160
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow08Column05
+      Transform:
+        <<: *DefaultTransform
+        position: [0.00, 25.00, 30.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow08Column05"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 161
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow08Column06
+      Transform:
+        <<: *DefaultTransform
+        position: [5.00, 25.00, 30.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow08Column06"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 162
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow08Column07
+      Transform:
+        <<: *DefaultTransform
+        position: [10.00, 25.00, 30.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow08Column07"
+        active: true
+        actorType: Kinematic
+        mass: 1.0
+        flags: [None]
+        friction: 0.6
+        restitution: 0.1
+        BB:
+          Center: [0.00, 0.00, 0.00]
+          Extents: [0.60, 0.85, 0.60]
+  - EntityId: 163
+    ParentEntityId: -1
+    Pipeline: CharacterPipeline
+    Components:
+      Tag:
+        text: ObjectTag
+      Culling:
+        frustumCulling: true
+      Name:
+        text: LoadTestMannequinRow08Column08
+      Transform:
+        <<: *DefaultTransform
+        position: [15.00, 25.00, 30.00]
+      PrefabInstance:
+        <<: *Prefab1004
+        prefabId: 1004
+      Animation:
+        text: knight.animbin
+        initclip: 0
+        AnimationGraph: knight_idle_run.graph.yaml
+      FootIKRig:
+        enabled: true
+        leftFootBoneName: foot_l
+        rightFootBoneName: foot_r
+        leftToeBoneName: ball_l
+        rightToeBoneName: ball_r
+        leftShinBoneName: calf_l
+        rightShinBoneName: calf_r
+        leftThighBoneName: thigh_l
+        rightThighBoneName: thigh_r
+        pelvisBoneName: pelvis
+        footSoleOffset: 0.12
+        blendSpeed: 12.0
+        maxLift: 0.35
+        maxDrop: 0.20
+      Physics:
+        name: "LoadTestMannequinRow08Column08"
         active: true
         actorType: Kinematic
         mass: 1.0

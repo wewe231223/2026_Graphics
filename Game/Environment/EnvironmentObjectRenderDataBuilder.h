@@ -17,6 +17,7 @@ namespace Game {
         EnvironmentObjectCellKey mCellKey{};
         DirectX::BoundingOrientedBox mWorldBoundingBox{};
         std::vector<RenderContract::EnvironmentInstanceContext> mInstanceContexts{};
+        std::vector<std::uint32_t> mInstancePrototypeIndices{};
         std::vector<std::uint32_t> mPrototypeIndices{};
         std::vector<EnvironmentObjectRenderPacketLod> mLods{};
         std::uint64_t mGenerationVersion{};

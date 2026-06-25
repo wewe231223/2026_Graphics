@@ -655,6 +655,9 @@ namespace Game {
         if (Snapshot != nullptr) {
             Status.mSnapshotStepIndex = Snapshot->mStepIndex;
             Status.mActorCount = Snapshot->mTotalActorCount;
+            Status.mLastUpdateStepCount = Snapshot->mLastUpdateStepCount;
+            Status.mLastUpdateStepElapsedMilliseconds = Snapshot->mLastUpdateStepElapsedMilliseconds;
+            Status.mLastStepElapsedMilliseconds = Snapshot->mLastStepElapsedMilliseconds;
             const double LatestSimulationTimeSeconds{ Context.mPhysicsRuntime.LatestSimulationTimeSeconds() };
             Status.mSnapshotAgeMilliseconds = std::max(0.0, LatestSimulationTimeSeconds - Snapshot->mSimulationTimeSeconds) * 1000.0;
         }

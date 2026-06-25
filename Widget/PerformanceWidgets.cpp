@@ -244,6 +244,8 @@ namespace Widget {
             ImGui::Text("LatestStepIndex %llu", static_cast<unsigned long long>(RuntimeStatus.mLatestStepIndex));
             ImGui::Text("SnapshotStepIndex %llu", static_cast<unsigned long long>(RuntimeStatus.mSnapshotStepIndex));
             ImGui::Text("ActorCount %zu", RuntimeStatus.mActorCount);
+            ImGui::Text("SnapshotPhysicsStepMs %.3f / 16.667 ms", RuntimeStatus.mLastStepElapsedMilliseconds);
+            ImGui::Text("SnapshotPhysicsUpdate %zu steps, %.3f ms", RuntimeStatus.mLastUpdateStepCount, RuntimeStatus.mLastUpdateStepElapsedMilliseconds);
             ImGui::Text("SnapshotAgeMs %.2f", RuntimeStatus.mSnapshotAgeMilliseconds);
         }
 

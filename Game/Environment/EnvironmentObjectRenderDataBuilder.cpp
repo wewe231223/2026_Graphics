@@ -89,6 +89,7 @@ namespace Game {
         Packet.mInstanceContexts.reserve(Cell.mInstances.size());
         for (const EnvironmentObjectInstance& Instance : Cell.mInstances) {
             Packet.mInstanceContexts.push_back(BuildEnvironmentInstanceContext(Instance));
+            Packet.mInstancePrototypeIndices.push_back(Instance.mPrototypeIndex);
             Packet.mPrototypeIndices.push_back(Instance.mPrototypeIndex);
         }
 
