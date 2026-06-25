@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Environment">
+      <UniqueIdentifier>{CA0F0C96-6FE1-46D3-BEB3-FBDDF9FC19D2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Runtime">
+      <UniqueIdentifier>{220D5178-86C5-4EF7-8932-0434AB2C1F21}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\Game\Environment\EnvironmentObjectRenderContext.cpp">
+      <Filter>Environment</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Game\Environment\EnvironmentObjectRenderDataBuilder.cpp">
+      <Filter>Environment</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Game\Environment\EnvironmentObjectTypes.cpp">
+      <Filter>Environment</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Game\Environment\EnvironmentRuntime.cpp">
+      <Filter>Runtime</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Game\Environment\EnvironmentObjectRenderContext.h">
+      <Filter>Environment</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Game\Environment\EnvironmentObjectRenderDataBuilder.h">
+      <Filter>Environment</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Game\Environment\EnvironmentObjectTypes.h">
+      <Filter>Environment</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Game\Environment\EnvironmentRuntime.h">
+      <Filter>Runtime</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

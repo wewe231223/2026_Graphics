@@ -1820,6 +1820,7 @@ namespace Game {
         FoliagePlacementConfig mConfig{};
         std::vector<FoliageRuntimeRule> mRules{};
         std::vector<EnvironmentObjectPrototype> mEnvironmentPrototypes{};
+        EnvironmentObjectRenderContext mEnvironmentRenderContext{};
         std::vector<EnvironmentObjectCellKey> mVisibleEnvironmentCellKeys{};
         std::vector<FoliageSlot> mSlots{};
         std::unordered_map<FoliageCandidateKey, std::size_t, FoliageCandidateKeyHasher> mSlotByKey{};
@@ -1844,6 +1845,7 @@ namespace Game {
         mConfig{},
         mRules{},
         mEnvironmentPrototypes{},
+        mEnvironmentRenderContext{},
         mVisibleEnvironmentCellKeys{},
         mSlots{},
         mSlotByKey{},
@@ -1871,6 +1873,7 @@ namespace Game {
         mConfig{ Other.mConfig },
         mRules{},
         mEnvironmentPrototypes{},
+        mEnvironmentRenderContext{},
         mVisibleEnvironmentCellKeys{},
         mSlots{},
         mSlotByKey{},
@@ -1899,6 +1902,7 @@ namespace Game {
         mConfig = Other.mConfig;
         mRules.clear();
         mEnvironmentPrototypes.clear();
+        mEnvironmentRenderContext.Clear();
         mVisibleEnvironmentCellKeys.clear();
         mSlots.clear();
         mSlotByKey.clear();
@@ -1924,6 +1928,7 @@ namespace Game {
         mConfig{ std::move(Other.mConfig) },
         mRules{ std::move(Other.mRules) },
         mEnvironmentPrototypes{ std::move(Other.mEnvironmentPrototypes) },
+        mEnvironmentRenderContext{ std::move(Other.mEnvironmentRenderContext) },
         mVisibleEnvironmentCellKeys{ std::move(Other.mVisibleEnvironmentCellKeys) },
         mSlots{ std::move(Other.mSlots) },
         mSlotByKey{ std::move(Other.mSlotByKey) },
@@ -1961,6 +1966,7 @@ namespace Game {
         mConfig = std::move(Other.mConfig);
         mRules = std::move(Other.mRules);
         mEnvironmentPrototypes = std::move(Other.mEnvironmentPrototypes);
+        mEnvironmentRenderContext = std::move(Other.mEnvironmentRenderContext);
         mVisibleEnvironmentCellKeys = std::move(Other.mVisibleEnvironmentCellKeys);
         mSlots = std::move(Other.mSlots);
         mSlotByKey = std::move(Other.mSlotByKey);
@@ -2053,7 +2059,7 @@ namespace Game {
             BuildEnvironmentPrototypes(*Ctx.AssetRegistryResource, *Ctx.MaterialGroups);
         }
 
-        Ctx.mEnvironmentObjectRenderContext.Clear();
+        mEnvironmentRenderContext.Clear();
         mGeneratedEnvironmentCells.clear();
         mDesiredEnvironmentCellKeys.clear();
         mPendingEnvironmentCellKeys.clear();
@@ -2175,9 +2181,11 @@ namespace Game {
     }
 
     void ProceduralFoliageRuntime::RemoveUnloadedEnvironmentObjectCells(FrameContext& Ctx) {
+        static_cast<void>(Ctx);
+
         for (const EnvironmentObjectCellKey& PreviousCellKey : mVisibleEnvironmentCellKeys) {
             if (ContainsEnvironmentCellKey(mDesiredEnvironmentCellKeys, PreviousCellKey) == false) {
-                Ctx.mEnvironmentObjectRenderContext.RemoveCell(PreviousCellKey);
+                mEnvironmentRenderContext.RemoveCell(PreviousCellKey);
             }
         }
 
@@ -2187,13 +2195,13 @@ namespace Game {
                 continue;
             }
 
-            Ctx.mEnvironmentObjectRenderContext.RemoveCell(Iterator->first);
+            mEnvironmentRenderContext.RemoveCell(Iterator->first);
             Iterator = mGeneratedEnvironmentCells.erase(Iterator);
         }
     }
 
     void ProceduralFoliageRuntime::RefreshVisibleEnvironmentObjectCells(FrameContext& Ctx) {
-        Ctx.mEnvironmentObjectRenderContext.SetResidentCellLimit(mDesiredEnvironmentCellKeys.size());
+        mEnvironmentRenderContext.SetResidentCellLimit(mDesiredEnvironmentCellKeys.size());
         std::vector<EnvironmentObjectCellKey> NewVisibleCellKeys{};
         NewVisibleCellKeys.reserve(mDesiredEnvironmentCellKeys.size());
         for (const EnvironmentObjectCellKey& CellKey : mDesiredEnvironmentCellKeys) {
@@ -2204,12 +2212,12 @@ namespace Game {
 
             EnvironmentObjectCell& Cell{ FoundCellIterator->second.mCell };
             if (IsEnvironmentObjectCellRenderable(Cell) == false) {
-                Ctx.mEnvironmentObjectRenderContext.RemoveCell(CellKey);
+                mEnvironmentRenderContext.RemoveCell(CellKey);
                 continue;
             }
 
             Cell.mLastTouchedFrame = Ctx.RenderData.mFrameGlobals.mFrameIndex;
-            Ctx.mEnvironmentObjectRenderContext.UpsertCell(Cell);
+            mEnvironmentRenderContext.UpsertCell(Cell);
             NewVisibleCellKeys.push_back(CellKey);
         }
 
@@ -2217,7 +2225,7 @@ namespace Game {
         NewVisibleCellKeys.erase(std::unique(NewVisibleCellKeys.begin(), NewVisibleCellKeys.end()), NewVisibleCellKeys.end());
 
         mVisibleEnvironmentCellKeys = std::move(NewVisibleCellKeys);
-        Ctx.mEnvironmentObjectRenderContext.SetResidentCellLimit(mVisibleEnvironmentCellKeys.size());
+        mEnvironmentRenderContext.SetResidentCellLimit(mVisibleEnvironmentCellKeys.size());
     }
 
     void ProceduralFoliageRuntime::BuildLoadedCollisionCandidates() {
@@ -2282,7 +2290,7 @@ namespace Game {
         EnvironmentMergedBatchIndexByKey.reserve(mVisibleEnvironmentCellKeys.size());
 
         for (const EnvironmentObjectCellKey& CellKey : mVisibleEnvironmentCellKeys) {
-            const EnvironmentObjectRenderPacket* Packet{ Ctx.mEnvironmentObjectRenderContext.FindCell(CellKey) };
+            const EnvironmentObjectRenderPacket* Packet{ mEnvironmentRenderContext.FindCell(CellKey) };
             if (Packet == nullptr) {
                 continue;
             }

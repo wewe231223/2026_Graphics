@@ -213,15 +213,47 @@ if(MSVC)
     target_compile_options(Terrain PRIVATE /bigobj)
 endif()
 
+add_library(Environment STATIC
+    Game/Environment/EnvironmentObjectRenderContext.cpp
+    Game/Environment/EnvironmentObjectRenderDataBuilder.cpp
+    Game/Environment/EnvironmentObjectTypes.cpp
+    Game/Environment/EnvironmentRuntime.cpp
+)
+
+target_include_directories(Environment PUBLIC
+    ${GraphicsRoot}
+    ${ExternalIncludeDir}
+    ${ExternalDirectXIncludeDir}
+    ${ExternalRapidYmlIncludeDir}
+    ${ExternalLuaIncludeDir}
+)
+
+target_link_directories(Environment PUBLIC
+    $<$<CONFIG:Debug>:${ExternalLibDirDebug}>
+    $<$<CONFIG:Release>:${ExternalLibDirRelease}>
+)
+
+target_link_libraries(Environment PUBLIC RenderContract Terrain Utility DirectXTK12)
+
+target_compile_definitions(Environment PRIVATE
+    _LIB
+    NOMINMAX
+    UNICODE
+    _UNICODE
+    $<$<CONFIG:Debug>:_DEBUG>
+    $<$<NOT:$<CONFIG:Debug>>:NDEBUG>
+)
+
+if(MSVC)
+    target_compile_options(Environment PRIVATE /bigobj)
+endif()
+
 add_library(Game STATIC
     Game/Asset/AnimationGraphAsset.cpp
     Game/Base/Shader.cpp
     Game/Base/RootSignature.cpp
     Game/Base/Pipeline.cpp
     Game/Base/Input.cpp
-    Game/Environment/EnvironmentObjectRenderContext.cpp
-    Game/Environment/EnvironmentObjectRenderDataBuilder.cpp
-    Game/Environment/EnvironmentObjectTypes.cpp
     Game/Model/AssetRegistry.cpp
     Game/Model/AssetRegistryBackEnd.cpp
     Game/Model/Model.cpp
@@ -325,7 +357,7 @@ target_link_directories(Game PUBLIC
     $<$<CONFIG:Release>:${ExternalLibDirRelease}>
 )
 
-target_link_libraries(Game PUBLIC RenderContract Terrain Utility PhysicsLib lua54 DirectXTK12)
+target_link_libraries(Game PUBLIC Environment RenderContract Terrain Utility PhysicsLib lua54 DirectXTK12)
 
 target_compile_definitions(Game PRIVATE
     _LIB
@@ -387,6 +419,7 @@ target_link_libraries(2026_Graphics PRIVATE
     Arche
     Asset
     Game
+    Environment
     Utility
     d3d12
     dxgi
