@@ -178,7 +178,7 @@ namespace Game {
             if (IsVisible == true) {
                 RenderContract::ModelContext ModelContext{};
                 ModelContext.mWorld = NodeWorld;
-                ModelContext.mPrevWorld = ModelContext.mWorld;
+                ModelContext.mPrevWorld = TransformComponent.mPrevWorldMatrix;
 
                 if (BoundingBoxComponent != nullptr && BoundingBoxComponent->HasWorldObb() == true) {
                     AppendBoundingBoxContext(BoundingBoxComponent->GetWorldObb(), RenderData);
@@ -198,7 +198,7 @@ namespace Game {
                 RenderContract::ShadowRenderContext& ShadowRenderContext{ RenderData.mShadowRenderContexts[CascadeIndex] };
                 RenderContract::ModelContext ShadowModelContext{};
                 ShadowModelContext.mWorld = NodeWorld;
-                ShadowModelContext.mPrevWorld = ShadowModelContext.mWorld;
+                ShadowModelContext.mPrevWorld = TransformComponent.mPrevWorldMatrix;
                 ShadowModelContext.mObjectId = static_cast<std::uint32_t>(ShadowRenderContext.mModelContexts.size());
                 ShadowRenderContext.mModelContexts.push_back(ShadowModelContext);
                 AppendStaticDrawRecords(SubMeshes, Node, ResolvedMaterialGroup, ShadowModelContext.mObjectId, MaterialFlags, 0u, ShadowRenderContext.mDrawRecords);

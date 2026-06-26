@@ -220,7 +220,7 @@ TerrainRenderResult Terrain::WriteTerrainRenderData(const TerrainRenderInput& In
             if (HasModelContext == false) {
                 RenderContract::ModelContext ModelContext{};
                 ModelContext.mWorld = Input.mWorld;
-                ModelContext.mPrevWorld = ModelContext.mWorld;
+                ModelContext.mPrevWorld = Input.mPrevWorld;
                 ModelContext.mObjectId = static_cast<std::uint32_t>(Writer.GetModelContexts().size());
                 ObjectIndex = ModelContext.mObjectId;
                 Writer.GetModelContexts().push_back(ModelContext);
@@ -243,7 +243,7 @@ TerrainRenderResult Terrain::WriteTerrainRenderData(const TerrainRenderInput& In
             if (HasShadowModelContexts[CascadeIndex] == false) {
                 RenderContract::ModelContext ShadowModelContext{};
                 ShadowModelContext.mWorld = Input.mWorld;
-                ShadowModelContext.mPrevWorld = ShadowModelContext.mWorld;
+                ShadowModelContext.mPrevWorld = Input.mPrevWorld;
                 ShadowModelContext.mObjectId = static_cast<std::uint32_t>(ShadowRenderContext.mModelContexts.size());
                 ShadowObjectIndices[CascadeIndex] = ShadowModelContext.mObjectId;
                 ShadowRenderContext.mModelContexts.push_back(ShadowModelContext);

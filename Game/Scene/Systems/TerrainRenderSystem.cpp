@@ -164,6 +164,7 @@ namespace Game {
                 Input.mTerrainUploadFuture = Renderer.mResource->GetFrameUploadFuture(FrameIndex);
                 Input.mLocalBoundingBox = Renderer.mResource->GetLocalBoundingBox();
                 Input.mWorld = TransformComponent.worldMatrix;
+                Input.mPrevWorld = TransformComponent.mPrevWorldMatrix;
                 Input.mCameraPosition = CameraPosition;
                 Input.mCullingFrustum = CullingFrustumComponent == nullptr ? nullptr : &CullingFrustumComponent->mValue;
                 Input.mShadowCullingBoxes = ShadowCullingBoxes;

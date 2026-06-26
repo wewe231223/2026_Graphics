@@ -11,6 +11,7 @@ static const float DefaultAmbientLightIntensity = 0.25f;
 static const float3 ShadowColor = float3(0.34f, 0.32f, 0.30f);
 static const float DefaultAlphaCutoff = 0.5f;
 static const float DefaultGBufferSurfaceMarker = 1.0f;
+static const float SkyGBufferSurfaceMarker = 0.5f;
 static const float FoliageGBufferSurfaceMarker = 2.0f;
 static const float FoliageBaseColorBlendFactor = 0.7f;
 static const uint EnvironmentDrawRecordFlagGpuDriven = 0x1u;
@@ -25,6 +26,9 @@ struct VertexInput
 struct VertexOutput
 {
     float4 Position : SV_POSITION;
+    float4 ClipPosition : CLIP_POSITION;
+    float4 PreviousClipPosition : PREVIOUS_CLIP_POSITION;
+    nointerpolation float2 RenderTargetSize : RENDER_TARGET_SIZE;
     float3 Normal : NORMAL;
     float3 WorldPosition : WORLD_POSITION;
     float2 TexCoord0 : TEXCOORD0;
@@ -37,7 +41,10 @@ struct FrameGlobalsGpu
     float4x4 View;
     float4x4 Proj;
     float4x4 ViewProj;
+    float4x4 PrevView;
+    float4x4 PrevProj;
     float4x4 PrevViewProj;
+    float4 RenderTargetSize;
     float Dt;
     uint FrameIndex;
     uint Flags;
@@ -206,16 +213,33 @@ struct GBufferOutput {
     float4 Albedo : SV_TARGET0;
     float4 NormalFlags : SV_TARGET1;
     float4 WorldPosition : SV_TARGET2;
+    float2 MotionVector : SV_TARGET3;
 };
 
-GBufferOutput BuildGBufferOutput(float4 Albedo, float3 WorldNormal, float3 WorldPosition, uint Flags) {
+float2 BuildClipUv(float4 ClipPosition) {
+    const float SafeW = abs(ClipPosition.w) < 0.000001f ? (ClipPosition.w < 0.0f ? -0.000001f : 0.000001f) : ClipPosition.w;
+    const float InvW = rcp(SafeW);
+    const float2 Ndc = ClipPosition.xy * InvW;
+    return float2((Ndc.x * 0.5f) + 0.5f, 0.5f - (Ndc.y * 0.5f));
+}
+
+float2 BuildMotionVector(float4 ClipPosition, float4 PreviousClipPosition, float2 RenderTargetSize) {
+    return (BuildClipUv(PreviousClipPosition) - BuildClipUv(ClipPosition)) * RenderTargetSize;
+}
+
+GBufferOutput BuildGBufferOutput(float4 Albedo, float3 WorldNormal, float3 WorldPosition, uint Flags, float2 MotionVector) {
     GBufferOutput Output;
     const float3 EncodedNormal = (normalize(WorldNormal) * 0.5f) + 0.5f;
     const float PickedFlag = ((Flags & 0x1u) != 0u) ? 1.0f : 0.0f;
     Output.Albedo = saturate(Albedo);
     Output.NormalFlags = float4(EncodedNormal, PickedFlag);
     Output.WorldPosition = float4(WorldPosition, DefaultGBufferSurfaceMarker);
+    Output.MotionVector = MotionVector;
     return Output;
+}
+
+GBufferOutput BuildGBufferOutput(float4 Albedo, float3 WorldNormal, float3 WorldPosition, uint Flags, float4 ClipPosition, float4 PreviousClipPosition, float2 RenderTargetSize) {
+    return BuildGBufferOutput(Albedo, WorldNormal, WorldPosition, Flags, BuildMotionVector(ClipPosition, PreviousClipPosition, RenderTargetSize));
 }
 
 uint ResolveMaterialTextureSrvDescriptorIndex(StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer, int64_t TextureTableIndex) {

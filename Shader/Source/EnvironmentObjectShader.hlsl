@@ -23,6 +23,9 @@ struct EnvironmentDepthVertexInput
 struct EnvironmentVertexOutput
 {
     float4 Position : SV_POSITION;
+    float4 ClipPosition : CLIP_POSITION;
+    float4 PreviousClipPosition : PREVIOUS_CLIP_POSITION;
+    nointerpolation float2 RenderTargetSize : RENDER_TARGET_SIZE;
     float3 Normal : NORMAL;
     float3 Tangent : TANGENT;
     float3 Bitangent : BITANGENT;
@@ -85,7 +88,11 @@ EnvironmentVertexOutput VsMain(EnvironmentVertexInput Input, uint InstanceId : S
     const float3 WorldPosition = BuildEnvironmentWorldPosition(Input.Position, InstanceContext, SegmentContext, SinYaw, CosYaw);
 
     EnvironmentVertexOutput Output;
-    Output.Position = mul(float4(WorldPosition, 1.0f), FrameGlobals.ViewProj);
+    const float4 ClipPosition = mul(float4(WorldPosition, 1.0f), FrameGlobals.ViewProj);
+    Output.Position = ClipPosition;
+    Output.ClipPosition = ClipPosition;
+    Output.PreviousClipPosition = mul(float4(WorldPosition, 1.0f), FrameGlobals.PrevViewProj);
+    Output.RenderTargetSize = FrameGlobals.RenderTargetSize.xy;
     Output.Normal = BuildEnvironmentWorldDirection(Input.Normal, InstanceContext, SegmentContext, SinYaw, CosYaw);
     Output.Tangent = BuildEnvironmentWorldDirection(Input.Tangent, InstanceContext, SegmentContext, SinYaw, CosYaw);
     Output.Bitangent = BuildEnvironmentWorldDirection(Input.Bitangent, InstanceContext, SegmentContext, SinYaw, CosYaw);
@@ -148,7 +155,7 @@ GBufferOutput PsMain(EnvironmentVertexOutput Input) {
         WorldNormal = ResolveTbnNormalMappedWorldNormal(Input.Normal, Input.Tangent, Input.Bitangent, NormalTangent);
     }
 
-    GBufferOutput Output = BuildGBufferOutput(BaseColor, WorldNormal, Input.WorldPosition, Input.Flags);
+    GBufferOutput Output = BuildGBufferOutput(BaseColor, WorldNormal, Input.WorldPosition, Input.Flags, Input.ClipPosition, Input.PreviousClipPosition, Input.RenderTargetSize);
     Output.WorldPosition.w = FoliageGBufferSurfaceMarker;
     return Output;
 }

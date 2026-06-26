@@ -218,7 +218,7 @@ namespace Core {
 			}
 		}
 
-		void DrawCallDispatcher::DrawDeferredLighting(ID3D12GraphicsCommandList* CommandList, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ShadowMappingParameterSrvHandle, DescriptorHandle ShadowMapTextureBaseSrvHandle, DescriptorHandle GBufferAlbedoSrvHandle, DescriptorHandle GBufferNormalSrvHandle, DescriptorHandle GBufferWorldPositionSrvHandle) {
+		void DrawCallDispatcher::DrawDeferredLighting(ID3D12GraphicsCommandList* CommandList, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ShadowMappingParameterSrvHandle, DescriptorHandle ShadowMapTextureBaseSrvHandle, DescriptorHandle GBufferAlbedoSrvHandle, DescriptorHandle GBufferNormalSrvHandle, DescriptorHandle GBufferWorldPositionSrvHandle, DescriptorHandle GBufferMotionVectorSrvHandle, DescriptorHandle DepthSrvHandle) {
 			if (CommandList == nullptr) {
 				return;
 			}
@@ -239,8 +239,8 @@ namespace Core {
 			RootConstants.BonePaletteSrvIndex = GBufferNormalSrvHandle.GetIndex();
 			RootConstants.DrawRecordSrvIndex = GBufferWorldPositionSrvHandle.GetIndex();
 			RootConstants.DrawRecordBaseIndex = 0u;
-			RootConstants.MaterialSrvIndex = InvalidDescriptorIndex;
-			RootConstants.MaterialTextureTableSrvIndex = InvalidDescriptorIndex;
+			RootConstants.MaterialSrvIndex = GBufferMotionVectorSrvHandle.GetIndex();
+			RootConstants.MaterialTextureTableSrvIndex = DepthSrvHandle.GetIndex();
 			RootConstants.ShadowMappingParameterSrvIndex = ShadowMappingParameterSrvHandle.GetIndex();
 			RootConstants.ShadowMapTextureBaseSrvIndex = ShadowMapTextureBaseSrvHandle.GetIndex();
 			RootConstants.FrameGlobalsElementIndex = 0u;

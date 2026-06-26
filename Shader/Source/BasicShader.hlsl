@@ -31,7 +31,12 @@ VertexOutput VsMain(VertexInput Input, uint InstanceId : SV_InstanceID)
 
     float4x4 World = ModelContext.World;
     const float4 WorldPosition = mul(float4(Input.Position, 1.0f), World);
-    Output.Position = mul(WorldPosition, FrameGlobals.ViewProj);
+    const float4 ClipPosition = mul(WorldPosition, FrameGlobals.ViewProj);
+    const float4 PreviousWorldPosition = mul(float4(Input.Position, 1.0f), ModelContext.PrevWorld);
+    Output.Position = ClipPosition;
+    Output.ClipPosition = ClipPosition;
+    Output.PreviousClipPosition = mul(PreviousWorldPosition, FrameGlobals.PrevViewProj);
+    Output.RenderTargetSize = FrameGlobals.RenderTargetSize.xy;
     Output.Normal = normalize(mul(Input.Normal, (float3x3)World));
     Output.WorldPosition = WorldPosition.xyz;
     Output.TexCoord0 = Input.TexCoord0;
@@ -85,11 +90,11 @@ GBufferOutput PsMain(VertexOutput Input) {
     if (DiffuseTextureSrvIndex != 0xffffffffu) {
         Texture2D<float4> DiffuseTexture = ResourceDescriptorHeap[NonUniformResourceIndex(DiffuseTextureSrvIndex)];
         const float4 SampledColor = ApplyMaterialOpacity(ApplyBaseColorToLinear(DiffuseTexture.Sample(LinearWrapSampler, Input.TexCoord0)), MaterialData);
-        return BuildGBufferOutput(SampledColor, Input.Normal, Input.WorldPosition, Input.Flags);
+        return BuildGBufferOutput(SampledColor, Input.Normal, Input.WorldPosition, Input.Flags, Input.ClipPosition, Input.PreviousClipPosition, Input.RenderTargetSize);
     }
 
     const float4 FallbackColor = ApplyMaterialOpacity(ResolveMaterialColorFallback(MaterialData), MaterialData);
-    return BuildGBufferOutput(FallbackColor, Input.Normal, Input.WorldPosition, Input.Flags);
+    return BuildGBufferOutput(FallbackColor, Input.Normal, Input.WorldPosition, Input.Flags, Input.ClipPosition, Input.PreviousClipPosition, Input.RenderTargetSize);
 }
 
 void PsMainDepthAlphaCutoff(DepthAlphaCutoffVertexOutput Input) {

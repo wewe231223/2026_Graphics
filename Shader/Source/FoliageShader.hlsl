@@ -14,6 +14,9 @@ struct FoliageVertexInput {
 
 struct FoliageVertexOutput {
     float4 Position : SV_POSITION;
+    float4 ClipPosition : CLIP_POSITION;
+    float4 PreviousClipPosition : PREVIOUS_CLIP_POSITION;
+    nointerpolation float2 RenderTargetSize : RENDER_TARGET_SIZE;
     float3 Normal : NORMAL;
     float3 Tangent : TANGENT;
     float3 Bitangent : BITANGENT;
@@ -40,9 +43,14 @@ FoliageVertexOutput VsMain(FoliageVertexInput Input, uint InstanceId : SV_Instan
     const float4x4 World = ModelContext.World;
     const float3x3 WorldRotation = (float3x3)World;
     const float4 WorldPosition = mul(float4(Input.Position, 1.0f), World);
+    const float4 ClipPosition = mul(WorldPosition, FrameGlobals.ViewProj);
+    const float4 PreviousWorldPosition = mul(float4(Input.Position, 1.0f), ModelContext.PrevWorld);
 
     FoliageVertexOutput Output;
-    Output.Position = mul(WorldPosition, FrameGlobals.ViewProj);
+    Output.Position = ClipPosition;
+    Output.ClipPosition = ClipPosition;
+    Output.PreviousClipPosition = mul(PreviousWorldPosition, FrameGlobals.PrevViewProj);
+    Output.RenderTargetSize = FrameGlobals.RenderTargetSize.xy;
     Output.Normal = normalize(mul(Input.Normal, WorldRotation));
     Output.Tangent = normalize(mul(Input.Tangent, WorldRotation));
     Output.Bitangent = normalize(mul(Input.Bitangent, WorldRotation));
@@ -99,7 +107,7 @@ GBufferOutput PsMain(FoliageVertexOutput Input) {
         WorldNormal = ResolveTbnNormalMappedWorldNormal(Input.Normal, Input.Tangent, Input.Bitangent, NormalTangent);
     }
 
-    GBufferOutput Output = BuildGBufferOutput(BaseColor, WorldNormal, Input.WorldPosition, Input.Flags);
+    GBufferOutput Output = BuildGBufferOutput(BaseColor, WorldNormal, Input.WorldPosition, Input.Flags, Input.ClipPosition, Input.PreviousClipPosition, Input.RenderTargetSize);
     Output.WorldPosition.w = FoliageGBufferSurfaceMarker;
     return Output;
 }

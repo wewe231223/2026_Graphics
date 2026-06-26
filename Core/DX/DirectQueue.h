@@ -108,10 +108,11 @@ namespace Core {
 			void DrainDebugMessages();
 
 		private:
-			static constexpr std::uint32_t GBufferTargetCount{ 3 };
+			static constexpr std::uint32_t GBufferTargetCount{ 4 };
 			static constexpr std::uint32_t GBufferAlbedoIndex{ 0 };
 			static constexpr std::uint32_t GBufferNormalIndex{ 1 };
 			static constexpr std::uint32_t GBufferWorldPositionIndex{ 2 };
+			static constexpr std::uint32_t GBufferMotionVectorIndex{ 3 };
 			static constexpr std::uint32_t GpuTimestampCountPerFrame{ 2 };
 
 			HWND mHwnd{ nullptr };

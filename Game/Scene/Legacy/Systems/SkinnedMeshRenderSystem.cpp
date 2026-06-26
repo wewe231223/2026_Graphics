@@ -223,7 +223,7 @@ namespace Game {
 
             RenderContract::ModelContext ModelContext{};
             ModelContext.mWorld = TransformComponent.worldMatrix;
-            ModelContext.mPrevWorld = ModelContext.mWorld;
+            ModelContext.mPrevWorld = TransformComponent.mPrevWorldMatrix;
             ModelContext.mFlags = SkinnedModelContextFlagBitMask;
             ModelContext.mBoneIndexStart = GlobalBoneIndexStart;
             ModelContext.mObjectId = static_cast<std::uint32_t>(RenderData.mModelContexts.size());
@@ -239,7 +239,7 @@ namespace Game {
                 RenderContract::ShadowRenderContext& ShadowRenderContext{ RenderData.mShadowRenderContexts[CascadeIndex] };
                 RenderContract::ModelContext ShadowModelContext{};
                 ShadowModelContext.mWorld = TransformComponent.worldMatrix;
-                ShadowModelContext.mPrevWorld = ShadowModelContext.mWorld;
+                ShadowModelContext.mPrevWorld = TransformComponent.mPrevWorldMatrix;
                 ShadowModelContext.mFlags = SkinnedModelContextFlagBitMask;
                 ShadowModelContext.mBoneIndexStart = GlobalBoneIndexStart;
                 ShadowModelContext.mObjectId = static_cast<std::uint32_t>(ShadowRenderContext.mModelContexts.size());

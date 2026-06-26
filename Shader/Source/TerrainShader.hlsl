@@ -33,6 +33,9 @@ struct TerrainPatchConstantOutput
 struct TerrainVertexOutput
 {
     float4 Position : SV_POSITION;
+    float4 ClipPosition : CLIP_POSITION;
+    float4 PreviousClipPosition : PREVIOUS_CLIP_POSITION;
+    nointerpolation float2 RenderTargetSize : RENDER_TARGET_SIZE;
     float3 Normal : NORMAL;
     float3 Tangent : TANGENT;
     float3 Bitangent : BITANGENT;
@@ -270,9 +273,14 @@ TerrainVertexOutput DsMain(TerrainPatchConstantOutput PatchConstants, float2 Dom
     const float3x3 WorldRotation = (float3x3) World;
     const float4x4 ViewProj = FrameGlobals.ViewProj;
     const float4 WorldPosition = mul(float4(LocalPosition, 1.0f), World);
+    const float4 ClipPosition = mul(WorldPosition, ViewProj);
+    const float4 PreviousWorldPosition = mul(float4(LocalPosition, 1.0f), ModelContext.PrevWorld);
 
     TerrainVertexOutput Output;
-    Output.Position = mul(WorldPosition, ViewProj);
+    Output.Position = ClipPosition;
+    Output.ClipPosition = ClipPosition;
+    Output.PreviousClipPosition = mul(PreviousWorldPosition, FrameGlobals.PrevViewProj);
+    Output.RenderTargetSize = FrameGlobals.RenderTargetSize.xy;
     Output.Normal = normalize(mul(LocalSurfaceFrame.Normal, WorldRotation));
     Output.Tangent = normalize(mul(LocalSurfaceFrame.Tangent, WorldRotation));
     Output.Bitangent = normalize(mul(LocalSurfaceFrame.Bitangent, WorldRotation));
@@ -559,5 +567,5 @@ GBufferOutput PsMain(TerrainVertexOutput Input)
     ResolveTerrainMaterial(MaterialData, MaterialTextureTableBuffer, PatchContext, Input.TexCoord0, Input.LayerTexCoord, TerrainColor, TerrainNormalTangent);
     const float3 TerrainNormal = ResolveTbnNormalMappedWorldNormal(Input.Normal, Input.Tangent, Input.Bitangent, TerrainNormalTangent);
     const float4 BaseColor = ApplyMaterialOpacity(ApplyBaseColor(TerrainColor), MaterialData);
-    return BuildGBufferOutput(BaseColor, TerrainNormal, Input.WorldPosition, Input.Flags);
+    return BuildGBufferOutput(BaseColor, TerrainNormal, Input.WorldPosition, Input.Flags, Input.ClipPosition, Input.PreviousClipPosition, Input.RenderTargetSize);
 }

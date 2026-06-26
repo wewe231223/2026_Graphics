@@ -14,6 +14,10 @@ namespace {
     constexpr DirectX::SimpleMath::Vector3 TemporaryFixedCameraPosition{ 0.0f, -3.0f, 3.0f };
     constexpr DirectX::SimpleMath::Vector3 TemporaryFixedCameraFocusPosition{ 0.0f, 0.0f, 0.0f };
     constexpr DirectX::SimpleMath::Vector3 TemporaryFixedCameraUpDirection{ 0.0f, 1.0f, 0.0f };
+
+    bool IsZeroMatrix(const DirectX::SimpleMath::Matrix& MatrixValue) {
+        return MatrixValue._11 == 0.0f && MatrixValue._12 == 0.0f && MatrixValue._13 == 0.0f && MatrixValue._14 == 0.0f && MatrixValue._21 == 0.0f && MatrixValue._22 == 0.0f && MatrixValue._23 == 0.0f && MatrixValue._24 == 0.0f && MatrixValue._31 == 0.0f && MatrixValue._32 == 0.0f && MatrixValue._33 == 0.0f && MatrixValue._34 == 0.0f && MatrixValue._41 == 0.0f && MatrixValue._42 == 0.0f && MatrixValue._43 == 0.0f && MatrixValue._44 == 0.0f;
+    }
 }
 
 namespace Game {
@@ -109,7 +113,10 @@ namespace Game {
         CameraParameter.mFovRadians = DirectX::XMConvertToRadians(CameraComponent.fov);
 
         RenderContract::FrameGlobals FrameGlobals{ RenderData.mFrameGlobals };
-        FrameGlobals.mPrevViewProj = FrameGlobals.mViewProj;
+        const bool IsFirstFrame{ IsZeroMatrix(FrameGlobals.mViewProj) == true };
+        FrameGlobals.mPrevView = IsFirstFrame == true ? CameraParameter.mView : FrameGlobals.mView;
+        FrameGlobals.mPrevProj = IsFirstFrame == true ? CameraParameter.mProj : FrameGlobals.mProj;
+        FrameGlobals.mPrevViewProj = IsFirstFrame == true ? CameraParameter.mViewProj : FrameGlobals.mViewProj;
         FrameGlobals.mView = CameraParameter.mView;
         FrameGlobals.mProj = CameraParameter.mProj;
         FrameGlobals.mViewProj = CameraParameter.mViewProj;

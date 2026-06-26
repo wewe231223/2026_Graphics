@@ -13,6 +13,10 @@ namespace {
         return TransformComponent.nodeToParent * TrsMatrix;
     }
 
+    bool AreMatricesEqual(const SimpleMath::Matrix& Left, const SimpleMath::Matrix& Right) {
+        return Left._11 == Right._11 && Left._12 == Right._12 && Left._13 == Right._13 && Left._14 == Right._14 && Left._21 == Right._21 && Left._22 == Right._22 && Left._23 == Right._23 && Left._24 == Right._24 && Left._31 == Right._31 && Left._32 == Right._32 && Left._33 == Right._33 && Left._34 == Right._34 && Left._41 == Right._41 && Left._42 == Right._42 && Left._43 == Right._43 && Left._44 == Right._44;
+    }
+
     bool TryResolveWorldMatrix(Arche::World& World, Arche::EntityID EntityId, std::unordered_map<Arche::EntityID, SimpleMath::Matrix>& InOutWorldMatrices, SimpleMath::Matrix& OutWorldMatrix) {
         const std::unordered_map<Arche::EntityID, SimpleMath::Matrix>::const_iterator CachedWorldMatrixIter{ InOutWorldMatrices.find(EntityId) };
         if (CachedWorldMatrixIter != InOutWorldMatrices.end()) {
@@ -43,13 +47,16 @@ namespace {
 
         for (std::vector<Arche::EntityID>::const_reverse_iterator EntityPathIter{ EntityPath.crbegin() }; EntityPathIter != EntityPath.crend(); ++EntityPathIter) {
             const Arche::EntityID CurrentPathEntityId{ *EntityPathIter };
-            const Game::Transform* TransformComponent{ std::as_const(World).GetComponent<Game::Transform>(CurrentPathEntityId) };
+            Game::Transform* TransformComponent{ World.GetComponent<Game::Transform>(CurrentPathEntityId) };
             if (TransformComponent == nullptr) {
                 return false;
             }
 
             const SimpleMath::Matrix LocalWorldMatrix{ BuildLocalWorldMatrix(*TransformComponent) };
             const SimpleMath::Matrix CurrentWorldMatrix{ LocalWorldMatrix * ParentWorldMatrix };
+            TransformComponent->mPrevWorldMatrix = TransformComponent->mWorldMatrixCacheValid == true ? TransformComponent->worldMatrix : CurrentWorldMatrix;
+            TransformComponent->mWorldMatrixChanged = TransformComponent->mWorldMatrixCacheValid == false || AreMatricesEqual(TransformComponent->worldMatrix, CurrentWorldMatrix) == false;
+            TransformComponent->mWorldMatrixCacheValid = true;
             InOutWorldMatrices[CurrentPathEntityId] = CurrentWorldMatrix;
             ParentWorldMatrix = CurrentWorldMatrix;
         }

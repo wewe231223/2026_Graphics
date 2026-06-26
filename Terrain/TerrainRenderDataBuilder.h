@@ -30,6 +30,7 @@ namespace Terrain {
         DirectX::BoundingOrientedBox mLocalBoundingBox{};
         DirectX::BoundingOrientedBox mParentWorldBoundingBox{};
         DirectX::SimpleMath::Matrix mWorld{};
+        DirectX::SimpleMath::Matrix mPrevWorld{};
         DirectX::SimpleMath::Vector3 mCameraPosition{};
         const DirectX::BoundingFrustum* mCullingFrustum{};
         std::array<DirectX::BoundingOrientedBox, RenderContract::ShadowCascadeMaxCount> mShadowCullingBoxes{};

@@ -189,6 +189,7 @@ namespace Game {
         scale = SimpleMath::Vector3{ 1.0f, 1.0f, 1.0f };
         nodeToParent = SimpleMath::Matrix::Identity;
         worldMatrix = SimpleMath::Matrix::Identity;
+        mPrevWorldMatrix = SimpleMath::Matrix::Identity;
         mCachedPosition = SimpleMath::Vector3::Zero;
         mCachedRotation = SimpleMath::Quaternion::Identity;
         mCachedScale = SimpleMath::Vector3::One;

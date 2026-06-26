@@ -132,6 +132,9 @@ namespace Core {
 		void DirectQueue::PreRender(RenderContract::RenderFrameData& Data, float Dt) {
 			Data.mFrameGlobals.mDt = Dt;
 			mRTVIndex = static_cast<uint32_t>(mFrameSync.GetCurrentIndex());
+			const float RenderTargetWidth{ mGBufferTargets[GBufferAlbedoIndex] != nullptr ? static_cast<float>(mGBufferTargets[GBufferAlbedoIndex]->GetWidth()) : Config::Query()->Get<float>("Window_Width") };
+			const float RenderTargetHeight{ mGBufferTargets[GBufferAlbedoIndex] != nullptr ? static_cast<float>(mGBufferTargets[GBufferAlbedoIndex]->GetHeight()) : Config::Query()->Get<float>("Window_Height") };
+			Data.mFrameGlobals.mRenderTargetSize = DirectX::SimpleMath::Vector4{ RenderTargetWidth, RenderTargetHeight, RenderTargetWidth > 0.0f ? 1.0f / RenderTargetWidth : 0.0f, RenderTargetHeight > 0.0f ? 1.0f / RenderTargetHeight : 0.0f };
 
 			ErrorHandler::report(mGraphicsAllocator == nullptr, "DirectQueue", "GraphicsAllocator is not set.", ErrorHandler::Level::Critical);
 			ErrorHandler::report(mCopyQueue == nullptr, "DirectQueue", "CopyQueue is not set.", ErrorHandler::Level::Critical);
@@ -246,7 +249,8 @@ namespace Core {
 			const std::array<float, 4> GBufferAlbedoClearColor{ 0.0f, 0.0f, 0.0f, 0.0f };
 			const std::array<float, 4> GBufferNormalClearColor{ 0.5f, 0.5f, 1.0f, 0.0f };
 			const std::array<float, 4> GBufferWorldPositionClearColor{ 0.0f, 0.0f, 0.0f, 0.0f };
-			const std::array<const float*, GBufferTargetCount> GBufferClearColors{ GBufferAlbedoClearColor.data(), GBufferNormalClearColor.data(), GBufferWorldPositionClearColor.data() };
+			const std::array<float, 4> GBufferMotionVectorClearColor{ 0.0f, 0.0f, 0.0f, 0.0f };
+			const std::array<const float*, GBufferTargetCount> GBufferClearColors{ GBufferAlbedoClearColor.data(), GBufferNormalClearColor.data(), GBufferWorldPositionClearColor.data(), GBufferMotionVectorClearColor.data() };
 			for (std::uint32_t GBufferIndex{ 0 }; GBufferIndex < GBufferTargetCount; GBufferIndex += 1) {
 				mGBufferTargets[GBufferIndex]->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 				GBufferRtvs[GBufferIndex] = mGBufferTargets[GBufferIndex]->GetRTV();
@@ -323,6 +327,8 @@ namespace Core {
 				mDrawCallDispatcher.DrawEnvironmentGBuffer(mEnvironmentCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetEnvironmentInstanceContextSrvHandle(), DrawCallResources.GetEnvironmentSegmentContextSrvHandle(), DrawCallResources.GetEnvironmentDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
 			}
 
+			mDrawCallDispatcher.DrawSkyDome(mEnvironmentCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetTerrainPatchContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
+
 			for (std::uint32_t GBufferIndex{ 0 }; GBufferIndex < GBufferTargetCount; GBufferIndex += 1) {
 				mGBufferTargets[GBufferIndex]->Transition(mEnvironmentCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 			}
@@ -337,9 +343,9 @@ namespace Core {
 			D3D12_CPU_DESCRIPTOR_HANDLE LightingRtv{ LightingTarget->GetRTV() };
 			mEnvironmentCommandList->ClearRenderTargetView(LightingRtv, DirectX::Colors::Blue, 0, nullptr);
 			mEnvironmentCommandList->OMSetRenderTargets(1, &LightingRtv, FALSE, nullptr);
-			mDrawCallDispatcher.DrawDeferredLighting(mEnvironmentCommandList.Get(), DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetShadowMappingParameterSrvHandle(), mShadowMapBaseSrvHandle, mGBufferTargets[GBufferAlbedoIndex]->GetSRVDescriptorHandle(), mGBufferTargets[GBufferNormalIndex]->GetSRVDescriptorHandle(), mGBufferTargets[GBufferWorldPositionIndex]->GetSRVDescriptorHandle());
-			mEnvironmentCommandList->OMSetRenderTargets(1, &LightingRtv, FALSE, &Dsv);
-			mDrawCallDispatcher.DrawSkyDome(mEnvironmentCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetTerrainPatchContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
+			mDepthStencilBuffer->Transition(mEnvironmentCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+			mDrawCallDispatcher.DrawDeferredLighting(mEnvironmentCommandList.Get(), DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetShadowMappingParameterSrvHandle(), mShadowMapBaseSrvHandle, mGBufferTargets[GBufferAlbedoIndex]->GetSRVDescriptorHandle(), mGBufferTargets[GBufferNormalIndex]->GetSRVDescriptorHandle(), mGBufferTargets[GBufferWorldPositionIndex]->GetSRVDescriptorHandle(), mGBufferTargets[GBufferMotionVectorIndex]->GetSRVDescriptorHandle(), mDepthStencilBuffer->GetSRVDescriptorHandle());
+			mDepthStencilBuffer->Transition(mEnvironmentCommandList.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE);
 
 			PreparePostProcessJobResources(mEnvironmentCommandList.Get(), ToneMappingJob);
 
@@ -583,18 +589,19 @@ namespace Core {
 
 			mDSVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
 
-			CD3DX12_CLEAR_VALUE depthOptimizedClearValue{ DXGI_FORMAT_D24_UNORM_S8_UINT, 1.0f, 0 };
-			mDepthStencilBuffer = Texture::CreateTarget(mDevice.Get(), Config::Query()->Get<uint32_t>("Window_Width"), Config::Query()->Get<uint32_t>("Window_Height"), DXGI_FORMAT_D24_UNORM_S8_UINT, TextureUsage::DepthStencil, &depthOptimizedClearValue);
+			CD3DX12_CLEAR_VALUE depthOptimizedClearValue{ DXGI_FORMAT_D32_FLOAT, 1.0f, 0 };
+			mDepthStencilBuffer = Texture::CreateTarget(mDevice.Get(), Config::Query()->Get<uint32_t>("Window_Width"), Config::Query()->Get<uint32_t>("Window_Height"), DXGI_FORMAT_R32_TYPELESS, TextureUsage::DepthStencil, &depthOptimizedClearValue);
 
 			mDepthStencilBuffer->CreateDSV(mDevice.Get(), &mDSVHeap);
+			mDepthStencilBuffer->CreateSRV(mDevice.Get(), &mSrvHeap);
 			DirectQueue::InitGBufferResources();
 		}
 
 		void DirectQueue::InitGBufferResources() {
 			const std::uint32_t Width{ Config::Query()->Get<uint32_t>("Window_Width") };
 			const std::uint32_t Height{ Config::Query()->Get<uint32_t>("Window_Height") };
-			const std::array<DXGI_FORMAT, GBufferTargetCount> Formats{ DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_R32G32B32A32_FLOAT };
-			const std::array<DirectX::XMFLOAT4, GBufferTargetCount> ClearColors{ DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 0.0f }, DirectX::XMFLOAT4{ 0.5f, 0.5f, 1.0f, 0.0f }, DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 0.0f } };
+			const std::array<DXGI_FORMAT, GBufferTargetCount> Formats{ DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_FORMAT_R16G16_FLOAT };
+			const std::array<DirectX::XMFLOAT4, GBufferTargetCount> ClearColors{ DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 0.0f }, DirectX::XMFLOAT4{ 0.5f, 0.5f, 1.0f, 0.0f }, DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 0.0f }, DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 0.0f } };
 
 			for (std::uint32_t GBufferIndex{ 0 }; GBufferIndex < GBufferTargetCount; GBufferIndex += 1) {
 				const DirectX::XMFLOAT4& ClearColor{ ClearColors[GBufferIndex] };

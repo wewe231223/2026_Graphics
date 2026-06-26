@@ -14,6 +14,9 @@ struct SkyDomeVertexInput
 struct SkyDomeVertexOutput
 {
     float4 Position : SV_POSITION;
+    float4 ClipPosition : CLIP_POSITION;
+    float4 PreviousClipPosition : PREVIOUS_CLIP_POSITION;
+    nointerpolation float2 RenderTargetSize : RENDER_TARGET_SIZE;
     float4 Color : COLOR0;
     float2 TexCoord0 : TEXCOORD0;
     uint MaterialIndex : MATERIAL_INDEX;
@@ -31,15 +34,21 @@ SkyDomeVertexOutput VsMain(SkyDomeVertexInput Input, uint InstanceId : SV_Instan
 
     SkyDomeVertexOutput Output;
 
-    float4x4 View = FrameGlobals.View;
-    float4x4 Proj = FrameGlobals.Proj;
+    const float4x4 View = FrameGlobals.View;
+    const float4x4 Proj = FrameGlobals.Proj;
+    const float4x4 PreviousView = FrameGlobals.PrevView;
+    const float4x4 PreviousProj = FrameGlobals.PrevProj;
 
-    float3x3 ViewRotation = (float3x3) View;
-    float3 RotatedPosition = mul(Input.Position, ViewRotation);
+    const float3x3 ViewRotation = (float3x3) View;
+    const float3x3 PreviousViewRotation = (float3x3) PreviousView;
+    const float3 RotatedPosition = mul(Input.Position, ViewRotation);
+    const float3 PreviousRotatedPosition = mul(Input.Position, PreviousViewRotation);
 
     Output.Position = mul(float4(RotatedPosition, 1.0f), Proj);
-    
     Output.Position.z = Output.Position.w;
+    Output.ClipPosition = Output.Position;
+    Output.PreviousClipPosition = mul(float4(PreviousRotatedPosition, 1.0f), PreviousProj);
+    Output.RenderTargetSize = FrameGlobals.RenderTargetSize.xy;
 
     Output.Color = Input.Color;
     Output.TexCoord0 = Input.TexCoord0;
@@ -49,7 +58,7 @@ SkyDomeVertexOutput VsMain(SkyDomeVertexInput Input, uint InstanceId : SV_Instan
     return Output;
 }
 
-float4 PsMain(SkyDomeVertexOutput Input) : SV_TARGET
+GBufferOutput PsMain(SkyDomeVertexOutput Input)
 {
     StructuredBuffer<MaterialGpu> MaterialBuffer = ResourceDescriptorHeap[RootConstants.MaterialSrvIndex];
     StructuredBuffer<MaterialTextureTableItemGpu> MaterialTextureTableBuffer = ResourceDescriptorHeap[RootConstants.MaterialTextureTableSrvIndex];
@@ -69,5 +78,7 @@ float4 PsMain(SkyDomeVertexOutput Input) : SV_TARGET
         BaseColor = ResolveMaterialColorFallbackWithDefault(MaterialData, Input.Color);
     }
     
-    return ApplyMaterialOpacity(BaseColor, MaterialData);
+    GBufferOutput Output = BuildGBufferOutput(ApplyMaterialOpacity(BaseColor, MaterialData), float3(0.0f, 1.0f, 0.0f), float3(0.0f, 0.0f, 0.0f), Input.Flags, Input.ClipPosition, Input.PreviousClipPosition, Input.RenderTargetSize);
+    Output.WorldPosition.w = SkyGBufferSurfaceMarker;
+    return Output;
 }

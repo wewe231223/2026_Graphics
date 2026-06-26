@@ -49,7 +49,12 @@ VertexOutput VsMain(SkinnedVertexInput Input, uint InstanceId : SV_InstanceID)
 
     float4x4 World = ModelContext.World;
     const float4 WorldPosition = mul(SkinnedPosition, World);
-    Output.Position = mul(WorldPosition, FrameGlobals.ViewProj);
+    const float4 ClipPosition = mul(WorldPosition, FrameGlobals.ViewProj);
+    const float4 PreviousWorldPosition = mul(SkinnedPosition, ModelContext.PrevWorld);
+    Output.Position = ClipPosition;
+    Output.ClipPosition = ClipPosition;
+    Output.PreviousClipPosition = mul(PreviousWorldPosition, FrameGlobals.PrevViewProj);
+    Output.RenderTargetSize = FrameGlobals.RenderTargetSize.xy;
     Output.Normal = normalize(mul(SkinnedNormal, (float3x3)World));
     Output.WorldPosition = WorldPosition.xyz;
     Output.TexCoord0 = Input.TexCoord0;
@@ -110,5 +115,5 @@ GBufferOutput PsMain(VertexOutput Input) {
     }
 
     BaseColor = ApplyMaterialOpacity(BaseColor, MaterialData);
-    return BuildGBufferOutput(BaseColor, Input.Normal, Input.WorldPosition, Input.Flags);
+    return BuildGBufferOutput(BaseColor, Input.Normal, Input.WorldPosition, Input.Flags, Input.ClipPosition, Input.PreviousClipPosition, Input.RenderTargetSize);
 }

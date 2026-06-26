@@ -16,6 +16,7 @@ namespace Game {
             ComponentField(::SimpleMath::Vector3, scale, ::SimpleMath::Vector3::One)
             ComponentField(::SimpleMath::Matrix, nodeToParent, ::SimpleMath::Matrix::Identity)
             ComponentField(::SimpleMath::Matrix, worldMatrix, ::SimpleMath::Matrix::Identity)
+            ComponentField(::SimpleMath::Matrix, mPrevWorldMatrix, ::SimpleMath::Matrix::Identity)
             ComponentField(::SimpleMath::Vector3, mCachedPosition, ::SimpleMath::Vector3::Zero)
             ComponentField(::SimpleMath::Quaternion, mCachedRotation, ::SimpleMath::Quaternion::Identity)
             ComponentField(::SimpleMath::Vector3, mCachedScale, ::SimpleMath::Vector3::One)

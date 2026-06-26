@@ -15,6 +15,9 @@ struct SkinnedNormalMappedVertexInput {
 
 struct NormalMappedVertexOutput {
     float4 Position : SV_POSITION;
+    float4 ClipPosition : CLIP_POSITION;
+    float4 PreviousClipPosition : PREVIOUS_CLIP_POSITION;
+    nointerpolation float2 RenderTargetSize : RENDER_TARGET_SIZE;
     float3 Normal : NORMAL;
     float3 Tangent : TANGENT;
     float3 Bitangent : BITANGENT;
@@ -59,9 +62,14 @@ NormalMappedVertexOutput SkinnedVsMain(SkinnedNormalMappedVertexInput Input, uin
     const float4x4 World = ModelContext.World;
     const float3x3 WorldRotation = (float3x3)World;
     const float4 WorldPosition = mul(SkinnedPosition, World);
+    const float4 ClipPosition = mul(WorldPosition, FrameGlobals.ViewProj);
+    const float4 PreviousWorldPosition = mul(SkinnedPosition, ModelContext.PrevWorld);
 
     NormalMappedVertexOutput Output;
-    Output.Position = mul(WorldPosition, FrameGlobals.ViewProj);
+    Output.Position = ClipPosition;
+    Output.ClipPosition = ClipPosition;
+    Output.PreviousClipPosition = mul(PreviousWorldPosition, FrameGlobals.PrevViewProj);
+    Output.RenderTargetSize = FrameGlobals.RenderTargetSize.xy;
     Output.Normal = normalize(mul(SkinnedNormal, WorldRotation));
     Output.Tangent = normalize(mul(SkinnedTangent, WorldRotation));
     Output.Bitangent = normalize(mul(SkinnedBitangent, WorldRotation));
@@ -100,5 +108,5 @@ GBufferOutput PsMain(NormalMappedVertexOutput Input) {
     }
 
     BaseColor = ApplyMaterialOpacity(BaseColor, MaterialData);
-    return BuildGBufferOutput(BaseColor, WorldNormal, Input.WorldPosition, Input.Flags);
+    return BuildGBufferOutput(BaseColor, WorldNormal, Input.WorldPosition, Input.Flags, Input.ClipPosition, Input.PreviousClipPosition, Input.RenderTargetSize);
 }

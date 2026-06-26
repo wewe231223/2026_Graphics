@@ -27,6 +27,9 @@ struct EnvironmentBillboardVertexOutput
 struct EnvironmentBillboardPixelInput
 {
     float4 Position : SV_POSITION;
+    float4 ClipPosition : CLIP_POSITION;
+    float4 PreviousClipPosition : PREVIOUS_CLIP_POSITION;
+    nointerpolation float2 RenderTargetSize : RENDER_TARGET_SIZE;
     float3 Normal : NORMAL;
     float3 Tangent : TANGENT;
     float3 Bitangent : BITANGENT;
@@ -131,7 +134,11 @@ void ResolveBillboardAxes(float3 WorldCenter, float3 CameraPosition, out float3 
 
 EnvironmentBillboardPixelInput BuildBillboardPixelInput(float3 WorldPosition, float2 TexCoord, float3 Normal, float3 Tangent, float3 Bitangent, uint MaterialIndex, uint Flags, FrameGlobalsGpu FrameGlobals) {
     EnvironmentBillboardPixelInput Output;
-    Output.Position = mul(float4(WorldPosition, 1.0f), FrameGlobals.ViewProj);
+    const float4 ClipPosition = mul(float4(WorldPosition, 1.0f), FrameGlobals.ViewProj);
+    Output.Position = ClipPosition;
+    Output.ClipPosition = ClipPosition;
+    Output.PreviousClipPosition = mul(float4(WorldPosition, 1.0f), FrameGlobals.PrevViewProj);
+    Output.RenderTargetSize = FrameGlobals.RenderTargetSize.xy;
     Output.Normal = Normal;
     Output.Tangent = Tangent;
     Output.Bitangent = Bitangent;
@@ -239,7 +246,7 @@ GBufferOutput PsMain(EnvironmentBillboardPixelInput Input) {
         WorldNormal = ResolveTbnNormalMappedWorldNormal(Input.Normal, Input.Tangent, Input.Bitangent, NormalTangent);
     }
 
-    GBufferOutput Output = BuildGBufferOutput(BaseColor, WorldNormal, Input.WorldPosition, Input.Flags);
+    GBufferOutput Output = BuildGBufferOutput(BaseColor, WorldNormal, Input.WorldPosition, Input.Flags, Input.ClipPosition, Input.PreviousClipPosition, Input.RenderTargetSize);
     Output.WorldPosition.w = FoliageGBufferSurfaceMarker;
     return Output;
 }

@@ -32,6 +32,8 @@ namespace Core {
 				GpuFrameGlobals.mView = BuildGpuMatrix(SourceFrameGlobals.mView);
 				GpuFrameGlobals.mProj = BuildGpuMatrix(SourceFrameGlobals.mProj);
 				GpuFrameGlobals.mViewProj = BuildGpuMatrix(SourceFrameGlobals.mViewProj);
+				GpuFrameGlobals.mPrevView = BuildGpuMatrix(SourceFrameGlobals.mPrevView);
+				GpuFrameGlobals.mPrevProj = BuildGpuMatrix(SourceFrameGlobals.mPrevProj);
 				GpuFrameGlobals.mPrevViewProj = BuildGpuMatrix(SourceFrameGlobals.mPrevViewProj);
 				return GpuFrameGlobals;
 			}
@@ -189,6 +191,8 @@ namespace Core {
 				ShadowFrameGlobals.mView = Data.mShadowMappingParameter.mShadowCameras[CascadeIndex].mView;
 				ShadowFrameGlobals.mProj = Data.mShadowMappingParameter.mShadowCameras[CascadeIndex].mProj;
 				ShadowFrameGlobals.mViewProj = Data.mShadowMappingParameter.mShadowCameras[CascadeIndex].mViewProj;
+				ShadowFrameGlobals.mPrevView = ShadowFrameGlobals.mView;
+				ShadowFrameGlobals.mPrevProj = ShadowFrameGlobals.mProj;
 				ShadowFrameGlobals.mPrevViewProj = ShadowFrameGlobals.mViewProj;
 				ShadowFrameGlobalsArray[CascadeIndex] = ShadowFrameGlobals;
 			}

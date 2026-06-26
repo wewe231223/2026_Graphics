@@ -13,7 +13,10 @@ namespace RenderContract {
         DirectX::SimpleMath::Matrix mView{};
         DirectX::SimpleMath::Matrix mProj{};
         DirectX::SimpleMath::Matrix mViewProj{};
+        DirectX::SimpleMath::Matrix mPrevView{};
+        DirectX::SimpleMath::Matrix mPrevProj{};
         DirectX::SimpleMath::Matrix mPrevViewProj{};
+        DirectX::SimpleMath::Vector4 mRenderTargetSize{};
         float mDt{};
         std::uint32_t mFrameIndex{};
         std::uint32_t mFlags{};

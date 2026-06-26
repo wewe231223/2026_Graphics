@@ -48,6 +48,7 @@ namespace Game {
 
             ResolvedWorldMatrix ResolveWorldMatrix(Transform& TransformComponent, Arche::EntityID ParentEntityId, const ResolvedWorldMatrix& ParentWorldMatrix) {
                 if (IsLocalTransformCacheCurrent(TransformComponent, ParentEntityId) == true && ParentWorldMatrix.mChanged == false) {
+                    TransformComponent.mPrevWorldMatrix = TransformComponent.worldMatrix;
                     TransformComponent.mWorldMatrixChanged = false;
                     return ResolvedWorldMatrix{ TransformComponent.worldMatrix, false };
                 }
@@ -55,6 +56,7 @@ namespace Game {
                 const SimpleMath::Matrix LocalWorldMatrix{ BuildLocalWorldMatrix(TransformComponent) };
                 const SimpleMath::Matrix CurrentWorldMatrix{ LocalWorldMatrix * ParentWorldMatrix.mMatrix };
                 const bool IsWorldMatrixChanged{ TransformComponent.mWorldMatrixCacheValid == false || AreMatricesEqual(TransformComponent.worldMatrix, CurrentWorldMatrix) == false };
+                TransformComponent.mPrevWorldMatrix = TransformComponent.mWorldMatrixCacheValid == true ? TransformComponent.worldMatrix : CurrentWorldMatrix;
                 if (IsWorldMatrixChanged == true) {
                     TransformComponent.worldMatrix = CurrentWorldMatrix;
                 }
