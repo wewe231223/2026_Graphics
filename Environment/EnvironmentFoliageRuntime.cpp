@@ -54,6 +54,7 @@ namespace {
     constexpr float FoliageTwoPi{ 6.28318530717958647692f };
     constexpr std::uint32_t FoliageHashOffset{ 2166136261u };
     constexpr std::uint32_t FoliageHashPrime{ 16777619u };
+    constexpr std::uint32_t EnvironmentGpuPlacementDispatchThreadGroupSize{ 64u };
 
     enum class FoliageUpdatePhase {
         Idle,
@@ -1670,6 +1671,32 @@ namespace {
         return CandidateRecord;
     }
 
+    Game::EnvironmentGpuPlacementCandidateDispatchRecord BuildGpuPlacementCandidateDispatchRecord(std::uint32_t CandidateRecordIndex, std::uint32_t LocalCandidateOffset, std::uint32_t CandidateCount) {
+        Game::EnvironmentGpuPlacementCandidateDispatchRecord DispatchRecord{};
+        DispatchRecord.mCandidateRecordIndex = CandidateRecordIndex;
+        DispatchRecord.mLocalCandidateOffset = LocalCandidateOffset;
+        DispatchRecord.mCandidateCount = CandidateCount;
+        DispatchRecord.mPadding0 = 0u;
+        return DispatchRecord;
+    }
+
+    Game::EnvironmentGpuPlacementSpacingRuleRecord BuildGpuPlacementSpacingRuleRecord(std::uint32_t RuleIndex) {
+        Game::EnvironmentGpuPlacementSpacingRuleRecord SpacingRuleRecord{};
+        SpacingRuleRecord.mRuleIndex = RuleIndex;
+        SpacingRuleRecord.mPadding0 = 0u;
+        SpacingRuleRecord.mPadding1 = 0u;
+        SpacingRuleRecord.mPadding2 = 0u;
+        return SpacingRuleRecord;
+    }
+
+    void AppendGpuPlacementCandidateDispatchRecords(std::uint32_t CandidateRecordIndex, std::uint32_t CandidateCount, std::vector<Game::EnvironmentGpuPlacementCandidateDispatchRecord>& OutDispatchRecords) {
+        for (std::uint32_t LocalCandidateOffset{}; LocalCandidateOffset < CandidateCount; LocalCandidateOffset += EnvironmentGpuPlacementDispatchThreadGroupSize) {
+            const std::uint32_t RemainingCandidateCount{ CandidateCount - LocalCandidateOffset };
+            const std::uint32_t DispatchCandidateCount{ std::min(RemainingCandidateCount, EnvironmentGpuPlacementDispatchThreadGroupSize) };
+            OutDispatchRecords.push_back(BuildGpuPlacementCandidateDispatchRecord(CandidateRecordIndex, LocalCandidateOffset, DispatchCandidateCount));
+        }
+    }
+
     Game::EnvironmentGpuPlacementDrawRecord BuildGpuPlacementDrawRecord(const Game::EnvironmentGpuPlacementCandidateRecord& CandidateRecord, std::uint32_t LodIndex, float MinimumDistance, float MaximumDistance) {
         Game::EnvironmentGpuPlacementDrawRecord DrawRecord{};
         DrawRecord.mMinimumCellX = CandidateRecord.mMinimumCellX;
@@ -2520,8 +2547,13 @@ namespace Game {
         OutFrameData.mConfig = BuildGpuPlacementConfig(mConfig, FocusPosition, mRules);
         OutFrameData.mRules.reserve(mRules.size());
         OutFrameData.mCandidateRecords.reserve(mRules.size());
+        OutFrameData.mCandidateDispatchRecords.reserve(mRules.size());
+        OutFrameData.mSpacingRuleRecords.reserve(mRules.size());
         for (const FoliageRuntimeRule& Rule : mRules) {
             OutFrameData.mRules.push_back(BuildGpuPlacementRule(Rule, mLastTerrainBuildDesc));
+            if (Rule.mDesc.mMinimumSpacing > FoliageEpsilon) {
+                OutFrameData.mSpacingRuleRecords.push_back(BuildGpuPlacementSpacingRuleRecord(static_cast<std::uint32_t>(OutFrameData.mRules.size() - 1ULL)));
+            }
         }
 
         std::uint32_t InstanceOffset{};
@@ -2552,6 +2584,7 @@ namespace Game {
             const std::uint32_t CandidateCount{ CandidateRadius > FoliageEpsilon ? CalculateGpuPlacementCandidateCapacity(mConfig, FocusPosition, Rule, CandidateRadius, MinimumCellX, MinimumCellZ, CellCountX, CellCountZ) : 0u };
             const Game::EnvironmentGpuPlacementCandidateRecord CandidateRecord{ BuildGpuPlacementCandidateRecord(MinimumCellX, MinimumCellZ, CellCountX, CellCountZ, RuleIndex, CandidateOffset, CandidateCount) };
             OutFrameData.mCandidateRecords.push_back(CandidateRecord);
+            AppendGpuPlacementCandidateDispatchRecords(static_cast<std::uint32_t>(OutFrameData.mCandidateRecords.size() - 1ULL), CandidateCount, OutFrameData.mCandidateDispatchRecords);
             CandidateOffset = static_cast<std::uint32_t>(std::min<std::uint64_t>(static_cast<std::uint64_t>(CandidateOffset) + static_cast<std::uint64_t>(CandidateCount), std::numeric_limits<std::uint32_t>::max()));
             if (CandidateCount == 0u) {
                 continue;

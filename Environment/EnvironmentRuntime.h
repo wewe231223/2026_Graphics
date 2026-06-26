@@ -117,6 +117,8 @@ namespace Game {
         Microsoft::WRL::ComPtr<ID3D12Resource> mPlacementRuleBuffer{};
         Microsoft::WRL::ComPtr<ID3D12Resource> mPlacementDrawRecordBuffer{};
         Microsoft::WRL::ComPtr<ID3D12Resource> mPlacementCandidateRecordBuffer{};
+        Microsoft::WRL::ComPtr<ID3D12Resource> mPlacementCandidateDispatchRecordBuffer{};
+        Microsoft::WRL::ComPtr<ID3D12Resource> mPlacementSpacingRuleRecordBuffer{};
         Microsoft::WRL::ComPtr<ID3D12Resource> mCandidateContextBuffer{};
         Microsoft::WRL::ComPtr<ID3D12Resource> mVisibleInstanceIndexBuffer{};
         Microsoft::WRL::ComPtr<ID3D12Resource> mIndirectArgumentBuffer{};
@@ -128,6 +130,8 @@ namespace Game {
         Core::DX::DescriptorHandle mPlacementRuleSrvHandle{};
         Core::DX::DescriptorHandle mPlacementDrawRecordSrvHandle{};
         Core::DX::DescriptorHandle mPlacementCandidateRecordSrvHandle{};
+        Core::DX::DescriptorHandle mPlacementCandidateDispatchRecordSrvHandle{};
+        Core::DX::DescriptorHandle mPlacementSpacingRuleRecordSrvHandle{};
         Core::DX::DescriptorHandle mCandidateContextSrvHandle{};
         Core::DX::DescriptorHandle mCandidateContextUavHandle{};
         Core::DX::DescriptorHandle mVisibleInstanceIndexSrvHandle{};
@@ -140,6 +144,8 @@ namespace Game {
         std::uint64_t mPlacementRuleBufferCapacityInBytes{};
         std::uint64_t mPlacementDrawRecordBufferCapacityInBytes{};
         std::uint64_t mPlacementCandidateRecordBufferCapacityInBytes{};
+        std::uint64_t mPlacementCandidateDispatchRecordBufferCapacityInBytes{};
+        std::uint64_t mPlacementSpacingRuleRecordBufferCapacityInBytes{};
         std::uint64_t mCandidateContextBufferCapacityInBytes{};
         std::uint64_t mVisibleInstanceIndexBufferCapacityInBytes{};
         std::uint64_t mIndirectArgumentBufferCapacityInBytes{};
@@ -190,12 +196,12 @@ namespace Game {
         void RecordShadowDepthIndirect(const RenderContract::EnvironmentShadowDepthRenderCommandContext& Context);
         bool EnsureGpuDrivenDescriptorHandles(EnvironmentGpuDrivenFrameResource& FrameResource);
         bool EnsureGpuDrivenBuffer(Microsoft::WRL::ComPtr<ID3D12Resource>& Buffer, std::uint64_t& CapacityInBytes, std::uint64_t RequiredSizeInBytes, D3D12_RESOURCE_FLAGS ResourceFlags, D3D12_RESOURCE_STATES InitialState, const wchar_t* ResourceName);
-        bool EnsureGpuDrivenFrameResources(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t InstanceContextCount, std::uint32_t SegmentContextCount, std::uint32_t DrawRecordCount, std::uint32_t PlacementConfigCount, std::uint32_t PlacementRuleCount, std::uint32_t PlacementDrawRecordCount, std::uint32_t PlacementCandidateRecordCount, std::uint32_t CandidateContextCount, std::uint32_t VisibleInstanceIndexCount);
+        bool EnsureGpuDrivenFrameResources(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t InstanceContextCount, std::uint32_t SegmentContextCount, std::uint32_t DrawRecordCount, std::uint32_t PlacementConfigCount, std::uint32_t PlacementRuleCount, std::uint32_t PlacementDrawRecordCount, std::uint32_t PlacementCandidateRecordCount, std::uint32_t PlacementCandidateDispatchRecordCount, std::uint32_t PlacementSpacingRuleRecordCount, std::uint32_t CandidateContextCount, std::uint32_t VisibleInstanceIndexCount);
         void BuildGpuDrivenFrameData(const EnvironmentFrameInput& Input, RenderContract::RenderFrameData& RenderData, std::uint32_t& OutVisibleInstanceIndexCount);
         RenderContract::Future UploadGpuDrivenFrameData(EnvironmentGpuDrivenFrameResource& FrameResource);
-        RenderContract::Future DispatchGpuDrivenFrame(EnvironmentGpuDrivenFrameResource& FrameResource, const EnvironmentFrameInput& Input, const RenderContract::Future& CopyFuture, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCapacity, std::uint32_t CandidateRecordCount);
+        RenderContract::Future DispatchGpuDrivenFrame(EnvironmentGpuDrivenFrameResource& FrameResource, const EnvironmentFrameInput& Input, const RenderContract::Future& CopyFuture, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCapacity, std::uint32_t CandidateRecordCount, std::uint32_t CandidateDispatchRecordCount, std::uint32_t SpacingRuleRecordCount);
         void FillGpuDrivenFramePayload(EnvironmentGpuDrivenFrameResource& FrameResource, RenderContract::RenderFrameData& RenderData, const RenderContract::Future& GpuDispatchFuture);
-        void UpdateGpuDrivenShaderResourceViews(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t InstanceContextCount, std::uint32_t SegmentContextCount, std::uint32_t DrawRecordCount, std::uint32_t PlacementConfigCount, std::uint32_t PlacementRuleCount, std::uint32_t PlacementDrawRecordCount, std::uint32_t PlacementCandidateRecordCount, std::uint32_t CandidateContextCount, std::uint32_t VisibleInstanceIndexCount);
+        void UpdateGpuDrivenShaderResourceViews(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t InstanceContextCount, std::uint32_t SegmentContextCount, std::uint32_t DrawRecordCount, std::uint32_t PlacementConfigCount, std::uint32_t PlacementRuleCount, std::uint32_t PlacementDrawRecordCount, std::uint32_t PlacementCandidateRecordCount, std::uint32_t PlacementCandidateDispatchRecordCount, std::uint32_t PlacementSpacingRuleRecordCount, std::uint32_t CandidateContextCount, std::uint32_t VisibleInstanceIndexCount);
         void UpdateGpuDrivenUnorderedAccessViews(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t InstanceContextCount, std::uint32_t CandidateContextCount, std::uint32_t VisibleInstanceIndexCount, std::uint32_t IndirectArgumentCount);
         void ResetGpuResources();
 

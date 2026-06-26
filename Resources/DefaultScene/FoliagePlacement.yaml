@@ -2,10 +2,10 @@ ProceduralFoliage:
   Enabled: true
   InactiveHeight: -100000.0
   PlacementRadius: 280.0
-  PhysicsRadius: 70.0
+  PhysicsRadius: 10.0
   RenderRadius: 280.0
   CellSize: 14.0
-  UpdateInterval: 10.0
+  UpdateInterval: 1.0
   DensityMultiplier: 10.0
   CandidateRandomXStream: 11
   CandidateRandomZStream: 23
@@ -202,10 +202,10 @@ ProceduralFoliage:
       ExcludedLayers:
         - Snow
         - Rock
-      InstancesPerCell: 10
-      DensityMultiplier: 0.12
-      SpawnChance: 0.65
-      MinimumWeight: 0.30
+      InstancesPerCell: 14
+      DensityMultiplier: 0.28
+      SpawnChance: 0.90
+      MinimumWeight: 0.22
       MinimumScale: 1.2
       MaximumScale: 1.75
       MinimumYawDegrees: 0.0
@@ -218,7 +218,7 @@ ProceduralFoliage:
       ClusterOutsideDensity: 1.0
       ForestStrength: 1.0
       OffsetY: 0.0
-      MinimumSpacing: 5.4
+      MinimumSpacing: 3.8
       CollisionActor: true
       CollisionCenter: [0.0, 2.8, 0.0]
       CollisionExtents: [0.35, 2.8, 0.35]
@@ -240,10 +240,10 @@ ProceduralFoliage:
       ExcludedLayers:
         - Snow
         - Rock
-      InstancesPerCell: 8
-      DensityMultiplier: 0.12
-      SpawnChance: 0.62
-      MinimumWeight: 0.30
+      InstancesPerCell: 12
+      DensityMultiplier: 0.28
+      SpawnChance: 0.88
+      MinimumWeight: 0.22
       MinimumScale: 1.1
       MaximumScale: 1.55
       MinimumYawDegrees: 0.0
@@ -256,7 +256,7 @@ ProceduralFoliage:
       ClusterOutsideDensity: 1.0
       ForestStrength: 1.0
       OffsetY: 0.0
-      MinimumSpacing: 5.8
+      MinimumSpacing: 4.0
       CollisionActor: true
       CollisionCenter: [0.0, 2.6, 0.0]
       CollisionExtents: [0.32, 2.6, 0.32]
