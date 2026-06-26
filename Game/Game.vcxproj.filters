@@ -297,9 +297,6 @@
     <ClInclude Include="Scene\Systems\CharacterControllerSystem.h">
       <Filter>Scene\Systems</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\Systems\ProceduralFoliageSystem.h">
-      <Filter>Scene\Systems</Filter>
-    </ClInclude>
     <ClInclude Include="Scene\Components\Tags.h">
       <Filter>Scene\Components</Filter>
     </ClInclude>
@@ -603,9 +600,6 @@
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Systems\CharacterControllerSystem.cpp">
-      <Filter>Scene\Systems</Filter>
-    </ClCompile>
-    <ClCompile Include="Scene\Systems\ProceduralFoliageSystem.cpp">
       <Filter>Scene\Systems</Filter>
     </ClCompile>
     <ClCompile Include="Base\Input.cpp">

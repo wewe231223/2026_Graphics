@@ -220,6 +220,10 @@ namespace Game {
         mEnvironmentRuntime.Initialize(EnvironmentDesc);
     }
 
+    void Scene::SetEnvironmentConfigPath(const std::string& ConfigPath) {
+        mEnvironmentRuntime.SetConfigPath(ConfigPath);
+    }
+
     ScenePhysicsRuntimeContext Scene::BuildPhysicsRuntimeContext() {
         return ScenePhysicsRuntimeContext{ mWorld, mPhysicsWorld, mPhysicsRuntime, mPhysicsRuntimeScene, mPhysicsRuntimeSnapshot, mKinematicSceneSimulator, mTerrainManager, mKinematicRuntimeStates, mPhysicsSynchronizationEntityIds, mPhysicsSynchronizationStructureVersion, mPhysicsWorldVersion, mPhysicsTime, mFrameContext, mWorldSnapshot, mTerrainActorDescBindings, mIsPhysicsRuntimeModeEnabled };
     }
@@ -296,9 +300,6 @@ namespace Game {
     void Scene::PrepareRender() {
         mAssetRegistry.PrepareRenderTextures(mFrameContext.RenderData);
         mFrameContext.RenderData.mMaterialTextureTable = mAssetRegistry.GetMaterialTextureTable();
-        if (mEnvironmentRuntime.IsGpuDrivenEnabled() == false) {
-            return;
-        }
 
         EnvironmentFrameInput EnvironmentInput{};
         EnvironmentInput.mFrameIndex = mFrameContext.RenderData.mFrameGlobals.mFrameIndex;
@@ -306,7 +307,7 @@ namespace Game {
         EnvironmentInput.mView = mFrameContext.RenderData.mFrameGlobals.mView;
         EnvironmentInput.mProjection = mFrameContext.RenderData.mFrameGlobals.mProj;
         EnvironmentInput.mViewProjection = mFrameContext.RenderData.mFrameGlobals.mViewProj;
-        mEnvironmentRuntime.PrepareGpuDrivenFrame(EnvironmentInput, mFrameContext.RenderData);
+        mEnvironmentRuntime.Tick(EnvironmentInput, mFrameContext.RenderData);
     }
 
     void Scene::OnFileDropped(const std::filesystem::path& FilePath) {
@@ -634,6 +635,7 @@ namespace Game {
                 mFrameContext.RenderData.mEnvironmentSegmentContexts.clear();
                 mFrameContext.RenderData.mEnvironmentDrawRecords.clear();
                 mFrameContext.RenderData.mEnvironmentGpuDrivenFrame = RenderContract::EnvironmentGpuDrivenFrameData{};
+                mFrameContext.RenderData.mEnvironmentRuntime = &mEnvironmentRuntime;
                 mFrameContext.RenderData.mTerrainUploadFuture = RenderContract::Future{};
                 mFrameContext.RenderData.mHasTerrainUploadFuture = false;
                 for (RenderContract::ShadowRenderContext& ShadowRenderContext : mFrameContext.RenderData.mShadowRenderContexts) {
@@ -697,6 +699,12 @@ namespace Game {
 
             case Phase::PostUpdate:
                 UpdatePhysics(Dt);
+                break;
+
+            case Phase::PhysicsActorUpdate:
+                mFrameContext.MaterialGroups = &mAssetRegistry.GetMaterialGroups();
+                mFrameContext.AssetRegistryResource = &mAssetRegistry;
+                mEnvironmentRuntime.Tick(mWorld, mFrameContext, Dt);
                 break;
 
             default:

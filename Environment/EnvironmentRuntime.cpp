@@ -1,4 +1,4 @@
-#include "Game/Environment/EnvironmentRuntime.h"
+#include "Environment/EnvironmentRuntime.h"
 
 #include <algorithm>
 #include <array>
@@ -7,12 +7,15 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <span>
 #include <tuple>
 #include <utility>
 #include <vector>
 
 #include "Core/DX/DesciptorHeap.h"
+#include "Environment/EnvironmentFoliageRuntime.h"
+#include "RenderContract/Shadow/ShadowRenderContext.h"
 #include "Utility/DirectXInclude.h"
 #include "Utility/ErrorHandler.h"
 
@@ -25,6 +28,22 @@ namespace Game {
         constexpr std::uint32_t InvalidDescriptorIndex{ 0xffffffffu };
         constexpr float EnvironmentGpuCullRadius{ 18.0f };
         constexpr float EnvironmentGpuMaxDrawDistance{ 1000.0f };
+
+        struct DrawRootConstantsB1 final {
+        public:
+            std::uint32_t mFrameGlobalsSrvIndex{};
+            std::uint32_t mModelContextSrvIndex{};
+            std::uint32_t mBonePaletteSrvIndex{};
+            std::uint32_t mDrawRecordSrvIndex{};
+            std::uint32_t mDrawRecordBaseIndex{};
+            std::uint32_t mMaterialSrvIndex{};
+            std::uint32_t mMaterialTextureTableSrvIndex{};
+            std::uint32_t mShadowMappingParameterSrvIndex{};
+            std::uint32_t mShadowMapTextureBaseSrvIndex{};
+            std::uint32_t mFrameGlobalsElementIndex{};
+            std::uint32_t mTerrainPatchContextSrvIndex{};
+            std::uint32_t mReserved1{};
+        };
 
         struct EnvironmentGpuRootConstants final {
         public:
@@ -139,6 +158,10 @@ namespace Game {
             return std::tie(Left.mPass, Left.mPipeline, Left.mMesh, Left.mSubMesh, Left.mSegmentContextIndex, Left.mMaterialIndex, Left.mCastsShadow) < std::tie(Right.mPass, Right.mPipeline, Right.mMesh, Right.mSubMesh, Right.mSegmentContextIndex, Right.mMaterialIndex, Right.mCastsShadow);
         }
 
+        bool IsEnvironmentBillboardRecord(const RenderContract::EnvironmentDrawRecord& DrawRecord) {
+            return DrawRecord.mPipeline != nullptr && DrawRecord.mPipeline->GetPrimitiveTopology() == D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
+        }
+
         RenderContract::EnvironmentSegmentContext BuildGpuEnvironmentSegmentContext(const RenderContract::EnvironmentSegmentContext& SourceSegmentContext) {
             RenderContract::EnvironmentSegmentContext GpuSegmentContext{ SourceSegmentContext };
             GpuSegmentContext.mLocalTransform = SourceSegmentContext.mLocalTransform.Transpose();
@@ -207,14 +230,17 @@ namespace Game {
         mRenderContext{},
         mComputeRootSignature{},
         mPreparePipelineState{},
+        mDrawIndexedIndirectCommandSignature{},
         mGpuStatusBuffer{},
         mGpuStatusUavHandle{},
         mLastGpuDispatchFuture{},
-        mConfigPath{},
+        mConfigPath{ "Resources/DefaultScene/FoliagePlacement.yaml" },
+        mFoliageRuntime{},
         mGpuInstanceContexts{},
         mGpuSegmentContexts{},
         mGpuDrawRecords{},
         mGpuIndirectArguments{},
+        mVertexBufferViewCache{},
         mGpuDrivenFrameResources{},
         mGpuStatusUavIndex{ InvalidDescriptorIndex },
         mInitialized{},
@@ -235,14 +261,17 @@ namespace Game {
         mRenderContext{ std::move(Other.mRenderContext) },
         mComputeRootSignature{ std::move(Other.mComputeRootSignature) },
         mPreparePipelineState{ std::move(Other.mPreparePipelineState) },
+        mDrawIndexedIndirectCommandSignature{ std::move(Other.mDrawIndexedIndirectCommandSignature) },
         mGpuStatusBuffer{ std::move(Other.mGpuStatusBuffer) },
         mGpuStatusUavHandle{ std::move(Other.mGpuStatusUavHandle) },
         mLastGpuDispatchFuture{ std::move(Other.mLastGpuDispatchFuture) },
         mConfigPath{ std::move(Other.mConfigPath) },
+        mFoliageRuntime{ std::move(Other.mFoliageRuntime) },
         mGpuInstanceContexts{ std::move(Other.mGpuInstanceContexts) },
         mGpuSegmentContexts{ std::move(Other.mGpuSegmentContexts) },
         mGpuDrawRecords{ std::move(Other.mGpuDrawRecords) },
         mGpuIndirectArguments{ std::move(Other.mGpuIndirectArguments) },
+        mVertexBufferViewCache{ std::move(Other.mVertexBufferViewCache) },
         mGpuDrivenFrameResources{ std::move(Other.mGpuDrivenFrameResources) },
         mGpuStatusUavIndex{ Other.mGpuStatusUavIndex },
         mInitialized{ Other.mInitialized },
@@ -254,6 +283,8 @@ namespace Game {
         Other.mCopyQueue = nullptr;
         Other.mComputeQueue = nullptr;
         Other.mPhysicsAdapter = nullptr;
+        Other.mDrawIndexedIndirectCommandSignature.Reset();
+        Other.mVertexBufferViewCache.clear();
         Other.mGpuDrivenFrameResources = {};
         Other.mGpuStatusUavIndex = InvalidDescriptorIndex;
         Other.mInitialized = false;
@@ -275,14 +306,17 @@ namespace Game {
         mRenderContext = std::move(Other.mRenderContext);
         mComputeRootSignature = std::move(Other.mComputeRootSignature);
         mPreparePipelineState = std::move(Other.mPreparePipelineState);
+        mDrawIndexedIndirectCommandSignature = std::move(Other.mDrawIndexedIndirectCommandSignature);
         mGpuStatusBuffer = std::move(Other.mGpuStatusBuffer);
         mGpuStatusUavHandle = std::move(Other.mGpuStatusUavHandle);
         mLastGpuDispatchFuture = std::move(Other.mLastGpuDispatchFuture);
         mConfigPath = std::move(Other.mConfigPath);
+        mFoliageRuntime = std::move(Other.mFoliageRuntime);
         mGpuInstanceContexts = std::move(Other.mGpuInstanceContexts);
         mGpuSegmentContexts = std::move(Other.mGpuSegmentContexts);
         mGpuDrawRecords = std::move(Other.mGpuDrawRecords);
         mGpuIndirectArguments = std::move(Other.mGpuIndirectArguments);
+        mVertexBufferViewCache = std::move(Other.mVertexBufferViewCache);
         mGpuDrivenFrameResources = std::move(Other.mGpuDrivenFrameResources);
         mGpuStatusUavIndex = Other.mGpuStatusUavIndex;
         mInitialized = Other.mInitialized;
@@ -294,6 +328,8 @@ namespace Game {
         Other.mCopyQueue = nullptr;
         Other.mComputeQueue = nullptr;
         Other.mPhysicsAdapter = nullptr;
+        Other.mDrawIndexedIndirectCommandSignature.Reset();
+        Other.mVertexBufferViewCache.clear();
         Other.mGpuDrivenFrameResources = {};
         Other.mGpuStatusUavIndex = InvalidDescriptorIndex;
         Other.mInitialized = false;
@@ -328,6 +364,7 @@ namespace Game {
         mComputeQueue = nullptr;
         mPhysicsAdapter = nullptr;
         mRenderContext.Clear();
+        mFoliageRuntime.reset();
         mLastGpuDispatchFuture = RenderContract::Future{};
         mInitialized = false;
         mGpuDrivenEnabled = false;
@@ -335,10 +372,34 @@ namespace Game {
 
     void EnvironmentRuntime::SetConfigPath(const std::string& ConfigPath) {
         mConfigPath = ConfigPath;
+        if (mFoliageRuntime != nullptr) {
+            mFoliageRuntime->SetConfigPath(mConfigPath);
+        }
     }
 
     const std::string& EnvironmentRuntime::GetConfigPath() const {
         return mConfigPath;
+    }
+
+    void EnvironmentRuntime::Tick(Arche::World& World, FrameContext& Ctx, float Dt) {
+        Ctx.RenderData.mEnvironmentRuntime = this;
+        if (mFoliageRuntime == nullptr) {
+            mFoliageRuntime = std::make_unique<EnvironmentFoliageRuntime>(mConfigPath);
+        }
+
+        mFoliageRuntime->Update(World, Ctx, Dt);
+    }
+
+    void EnvironmentRuntime::Tick(const EnvironmentFrameInput& Input, RenderContract::RenderFrameData& RenderData) {
+        RenderData.mEnvironmentRuntime = this;
+        TickCpu(Input);
+        if (IsGpuDrivenEnabled() == false) {
+            RenderData.mEnvironmentGpuDrivenFrame = RenderContract::EnvironmentGpuDrivenFrameData{};
+            mLastGpuDispatchFuture = RenderContract::Future{};
+            return;
+        }
+
+        PrepareGpuDrivenFrame(Input, RenderData);
     }
 
     void EnvironmentRuntime::TickCpu(const EnvironmentFrameInput& Input) {
@@ -412,6 +473,80 @@ namespace Game {
         static_cast<void>(CommandList);
     }
 
+    void EnvironmentRuntime::RecordGBuffer(const RenderContract::EnvironmentGBufferRenderCommandContext& Context) {
+        if (Context.mCommandList == nullptr || Context.mRenderFrameData == nullptr || Context.mRenderFrameData->mEnvironmentDrawRecords.empty() == true) {
+            return;
+        }
+
+        if (Context.mRenderFrameData->mEnvironmentGpuDrivenFrame.mEnabled == true) {
+            RecordGBufferIndirect(Context);
+            return;
+        }
+
+        RecordGBufferDirect(Context);
+    }
+
+    void EnvironmentRuntime::RecordShadowDepth(const RenderContract::EnvironmentShadowDepthRenderCommandContext& Context) {
+        if (Context.mCommandList == nullptr || Context.mShadowRenderContext == nullptr || Context.mShadowRenderContext->mEnvironmentDrawRecords.empty() == true || Context.mPipelineProvider == nullptr) {
+            return;
+        }
+
+        const RenderContract::IPipeline* ActivePipeline{ nullptr };
+        for (std::size_t DrawRecordIndex{}; DrawRecordIndex < Context.mShadowRenderContext->mEnvironmentDrawRecords.size(); DrawRecordIndex += 1ULL) {
+            const RenderContract::EnvironmentDrawRecord& DrawRecord{ Context.mShadowRenderContext->mEnvironmentDrawRecords[DrawRecordIndex] };
+            if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mCastsShadow == false) {
+                continue;
+            }
+
+            const RenderContract::IPipeline* Pipeline{ IsEnvironmentBillboardRecord(DrawRecord) == true ? Context.mPipelineProvider->ResolveEnvironmentBillboardDepthPipeline() : Context.mPipelineProvider->ResolveEnvironmentObjectDepthPipeline() };
+            if (Pipeline == nullptr) {
+                continue;
+            }
+
+            ActivePipeline = Pipeline->Set(ActivePipeline, Context.mCommandList);
+            if (Context.mDynamicDepthBiasCommandList != nullptr) {
+                Context.mDynamicDepthBiasCommandList->RSSetDepthBias(Context.mRasterDepthBias, Context.mRasterDepthBiasClamp, Context.mRasterSlopeScaledDepthBias);
+            }
+
+            DrawRootConstantsB1 RootConstants{};
+            RootConstants.mFrameGlobalsSrvIndex = Context.mFrameGlobalsSrvIndex;
+            RootConstants.mModelContextSrvIndex = Context.mEnvironmentInstanceContextSrvIndex;
+            RootConstants.mBonePaletteSrvIndex = Context.mEnvironmentSegmentContextSrvIndex;
+            RootConstants.mDrawRecordSrvIndex = Context.mEnvironmentDrawRecordSrvIndex;
+            RootConstants.mDrawRecordBaseIndex = static_cast<std::uint32_t>(DrawRecordIndex);
+            RootConstants.mMaterialSrvIndex = Context.mMaterialSrvIndex;
+            RootConstants.mMaterialTextureTableSrvIndex = Context.mMaterialTextureTableSrvIndex;
+            RootConstants.mShadowMappingParameterSrvIndex = InvalidDescriptorIndex;
+            RootConstants.mShadowMapTextureBaseSrvIndex = InvalidDescriptorIndex;
+            RootConstants.mFrameGlobalsElementIndex = Context.mShadowFrameGlobalsIndex;
+            RootConstants.mTerrainPatchContextSrvIndex = InvalidDescriptorIndex;
+            RootConstants.mReserved1 = 0u;
+            Context.mCommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(std::uint32_t), &RootConstants, 0);
+
+            Context.mCommandList->IASetPrimitiveTopology(Pipeline->GetPrimitiveTopology());
+
+            const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*Pipeline, *DrawRecord.mMesh) };
+            if (VertexBufferViews.empty() == false) {
+                Context.mCommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
+            }
+
+            const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ DrawRecord.mMesh->GetIndexBufferView() };
+            Context.mCommandList->IASetIndexBuffer(&IndexBufferView);
+
+            const RenderContract::ModelSubMesh& SubMesh{ DrawRecord.mMesh->GetSubMesh(DrawRecord.mSubMesh) };
+            const UINT IndexCountPerInstance{ static_cast<UINT>(SubMesh.mIndexCount) };
+            const UINT InstanceCount{ static_cast<UINT>(DrawRecord.mInstanceCount) };
+            const UINT StartIndexLocation{ static_cast<UINT>(SubMesh.mIndexOffset) };
+            const INT BaseVertexLocation{ 0 };
+            const UINT StartInstanceLocation{ 0 };
+            Context.mCommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
+        }
+    }
+
+    RenderContract::Future EnvironmentRuntime::GetEnvironmentGpuFuture() const {
+        return mLastGpuDispatchFuture;
+    }
+
     EnvironmentObjectRenderContext& EnvironmentRuntime::GetRenderContext() {
         return mRenderContext;
     }
@@ -443,6 +578,205 @@ namespace Game {
 
         mGpuResourcesInitialized = true;
         return true;
+    }
+
+    bool EnvironmentRuntime::EnsureDrawIndexedIndirectCommandSignature() {
+        if (mDrawIndexedIndirectCommandSignature != nullptr) {
+            return true;
+        }
+
+        if (mDevice == nullptr) {
+            return false;
+        }
+
+        D3D12_INDIRECT_ARGUMENT_DESC ArgumentDesc{};
+        ArgumentDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+
+        D3D12_COMMAND_SIGNATURE_DESC CommandSignatureDesc{};
+        CommandSignatureDesc.ByteStride = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
+        CommandSignatureDesc.NumArgumentDescs = 1u;
+        CommandSignatureDesc.pArgumentDescs = &ArgumentDesc;
+        CommandSignatureDesc.NodeMask = 0u;
+
+        const HRESULT CreateResult{ mDevice->CreateCommandSignature(&CommandSignatureDesc, nullptr, IID_PPV_ARGS(mDrawIndexedIndirectCommandSignature.GetAddressOf())) };
+        return SUCCEEDED(CreateResult) == true && mDrawIndexedIndirectCommandSignature != nullptr;
+    }
+
+    std::vector<D3D12_VERTEX_BUFFER_VIEW> EnvironmentRuntime::BuildVertexBufferViews(const RenderContract::IPipeline& Pipeline, const RenderContract::IModelNode& Mesh) const {
+        const std::span<const RenderContract::VertexInputBinding> VertexInputBindings{ Pipeline.GetVertexInputBindings() };
+        std::uint32_t MaxInputSlot{};
+
+        for (const RenderContract::VertexInputBinding& VertexInputBinding : VertexInputBindings) {
+            if (VertexInputBinding.mInputSlot > MaxInputSlot) {
+                MaxInputSlot = VertexInputBinding.mInputSlot;
+            }
+        }
+
+        std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{};
+        VertexBufferViews.resize(VertexInputBindings.empty() == true ? 0ULL : static_cast<std::size_t>(MaxInputSlot + 1u));
+
+        for (const RenderContract::VertexInputBinding& VertexInputBinding : VertexInputBindings) {
+            D3D12_VERTEX_BUFFER_VIEW View{};
+            const bool IsResolved{ Mesh.TryGetVertexBufferView(VertexInputBinding.mKind, View) };
+            if (IsResolved == false) {
+                continue;
+            }
+
+            VertexBufferViews[VertexInputBinding.mInputSlot] = View;
+        }
+
+        return VertexBufferViews;
+    }
+
+    const std::vector<D3D12_VERTEX_BUFFER_VIEW>& EnvironmentRuntime::ResolveVertexBufferViews(const RenderContract::IPipeline& Pipeline, const RenderContract::IModelNode& Mesh) {
+        const std::pair<const RenderContract::IPipeline*, const RenderContract::IModelNode*> Key{ &Pipeline, &Mesh };
+        const std::map<std::pair<const RenderContract::IPipeline*, const RenderContract::IModelNode*>, std::vector<D3D12_VERTEX_BUFFER_VIEW>>::iterator FoundIterator{ mVertexBufferViewCache.find(Key) };
+        if (FoundIterator != mVertexBufferViewCache.end()) {
+            return FoundIterator->second;
+        }
+
+        std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{ BuildVertexBufferViews(Pipeline, Mesh) };
+        const std::pair<std::map<std::pair<const RenderContract::IPipeline*, const RenderContract::IModelNode*>, std::vector<D3D12_VERTEX_BUFFER_VIEW>>::iterator, bool> InsertResult{ mVertexBufferViewCache.insert_or_assign(Key, std::move(VertexBufferViews)) };
+        return InsertResult.first->second;
+    }
+
+    void EnvironmentRuntime::RecordGBufferDirect(const RenderContract::EnvironmentGBufferRenderCommandContext& Context) {
+        if (Context.mRenderFrameData == nullptr || Context.mPipelineProvider == nullptr) {
+            return;
+        }
+
+        const RenderContract::IPipeline* ActivePipeline{ nullptr };
+        for (std::size_t DrawRecordIndex{}; DrawRecordIndex < Context.mRenderFrameData->mEnvironmentDrawRecords.size(); DrawRecordIndex += 1ULL) {
+            const RenderContract::EnvironmentDrawRecord& DrawRecord{ Context.mRenderFrameData->mEnvironmentDrawRecords[DrawRecordIndex] };
+            if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u) {
+                continue;
+            }
+
+            const RenderContract::IPipeline* Pipeline{ IsEnvironmentBillboardRecord(DrawRecord) == true ? DrawRecord.mPipeline : Context.mPipelineProvider->ResolveEnvironmentObjectPipeline() };
+            if (Pipeline == nullptr) {
+                continue;
+            }
+
+            ActivePipeline = Pipeline->Set(ActivePipeline, Context.mCommandList);
+
+            DrawRootConstantsB1 RootConstants{};
+            RootConstants.mFrameGlobalsSrvIndex = Context.mFrameGlobalsSrvIndex;
+            RootConstants.mModelContextSrvIndex = Context.mEnvironmentInstanceContextSrvIndex;
+            RootConstants.mBonePaletteSrvIndex = Context.mEnvironmentSegmentContextSrvIndex;
+            RootConstants.mDrawRecordSrvIndex = Context.mEnvironmentDrawRecordSrvIndex;
+            RootConstants.mDrawRecordBaseIndex = static_cast<std::uint32_t>(DrawRecordIndex);
+            RootConstants.mMaterialSrvIndex = Context.mMaterialSrvIndex;
+            RootConstants.mMaterialTextureTableSrvIndex = Context.mMaterialTextureTableSrvIndex;
+            RootConstants.mShadowMappingParameterSrvIndex = InvalidDescriptorIndex;
+            RootConstants.mShadowMapTextureBaseSrvIndex = InvalidDescriptorIndex;
+            RootConstants.mFrameGlobalsElementIndex = 0u;
+            RootConstants.mTerrainPatchContextSrvIndex = InvalidDescriptorIndex;
+            RootConstants.mReserved1 = 0u;
+            Context.mCommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(std::uint32_t), &RootConstants, 0);
+
+            Context.mCommandList->IASetPrimitiveTopology(Pipeline->GetPrimitiveTopology());
+
+            const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*Pipeline, *DrawRecord.mMesh) };
+            if (VertexBufferViews.empty() == false) {
+                Context.mCommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
+            }
+
+            const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ DrawRecord.mMesh->GetIndexBufferView() };
+            Context.mCommandList->IASetIndexBuffer(&IndexBufferView);
+
+            const RenderContract::ModelSubMesh& SubMesh{ DrawRecord.mMesh->GetSubMesh(DrawRecord.mSubMesh) };
+            const UINT IndexCountPerInstance{ static_cast<UINT>(SubMesh.mIndexCount) };
+            const UINT InstanceCount{ static_cast<UINT>(DrawRecord.mInstanceCount) };
+            const UINT StartIndexLocation{ static_cast<UINT>(SubMesh.mIndexOffset) };
+            const INT BaseVertexLocation{ 0 };
+            const UINT StartInstanceLocation{ 0 };
+            Context.mCommandList->DrawIndexedInstanced(IndexCountPerInstance, InstanceCount, StartIndexLocation, BaseVertexLocation, StartInstanceLocation);
+        }
+    }
+
+    void EnvironmentRuntime::RecordGBufferIndirect(const RenderContract::EnvironmentGBufferRenderCommandContext& Context) {
+        if (Context.mRenderFrameData == nullptr || Context.mPipelineProvider == nullptr) {
+            return;
+        }
+
+        const RenderContract::EnvironmentGpuDrivenFrameData& GpuFrame{ Context.mRenderFrameData->mEnvironmentGpuDrivenFrame };
+        if (GpuFrame.mEnabled == false || GpuFrame.mVisibleInstanceIndexResource == nullptr || GpuFrame.mIndirectArgumentResource == nullptr || EnsureDrawIndexedIndirectCommandSignature() == false) {
+            return;
+        }
+
+        std::array<D3D12_RESOURCE_BARRIER, 2> Barriers{};
+        Barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        Barriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+        Barriers[0].Transition.pResource = GpuFrame.mVisibleInstanceIndexResource;
+        Barriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        Barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        Barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        Barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        Barriers[1].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+        Barriers[1].Transition.pResource = GpuFrame.mIndirectArgumentResource;
+        Barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        Barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        Barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
+        Context.mCommandList->ResourceBarrier(static_cast<UINT>(Barriers.size()), Barriers.data());
+
+        const RenderContract::IPipeline* ActivePipeline{ nullptr };
+        const std::size_t DrawRecordCount{ std::min<std::size_t>(Context.mRenderFrameData->mEnvironmentDrawRecords.size(), GpuFrame.mDrawRecordCount) };
+        for (std::size_t DrawRecordIndex{}; DrawRecordIndex < DrawRecordCount; DrawRecordIndex += 1ULL) {
+            const RenderContract::EnvironmentDrawRecord& DrawRecord{ Context.mRenderFrameData->mEnvironmentDrawRecords[DrawRecordIndex] };
+            if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u) {
+                continue;
+            }
+
+            const RenderContract::IPipeline* Pipeline{ IsEnvironmentBillboardRecord(DrawRecord) == true ? DrawRecord.mPipeline : Context.mPipelineProvider->ResolveEnvironmentObjectPipeline() };
+            if (Pipeline == nullptr) {
+                continue;
+            }
+
+            ActivePipeline = Pipeline->Set(ActivePipeline, Context.mCommandList);
+
+            DrawRootConstantsB1 RootConstants{};
+            RootConstants.mFrameGlobalsSrvIndex = Context.mFrameGlobalsSrvIndex;
+            RootConstants.mModelContextSrvIndex = GpuFrame.mInstanceContextSrvIndex;
+            RootConstants.mBonePaletteSrvIndex = GpuFrame.mSegmentContextSrvIndex;
+            RootConstants.mDrawRecordSrvIndex = GpuFrame.mDrawRecordSrvIndex;
+            RootConstants.mDrawRecordBaseIndex = static_cast<std::uint32_t>(DrawRecordIndex);
+            RootConstants.mMaterialSrvIndex = Context.mMaterialSrvIndex;
+            RootConstants.mMaterialTextureTableSrvIndex = Context.mMaterialTextureTableSrvIndex;
+            RootConstants.mShadowMappingParameterSrvIndex = InvalidDescriptorIndex;
+            RootConstants.mShadowMapTextureBaseSrvIndex = InvalidDescriptorIndex;
+            RootConstants.mFrameGlobalsElementIndex = 0u;
+            RootConstants.mTerrainPatchContextSrvIndex = InvalidDescriptorIndex;
+            RootConstants.mReserved1 = GpuFrame.mVisibleInstanceIndexSrvIndex;
+            Context.mCommandList->SetGraphicsRoot32BitConstants(0, sizeof(DrawRootConstantsB1) / sizeof(std::uint32_t), &RootConstants, 0);
+
+            Context.mCommandList->IASetPrimitiveTopology(Pipeline->GetPrimitiveTopology());
+
+            const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*Pipeline, *DrawRecord.mMesh) };
+            if (VertexBufferViews.empty() == false) {
+                Context.mCommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
+            }
+
+            const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ DrawRecord.mMesh->GetIndexBufferView() };
+            Context.mCommandList->IASetIndexBuffer(&IndexBufferView);
+
+            const std::uint64_t IndirectArgumentOffset{ sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) * DrawRecordIndex };
+            Context.mCommandList->ExecuteIndirect(mDrawIndexedIndirectCommandSignature.Get(), 1u, GpuFrame.mIndirectArgumentResource, IndirectArgumentOffset, nullptr, 0u);
+        }
+
+        std::array<D3D12_RESOURCE_BARRIER, 2> RestoreBarriers{};
+        RestoreBarriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        RestoreBarriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+        RestoreBarriers[0].Transition.pResource = GpuFrame.mVisibleInstanceIndexResource;
+        RestoreBarriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        RestoreBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        RestoreBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COMMON;
+        RestoreBarriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        RestoreBarriers[1].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+        RestoreBarriers[1].Transition.pResource = GpuFrame.mIndirectArgumentResource;
+        RestoreBarriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        RestoreBarriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
+        RestoreBarriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COMMON;
+        Context.mCommandList->ResourceBarrier(static_cast<UINT>(RestoreBarriers.size()), RestoreBarriers.data());
     }
 
     bool EnvironmentRuntime::CreateComputeRootSignature() {
@@ -697,7 +1031,7 @@ namespace Game {
 
             D3D12_DRAW_INDEXED_ARGUMENTS& DrawArguments{ mGpuIndirectArguments[DrawRecordIndex] };
             if (SourceRecord.mMesh != nullptr && SourceRecord.mInstanceCount > 0u) {
-                const Game::ModelSubMesh& SubMesh{ SourceRecord.mMesh->GetSubMesh(SourceRecord.mSubMesh) };
+                const RenderContract::ModelSubMesh& SubMesh{ SourceRecord.mMesh->GetSubMesh(SourceRecord.mSubMesh) };
                 DrawArguments.IndexCountPerInstance = static_cast<UINT>(SubMesh.mIndexCount);
                 DrawArguments.InstanceCount = 0u;
                 DrawArguments.StartIndexLocation = static_cast<UINT>(SubMesh.mIndexOffset);
@@ -886,12 +1220,14 @@ namespace Game {
     void EnvironmentRuntime::ResetGpuResources() {
         mComputeRootSignature.Reset();
         mPreparePipelineState.Reset();
+        mDrawIndexedIndirectCommandSignature.Reset();
         mGpuStatusBuffer.Reset();
         mGpuStatusUavHandle = Core::DX::DescriptorHandle{};
         mGpuInstanceContexts.clear();
         mGpuSegmentContexts.clear();
         mGpuDrawRecords.clear();
         mGpuIndirectArguments.clear();
+        mVertexBufferViewCache.clear();
         mGpuDrivenFrameResources = {};
         mGpuStatusUavIndex = InvalidDescriptorIndex;
         mLastGpuDispatchFuture = RenderContract::Future{};

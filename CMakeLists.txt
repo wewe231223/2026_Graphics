@@ -214,10 +214,11 @@ if(MSVC)
 endif()
 
 add_library(Environment STATIC
-    Game/Environment/EnvironmentObjectRenderContext.cpp
-    Game/Environment/EnvironmentObjectRenderDataBuilder.cpp
-    Game/Environment/EnvironmentObjectTypes.cpp
-    Game/Environment/EnvironmentRuntime.cpp
+    Environment/EnvironmentObjectRenderContext.cpp
+    Environment/EnvironmentObjectRenderDataBuilder.cpp
+    Environment/EnvironmentObjectTypes.cpp
+    Environment/EnvironmentFoliageRuntime.cpp
+    Environment/EnvironmentRuntime.cpp
 )
 
 target_include_directories(Environment PUBLIC
@@ -334,7 +335,6 @@ add_library(Game STATIC
     Game/Scene/Legacy/Systems/FootIKSystem.cpp
     Game/Scene/Systems/CharacterControllerSystem.cpp
     Game/Scene/Systems/PhysicsActorUpdateSystem.cpp
-    Game/Scene/Systems/ProceduralFoliageSystem.cpp
     Game/Scene/Legacy/Systems/TransformWorldSystem.cpp
     Game/Scene/Legacy/Systems/SkinnedMeshPrepareSystem.cpp
     Game/Scene/Systems/ShadowMappingParameterSystem.cpp

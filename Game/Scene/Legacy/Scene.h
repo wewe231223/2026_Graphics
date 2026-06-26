@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <cstdint>
 #include <filesystem>
 #include <limits>
@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 #include "Arche/World.h"
-#include "Game/Environment/EnvironmentRuntime.h"
+#include "Environment/EnvironmentRuntime.h"
 #include "Game/Scene/Base/SynchronousSystem.h"
 #include "SystemSceduler.h"
 #include "Game/Scene/Base/SceneWorldSnapshot.h"
@@ -60,6 +60,7 @@ namespace Game {
         bool IsPhysicsRuntimeModeEnabled() const;
 
         void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap, Interface::IComputeQueue* ComputeQueue);
+        void SetEnvironmentConfigPath(const std::string& ConfigPath);
         void InitializePhysicsWorld();
         void RebuildPhysicsActors();
         void UpdatePhysics(float Dt);

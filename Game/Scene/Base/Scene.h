@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <vector>
 #include "Arche/World.h"
-#include "Game/Environment/EnvironmentRuntime.h"
+#include "Environment/EnvironmentRuntime.h"
 #include "Game/Model/AssetRegistry.h"
 #include "Game/Scene/Base/FrameContext.h"
 #include "Game/Scene/Base/Executor.h"
@@ -95,6 +95,7 @@ namespace Game {
             AssetRegistry& GetAssetRegistry();
             const AssetRegistry& GetAssetRegistry() const;
             void InitializeAssetRegistry(ID3D12Device* Device, Interface::ICopyQueue* CopyQueue, Interface::IGraphicsAllocator* Allocator, Core::DX::DescriptorHeap* SrvHeap, Interface::IComputeQueue* ComputeQueue);
+            void SetEnvironmentConfigPath(const std::string& ConfigPath);
 
             Script::LuaBehaviorFramework& GetLuaScriptFramework();
             const Script::LuaBehaviorFramework& GetLuaScriptFramework() const;

@@ -44,7 +44,6 @@
 #include "Game/Scene/Systems/CameraRenderSystem.h"
 #include "Game/Scene/Systems/CharacterControllerSystem.h"
 #include "Game/Scene/Systems/PhysicsActorUpdateSystem.h"
-#include "Game/Scene/Systems/ProceduralFoliageSystem.h"
 #include "Game/Scene/Systems/ShadowMappingParameterSystem.h"
 #include "Game/Scene/Systems/TerrainStreamingSystem.h"
 #include "Utility/MathValidation.h"
@@ -128,7 +127,6 @@ namespace Game {
             mSynchronousSystems.push_back(std::make_unique<Game::TerrainStreamingSystem>());
             mSynchronousSystems.push_back(std::make_unique<Game::CameraRenderSystem>());
             mSynchronousSystems.push_back(std::make_unique<Game::ShadowMappingParameterSystem>());
-            mSynchronousSystems.push_back(std::make_unique<Game::ProceduralFoliageSystem>());
 
             ScenePhysicsRuntimeCoordinator::InitializePhysicsWorld(BuildPhysicsRuntimeContext());
 
@@ -177,9 +175,6 @@ namespace Game {
         void Scene::PrepareRender() {
             mAssetRegistry.PrepareRenderTextures(mFrameContext.RenderData);
             mFrameContext.RenderData.mMaterialTextureTable = mAssetRegistry.GetMaterialTextureTable();
-            if (mEnvironmentRuntime.IsGpuDrivenEnabled() == false) {
-                return;
-            }
 
             EnvironmentFrameInput EnvironmentInput{};
             EnvironmentInput.mFrameIndex = mFrameContext.RenderData.mFrameGlobals.mFrameIndex;
@@ -187,7 +182,7 @@ namespace Game {
             EnvironmentInput.mView = mFrameContext.RenderData.mFrameGlobals.mView;
             EnvironmentInput.mProjection = mFrameContext.RenderData.mFrameGlobals.mProj;
             EnvironmentInput.mViewProjection = mFrameContext.RenderData.mFrameGlobals.mViewProj;
-            mEnvironmentRuntime.PrepareGpuDrivenFrame(EnvironmentInput, mFrameContext.RenderData);
+            mEnvironmentRuntime.Tick(EnvironmentInput, mFrameContext.RenderData);
         }
 
         PipelineFrameExecutionResult Scene::ExecuteDataPipelineFrame(float Dt, const PipelineSystemRegistry& Registry) {
@@ -290,6 +285,10 @@ namespace Game {
             EnvironmentDesc.mPhysicsAdapter = nullptr;
             EnvironmentDesc.mGpuDrivenEnabled = Config::Query()->Get<bool>("EnvironmentObjects_GpuDrivenEnabled");
             mEnvironmentRuntime.Initialize(EnvironmentDesc);
+        }
+
+        void Scene::SetEnvironmentConfigPath(const std::string& ConfigPath) {
+            mEnvironmentRuntime.SetConfigPath(ConfigPath);
         }
 
         Script::LuaBehaviorFramework& Scene::GetLuaScriptFramework() {
@@ -833,6 +832,7 @@ namespace Game {
 
             RenderContract::FrameRenderWriter FrameWriter{ mFrameContext.RenderData };
             FrameWriter.BeginFrame();
+            mFrameContext.RenderData.mEnvironmentRuntime = &mEnvironmentRuntime;
 
             mFrameContext.RenderData.mMaterials = mAssetRegistry.GetPackedMaterials();
             if (mIsBoundingBoxDrawEnabled == true) {
@@ -859,6 +859,7 @@ namespace Game {
 
                 System->Execute(mWorld, mFrameContext, Dt);
             }
+
         }
 
         void Scene::ExecuteSynchronousSystems(float Dt, bool IsPhysicsSynchronizationStage) {
@@ -880,6 +881,12 @@ namespace Game {
                 mFrameContext.AssetRegistryResource = &mAssetRegistry;
 
                 System->Execute(mWorld, mFrameContext, Dt);
+            }
+
+            if (IsPhysicsSynchronizationStage == false) {
+                mFrameContext.MaterialGroups = &mAssetRegistry.GetMaterialGroups();
+                mFrameContext.AssetRegistryResource = &mAssetRegistry;
+                mEnvironmentRuntime.Tick(mWorld, mFrameContext, Dt);
             }
         }
 

@@ -16,13 +16,13 @@
 #include "Game/Scene/Components/SkySphere.h"
 #include "Game/Scene/Components/Transform.h"
 #include "Game/Scene/Base/Scene.h"
-#include "Game/Scene/Systems/ProceduralFoliageSystem.h"
 #include "Utility/StdOutput.h"
 
 namespace Game::SceneYaml {
     namespace {
         c4::yml::Tree ParseSceneYaml(const std::string& YamlText);
         void ReadSceneMetadata(c4::yml::ConstNodeRef RootNode, SceneYamlLoadContext& LoadContext);
+        void ReadEnvironmentSettings(c4::yml::ConstNodeRef RootNode, SceneYamlLoadContext& LoadContext);
         void ReadSystems(c4::yml::ConstNodeRef RootNode, SceneYamlLoadContext& LoadContext);
         void ReadPrefabDescriptors(c4::yml::ConstNodeRef RootNode, SceneYamlLoadContext& LoadContext);
         void ReadEntityComponentsFromRegistry(c4::yml::ConstNodeRef ComponentsNode, Arche::EntityID Entity, SceneYamlLoadContext& LoadContext, SceneYamlComponentReadState& ReadState, const std::vector<SceneYamlComponentReader>& ComponentReaders);
@@ -112,6 +112,15 @@ namespace Game::SceneYaml {
         mPipelineScene->GetWorldSnapshot().SetSceneName(NewName);
     }
 
+    void SceneYamlLoadTarget::SetEnvironmentConfigPath(const std::string& ConfigPath) {
+        if (mScene != nullptr) {
+            mScene->SetEnvironmentConfigPath(ConfigPath);
+            return;
+        }
+
+        mPipelineScene->SetEnvironmentConfigPath(ConfigPath);
+    }
+
     bool SceneYamlLoadTarget::ShouldReadSystems() const {
         return mScene != nullptr || mPipelineScene != nullptr;
     }
@@ -186,6 +195,24 @@ namespace Game::SceneYaml {
             }
         }
 
+        void ReadEnvironmentSettings(c4::yml::ConstNodeRef RootNode, SceneYamlLoadContext& LoadContext) {
+            if (RootNode.has_child("Environment") == false) {
+                return;
+            }
+
+            const c4::yml::ConstNodeRef EnvironmentNode{ RootNode["Environment"] };
+            if (EnvironmentNode.readable() == false || EnvironmentNode.is_map() == false) {
+                return;
+            }
+
+            std::string ConfigPath{};
+            if (TryReadStringChild(EnvironmentNode, { "ConfigPath", "configPath" }, ConfigPath) == false) {
+                return;
+            }
+
+            LoadContext.mScene.SetEnvironmentConfigPath(ResolveSceneResourcePath(LoadContext.mSceneName, ConfigPath));
+        }
+
         void ReadSystems(c4::yml::ConstNodeRef RootNode, SceneYamlLoadContext& LoadContext) {
             if (LoadContext.mScene.ShouldReadSystems() == false) {
                 return;
@@ -205,21 +232,24 @@ namespace Game::SceneYaml {
                     continue;
                 }
 
+                if (SystemName == "ProceduralFoliageSystem" && SystemNode.is_map() == true) {
+                    std::string ConfigPath{};
+                    if (TryReadStringChild(SystemNode, { "ConfigPath", "configPath" }, ConfigPath) == true) {
+                        LoadContext.mScene.SetEnvironmentConfigPath(ResolveSceneResourcePath(LoadContext.mSceneName, ConfigPath));
+                    }
+
+                    continue;
+                }
+
+                if (SystemName == "ProceduralFoliageSystem") {
+                    continue;
+                }
+
                 std::unique_ptr<ISystem> NewSystem{ CreateSystemByName(SystemName) };
                 if (NewSystem == nullptr) {
                     LoadContext.mLoadResult.IsSuccess = false;
                     LoadContext.mLoadResult.UndecidedItems.push_back(std::string{ "알 수 없는 System Type: " } + SystemName);
                     continue;
-                }
-
-                if (SystemName == "ProceduralFoliageSystem" && SystemNode.is_map() == true) {
-                    std::string ConfigPath{};
-                    if (TryReadStringChild(SystemNode, { "ConfigPath", "configPath" }, ConfigPath) == true) {
-                        ProceduralFoliageSystem* FoliageSystem{ dynamic_cast<ProceduralFoliageSystem*>(NewSystem.get()) };
-                        if (FoliageSystem != nullptr) {
-                            FoliageSystem->SetConfigPath(ResolveSceneResourcePath(LoadContext.mSceneName, ConfigPath));
-                        }
-                    }
                 }
 
                 LoadContext.mScene.AddSystem(std::move(NewSystem));
@@ -544,6 +574,7 @@ namespace Game::SceneYaml {
             const c4::yml::ConstNodeRef RootNode{ Tree.rootref() };
 
             ReadSceneMetadata(RootNode, LoadContext);
+            ReadEnvironmentSettings(RootNode, LoadContext);
             ReadSystems(RootNode, LoadContext);
             ReadPrefabDescriptors(RootNode, LoadContext);
             CreateSceneEntities(RootNode, LoadContext);

@@ -1,8 +1,8 @@
-﻿#pragma once
+#pragma once
 
 #include <cstdint>
 #include <vector>
-#include "Game/Environment/EnvironmentObjectTypes.h"
+#include "Environment/EnvironmentObjectTypes.h"
 #include "RenderContract/Gather/RenderGatherResult.h"
 
 namespace Game {

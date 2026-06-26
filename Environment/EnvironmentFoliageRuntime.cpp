@@ -1,4 +1,4 @@
-﻿#include "ProceduralFoliageSystem.h"
+#include "Environment/EnvironmentFoliageRuntime.h"
 
 #include <algorithm>
 #include <array>
@@ -31,7 +31,8 @@
 #include <ryml_std.hpp>
 
 #include "Core/Config.h"
-#include "Game/Environment/EnvironmentObjectTypes.h"
+#include "Environment/EnvironmentObjectRenderContext.h"
+#include "Environment/EnvironmentObjectTypes.h"
 #include "Game/Model/AssetRegistry.h"
 #include "Game/Model/PrimitiveModelFactory.h"
 #include "Game/Model/TerrainRenderResource.h"
@@ -1784,14 +1785,14 @@ namespace {
 }
 
 namespace Game {
-    class ProceduralFoliageRuntime final {
+    class EnvironmentFoliageRuntime::Impl final {
     public:
-        explicit ProceduralFoliageRuntime(std::string ConfigPath);
-        ~ProceduralFoliageRuntime();
-        ProceduralFoliageRuntime(const ProceduralFoliageRuntime& Other);
-        ProceduralFoliageRuntime& operator=(const ProceduralFoliageRuntime& Other);
-        ProceduralFoliageRuntime(ProceduralFoliageRuntime&& Other) noexcept;
-        ProceduralFoliageRuntime& operator=(ProceduralFoliageRuntime&& Other) noexcept;
+        explicit Impl(std::string ConfigPath);
+        ~Impl();
+        Impl(const Impl& Other);
+        Impl& operator=(const Impl& Other);
+        Impl(Impl&& Other) noexcept;
+        Impl& operator=(Impl&& Other) noexcept;
 
     public:
         void Update(Arche::World& World, FrameContext& Ctx, float Dt);
@@ -1840,7 +1841,7 @@ namespace Game {
         float mUpdateTimer{ 0.0f };
     };
 
-    ProceduralFoliageRuntime::ProceduralFoliageRuntime(std::string ConfigPath)
+    EnvironmentFoliageRuntime::Impl::Impl(std::string ConfigPath)
         : mConfigPath{ std::move(ConfigPath) },
         mConfig{},
         mRules{},
@@ -1865,10 +1866,10 @@ namespace Game {
         mUpdateTimer{ 0.0f } {
     }
 
-    ProceduralFoliageRuntime::~ProceduralFoliageRuntime() {
+    EnvironmentFoliageRuntime::Impl::~Impl() {
     }
 
-    ProceduralFoliageRuntime::ProceduralFoliageRuntime(const ProceduralFoliageRuntime& Other)
+    EnvironmentFoliageRuntime::Impl::Impl(const Impl& Other)
         : mConfigPath{ Other.mConfigPath },
         mConfig{ Other.mConfig },
         mRules{},
@@ -1893,7 +1894,7 @@ namespace Game {
         mUpdateTimer{ 0.0f } {
     }
 
-    ProceduralFoliageRuntime& ProceduralFoliageRuntime::operator=(const ProceduralFoliageRuntime& Other) {
+    EnvironmentFoliageRuntime::Impl& EnvironmentFoliageRuntime::Impl::operator=(const Impl& Other) {
         if (this == &Other) {
             return *this;
         }
@@ -1923,7 +1924,7 @@ namespace Game {
         return *this;
     }
 
-    ProceduralFoliageRuntime::ProceduralFoliageRuntime(ProceduralFoliageRuntime&& Other) noexcept
+    EnvironmentFoliageRuntime::Impl::Impl(Impl&& Other) noexcept
         : mConfigPath{ std::move(Other.mConfigPath) },
         mConfig{ std::move(Other.mConfig) },
         mRules{ std::move(Other.mRules) },
@@ -1957,7 +1958,7 @@ namespace Game {
         Other.mUpdateTimer = 0.0f;
     }
 
-    ProceduralFoliageRuntime& ProceduralFoliageRuntime::operator=(ProceduralFoliageRuntime&& Other) noexcept {
+    EnvironmentFoliageRuntime::Impl& EnvironmentFoliageRuntime::Impl::operator=(Impl&& Other) noexcept {
         if (this == &Other) {
             return *this;
         }
@@ -1996,7 +1997,7 @@ namespace Game {
         return *this;
     }
 
-    bool ProceduralFoliageRuntime::Initialize(FrameContext& Ctx) {
+    bool EnvironmentFoliageRuntime::Impl::Initialize(FrameContext& Ctx) {
         if (mInitialized == true) {
             return mValid;
         }
@@ -2006,7 +2007,7 @@ namespace Game {
             mConfig = LoadFoliagePlacementConfig(mConfigPath);
         }
         catch (const std::exception& Exception) {
-            ErrorHandler::report("ProceduralFoliageSystem", Exception.what(), ErrorHandler::Level::Warning);
+            ErrorHandler::report("EnvironmentFoliageRuntime", Exception.what(), ErrorHandler::Level::Warning);
             mValid = false;
             return false;
         }
@@ -2068,7 +2069,7 @@ namespace Game {
         return mValid;
     }
 
-    void ProceduralFoliageRuntime::BuildEnvironmentPrototypes(AssetRegistry& AssetRegistryValue, const std::vector<RegisteredMaterialGroup>& MaterialGroups) {
+    void EnvironmentFoliageRuntime::Impl::BuildEnvironmentPrototypes(AssetRegistry& AssetRegistryValue, const std::vector<RegisteredMaterialGroup>& MaterialGroups) {
         mEnvironmentPrototypes.clear();
         mEnvironmentPrototypes.reserve(mRules.size());
         for (const FoliageRuntimeRule& Rule : mRules) {
@@ -2109,7 +2110,7 @@ namespace Game {
         }
     }
 
-    EnvironmentObjectCell ProceduralFoliageRuntime::BuildEnvironmentObjectCell(const EnvironmentObjectCellKey& CellKey, std::span<const FoliageCandidate> Candidates, std::uint64_t FrameIndex) const {
+    EnvironmentObjectCell EnvironmentFoliageRuntime::Impl::BuildEnvironmentObjectCell(const EnvironmentObjectCellKey& CellKey, std::span<const FoliageCandidate> Candidates, std::uint64_t FrameIndex) const {
         EnvironmentObjectCell Cell{};
         Cell.mKey = CellKey;
         Cell.mState = EnvironmentObjectCellState::Generated;
@@ -2138,7 +2139,7 @@ namespace Game {
         return Cell;
     }
 
-    GeneratedFoliageCell ProceduralFoliageRuntime::GenerateEnvironmentObjectCell(const TerrainSamplingContext& TerrainContext, const EnvironmentObjectCellKey& CellKey, std::uint64_t FrameIndex) const {
+    GeneratedFoliageCell EnvironmentFoliageRuntime::Impl::GenerateEnvironmentObjectCell(const TerrainSamplingContext& TerrainContext, const EnvironmentObjectCellKey& CellKey, std::uint64_t FrameIndex) const {
         std::vector<FoliageCandidate> WindowCandidates{};
         const std::int32_t SpacingCellRadius{ CalculateMinimumSpacingCellRadius(mRules, mConfig) };
         const std::int32_t MinimumCellX{ CellKey.mX - SpacingCellRadius };
@@ -2180,7 +2181,7 @@ namespace Game {
         return GeneratedCell;
     }
 
-    void ProceduralFoliageRuntime::RemoveUnloadedEnvironmentObjectCells(FrameContext& Ctx) {
+    void EnvironmentFoliageRuntime::Impl::RemoveUnloadedEnvironmentObjectCells(FrameContext& Ctx) {
         static_cast<void>(Ctx);
 
         for (const EnvironmentObjectCellKey& PreviousCellKey : mVisibleEnvironmentCellKeys) {
@@ -2200,7 +2201,7 @@ namespace Game {
         }
     }
 
-    void ProceduralFoliageRuntime::RefreshVisibleEnvironmentObjectCells(FrameContext& Ctx) {
+    void EnvironmentFoliageRuntime::Impl::RefreshVisibleEnvironmentObjectCells(FrameContext& Ctx) {
         mEnvironmentRenderContext.SetResidentCellLimit(mDesiredEnvironmentCellKeys.size());
         std::vector<EnvironmentObjectCellKey> NewVisibleCellKeys{};
         NewVisibleCellKeys.reserve(mDesiredEnvironmentCellKeys.size());
@@ -2228,7 +2229,7 @@ namespace Game {
         mEnvironmentRenderContext.SetResidentCellLimit(mVisibleEnvironmentCellKeys.size());
     }
 
-    void ProceduralFoliageRuntime::BuildLoadedCollisionCandidates() {
+    void EnvironmentFoliageRuntime::Impl::BuildLoadedCollisionCandidates() {
         mUpdateCandidates.clear();
         for (const EnvironmentObjectCellKey& CellKey : mDesiredEnvironmentCellKeys) {
             const std::unordered_map<EnvironmentObjectCellKey, GeneratedFoliageCell, EnvironmentObjectCellKeyHasher>::const_iterator FoundCellIterator{ mGeneratedEnvironmentCells.find(CellKey) };
@@ -2246,7 +2247,7 @@ namespace Game {
         }
     }
 
-    std::vector<std::uint32_t> ProceduralFoliageRuntime::ResolveEnvironmentPrototypeLodLevels(const EnvironmentObjectRenderPacket& Packet) const {
+    std::vector<std::uint32_t> EnvironmentFoliageRuntime::Impl::ResolveEnvironmentPrototypeLodLevels(const EnvironmentObjectRenderPacket& Packet) const {
         std::vector<std::uint32_t> LodLevels{};
         LodLevels.resize(mRules.size(), 0u);
         if (mRules.empty() == true || Packet.mPrototypeIndices.empty() == true) {
@@ -2276,7 +2277,7 @@ namespace Game {
         return LodLevels;
     }
 
-    void ProceduralFoliageRuntime::AppendEnvironmentRenderData(Arche::World& World, FrameContext& Ctx) {
+    void EnvironmentFoliageRuntime::Impl::AppendEnvironmentRenderData(Arche::World& World, FrameContext& Ctx) {
         if (mVisibleEnvironmentCellKeys.empty() == true) {
             return;
         }
@@ -2315,7 +2316,7 @@ namespace Game {
         }
     }
 
-    void ProceduralFoliageRuntime::Update(Arche::World& World, FrameContext& Ctx, float Dt) {
+    void EnvironmentFoliageRuntime::Impl::Update(Arche::World& World, FrameContext& Ctx, float Dt) {
         if (Initialize(Ctx) == false) {
             return;
         }
@@ -2362,7 +2363,7 @@ namespace Game {
         AppendEnvironmentRenderData(World, Ctx);
     }
 
-    void ProceduralFoliageRuntime::BeginFoliageUpdate(FrameContext& Ctx, const SimpleMath::Vector3& FocusPosition) {
+    void EnvironmentFoliageRuntime::Impl::BeginFoliageUpdate(FrameContext& Ctx, const SimpleMath::Vector3& FocusPosition) {
         for (FoliageSlot& Slot : mSlots) {
             Slot.mAssignedThisFrame = false;
         }
@@ -2388,7 +2389,7 @@ namespace Game {
         mUpdatePhase = FoliageUpdatePhase::BuildCandidates;
     }
 
-    void ProceduralFoliageRuntime::ProcessFoliageUpdateBatch(Arche::World& World, FrameContext& Ctx, const TerrainSamplingContext& TerrainContext) {
+    void EnvironmentFoliageRuntime::Impl::ProcessFoliageUpdateBatch(Arche::World& World, FrameContext& Ctx, const TerrainSamplingContext& TerrainContext) {
         if (mUpdatePhase == FoliageUpdatePhase::BuildCandidates) {
             BuildCandidateBatch(Ctx, TerrainContext);
             return;
@@ -2404,7 +2405,7 @@ namespace Game {
         }
     }
 
-    void ProceduralFoliageRuntime::BuildCandidateBatch(FrameContext& Ctx, const TerrainSamplingContext& TerrainContext) {
+    void EnvironmentFoliageRuntime::Impl::BuildCandidateBatch(FrameContext& Ctx, const TerrainSamplingContext& TerrainContext) {
         std::uint32_t ProcessedCellCount{};
         while (mUpdateCellKeyIndex < mPendingEnvironmentCellKeys.size() && ProcessedCellCount < mConfig.mUpdateCellBatchSize) {
             const EnvironmentObjectCellKey CellKey{ mPendingEnvironmentCellKeys[mUpdateCellKeyIndex] };
@@ -2424,7 +2425,7 @@ namespace Game {
         mUpdatePhase = FoliageUpdatePhase::ApplyCandidates;
     }
 
-    void ProceduralFoliageRuntime::ApplyCandidateBatch(Arche::World& World, FrameContext& Ctx) {
+    void EnvironmentFoliageRuntime::Impl::ApplyCandidateBatch(Arche::World& World, FrameContext& Ctx) {
         std::uint32_t ProcessedCandidateCount{};
         while (mUpdateCandidateIndex < mUpdateCandidates.size() && ProcessedCandidateCount < mConfig.mUpdateCandidateBatchSize) {
             FoliageCandidate Candidate{ mUpdateCandidates[mUpdateCandidateIndex] };
@@ -2469,7 +2470,7 @@ namespace Game {
         mUpdatePhase = FoliageUpdatePhase::RebuildSlotLookup;
     }
 
-    void ProceduralFoliageRuntime::RebuildSlotLookupBatch(Arche::World& World, FrameContext& Ctx) {
+    void EnvironmentFoliageRuntime::Impl::RebuildSlotLookupBatch(Arche::World& World, FrameContext& Ctx) {
         std::uint32_t ProcessedSlotCount{};
         while (mUpdateSlotIndex < mSlots.size() && ProcessedSlotCount < mConfig.mUpdateSlotBatchSize) {
             FoliageSlot& Slot{ mSlots[mUpdateSlotIndex] };
@@ -2494,7 +2495,7 @@ namespace Game {
         mUpdatePhase = FoliageUpdatePhase::Idle;
     }
 
-    bool ProceduralFoliageRuntime::TryCreateCandidate(const TerrainSamplingContext& TerrainContext, std::uint32_t RuleIndex, std::int32_t CellX, std::int32_t CellZ, std::uint32_t InstanceIndex, FoliageCandidate& OutCandidate) const {
+    bool EnvironmentFoliageRuntime::Impl::TryCreateCandidate(const TerrainSamplingContext& TerrainContext, std::uint32_t RuleIndex, std::int32_t CellX, std::int32_t CellZ, std::uint32_t InstanceIndex, FoliageCandidate& OutCandidate) const {
         if (RuleIndex >= mRules.size() || TerrainContext.mResource == nullptr) {
             return false;
         }
@@ -2538,7 +2539,7 @@ namespace Game {
         return true;
     }
 
-    std::size_t ProceduralFoliageRuntime::FindReusableSlot(std::uint32_t RuleIndex) const {
+    std::size_t EnvironmentFoliageRuntime::Impl::FindReusableSlot(std::uint32_t RuleIndex) const {
         for (std::size_t SlotIndex{ 0ULL }; SlotIndex < mSlots.size(); ++SlotIndex) {
             const FoliageSlot& Slot{ mSlots[SlotIndex] };
             if (Slot.mRuleIndex == RuleIndex && Slot.mActive == false && Slot.mAssignedThisFrame == false) {
@@ -2549,7 +2550,7 @@ namespace Game {
         return std::numeric_limits<std::size_t>::max();
     }
 
-    bool ProceduralFoliageRuntime::CreateSlot(Arche::World& World, FrameContext& Ctx, std::uint32_t RuleIndex, std::size_t& OutSlotIndex) {
+    bool EnvironmentFoliageRuntime::Impl::CreateSlot(Arche::World& World, FrameContext& Ctx, std::uint32_t RuleIndex, std::size_t& OutSlotIndex) {
         if (RuleIndex >= mRules.size()) {
             return false;
         }
@@ -2566,81 +2567,51 @@ namespace Game {
         return true;
     }
 
-    ProceduralFoliageSystem::ProceduralFoliageSystem()
-        : mName{ "ProceduralFoliageSystem" },
-        mConfigPath{ "Resources/DefaultScene/FoliagePlacement.yaml" },
-        mRuntime{} {
+    EnvironmentFoliageRuntime::EnvironmentFoliageRuntime(std::string ConfigPath)
+        : mConfigPath{ std::move(ConfigPath) },
+        mImpl{} {
     }
 
-    ProceduralFoliageSystem::~ProceduralFoliageSystem() {
+    EnvironmentFoliageRuntime::~EnvironmentFoliageRuntime() {
     }
 
-    ProceduralFoliageSystem::ProceduralFoliageSystem(const ProceduralFoliageSystem& Other)
-        : mName{ Other.mName },
-        mConfigPath{ Other.mConfigPath },
-        mRuntime{} {
+    EnvironmentFoliageRuntime::EnvironmentFoliageRuntime(EnvironmentFoliageRuntime&& Other) noexcept
+        : mConfigPath{ std::move(Other.mConfigPath) },
+        mImpl{ std::move(Other.mImpl) } {
     }
 
-    ProceduralFoliageSystem& ProceduralFoliageSystem::operator=(const ProceduralFoliageSystem& Other) {
+    EnvironmentFoliageRuntime& EnvironmentFoliageRuntime::operator=(EnvironmentFoliageRuntime&& Other) noexcept {
         if (this == &Other) {
             return *this;
         }
 
-        mName = Other.mName;
-        mConfigPath = Other.mConfigPath;
-        mRuntime.reset();
-        return *this;
-    }
-
-    ProceduralFoliageSystem::ProceduralFoliageSystem(ProceduralFoliageSystem&& Other) noexcept
-        : mName{ std::move(Other.mName) },
-        mConfigPath{ std::move(Other.mConfigPath) },
-        mRuntime{ std::move(Other.mRuntime) } {
-    }
-
-    ProceduralFoliageSystem& ProceduralFoliageSystem::operator=(ProceduralFoliageSystem&& Other) noexcept {
-        if (this == &Other) {
-            return *this;
-        }
-
-        mName = std::move(Other.mName);
         mConfigPath = std::move(Other.mConfigPath);
-        mRuntime = std::move(Other.mRuntime);
+        mImpl = std::move(Other.mImpl);
         return *this;
     }
 
-    void ProceduralFoliageSystem::SetConfigPath(const std::string& ConfigPath) {
+    void EnvironmentFoliageRuntime::SetConfigPath(const std::string& ConfigPath) {
+        if (mConfigPath == ConfigPath) {
+            return;
+        }
+
         mConfigPath = ConfigPath;
-        mRuntime.reset();
+        mImpl.reset();
     }
 
-    const std::string& ProceduralFoliageSystem::Name() const {
-        return mName;
+    const std::string& EnvironmentFoliageRuntime::GetConfigPath() const {
+        return mConfigPath;
     }
 
-    Phase ProceduralFoliageSystem::GetPhase() const {
-        return Phase::PhysicsActorUpdate;
-    }
-
-    std::span<const ComponentAccess> ProceduralFoliageSystem::ComponentAccesses() const {
-        static std::array<ComponentAccess, 7> Accesses{ { { typeid(Game::Transform), Access::Write }, { typeid(Game::TerrainRenderer), Access::Read }, { typeid(Game::Camera), Access::Read }, { typeid(Game::Frustum), Access::Read }, { typeid(Game::EntityHierarchy), Access::Write }, { typeid(Game::BoundingBox), Access::Write }, { typeid(Game::PhysicsActor), Access::Write } } };
-        return Accesses;
-    }
-
-    std::span<const ResourceAccess> ProceduralFoliageSystem::ResourceAccesses() const {
-        static std::array<ResourceAccess, 4> Accesses{ { { typeid(AssetRegistry), Access::Write }, { typeid(IPhysicsWorld), Access::Write }, { typeid(PhysicsRuntime), Access::Write }, { typeid(RenderContract::RenderFrameData), Access::Write } } };
-        return Accesses;
-    }
-
-    void ProceduralFoliageSystem::Execute(Arche::World& World, FrameContext& Ctx, float Dt) {
+    void EnvironmentFoliageRuntime::Update(Arche::World& World, FrameContext& Ctx, float Dt) {
         if (Config::Query()->Get<bool>("EnvironmentObjects_Enabled") == false) {
             return;
         }
 
-        if (mRuntime == nullptr) {
-            mRuntime = std::make_unique<ProceduralFoliageRuntime>(mConfigPath);
+        if (mImpl == nullptr) {
+            mImpl = std::make_unique<Impl>(mConfigPath);
         }
 
-        mRuntime->Update(World, Ctx, Dt);
+        mImpl->Update(World, Ctx, Dt);
     }
 }

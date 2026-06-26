@@ -236,7 +236,27 @@ namespace Core {
 				const ShadowDepthBiasParameter ShadowDepthBias{ BuildShadowDepthBiasParameter(Data.mShadowMappingParameter, CascadeIndex) };
 				ID3D12GraphicsCommandList9* DynamicDepthBiasCommandList{ mIsDynamicDepthBiasSupported == true ? mCommandList9.Get() : nullptr };
 				mDrawCallDispatcher.DrawDepthOnly(mCommandList.Get(), DynamicDepthBiasCommandList, ShadowDepthBias.DepthBias, ShadowDepthBias.DepthBiasClamp, ShadowDepthBias.SlopeScaledDepthBias, Data.mShadowRenderContexts[CascadeIndex], CascadeIndex, DrawCallResources.GetShadowFrameGlobalsSrvHandle(), DrawCallResources.GetShadowModelContextSrvHandle(CascadeIndex), DrawCallResources.GetShadowTerrainPatchContextSrvHandle(CascadeIndex), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetShadowDrawRecordSrvHandle(CascadeIndex), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
-				mDrawCallDispatcher.DrawEnvironmentDepthOnly(mCommandList.Get(), DynamicDepthBiasCommandList, ShadowDepthBias.DepthBias, ShadowDepthBias.DepthBiasClamp, ShadowDepthBias.SlopeScaledDepthBias, Data.mShadowRenderContexts[CascadeIndex], CascadeIndex, DrawCallResources.GetShadowFrameGlobalsSrvHandle(), DrawCallResources.GetEnvironmentInstanceContextSrvHandle(), DrawCallResources.GetEnvironmentSegmentContextSrvHandle(), DrawCallResources.GetShadowEnvironmentDrawRecordSrvHandle(CascadeIndex), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
+				if (Data.mEnvironmentRuntime != nullptr) {
+					RenderContract::EnvironmentShadowDepthRenderCommandContext EnvironmentContext{};
+					EnvironmentContext.mCommandList = mCommandList.Get();
+					EnvironmentContext.mDynamicDepthBiasCommandList = DynamicDepthBiasCommandList;
+					EnvironmentContext.mPipelineProvider = &mDrawCallDispatcher;
+					EnvironmentContext.mShadowRenderContext = &Data.mShadowRenderContexts[CascadeIndex];
+					EnvironmentContext.mShadowFrameGlobalsIndex = CascadeIndex;
+					EnvironmentContext.mFrameGlobalsSrvIndex = DrawCallResources.GetShadowFrameGlobalsSrvHandle().GetIndex();
+					EnvironmentContext.mEnvironmentInstanceContextSrvIndex = DrawCallResources.GetEnvironmentInstanceContextSrvHandle().GetIndex();
+					EnvironmentContext.mEnvironmentSegmentContextSrvIndex = DrawCallResources.GetEnvironmentSegmentContextSrvHandle().GetIndex();
+					EnvironmentContext.mEnvironmentDrawRecordSrvIndex = DrawCallResources.GetShadowEnvironmentDrawRecordSrvHandle(CascadeIndex).GetIndex();
+					EnvironmentContext.mMaterialSrvIndex = mMaterialResourceManager.GetMaterialSrvHandle().GetIndex();
+					EnvironmentContext.mMaterialTextureTableSrvIndex = mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)).GetIndex();
+					EnvironmentContext.mRasterDepthBias = ShadowDepthBias.DepthBias;
+					EnvironmentContext.mRasterDepthBiasClamp = ShadowDepthBias.DepthBiasClamp;
+					EnvironmentContext.mRasterSlopeScaledDepthBias = ShadowDepthBias.SlopeScaledDepthBias;
+					Data.mEnvironmentRuntime->RecordShadowDepth(EnvironmentContext);
+				}
+				else {
+					mDrawCallDispatcher.DrawEnvironmentDepthOnly(mCommandList.Get(), DynamicDepthBiasCommandList, ShadowDepthBias.DepthBias, ShadowDepthBias.DepthBiasClamp, ShadowDepthBias.SlopeScaledDepthBias, Data.mShadowRenderContexts[CascadeIndex], CascadeIndex, DrawCallResources.GetShadowFrameGlobalsSrvHandle(), DrawCallResources.GetEnvironmentInstanceContextSrvHandle(), DrawCallResources.GetEnvironmentSegmentContextSrvHandle(), DrawCallResources.GetShadowEnvironmentDrawRecordSrvHandle(CascadeIndex), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
+				}
 
 				ShadowDepthMap->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 			}
@@ -262,7 +282,22 @@ namespace Core {
 		
 			// Execute Render Tasks
 			mDrawCallDispatcher.DrawGBuffer(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetTerrainPatchContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
-			mDrawCallDispatcher.DrawEnvironmentGBuffer(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetEnvironmentInstanceContextSrvHandle(), DrawCallResources.GetEnvironmentSegmentContextSrvHandle(), DrawCallResources.GetEnvironmentDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
+			if (Data.mEnvironmentRuntime != nullptr) {
+				RenderContract::EnvironmentGBufferRenderCommandContext EnvironmentContext{};
+				EnvironmentContext.mCommandList = mCommandList.Get();
+				EnvironmentContext.mPipelineProvider = &mDrawCallDispatcher;
+				EnvironmentContext.mRenderFrameData = &Data;
+				EnvironmentContext.mFrameGlobalsSrvIndex = DrawCallResources.GetFrameGlobalsSrvHandle().GetIndex();
+				EnvironmentContext.mEnvironmentInstanceContextSrvIndex = DrawCallResources.GetEnvironmentInstanceContextSrvHandle().GetIndex();
+				EnvironmentContext.mEnvironmentSegmentContextSrvIndex = DrawCallResources.GetEnvironmentSegmentContextSrvHandle().GetIndex();
+				EnvironmentContext.mEnvironmentDrawRecordSrvIndex = DrawCallResources.GetEnvironmentDrawRecordSrvHandle().GetIndex();
+				EnvironmentContext.mMaterialSrvIndex = mMaterialResourceManager.GetMaterialSrvHandle().GetIndex();
+				EnvironmentContext.mMaterialTextureTableSrvIndex = mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)).GetIndex();
+				Data.mEnvironmentRuntime->RecordGBuffer(EnvironmentContext);
+			}
+			else {
+				mDrawCallDispatcher.DrawEnvironmentGBuffer(mCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetEnvironmentInstanceContextSrvHandle(), DrawCallResources.GetEnvironmentSegmentContextSrvHandle(), DrawCallResources.GetEnvironmentDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
+			}
 
 			for (std::uint32_t GBufferIndex{ 0 }; GBufferIndex < GBufferTargetCount; GBufferIndex += 1) {
 				mGBufferTargets[GBufferIndex]->Transition(mCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
@@ -286,7 +321,8 @@ namespace Core {
 
 			mCommandList->Close();
 
-			std::array<RenderContract::Future, 4> UploadFutures{ DrawCallResources.GetCopyFuture(), mMaterialResourceManager.GetCopyFuture(static_cast<std::uint32_t>(CurrentIndex)), Data.mHasTerrainUploadFuture == true ? Data.mTerrainUploadFuture : RenderContract::Future{}, Data.mEnvironmentGpuDrivenFrame.mEnabled == true ? Data.mEnvironmentGpuDrivenFrame.mGpuDispatchFuture : RenderContract::Future{} };
+			const RenderContract::Future EnvironmentGpuFuture{ Data.mEnvironmentRuntime != nullptr ? Data.mEnvironmentRuntime->GetEnvironmentGpuFuture() : Data.mEnvironmentGpuDrivenFrame.mGpuDispatchFuture };
+			std::array<RenderContract::Future, 4> UploadFutures{ DrawCallResources.GetCopyFuture(), mMaterialResourceManager.GetCopyFuture(static_cast<std::uint32_t>(CurrentIndex)), Data.mHasTerrainUploadFuture == true ? Data.mTerrainUploadFuture : RenderContract::Future{}, EnvironmentGpuFuture };
 			RenderContract::Future UploadDependencyFuture{ RenderContract::Future::Merge(UploadFutures) };
 			QueueWaitFuture(UploadDependencyFuture);
 

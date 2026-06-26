@@ -17,6 +17,7 @@ void FrameRenderWriter::BeginFrame() {
     mRenderFrameData->mEnvironmentSegmentContexts.clear();
     mRenderFrameData->mEnvironmentDrawRecords.clear();
     mRenderFrameData->mEnvironmentGpuDrivenFrame = EnvironmentGpuDrivenFrameData{};
+    mRenderFrameData->mEnvironmentRuntime = nullptr;
     mRenderFrameData->mTerrainUploadFuture = Future{};
     mRenderFrameData->mHasTerrainUploadFuture = false;
     mRenderFrameData->mFrameGlobals.mFlags = 0u;

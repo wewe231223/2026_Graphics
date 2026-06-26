@@ -33,6 +33,7 @@
     <ClInclude Include="Environment\EnvironmentDrawRecord.h" />
     <ClInclude Include="Environment\EnvironmentDrawRecordGpu.h" />
     <ClInclude Include="Environment\EnvironmentInstanceContext.h" />
+    <ClInclude Include="Environment\EnvironmentRenderRuntime.h" />
     <ClInclude Include="Environment\EnvironmentSegmentContext.h" />
     <ClInclude Include="Frame\CameraParameter.h" />
     <ClInclude Include="Frame\DirectionalLightParameter.h" />

@@ -11,7 +11,7 @@
 
 namespace Core {
 	namespace DX {
-		class DrawCallDispatcher {
+		class DrawCallDispatcher : public RenderContract::IEnvironmentRenderPipelineProvider {
 		public:
 			DrawCallDispatcher();
 			~DrawCallDispatcher();
@@ -28,6 +28,9 @@ namespace Core {
 			void DrawForwardOverlays(ID3D12GraphicsCommandList* CommandList, const RenderContract::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle BoundingBoxContextSrvHandle, DescriptorHandle DebugGeometryContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle);
 			void DrawDepthOnly(ID3D12GraphicsCommandList* CommandList, ID3D12GraphicsCommandList9* DynamicDepthBiasCommandList, float RasterDepthBias, float RasterDepthBiasClamp, float RasterSlopeScaledDepthBias, const RenderContract::ShadowRenderContext& ShadowRenderContext, std::uint32_t ShadowFrameGlobalsIndex, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle ModelContextSrvHandle, DescriptorHandle TerrainPatchContextSrvHandle, DescriptorHandle BonePaletteSrvHandle, DescriptorHandle DrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle);
 			void DrawEnvironmentDepthOnly(ID3D12GraphicsCommandList* CommandList, ID3D12GraphicsCommandList9* DynamicDepthBiasCommandList, float RasterDepthBias, float RasterDepthBiasClamp, float RasterSlopeScaledDepthBias, const RenderContract::ShadowRenderContext& ShadowRenderContext, std::uint32_t ShadowFrameGlobalsIndex, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle EnvironmentInstanceContextSrvHandle, DescriptorHandle EnvironmentSegmentContextSrvHandle, DescriptorHandle EnvironmentDrawRecordSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle);
+			const RenderContract::IPipeline* ResolveEnvironmentObjectPipeline() override;
+			const RenderContract::IPipeline* ResolveEnvironmentObjectDepthPipeline() override;
+			const RenderContract::IPipeline* ResolveEnvironmentBillboardDepthPipeline() override;
 
 		private:
 			bool HasVertexInputBinding(const RenderContract::IPipeline& Pipeline, Game::VertexAttributeKind Kind) const;

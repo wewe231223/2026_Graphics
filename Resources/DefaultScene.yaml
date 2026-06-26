@@ -1,5 +1,8 @@
 ﻿SceneName: DefaultScene
 
+Environment:
+  ConfigPath: FoliagePlacement.yaml
+
 Systems:
   - Type: AnimationGraphSystem
   - Type: AnimateSystem
@@ -7,8 +10,6 @@ Systems:
   - Type: CharacterControllerSystem
   - Type: PhysicsActorUpdateSystem
   - Type: TerrainStreamingSystem
-  - Type: ProceduralFoliageSystem
-    ConfigPath: FoliagePlacement.yaml
   - Type: TransformWorldSystem
   - Type: SkinnedMeshPrepareSystem
   - Type: StaticRenderSystem

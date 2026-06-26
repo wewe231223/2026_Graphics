@@ -42,6 +42,7 @@ namespace Game::SceneYaml {
         const Script::LuaBehaviorFramework& GetLuaScriptFramework() const;
 
         void SetName(const std::string& NewName);
+        void SetEnvironmentConfigPath(const std::string& ConfigPath);
         bool ShouldReadSystems() const;
         void AddSystem(std::unique_ptr<ISystem> NewSystem);
         void BuildSystemExecutionPlan();

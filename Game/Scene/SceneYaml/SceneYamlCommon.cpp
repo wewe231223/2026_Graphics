@@ -27,7 +27,6 @@
 #include "Game/Scene/Systems/CharacterControllerSystem.h"
 #include "Game/Scene/Legacy/Systems/FootIKSystem.h"
 #include "Game/Scene/Systems/PhysicsActorUpdateSystem.h"
-#include "Game/Scene/Systems/ProceduralFoliageSystem.h"
 #include "Game/Scene/Systems/ShadowMappingParameterSystem.h"
 #include "Game/Scene/Legacy/Systems/SkinnedMeshPrepareSystem.h"
 #include "Game/Scene/Legacy/Systems/SkinnedMeshRenderSystem.h"
@@ -179,7 +178,6 @@ namespace Game::SceneYaml {
             { "FootIKSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::FootIKSystem>(); } },
             { "CharacterControllerSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CharacterControllerSystem>(); } },
             { "PhysicsActorUpdateSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::PhysicsActorUpdateSystem>(); } },
-            { "ProceduralFoliageSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::ProceduralFoliageSystem>(); } },
             { "CameraRenderSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::CameraRenderSystem>(); } },
             { "ShadowMappingParameterSystem", []() -> std::unique_ptr<Game::ISystem> { return std::make_unique<Game::ShadowMappingParameterSystem>(); } },
         };

@@ -2,7 +2,10 @@
 
 #include <array>
 #include <cstdint>
+#include <map>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <DirectXCollision.h>
@@ -12,13 +15,22 @@
 
 #include "Core/Common.h"
 #include "Core/DX/DesciptorHeap.h"
-#include "Game/Environment/EnvironmentObjectRenderContext.h"
+#include "Environment/EnvironmentObjectRenderContext.h"
+#include "RenderContract/Common.h"
+#include "RenderContract/Environment/EnvironmentRenderRuntime.h"
 #include "RenderContract/Frame/RenderFrameData.h"
 #include "RenderContract/Frame/ShadowMappingParameter.h"
 #include "RenderContract/Future/Future.h"
 #include "Utility/CompileTimeConstants.h"
 
+namespace Arche {
+    class World;
+}
+
 namespace Game {
+    class EnvironmentFoliageRuntime;
+    struct FrameContext;
+
     struct EnvironmentTerrainInput final {
     public:
         ID3D12Resource* mHeightResource{};
@@ -107,7 +119,7 @@ namespace Game {
         D3D12_RESOURCE_STATES mIndirectArgumentState{ D3D12_RESOURCE_STATE_COMMON };
     };
 
-    class EnvironmentRuntime final {
+    class EnvironmentRuntime final : public RenderContract::IEnvironmentRenderRuntime {
     public:
         EnvironmentRuntime();
         ~EnvironmentRuntime();
@@ -121,10 +133,15 @@ namespace Game {
         void Reset();
         void SetConfigPath(const std::string& ConfigPath);
         const std::string& GetConfigPath() const;
+        void Tick(Arche::World& World, FrameContext& Ctx, float Dt);
+        void Tick(const EnvironmentFrameInput& Input, RenderContract::RenderFrameData& RenderData);
         void TickCpu(const EnvironmentFrameInput& Input);
         RenderContract::Future PrepareGpuDrivenFrame(const EnvironmentFrameInput& Input, RenderContract::RenderFrameData& RenderData);
         RenderContract::Future DispatchGpu(const EnvironmentFrameInput& Input);
         void Draw(ID3D12GraphicsCommandList* CommandList);
+        void RecordGBuffer(const RenderContract::EnvironmentGBufferRenderCommandContext& Context) override;
+        void RecordShadowDepth(const RenderContract::EnvironmentShadowDepthRenderCommandContext& Context) override;
+        RenderContract::Future GetEnvironmentGpuFuture() const override;
         EnvironmentObjectRenderContext& GetRenderContext();
         const EnvironmentObjectRenderContext& GetRenderContext() const;
         bool IsInitialized() const;
@@ -135,6 +152,11 @@ namespace Game {
         bool CreateComputeRootSignature();
         bool CreateComputePipelineState();
         bool CreateGpuStatusBuffer();
+        bool EnsureDrawIndexedIndirectCommandSignature();
+        std::vector<D3D12_VERTEX_BUFFER_VIEW> BuildVertexBufferViews(const RenderContract::IPipeline& Pipeline, const RenderContract::IModelNode& Mesh) const;
+        const std::vector<D3D12_VERTEX_BUFFER_VIEW>& ResolveVertexBufferViews(const RenderContract::IPipeline& Pipeline, const RenderContract::IModelNode& Mesh);
+        void RecordGBufferDirect(const RenderContract::EnvironmentGBufferRenderCommandContext& Context);
+        void RecordGBufferIndirect(const RenderContract::EnvironmentGBufferRenderCommandContext& Context);
         bool EnsureGpuDrivenDescriptorHandles(EnvironmentGpuDrivenFrameResource& FrameResource);
         bool EnsureGpuDrivenBuffer(Microsoft::WRL::ComPtr<ID3D12Resource>& Buffer, std::uint64_t& CapacityInBytes, std::uint64_t RequiredSizeInBytes, D3D12_RESOURCE_FLAGS ResourceFlags, D3D12_RESOURCE_STATES InitialState, const wchar_t* ResourceName);
         bool EnsureGpuDrivenFrameResources(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t InstanceContextCount, std::uint32_t SegmentContextCount, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCount);
@@ -156,14 +178,17 @@ namespace Game {
         EnvironmentObjectRenderContext mRenderContext{};
         Microsoft::WRL::ComPtr<ID3D12RootSignature> mComputeRootSignature{};
         Microsoft::WRL::ComPtr<ID3D12PipelineState> mPreparePipelineState{};
+        Microsoft::WRL::ComPtr<ID3D12CommandSignature> mDrawIndexedIndirectCommandSignature{};
         Microsoft::WRL::ComPtr<ID3D12Resource> mGpuStatusBuffer{};
         Core::DX::DescriptorHandle mGpuStatusUavHandle{};
         RenderContract::Future mLastGpuDispatchFuture{};
         std::string mConfigPath{};
+        std::unique_ptr<EnvironmentFoliageRuntime> mFoliageRuntime{};
         std::vector<RenderContract::EnvironmentInstanceContext> mGpuInstanceContexts{};
         std::vector<RenderContract::EnvironmentSegmentContext> mGpuSegmentContexts{};
         std::vector<RenderContract::EnvironmentDrawRecordGpu> mGpuDrawRecords{};
         std::vector<D3D12_DRAW_INDEXED_ARGUMENTS> mGpuIndirectArguments{};
+        std::map<std::pair<const RenderContract::IPipeline*, const RenderContract::IModelNode*>, std::vector<D3D12_VERTEX_BUFFER_VIEW>> mVertexBufferViewCache{};
         std::array<EnvironmentGpuDrivenFrameResource, Constants::FrameCount<std::size_t>> mGpuDrivenFrameResources{};
         std::uint32_t mGpuStatusUavIndex{ 0xffffffffu };
         bool mInitialized{};

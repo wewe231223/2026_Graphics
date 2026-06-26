@@ -72,6 +72,9 @@
     <ClInclude Include="Environment\EnvironmentInstanceContext.h">
       <Filter>Environment</Filter>
     </ClInclude>
+    <ClInclude Include="Environment\EnvironmentRenderRuntime.h">
+      <Filter>Environment</Filter>
+    </ClInclude>
     <ClInclude Include="Environment\EnvironmentSegmentContext.h">
       <Filter>Environment</Filter>
     </ClInclude>

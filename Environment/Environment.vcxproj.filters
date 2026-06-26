@@ -9,30 +9,36 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\Game\Environment\EnvironmentObjectRenderContext.cpp">
+    <ClCompile Include="EnvironmentObjectRenderContext.cpp">
       <Filter>Environment</Filter>
     </ClCompile>
-    <ClCompile Include="..\Game\Environment\EnvironmentObjectRenderDataBuilder.cpp">
+    <ClCompile Include="EnvironmentObjectRenderDataBuilder.cpp">
       <Filter>Environment</Filter>
     </ClCompile>
-    <ClCompile Include="..\Game\Environment\EnvironmentObjectTypes.cpp">
+    <ClCompile Include="EnvironmentObjectTypes.cpp">
       <Filter>Environment</Filter>
     </ClCompile>
-    <ClCompile Include="..\Game\Environment\EnvironmentRuntime.cpp">
+    <ClCompile Include="EnvironmentRuntime.cpp">
+      <Filter>Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="EnvironmentFoliageRuntime.cpp">
       <Filter>Runtime</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Game\Environment\EnvironmentObjectRenderContext.h">
+    <ClInclude Include="EnvironmentObjectRenderContext.h">
       <Filter>Environment</Filter>
     </ClInclude>
-    <ClInclude Include="..\Game\Environment\EnvironmentObjectRenderDataBuilder.h">
+    <ClInclude Include="EnvironmentObjectRenderDataBuilder.h">
       <Filter>Environment</Filter>
     </ClInclude>
-    <ClInclude Include="..\Game\Environment\EnvironmentObjectTypes.h">
+    <ClInclude Include="EnvironmentObjectTypes.h">
       <Filter>Environment</Filter>
     </ClInclude>
-    <ClInclude Include="..\Game\Environment\EnvironmentRuntime.h">
+    <ClInclude Include="EnvironmentRuntime.h">
+      <Filter>Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="EnvironmentFoliageRuntime.h">
       <Filter>Runtime</Filter>
     </ClInclude>
   </ItemGroup>

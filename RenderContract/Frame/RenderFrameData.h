@@ -9,6 +9,7 @@
 #include "RenderContract/Environment/EnvironmentDrawRecordGpu.h"
 #include "RenderContract/Environment/EnvironmentGpuDrivenFrameData.h"
 #include "RenderContract/Environment/EnvironmentInstanceContext.h"
+#include "RenderContract/Environment/EnvironmentRenderRuntime.h"
 #include "RenderContract/Environment/EnvironmentSegmentContext.h"
 #include "RenderContract/Frame/CameraParameter.h"
 #include "RenderContract/Frame/FrameGlobals.h"
@@ -41,6 +42,7 @@ namespace RenderContract {
         std::vector<EnvironmentSegmentContext> mEnvironmentSegmentContexts{};
         std::vector<EnvironmentDrawRecord> mEnvironmentDrawRecords{};
         EnvironmentGpuDrivenFrameData mEnvironmentGpuDrivenFrame{};
+        IEnvironmentRenderRuntime* mEnvironmentRuntime{};
         Future mTerrainUploadFuture{};
         bool mHasTerrainUploadFuture{};
         std::array<ShadowRenderContext, ShadowCascadeMaxCount> mShadowRenderContexts{};

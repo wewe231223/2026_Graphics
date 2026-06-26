@@ -1,10 +1,9 @@
-﻿#pragma once
+#pragma once
 #include <cstdint>
 #include <string>
 #include <vector>
 #include "Arche/Common.h"
 #include "RenderContract/Frame/RenderFrameData.h"
-#include "Game/Environment/EnvironmentObjectRenderContext.h"
 #include "Game/Scene/Base/SceneWorldSnapshot.h"
 #include "Terrain/TerrainManager.h"
 #include "PhysicsLib/Common.h"
@@ -31,7 +30,6 @@ namespace Game {
 
     struct FrameContext final {
         RenderContract::RenderFrameData RenderData{};
-        EnvironmentObjectRenderContext mEnvironmentObjectRenderContext{};
         const std::vector<RegisteredMaterialGroup>* MaterialGroups{ nullptr };
         AssetRegistry* AssetRegistryResource{ nullptr };
         IPhysicsWorld* PhysicsWorldResource{ nullptr };

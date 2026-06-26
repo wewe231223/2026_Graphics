@@ -19,16 +19,18 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\Game\Environment\EnvironmentObjectRenderContext.cpp" />
-    <ClCompile Include="..\Game\Environment\EnvironmentObjectRenderDataBuilder.cpp" />
-    <ClCompile Include="..\Game\Environment\EnvironmentObjectTypes.cpp" />
-    <ClCompile Include="..\Game\Environment\EnvironmentRuntime.cpp" />
+    <ClCompile Include="EnvironmentObjectRenderContext.cpp" />
+    <ClCompile Include="EnvironmentObjectRenderDataBuilder.cpp" />
+    <ClCompile Include="EnvironmentObjectTypes.cpp" />
+    <ClCompile Include="EnvironmentFoliageRuntime.cpp" />
+    <ClCompile Include="EnvironmentRuntime.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Game\Environment\EnvironmentObjectRenderContext.h" />
-    <ClInclude Include="..\Game\Environment\EnvironmentObjectRenderDataBuilder.h" />
-    <ClInclude Include="..\Game\Environment\EnvironmentObjectTypes.h" />
-    <ClInclude Include="..\Game\Environment\EnvironmentRuntime.h" />
+    <ClInclude Include="EnvironmentObjectRenderContext.h" />
+    <ClInclude Include="EnvironmentObjectRenderDataBuilder.h" />
+    <ClInclude Include="EnvironmentObjectTypes.h" />
+    <ClInclude Include="EnvironmentFoliageRuntime.h" />
+    <ClInclude Include="EnvironmentRuntime.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\RenderContract\RenderContract.vcxproj">

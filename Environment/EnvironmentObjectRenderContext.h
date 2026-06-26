@@ -1,11 +1,11 @@
-﻿#pragma once
+#pragma once
 
 #include <cstddef>
 #include <cstdint>
 #include <span>
 #include <unordered_map>
-#include "Game/Environment/EnvironmentObjectRenderDataBuilder.h"
-#include "Game/Environment/EnvironmentObjectTypes.h"
+#include "Environment/EnvironmentObjectRenderDataBuilder.h"
+#include "Environment/EnvironmentObjectTypes.h"
 #include "RenderContract/Gather/RenderGatherResult.h"
 
 namespace Game {

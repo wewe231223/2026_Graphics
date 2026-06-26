@@ -438,6 +438,30 @@ namespace Core {
 			return SUCCEEDED(CreateResult) == true && mDrawIndexedIndirectCommandSignature != nullptr;
 		}
 
+		const RenderContract::IPipeline* DrawCallDispatcher::ResolveEnvironmentObjectPipeline() {
+			if (mIsEnvironmentObjectPipelineInitialized == false) {
+				mIsEnvironmentObjectPipelineInitialized = mEnvironmentObjectPipeline.Initialize("EnvironmentObjectGraphics");
+			}
+
+			return mIsEnvironmentObjectPipelineInitialized == true ? &mEnvironmentObjectPipeline : nullptr;
+		}
+
+		const RenderContract::IPipeline* DrawCallDispatcher::ResolveEnvironmentObjectDepthPipeline() {
+			if (mIsEnvironmentObjectDepthPipelineInitialized == false) {
+				mIsEnvironmentObjectDepthPipelineInitialized = mEnvironmentObjectDepthPipeline.Initialize("EnvironmentObjectDepthGraphics");
+			}
+
+			return mIsEnvironmentObjectDepthPipelineInitialized == true ? &mEnvironmentObjectDepthPipeline : nullptr;
+		}
+
+		const RenderContract::IPipeline* DrawCallDispatcher::ResolveEnvironmentBillboardDepthPipeline() {
+			if (mIsEnvironmentBillboardDepthPipelineInitialized == false) {
+				mIsEnvironmentBillboardDepthPipelineInitialized = mEnvironmentBillboardDepthPipeline.Initialize("EnvironmentBillboardDepthGraphics");
+			}
+
+			return mIsEnvironmentBillboardDepthPipelineInitialized == true ? &mEnvironmentBillboardDepthPipeline : nullptr;
+		}
+
 		const RenderContract::IPipeline* DrawCallDispatcher::ResolveDepthOnlyPipeline(const RenderContract::DrawRecord& DrawRecord) {
 			if (DrawRecord.mPipeline == nullptr) {
 				return nullptr;
@@ -477,18 +501,10 @@ namespace Core {
 
 		const RenderContract::IPipeline* DrawCallDispatcher::ResolveEnvironmentDepthOnlyPipeline(const RenderContract::EnvironmentDrawRecord& DrawRecord) {
 			if (DrawRecord.mPipeline != nullptr && DrawRecord.mPipeline->GetPrimitiveTopology() == D3D_PRIMITIVE_TOPOLOGY_POINTLIST) {
-				if (mIsEnvironmentBillboardDepthPipelineInitialized == false) {
-					mIsEnvironmentBillboardDepthPipelineInitialized = mEnvironmentBillboardDepthPipeline.Initialize("EnvironmentBillboardDepthGraphics");
-				}
-
-				return mIsEnvironmentBillboardDepthPipelineInitialized == true ? &mEnvironmentBillboardDepthPipeline : nullptr;
+				return ResolveEnvironmentBillboardDepthPipeline();
 			}
 
-			if (mIsEnvironmentObjectDepthPipelineInitialized == false) {
-				mIsEnvironmentObjectDepthPipelineInitialized = mEnvironmentObjectDepthPipeline.Initialize("EnvironmentObjectDepthGraphics");
-			}
-
-			return mIsEnvironmentObjectDepthPipelineInitialized == true ? &mEnvironmentObjectDepthPipeline : nullptr;
+			return ResolveEnvironmentObjectDepthPipeline();
 		}
 
 		void DrawCallDispatcher::DrawEnvironmentGBufferIndirect(ID3D12GraphicsCommandList* CommandList, const RenderContract::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {

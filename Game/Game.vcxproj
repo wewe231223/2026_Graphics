@@ -117,7 +117,6 @@
     <ClInclude Include="Scene\Legacy\Systems\FootIKSystem.h" />
     <ClInclude Include="Scene\Systems\CharacterControllerSystem.h" />
     <ClInclude Include="Scene\Systems\PhysicsActorUpdateSystem.h" />
-    <ClInclude Include="Scene\Systems\ProceduralFoliageSystem.h" />
     <ClInclude Include="Scene\Systems\CameraRenderSystem.h" />
     <ClInclude Include="Scene\Systems\ShadowMappingParameterSystem.h" />
     <ClInclude Include="Scene\Legacy\Systems\TransformWorldSystem.h" />
@@ -225,7 +224,6 @@
     </ClCompile>
     <ClCompile Include="Scene\Systems\CharacterControllerSystem.cpp" />
     <ClCompile Include="Scene\Systems\PhysicsActorUpdateSystem.cpp" />
-    <ClCompile Include="Scene\Systems\ProceduralFoliageSystem.cpp" />
     <ClCompile Include="Scene\Systems\CameraRenderSystem.cpp" />
     <ClCompile Include="Scene\Systems\ShadowMappingParameterSystem.cpp" />
     <ClCompile Include="Scene\Legacy\Systems\TransformWorldSystem.cpp">
