@@ -241,6 +241,7 @@ namespace Core {
 					EnvironmentContext.mCommandList = mCommandList.Get();
 					EnvironmentContext.mDynamicDepthBiasCommandList = DynamicDepthBiasCommandList;
 					EnvironmentContext.mPipelineProvider = &mDrawCallDispatcher;
+					EnvironmentContext.mRenderFrameData = &Data;
 					EnvironmentContext.mShadowRenderContext = &Data.mShadowRenderContexts[CascadeIndex];
 					EnvironmentContext.mShadowFrameGlobalsIndex = CascadeIndex;
 					EnvironmentContext.mFrameGlobalsSrvIndex = DrawCallResources.GetShadowFrameGlobalsSrvHandle().GetIndex();

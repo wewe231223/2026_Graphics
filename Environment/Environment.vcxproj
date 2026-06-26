@@ -26,6 +26,7 @@
     <ClCompile Include="EnvironmentRuntime.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="EnvironmentGpuPlacementData.h" />
     <ClInclude Include="EnvironmentObjectRenderContext.h" />
     <ClInclude Include="EnvironmentObjectRenderDataBuilder.h" />
     <ClInclude Include="EnvironmentObjectTypes.h" />

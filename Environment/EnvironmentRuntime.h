@@ -15,6 +15,7 @@
 
 #include "Core/Common.h"
 #include "Core/DX/DesciptorHeap.h"
+#include "Environment/EnvironmentGpuPlacementData.h"
 #include "Environment/EnvironmentObjectRenderContext.h"
 #include "RenderContract/Common.h"
 #include "RenderContract/Environment/EnvironmentRenderRuntime.h"
@@ -35,12 +36,22 @@ namespace Game {
     public:
         ID3D12Resource* mHeightResource{};
         ID3D12Resource* mSplatResource{};
+        RenderContract::Future mUploadFuture{};
         std::uint32_t mHeightSrvIndex{ 0xffffffffu };
         std::uint32_t mSplatSrvIndex{ 0xffffffffu };
+        std::uint32_t mSplat1SrvIndex{ 0xffffffffu };
         std::uint32_t mWidth{};
         std::uint32_t mHeight{};
+        std::uint32_t mSplatWidth{};
+        std::uint32_t mSplatHeight{};
+        std::uint32_t mSeed{};
+        SimpleMath::Vector3 mPosition{ SimpleMath::Vector3::Zero };
+        SimpleMath::Vector3 mScale{ SimpleMath::Vector3::One };
         float mCellSizeX{ 1.0f };
         float mCellSizeZ{ 1.0f };
+        float mMaxHeight{ 1.0f };
+        float mOriginOffsetX{};
+        float mOriginOffsetZ{};
     };
 
     struct EnvironmentPhysicsHandle final {
@@ -102,19 +113,38 @@ namespace Game {
         Microsoft::WRL::ComPtr<ID3D12Resource> mInstanceContextBuffer{};
         Microsoft::WRL::ComPtr<ID3D12Resource> mSegmentContextBuffer{};
         Microsoft::WRL::ComPtr<ID3D12Resource> mDrawRecordBuffer{};
+        Microsoft::WRL::ComPtr<ID3D12Resource> mPlacementConfigBuffer{};
+        Microsoft::WRL::ComPtr<ID3D12Resource> mPlacementRuleBuffer{};
+        Microsoft::WRL::ComPtr<ID3D12Resource> mPlacementDrawRecordBuffer{};
+        Microsoft::WRL::ComPtr<ID3D12Resource> mPlacementCandidateRecordBuffer{};
+        Microsoft::WRL::ComPtr<ID3D12Resource> mCandidateContextBuffer{};
         Microsoft::WRL::ComPtr<ID3D12Resource> mVisibleInstanceIndexBuffer{};
         Microsoft::WRL::ComPtr<ID3D12Resource> mIndirectArgumentBuffer{};
         Core::DX::DescriptorHandle mInstanceContextSrvHandle{};
+        Core::DX::DescriptorHandle mInstanceContextUavHandle{};
         Core::DX::DescriptorHandle mSegmentContextSrvHandle{};
         Core::DX::DescriptorHandle mDrawRecordSrvHandle{};
+        Core::DX::DescriptorHandle mPlacementConfigSrvHandle{};
+        Core::DX::DescriptorHandle mPlacementRuleSrvHandle{};
+        Core::DX::DescriptorHandle mPlacementDrawRecordSrvHandle{};
+        Core::DX::DescriptorHandle mPlacementCandidateRecordSrvHandle{};
+        Core::DX::DescriptorHandle mCandidateContextSrvHandle{};
+        Core::DX::DescriptorHandle mCandidateContextUavHandle{};
         Core::DX::DescriptorHandle mVisibleInstanceIndexSrvHandle{};
         Core::DX::DescriptorHandle mVisibleInstanceIndexUavHandle{};
         Core::DX::DescriptorHandle mIndirectArgumentUavHandle{};
         std::uint64_t mInstanceContextBufferCapacityInBytes{};
         std::uint64_t mSegmentContextBufferCapacityInBytes{};
         std::uint64_t mDrawRecordBufferCapacityInBytes{};
+        std::uint64_t mPlacementConfigBufferCapacityInBytes{};
+        std::uint64_t mPlacementRuleBufferCapacityInBytes{};
+        std::uint64_t mPlacementDrawRecordBufferCapacityInBytes{};
+        std::uint64_t mPlacementCandidateRecordBufferCapacityInBytes{};
+        std::uint64_t mCandidateContextBufferCapacityInBytes{};
         std::uint64_t mVisibleInstanceIndexBufferCapacityInBytes{};
         std::uint64_t mIndirectArgumentBufferCapacityInBytes{};
+        D3D12_RESOURCE_STATES mInstanceContextState{ D3D12_RESOURCE_STATE_COMMON };
+        D3D12_RESOURCE_STATES mCandidateContextState{ D3D12_RESOURCE_STATE_COMMON };
         D3D12_RESOURCE_STATES mVisibleInstanceIndexState{ D3D12_RESOURCE_STATE_COMMON };
         D3D12_RESOURCE_STATES mIndirectArgumentState{ D3D12_RESOURCE_STATE_COMMON };
     };
@@ -157,15 +187,16 @@ namespace Game {
         const std::vector<D3D12_VERTEX_BUFFER_VIEW>& ResolveVertexBufferViews(const RenderContract::IPipeline& Pipeline, const RenderContract::IModelNode& Mesh);
         void RecordGBufferDirect(const RenderContract::EnvironmentGBufferRenderCommandContext& Context);
         void RecordGBufferIndirect(const RenderContract::EnvironmentGBufferRenderCommandContext& Context);
+        void RecordShadowDepthIndirect(const RenderContract::EnvironmentShadowDepthRenderCommandContext& Context);
         bool EnsureGpuDrivenDescriptorHandles(EnvironmentGpuDrivenFrameResource& FrameResource);
         bool EnsureGpuDrivenBuffer(Microsoft::WRL::ComPtr<ID3D12Resource>& Buffer, std::uint64_t& CapacityInBytes, std::uint64_t RequiredSizeInBytes, D3D12_RESOURCE_FLAGS ResourceFlags, D3D12_RESOURCE_STATES InitialState, const wchar_t* ResourceName);
-        bool EnsureGpuDrivenFrameResources(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t InstanceContextCount, std::uint32_t SegmentContextCount, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCount);
-        void BuildGpuDrivenFrameData(RenderContract::RenderFrameData& RenderData, std::uint32_t& OutVisibleInstanceIndexCount);
+        bool EnsureGpuDrivenFrameResources(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t InstanceContextCount, std::uint32_t SegmentContextCount, std::uint32_t DrawRecordCount, std::uint32_t PlacementConfigCount, std::uint32_t PlacementRuleCount, std::uint32_t PlacementDrawRecordCount, std::uint32_t PlacementCandidateRecordCount, std::uint32_t CandidateContextCount, std::uint32_t VisibleInstanceIndexCount);
+        void BuildGpuDrivenFrameData(const EnvironmentFrameInput& Input, RenderContract::RenderFrameData& RenderData, std::uint32_t& OutVisibleInstanceIndexCount);
         RenderContract::Future UploadGpuDrivenFrameData(EnvironmentGpuDrivenFrameResource& FrameResource);
-        RenderContract::Future DispatchGpuDrivenFrame(EnvironmentGpuDrivenFrameResource& FrameResource, const EnvironmentFrameInput& Input, const RenderContract::Future& CopyFuture, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCapacity);
+        RenderContract::Future DispatchGpuDrivenFrame(EnvironmentGpuDrivenFrameResource& FrameResource, const EnvironmentFrameInput& Input, const RenderContract::Future& CopyFuture, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCapacity, std::uint32_t CandidateRecordCount);
         void FillGpuDrivenFramePayload(EnvironmentGpuDrivenFrameResource& FrameResource, RenderContract::RenderFrameData& RenderData, const RenderContract::Future& GpuDispatchFuture);
-        void UpdateGpuDrivenShaderResourceViews(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t InstanceContextCount, std::uint32_t SegmentContextCount, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCount);
-        void UpdateGpuDrivenUnorderedAccessViews(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t VisibleInstanceIndexCount, std::uint32_t IndirectArgumentCount);
+        void UpdateGpuDrivenShaderResourceViews(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t InstanceContextCount, std::uint32_t SegmentContextCount, std::uint32_t DrawRecordCount, std::uint32_t PlacementConfigCount, std::uint32_t PlacementRuleCount, std::uint32_t PlacementDrawRecordCount, std::uint32_t PlacementCandidateRecordCount, std::uint32_t CandidateContextCount, std::uint32_t VisibleInstanceIndexCount);
+        void UpdateGpuDrivenUnorderedAccessViews(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t InstanceContextCount, std::uint32_t CandidateContextCount, std::uint32_t VisibleInstanceIndexCount, std::uint32_t IndirectArgumentCount);
         void ResetGpuResources();
 
     private:
@@ -177,7 +208,8 @@ namespace Game {
         EnvironmentPhysicsAdapter* mPhysicsAdapter{};
         EnvironmentObjectRenderContext mRenderContext{};
         Microsoft::WRL::ComPtr<ID3D12RootSignature> mComputeRootSignature{};
-        Microsoft::WRL::ComPtr<ID3D12PipelineState> mPreparePipelineState{};
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> mCandidateGeneratePipelineState{};
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> mCandidateClassifyPipelineState{};
         Microsoft::WRL::ComPtr<ID3D12CommandSignature> mDrawIndexedIndirectCommandSignature{};
         Microsoft::WRL::ComPtr<ID3D12Resource> mGpuStatusBuffer{};
         Core::DX::DescriptorHandle mGpuStatusUavHandle{};
@@ -188,8 +220,10 @@ namespace Game {
         std::vector<RenderContract::EnvironmentSegmentContext> mGpuSegmentContexts{};
         std::vector<RenderContract::EnvironmentDrawRecordGpu> mGpuDrawRecords{};
         std::vector<D3D12_DRAW_INDEXED_ARGUMENTS> mGpuIndirectArguments{};
+        EnvironmentGpuPlacementFrameData mGpuPlacementFrameData{};
         std::map<std::pair<const RenderContract::IPipeline*, const RenderContract::IModelNode*>, std::vector<D3D12_VERTEX_BUFFER_VIEW>> mVertexBufferViewCache{};
         std::array<EnvironmentGpuDrivenFrameResource, Constants::FrameCount<std::size_t>> mGpuDrivenFrameResources{};
+        std::uint32_t mGpuInstanceContextCount{};
         std::uint32_t mGpuStatusUavIndex{ 0xffffffffu };
         bool mInitialized{};
         bool mGpuDrivenEnabled{};

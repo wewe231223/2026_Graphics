@@ -62,6 +62,35 @@ namespace {
 
         return NextPrefabId;
     }
+
+    bool TryBuildEnvironmentTerrainInput(Arche::World& World, std::uint32_t FrameIndex, Game::EnvironmentTerrainInput& OutInput) {
+        for (auto [TransformComponent, Renderer, HierarchyComponent] : World.Query<Game::Transform, Game::TerrainRenderer, Game::EntityHierarchy>()) {
+            static_cast<void>(HierarchyComponent);
+            if (Renderer.mResource == nullptr || Renderer.mActive == false || Renderer.mTileMetadataIndex != Game::InvalidTerrainTileMetadataIndex) {
+                continue;
+            }
+
+            OutInput.mHeightSrvIndex = Renderer.mResource->GetHeightFieldSrvDescriptorIndex(FrameIndex);
+            OutInput.mUploadFuture = Renderer.mResource->GetFrameUploadFuture(FrameIndex);
+            OutInput.mSplatSrvIndex = Renderer.mResource->GetSplatMapSrvDescriptorIndex(FrameIndex, 0u);
+            OutInput.mSplat1SrvIndex = Renderer.mResource->GetSplatMapSrvDescriptorIndex(FrameIndex, 1u);
+            OutInput.mWidth = Renderer.mResource->GetHeightFieldWidth();
+            OutInput.mHeight = Renderer.mResource->GetHeightFieldHeight();
+            OutInput.mSplatWidth = Renderer.mResource->GetSplatMapWidth();
+            OutInput.mSplatHeight = Renderer.mResource->GetSplatMapHeight();
+            OutInput.mSeed = Renderer.mResource->GetBuildDesc().mProceduralHeightFieldDesc.mSeed;
+            OutInput.mPosition = TransformComponent.position;
+            OutInput.mScale = TransformComponent.scale;
+            OutInput.mCellSizeX = Renderer.mResource->GetCellSizeX();
+            OutInput.mCellSizeZ = Renderer.mResource->GetCellSizeZ();
+            OutInput.mMaxHeight = Renderer.mResource->GetMaxHeight();
+            OutInput.mOriginOffsetX = Renderer.mResource->GetOriginOffsetX();
+            OutInput.mOriginOffsetZ = Renderer.mResource->GetOriginOffsetZ();
+            return true;
+        }
+
+        return false;
+    }
 }
 
 namespace Game {
@@ -298,15 +327,29 @@ namespace Game {
     }
 
     void Scene::PrepareRender() {
+        PrepareEnvironmentGpuDrivenFrame();
+
         mAssetRegistry.PrepareRenderTextures(mFrameContext.RenderData);
         mFrameContext.RenderData.mMaterialTextureTable = mAssetRegistry.GetMaterialTextureTable();
+    }
 
+    EnvironmentFrameInput Scene::BuildEnvironmentFrameInput() {
         EnvironmentFrameInput EnvironmentInput{};
         EnvironmentInput.mFrameIndex = mFrameContext.RenderData.mFrameGlobals.mFrameIndex;
         EnvironmentInput.mFocusPosition = SimpleMath::Vector3{ mFrameContext.RenderData.mMainCamera.mPosition.x, mFrameContext.RenderData.mMainCamera.mPosition.y, mFrameContext.RenderData.mMainCamera.mPosition.z };
         EnvironmentInput.mView = mFrameContext.RenderData.mFrameGlobals.mView;
         EnvironmentInput.mProjection = mFrameContext.RenderData.mFrameGlobals.mProj;
         EnvironmentInput.mViewProjection = mFrameContext.RenderData.mFrameGlobals.mViewProj;
+        TryBuildEnvironmentTerrainInput(mWorld, mFrameContext.RenderData.mFrameGlobals.mFrameIndex, EnvironmentInput.mTerrain);
+        return EnvironmentInput;
+    }
+
+    void Scene::PrepareEnvironmentGpuDrivenFrame() {
+        if (mEnvironmentRuntime.IsGpuDrivenEnabled() == false || mFrameContext.RenderData.mEnvironmentGpuDrivenFrame.mEnabled == true) {
+            return;
+        }
+
+        const EnvironmentFrameInput EnvironmentInput{ BuildEnvironmentFrameInput() };
         mEnvironmentRuntime.Tick(EnvironmentInput, mFrameContext.RenderData);
     }
 
@@ -705,6 +748,10 @@ namespace Game {
                 mFrameContext.MaterialGroups = &mAssetRegistry.GetMaterialGroups();
                 mFrameContext.AssetRegistryResource = &mAssetRegistry;
                 mEnvironmentRuntime.Tick(mWorld, mFrameContext, Dt);
+                break;
+
+            case Phase::RenderPrepare:
+                PrepareEnvironmentGpuDrivenFrame();
                 break;
 
             default:

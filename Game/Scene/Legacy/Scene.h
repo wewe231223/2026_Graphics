@@ -95,6 +95,8 @@ namespace Game {
         void PublishPhysicsRuntimeStatus(const PhysicsSnapshot* Snapshot);
         void UpdateTerrainManager();
         void UpdateSceneKinematicActors(float Dt);
+        EnvironmentFrameInput BuildEnvironmentFrameInput();
+        void PrepareEnvironmentGpuDrivenFrame();
 
         void RegisterScriptTypes(); 
         void AttachDefaultCameraControlBehavior();

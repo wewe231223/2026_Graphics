@@ -26,6 +26,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="EnvironmentGpuPlacementData.h">
+      <Filter>Runtime</Filter>
+    </ClInclude>
     <ClInclude Include="EnvironmentObjectRenderContext.h">
       <Filter>Environment</Filter>
     </ClInclude>

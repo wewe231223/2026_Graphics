@@ -39,6 +39,7 @@ namespace RenderContract {
         ID3D12GraphicsCommandList* mCommandList{};
         ID3D12GraphicsCommandList9* mDynamicDepthBiasCommandList{};
         IEnvironmentRenderPipelineProvider* mPipelineProvider{};
+        const RenderFrameData* mRenderFrameData{};
         const ShadowRenderContext* mShadowRenderContext{};
         std::uint32_t mShadowFrameGlobalsIndex{};
         std::uint32_t mFrameGlobalsSrvIndex{ 0xffffffffu };

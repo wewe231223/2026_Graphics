@@ -2,6 +2,8 @@ ProceduralFoliage:
   Enabled: true
   InactiveHeight: -100000.0
   PlacementRadius: 280.0
+  PhysicsRadius: 70.0
+  RenderRadius: 280.0
   CellSize: 14.0
   UpdateInterval: 10.0
   DensityMultiplier: 10.0
@@ -27,13 +29,13 @@ ProceduralFoliage:
   ForestEnabled: true
   ForestMinimumWidth: 36.0
   ForestPatchScale: 220.0
-  ForestPatchCoverage: 0.90
+  ForestPatchCoverage: 0.78
   ForestPatchContrast: 1.35
   ForestPatchEdgeSoftness: 0.24
-  ForestOutsideDensity: 0.18
+  ForestOutsideDensity: 0.12
   ForestPatchNoiseIndex: 311
   ForestPatchCornerStream: 71
-  ForestMinimumAreaFactor: 0.08
+  ForestMinimumAreaFactor: 0.22
   ForestWidthSampleRadiusScale: 0.5
   ForestWidthDiagonalSampleScale: 0.70710678118
   ForestWidthRequiredSampleRatio: 0.375
@@ -58,6 +60,7 @@ ProceduralFoliage:
       ClusterCoverage: 0.36
       ClusterEdgeSoftness: 0.10
       ClusterOutsideDensity: 0.12
+      ForestStrength: 0.35
       OffsetY: 0.0
       Lods:
         - ModelPath: Foilage1.bin
@@ -83,6 +86,7 @@ ProceduralFoliage:
       ClusterCoverage: 0.34
       ClusterEdgeSoftness: 0.10
       ClusterOutsideDensity: 0.10
+      ForestStrength: 0.35
       OffsetY: 0.0
       Lods:
         - ModelPath: Foilage2.bin
@@ -108,6 +112,7 @@ ProceduralFoliage:
       ClusterCoverage: 0.32
       ClusterEdgeSoftness: 0.095
       ClusterOutsideDensity: 0.10
+      ForestStrength: 0.35
       OffsetY: 0.0
       Lods:
         - ModelPath: Foilage3.bin
@@ -133,6 +138,7 @@ ProceduralFoliage:
       ClusterCoverage: 0.38
       ClusterEdgeSoftness: 0.11
       ClusterOutsideDensity: 0.12
+      ForestStrength: 0.35
       OffsetY: 0.0
       Lods:
         - ModelPath: Foilage1.bin
@@ -158,6 +164,7 @@ ProceduralFoliage:
       ClusterCoverage: 0.36
       ClusterEdgeSoftness: 0.105
       ClusterOutsideDensity: 0.10
+      ForestStrength: 0.35
       OffsetY: 0.0
       Lods:
         - ModelPath: Foilage2.bin
@@ -183,6 +190,7 @@ ProceduralFoliage:
       ClusterCoverage: 0.34
       ClusterEdgeSoftness: 0.10
       ClusterOutsideDensity: 0.10
+      ForestStrength: 0.35
       OffsetY: 0.0
       Lods:
         - ModelPath: Foilage3.bin
@@ -208,9 +216,9 @@ ProceduralFoliage:
       ClusterCoverage: 1.0
       ClusterEdgeSoftness: 0.0
       ClusterOutsideDensity: 1.0
-      ForestStrength: 0.0
+      ForestStrength: 1.0
       OffsetY: 0.0
-      MinimumSpacing: 2.8
+      MinimumSpacing: 5.4
       CollisionActor: true
       CollisionCenter: [0.0, 2.8, 0.0]
       CollisionExtents: [0.35, 2.8, 0.35]
@@ -246,9 +254,9 @@ ProceduralFoliage:
       ClusterCoverage: 1.0
       ClusterEdgeSoftness: 0.0
       ClusterOutsideDensity: 1.0
-      ForestStrength: 0.0
+      ForestStrength: 1.0
       OffsetY: 0.0
-      MinimumSpacing: 3.0
+      MinimumSpacing: 5.8
       CollisionActor: true
       CollisionCenter: [0.0, 2.6, 0.0]
       CollisionExtents: [0.32, 2.6, 0.32]

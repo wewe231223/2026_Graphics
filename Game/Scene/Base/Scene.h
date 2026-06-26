@@ -174,6 +174,8 @@ namespace Game {
         private:
             ScenePhysicsRuntimeContext BuildPhysicsRuntimeContext();
             PipelineFrameInput BuildPipelineFrameInput();
+            EnvironmentFrameInput BuildEnvironmentFrameInput();
+            void PrepareEnvironmentGpuDrivenFrame();
             bool IsWorkUnitPipelineBindingCurrent(const SceneWorkUnit& WorkUnit, const PipelineDefinition& PipelineDefinitionValue) const;
             void TransferReusablePipelineBindings(std::span<const SceneWorkUnit> ExistingWorkUnits, std::vector<SceneWorkUnit>& NewWorkUnits) const;
             bool ResolveInitialDebugGeometryDrawEnabled() const;

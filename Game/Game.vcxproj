@@ -22,17 +22,16 @@
     <ClInclude Include="Base\Common.h" />
     <ClInclude Include="Base\RuntimeParameterDefinition.h" />
     <ClInclude Include="Base\Input.h" />
-
     <ClInclude Include="Base\Shader.h" />
     <ClInclude Include="Base\RootSignature.h" />
     <ClInclude Include="Base\Pipeline.h" />
     <ClInclude Include="Model\AssetRegistry.h" />
     <ClInclude Include="Asset\AnimationGraphAsset.h" />
     <ClInclude Include="Model\AssetRegistryBackEnd.h" />
-<ClInclude Include="Model\Model.h" />
+    <ClInclude Include="Model\Model.h" />
     <ClInclude Include="Model\PrimitiveModelFactory.h" />
-<ClInclude Include="Model\TerrainRenderResource.h" />
-<ClInclude Include="Scene\Components\BoundingBox.h" />
+    <ClInclude Include="Model\TerrainRenderResource.h" />
+    <ClInclude Include="Scene\Components\BoundingBox.h" />
     <ClInclude Include="Scene\Components\Bone.h" />
     <ClInclude Include="Scene\Components\BoneSkinReference.h" />
     <ClInclude Include="Scene\Components\Camera.h" />
@@ -90,8 +89,6 @@
     <ClInclude Include="Scene\Base\Context.h" />
     <ClInclude Include="Scene\Base\Context.inl" />
     <ClInclude Include="Scene\Base\Types.h" />
-
-
     <ClInclude Include="Scene\Base\SceneWorkUnit.h" />
     <ClInclude Include="Scene\Base\Executor.h" />
     <ClInclude Include="Scene\Base\SystemBindingResult.h" />
@@ -128,16 +125,15 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Base\Input.cpp" />
-
     <ClCompile Include="Base\Shader.cpp" />
     <ClCompile Include="Base\RootSignature.cpp" />
     <ClCompile Include="Base\Pipeline.cpp" />
     <ClCompile Include="Model\AssetRegistry.cpp" />
     <ClCompile Include="Model\AssetRegistryBackEnd.cpp" />
-<ClCompile Include="Model\Model.cpp" />
+    <ClCompile Include="Model\Model.cpp" />
     <ClCompile Include="Model\PrimitiveModelFactory.cpp" />
-<ClCompile Include="Model\TerrainRenderResource.cpp" />
-<ClCompile Include="Asset\AnimationGraphAsset.cpp" />
+    <ClCompile Include="Model\TerrainRenderResource.cpp" />
+    <ClCompile Include="Asset\AnimationGraphAsset.cpp" />
     <ClCompile Include="Scene\Components\Culling.cpp" />
     <ClCompile Include="Scene\Components\DirectionalLight.cpp" />
     <ClCompile Include="Scene\Components\PrefabInstance.cpp" />
@@ -167,8 +163,6 @@
     <ClCompile Include="Scene\SceneYaml\SceneYamlWriter.cpp" />
     <ClCompile Include="Scene\Legacy\SystemSceduler.cpp" />
     <ClCompile Include="Scene\Legacy\ParallelSystemBase.cpp" />
-
-
     <ClCompile Include="Scene\Base\Context.cpp" />
     <ClCompile Include="Scene\Base\Types.cpp" />
     <ClCompile Include="Scene\Base\SceneWorkUnit.cpp" />
@@ -356,7 +350,8 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Label="ExtensionSettings"></ImportGroup>
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
   <ImportGroup Label="Shared">
     <Import Project="..\Utility\Utility.vcxitems" Label="Shared" />
   </ImportGroup>
@@ -393,7 +388,8 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
-      <SubSystem></SubSystem>
+      <SubSystem>
+      </SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
@@ -409,7 +405,8 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
-      <SubSystem></SubSystem>
+      <SubSystem>
+      </SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -427,7 +424,8 @@
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <SubSystem></SubSystem>
+      <SubSystem>
+      </SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
@@ -445,7 +443,8 @@
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <SubSystem></SubSystem>
+      <SubSystem>
+      </SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -459,6 +458,10 @@
       <Project>{F92B4784-ADD4-4C4C-B5D1-8C18D68DC978}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\Shader\ShaderMetadata.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets"></ImportGroup>
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
 </Project>
