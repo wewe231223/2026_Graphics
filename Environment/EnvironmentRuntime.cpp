@@ -22,7 +22,7 @@
 
 namespace Game {
     namespace {
-        constexpr std::uint32_t EnvironmentGpuRootConstantDwordCount{ 56u };
+        constexpr std::uint32_t EnvironmentGpuRootConstantDwordCount{ 60u };
         constexpr std::uint32_t EnvironmentGpuStatusDwordCount{ 16u };
         constexpr std::uint32_t EnvironmentComputeThreadGroupSize{ 64u };
         constexpr std::uint32_t EnvironmentDrawRecordGpuDrivenFlag{ 0x1u };
@@ -80,6 +80,10 @@ namespace Game {
             std::uint32_t mCandidateDispatchRecordCount{};
             std::uint32_t mPlacementSpacingRuleRecordSrvIndex{};
             std::uint32_t mSpacingRuleRecordCount{};
+            std::uint32_t mPlacementDrawDispatchRecordSrvIndex{};
+            std::uint32_t mDrawDispatchRecordCount{};
+            std::uint32_t mPadding0{};
+            std::uint32_t mPadding1{};
             std::array<std::uint32_t, 24> mFrustumPlanes{};
         };
 
@@ -228,16 +232,31 @@ namespace Game {
             return (ItemCount + EnvironmentComputeThreadGroupSize - 1u) / EnvironmentComputeThreadGroupSize;
         }
 
-        std::uint32_t CalculateMaximumEnvironmentDrawDispatchGroupCount(std::span<const EnvironmentGpuPlacementDrawRecord> DrawRecords) {
-            std::uint32_t DispatchGroupCount{};
-            for (const EnvironmentGpuPlacementDrawRecord& DrawRecord : DrawRecords) {
-                DispatchGroupCount = std::max(DispatchGroupCount, CalculateEnvironmentDispatchGroupCount(DrawRecord.mCandidateCount));
-            }
-
-            return DispatchGroupCount;
+        EnvironmentGpuPlacementDrawDispatchRecord BuildGpuPlacementDrawDispatchRecord(std::uint32_t DrawRecordIndex, std::uint32_t LocalCandidateOffset, std::uint32_t CandidateCount) {
+            EnvironmentGpuPlacementDrawDispatchRecord DispatchRecord{};
+            DispatchRecord.mDrawRecordIndex = DrawRecordIndex;
+            DispatchRecord.mLocalCandidateOffset = LocalCandidateOffset;
+            DispatchRecord.mCandidateCount = CandidateCount;
+            DispatchRecord.mPadding0 = 0u;
+            return DispatchRecord;
         }
 
-        EnvironmentGpuRootConstants BuildEnvironmentGpuRootConstants(const EnvironmentFrameInput& Input, std::uint32_t StatusUavIndex, std::uint32_t InstanceContextSrvIndex, std::uint32_t InstanceContextUavIndex, std::uint32_t DrawRecordSrvIndex, std::uint32_t PlacementConfigSrvIndex, std::uint32_t PlacementRuleSrvIndex, std::uint32_t PlacementDrawRecordSrvIndex, std::uint32_t PlacementCandidateRecordSrvIndex, std::uint32_t PlacementCandidateDispatchRecordSrvIndex, std::uint32_t PlacementSpacingRuleRecordSrvIndex, std::uint32_t CandidateContextSrvIndex, std::uint32_t CandidateContextUavIndex, std::uint32_t IndirectArgumentUavIndex, std::uint32_t VisibleInstanceIndexUavIndex, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCapacity, std::uint32_t CandidateRecordCount, std::uint32_t CandidateDispatchRecordCount, std::uint32_t SpacingRuleRecordCount) {
+        void BuildGpuPlacementDrawDispatchRecords(std::span<const EnvironmentGpuPlacementDrawRecord> DrawRecords, std::vector<EnvironmentGpuPlacementDrawDispatchRecord>& OutDispatchRecords) {
+            OutDispatchRecords.clear();
+            const std::uint32_t DrawRecordCount{ static_cast<std::uint32_t>(std::min<std::size_t>(DrawRecords.size(), std::numeric_limits<std::uint32_t>::max())) };
+            for (std::uint32_t DrawRecordIndex{}; DrawRecordIndex < DrawRecordCount; DrawRecordIndex += 1u) {
+                const EnvironmentGpuPlacementDrawRecord& DrawRecord{ DrawRecords[DrawRecordIndex] };
+                std::uint32_t LocalCandidateOffset{};
+                while (LocalCandidateOffset < DrawRecord.mCandidateCount) {
+                    const std::uint32_t RemainingCandidateCount{ DrawRecord.mCandidateCount - LocalCandidateOffset };
+                    const std::uint32_t DispatchCandidateCount{ std::min(RemainingCandidateCount, EnvironmentComputeThreadGroupSize) };
+                    OutDispatchRecords.push_back(BuildGpuPlacementDrawDispatchRecord(DrawRecordIndex, LocalCandidateOffset, DispatchCandidateCount));
+                    LocalCandidateOffset += DispatchCandidateCount;
+                }
+            }
+        }
+
+        EnvironmentGpuRootConstants BuildEnvironmentGpuRootConstants(const EnvironmentFrameInput& Input, std::uint32_t StatusUavIndex, std::uint32_t InstanceContextSrvIndex, std::uint32_t InstanceContextUavIndex, std::uint32_t DrawRecordSrvIndex, std::uint32_t PlacementConfigSrvIndex, std::uint32_t PlacementRuleSrvIndex, std::uint32_t PlacementDrawRecordSrvIndex, std::uint32_t PlacementCandidateRecordSrvIndex, std::uint32_t PlacementCandidateDispatchRecordSrvIndex, std::uint32_t PlacementSpacingRuleRecordSrvIndex, std::uint32_t PlacementDrawDispatchRecordSrvIndex, std::uint32_t CandidateContextSrvIndex, std::uint32_t CandidateContextUavIndex, std::uint32_t IndirectArgumentUavIndex, std::uint32_t VisibleInstanceIndexUavIndex, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCapacity, std::uint32_t CandidateRecordCount, std::uint32_t CandidateDispatchRecordCount, std::uint32_t DrawDispatchRecordCount, std::uint32_t SpacingRuleRecordCount) {
             EnvironmentGpuRootConstants Constants{};
             Constants.mStatusUavIndex = StatusUavIndex;
             Constants.mFrameIndexLow = static_cast<std::uint32_t>(Input.mFrameIndex & 0xffffffffULL);
@@ -271,6 +290,8 @@ namespace Game {
             Constants.mCandidateDispatchRecordCount = CandidateDispatchRecordCount;
             Constants.mPlacementSpacingRuleRecordSrvIndex = PlacementSpacingRuleRecordSrvIndex;
             Constants.mSpacingRuleRecordCount = SpacingRuleRecordCount;
+            Constants.mPlacementDrawDispatchRecordSrvIndex = PlacementDrawDispatchRecordSrvIndex;
+            Constants.mDrawDispatchRecordCount = DrawDispatchRecordCount;
 
             const std::array<EnvironmentFrustumPlane, 6> Planes{ BuildEnvironmentFrustumPlanes(Input.mViewProjection) };
             for (std::size_t PlaneIndex{}; PlaneIndex < Planes.size(); PlaneIndex += 1ULL) {
@@ -519,22 +540,23 @@ namespace Game {
         const std::uint32_t PlacementConfigCount{ 1u };
         const std::uint32_t PlacementRuleCount{ static_cast<std::uint32_t>(mGpuPlacementFrameData.mRules.size()) };
         const std::uint32_t PlacementDrawRecordCount{ static_cast<std::uint32_t>(mGpuPlacementFrameData.mDrawRecords.size()) };
+        const std::uint32_t PlacementDrawDispatchRecordCount{ static_cast<std::uint32_t>(mGpuPlacementFrameData.mDrawDispatchRecords.size()) };
         const std::uint32_t PlacementCandidateRecordCount{ static_cast<std::uint32_t>(mGpuPlacementFrameData.mCandidateRecords.size()) };
         const std::uint32_t PlacementCandidateDispatchRecordCount{ static_cast<std::uint32_t>(mGpuPlacementFrameData.mCandidateDispatchRecords.size()) };
         const std::uint32_t PlacementSpacingRuleRecordCount{ static_cast<std::uint32_t>(mGpuPlacementFrameData.mSpacingRuleRecords.size()) };
         const std::uint32_t CandidateContextCount{ mGpuPlacementFrameData.mCandidateCount };
         const std::size_t FrameResourceIndex{ static_cast<std::size_t>(Input.mFrameIndex % Constants::FrameCount<std::uint64_t>) };
         EnvironmentGpuDrivenFrameResource& FrameResource{ mGpuDrivenFrameResources[FrameResourceIndex] };
-        if (EnsureGpuDrivenFrameResources(FrameResource, InstanceContextCount, SegmentContextCount, DrawRecordCount, PlacementConfigCount, PlacementRuleCount, PlacementDrawRecordCount, PlacementCandidateRecordCount, PlacementCandidateDispatchRecordCount, PlacementSpacingRuleRecordCount, CandidateContextCount, VisibleInstanceIndexCount) == false) {
+        if (EnsureGpuDrivenFrameResources(FrameResource, InstanceContextCount, SegmentContextCount, DrawRecordCount, PlacementConfigCount, PlacementRuleCount, PlacementDrawRecordCount, PlacementDrawDispatchRecordCount, PlacementCandidateRecordCount, PlacementCandidateDispatchRecordCount, PlacementSpacingRuleRecordCount, CandidateContextCount, VisibleInstanceIndexCount) == false) {
             mLastGpuDispatchFuture = RenderContract::Future{};
             return mLastGpuDispatchFuture;
         }
 
-        UpdateGpuDrivenShaderResourceViews(FrameResource, InstanceContextCount, SegmentContextCount, DrawRecordCount, PlacementConfigCount, PlacementRuleCount, PlacementDrawRecordCount, PlacementCandidateRecordCount, PlacementCandidateDispatchRecordCount, PlacementSpacingRuleRecordCount, CandidateContextCount, VisibleInstanceIndexCount);
+        UpdateGpuDrivenShaderResourceViews(FrameResource, InstanceContextCount, SegmentContextCount, DrawRecordCount, PlacementConfigCount, PlacementRuleCount, PlacementDrawRecordCount, PlacementDrawDispatchRecordCount, PlacementCandidateRecordCount, PlacementCandidateDispatchRecordCount, PlacementSpacingRuleRecordCount, CandidateContextCount, VisibleInstanceIndexCount);
         UpdateGpuDrivenUnorderedAccessViews(FrameResource, InstanceContextCount, CandidateContextCount, VisibleInstanceIndexCount, DrawRecordCount);
 
         const RenderContract::Future CopyFuture{ UploadGpuDrivenFrameData(FrameResource) };
-        mLastGpuDispatchFuture = DispatchGpuDrivenFrame(FrameResource, Input, CopyFuture, DrawRecordCount, VisibleInstanceIndexCount, PlacementCandidateRecordCount, PlacementCandidateDispatchRecordCount, PlacementSpacingRuleRecordCount);
+        mLastGpuDispatchFuture = DispatchGpuDrivenFrame(FrameResource, Input, CopyFuture, DrawRecordCount, VisibleInstanceIndexCount, PlacementCandidateRecordCount, PlacementCandidateDispatchRecordCount, PlacementDrawDispatchRecordCount, PlacementSpacingRuleRecordCount);
         FillGpuDrivenFramePayload(FrameResource, RenderData, mLastGpuDispatchFuture);
         return mLastGpuDispatchFuture;
     }
@@ -545,7 +567,7 @@ namespace Game {
             return mLastGpuDispatchFuture;
         }
 
-        const EnvironmentGpuRootConstants RootConstants{ BuildEnvironmentGpuRootConstants(Input, mGpuStatusUavIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, 0u, 0u, 0u, 0u, 0u) };
+        const EnvironmentGpuRootConstants RootConstants{ BuildEnvironmentGpuRootConstants(Input, mGpuStatusUavIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, InvalidDescriptorIndex, 0u, 0u, 0u, 0u, 0u, 0u) };
 
         Interface::ComputeQueueDispatchRequest DispatchRequest{};
         DispatchRequest.RootSignature = mComputeRootSignature;
@@ -1137,6 +1159,10 @@ namespace Game {
             FrameResource.mPlacementDrawRecordSrvHandle = mSrvHeap->Allocate();
         }
 
+        if (FrameResource.mPlacementDrawDispatchRecordSrvHandle.IsValid() == false) {
+            FrameResource.mPlacementDrawDispatchRecordSrvHandle = mSrvHeap->Allocate();
+        }
+
         if (FrameResource.mPlacementCandidateRecordSrvHandle.IsValid() == false) {
             FrameResource.mPlacementCandidateRecordSrvHandle = mSrvHeap->Allocate();
         }
@@ -1169,7 +1195,7 @@ namespace Game {
             FrameResource.mIndirectArgumentUavHandle = mSrvHeap->Allocate();
         }
 
-        return FrameResource.mInstanceContextSrvHandle.IsValid() == true && FrameResource.mInstanceContextUavHandle.IsValid() == true && FrameResource.mSegmentContextSrvHandle.IsValid() == true && FrameResource.mDrawRecordSrvHandle.IsValid() == true && FrameResource.mPlacementConfigSrvHandle.IsValid() == true && FrameResource.mPlacementRuleSrvHandle.IsValid() == true && FrameResource.mPlacementDrawRecordSrvHandle.IsValid() == true && FrameResource.mPlacementCandidateRecordSrvHandle.IsValid() == true && FrameResource.mPlacementCandidateDispatchRecordSrvHandle.IsValid() == true && FrameResource.mPlacementSpacingRuleRecordSrvHandle.IsValid() == true && FrameResource.mCandidateContextSrvHandle.IsValid() == true && FrameResource.mCandidateContextUavHandle.IsValid() == true && FrameResource.mVisibleInstanceIndexSrvHandle.IsValid() == true && FrameResource.mVisibleInstanceIndexUavHandle.IsValid() == true && FrameResource.mIndirectArgumentUavHandle.IsValid() == true;
+        return FrameResource.mInstanceContextSrvHandle.IsValid() == true && FrameResource.mInstanceContextUavHandle.IsValid() == true && FrameResource.mSegmentContextSrvHandle.IsValid() == true && FrameResource.mDrawRecordSrvHandle.IsValid() == true && FrameResource.mPlacementConfigSrvHandle.IsValid() == true && FrameResource.mPlacementRuleSrvHandle.IsValid() == true && FrameResource.mPlacementDrawRecordSrvHandle.IsValid() == true && FrameResource.mPlacementDrawDispatchRecordSrvHandle.IsValid() == true && FrameResource.mPlacementCandidateRecordSrvHandle.IsValid() == true && FrameResource.mPlacementCandidateDispatchRecordSrvHandle.IsValid() == true && FrameResource.mPlacementSpacingRuleRecordSrvHandle.IsValid() == true && FrameResource.mCandidateContextSrvHandle.IsValid() == true && FrameResource.mCandidateContextUavHandle.IsValid() == true && FrameResource.mVisibleInstanceIndexSrvHandle.IsValid() == true && FrameResource.mVisibleInstanceIndexUavHandle.IsValid() == true && FrameResource.mIndirectArgumentUavHandle.IsValid() == true;
     }
 
     bool EnvironmentRuntime::EnsureGpuDrivenBuffer(Microsoft::WRL::ComPtr<ID3D12Resource>& Buffer, std::uint64_t& CapacityInBytes, std::uint64_t RequiredSizeInBytes, D3D12_RESOURCE_FLAGS ResourceFlags, D3D12_RESOURCE_STATES InitialState, const wchar_t* ResourceName) {
@@ -1217,7 +1243,7 @@ namespace Game {
         return true;
     }
 
-    bool EnvironmentRuntime::EnsureGpuDrivenFrameResources(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t InstanceContextCount, std::uint32_t SegmentContextCount, std::uint32_t DrawRecordCount, std::uint32_t PlacementConfigCount, std::uint32_t PlacementRuleCount, std::uint32_t PlacementDrawRecordCount, std::uint32_t PlacementCandidateRecordCount, std::uint32_t PlacementCandidateDispatchRecordCount, std::uint32_t PlacementSpacingRuleRecordCount, std::uint32_t CandidateContextCount, std::uint32_t VisibleInstanceIndexCount) {
+    bool EnvironmentRuntime::EnsureGpuDrivenFrameResources(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t InstanceContextCount, std::uint32_t SegmentContextCount, std::uint32_t DrawRecordCount, std::uint32_t PlacementConfigCount, std::uint32_t PlacementRuleCount, std::uint32_t PlacementDrawRecordCount, std::uint32_t PlacementDrawDispatchRecordCount, std::uint32_t PlacementCandidateRecordCount, std::uint32_t PlacementCandidateDispatchRecordCount, std::uint32_t PlacementSpacingRuleRecordCount, std::uint32_t CandidateContextCount, std::uint32_t VisibleInstanceIndexCount) {
         if (EnsureGpuDrivenDescriptorHandles(FrameResource) == false) {
             return false;
         }
@@ -1228,6 +1254,7 @@ namespace Game {
         const std::uint32_t SafePlacementConfigCount{ std::max(PlacementConfigCount, 1u) };
         const std::uint32_t SafePlacementRuleCount{ std::max(PlacementRuleCount, 1u) };
         const std::uint32_t SafePlacementDrawRecordCount{ std::max(PlacementDrawRecordCount, 1u) };
+        const std::uint32_t SafePlacementDrawDispatchRecordCount{ std::max(PlacementDrawDispatchRecordCount, 1u) };
         const std::uint32_t SafePlacementCandidateRecordCount{ std::max(PlacementCandidateRecordCount, 1u) };
         const std::uint32_t SafePlacementCandidateDispatchRecordCount{ std::max(PlacementCandidateDispatchRecordCount, 1u) };
         const std::uint32_t SafePlacementSpacingRuleRecordCount{ std::max(PlacementSpacingRuleRecordCount, 1u) };
@@ -1245,6 +1272,7 @@ namespace Game {
         Result = EnsureGpuDrivenBuffer(FrameResource.mPlacementConfigBuffer, FrameResource.mPlacementConfigBufferCapacityInBytes, sizeof(EnvironmentGpuPlacementConfig) * static_cast<std::uint64_t>(SafePlacementConfigCount), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COMMON, L"EnvironmentRuntime.PlacementConfigBuffer") && Result;
         Result = EnsureGpuDrivenBuffer(FrameResource.mPlacementRuleBuffer, FrameResource.mPlacementRuleBufferCapacityInBytes, sizeof(EnvironmentGpuPlacementRule) * static_cast<std::uint64_t>(SafePlacementRuleCount), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COMMON, L"EnvironmentRuntime.PlacementRuleBuffer") && Result;
         Result = EnsureGpuDrivenBuffer(FrameResource.mPlacementDrawRecordBuffer, FrameResource.mPlacementDrawRecordBufferCapacityInBytes, sizeof(EnvironmentGpuPlacementDrawRecord) * static_cast<std::uint64_t>(SafePlacementDrawRecordCount), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COMMON, L"EnvironmentRuntime.PlacementDrawRecordBuffer") && Result;
+        Result = EnsureGpuDrivenBuffer(FrameResource.mPlacementDrawDispatchRecordBuffer, FrameResource.mPlacementDrawDispatchRecordBufferCapacityInBytes, sizeof(EnvironmentGpuPlacementDrawDispatchRecord) * static_cast<std::uint64_t>(SafePlacementDrawDispatchRecordCount), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COMMON, L"EnvironmentRuntime.PlacementDrawDispatchRecordBuffer") && Result;
         Result = EnsureGpuDrivenBuffer(FrameResource.mPlacementCandidateRecordBuffer, FrameResource.mPlacementCandidateRecordBufferCapacityInBytes, sizeof(EnvironmentGpuPlacementCandidateRecord) * static_cast<std::uint64_t>(SafePlacementCandidateRecordCount), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COMMON, L"EnvironmentRuntime.PlacementCandidateRecordBuffer") && Result;
         Result = EnsureGpuDrivenBuffer(FrameResource.mPlacementCandidateDispatchRecordBuffer, FrameResource.mPlacementCandidateDispatchRecordBufferCapacityInBytes, sizeof(EnvironmentGpuPlacementCandidateDispatchRecord) * static_cast<std::uint64_t>(SafePlacementCandidateDispatchRecordCount), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COMMON, L"EnvironmentRuntime.PlacementCandidateDispatchRecordBuffer") && Result;
         Result = EnsureGpuDrivenBuffer(FrameResource.mPlacementSpacingRuleRecordBuffer, FrameResource.mPlacementSpacingRuleRecordBufferCapacityInBytes, sizeof(EnvironmentGpuPlacementSpacingRuleRecord) * static_cast<std::uint64_t>(SafePlacementSpacingRuleRecordCount), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COMMON, L"EnvironmentRuntime.PlacementSpacingRuleRecordBuffer") && Result;
@@ -1299,6 +1327,8 @@ namespace Game {
             mGpuPlacementFrameData.mDrawRecords.push_back(Item.mPlacementDrawRecord);
         }
 
+        BuildGpuPlacementDrawDispatchRecords(std::span<const EnvironmentGpuPlacementDrawRecord>{ mGpuPlacementFrameData.mDrawRecords.data(), mGpuPlacementFrameData.mDrawRecords.size() }, mGpuPlacementFrameData.mDrawDispatchRecords);
+
         mGpuInstanceContexts.clear();
         mGpuInstanceContextCount = 0u;
         mGpuSegmentContexts.clear();
@@ -1344,12 +1374,12 @@ namespace Game {
     }
 
     RenderContract::Future EnvironmentRuntime::UploadGpuDrivenFrameData(EnvironmentGpuDrivenFrameResource& FrameResource) {
-        if (mCopyQueue == nullptr || FrameResource.mSegmentContextBuffer == nullptr || FrameResource.mDrawRecordBuffer == nullptr || FrameResource.mPlacementConfigBuffer == nullptr || FrameResource.mPlacementRuleBuffer == nullptr || FrameResource.mPlacementDrawRecordBuffer == nullptr || FrameResource.mPlacementCandidateRecordBuffer == nullptr || FrameResource.mPlacementCandidateDispatchRecordBuffer == nullptr || FrameResource.mPlacementSpacingRuleRecordBuffer == nullptr || FrameResource.mIndirectArgumentBuffer == nullptr) {
+        if (mCopyQueue == nullptr || FrameResource.mSegmentContextBuffer == nullptr || FrameResource.mDrawRecordBuffer == nullptr || FrameResource.mPlacementConfigBuffer == nullptr || FrameResource.mPlacementRuleBuffer == nullptr || FrameResource.mPlacementDrawRecordBuffer == nullptr || FrameResource.mPlacementDrawDispatchRecordBuffer == nullptr || FrameResource.mPlacementCandidateRecordBuffer == nullptr || FrameResource.mPlacementCandidateDispatchRecordBuffer == nullptr || FrameResource.mPlacementSpacingRuleRecordBuffer == nullptr || FrameResource.mIndirectArgumentBuffer == nullptr) {
             return RenderContract::Future{};
         }
 
         std::vector<Interface::CopyRequest> CopyRequests{};
-        CopyRequests.reserve(9ULL);
+        CopyRequests.reserve(10ULL);
 
         Interface::CopyRequest SegmentContextCopyRequest{ Interface::CopyPriority::High };
         SegmentContextCopyRequest.DestinationDefaultResource = FrameResource.mSegmentContextBuffer;
@@ -1380,6 +1410,12 @@ namespace Game {
         PlacementDrawRecordCopyRequest.DestinationOffset = 0u;
         PlacementDrawRecordCopyRequest.SourceData = MakeVectorByteSpan(mGpuPlacementFrameData.mDrawRecords);
         CopyRequests.push_back(PlacementDrawRecordCopyRequest);
+
+        Interface::CopyRequest PlacementDrawDispatchRecordCopyRequest{ Interface::CopyPriority::High };
+        PlacementDrawDispatchRecordCopyRequest.DestinationDefaultResource = FrameResource.mPlacementDrawDispatchRecordBuffer;
+        PlacementDrawDispatchRecordCopyRequest.DestinationOffset = 0u;
+        PlacementDrawDispatchRecordCopyRequest.SourceData = MakeVectorByteSpan(mGpuPlacementFrameData.mDrawDispatchRecords);
+        CopyRequests.push_back(PlacementDrawDispatchRecordCopyRequest);
 
         Interface::CopyRequest PlacementCandidateRecordCopyRequest{ Interface::CopyPriority::High };
         PlacementCandidateRecordCopyRequest.DestinationDefaultResource = FrameResource.mPlacementCandidateRecordBuffer;
@@ -1412,9 +1448,8 @@ namespace Game {
         return CopyFuture;
     }
 
-    RenderContract::Future EnvironmentRuntime::DispatchGpuDrivenFrame(EnvironmentGpuDrivenFrameResource& FrameResource, const EnvironmentFrameInput& Input, const RenderContract::Future& CopyFuture, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCapacity, std::uint32_t CandidateRecordCount, std::uint32_t CandidateDispatchRecordCount, std::uint32_t SpacingRuleRecordCount) {
-        const std::uint32_t ClassifyThreadGroupCountY{ CalculateMaximumEnvironmentDrawDispatchGroupCount(std::span<const EnvironmentGpuPlacementDrawRecord>{ mGpuPlacementFrameData.mDrawRecords.data(), mGpuPlacementFrameData.mDrawRecords.size() }) };
-        if (mComputeQueue == nullptr || mSrvHeap == nullptr || DrawRecordCount == 0u || CandidateRecordCount == 0u || CandidateDispatchRecordCount == 0u || ClassifyThreadGroupCountY == 0u || mGpuStatusUavIndex == InvalidDescriptorIndex || mCandidateGeneratePipelineState == nullptr || mCandidateClassifyPipelineState == nullptr || FrameResource.mInstanceContextSrvHandle.IsValid() == false || FrameResource.mInstanceContextUavHandle.IsValid() == false || FrameResource.mDrawRecordSrvHandle.IsValid() == false || FrameResource.mPlacementConfigSrvHandle.IsValid() == false || FrameResource.mPlacementRuleSrvHandle.IsValid() == false || FrameResource.mPlacementDrawRecordSrvHandle.IsValid() == false || FrameResource.mPlacementCandidateRecordSrvHandle.IsValid() == false || FrameResource.mPlacementCandidateDispatchRecordSrvHandle.IsValid() == false || FrameResource.mPlacementSpacingRuleRecordSrvHandle.IsValid() == false || FrameResource.mCandidateContextSrvHandle.IsValid() == false || FrameResource.mCandidateContextUavHandle.IsValid() == false || FrameResource.mIndirectArgumentUavHandle.IsValid() == false || FrameResource.mVisibleInstanceIndexUavHandle.IsValid() == false) {
+    RenderContract::Future EnvironmentRuntime::DispatchGpuDrivenFrame(EnvironmentGpuDrivenFrameResource& FrameResource, const EnvironmentFrameInput& Input, const RenderContract::Future& CopyFuture, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCapacity, std::uint32_t CandidateRecordCount, std::uint32_t CandidateDispatchRecordCount, std::uint32_t DrawDispatchRecordCount, std::uint32_t SpacingRuleRecordCount) {
+        if (mComputeQueue == nullptr || mSrvHeap == nullptr || DrawRecordCount == 0u || CandidateRecordCount == 0u || CandidateDispatchRecordCount == 0u || DrawDispatchRecordCount == 0u || mGpuStatusUavIndex == InvalidDescriptorIndex || mCandidateGeneratePipelineState == nullptr || mCandidateClassifyPipelineState == nullptr || FrameResource.mInstanceContextSrvHandle.IsValid() == false || FrameResource.mInstanceContextUavHandle.IsValid() == false || FrameResource.mDrawRecordSrvHandle.IsValid() == false || FrameResource.mPlacementConfigSrvHandle.IsValid() == false || FrameResource.mPlacementRuleSrvHandle.IsValid() == false || FrameResource.mPlacementDrawRecordSrvHandle.IsValid() == false || FrameResource.mPlacementDrawDispatchRecordSrvHandle.IsValid() == false || FrameResource.mPlacementCandidateRecordSrvHandle.IsValid() == false || FrameResource.mPlacementCandidateDispatchRecordSrvHandle.IsValid() == false || FrameResource.mPlacementSpacingRuleRecordSrvHandle.IsValid() == false || FrameResource.mCandidateContextSrvHandle.IsValid() == false || FrameResource.mCandidateContextUavHandle.IsValid() == false || FrameResource.mIndirectArgumentUavHandle.IsValid() == false || FrameResource.mVisibleInstanceIndexUavHandle.IsValid() == false) {
             return RenderContract::Future{};
         }
 
@@ -1426,7 +1461,7 @@ namespace Game {
         const D3D12_RESOURCE_STATES CandidateContextStateBeforeDispatch{ FrameResource.mCandidateContextState };
         const D3D12_RESOURCE_STATES VisibleInstanceIndexStateBeforeDispatch{ FrameResource.mVisibleInstanceIndexState };
         const D3D12_RESOURCE_STATES IndirectArgumentStateBeforeDispatch{ FrameResource.mIndirectArgumentState };
-        const EnvironmentGpuRootConstants RootConstants{ BuildEnvironmentGpuRootConstants(Input, mGpuStatusUavIndex, FrameResource.mInstanceContextSrvHandle.GetIndex(), FrameResource.mInstanceContextUavHandle.GetIndex(), FrameResource.mDrawRecordSrvHandle.GetIndex(), FrameResource.mPlacementConfigSrvHandle.GetIndex(), FrameResource.mPlacementRuleSrvHandle.GetIndex(), FrameResource.mPlacementDrawRecordSrvHandle.GetIndex(), FrameResource.mPlacementCandidateRecordSrvHandle.GetIndex(), FrameResource.mPlacementCandidateDispatchRecordSrvHandle.GetIndex(), FrameResource.mPlacementSpacingRuleRecordSrvHandle.GetIndex(), FrameResource.mCandidateContextSrvHandle.GetIndex(), FrameResource.mCandidateContextUavHandle.GetIndex(), FrameResource.mIndirectArgumentUavHandle.GetIndex(), FrameResource.mVisibleInstanceIndexUavHandle.GetIndex(), DrawRecordCount, VisibleInstanceIndexCapacity, CandidateRecordCount, CandidateDispatchRecordCount, SpacingRuleRecordCount) };
+        const EnvironmentGpuRootConstants RootConstants{ BuildEnvironmentGpuRootConstants(Input, mGpuStatusUavIndex, FrameResource.mInstanceContextSrvHandle.GetIndex(), FrameResource.mInstanceContextUavHandle.GetIndex(), FrameResource.mDrawRecordSrvHandle.GetIndex(), FrameResource.mPlacementConfigSrvHandle.GetIndex(), FrameResource.mPlacementRuleSrvHandle.GetIndex(), FrameResource.mPlacementDrawRecordSrvHandle.GetIndex(), FrameResource.mPlacementCandidateRecordSrvHandle.GetIndex(), FrameResource.mPlacementCandidateDispatchRecordSrvHandle.GetIndex(), FrameResource.mPlacementSpacingRuleRecordSrvHandle.GetIndex(), FrameResource.mPlacementDrawDispatchRecordSrvHandle.GetIndex(), FrameResource.mCandidateContextSrvHandle.GetIndex(), FrameResource.mCandidateContextUavHandle.GetIndex(), FrameResource.mIndirectArgumentUavHandle.GetIndex(), FrameResource.mVisibleInstanceIndexUavHandle.GetIndex(), DrawRecordCount, VisibleInstanceIndexCapacity, CandidateRecordCount, CandidateDispatchRecordCount, DrawDispatchRecordCount, SpacingRuleRecordCount) };
 
         const std::array<RenderContract::Future, 2> WaitFutures{ CopyFuture, Input.mTerrain.mUploadFuture };
         Interface::ComputeQueueDispatchRequest GenerateRequest{};
@@ -1517,8 +1552,8 @@ namespace Game {
 
             CommandList->SetComputeRoot32BitConstants(0, EnvironmentGpuRootConstantDwordCount, &RootConstants, 0);
         };
-        ClassifyRequest.ThreadGroupCountX = DrawRecordCount;
-        ClassifyRequest.ThreadGroupCountY = ClassifyThreadGroupCountY;
+        ClassifyRequest.ThreadGroupCountX = DrawDispatchRecordCount;
+        ClassifyRequest.ThreadGroupCountY = 1u;
         ClassifyRequest.ThreadGroupCountZ = 1u;
 
         const std::array<Interface::ComputeQueueDispatchRequest, 2> DispatchRequests{ GenerateRequest, ClassifyRequest };
@@ -1549,7 +1584,7 @@ namespace Game {
         RenderData.mEnvironmentGpuDrivenFrame = Payload;
     }
 
-    void EnvironmentRuntime::UpdateGpuDrivenShaderResourceViews(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t InstanceContextCount, std::uint32_t SegmentContextCount, std::uint32_t DrawRecordCount, std::uint32_t PlacementConfigCount, std::uint32_t PlacementRuleCount, std::uint32_t PlacementDrawRecordCount, std::uint32_t PlacementCandidateRecordCount, std::uint32_t PlacementCandidateDispatchRecordCount, std::uint32_t PlacementSpacingRuleRecordCount, std::uint32_t CandidateContextCount, std::uint32_t VisibleInstanceIndexCount) {
+    void EnvironmentRuntime::UpdateGpuDrivenShaderResourceViews(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t InstanceContextCount, std::uint32_t SegmentContextCount, std::uint32_t DrawRecordCount, std::uint32_t PlacementConfigCount, std::uint32_t PlacementRuleCount, std::uint32_t PlacementDrawRecordCount, std::uint32_t PlacementDrawDispatchRecordCount, std::uint32_t PlacementCandidateRecordCount, std::uint32_t PlacementCandidateDispatchRecordCount, std::uint32_t PlacementSpacingRuleRecordCount, std::uint32_t CandidateContextCount, std::uint32_t VisibleInstanceIndexCount) {
         if (mDevice == nullptr) {
             return;
         }
@@ -1560,6 +1595,7 @@ namespace Game {
         const std::uint32_t SafePlacementConfigCount{ std::max(PlacementConfigCount, 1u) };
         const std::uint32_t SafePlacementRuleCount{ std::max(PlacementRuleCount, 1u) };
         const std::uint32_t SafePlacementDrawRecordCount{ std::max(PlacementDrawRecordCount, 1u) };
+        const std::uint32_t SafePlacementDrawDispatchRecordCount{ std::max(PlacementDrawDispatchRecordCount, 1u) };
         const std::uint32_t SafePlacementCandidateRecordCount{ std::max(PlacementCandidateRecordCount, 1u) };
         const std::uint32_t SafePlacementCandidateDispatchRecordCount{ std::max(PlacementCandidateDispatchRecordCount, 1u) };
         const std::uint32_t SafePlacementSpacingRuleRecordCount{ std::max(PlacementSpacingRuleRecordCount, 1u) };
@@ -1596,6 +1632,10 @@ namespace Game {
         SrvDesc.Buffer.NumElements = SafePlacementDrawRecordCount;
         SrvDesc.Buffer.StructureByteStride = sizeof(EnvironmentGpuPlacementDrawRecord);
         mDevice->CreateShaderResourceView(FrameResource.mPlacementDrawRecordBuffer.Get(), &SrvDesc, FrameResource.mPlacementDrawRecordSrvHandle.GetCPU());
+
+        SrvDesc.Buffer.NumElements = SafePlacementDrawDispatchRecordCount;
+        SrvDesc.Buffer.StructureByteStride = sizeof(EnvironmentGpuPlacementDrawDispatchRecord);
+        mDevice->CreateShaderResourceView(FrameResource.mPlacementDrawDispatchRecordBuffer.Get(), &SrvDesc, FrameResource.mPlacementDrawDispatchRecordSrvHandle.GetCPU());
 
         SrvDesc.Buffer.NumElements = SafePlacementCandidateRecordCount;
         SrvDesc.Buffer.StructureByteStride = sizeof(EnvironmentGpuPlacementCandidateRecord);

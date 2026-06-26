@@ -43,159 +43,171 @@ ProceduralFoliage:
   SeedSalt: 9103
   Rules:
     - Name: Foliage1Grass
-      Layer: Grass
+      ExcludedLayers:
+        - Snow
+        - Rock
       ModelPath: Foilage1.bin
       MaterialPath: Foilage1_materials.json
-      InstancesPerCell: 8
-      DensityMultiplier: 1.38
-      SpawnChance: 0.86
-      MinimumWeight: 0.30
+      InstancesPerCell: 22
+      DensityMultiplier: 1.75
+      SpawnChance: 0.96
+      MinimumWeight: 0.22
       MinimumScale: 0.85
       MaximumScale: 1.35
       MinimumYawDegrees: 0.0
       MaximumYawDegrees: 360.0
-      ClusterStrength: 1.0
+      ClusterStrength: 0.0
       ClusterScale: 105.0
       ClusterContrast: 3.10
       ClusterCoverage: 0.36
       ClusterEdgeSoftness: 0.10
       ClusterOutsideDensity: 0.12
-      ForestStrength: 0.35
+      ForestStrength: 1.0
       OffsetY: 0.0
       Lods:
         - ModelPath: Foilage1.bin
           MaterialPath: Foilage1_materials.json
-          MaximumDistance: 72.0
+          MaximumDistance: 48.0
         - Enabled: false
           MaximumDistance: 480.0
     - Name: Foliage2Grass
-      Layer: Grass
+      ExcludedLayers:
+        - Snow
+        - Rock
       ModelPath: Foilage2.bin
       MaterialPath: Foilage2_materials.json
-      InstancesPerCell: 6
-      DensityMultiplier: 1.28
-      SpawnChance: 0.80
-      MinimumWeight: 0.30
+      InstancesPerCell: 18
+      DensityMultiplier: 1.62
+      SpawnChance: 0.94
+      MinimumWeight: 0.22
       MinimumScale: 0.75
       MaximumScale: 1.15
       MinimumYawDegrees: 0.0
       MaximumYawDegrees: 360.0
-      ClusterStrength: 1.0
+      ClusterStrength: 0.0
       ClusterScale: 105.0
       ClusterContrast: 3.10
       ClusterCoverage: 0.34
       ClusterEdgeSoftness: 0.10
       ClusterOutsideDensity: 0.10
-      ForestStrength: 0.35
+      ForestStrength: 1.0
       OffsetY: 0.0
       Lods:
         - ModelPath: Foilage2.bin
           MaterialPath: Foilage2_materials.json
-          MaximumDistance: 72.0
+          MaximumDistance: 48.0
         - Enabled: false
           MaximumDistance: 480.0
     - Name: Foliage3Grass
-      Layer: Grass
+      ExcludedLayers:
+        - Snow
+        - Rock
       ModelPath: Foilage3.bin
       MaterialPath: Foilage3_materials.json
-      InstancesPerCell: 6
-      DensityMultiplier: 1.24
-      SpawnChance: 0.76
-      MinimumWeight: 0.30
+      InstancesPerCell: 18
+      DensityMultiplier: 1.58
+      SpawnChance: 0.92
+      MinimumWeight: 0.22
       MinimumScale: 0.90
       MaximumScale: 1.45
       MinimumYawDegrees: 0.0
       MaximumYawDegrees: 360.0
-      ClusterStrength: 1.0
+      ClusterStrength: 0.0
       ClusterScale: 105.0
       ClusterContrast: 3.10
       ClusterCoverage: 0.32
       ClusterEdgeSoftness: 0.095
       ClusterOutsideDensity: 0.10
-      ForestStrength: 0.35
+      ForestStrength: 1.0
       OffsetY: 0.0
       Lods:
         - ModelPath: Foilage3.bin
           MaterialPath: Foilage3_materials.json
-          MaximumDistance: 72.0
+          MaximumDistance: 48.0
         - Enabled: false
           MaximumDistance: 480.0
     - Name: Foliage1LowGround
-      Layer: LowGround
+      ExcludedLayers:
+        - Snow
+        - Rock
       ModelPath: Foilage1.bin
       MaterialPath: Foilage1_materials.json
-      InstancesPerCell: 8
-      DensityMultiplier: 1.34
-      SpawnChance: 0.84
-      MinimumWeight: 0.28
+      InstancesPerCell: 22
+      DensityMultiplier: 1.72
+      SpawnChance: 0.96
+      MinimumWeight: 0.22
       MinimumScale: 0.85
       MaximumScale: 1.35
       MinimumYawDegrees: 0.0
       MaximumYawDegrees: 360.0
-      ClusterStrength: 1.0
+      ClusterStrength: 0.0
       ClusterScale: 125.0
       ClusterContrast: 2.95
       ClusterCoverage: 0.38
       ClusterEdgeSoftness: 0.11
       ClusterOutsideDensity: 0.12
-      ForestStrength: 0.35
+      ForestStrength: 1.0
       OffsetY: 0.0
       Lods:
         - ModelPath: Foilage1.bin
           MaterialPath: Foilage1_materials.json
-          MaximumDistance: 72.0
+          MaximumDistance: 48.0
         - Enabled: false
           MaximumDistance: 480.0
     - Name: Foliage2LowGround
-      Layer: LowGround
+      ExcludedLayers:
+        - Snow
+        - Rock
       ModelPath: Foilage2.bin
       MaterialPath: Foilage2_materials.json
-      InstancesPerCell: 6
-      DensityMultiplier: 1.26
-      SpawnChance: 0.78
-      MinimumWeight: 0.28
+      InstancesPerCell: 18
+      DensityMultiplier: 1.60
+      SpawnChance: 0.93
+      MinimumWeight: 0.22
       MinimumScale: 0.75
       MaximumScale: 1.15
       MinimumYawDegrees: 0.0
       MaximumYawDegrees: 360.0
-      ClusterStrength: 1.0
+      ClusterStrength: 0.0
       ClusterScale: 125.0
       ClusterContrast: 2.95
       ClusterCoverage: 0.36
       ClusterEdgeSoftness: 0.105
       ClusterOutsideDensity: 0.10
-      ForestStrength: 0.35
+      ForestStrength: 1.0
       OffsetY: 0.0
       Lods:
         - ModelPath: Foilage2.bin
           MaterialPath: Foilage2_materials.json
-          MaximumDistance: 72.0
+          MaximumDistance: 48.0
         - Enabled: false
           MaximumDistance: 480.0
     - Name: Foliage3LowGround
-      Layer: LowGround
+      ExcludedLayers:
+        - Snow
+        - Rock
       ModelPath: Foilage3.bin
       MaterialPath: Foilage3_materials.json
-      InstancesPerCell: 6
-      DensityMultiplier: 1.34
-      SpawnChance: 0.82
-      MinimumWeight: 0.28
+      InstancesPerCell: 18
+      DensityMultiplier: 1.70
+      SpawnChance: 0.95
+      MinimumWeight: 0.22
       MinimumScale: 0.90
       MaximumScale: 1.45
       MinimumYawDegrees: 0.0
       MaximumYawDegrees: 360.0
-      ClusterStrength: 1.0
+      ClusterStrength: 0.0
       ClusterScale: 125.0
       ClusterContrast: 2.95
       ClusterCoverage: 0.34
       ClusterEdgeSoftness: 0.10
       ClusterOutsideDensity: 0.10
-      ForestStrength: 0.35
+      ForestStrength: 1.0
       OffsetY: 0.0
       Lods:
         - ModelPath: Foilage3.bin
           MaterialPath: Foilage3_materials.json
-          MaximumDistance: 72.0
+          MaximumDistance: 48.0
         - Enabled: false
           MaximumDistance: 480.0
     - Name: Tree1

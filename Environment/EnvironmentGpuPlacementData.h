@@ -86,6 +86,14 @@ namespace Game {
         std::uint32_t mPadding0{};
     };
 
+    struct alignas(16) EnvironmentGpuPlacementDrawDispatchRecord final {
+    public:
+        std::uint32_t mDrawRecordIndex{};
+        std::uint32_t mLocalCandidateOffset{};
+        std::uint32_t mCandidateCount{};
+        std::uint32_t mPadding0{};
+    };
+
     struct alignas(16) EnvironmentGpuPlacementSpacingRuleRecord final {
     public:
         std::uint32_t mRuleIndex{};
@@ -110,6 +118,7 @@ namespace Game {
         std::vector<EnvironmentGpuPlacementRule> mRules{};
         std::vector<EnvironmentGpuPlacementCandidateRecord> mCandidateRecords{};
         std::vector<EnvironmentGpuPlacementCandidateDispatchRecord> mCandidateDispatchRecords{};
+        std::vector<EnvironmentGpuPlacementDrawDispatchRecord> mDrawDispatchRecords{};
         std::vector<EnvironmentGpuPlacementSpacingRuleRecord> mSpacingRuleRecords{};
         std::vector<EnvironmentGpuPlacementDrawRecord> mDrawRecords{};
         std::uint32_t mCandidateCount{};

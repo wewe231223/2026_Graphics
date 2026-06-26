@@ -1036,16 +1036,6 @@ namespace {
         return MaximumMinimumSpacing;
     }
 
-    std::int32_t CalculateMinimumSpacingCellRadius(const std::vector<FoliageRuntimeRule>& Rules, const FoliagePlacementConfig& Config) {
-        const float MaximumMinimumSpacing{ CalculateMaximumMinimumSpacing(Rules) };
-        if (MaximumMinimumSpacing <= FoliageEpsilon) {
-            return 0;
-        }
-
-        const float CellSize{ std::max(Config.mCellSize, FoliageEpsilon) };
-        return static_cast<std::int32_t>(std::ceil(MaximumMinimumSpacing / CellSize)) + 1;
-    }
-
     float CalculateGpuPlacementClumpMargin(const FoliagePlacementConfig& Config, const FoliagePlacementRule& Rule) {
         if (Rule.mClusterStrength <= FoliageEpsilon) {
             return 0.0f;
@@ -1056,6 +1046,31 @@ namespace {
         const float ClumpGridScale{ std::max(ClusterScale * Config.mClumpGridScaleMultiplier, CellSize * Config.mClumpGridScaleMinimumCellMultiplier) };
         const float PullStrength{ std::clamp(Rule.mClusterStrength * Config.mClumpPullStrengthScale, 0.0f, Config.mClumpPullStrengthMaximum) };
         return ClumpGridScale * (1.41421356237f + Config.mClumpRadiusScale) * PullStrength;
+    }
+
+    float CalculateMaximumMinimumSpacingSearchDistance(const std::vector<FoliageRuntimeRule>& Rules, const FoliagePlacementConfig& Config) {
+        float MaximumSearchDistance{};
+        for (const FoliageRuntimeRule& Rule : Rules) {
+            const float MinimumSpacing{ Rule.mDesc.mMinimumSpacing };
+            if (MinimumSpacing <= FoliageEpsilon) {
+                continue;
+            }
+
+            const float ClumpMargin{ CalculateGpuPlacementClumpMargin(Config, Rule.mDesc) };
+            MaximumSearchDistance = std::max(MaximumSearchDistance, MinimumSpacing + (ClumpMargin * 2.0f));
+        }
+
+        return MaximumSearchDistance;
+    }
+
+    std::int32_t CalculateMinimumSpacingCellRadius(const std::vector<FoliageRuntimeRule>& Rules, const FoliagePlacementConfig& Config) {
+        const float MaximumSearchDistance{ CalculateMaximumMinimumSpacingSearchDistance(Rules, Config) };
+        if (MaximumSearchDistance <= FoliageEpsilon) {
+            return 0;
+        }
+
+        const float CellSize{ std::max(Config.mCellSize, FoliageEpsilon) };
+        return static_cast<std::int32_t>(std::ceil(MaximumSearchDistance / CellSize));
     }
 
     float ResolveGpuPlacementCandidateRadius(const FoliagePlacementConfig& Config, const FoliagePlacementRule& Rule, float MaximumDistance) {

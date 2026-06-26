@@ -136,6 +136,9 @@ namespace Core {
 			ComPtr<ID3D12GraphicsCommandList> mCommandList{ nullptr };
 			ComPtr<ID3D12GraphicsCommandList9> mCommandList9{ nullptr };
 			std::array<ComPtr<ID3D12CommandAllocator>, Constants::FrameCount<size_t>> mMainCommandAllocators{};
+			ComPtr<ID3D12GraphicsCommandList> mEnvironmentCommandList{ nullptr };
+			ComPtr<ID3D12GraphicsCommandList9> mEnvironmentCommandList9{ nullptr };
+			std::array<ComPtr<ID3D12CommandAllocator>, Constants::FrameCount<size_t>> mEnvironmentCommandAllocators{};
 			ComPtr<ID3D12GraphicsCommandList> mPostProcessCommandList{ nullptr };
 			std::array<ComPtr<ID3D12CommandAllocator>, Constants::FrameCount<size_t>> mPostProcessCommandAllocators{};
 			ComPtr<ID3D12QueryHeap> mGpuTimestampQueryHeap{ nullptr };

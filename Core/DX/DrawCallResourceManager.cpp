@@ -153,17 +153,29 @@ namespace Core {
 		}
 
 		void DrawCallResourceManager::PrepareFrameResources(RenderContract::RenderFrameData& Data, GraphicsAllocator& GraphicsAllocator, Interface::ICopyQueue* CopyQueue) {
+			const bool IsEnvironmentGpuDrivenFrameEnabled{ Data.mEnvironmentGpuDrivenFrame.mEnabled == true };
 			std::stable_sort(Data.mDrawRecords.begin(), Data.mDrawRecords.end(), DrawCallResourceManager::CompareDrawRecordByPso);
 			DrawCallResourceManager::BuildDrawRecordGpu(Data.mDrawRecords, mDrawRecordsGpu);
-			std::stable_sort(Data.mEnvironmentDrawRecords.begin(), Data.mEnvironmentDrawRecords.end(), DrawCallResourceManager::CompareEnvironmentDrawRecordByPso);
-			DrawCallResourceManager::BuildEnvironmentDrawRecordGpu(Data.mEnvironmentDrawRecords, mEnvironmentDrawRecordsGpu);
+			if (IsEnvironmentGpuDrivenFrameEnabled == false) {
+				std::stable_sort(Data.mEnvironmentDrawRecords.begin(), Data.mEnvironmentDrawRecords.end(), DrawCallResourceManager::CompareEnvironmentDrawRecordByPso);
+				DrawCallResourceManager::BuildEnvironmentDrawRecordGpu(Data.mEnvironmentDrawRecords, mEnvironmentDrawRecordsGpu);
+			}
+			else {
+				mEnvironmentDrawRecordsGpu.clear();
+			}
+
 			const std::uint32_t ShadowCascadeCount{ RenderContract::ResolveShadowCascadeCount(Data.mShadowMappingParameter) };
 			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
 				RenderContract::ShadowRenderContext& ShadowRenderContext{ Data.mShadowRenderContexts[CascadeIndex] };
 				DrawCallResourceManager::SortShadowDrawRecords(ShadowRenderContext.mDrawRecords);
 				DrawCallResourceManager::BuildDrawRecordGpu(ShadowRenderContext.mDrawRecords, mShadowDrawRecordsGpu[CascadeIndex]);
-				DrawCallResourceManager::SortShadowEnvironmentDrawRecords(ShadowRenderContext.mEnvironmentDrawRecords);
-				DrawCallResourceManager::BuildEnvironmentDrawRecordGpu(ShadowRenderContext.mEnvironmentDrawRecords, mShadowEnvironmentDrawRecordsGpu[CascadeIndex]);
+				if (IsEnvironmentGpuDrivenFrameEnabled == false) {
+					DrawCallResourceManager::SortShadowEnvironmentDrawRecords(ShadowRenderContext.mEnvironmentDrawRecords);
+					DrawCallResourceManager::BuildEnvironmentDrawRecordGpu(ShadowRenderContext.mEnvironmentDrawRecords, mShadowEnvironmentDrawRecordsGpu[CascadeIndex]);
+				}
+				else {
+					mShadowEnvironmentDrawRecordsGpu[CascadeIndex].clear();
+				}
 			}
 
 			for (std::uint32_t CascadeIndex{ ShadowCascadeCount }; CascadeIndex < RenderContract::ShadowCascadeMaxCount; CascadeIndex += 1) {
@@ -190,7 +202,13 @@ namespace Core {
 			RenderContract::ShadowMappingParameter GpuShadowMappingParameter{ BuildGpuShadowMappingParameter(Data.mShadowMappingParameter) };
 			BuildGpuModelContexts(Data.mModelContexts, mGpuModelContexts);
 			BuildGpuBonePalette(Data.mBonePalette, mGpuBonePalette);
-			BuildGpuEnvironmentSegmentContexts(Data.mEnvironmentSegmentContexts, mGpuEnvironmentSegmentContexts);
+			if (IsEnvironmentGpuDrivenFrameEnabled == false) {
+				BuildGpuEnvironmentSegmentContexts(Data.mEnvironmentSegmentContexts, mGpuEnvironmentSegmentContexts);
+			}
+			else {
+				mGpuEnvironmentSegmentContexts.clear();
+			}
+
 			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
 				BuildGpuModelContexts(Data.mShadowRenderContexts[CascadeIndex].mModelContexts, mGpuShadowModelContexts[CascadeIndex]);
 			}
@@ -211,24 +229,31 @@ namespace Core {
 			AddGraphicsVectorCopyRequest(mTerrainPatchContextVector, GraphicsAllocator, MakeByteSpan(Data.mTerrainPatchContexts), CopyRequests, "Failed to prepare terrain patch context copy request.");
 			AddGraphicsVectorCopyRequest(mBonePaletteVector, GraphicsAllocator, MakeByteSpan(mGpuBonePalette), CopyRequests, "Failed to prepare bone palette copy request.");
 			AddGraphicsVectorCopyRequest(mDrawRecordVector, GraphicsAllocator, MakeByteSpan(mDrawRecordsGpu), CopyRequests, "Failed to prepare draw record copy request.");
-			AddGraphicsVectorCopyRequest(mEnvironmentInstanceContextVector, GraphicsAllocator, MakeByteSpan(Data.mEnvironmentInstanceContexts), CopyRequests, "Failed to prepare environment instance context copy request.");
-			AddGraphicsVectorCopyRequest(mEnvironmentSegmentContextVector, GraphicsAllocator, MakeByteSpan(mGpuEnvironmentSegmentContexts), CopyRequests, "Failed to prepare environment segment context copy request.");
-			AddGraphicsVectorCopyRequest(mEnvironmentDrawRecordVector, GraphicsAllocator, MakeByteSpan(mEnvironmentDrawRecordsGpu), CopyRequests, "Failed to prepare environment draw record copy request.");
+			if (IsEnvironmentGpuDrivenFrameEnabled == false) {
+				AddGraphicsVectorCopyRequest(mEnvironmentInstanceContextVector, GraphicsAllocator, MakeByteSpan(Data.mEnvironmentInstanceContexts), CopyRequests, "Failed to prepare environment instance context copy request.");
+				AddGraphicsVectorCopyRequest(mEnvironmentSegmentContextVector, GraphicsAllocator, MakeByteSpan(mGpuEnvironmentSegmentContexts), CopyRequests, "Failed to prepare environment segment context copy request.");
+				AddGraphicsVectorCopyRequest(mEnvironmentDrawRecordVector, GraphicsAllocator, MakeByteSpan(mEnvironmentDrawRecordsGpu), CopyRequests, "Failed to prepare environment draw record copy request.");
+			}
+
 			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
 				const RenderContract::ShadowRenderContext& ShadowRenderContext{ Data.mShadowRenderContexts[CascadeIndex] };
 				AddGraphicsVectorCopyRequest(mShadowModelContextVectors[CascadeIndex], GraphicsAllocator, MakeByteSpan(mGpuShadowModelContexts[CascadeIndex]), CopyRequests, "Failed to prepare shadow model context copy request.");
 				AddGraphicsVectorCopyRequest(mShadowTerrainPatchContextVectors[CascadeIndex], GraphicsAllocator, MakeByteSpan(ShadowRenderContext.mTerrainPatchContexts), CopyRequests, "Failed to prepare shadow terrain patch context copy request.");
 				AddGraphicsVectorCopyRequest(mShadowDrawRecordVectors[CascadeIndex], GraphicsAllocator, MakeByteSpan(mShadowDrawRecordsGpu[CascadeIndex]), CopyRequests, "Failed to prepare shadow draw record copy request.");
-				AddGraphicsVectorCopyRequest(mShadowEnvironmentDrawRecordVectors[CascadeIndex], GraphicsAllocator, MakeByteSpan(mShadowEnvironmentDrawRecordsGpu[CascadeIndex]), CopyRequests, "Failed to prepare shadow environment draw record copy request.");
+				if (IsEnvironmentGpuDrivenFrameEnabled == false) {
+					AddGraphicsVectorCopyRequest(mShadowEnvironmentDrawRecordVectors[CascadeIndex], GraphicsAllocator, MakeByteSpan(mShadowEnvironmentDrawRecordsGpu[CascadeIndex]), CopyRequests, "Failed to prepare shadow environment draw record copy request.");
+				}
 			}
 
 			mCopyFuture = CopyQueue->EnqueueCopyFuture(CopyRequests);
 			ErrorHandler::report(mCopyFuture.IsValid() == false, "DrawCallResourceManager", "Failed to enqueue frame upload copy requests.", ErrorHandler::Level::Critical);
 
 			DrawCallResourceManager::UpdateShaderResourceViews(1, ShadowCascadeCount, 1, static_cast<std::uint32_t>(Data.mModelContexts.size()), static_cast<std::uint32_t>(Data.mBoundingBoxContexts.size()), static_cast<std::uint32_t>(Data.mDebugGeometryContexts.size()), static_cast<std::uint32_t>(Data.mTerrainPatchContexts.size()), static_cast<std::uint32_t>(Data.mBonePalette.size()), static_cast<std::uint32_t>(mDrawRecordsGpu.size()));
-			DrawCallResourceManager::UpdateEnvironmentShaderResourceViews(static_cast<std::uint32_t>(Data.mEnvironmentInstanceContexts.size()), static_cast<std::uint32_t>(Data.mEnvironmentSegmentContexts.size()), static_cast<std::uint32_t>(mEnvironmentDrawRecordsGpu.size()));
 			DrawCallResourceManager::UpdateShadowShaderResourceViews(ShadowCascadeCount);
-			DrawCallResourceManager::UpdateShadowEnvironmentShaderResourceViews(ShadowCascadeCount);
+			if (IsEnvironmentGpuDrivenFrameEnabled == false) {
+				DrawCallResourceManager::UpdateEnvironmentShaderResourceViews(static_cast<std::uint32_t>(Data.mEnvironmentInstanceContexts.size()), static_cast<std::uint32_t>(Data.mEnvironmentSegmentContexts.size()), static_cast<std::uint32_t>(mEnvironmentDrawRecordsGpu.size()));
+				DrawCallResourceManager::UpdateShadowEnvironmentShaderResourceViews(ShadowCascadeCount);
+			}
 		}
 
 		const RenderContract::Future& DrawCallResourceManager::GetCopyFuture() const {
