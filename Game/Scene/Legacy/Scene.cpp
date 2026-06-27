@@ -681,6 +681,7 @@ namespace Game {
                 mFrameContext.RenderData.mEnvironmentRuntime = &mEnvironmentRuntime;
                 mFrameContext.RenderData.mTerrainUploadFuture = RenderContract::Future{};
                 mFrameContext.RenderData.mHasTerrainUploadFuture = false;
+                mFrameContext.RenderData.mFsrFrameParameter = RenderContract::FsrFrameParameter{};
                 for (RenderContract::ShadowRenderContext& ShadowRenderContext : mFrameContext.RenderData.mShadowRenderContexts) {
                     ShadowRenderContext.mModelContexts.clear();
                     ShadowRenderContext.mTerrainPatchContexts.clear();

@@ -6,6 +6,7 @@
 #include "Core/Config.h"
 #include <algorithm>
 #include <bit>
+#include <filesystem>
 #include <fstream>
 #include <utility>
 #include "Widget/PerformanceProvider.h"
@@ -48,6 +49,7 @@ namespace Core {
 			DirectQueue::InitBasements();
 			DirectQueue::InitWorkers();
 			DirectQueue::InitCommandList();
+			DirectQueue::InitFsrParameter();
 			DirectQueue::InitGpuTimestampQuery();
 			DirectQueue::InitTargetResources();
 
@@ -135,6 +137,7 @@ namespace Core {
 			const float RenderTargetWidth{ mGBufferTargets[GBufferAlbedoIndex] != nullptr ? static_cast<float>(mGBufferTargets[GBufferAlbedoIndex]->GetWidth()) : Config::Query()->Get<float>("Window_Width") };
 			const float RenderTargetHeight{ mGBufferTargets[GBufferAlbedoIndex] != nullptr ? static_cast<float>(mGBufferTargets[GBufferAlbedoIndex]->GetHeight()) : Config::Query()->Get<float>("Window_Height") };
 			Data.mFrameGlobals.mRenderTargetSize = DirectX::SimpleMath::Vector4{ RenderTargetWidth, RenderTargetHeight, RenderTargetWidth > 0.0f ? 1.0f / RenderTargetWidth : 0.0f, RenderTargetHeight > 0.0f ? 1.0f / RenderTargetHeight : 0.0f };
+			ApplyFsrJitter(Data);
 
 			ErrorHandler::report(mGraphicsAllocator == nullptr, "DirectQueue", "GraphicsAllocator is not set.", ErrorHandler::Level::Critical);
 			ErrorHandler::report(mCopyQueue == nullptr, "DirectQueue", "CopyQueue is not set.", ErrorHandler::Level::Critical);
@@ -514,6 +517,11 @@ namespace Core {
 			mPostProcessCommandList->Close();
 		}
 
+		void DirectQueue::InitFsrParameter() {
+			FsrParameterFile ParameterFile{};
+			ParameterFile.Read(std::filesystem::path{ "Resources/FsrParameters.json" }, mFsrParameter);
+		}
+
 		void DirectQueue::InitGpuTimestampQuery() {
 			D3D12_QUERY_HEAP_DESC QueryHeapDescription{};
 			QueryHeapDescription.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
@@ -611,6 +619,42 @@ namespace Core {
 				mGBufferTargets[GBufferIndex]->CreateRTV(mDevice.Get(), &mRTVHeap);
 				mGBufferTargets[GBufferIndex]->CreateSRV(mDevice.Get(), &mSrvHeap);
 			}
+		}
+
+		void DirectQueue::ApplyFsrJitter(RenderContract::RenderFrameData& Data) {
+			RenderContract::FsrFrameParameter FrameParameter{};
+			const std::uint32_t RenderWidth{ mGBufferTargets[GBufferAlbedoIndex] != nullptr ? mGBufferTargets[GBufferAlbedoIndex]->GetWidth() : Config::Query()->Get<std::uint32_t>("Window_Width") };
+			const std::uint32_t RenderHeight{ mGBufferTargets[GBufferAlbedoIndex] != nullptr ? mGBufferTargets[GBufferAlbedoIndex]->GetHeight() : Config::Query()->Get<std::uint32_t>("Window_Height") };
+			const std::uint32_t DisplayWidth{ Config::Query()->Get<std::uint32_t>("Window_Width") };
+			const std::uint32_t DisplayHeight{ Config::Query()->Get<std::uint32_t>("Window_Height") };
+			FrameParameter.mEnabled = mFsrParameter.mEnabled;
+			FrameParameter.mJitterEnabled = mFsrParameter.mEnabled == true && mFsrParameter.mJitterEnabled == true;
+			FrameParameter.mResetHistory = mFsrParameter.mResetHistory;
+			FrameParameter.mRenderWidth = RenderWidth;
+			FrameParameter.mRenderHeight = RenderHeight;
+			FrameParameter.mDisplayWidth = DisplayWidth;
+			FrameParameter.mDisplayHeight = DisplayHeight;
+			FrameParameter.mMotionVectorScale = DirectX::SimpleMath::Vector2{ 1.0f, 1.0f };
+
+			if (FrameParameter.mJitterEnabled == false) {
+				mFsrJitterFrameIndex = 0u;
+				Data.mFsrFrameParameter = FrameParameter;
+				return;
+			}
+
+			const FsrJitterSample JitterSample{ BuildFsrJitterSample(mFsrJitterFrameIndex, RenderWidth, RenderHeight, DisplayWidth) };
+			FrameParameter.mJitterOffset = JitterSample.mPixelOffset;
+			FrameParameter.mJitterOffsetNdc = JitterSample.mNdcOffset;
+			FrameParameter.mJitterPhaseCount = JitterSample.mPhaseCount;
+			FrameParameter.mJitterIndex = JitterSample.mIndex;
+
+			const DirectX::SimpleMath::Matrix JitterTranslation{ DirectX::SimpleMath::Matrix::CreateTranslation(JitterSample.mNdcOffset.x, JitterSample.mNdcOffset.y, 0.0f) };
+			Data.mFrameGlobals.mProj = Data.mFrameGlobals.mProj * JitterTranslation;
+			Data.mFrameGlobals.mViewProj = Data.mFrameGlobals.mView * Data.mFrameGlobals.mProj;
+			Data.mMainCamera.mProj = Data.mMainCamera.mProj * JitterTranslation;
+			Data.mMainCamera.mViewProj = Data.mMainCamera.mView * Data.mMainCamera.mProj;
+			Data.mFsrFrameParameter = FrameParameter;
+			mFsrJitterFrameIndex = (mFsrJitterFrameIndex + 1u) % static_cast<std::uint32_t>(std::max(1, JitterSample.mPhaseCount));
 		}
 
 		void DirectQueue::EnsureShadowMapResources(const RenderContract::ShadowMappingParameter& ShadowMappingParameter) {

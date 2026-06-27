@@ -127,6 +127,8 @@
 copy $(SolutionDir)dxcompiler.dll $(TargetDir) /Y
 copy $(SolutionDir)c4core.dll $(TargetDir) /Y
 copy $(SolutionDir)ryml.dll $(TargetDir) /Y
+copy $(SolutionDir)amd_fidelityfx_loader_dx12.dll $(TargetDir) /Y
+copy $(SolutionDir)amd_fidelityfx_upscaler_dx12.dll $(TargetDir) /Y
 
 robocopy $(SolutionDir)D3D $(TargetDir)D3D /E
 if %ERRORLEVEL% GEQ 8 exit /b %ERRORLEVEL%
@@ -162,6 +164,8 @@ exit /b 0
 copy $(SolutionDir)dxcompiler.dll $(TargetDir) /Y
 copy $(SolutionDir)c4core.dll $(TargetDir) /Y
 copy $(SolutionDir)ryml.dll $(TargetDir) /Y
+copy $(SolutionDir)amd_fidelityfx_loader_dx12.dll $(TargetDir) /Y
+copy $(SolutionDir)amd_fidelityfx_upscaler_dx12.dll $(TargetDir) /Y
 
 robocopy $(SolutionDir)D3D $(TargetDir)D3D /E
 if %ERRORLEVEL% GEQ 8 exit /b %ERRORLEVEL%
@@ -193,6 +197,7 @@ exit /b 0
     <ClCompile Include="Core\DX\DesciptorHeap.cpp" />
     <ClCompile Include="Core\DX\DrawCallDispatcher.cpp" />
     <ClCompile Include="Core\DX\DrawCallResourceManager.cpp" />
+    <ClCompile Include="Core\DX\FsrParameter.cpp" />
     <ClCompile Include="Core\DX\MaterialResourceManager.cpp" />
     <ClCompile Include="Core\DX\DirectQueue.cpp" />
     <ClCompile Include="Core\DX\FrameSync.cpp" />
@@ -219,6 +224,7 @@ exit /b 0
     <ClInclude Include="Core\DX\DrawCallResourceManager.h" />
     <ClInclude Include="Core\DX\DirectQueue.h" />
     <ClInclude Include="Core\DX\FrameSync.h" />
+    <ClInclude Include="Core\DX\FsrParameter.h" />
     <ClInclude Include="Core\DX\GraphicsAllocator.h" />
     <ClInclude Include="Core\DX\GraphicsVector.h" />
     <ClInclude Include="Core\DX\MaterialResourceManager.h" />
@@ -229,6 +235,7 @@ exit /b 0
   </ItemGroup>
   <ItemGroup>
     <None Include="Config.prop" />
+    <None Include="Resources\FsrParameters.json" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

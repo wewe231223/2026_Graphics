@@ -20,6 +20,7 @@ void FrameRenderWriter::BeginFrame() {
     mRenderFrameData->mEnvironmentRuntime = nullptr;
     mRenderFrameData->mTerrainUploadFuture = Future{};
     mRenderFrameData->mHasTerrainUploadFuture = false;
+    mRenderFrameData->mFsrFrameParameter = FsrFrameParameter{};
     mRenderFrameData->mFrameGlobals.mFlags = 0u;
 
     for (ShadowRenderContext& ShadowRenderContext : mRenderFrameData->mShadowRenderContexts) {

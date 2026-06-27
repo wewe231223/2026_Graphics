@@ -383,6 +383,7 @@ add_executable(2026_Graphics WIN32
     Core/DX/DesciptorHeap.cpp
     Core/DX/DrawCallDispatcher.cpp
     Core/DX/DrawCallResourceManager.cpp
+    Core/DX/FsrParameter.cpp
     Core/DX/MaterialResourceManager.cpp
     Core/DX/DirectQueue.cpp
     Core/DX/FrameSync.cpp
@@ -442,6 +443,8 @@ add_custom_command(TARGET 2026_Graphics POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GraphicsRoot}/c4core.dll $<TARGET_FILE_DIR:2026_Graphics>/c4core.dll
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GraphicsRoot}/ryml.dll $<TARGET_FILE_DIR:2026_Graphics>/ryml.dll
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GraphicsRoot}/lua54.dll $<TARGET_FILE_DIR:2026_Graphics>/lua54.dll
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GraphicsRoot}/amd_fidelityfx_loader_dx12.dll $<TARGET_FILE_DIR:2026_Graphics>/amd_fidelityfx_loader_dx12.dll
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GraphicsRoot}/amd_fidelityfx_upscaler_dx12.dll $<TARGET_FILE_DIR:2026_Graphics>/amd_fidelityfx_upscaler_dx12.dll
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GraphicsRoot}/$<$<CONFIG:Debug>:assimp-vc143-mtd.dll>$<$<NOT:$<CONFIG:Debug>>:assimp-vc143-mt.dll> $<TARGET_FILE_DIR:2026_Graphics>/$<$<CONFIG:Debug>:assimp-vc143-mtd.dll>$<$<NOT:$<CONFIG:Debug>>:assimp-vc143-mt.dll>
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${GraphicsRoot}/D3D $<TARGET_FILE_DIR:2026_Graphics>/D3D
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${GraphicsRoot}/Resources $<TARGET_FILE_DIR:2026_Graphics>/Resources

@@ -13,6 +13,7 @@
 #include "RenderContract/Environment/EnvironmentSegmentContext.h"
 #include "RenderContract/Frame/CameraParameter.h"
 #include "RenderContract/Frame/FrameGlobals.h"
+#include "RenderContract/Frame/FsrFrameParameter.h"
 #include "RenderContract/Frame/ShadowMappingParameter.h"
 #include "RenderContract/Future/Future.h"
 #include "RenderContract/Geometry/BoundingBoxContext.h"
@@ -28,6 +29,7 @@ namespace RenderContract {
     struct RenderFrameData final {
     public:
         FrameGlobals mFrameGlobals{};
+        FsrFrameParameter mFsrFrameParameter{};
         CameraParameter mMainCamera{};
         ShadowMappingParameter mShadowMappingParameter{};
         std::vector<ModelContext> mModelContexts{};

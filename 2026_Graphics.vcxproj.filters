@@ -71,6 +71,9 @@
     <ClCompile Include="Core\DX\DrawCallResourceManager.cpp">
       <Filter>Core\DX</Filter>
     </ClCompile>
+    <ClCompile Include="Core\DX\FsrParameter.cpp">
+      <Filter>Core\DX</Filter>
+    </ClCompile>
     <ClCompile Include="Core\DX\MaterialResourceManager.cpp">
       <Filter>Core\DX</Filter>
     </ClCompile>
@@ -145,6 +148,9 @@
     <ClInclude Include="Core\DX\DrawCallResourceManager.h">
       <Filter>Core\DX</Filter>
     </ClInclude>
+    <ClInclude Include="Core\DX\FsrParameter.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
     <ClInclude Include="Core\DX\MaterialResourceManager.h">
       <Filter>Core\DX</Filter>
     </ClInclude>
@@ -154,6 +160,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Config.prop">
+      <Filter>Core</Filter>
+    </None>
+    <None Include="Resources\FsrParameters.json">
       <Filter>Core</Filter>
     </None>
   </ItemGroup>

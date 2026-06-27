@@ -87,6 +87,9 @@
     <ClInclude Include="Frame\FrameGlobals.h">
       <Filter>Frame</Filter>
     </ClInclude>
+    <ClInclude Include="Frame\FsrFrameParameter.h">
+      <Filter>Frame</Filter>
+    </ClInclude>
     <ClInclude Include="Frame\RenderFrameData.h">
       <Filter>Frame</Filter>
     </ClInclude>

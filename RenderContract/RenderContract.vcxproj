@@ -38,6 +38,7 @@
     <ClInclude Include="Frame\CameraParameter.h" />
     <ClInclude Include="Frame\DirectionalLightParameter.h" />
     <ClInclude Include="Frame\FrameGlobals.h" />
+    <ClInclude Include="Frame\FsrFrameParameter.h" />
     <ClInclude Include="Frame\RenderFrameData.h" />
     <ClInclude Include="Frame\ShadowMappingParameter.h" />
     <ClInclude Include="Future\Future.h" />

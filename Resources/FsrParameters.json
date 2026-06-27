@@ -1,0 +1,17 @@
+{
+  "Enabled": false,
+  "QualityMode": "Quality",
+  "JitterEnabled": true,
+  "SharpeningEnabled": true,
+  "Sharpness": 0.35,
+  "HighDynamicRange": true,
+  "AutoExposureEnabled": true,
+  "DepthInverted": false,
+  "DepthInfinite": false,
+  "DebugChecking": false,
+  "DebugVisualization": false,
+  "MotionVectorsJitterCancellation": true,
+  "ResetHistory": false,
+  "CustomUpscaleRatio": 1.5,
+  "RenderScaleOverride": 0.0
+}

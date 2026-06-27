@@ -8,6 +8,7 @@
 #include "Core/DX/DesciptorHeap.h"
 #include "Core/DX/DrawCallDispatcher.h"
 #include "Core/DX/DrawCallResourceManager.h"
+#include "Core/DX/FsrParameter.h"
 #include "Core/DX/MaterialResourceManager.h"
 #include "Core/DX/FrameSync.h"
 #include "Core/DX/Texture.h"
@@ -84,8 +85,10 @@ namespace Core {
 			void InitBasements();
 			void InitWorkers();
 			void InitCommandList();
+			void InitFsrParameter();
 			void InitGpuTimestampQuery();
 			void InitTargetResources();
+			void ApplyFsrJitter(RenderContract::RenderFrameData& Data);
 			void ResolveGpuFrameTime(std::uint32_t FrameIndex);
 			void BeginGpuFrameTimestampQuery(std::uint32_t FrameIndex);
 			void EndGpuFrameTimestampQuery(std::uint32_t FrameIndex);
@@ -168,6 +171,8 @@ namespace Core {
 			MaterialResourceManager mMaterialResourceManager{};
 			DrawCallDispatcher mDrawCallDispatcher{};
 			std::unordered_map<std::string, Game::Base::Pipeline> mPostProcessPipelines{};
+			FsrParameter mFsrParameter{};
+			std::uint32_t mFsrJitterFrameIndex{};
 
 
 			FrameSync mFrameSync{};
