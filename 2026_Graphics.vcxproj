@@ -198,6 +198,7 @@ exit /b 0
     <ClCompile Include="Core\DX\DrawCallDispatcher.cpp" />
     <ClCompile Include="Core\DX\DrawCallResourceManager.cpp" />
     <ClCompile Include="Core\DX\FsrParameter.cpp" />
+    <ClCompile Include="Core\DX\FsrUpscaler.cpp" />
     <ClCompile Include="Core\DX\MaterialResourceManager.cpp" />
     <ClCompile Include="Core\DX\DirectQueue.cpp" />
     <ClCompile Include="Core\DX\FrameSync.cpp" />
@@ -225,6 +226,7 @@ exit /b 0
     <ClInclude Include="Core\DX\DirectQueue.h" />
     <ClInclude Include="Core\DX\FrameSync.h" />
     <ClInclude Include="Core\DX\FsrParameter.h" />
+    <ClInclude Include="Core\DX\FsrUpscaler.h" />
     <ClInclude Include="Core\DX\GraphicsAllocator.h" />
     <ClInclude Include="Core\DX\GraphicsVector.h" />
     <ClInclude Include="Core\DX\MaterialResourceManager.h" />

@@ -74,6 +74,9 @@
     <ClCompile Include="Core\DX\FsrParameter.cpp">
       <Filter>Core\DX</Filter>
     </ClCompile>
+    <ClCompile Include="Core\DX\FsrUpscaler.cpp">
+      <Filter>Core\DX</Filter>
+    </ClCompile>
     <ClCompile Include="Core\DX\MaterialResourceManager.cpp">
       <Filter>Core\DX</Filter>
     </ClCompile>
@@ -149,6 +152,9 @@
       <Filter>Core\DX</Filter>
     </ClInclude>
     <ClInclude Include="Core\DX\FsrParameter.h">
+      <Filter>Core\DX</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DX\FsrUpscaler.h">
       <Filter>Core\DX</Filter>
     </ClInclude>
     <ClInclude Include="Core\DX\MaterialResourceManager.h">

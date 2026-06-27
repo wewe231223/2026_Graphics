@@ -6,6 +6,7 @@
 #include "Core/Config.h"
 #include <algorithm>
 #include <bit>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <utility>
@@ -39,6 +40,29 @@ namespace {
 
 		return Parameter;
 	}
+
+	Core::DX::FsrResolution BuildFsrResolution(const Core::DX::FsrParameter& Parameter, std::uint32_t DisplayWidth, std::uint32_t DisplayHeight) {
+		Core::DX::FsrResolution Resolution{};
+		Resolution.mDisplayWidth = DisplayWidth;
+		Resolution.mDisplayHeight = DisplayHeight;
+		Resolution.mRenderWidth = DisplayWidth;
+		Resolution.mRenderHeight = DisplayHeight;
+
+		if (Parameter.mEnabled == false) {
+			return Resolution;
+		}
+
+		if (Parameter.mRenderScaleOverride > 0.0f) {
+			Resolution.mRenderWidth = std::max<std::uint32_t>(1u, static_cast<std::uint32_t>(std::ceil(static_cast<float>(DisplayWidth) * Parameter.mRenderScaleOverride)));
+			Resolution.mRenderHeight = std::max<std::uint32_t>(1u, static_cast<std::uint32_t>(std::ceil(static_cast<float>(DisplayHeight) * Parameter.mRenderScaleOverride)));
+			return Resolution;
+		}
+
+		const float UpscaleRatio{ Core::DX::ResolveFsrUpscaleRatio(Parameter.mQualityMode, Parameter.mCustomUpscaleRatio) };
+		Resolution.mRenderWidth = Core::DX::ResolveFsrRenderSize(DisplayWidth, UpscaleRatio);
+		Resolution.mRenderHeight = Core::DX::ResolveFsrRenderSize(DisplayHeight, UpscaleRatio);
+		return Resolution;
+	}
 }
 
 
@@ -50,6 +74,7 @@ namespace Core {
 			DirectQueue::InitWorkers();
 			DirectQueue::InitCommandList();
 			DirectQueue::InitFsrParameter();
+			DirectQueue::InitFsrUpscaler();
 			DirectQueue::InitGpuTimestampQuery();
 			DirectQueue::InitTargetResources();
 
@@ -338,9 +363,10 @@ namespace Core {
 
 			TexPtr& RenderTarget{ mRenderTargets[CurrentIndex] };
 			TexPtr& LightingTarget{ mLightingTargets[CurrentIndex] };
+			TexPtr& UpscaleTarget{ mUpscaleTargets[CurrentIndex] };
 			TexPtr& PostProcessTarget{ mPostProcessTargets[CurrentIndex] };
 			const bool IsPostProcessEnabled{ WidgetCore == nullptr || WidgetCore->IsPostProcessEnabled() };
-			PostProcessJob ToneMappingJob{ BuildToneMappingPostProcessJob(LightingTarget, PostProcessTarget, IsPostProcessEnabled) };
+			TexPtr ToneMappingSourceTarget{ LightingTarget };
 			LightingTarget->Transition(mEnvironmentCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 
 			D3D12_CPU_DESCRIPTOR_HANDLE LightingRtv{ LightingTarget->GetRTV() };
@@ -348,8 +374,12 @@ namespace Core {
 			mEnvironmentCommandList->OMSetRenderTargets(1, &LightingRtv, FALSE, nullptr);
 			mDepthStencilBuffer->Transition(mEnvironmentCommandList.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 			mDrawCallDispatcher.DrawDeferredLighting(mEnvironmentCommandList.Get(), DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetShadowMappingParameterSrvHandle(), mShadowMapBaseSrvHandle, mGBufferTargets[GBufferAlbedoIndex]->GetSRVDescriptorHandle(), mGBufferTargets[GBufferNormalIndex]->GetSRVDescriptorHandle(), mGBufferTargets[GBufferWorldPositionIndex]->GetSRVDescriptorHandle(), mGBufferTargets[GBufferMotionVectorIndex]->GetSRVDescriptorHandle(), mDepthStencilBuffer->GetSRVDescriptorHandle());
+			if (RecordFsrUpscaleDispatch(Data, mEnvironmentCommandList.Get(), LightingTarget, UpscaleTarget) == true) {
+				ToneMappingSourceTarget = UpscaleTarget;
+			}
 			mDepthStencilBuffer->Transition(mEnvironmentCommandList.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE);
 
+			PostProcessJob ToneMappingJob{ BuildToneMappingPostProcessJob(ToneMappingSourceTarget, PostProcessTarget, IsPostProcessEnabled) };
 			PreparePostProcessJobResources(mEnvironmentCommandList.Get(), ToneMappingJob);
 
 			mEnvironmentCommandList->Close();
@@ -522,6 +552,23 @@ namespace Core {
 			ParameterFile.Read(std::filesystem::path{ "Resources/FsrParameters.json" }, mFsrParameter);
 		}
 
+		void DirectQueue::InitFsrUpscaler() {
+			const std::uint32_t DisplayWidth{ Config::Query()->Get<std::uint32_t>("Window_Width") };
+			const std::uint32_t DisplayHeight{ Config::Query()->Get<std::uint32_t>("Window_Height") };
+			mFsrResolution = BuildFsrResolution(mFsrParameter, DisplayWidth, DisplayHeight);
+			if (mFsrParameter.mEnabled == false) {
+				return;
+			}
+
+			if (mFsrUpscaler.Initialize(mDevice.Get(), mFsrParameter, mFsrResolution) == true) {
+				return;
+			}
+
+			mFsrParameter.mEnabled = false;
+			mFsrResolution = BuildFsrResolution(mFsrParameter, DisplayWidth, DisplayHeight);
+			mFsrUpscaler.Shutdown();
+		}
+
 		void DirectQueue::InitGpuTimestampQuery() {
 			D3D12_QUERY_HEAP_DESC QueryHeapDescription{};
 			QueryHeapDescription.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
@@ -573,18 +620,36 @@ namespace Core {
 				rt->CreateRTV(mDevice.Get(), &mRTVHeap);
 			}
 
-			const std::uint32_t Width{ Config::Query()->Get<uint32_t>("Window_Width") };
-			const std::uint32_t Height{ Config::Query()->Get<uint32_t>("Window_Height") };
+			const std::uint32_t RenderWidth{ mFsrResolution.mRenderWidth };
+			const std::uint32_t RenderHeight{ mFsrResolution.mRenderHeight };
+			const std::uint32_t DisplayWidth{ mFsrResolution.mDisplayWidth };
+			const std::uint32_t DisplayHeight{ mFsrResolution.mDisplayHeight };
+			mViewport = D3D12_VIEWPORT{ 0.0f, 0.0f, static_cast<float>(RenderWidth), static_cast<float>(RenderHeight), 0.0f, 1.0f };
+			mScissorRect = D3D12_RECT{ 0, 0, static_cast<LONG>(RenderWidth), static_cast<LONG>(RenderHeight) };
+			mDisplayViewport = D3D12_VIEWPORT{ 0.0f, 0.0f, static_cast<float>(DisplayWidth), static_cast<float>(DisplayHeight), 0.0f, 1.0f };
+			mDisplayScissorRect = D3D12_RECT{ 0, 0, static_cast<LONG>(DisplayWidth), static_cast<LONG>(DisplayHeight) };
+
 			const float LightingClearColor[4]{ 0.0f, 0.0f, 1.0f, 1.0f };
 			CD3DX12_CLEAR_VALUE LightingOptimizedClearValue{ DXGI_FORMAT_R16G16B16A16_FLOAT, LightingClearColor };
 			for (TexPtr& LightingTarget : mLightingTargets) {
-				LightingTarget = Texture::CreateTarget(mDevice.Get(), Width, Height, DXGI_FORMAT_R16G16B16A16_FLOAT, TextureUsage::RenderTarget, &LightingOptimizedClearValue);
+				LightingTarget = Texture::CreateTarget(mDevice.Get(), RenderWidth, RenderHeight, DXGI_FORMAT_R16G16B16A16_FLOAT, TextureUsage::RenderTarget, &LightingOptimizedClearValue);
 				LightingTarget->CreateRTV(mDevice.Get(), &mRTVHeap);
 				LightingTarget->CreateSRV(mDevice.Get(), &mSrvHeap);
 			}
 
+			for (TexPtr& UpscaleTarget : mUpscaleTargets) {
+				if (mFsrParameter.mEnabled == false) {
+					UpscaleTarget = nullptr;
+					continue;
+				}
+
+				UpscaleTarget = Texture::CreateTarget(mDevice.Get(), DisplayWidth, DisplayHeight, DXGI_FORMAT_R16G16B16A16_FLOAT, TextureUsage::UnorderedAccess);
+				UpscaleTarget->CreateSRV(mDevice.Get(), &mSrvHeap);
+				UpscaleTarget->CreateUAV(mDevice.Get(), &mSrvHeap);
+			}
+
 			for (TexPtr& PostProcessTarget : mPostProcessTargets) {
-				PostProcessTarget = Texture::CreateTarget(mDevice.Get(), Width, Height, DXGI_FORMAT_R8G8B8A8_UNORM, TextureUsage::RenderTargetUnorderedAccess);
+				PostProcessTarget = Texture::CreateTarget(mDevice.Get(), DisplayWidth, DisplayHeight, DXGI_FORMAT_R8G8B8A8_UNORM, TextureUsage::RenderTargetUnorderedAccess);
 				PostProcessTarget->CreateRTV(mDevice.Get(), &mRTVHeap);
 				PostProcessTarget->CreateUAV(mDevice.Get(), &mSrvHeap);
 			}
@@ -595,19 +660,24 @@ namespace Core {
 
 			mMaterialResourceManager.Initialize(mDevice.Get(), &mSrvHeap);
 
-			mDSVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
+			mDSVHeap = DescriptorHeap(mDevice.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, mFsrParameter.mEnabled == true ? 2u : 1u, false);
 
 			CD3DX12_CLEAR_VALUE depthOptimizedClearValue{ DXGI_FORMAT_D32_FLOAT, 1.0f, 0 };
-			mDepthStencilBuffer = Texture::CreateTarget(mDevice.Get(), Config::Query()->Get<uint32_t>("Window_Width"), Config::Query()->Get<uint32_t>("Window_Height"), DXGI_FORMAT_R32_TYPELESS, TextureUsage::DepthStencil, &depthOptimizedClearValue);
+			mDepthStencilBuffer = Texture::CreateTarget(mDevice.Get(), RenderWidth, RenderHeight, DXGI_FORMAT_R32_TYPELESS, TextureUsage::DepthStencil, &depthOptimizedClearValue);
 
 			mDepthStencilBuffer->CreateDSV(mDevice.Get(), &mDSVHeap);
 			mDepthStencilBuffer->CreateSRV(mDevice.Get(), &mSrvHeap);
+			if (mFsrParameter.mEnabled == true) {
+				mDisplayDepthStencilBuffer = Texture::CreateTarget(mDevice.Get(), DisplayWidth, DisplayHeight, DXGI_FORMAT_R32_TYPELESS, TextureUsage::DepthStencil, &depthOptimizedClearValue);
+				mDisplayDepthStencilBuffer->CreateDSV(mDevice.Get(), &mDSVHeap);
+			}
+
 			DirectQueue::InitGBufferResources();
 		}
 
 		void DirectQueue::InitGBufferResources() {
-			const std::uint32_t Width{ Config::Query()->Get<uint32_t>("Window_Width") };
-			const std::uint32_t Height{ Config::Query()->Get<uint32_t>("Window_Height") };
+			const std::uint32_t Width{ mFsrResolution.mRenderWidth };
+			const std::uint32_t Height{ mFsrResolution.mRenderHeight };
 			const std::array<DXGI_FORMAT, GBufferTargetCount> Formats{ DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_FORMAT_R16G16_FLOAT };
 			const std::array<DirectX::XMFLOAT4, GBufferTargetCount> ClearColors{ DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 0.0f }, DirectX::XMFLOAT4{ 0.5f, 0.5f, 1.0f, 0.0f }, DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 0.0f }, DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 0.0f } };
 
@@ -623,10 +693,10 @@ namespace Core {
 
 		void DirectQueue::ApplyFsrJitter(RenderContract::RenderFrameData& Data) {
 			RenderContract::FsrFrameParameter FrameParameter{};
-			const std::uint32_t RenderWidth{ mGBufferTargets[GBufferAlbedoIndex] != nullptr ? mGBufferTargets[GBufferAlbedoIndex]->GetWidth() : Config::Query()->Get<std::uint32_t>("Window_Width") };
-			const std::uint32_t RenderHeight{ mGBufferTargets[GBufferAlbedoIndex] != nullptr ? mGBufferTargets[GBufferAlbedoIndex]->GetHeight() : Config::Query()->Get<std::uint32_t>("Window_Height") };
-			const std::uint32_t DisplayWidth{ Config::Query()->Get<std::uint32_t>("Window_Width") };
-			const std::uint32_t DisplayHeight{ Config::Query()->Get<std::uint32_t>("Window_Height") };
+			const std::uint32_t RenderWidth{ mFsrResolution.mRenderWidth };
+			const std::uint32_t RenderHeight{ mFsrResolution.mRenderHeight };
+			const std::uint32_t DisplayWidth{ mFsrResolution.mDisplayWidth };
+			const std::uint32_t DisplayHeight{ mFsrResolution.mDisplayHeight };
 			FrameParameter.mEnabled = mFsrParameter.mEnabled;
 			FrameParameter.mJitterEnabled = mFsrParameter.mEnabled == true && mFsrParameter.mJitterEnabled == true;
 			FrameParameter.mResetHistory = mFsrParameter.mResetHistory;
@@ -655,6 +725,39 @@ namespace Core {
 			Data.mMainCamera.mViewProj = Data.mMainCamera.mView * Data.mMainCamera.mProj;
 			Data.mFsrFrameParameter = FrameParameter;
 			mFsrJitterFrameIndex = (mFsrJitterFrameIndex + 1u) % static_cast<std::uint32_t>(std::max(1, JitterSample.mPhaseCount));
+		}
+
+		bool DirectQueue::RecordFsrUpscaleDispatch(RenderContract::RenderFrameData& Data, ID3D12GraphicsCommandList* CommandList, const TexPtr& LightingTarget, const TexPtr& UpscaleTarget) {
+			if (mFsrParameter.mEnabled == false) {
+				return false;
+			}
+
+			ErrorHandler::report(mFsrUpscaler.IsContextValid() == false, "DirectQueue", "FSR upscaler context is not valid.", ErrorHandler::Level::Critical);
+			ErrorHandler::report(CommandList == nullptr || LightingTarget == nullptr || UpscaleTarget == nullptr || mDepthStencilBuffer == nullptr || mGBufferTargets[GBufferMotionVectorIndex] == nullptr, "DirectQueue", "FSR upscaler dispatch resources are not valid.", ErrorHandler::Level::Critical);
+
+			LightingTarget->Transition(CommandList, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			mDepthStencilBuffer->Transition(CommandList, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			mGBufferTargets[GBufferMotionVectorIndex]->Transition(CommandList, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			UpscaleTarget->Transition(CommandList, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+			FsrDispatchInput DispatchInput{};
+			DispatchInput.mCommandList = CommandList;
+			DispatchInput.mColor = LightingTarget->GetResource();
+			DispatchInput.mDepth = mDepthStencilBuffer->GetResource();
+			DispatchInput.mMotionVectors = mGBufferTargets[GBufferMotionVectorIndex]->GetResource();
+			DispatchInput.mOutput = UpscaleTarget->GetResource();
+			DispatchInput.mResolution = mFsrResolution;
+			DispatchInput.mJitterOffset = Data.mFsrFrameParameter.mJitterOffset;
+			DispatchInput.mMotionVectorScale = Data.mFsrFrameParameter.mMotionVectorScale;
+			DispatchInput.mFrameTimeDeltaMs = Data.mFrameGlobals.mDt * 1000.0f;
+			DispatchInput.mCameraNear = Data.mMainCamera.mNearPlane;
+			DispatchInput.mCameraFar = Data.mMainCamera.mFarPlane;
+			DispatchInput.mCameraFovAngleVertical = Data.mMainCamera.mFovRadians;
+			DispatchInput.mResetHistory = Data.mFsrFrameParameter.mResetHistory;
+
+			const bool DispatchResult{ mFsrUpscaler.Dispatch(DispatchInput) };
+			ErrorHandler::report(DispatchResult == false, "DirectQueue", "Failed to record FSR upscaler dispatch.", ErrorHandler::Level::Critical);
+			return DispatchResult;
 		}
 
 		void DirectQueue::EnsureShadowMapResources(const RenderContract::ShadowMappingParameter& ShadowMappingParameter) {
@@ -816,11 +919,18 @@ namespace Core {
 		void DirectQueue::DrawFinalOverlays(RenderContract::RenderFrameData& Data, Widget::WidgetCore* WidgetCore, DrawCallResourceManager& DrawCallResources, D3D12_CPU_DESCRIPTOR_HANDLE Dsv, std::uint32_t CurrentIndex, std::uint32_t ShadowCascadeCount, bool IsPerformanceEnabled) {
 			TexPtr& RenderTarget{ mRenderTargets[CurrentIndex] };
 			RenderTarget->Transition(mPostProcessCommandList.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
-			mPostProcessCommandList->RSSetViewports(1, &mViewport);
-			mPostProcessCommandList->RSSetScissorRects(1, &mScissorRect);
+			mPostProcessCommandList->RSSetViewports(1, &mDisplayViewport);
+			mPostProcessCommandList->RSSetScissorRects(1, &mDisplayScissorRect);
 
 			D3D12_CPU_DESCRIPTOR_HANDLE Rtv{ RenderTarget->GetRTV() };
-			mPostProcessCommandList->OMSetRenderTargets(1, &Rtv, FALSE, &Dsv);
+			D3D12_CPU_DESCRIPTOR_HANDLE OverlayDsv{ Dsv };
+			if (mFsrParameter.mEnabled == true && mDisplayDepthStencilBuffer != nullptr) {
+				mDisplayDepthStencilBuffer->Transition(mPostProcessCommandList.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				OverlayDsv = mDisplayDepthStencilBuffer->GetDSV();
+				mPostProcessCommandList->ClearDepthStencilView(OverlayDsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+			}
+
+			mPostProcessCommandList->OMSetRenderTargets(1, &Rtv, FALSE, &OverlayDsv);
 			mDrawCallDispatcher.DrawForwardOverlays(mPostProcessCommandList.Get(), Data, DrawCallResources.GetFrameGlobalsSrvHandle(), DrawCallResources.GetModelContextSrvHandle(), DrawCallResources.GetBoundingBoxContextSrvHandle(), DrawCallResources.GetDebugGeometryContextSrvHandle(), DrawCallResources.GetTerrainPatchContextSrvHandle(), DrawCallResources.GetBonePaletteSrvHandle(), DrawCallResources.GetDrawRecordSrvHandle(), mMaterialResourceManager.GetMaterialSrvHandle(), mMaterialResourceManager.GetMaterialTextureTableSrvHandle(static_cast<std::uint32_t>(CurrentIndex)));
 			if (WidgetCore != nullptr) {
 				if (IsPerformanceEnabled == true) {

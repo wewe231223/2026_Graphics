@@ -9,7 +9,7 @@ static const uint GBufferDisplayModeNormal = 2u;
 static const uint GBufferDisplayModeWorldPosition = 3u;
 static const uint GBufferDisplayModeMotionVector = 4u;
 static const uint GBufferDisplayModeDepth = 5u;
-static const uint GBufferDisplayMode = GBufferDisplayModeMotionVector;
+static const uint GBufferDisplayMode = GBufferDisplayModeShaded;
 
 struct DeferredLightingVertexOutput {
     float4 Position : SV_POSITION;

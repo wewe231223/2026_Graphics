@@ -1,5 +1,5 @@
 {
-  "Enabled": false,
+  "Enabled": true,
   "QualityMode": "Quality",
   "JitterEnabled": true,
   "SharpeningEnabled": true,

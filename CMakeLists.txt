@@ -384,6 +384,7 @@ add_executable(2026_Graphics WIN32
     Core/DX/DrawCallDispatcher.cpp
     Core/DX/DrawCallResourceManager.cpp
     Core/DX/FsrParameter.cpp
+    Core/DX/FsrUpscaler.cpp
     Core/DX/MaterialResourceManager.cpp
     Core/DX/DirectQueue.cpp
     Core/DX/FrameSync.cpp

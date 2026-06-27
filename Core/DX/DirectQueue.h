@@ -9,6 +9,7 @@
 #include "Core/DX/DrawCallDispatcher.h"
 #include "Core/DX/DrawCallResourceManager.h"
 #include "Core/DX/FsrParameter.h"
+#include "Core/DX/FsrUpscaler.h"
 #include "Core/DX/MaterialResourceManager.h"
 #include "Core/DX/FrameSync.h"
 #include "Core/DX/Texture.h"
@@ -86,9 +87,11 @@ namespace Core {
 			void InitWorkers();
 			void InitCommandList();
 			void InitFsrParameter();
+			void InitFsrUpscaler();
 			void InitGpuTimestampQuery();
 			void InitTargetResources();
 			void ApplyFsrJitter(RenderContract::RenderFrameData& Data);
+			bool RecordFsrUpscaleDispatch(RenderContract::RenderFrameData& Data, ID3D12GraphicsCommandList* CommandList, const TexPtr& LightingTarget, const TexPtr& UpscaleTarget);
 			void ResolveGpuFrameTime(std::uint32_t FrameIndex);
 			void BeginGpuFrameTimestampQuery(std::uint32_t FrameIndex);
 			void EndGpuFrameTimestampQuery(std::uint32_t FrameIndex);
@@ -154,12 +157,14 @@ namespace Core {
 			DescriptorHeap mRTVHeap{};
 			std::array<TexPtr, Constants::FrameCount<size_t>> mRenderTargets{};
 			std::array<TexPtr, Constants::FrameCount<size_t>> mLightingTargets{};
+			std::array<TexPtr, Constants::FrameCount<size_t>> mUpscaleTargets{};
 			std::array<TexPtr, Constants::FrameCount<size_t>> mPostProcessTargets{};
 			std::array<TexPtr, GBufferTargetCount> mGBufferTargets{};
 			uint32_t mRTVIndex{};
 
 			DescriptorHeap mDSVHeap{};
 			TexPtr mDepthStencilBuffer{};
+			TexPtr mDisplayDepthStencilBuffer{};
 			DescriptorHeap mShadowDSVHeap{};
 			std::array<TexPtr, RenderContract::ShadowCascadeMaxCount> mShadowDepthMaps{};
 			uint32_t mShadowCascadeCount{};
@@ -172,6 +177,8 @@ namespace Core {
 			DrawCallDispatcher mDrawCallDispatcher{};
 			std::unordered_map<std::string, Game::Base::Pipeline> mPostProcessPipelines{};
 			FsrParameter mFsrParameter{};
+			FsrResolution mFsrResolution{};
+			FsrUpscaler mFsrUpscaler{};
 			std::uint32_t mFsrJitterFrameIndex{};
 
 
@@ -184,6 +191,8 @@ namespace Core {
 
 			D3D12_VIEWPORT mViewport{ 0, 0, Config::Query()->Get<float>("Window_Width"), Config::Query()->Get<float>("Window_Height"), 0.f, 1.f };
 			D3D12_RECT mScissorRect{ 0, 0, Config::Query()->Get<LONG>("Window_Width"), Config::Query()->Get<LONG>("Window_Height") };
+			D3D12_VIEWPORT mDisplayViewport{ 0, 0, Config::Query()->Get<float>("Window_Width"), Config::Query()->Get<float>("Window_Height"), 0.f, 1.f };
+			D3D12_RECT mDisplayScissorRect{ 0, 0, Config::Query()->Get<LONG>("Window_Width"), Config::Query()->Get<LONG>("Window_Height") };
 			std::array<D3D12_VIEWPORT, RenderContract::ShadowCascadeMaxCount> mShadowViewports{};
 			std::array<D3D12_RECT, RenderContract::ShadowCascadeMaxCount> mShadowScissorRects{};
 		};
