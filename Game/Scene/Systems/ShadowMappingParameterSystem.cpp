@@ -6,6 +6,7 @@
 #include <fstream>
 #include <limits>
 #include <sstream>
+#include "Core/Config.h"
 #include "Game/Scene/Components/Camera.h"
 #include "Game/Scene/Components/DirectionalLight.h"
 #include "Game/Scene/Components/EntityHierarchy.h"
@@ -602,6 +603,7 @@ namespace Game {
         (void)Dt;
 
         const RenderContract::DirectionalLightParameter DirectionalLightParameter{ BuildDirectionalLightParameter(World) };
+        const bool IsShadowMappingEnabled{ Config::Query()->Get<bool>("ShadowMapping_Enabled") };
         RenderContract::FrameRenderWriter FrameWriter{ Ctx.RenderData };
 
         for (auto [TransformComponent, CameraComponent] : World.Query<Transform, Camera>()) {
@@ -609,7 +611,19 @@ namespace Game {
                 continue;
             }
 
-            const RenderContract::ShadowMappingParameter ShadowMappingParameter{ BuildShadowMappingParameter(CameraComponent, TransformComponent, DirectionalLightParameter) };
+            RenderContract::ShadowMappingParameter ShadowMappingParameter{};
+            if (IsShadowMappingEnabled == true) {
+                ShadowMappingParameter = BuildShadowMappingParameter(CameraComponent, TransformComponent, DirectionalLightParameter);
+            }
+            else {
+                ShadowMappingParameter.mDirectionalLight = DirectionalLightParameter;
+                ShadowMappingParameter.mDirectionalLight.mFlags &= ~RenderContract::DirectionalLightParameterFlagCastShadow;
+                ShadowMappingParameter.mCascadeCount = 0u;
+                ShadowMappingParameter.mMinimumShadowMapSize = mMinimumShadowMapSize;
+                ShadowMappingParameter.mMinimumProjectionDivisor = mMinimumProjectionDivisor;
+                ShadowMappingParameter.mMinimumProjectionDepthSpan = mMinimumProjectionDepthSpan;
+            }
+
             FrameWriter.SetShadowMappingParameter(ShadowMappingParameter);
             break;
         }

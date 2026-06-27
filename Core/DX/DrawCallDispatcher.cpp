@@ -23,6 +23,14 @@ namespace Core {
 				uint32_t TerrainPatchContextSrvIndex{ 0 };
 				uint32_t Reserved1{ 0 };
 			};
+
+			struct EnvironmentIndirectDrawCommand final {
+			public:
+				std::uint32_t mDrawRecordBaseIndex{};
+				D3D12_DRAW_INDEXED_ARGUMENTS mDrawArguments{};
+			};
+
+			static_assert(sizeof(EnvironmentIndirectDrawCommand) == 24u);
 		}
 
 		bool DrawCallDispatcher::HasVertexInputBinding(const RenderContract::IPipeline& Pipeline, Game::VertexAttributeKind Kind) const {
@@ -331,9 +339,10 @@ namespace Core {
 			}
 
 			const RenderContract::IPipeline* ActivePipeline{ nullptr };
+			const std::uint32_t ShadowCascadeBit{ ShadowFrameGlobalsIndex < 32u ? 1u << ShadowFrameGlobalsIndex : 0u };
 			for (std::size_t DrawRecordIndex{}; DrawRecordIndex < ShadowRenderContext.mEnvironmentDrawRecords.size(); DrawRecordIndex += 1ULL) {
 				const RenderContract::EnvironmentDrawRecord& DrawRecord{ ShadowRenderContext.mEnvironmentDrawRecords[DrawRecordIndex] };
-				if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mCastsShadow == false) {
+				if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mCastsShadow == false || (DrawRecord.mShadowCascadeMask & ShadowCascadeBit) == 0u) {
 					continue;
 				}
 
@@ -410,31 +419,35 @@ namespace Core {
 			return Pipeline->Get() == mSkyDomePipeline.Get();
 		}
 
-		bool DrawCallDispatcher::EnsureDrawIndexedIndirectCommandSignature(ID3D12GraphicsCommandList* CommandList) {
+		bool DrawCallDispatcher::EnsureDrawIndexedIndirectCommandSignature(ID3D12RootSignature* RootSignature) {
 			if (mDrawIndexedIndirectCommandSignature != nullptr) {
 				return true;
 			}
 
-			if (CommandList == nullptr) {
+			if (RootSignature == nullptr) {
 				return false;
 			}
 
 			Microsoft::WRL::ComPtr<ID3D12Device> Device{};
-			HRESULT DeviceResult{ CommandList->GetDevice(IID_PPV_ARGS(Device.GetAddressOf())) };
+			HRESULT DeviceResult{ RootSignature->GetDevice(IID_PPV_ARGS(Device.GetAddressOf())) };
 			if (FAILED(DeviceResult) == true || Device == nullptr) {
 				return false;
 			}
 
-			D3D12_INDIRECT_ARGUMENT_DESC ArgumentDesc{};
-			ArgumentDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+			std::array<D3D12_INDIRECT_ARGUMENT_DESC, 2> ArgumentDescs{};
+			ArgumentDescs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+			ArgumentDescs[0].Constant.RootParameterIndex = 0u;
+			ArgumentDescs[0].Constant.DestOffsetIn32BitValues = 4u;
+			ArgumentDescs[0].Constant.Num32BitValuesToSet = 1u;
+			ArgumentDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
 
 			D3D12_COMMAND_SIGNATURE_DESC CommandSignatureDesc{};
-			CommandSignatureDesc.ByteStride = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
-			CommandSignatureDesc.NumArgumentDescs = 1u;
-			CommandSignatureDesc.pArgumentDescs = &ArgumentDesc;
+			CommandSignatureDesc.ByteStride = sizeof(EnvironmentIndirectDrawCommand);
+			CommandSignatureDesc.NumArgumentDescs = static_cast<UINT>(ArgumentDescs.size());
+			CommandSignatureDesc.pArgumentDescs = ArgumentDescs.data();
 			CommandSignatureDesc.NodeMask = 0u;
 
-			HRESULT CreateResult{ Device->CreateCommandSignature(&CommandSignatureDesc, nullptr, IID_PPV_ARGS(mDrawIndexedIndirectCommandSignature.GetAddressOf())) };
+			HRESULT CreateResult{ Device->CreateCommandSignature(&CommandSignatureDesc, RootSignature, IID_PPV_ARGS(mDrawIndexedIndirectCommandSignature.GetAddressOf())) };
 			return SUCCEEDED(CreateResult) == true && mDrawIndexedIndirectCommandSignature != nullptr;
 		}
 
@@ -509,7 +522,7 @@ namespace Core {
 
 		void DrawCallDispatcher::DrawEnvironmentGBufferIndirect(ID3D12GraphicsCommandList* CommandList, const RenderContract::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle) {
 			const RenderContract::EnvironmentGpuDrivenFrameData& GpuFrame{ Data.mEnvironmentGpuDrivenFrame };
-			if (CommandList == nullptr || GpuFrame.mEnabled == false || GpuFrame.mVisibleInstanceIndexResource == nullptr || GpuFrame.mIndirectArgumentResource == nullptr || EnsureDrawIndexedIndirectCommandSignature(CommandList) == false) {
+			if (CommandList == nullptr || GpuFrame.mEnabled == false || GpuFrame.mVisibleInstanceIndexResource == nullptr || GpuFrame.mIndirectArgumentResource == nullptr) {
 				return;
 			}
 
@@ -534,9 +547,11 @@ namespace Core {
 
 			const RenderContract::IPipeline* ActivePipeline{ nullptr };
 			const std::size_t DrawRecordCount{ std::min<std::size_t>(Data.mEnvironmentDrawRecords.size(), GpuFrame.mDrawRecordCount) };
-			for (std::size_t DrawRecordIndex{}; DrawRecordIndex < DrawRecordCount; DrawRecordIndex += 1ULL) {
+			std::size_t DrawRecordIndex{};
+			while (DrawRecordIndex < DrawRecordCount) {
 				const RenderContract::EnvironmentDrawRecord& DrawRecord{ Data.mEnvironmentDrawRecords[DrawRecordIndex] };
 				if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u) {
+					DrawRecordIndex += 1ULL;
 					continue;
 				}
 
@@ -546,7 +561,8 @@ namespace Core {
 					Pipeline = &mEnvironmentObjectPipeline;
 				}
 
-				if (Pipeline == nullptr) {
+				if (Pipeline == nullptr || EnsureDrawIndexedIndirectCommandSignature(Pipeline->GetRootSignature()) == false) {
+					DrawRecordIndex += 1ULL;
 					continue;
 				}
 
@@ -577,8 +593,29 @@ namespace Core {
 				const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ DrawRecord.mMesh->GetIndexBufferView() };
 				CommandList->IASetIndexBuffer(&IndexBufferView);
 
-				const std::uint64_t IndirectArgumentOffset{ sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) * DrawRecordIndex };
-				CommandList->ExecuteIndirect(mDrawIndexedIndirectCommandSignature.Get(), 1u, GpuFrame.mIndirectArgumentResource, IndirectArgumentOffset, nullptr, 0u);
+				std::size_t BatchCount{ 1ULL };
+				while (DrawRecordIndex + BatchCount < DrawRecordCount) {
+					const RenderContract::EnvironmentDrawRecord& NextDrawRecord{ Data.mEnvironmentDrawRecords[DrawRecordIndex + BatchCount] };
+					if (NextDrawRecord.mMesh == nullptr || NextDrawRecord.mInstanceCount == 0u || NextDrawRecord.mMesh != DrawRecord.mMesh) {
+						break;
+					}
+
+					const bool IsNextEnvironmentBillboardPipeline{ NextDrawRecord.mPipeline != nullptr && NextDrawRecord.mPipeline->GetPrimitiveTopology() == D3D_PRIMITIVE_TOPOLOGY_POINTLIST };
+					const RenderContract::IPipeline* NextPipeline{ IsNextEnvironmentBillboardPipeline == true ? NextDrawRecord.mPipeline : nullptr };
+					if (NextPipeline == nullptr && mIsEnvironmentObjectPipelineInitialized == true) {
+						NextPipeline = &mEnvironmentObjectPipeline;
+					}
+
+					if (NextPipeline != Pipeline) {
+						break;
+					}
+
+					BatchCount += 1ULL;
+				}
+
+				const std::uint64_t IndirectArgumentOffset{ sizeof(EnvironmentIndirectDrawCommand) * DrawRecordIndex };
+				CommandList->ExecuteIndirect(mDrawIndexedIndirectCommandSignature.Get(), static_cast<UINT>(BatchCount), GpuFrame.mIndirectArgumentResource, IndirectArgumentOffset, nullptr, 0u);
+				DrawRecordIndex += BatchCount;
 			}
 
 			std::array<D3D12_RESOURCE_BARRIER, 2> RestoreBarriers{};

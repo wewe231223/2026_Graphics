@@ -55,6 +55,9 @@ namespace {
     constexpr std::uint32_t FoliageHashOffset{ 2166136261u };
     constexpr std::uint32_t FoliageHashPrime{ 16777619u };
     constexpr std::uint32_t EnvironmentGpuPlacementDispatchThreadGroupSize{ 64u };
+    constexpr std::uint32_t EnvironmentGpuShadowCullCellChunkSize{ 2u };
+    constexpr float EnvironmentGpuShadowCullVerticalExtent{ 4096.0f };
+    constexpr std::uint32_t FullShadowCascadeMask{ 0xffffffffu };
 
     enum class FoliageUpdatePhase {
         Idle,
@@ -68,7 +71,9 @@ namespace {
         std::string mModelPath{};
         std::string mMaterialPath{};
         float mMaximumDistance{ std::numeric_limits<float>::max() };
+        std::uint32_t mShadowCascadeCount{ RenderContract::ShadowCascadeMaxCount };
         bool mEnabled{ true };
+        bool mCastsShadow{ true };
     };
 
     struct FoliagePlacementRule final {
@@ -102,6 +107,8 @@ namespace {
         SimpleMath::Vector3 mCollisionExtents{};
         float mCollisionFriction{};
         float mCollisionRestitution{};
+        std::uint32_t mShadowCascadeCount{ RenderContract::ShadowCascadeMaxCount };
+        bool mCastsShadow{ true };
     };
 
     struct FoliagePlacementConfig final {
@@ -159,7 +166,9 @@ namespace {
         std::shared_ptr<Game::Model> mModel{};
         float mMaximumDistance{ std::numeric_limits<float>::max() };
         std::uint32_t mMaterialGroupIndex{ 0u };
+        std::uint32_t mShadowCascadeMask{ FullShadowCascadeMask };
         bool mEnabled{ true };
+        bool mCastsShadow{ true };
     };
 
     struct FoliageRuntimeRule final {
@@ -167,6 +176,16 @@ namespace {
         FoliagePlacementRule mDesc{};
         std::vector<FoliageRuntimeLod> mLods{};
         std::uint32_t mMaterialGroupIndex{ 0u };
+    };
+
+    struct EnvironmentGpuPlacementDrawChunk final {
+    public:
+        std::int32_t mMinimumCellX{};
+        std::int32_t mMinimumCellZ{};
+        std::uint32_t mCellCountX{};
+        std::uint32_t mCellCountZ{};
+        std::uint32_t mCandidateCount{};
+        std::uint32_t mShadowCascadeMask{};
     };
 
     struct FoliageCandidateKey final {
@@ -183,6 +202,28 @@ namespace {
 
     bool operator<(const FoliageCandidateKey& Left, const FoliageCandidateKey& Right) {
         return std::tie(Left.mCellX, Left.mCellZ, Left.mRuleIndex, Left.mInstanceIndex) < std::tie(Right.mCellX, Right.mCellZ, Right.mRuleIndex, Right.mInstanceIndex);
+    }
+
+    std::uint32_t BuildShadowCascadeMask(std::uint32_t ShadowCascadeCount) {
+        const std::uint32_t ClampedShadowCascadeCount{ std::min(ShadowCascadeCount, RenderContract::ShadowCascadeMaxCount) };
+        std::uint32_t ShadowCascadeMask{};
+        for (std::uint32_t CascadeIndex{}; CascadeIndex < ClampedShadowCascadeCount; CascadeIndex += 1u) {
+            ShadowCascadeMask |= 1u << CascadeIndex;
+        }
+
+        return ShadowCascadeMask;
+    }
+
+    std::uint32_t BuildGpuPlacementChunkShadowCascadeMask(const DirectX::BoundingOrientedBox& WorldBoundingBox, const std::array<DirectX::BoundingOrientedBox, RenderContract::ShadowCascadeMaxCount>& ShadowCullingBoxes, std::uint32_t ShadowCascadeCount) {
+        const std::uint32_t ClampedShadowCascadeCount{ std::min(ShadowCascadeCount, RenderContract::ShadowCascadeMaxCount) };
+        std::uint32_t ShadowCascadeMask{};
+        for (std::uint32_t CascadeIndex{}; CascadeIndex < ClampedShadowCascadeCount; CascadeIndex += 1u) {
+            if (ShadowCullingBoxes[CascadeIndex].Intersects(WorldBoundingBox) == true) {
+                ShadowCascadeMask |= 1u << CascadeIndex;
+            }
+        }
+
+        return ShadowCascadeMask;
     }
 
     struct FoliageCandidateKeyHasher final {
@@ -510,11 +551,16 @@ namespace {
         ReadStringChild(LodNode, "MaterialPath", LodDesc.mMaterialPath);
         ReadFloatChild(LodNode, "Distance", LodDesc.mMaximumDistance);
         ReadFloatChild(LodNode, "MaximumDistance", LodDesc.mMaximumDistance);
+        ReadUInt32Child(LodNode, "ShadowCascadeCount", LodDesc.mShadowCascadeCount);
+        ReadUInt32Child(LodNode, "ShadowCascades", LodDesc.mShadowCascadeCount);
         ReadBoolChild(LodNode, "Enabled", LodDesc.mEnabled);
         ReadBoolChild(LodNode, "Visible", LodDesc.mEnabled);
+        ReadBoolChild(LodNode, "CastsShadow", LodDesc.mCastsShadow);
+        ReadBoolChild(LodNode, "CastShadow", LodDesc.mCastsShadow);
         LodDesc.mModelPath = ResolveFoliageResourcePath(ConfigPath, LodDesc.mModelPath);
         LodDesc.mMaterialPath = ResolveFoliageResourcePath(ConfigPath, LodDesc.mMaterialPath);
         LodDesc.mMaximumDistance = std::max(LodDesc.mMaximumDistance, 0.0f);
+        LodDesc.mShadowCascadeCount = std::min(LodDesc.mShadowCascadeCount, RenderContract::ShadowCascadeMaxCount);
 
         if (LodDesc.mModelPath.empty() == true && LodDesc.mMaterialPath.empty() == true) {
             LodDesc.mEnabled = false;
@@ -587,6 +633,10 @@ namespace {
         ReadVector3Child(RuleNode, "CollisionExtents", Rule.mCollisionExtents);
         ReadFloatChild(RuleNode, "CollisionFriction", Rule.mCollisionFriction);
         ReadFloatChild(RuleNode, "CollisionRestitution", Rule.mCollisionRestitution);
+        ReadUInt32Child(RuleNode, "ShadowCascadeCount", Rule.mShadowCascadeCount);
+        ReadUInt32Child(RuleNode, "ShadowCascades", Rule.mShadowCascadeCount);
+        ReadBoolChild(RuleNode, "CastsShadow", Rule.mCastsShadow);
+        ReadBoolChild(RuleNode, "CastShadow", Rule.mCastsShadow);
         Rule.mModelPath = ResolveFoliageResourcePath(ConfigPath, Rule.mModelPath);
         Rule.mMaterialPath = ResolveFoliageResourcePath(ConfigPath, Rule.mMaterialPath);
         ReadFoliageLods(RuleNode, ConfigPath, Rule);
@@ -616,6 +666,7 @@ namespace {
         Rule.mCollisionExtents.z = std::max(Rule.mCollisionExtents.z, FoliageEpsilon);
         Rule.mCollisionFriction = std::max(Rule.mCollisionFriction, 0.0f);
         Rule.mCollisionRestitution = std::max(Rule.mCollisionRestitution, 0.0f);
+        Rule.mShadowCascadeCount = std::min(Rule.mShadowCascadeCount, RenderContract::ShadowCascadeMaxCount);
         if (Rule.mMaximumScale < Rule.mMinimumScale) {
             std::swap(Rule.mMinimumScale, Rule.mMaximumScale);
         }
@@ -1140,11 +1191,12 @@ namespace {
         std::uint32_t mPass{};
         std::uint32_t mMaterialIndex{};
         std::uint32_t mFlags{};
+        std::uint32_t mShadowCascadeMask{ FullShadowCascadeMask };
         bool mCastsShadow{ true };
     };
 
     bool operator==(const EnvironmentMergedBatchKey& Left, const EnvironmentMergedBatchKey& Right) {
-        return Left.mPipeline == Right.mPipeline && Left.mMesh == Right.mMesh && Left.mLocalTransformBits == Right.mLocalTransformBits && Left.mSubMesh == Right.mSubMesh && Left.mPass == Right.mPass && Left.mMaterialIndex == Right.mMaterialIndex && Left.mFlags == Right.mFlags && Left.mCastsShadow == Right.mCastsShadow;
+        return Left.mPipeline == Right.mPipeline && Left.mMesh == Right.mMesh && Left.mLocalTransformBits == Right.mLocalTransformBits && Left.mSubMesh == Right.mSubMesh && Left.mPass == Right.mPass && Left.mMaterialIndex == Right.mMaterialIndex && Left.mFlags == Right.mFlags && Left.mShadowCascadeMask == Right.mShadowCascadeMask && Left.mCastsShadow == Right.mCastsShadow;
     }
 
     struct EnvironmentMergedBatchKeyHasher final {
@@ -1157,6 +1209,7 @@ namespace {
             AppendHashValue(Hash, Key.mPass);
             AppendHashValue(Hash, Key.mMaterialIndex);
             AppendHashValue(Hash, Key.mFlags);
+            AppendHashValue(Hash, Key.mShadowCascadeMask);
             AppendHashValue(Hash, Key.mCastsShadow == true ? 1u : 0u);
             for (std::uint32_t MatrixValue : Key.mLocalTransformBits) {
                 AppendHashValue(Hash, MatrixValue);
@@ -1193,6 +1246,7 @@ namespace {
         Key.mPass = DrawRecord.mPass;
         Key.mMaterialIndex = DrawRecord.mMaterialIndex;
         Key.mFlags = DrawRecord.mFlags;
+        Key.mShadowCascadeMask = DrawRecord.mShadowCascadeMask;
         Key.mCastsShadow = DrawRecord.mCastsShadow;
         return Key;
     }
@@ -1318,7 +1372,8 @@ namespace {
                 }
 
                 for (std::uint32_t CascadeIndex{}; CascadeIndex < ShadowRenderContexts.size(); CascadeIndex += 1u) {
-                    if ((Run.mVisibilityMask & BuildEnvironmentShadowVisibilityMaskBit(CascadeIndex)) != 0u) {
+                    const std::uint32_t CascadeBit{ 1u << CascadeIndex };
+                    if ((Run.mVisibilityMask & BuildEnvironmentShadowVisibilityMaskBit(CascadeIndex)) != 0u && (DrawRecord.mShadowCascadeMask & CascadeBit) != 0u) {
                         ShadowRenderContexts[CascadeIndex].mEnvironmentDrawRecords.push_back(DrawRecord);
                     }
                 }
@@ -1673,6 +1728,54 @@ namespace {
         return static_cast<std::uint32_t>(std::min<std::uint64_t>(Capacity, std::numeric_limits<std::uint32_t>::max()));
     }
 
+    std::uint32_t CalculateGpuPlacementChunkCandidateCount(const FoliagePlacementRule& Rule, std::uint32_t CellCountX, std::uint32_t CellCountZ) {
+        const std::uint64_t CandidateCount{ static_cast<std::uint64_t>(CellCountX) * static_cast<std::uint64_t>(CellCountZ) * static_cast<std::uint64_t>(std::max(Rule.mInstancesPerCell, 1u)) };
+        return static_cast<std::uint32_t>(std::min<std::uint64_t>(CandidateCount, std::numeric_limits<std::uint32_t>::max()));
+    }
+
+    DirectX::BoundingOrientedBox BuildGpuPlacementChunkWorldBoundingBox(const FoliagePlacementConfig& Config, const SimpleMath::Vector3& FocusPosition, std::int32_t MinimumCellX, std::int32_t MinimumCellZ, std::uint32_t CellCountX, std::uint32_t CellCountZ) {
+        const float CellSize{ std::max(Config.mCellSize, FoliageEpsilon) };
+        const float MinimumX{ static_cast<float>(MinimumCellX) * CellSize };
+        const float MinimumZ{ static_cast<float>(MinimumCellZ) * CellSize };
+        const float MaximumX{ static_cast<float>(MinimumCellX + static_cast<std::int32_t>(CellCountX)) * CellSize };
+        const float MaximumZ{ static_cast<float>(MinimumCellZ + static_cast<std::int32_t>(CellCountZ)) * CellSize };
+        DirectX::BoundingOrientedBox WorldBoundingBox{};
+        WorldBoundingBox.Center = DirectX::XMFLOAT3{ (MinimumX + MaximumX) * 0.5f, FocusPosition.y, (MinimumZ + MaximumZ) * 0.5f };
+        WorldBoundingBox.Extents = DirectX::XMFLOAT3{ std::max((MaximumX - MinimumX) * 0.5f, FoliageEpsilon), EnvironmentGpuShadowCullVerticalExtent, std::max((MaximumZ - MinimumZ) * 0.5f, FoliageEpsilon) };
+        WorldBoundingBox.Orientation = DirectX::XMFLOAT4{ 0.0f, 0.0f, 0.0f, 1.0f };
+        return WorldBoundingBox;
+    }
+
+    std::vector<EnvironmentGpuPlacementDrawChunk> BuildGpuPlacementDrawChunks(const FoliagePlacementConfig& Config, const SimpleMath::Vector3& FocusPosition, const FoliagePlacementRule& Rule, const Game::EnvironmentGpuPlacementCandidateRecord& CandidateRecord, const std::array<DirectX::BoundingOrientedBox, RenderContract::ShadowCascadeMaxCount>& ShadowCullingBoxes, std::uint32_t ShadowCascadeCount) {
+        std::vector<EnvironmentGpuPlacementDrawChunk> Chunks{};
+        if (CandidateRecord.mCandidateCount == 0u || CandidateRecord.mCellCountX == 0u || CandidateRecord.mCellCountZ == 0u) {
+            return Chunks;
+        }
+
+        const std::uint32_t ChunkCellCount{ std::max(EnvironmentGpuShadowCullCellChunkSize, 1u) };
+        const std::uint64_t ChunkCountX{ (static_cast<std::uint64_t>(CandidateRecord.mCellCountX) + static_cast<std::uint64_t>(ChunkCellCount) - 1ULL) / static_cast<std::uint64_t>(ChunkCellCount) };
+        const std::uint64_t ChunkCountZ{ (static_cast<std::uint64_t>(CandidateRecord.mCellCountZ) + static_cast<std::uint64_t>(ChunkCellCount) - 1ULL) / static_cast<std::uint64_t>(ChunkCellCount) };
+        Chunks.reserve(static_cast<std::size_t>(std::min<std::uint64_t>(ChunkCountX * ChunkCountZ, static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max()))));
+
+        for (std::uint32_t CellOffsetZ{}; CellOffsetZ < CandidateRecord.mCellCountZ; CellOffsetZ += ChunkCellCount) {
+            const std::uint32_t CurrentChunkCellCountZ{ std::min(ChunkCellCount, CandidateRecord.mCellCountZ - CellOffsetZ) };
+            for (std::uint32_t CellOffsetX{}; CellOffsetX < CandidateRecord.mCellCountX; CellOffsetX += ChunkCellCount) {
+                const std::uint32_t CurrentChunkCellCountX{ std::min(ChunkCellCount, CandidateRecord.mCellCountX - CellOffsetX) };
+                EnvironmentGpuPlacementDrawChunk Chunk{};
+                Chunk.mMinimumCellX = CandidateRecord.mMinimumCellX + static_cast<std::int32_t>(CellOffsetX);
+                Chunk.mMinimumCellZ = CandidateRecord.mMinimumCellZ + static_cast<std::int32_t>(CellOffsetZ);
+                Chunk.mCellCountX = CurrentChunkCellCountX;
+                Chunk.mCellCountZ = CurrentChunkCellCountZ;
+                Chunk.mCandidateCount = CalculateGpuPlacementChunkCandidateCount(Rule, CurrentChunkCellCountX, CurrentChunkCellCountZ);
+                const DirectX::BoundingOrientedBox WorldBoundingBox{ BuildGpuPlacementChunkWorldBoundingBox(Config, FocusPosition, Chunk.mMinimumCellX, Chunk.mMinimumCellZ, CurrentChunkCellCountX, CurrentChunkCellCountZ) };
+                Chunk.mShadowCascadeMask = BuildGpuPlacementChunkShadowCascadeMask(WorldBoundingBox, ShadowCullingBoxes, ShadowCascadeCount);
+                Chunks.push_back(Chunk);
+            }
+        }
+
+        return Chunks;
+    }
+
     Game::EnvironmentGpuPlacementCandidateRecord BuildGpuPlacementCandidateRecord(std::int32_t MinimumCellX, std::int32_t MinimumCellZ, std::uint32_t CellCountX, std::uint32_t CellCountZ, std::uint32_t RuleIndex, std::uint32_t CandidateOffset, std::uint32_t CandidateCount) {
         Game::EnvironmentGpuPlacementCandidateRecord CandidateRecord{};
         CandidateRecord.mMinimumCellX = MinimumCellX;
@@ -1712,18 +1815,18 @@ namespace {
         }
     }
 
-    Game::EnvironmentGpuPlacementDrawRecord BuildGpuPlacementDrawRecord(const Game::EnvironmentGpuPlacementCandidateRecord& CandidateRecord, std::uint32_t LodIndex, float MinimumDistance, float MaximumDistance) {
+    Game::EnvironmentGpuPlacementDrawRecord BuildGpuPlacementDrawRecord(const Game::EnvironmentGpuPlacementCandidateRecord& CandidateRecord, const EnvironmentGpuPlacementDrawChunk& Chunk, std::uint32_t LodIndex, float MinimumDistance, float MaximumDistance) {
         Game::EnvironmentGpuPlacementDrawRecord DrawRecord{};
-        DrawRecord.mMinimumCellX = CandidateRecord.mMinimumCellX;
-        DrawRecord.mMinimumCellZ = CandidateRecord.mMinimumCellZ;
-        DrawRecord.mCellCountX = CandidateRecord.mCellCountX;
-        DrawRecord.mCellCountZ = CandidateRecord.mCellCountZ;
+        DrawRecord.mMinimumCellX = Chunk.mMinimumCellX;
+        DrawRecord.mMinimumCellZ = Chunk.mMinimumCellZ;
+        DrawRecord.mCellCountX = Chunk.mCellCountX;
+        DrawRecord.mCellCountZ = Chunk.mCellCountZ;
         DrawRecord.mRuleIndex = CandidateRecord.mRuleIndex;
         DrawRecord.mLodIndex = LodIndex;
         DrawRecord.mMinimumDistance = MinimumDistance;
         DrawRecord.mMaximumDistance = MaximumDistance;
         DrawRecord.mCandidateOffset = CandidateRecord.mCandidateOffset;
-        DrawRecord.mCandidateCount = CandidateRecord.mCandidateCount;
+        DrawRecord.mCandidateCount = Chunk.mCandidateCount;
         DrawRecord.mPadding0 = 0u;
         DrawRecord.mPadding1 = 0u;
         return DrawRecord;
@@ -1735,7 +1838,7 @@ namespace {
         return SegmentContext;
     }
 
-    RenderContract::EnvironmentDrawRecord BuildGpuDrivenEnvironmentDrawRecord(const Game::EnvironmentObjectRenderSegment& Segment, std::uint32_t SegmentContextIndex, std::uint32_t InstanceOffset, std::uint32_t InstanceCount) {
+    RenderContract::EnvironmentDrawRecord BuildGpuDrivenEnvironmentDrawRecord(const Game::EnvironmentObjectRenderSegment& Segment, std::uint32_t SegmentContextIndex, std::uint32_t InstanceOffset, std::uint32_t InstanceCount, std::uint32_t ShadowCascadeMask) {
         RenderContract::EnvironmentDrawRecord DrawRecord{};
         DrawRecord.mPipeline = Segment.mPipeline;
         DrawRecord.mMesh = Segment.mMesh;
@@ -1746,7 +1849,8 @@ namespace {
         DrawRecord.mSegmentContextIndex = SegmentContextIndex;
         DrawRecord.mMaterialIndex = Segment.mMaterialIndex;
         DrawRecord.mFlags = Segment.mFlags;
-        DrawRecord.mCastsShadow = Segment.mCastsShadow;
+        DrawRecord.mShadowCascadeMask = Segment.mShadowCascadeMask & ShadowCascadeMask;
+        DrawRecord.mCastsShadow = Segment.mCastsShadow == true && DrawRecord.mShadowCascadeMask != 0u;
         return DrawRecord;
     }
 
@@ -2266,6 +2370,8 @@ namespace Game {
                 RuntimeLod.mEnabled = LodDesc.mEnabled;
                 RuntimeLod.mMaximumDistance = LodDesc.mMaximumDistance;
                 RuntimeLod.mMaterialGroupIndex = ResolveFoliageMaterialGroupIndex(*Ctx.AssetRegistryResource, LodDesc.mMaterialPath, RuntimeRule.mMaterialGroupIndex);
+                RuntimeLod.mShadowCascadeMask = BuildShadowCascadeMask(std::min(RuleDesc.mShadowCascadeCount, LodDesc.mShadowCascadeCount));
+                RuntimeLod.mCastsShadow = RuleDesc.mCastsShadow == true && LodDesc.mCastsShadow == true && RuntimeLod.mShadowCascadeMask != 0u;
 
                 if (RuntimeLod.mEnabled == false) {
                     RuntimeRule.mLods.push_back(std::move(RuntimeLod));
@@ -2324,6 +2430,8 @@ namespace Game {
                 EnvironmentObjectPart Part{};
                 Part.mModel = Lod.mModel;
                 Part.mMaterialGroupIndex = Lod.mMaterialGroupIndex;
+                Part.mShadowCascadeMask = Lod.mShadowCascadeMask;
+                Part.mCastsShadow = Lod.mCastsShadow;
                 if (Lod.mModel == nullptr) {
                     Part.mCastsShadow = false;
                 }
@@ -2564,6 +2672,8 @@ namespace Game {
         OutFrameData.mCandidateRecords.reserve(mRules.size());
         OutFrameData.mCandidateDispatchRecords.reserve(mRules.size());
         OutFrameData.mSpacingRuleRecords.reserve(mRules.size());
+        const std::uint32_t ShadowCascadeCount{ RenderContract::ResolveShadowCascadeCount(RenderData.mShadowMappingParameter) };
+        const std::array<DirectX::BoundingOrientedBox, RenderContract::ShadowCascadeMaxCount> ShadowCullingBoxes{ RenderContract::BuildShadowCullingBoxes(RenderData.mShadowMappingParameter) };
         for (const FoliageRuntimeRule& Rule : mRules) {
             OutFrameData.mRules.push_back(BuildGpuPlacementRule(Rule, mLastTerrainBuildDesc));
             if (Rule.mDesc.mMinimumSpacing > FoliageEpsilon) {
@@ -2605,6 +2715,11 @@ namespace Game {
                 continue;
             }
 
+            const std::vector<EnvironmentGpuPlacementDrawChunk> DrawChunks{ BuildGpuPlacementDrawChunks(mConfig, FocusPosition, Rule, CandidateRecord, ShadowCullingBoxes, ShadowCascadeCount) };
+            if (DrawChunks.empty() == true) {
+                continue;
+            }
+
             for (std::uint32_t LodIndex{}; LodIndex < Prototype.mLods.size(); LodIndex += 1u) {
                 const EnvironmentObjectLod& Lod{ Prototype.mLods[LodIndex] };
                 const float MinimumDistance{ LodIndex == 0u || LodIndex - 1u >= Rule.mLods.size() ? 0.0f : Rule.mLods[LodIndex - 1u].mMaximumDistance };
@@ -2617,9 +2732,15 @@ namespace Game {
 
                         const std::uint32_t SegmentContextIndex{ static_cast<std::uint32_t>(RenderData.mEnvironmentSegmentContexts.size()) };
                         RenderData.mEnvironmentSegmentContexts.push_back(BuildGpuDrivenEnvironmentSegmentContext(Segment));
-                        RenderData.mEnvironmentDrawRecords.push_back(BuildGpuDrivenEnvironmentDrawRecord(Segment, SegmentContextIndex, InstanceOffset, CandidateCount));
-                        OutFrameData.mDrawRecords.push_back(BuildGpuPlacementDrawRecord(CandidateRecord, LodIndex, MinimumDistance, MaximumDistance));
-                        InstanceOffset = static_cast<std::uint32_t>(std::min<std::uint64_t>(static_cast<std::uint64_t>(InstanceOffset) + static_cast<std::uint64_t>(CandidateCount), std::numeric_limits<std::uint32_t>::max()));
+                        for (const EnvironmentGpuPlacementDrawChunk& DrawChunk : DrawChunks) {
+                            if (DrawChunk.mCandidateCount == 0u) {
+                                continue;
+                            }
+
+                            RenderData.mEnvironmentDrawRecords.push_back(BuildGpuDrivenEnvironmentDrawRecord(Segment, SegmentContextIndex, InstanceOffset, DrawChunk.mCandidateCount, DrawChunk.mShadowCascadeMask));
+                            OutFrameData.mDrawRecords.push_back(BuildGpuPlacementDrawRecord(CandidateRecord, DrawChunk, LodIndex, MinimumDistance, MaximumDistance));
+                            InstanceOffset = static_cast<std::uint32_t>(std::min<std::uint64_t>(static_cast<std::uint64_t>(InstanceOffset) + static_cast<std::uint64_t>(DrawChunk.mCandidateCount), std::numeric_limits<std::uint32_t>::max()));
+                        }
                     }
                 }
             }

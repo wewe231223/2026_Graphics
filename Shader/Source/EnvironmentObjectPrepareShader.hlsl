@@ -52,6 +52,12 @@ struct EnvironmentIndirectDrawArgument
     uint StartInstanceLocation;
 };
 
+struct EnvironmentIndirectDrawCommand
+{
+    uint DrawRecordBaseIndex;
+    EnvironmentIndirectDrawArgument DrawArguments;
+};
+
 struct EnvironmentGpuPlacementConfig
 {
     float4 FocusPositionRenderRadius;
@@ -709,6 +715,54 @@ FoliageCandidateKey BuildCandidateKey(EnvironmentGpuPlacementCandidateRecord Can
     return Key;
 }
 
+bool TryResolvePlacementCandidateLocalIndex(EnvironmentGpuPlacementCandidateRecord CandidateRecord, EnvironmentGpuPlacementDrawRecord PlacementDrawRecord, EnvironmentGpuPlacementRule Rule, uint PlacementLocalIndex, out uint CandidateLocalIndex) {
+    CandidateLocalIndex = 0u;
+    if (Rule.InstancesPerCell == 0u || CandidateRecord.CellCountX == 0u || CandidateRecord.CellCountZ == 0u || PlacementDrawRecord.CellCountX == 0u || PlacementDrawRecord.CellCountZ == 0u) {
+        return false;
+    }
+
+    const uint InstanceIndexInCell = PlacementLocalIndex % Rule.InstancesPerCell;
+    const uint PlacementCellLinearIndex = PlacementLocalIndex / Rule.InstancesPerCell;
+    const uint PlacementCellCount = PlacementDrawRecord.CellCountX * PlacementDrawRecord.CellCountZ;
+    if (PlacementCellLinearIndex >= PlacementCellCount) {
+        return false;
+    }
+
+    const int CellX = PlacementDrawRecord.MinimumCellX + (int)(PlacementCellLinearIndex % PlacementDrawRecord.CellCountX);
+    const int CellZ = PlacementDrawRecord.MinimumCellZ + (int)(PlacementCellLinearIndex / PlacementDrawRecord.CellCountX);
+    const int CandidateMaximumCellX = CandidateRecord.MinimumCellX + (int)CandidateRecord.CellCountX;
+    const int CandidateMaximumCellZ = CandidateRecord.MinimumCellZ + (int)CandidateRecord.CellCountZ;
+    if (CellX < CandidateRecord.MinimumCellX || CellX >= CandidateMaximumCellX || CellZ < CandidateRecord.MinimumCellZ || CellZ >= CandidateMaximumCellZ) {
+        return false;
+    }
+
+    const uint CandidateCellOffsetX = (uint)(CellX - CandidateRecord.MinimumCellX);
+    const uint CandidateCellOffsetZ = (uint)(CellZ - CandidateRecord.MinimumCellZ);
+    const uint CandidateCellLinearIndex = (CandidateCellOffsetZ * CandidateRecord.CellCountX) + CandidateCellOffsetX;
+    CandidateLocalIndex = (CandidateCellLinearIndex * Rule.InstancesPerCell) + InstanceIndexInCell;
+    return CandidateLocalIndex < CandidateRecord.CandidateCount;
+}
+
+[numthreads(64, 1, 1)]
+void InitializeIndirectCommandsCsMain(uint3 DispatchThreadId : SV_DispatchThreadID) {
+    const uint DrawRecordIndex = DispatchThreadId.x;
+    if (DrawRecordIndex >= RootConstants.mDrawRecordCount) {
+        return;
+    }
+
+    StructuredBuffer<EnvironmentDrawRecordGpu> DrawRecordBuffer = ResourceDescriptorHeap[RootConstants.mDrawRecordSrvIndex];
+    RWStructuredBuffer<EnvironmentIndirectDrawCommand> IndirectCommandBuffer = ResourceDescriptorHeap[RootConstants.mIndirectArgumentUavIndex];
+    const EnvironmentDrawRecordGpu DrawRecord = DrawRecordBuffer[DrawRecordIndex];
+    EnvironmentIndirectDrawCommand Command;
+    Command.DrawRecordBaseIndex = DrawRecordIndex;
+    Command.DrawArguments.IndexCountPerInstance = DrawRecord.IndexCountPerInstance;
+    Command.DrawArguments.InstanceCount = 0u;
+    Command.DrawArguments.StartIndexLocation = DrawRecord.StartIndexLocation;
+    Command.DrawArguments.BaseVertexLocation = DrawRecord.BaseVertexLocation;
+    Command.DrawArguments.StartInstanceLocation = 0u;
+    IndirectCommandBuffer[DrawRecordIndex] = Command;
+}
+
 [numthreads(64, 1, 1)]
 void GenerateCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint3 GroupId : SV_GroupID, uint GroupIndex : SV_GroupIndex) {
     RWStructuredBuffer<uint> StatusBuffer = ResourceDescriptorHeap[RootConstants.mStatusUavIndex];
@@ -786,7 +840,7 @@ void ClassifyCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint
     StructuredBuffer<EnvironmentGpuPlacementSpacingRuleRecord> PlacementSpacingRuleRecordBuffer = ResourceDescriptorHeap[RootConstants.mPlacementSpacingRuleRecordSrvIndex];
     StructuredBuffer<EnvironmentGpuPlacementCandidate> CandidateBuffer = ResourceDescriptorHeap[RootConstants.mCandidateContextSrvIndex];
     RWStructuredBuffer<EnvironmentInstanceContextGpu> InstanceContextBuffer = ResourceDescriptorHeap[RootConstants.mInstanceContextUavIndex];
-    RWStructuredBuffer<EnvironmentIndirectDrawArgument> IndirectArgumentBuffer = ResourceDescriptorHeap[RootConstants.mIndirectArgumentUavIndex];
+    RWStructuredBuffer<EnvironmentIndirectDrawCommand> IndirectCommandBuffer = ResourceDescriptorHeap[RootConstants.mIndirectArgumentUavIndex];
     RWStructuredBuffer<uint> VisibleInstanceIndexBuffer = ResourceDescriptorHeap[RootConstants.mVisibleInstanceIndexUavIndex];
 
     const EnvironmentGpuPlacementDrawDispatchRecord DrawDispatchRecord = PlacementDrawDispatchRecordBuffer[DrawDispatchRecordIndex];
@@ -798,22 +852,30 @@ void ClassifyCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint
     const EnvironmentGpuPlacementConfig Config = PlacementConfigBuffer[0];
     const EnvironmentDrawRecordGpu DrawRecord = DrawRecordBuffer[DrawRecordIndex];
     const EnvironmentGpuPlacementDrawRecord PlacementDrawRecord = PlacementDrawRecordBuffer[DrawRecordIndex];
+    if (PlacementDrawRecord.RuleIndex >= RootConstants.mCandidateRecordCount) {
+        return;
+    }
+
+    const EnvironmentGpuPlacementCandidateRecord CandidateRecord = PlacementCandidateRecordBuffer[PlacementDrawRecord.RuleIndex];
     const EnvironmentGpuPlacementRule Rule = PlacementRuleBuffer[PlacementDrawRecord.RuleIndex];
     const uint LocalIndex = DrawDispatchRecord.LocalCandidateOffset + GroupIndex;
     uint VisibleFlag = 0u;
     uint InstanceIndex = 0u;
 
     if (GroupIndex < DrawDispatchRecord.CandidateCount && LocalIndex < DrawRecord.InstanceCount && LocalIndex < PlacementDrawRecord.CandidateCount) {
-        const EnvironmentGpuPlacementCandidate GpuCandidate = CandidateBuffer[PlacementDrawRecord.CandidateOffset + LocalIndex];
-        if (IsPlacementCandidateValid(GpuCandidate) == true) {
-            const FoliageCandidate Candidate = BuildFoliageCandidate(GpuCandidate);
-            if (DoesCandidateMatchDrawLod(Config, PlacementDrawRecord, Candidate) == true && IsCandidateVisible(Config, Candidate) == true && PassesMinimumSpacing(PlacementCandidateRecordBuffer, CandidateBuffer, PlacementRuleBuffer, PlacementSpacingRuleRecordBuffer, Config, Rule, Candidate) == true) {
-                InstanceIndex = DrawRecord.InstanceOffset + LocalIndex;
-                EnvironmentInstanceContextGpu InstanceContext;
-                InstanceContext.PositionScale = float4(Candidate.Position, Candidate.Scale);
-                InstanceContext.RotationVariation = float4(Candidate.YawRadians, (float)Candidate.Key.InstanceIndex, 0.0f, 0.0f);
-                InstanceContextBuffer[InstanceIndex] = InstanceContext;
-                VisibleFlag = 1u;
+        uint CandidateLocalIndex = 0u;
+        if (TryResolvePlacementCandidateLocalIndex(CandidateRecord, PlacementDrawRecord, Rule, LocalIndex, CandidateLocalIndex) == true) {
+            const EnvironmentGpuPlacementCandidate GpuCandidate = CandidateBuffer[CandidateRecord.CandidateOffset + CandidateLocalIndex];
+            if (IsPlacementCandidateValid(GpuCandidate) == true) {
+                const FoliageCandidate Candidate = BuildFoliageCandidate(GpuCandidate);
+                if (DoesCandidateMatchDrawLod(Config, PlacementDrawRecord, Candidate) == true && IsCandidateVisible(Config, Candidate) == true && PassesMinimumSpacing(PlacementCandidateRecordBuffer, CandidateBuffer, PlacementRuleBuffer, PlacementSpacingRuleRecordBuffer, Config, Rule, Candidate) == true) {
+                    InstanceIndex = DrawRecord.InstanceOffset + LocalIndex;
+                    EnvironmentInstanceContextGpu InstanceContext;
+                    InstanceContext.PositionScale = float4(Candidate.Position, Candidate.Scale);
+                    InstanceContext.RotationVariation = float4(Candidate.YawRadians, (float)Candidate.Key.InstanceIndex, 0.0f, 0.0f);
+                    InstanceContextBuffer[InstanceIndex] = InstanceContext;
+                    VisibleFlag = 1u;
+                }
             }
         }
     }
@@ -823,7 +885,7 @@ void ClassifyCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint
     const uint WaveVisibleExclusiveIndex = WavePrefixCountBits(IsVisible);
     uint WaveVisibleReserveOffset = 0u;
     if (WaveIsFirstLane() == true && WaveVisibleCount > 0u) {
-        InterlockedAdd(IndirectArgumentBuffer[DrawRecordIndex].InstanceCount, WaveVisibleCount, WaveVisibleReserveOffset);
+        InterlockedAdd(IndirectCommandBuffer[DrawRecordIndex].DrawArguments.InstanceCount, WaveVisibleCount, WaveVisibleReserveOffset);
     }
 
     WaveVisibleReserveOffset = WaveReadLaneFirst(WaveVisibleReserveOffset);

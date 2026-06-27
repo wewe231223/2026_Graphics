@@ -38,7 +38,7 @@ namespace Core {
 
 			const std::vector<D3D12_VERTEX_BUFFER_VIEW>& ResolveVertexBufferViews(const RenderContract::IPipeline& Pipeline, const RenderContract::IModelNode& Mesh);
 			bool IsSkyDomePipeline(const RenderContract::IPipeline* Pipeline);
-			bool EnsureDrawIndexedIndirectCommandSignature(ID3D12GraphicsCommandList* CommandList);
+			bool EnsureDrawIndexedIndirectCommandSignature(ID3D12RootSignature* RootSignature);
 			const RenderContract::IPipeline* ResolveDepthOnlyPipeline(const RenderContract::DrawRecord& DrawRecord);
 			const RenderContract::IPipeline* ResolveEnvironmentDepthOnlyPipeline(const RenderContract::EnvironmentDrawRecord& DrawRecord);
 			void DrawEnvironmentGBufferIndirect(ID3D12GraphicsCommandList* CommandList, const RenderContract::RenderFrameData& Data, DescriptorHandle FrameGlobalsSrvHandle, DescriptorHandle MaterialSrvHandle, DescriptorHandle MaterialTextureTableSrvHandle);

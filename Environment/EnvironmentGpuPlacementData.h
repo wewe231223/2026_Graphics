@@ -112,6 +112,15 @@ namespace Game {
         std::uint32_t mInstanceIndex{};
     };
 
+    static_assert(sizeof(EnvironmentGpuPlacementConfig) == 256u);
+    static_assert(sizeof(EnvironmentGpuPlacementRule) == 80u);
+    static_assert(sizeof(EnvironmentGpuPlacementDrawRecord) == 48u);
+    static_assert(sizeof(EnvironmentGpuPlacementCandidateRecord) == 32u);
+    static_assert(sizeof(EnvironmentGpuPlacementCandidateDispatchRecord) == 16u);
+    static_assert(sizeof(EnvironmentGpuPlacementDrawDispatchRecord) == 16u);
+    static_assert(sizeof(EnvironmentGpuPlacementSpacingRuleRecord) == 16u);
+    static_assert(sizeof(EnvironmentGpuPlacementCandidate) == 48u);
+
     struct EnvironmentGpuPlacementFrameData final {
     public:
         EnvironmentGpuPlacementConfig mConfig{};

@@ -159,6 +159,7 @@ namespace Game {
                     Segment.mMaterialIndex = MaterialGroupItem.MaterialIndex;
                     Segment.mPartIndex = PartIndex;
                     Segment.mFlags = Part.mFlags;
+                    Segment.mShadowCascadeMask = Part.mShadowCascadeMask;
                     Segment.mCastsShadow = Part.mCastsShadow;
 
                     if (Node.HasBoundingBox() == true) {
@@ -271,6 +272,7 @@ namespace Game {
             Batch.mInstanceOffsetInCell = Range.mInstanceOffsetInCell;
             Batch.mInstanceCount = Range.mInstanceCount;
             Batch.mFlags = Segment.mFlags;
+            Batch.mShadowCascadeMask = Segment.mShadowCascadeMask;
             Batch.mCastsShadow = Segment.mCastsShadow;
             OutBatches.push_back(Batch);
         }

@@ -40,7 +40,7 @@ namespace {
 }
 
 std::uint32_t RenderContract::ResolveShadowCascadeCount(const ShadowMappingParameter& ShadowMappingParameterValue) {
-    return std::max(1u, std::min(ShadowMappingParameterValue.mCascadeCount, ShadowCascadeMaxCount));
+    return std::min(ShadowMappingParameterValue.mCascadeCount, ShadowCascadeMaxCount);
 }
 
 std::array<DirectX::BoundingOrientedBox, ShadowCascadeMaxCount> RenderContract::BuildShadowCullingBoxes(const ShadowMappingParameter& ShadowMappingParameterValue) {

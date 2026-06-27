@@ -148,7 +148,11 @@ struct EnvironmentDrawRecordGpu
     uint Flags;
     uint VisibleInstanceOffset;
     uint GpuDrivenFlags;
+    uint IndexCountPerInstance;
+    uint StartIndexLocation;
+    int BaseVertexLocation;
     uint Padding2;
+    uint Padding3;
 };
 
 struct TerrainPatchContextGpu

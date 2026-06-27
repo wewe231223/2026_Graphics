@@ -337,7 +337,7 @@ namespace Core {
 		}
 
 		bool DrawCallResourceManager::CompareEnvironmentDrawRecordByPso(const RenderContract::EnvironmentDrawRecord& Left, const RenderContract::EnvironmentDrawRecord& Right) {
-			return std::tie(Left.mPass, Left.mPipeline, Left.mMesh, Left.mSubMesh, Left.mSegmentContextIndex, Left.mMaterialIndex, Left.mCastsShadow) < std::tie(Right.mPass, Right.mPipeline, Right.mMesh, Right.mSubMesh, Right.mSegmentContextIndex, Right.mMaterialIndex, Right.mCastsShadow);
+			return std::tie(Left.mPass, Left.mPipeline, Left.mMesh, Left.mSubMesh, Left.mSegmentContextIndex, Left.mMaterialIndex, Left.mShadowCascadeMask, Left.mCastsShadow) < std::tie(Right.mPass, Right.mPipeline, Right.mMesh, Right.mSubMesh, Right.mSegmentContextIndex, Right.mMaterialIndex, Right.mShadowCascadeMask, Right.mCastsShadow);
 		}
 
 		void DrawCallResourceManager::SortShadowDrawRecords(std::vector<RenderContract::DrawRecord>& DrawRecords) {
@@ -398,7 +398,16 @@ namespace Core {
 				DestinationRecord.mFlags = SourceRecord.mFlags;
 				DestinationRecord.mVisibleInstanceOffset = 0u;
 				DestinationRecord.mGpuDrivenFlags = 0u;
+				DestinationRecord.mIndexCountPerInstance = 0u;
+				DestinationRecord.mStartIndexLocation = 0u;
+				DestinationRecord.mBaseVertexLocation = 0;
 				DestinationRecord.mPadding2 = 0u;
+				DestinationRecord.mPadding3 = 0u;
+				if (SourceRecord.mMesh != nullptr && SourceRecord.mInstanceCount > 0u) {
+					const RenderContract::ModelSubMesh& SubMesh{ SourceRecord.mMesh->GetSubMesh(SourceRecord.mSubMesh) };
+					DestinationRecord.mIndexCountPerInstance = static_cast<std::uint32_t>(SubMesh.mIndexCount);
+					DestinationRecord.mStartIndexLocation = static_cast<std::uint32_t>(SubMesh.mIndexOffset);
+				}
 			}
 		}
 

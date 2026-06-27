@@ -50,6 +50,7 @@ namespace Game {
         std::uint32_t mMaterialIndex{};
         std::uint32_t mPartIndex{};
         std::uint32_t mFlags{};
+        std::uint32_t mShadowCascadeMask{ 0xffffffffu };
         bool mCastsShadow{ true };
         bool mHasLocalBoundingBox{};
     };
@@ -62,6 +63,7 @@ namespace Game {
         std::vector<EnvironmentObjectRenderSegment> mSegments{};
         std::uint32_t mMaterialGroupIndex{};
         std::uint32_t mFlags{};
+        std::uint32_t mShadowCascadeMask{ 0xffffffffu };
         bool mCastsShadow{ true };
         bool mHasLocalBoundingBox{};
     };
@@ -106,6 +108,7 @@ namespace Game {
         std::uint32_t mInstanceOffsetInCell{};
         std::uint32_t mInstanceCount{};
         std::uint32_t mFlags{};
+        std::uint32_t mShadowCascadeMask{ 0xffffffffu };
         bool mCastsShadow{ true };
     };
 

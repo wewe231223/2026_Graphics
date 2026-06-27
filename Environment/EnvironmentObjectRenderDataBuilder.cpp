@@ -33,6 +33,7 @@ namespace Game {
             DrawRecord.mSegmentContextIndex = SegmentContextIndex;
             DrawRecord.mMaterialIndex = Batch.mMaterialIndex;
             DrawRecord.mFlags = Batch.mFlags;
+            DrawRecord.mShadowCascadeMask = Batch.mShadowCascadeMask;
             DrawRecord.mCastsShadow = Batch.mCastsShadow;
             return DrawRecord;
         }
@@ -177,7 +178,7 @@ namespace Game {
 
             for (std::uint32_t CascadeIndex{}; CascadeIndex < RenderContract::ShadowCascadeMaxCount; CascadeIndex += 1u) {
                 const std::uint32_t CascadeBit{ 1u << CascadeIndex };
-                if ((Options.mShadowCascadeMask & CascadeBit) != 0u) {
+                if (((Options.mShadowCascadeMask & DrawRecord.mShadowCascadeMask) & CascadeBit) != 0u) {
                     EnvironmentWriter.GetShadowEnvironmentDrawRecords(CascadeIndex).push_back(DrawRecord);
                 }
             }

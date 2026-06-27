@@ -19,6 +19,7 @@
 #include "RenderContract/Shadow/ShadowRenderContext.h"
 #include "Utility/DirectXInclude.h"
 #include "Utility/ErrorHandler.h"
+#include "Widget/PerformanceProvider.h"
 
 namespace Game {
     namespace {
@@ -200,7 +201,7 @@ namespace Game {
         }
 
         bool CompareEnvironmentDrawRecordByPso(const RenderContract::EnvironmentDrawRecord& Left, const RenderContract::EnvironmentDrawRecord& Right) {
-            return std::tie(Left.mPass, Left.mPipeline, Left.mMesh, Left.mSubMesh, Left.mSegmentContextIndex, Left.mMaterialIndex, Left.mCastsShadow) < std::tie(Right.mPass, Right.mPipeline, Right.mMesh, Right.mSubMesh, Right.mSegmentContextIndex, Right.mMaterialIndex, Right.mCastsShadow);
+            return std::tie(Left.mPass, Left.mPipeline, Left.mMesh, Left.mSubMesh, Left.mSegmentContextIndex, Left.mMaterialIndex, Left.mShadowCascadeMask, Left.mCastsShadow) < std::tie(Right.mPass, Right.mPipeline, Right.mMesh, Right.mSubMesh, Right.mSegmentContextIndex, Right.mMaterialIndex, Right.mShadowCascadeMask, Right.mCastsShadow);
         }
 
         bool IsEnvironmentBillboardRecord(const RenderContract::EnvironmentDrawRecord& DrawRecord) {
@@ -212,6 +213,69 @@ namespace Game {
             RenderContract::EnvironmentDrawRecord mDrawRecord{};
             EnvironmentGpuPlacementDrawRecord mPlacementDrawRecord{};
         };
+
+        struct EnvironmentIndirectDrawCommand final {
+        public:
+            std::uint32_t mDrawRecordBaseIndex{};
+            D3D12_DRAW_INDEXED_ARGUMENTS mDrawArguments{};
+        };
+
+        static_assert(sizeof(EnvironmentIndirectDrawCommand) == 24u);
+
+        enum class EnvironmentGpuUploadHashIndex : std::size_t {
+            SegmentContexts = 0ULL,
+            DrawRecords,
+            PlacementConfig,
+            PlacementRules,
+            PlacementDrawRecords,
+            PlacementDrawDispatchRecords,
+            PlacementCandidateRecords,
+            PlacementCandidateDispatchRecords,
+            PlacementSpacingRuleRecords,
+            Count
+        };
+
+        enum class EnvironmentGpuSrvCacheIndex : std::size_t {
+            InstanceContext = 0ULL,
+            SegmentContext,
+            DrawRecord,
+            PlacementConfig,
+            PlacementRule,
+            PlacementDrawRecord,
+            PlacementDrawDispatchRecord,
+            PlacementCandidateRecord,
+            PlacementCandidateDispatchRecord,
+            PlacementSpacingRuleRecord,
+            CandidateContext,
+            VisibleInstanceIndex,
+            Count
+        };
+
+        enum class EnvironmentGpuUavCacheIndex : std::size_t {
+            InstanceContext = 0ULL,
+            CandidateContext,
+            VisibleInstanceIndex,
+            IndirectCommand,
+            Count
+        };
+
+        static_assert(static_cast<std::size_t>(EnvironmentGpuUploadHashIndex::Count) <= std::tuple_size_v<decltype(std::declval<EnvironmentGpuDrivenFrameResource>().mUploadedDataHashes)>);
+        static_assert(static_cast<std::size_t>(EnvironmentGpuSrvCacheIndex::Count) <= std::tuple_size_v<decltype(std::declval<EnvironmentGpuDrivenFrameResource>().mSrvCaches)>);
+        static_assert(static_cast<std::size_t>(EnvironmentGpuUavCacheIndex::Count) <= std::tuple_size_v<decltype(std::declval<EnvironmentGpuDrivenFrameResource>().mUavCaches)>);
+
+        std::uint64_t CalculateEnvironmentGpuDataHash(std::span<const std::byte> Data) {
+            std::uint64_t Hash{ 14695981039346656037ULL };
+            for (const std::byte Value : Data) {
+                Hash ^= static_cast<std::uint64_t>(std::to_integer<std::uint8_t>(Value));
+                Hash *= 1099511628211ULL;
+            }
+
+            return Hash == 0ULL ? 1ULL : Hash;
+        }
+
+        bool IsEnvironmentGpuDescriptorCacheValid(const EnvironmentGpuDrivenFrameResource::DescriptorCache& Cache, ID3D12Resource* Resource, std::uint32_t ElementCount, std::uint32_t Stride) {
+            return Cache.mResource == Resource && Cache.mElementCount == ElementCount && Cache.mStride == Stride;
+        }
 
         RenderContract::EnvironmentSegmentContext BuildGpuEnvironmentSegmentContext(const RenderContract::EnvironmentSegmentContext& SourceSegmentContext) {
             RenderContract::EnvironmentSegmentContext GpuSegmentContext{ SourceSegmentContext };
@@ -322,6 +386,7 @@ namespace Game {
         mPhysicsAdapter{},
         mRenderContext{},
         mComputeRootSignature{},
+        mIndirectCommandInitializePipelineState{},
         mCandidateGeneratePipelineState{},
         mCandidateClassifyPipelineState{},
         mDrawIndexedIndirectCommandSignature{},
@@ -356,6 +421,7 @@ namespace Game {
         mPhysicsAdapter{ Other.mPhysicsAdapter },
         mRenderContext{ std::move(Other.mRenderContext) },
         mComputeRootSignature{ std::move(Other.mComputeRootSignature) },
+        mIndirectCommandInitializePipelineState{ std::move(Other.mIndirectCommandInitializePipelineState) },
         mCandidateGeneratePipelineState{ std::move(Other.mCandidateGeneratePipelineState) },
         mCandidateClassifyPipelineState{ std::move(Other.mCandidateClassifyPipelineState) },
         mDrawIndexedIndirectCommandSignature{ std::move(Other.mDrawIndexedIndirectCommandSignature) },
@@ -382,6 +448,7 @@ namespace Game {
         Other.mCopyQueue = nullptr;
         Other.mComputeQueue = nullptr;
         Other.mPhysicsAdapter = nullptr;
+        Other.mIndirectCommandInitializePipelineState.Reset();
         Other.mDrawIndexedIndirectCommandSignature.Reset();
         Other.mVertexBufferViewCache.clear();
         Other.mGpuDrivenFrameResources = {};
@@ -406,6 +473,7 @@ namespace Game {
         mPhysicsAdapter = Other.mPhysicsAdapter;
         mRenderContext = std::move(Other.mRenderContext);
         mComputeRootSignature = std::move(Other.mComputeRootSignature);
+        mIndirectCommandInitializePipelineState = std::move(Other.mIndirectCommandInitializePipelineState);
         mCandidateGeneratePipelineState = std::move(Other.mCandidateGeneratePipelineState);
         mCandidateClassifyPipelineState = std::move(Other.mCandidateClassifyPipelineState);
         mDrawIndexedIndirectCommandSignature = std::move(Other.mDrawIndexedIndirectCommandSignature);
@@ -432,6 +500,7 @@ namespace Game {
         Other.mCopyQueue = nullptr;
         Other.mComputeQueue = nullptr;
         Other.mPhysicsAdapter = nullptr;
+        Other.mIndirectCommandInitializePipelineState.Reset();
         Other.mDrawIndexedIndirectCommandSignature.Reset();
         Other.mVertexBufferViewCache.clear();
         Other.mGpuDrivenFrameResources = {};
@@ -519,7 +588,9 @@ namespace Game {
         RenderData.mEnvironmentDrawRecords.clear();
         mGpuPlacementFrameData = EnvironmentGpuPlacementFrameData{};
         if (mFoliageRuntime != nullptr) {
+            Widget::PerformanceProvider::Get().BeginPhaseProfile("EnvironmentGpuBuildRenderData");
             mFoliageRuntime->BuildGpuDrivenRenderData(Input.mFocusPosition, RenderData, mGpuPlacementFrameData);
+            Widget::PerformanceProvider::Get().EndPhaseProfile();
         }
 
         if (mInitialized == false || mGpuDrivenEnabled == false || mGpuResourcesInitialized == false || mCopyQueue == nullptr || mComputeQueue == nullptr || RenderData.mEnvironmentDrawRecords.empty() == true || mGpuPlacementFrameData.mDrawRecords.empty() == true || mGpuPlacementFrameData.mRules.empty() == true || mGpuPlacementFrameData.mCandidateRecords.empty() == true || mGpuPlacementFrameData.mCandidateDispatchRecords.empty() == true || mGpuPlacementFrameData.mCandidateCount == 0u || Input.mTerrain.mHeightSrvIndex == InvalidDescriptorIndex || Input.mTerrain.mSplatSrvIndex == InvalidDescriptorIndex || Input.mTerrain.mSplat1SrvIndex == InvalidDescriptorIndex) {
@@ -528,7 +599,9 @@ namespace Game {
         }
 
         std::uint32_t VisibleInstanceIndexCount{};
+        Widget::PerformanceProvider::Get().BeginPhaseProfile("EnvironmentGpuBuildFrameData");
         BuildGpuDrivenFrameData(Input, RenderData, VisibleInstanceIndexCount);
+        Widget::PerformanceProvider::Get().EndPhaseProfile();
         if (mGpuDrawRecords.empty() == true || VisibleInstanceIndexCount == 0u) {
             mLastGpuDispatchFuture = RenderContract::Future{};
             return mLastGpuDispatchFuture;
@@ -547,16 +620,25 @@ namespace Game {
         const std::uint32_t CandidateContextCount{ mGpuPlacementFrameData.mCandidateCount };
         const std::size_t FrameResourceIndex{ static_cast<std::size_t>(Input.mFrameIndex % Constants::FrameCount<std::uint64_t>) };
         EnvironmentGpuDrivenFrameResource& FrameResource{ mGpuDrivenFrameResources[FrameResourceIndex] };
+        Widget::PerformanceProvider::Get().BeginPhaseProfile("EnvironmentGpuEnsureResources");
         if (EnsureGpuDrivenFrameResources(FrameResource, InstanceContextCount, SegmentContextCount, DrawRecordCount, PlacementConfigCount, PlacementRuleCount, PlacementDrawRecordCount, PlacementDrawDispatchRecordCount, PlacementCandidateRecordCount, PlacementCandidateDispatchRecordCount, PlacementSpacingRuleRecordCount, CandidateContextCount, VisibleInstanceIndexCount) == false) {
+            Widget::PerformanceProvider::Get().EndPhaseProfile();
             mLastGpuDispatchFuture = RenderContract::Future{};
             return mLastGpuDispatchFuture;
         }
+        Widget::PerformanceProvider::Get().EndPhaseProfile();
 
+        Widget::PerformanceProvider::Get().BeginPhaseProfile("EnvironmentGpuUpdateDescriptors");
         UpdateGpuDrivenShaderResourceViews(FrameResource, InstanceContextCount, SegmentContextCount, DrawRecordCount, PlacementConfigCount, PlacementRuleCount, PlacementDrawRecordCount, PlacementDrawDispatchRecordCount, PlacementCandidateRecordCount, PlacementCandidateDispatchRecordCount, PlacementSpacingRuleRecordCount, CandidateContextCount, VisibleInstanceIndexCount);
         UpdateGpuDrivenUnorderedAccessViews(FrameResource, InstanceContextCount, CandidateContextCount, VisibleInstanceIndexCount, DrawRecordCount);
+        Widget::PerformanceProvider::Get().EndPhaseProfile();
 
+        Widget::PerformanceProvider::Get().BeginPhaseProfile("EnvironmentGpuUploadFrameData");
         const RenderContract::Future CopyFuture{ UploadGpuDrivenFrameData(FrameResource) };
+        Widget::PerformanceProvider::Get().EndPhaseProfile();
+        Widget::PerformanceProvider::Get().BeginPhaseProfile("EnvironmentGpuEnqueueCompute");
         mLastGpuDispatchFuture = DispatchGpuDrivenFrame(FrameResource, Input, CopyFuture, DrawRecordCount, VisibleInstanceIndexCount, PlacementCandidateRecordCount, PlacementCandidateDispatchRecordCount, PlacementDrawDispatchRecordCount, PlacementSpacingRuleRecordCount);
+        Widget::PerformanceProvider::Get().EndPhaseProfile();
         FillGpuDrivenFramePayload(FrameResource, RenderData, mLastGpuDispatchFuture);
         return mLastGpuDispatchFuture;
     }
@@ -620,10 +702,11 @@ namespace Game {
             return;
         }
 
+        const std::uint32_t ShadowCascadeBit{ Context.mShadowFrameGlobalsIndex < 32u ? 1u << Context.mShadowFrameGlobalsIndex : 0u };
         const RenderContract::IPipeline* ActivePipeline{ nullptr };
         for (std::size_t DrawRecordIndex{}; DrawRecordIndex < Context.mShadowRenderContext->mEnvironmentDrawRecords.size(); DrawRecordIndex += 1ULL) {
             const RenderContract::EnvironmentDrawRecord& DrawRecord{ Context.mShadowRenderContext->mEnvironmentDrawRecords[DrawRecordIndex] };
-            if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mCastsShadow == false) {
+            if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mCastsShadow == false || (DrawRecord.mShadowCascadeMask & ShadowCascadeBit) == 0u) {
                 continue;
             }
 
@@ -709,25 +792,29 @@ namespace Game {
         return true;
     }
 
-    bool EnvironmentRuntime::EnsureDrawIndexedIndirectCommandSignature() {
+    bool EnvironmentRuntime::EnsureDrawIndexedIndirectCommandSignature(ID3D12RootSignature* RootSignature) {
         if (mDrawIndexedIndirectCommandSignature != nullptr) {
             return true;
         }
 
-        if (mDevice == nullptr) {
+        if (mDevice == nullptr || RootSignature == nullptr) {
             return false;
         }
 
-        D3D12_INDIRECT_ARGUMENT_DESC ArgumentDesc{};
-        ArgumentDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+        std::array<D3D12_INDIRECT_ARGUMENT_DESC, 2> ArgumentDescs{};
+        ArgumentDescs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+        ArgumentDescs[0].Constant.RootParameterIndex = 0u;
+        ArgumentDescs[0].Constant.DestOffsetIn32BitValues = 4u;
+        ArgumentDescs[0].Constant.Num32BitValuesToSet = 1u;
+        ArgumentDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
 
         D3D12_COMMAND_SIGNATURE_DESC CommandSignatureDesc{};
-        CommandSignatureDesc.ByteStride = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
-        CommandSignatureDesc.NumArgumentDescs = 1u;
-        CommandSignatureDesc.pArgumentDescs = &ArgumentDesc;
+        CommandSignatureDesc.ByteStride = sizeof(EnvironmentIndirectDrawCommand);
+        CommandSignatureDesc.NumArgumentDescs = static_cast<UINT>(ArgumentDescs.size());
+        CommandSignatureDesc.pArgumentDescs = ArgumentDescs.data();
         CommandSignatureDesc.NodeMask = 0u;
 
-        const HRESULT CreateResult{ mDevice->CreateCommandSignature(&CommandSignatureDesc, nullptr, IID_PPV_ARGS(mDrawIndexedIndirectCommandSignature.GetAddressOf())) };
+        const HRESULT CreateResult{ mDevice->CreateCommandSignature(&CommandSignatureDesc, RootSignature, IID_PPV_ARGS(mDrawIndexedIndirectCommandSignature.GetAddressOf())) };
         return SUCCEEDED(CreateResult) == true && mDrawIndexedIndirectCommandSignature != nullptr;
     }
 
@@ -829,41 +916,48 @@ namespace Game {
         }
 
         const RenderContract::EnvironmentGpuDrivenFrameData& GpuFrame{ Context.mRenderFrameData->mEnvironmentGpuDrivenFrame };
-        if (GpuFrame.mEnabled == false || GpuFrame.mVisibleInstanceIndexResource == nullptr || GpuFrame.mIndirectArgumentResource == nullptr || EnsureDrawIndexedIndirectCommandSignature() == false) {
+        if (GpuFrame.mEnabled == false || GpuFrame.mVisibleInstanceIndexResource == nullptr || GpuFrame.mIndirectArgumentResource == nullptr) {
             return;
         }
 
-        std::array<D3D12_RESOURCE_BARRIER, 3> Barriers{};
-        Barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        Barriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        Barriers[0].Transition.pResource = GpuFrame.mInstanceContextResource;
-        Barriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        Barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-        Barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-        Barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        Barriers[1].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        Barriers[1].Transition.pResource = GpuFrame.mVisibleInstanceIndexResource;
-        Barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        Barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-        Barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-        Barriers[2].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        Barriers[2].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        Barriers[2].Transition.pResource = GpuFrame.mIndirectArgumentResource;
-        Barriers[2].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        Barriers[2].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-        Barriers[2].Transition.StateAfter = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
-        Context.mCommandList->ResourceBarrier(static_cast<UINT>(Barriers.size()), Barriers.data());
+        Widget::PerformanceProvider::Get().BeginPhaseProfile("EnvironmentGpuRecordGBufferIndirect");
+        const std::uint32_t ShadowCascadeCount{ RenderContract::ResolveShadowCascadeCount(Context.mRenderFrameData->mShadowMappingParameter) };
+        if (ShadowCascadeCount == 0u) {
+            std::array<D3D12_RESOURCE_BARRIER, 3> Barriers{};
+            Barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            Barriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+            Barriers[0].Transition.pResource = GpuFrame.mInstanceContextResource;
+            Barriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            Barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+            Barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+            Barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            Barriers[1].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+            Barriers[1].Transition.pResource = GpuFrame.mVisibleInstanceIndexResource;
+            Barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            Barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+            Barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+            Barriers[2].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            Barriers[2].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+            Barriers[2].Transition.pResource = GpuFrame.mIndirectArgumentResource;
+            Barriers[2].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            Barriers[2].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+            Barriers[2].Transition.StateAfter = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
+            Context.mCommandList->ResourceBarrier(static_cast<UINT>(Barriers.size()), Barriers.data());
+        }
 
         const RenderContract::IPipeline* ActivePipeline{ nullptr };
         const std::size_t DrawRecordCount{ std::min<std::size_t>(Context.mRenderFrameData->mEnvironmentDrawRecords.size(), GpuFrame.mDrawRecordCount) };
-        for (std::size_t DrawRecordIndex{}; DrawRecordIndex < DrawRecordCount; DrawRecordIndex += 1ULL) {
+        std::size_t DrawRecordIndex{};
+        while (DrawRecordIndex < DrawRecordCount) {
             const RenderContract::EnvironmentDrawRecord& DrawRecord{ Context.mRenderFrameData->mEnvironmentDrawRecords[DrawRecordIndex] };
             if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u) {
+                DrawRecordIndex += 1ULL;
                 continue;
             }
 
             const RenderContract::IPipeline* Pipeline{ IsEnvironmentBillboardRecord(DrawRecord) == true ? DrawRecord.mPipeline : Context.mPipelineProvider->ResolveEnvironmentObjectPipeline() };
-            if (Pipeline == nullptr) {
+            if (Pipeline == nullptr || EnsureDrawIndexedIndirectCommandSignature(Pipeline->GetRootSignature()) == false) {
+                DrawRecordIndex += 1ULL;
                 continue;
             }
 
@@ -894,8 +988,24 @@ namespace Game {
             const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ DrawRecord.mMesh->GetIndexBufferView() };
             Context.mCommandList->IASetIndexBuffer(&IndexBufferView);
 
-            const std::uint64_t IndirectArgumentOffset{ sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) * DrawRecordIndex };
-            Context.mCommandList->ExecuteIndirect(mDrawIndexedIndirectCommandSignature.Get(), 1u, GpuFrame.mIndirectArgumentResource, IndirectArgumentOffset, nullptr, 0u);
+            std::size_t BatchCount{ 1ULL };
+            while (DrawRecordIndex + BatchCount < DrawRecordCount) {
+                const RenderContract::EnvironmentDrawRecord& NextDrawRecord{ Context.mRenderFrameData->mEnvironmentDrawRecords[DrawRecordIndex + BatchCount] };
+                if (NextDrawRecord.mMesh == nullptr || NextDrawRecord.mInstanceCount == 0u || NextDrawRecord.mMesh != DrawRecord.mMesh) {
+                    break;
+                }
+
+                const RenderContract::IPipeline* NextPipeline{ IsEnvironmentBillboardRecord(NextDrawRecord) == true ? NextDrawRecord.mPipeline : Context.mPipelineProvider->ResolveEnvironmentObjectPipeline() };
+                if (NextPipeline != Pipeline) {
+                    break;
+                }
+
+                BatchCount += 1ULL;
+            }
+
+            const std::uint64_t IndirectArgumentOffset{ sizeof(EnvironmentIndirectDrawCommand) * DrawRecordIndex };
+            Context.mCommandList->ExecuteIndirect(mDrawIndexedIndirectCommandSignature.Get(), static_cast<UINT>(BatchCount), GpuFrame.mIndirectArgumentResource, IndirectArgumentOffset, nullptr, 0u);
+            DrawRecordIndex += BatchCount;
         }
 
         std::array<D3D12_RESOURCE_BARRIER, 3> RestoreBarriers{};
@@ -918,6 +1028,7 @@ namespace Game {
         RestoreBarriers[2].Transition.StateBefore = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
         RestoreBarriers[2].Transition.StateAfter = D3D12_RESOURCE_STATE_COMMON;
         Context.mCommandList->ResourceBarrier(static_cast<UINT>(RestoreBarriers.size()), RestoreBarriers.data());
+        Widget::PerformanceProvider::Get().EndPhaseProfile();
     }
 
     void EnvironmentRuntime::RecordShadowDepthIndirect(const RenderContract::EnvironmentShadowDepthRenderCommandContext& Context) {
@@ -926,41 +1037,48 @@ namespace Game {
         }
 
         const RenderContract::EnvironmentGpuDrivenFrameData& GpuFrame{ Context.mRenderFrameData->mEnvironmentGpuDrivenFrame };
-        if (GpuFrame.mEnabled == false || GpuFrame.mInstanceContextResource == nullptr || GpuFrame.mVisibleInstanceIndexResource == nullptr || GpuFrame.mIndirectArgumentResource == nullptr || EnsureDrawIndexedIndirectCommandSignature() == false) {
+        if (GpuFrame.mEnabled == false || GpuFrame.mInstanceContextResource == nullptr || GpuFrame.mVisibleInstanceIndexResource == nullptr || GpuFrame.mIndirectArgumentResource == nullptr) {
             return;
         }
 
-        std::array<D3D12_RESOURCE_BARRIER, 3> Barriers{};
-        Barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        Barriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        Barriers[0].Transition.pResource = GpuFrame.mInstanceContextResource;
-        Barriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        Barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-        Barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-        Barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        Barriers[1].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        Barriers[1].Transition.pResource = GpuFrame.mVisibleInstanceIndexResource;
-        Barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        Barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-        Barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-        Barriers[2].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        Barriers[2].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        Barriers[2].Transition.pResource = GpuFrame.mIndirectArgumentResource;
-        Barriers[2].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        Barriers[2].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-        Barriers[2].Transition.StateAfter = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
-        Context.mCommandList->ResourceBarrier(static_cast<UINT>(Barriers.size()), Barriers.data());
+        Widget::PerformanceProvider::Get().BeginPhaseProfile("EnvironmentGpuRecordShadowIndirect");
+        if (Context.mShadowFrameGlobalsIndex == 0u) {
+            std::array<D3D12_RESOURCE_BARRIER, 3> Barriers{};
+            Barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            Barriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+            Barriers[0].Transition.pResource = GpuFrame.mInstanceContextResource;
+            Barriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            Barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+            Barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+            Barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            Barriers[1].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+            Barriers[1].Transition.pResource = GpuFrame.mVisibleInstanceIndexResource;
+            Barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            Barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+            Barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+            Barriers[2].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            Barriers[2].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+            Barriers[2].Transition.pResource = GpuFrame.mIndirectArgumentResource;
+            Barriers[2].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            Barriers[2].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+            Barriers[2].Transition.StateAfter = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
+            Context.mCommandList->ResourceBarrier(static_cast<UINT>(Barriers.size()), Barriers.data());
+        }
 
+        const std::uint32_t ShadowCascadeBit{ Context.mShadowFrameGlobalsIndex < 32u ? 1u << Context.mShadowFrameGlobalsIndex : 0u };
         const RenderContract::IPipeline* ActivePipeline{ nullptr };
         const std::size_t DrawRecordCount{ std::min<std::size_t>(Context.mRenderFrameData->mEnvironmentDrawRecords.size(), GpuFrame.mDrawRecordCount) };
-        for (std::size_t DrawRecordIndex{}; DrawRecordIndex < DrawRecordCount; DrawRecordIndex += 1ULL) {
+        std::size_t DrawRecordIndex{};
+        while (DrawRecordIndex < DrawRecordCount) {
             const RenderContract::EnvironmentDrawRecord& DrawRecord{ Context.mRenderFrameData->mEnvironmentDrawRecords[DrawRecordIndex] };
-            if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mCastsShadow == false) {
+            if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mCastsShadow == false || (DrawRecord.mShadowCascadeMask & ShadowCascadeBit) == 0u) {
+                DrawRecordIndex += 1ULL;
                 continue;
             }
 
             const RenderContract::IPipeline* Pipeline{ IsEnvironmentBillboardRecord(DrawRecord) == true ? Context.mPipelineProvider->ResolveEnvironmentBillboardDepthPipeline() : Context.mPipelineProvider->ResolveEnvironmentObjectDepthPipeline() };
-            if (Pipeline == nullptr) {
+            if (Pipeline == nullptr || EnsureDrawIndexedIndirectCommandSignature(Pipeline->GetRootSignature()) == false) {
+                DrawRecordIndex += 1ULL;
                 continue;
             }
 
@@ -994,30 +1112,26 @@ namespace Game {
             const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ DrawRecord.mMesh->GetIndexBufferView() };
             Context.mCommandList->IASetIndexBuffer(&IndexBufferView);
 
-            const std::uint64_t IndirectArgumentOffset{ sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) * DrawRecordIndex };
-            Context.mCommandList->ExecuteIndirect(mDrawIndexedIndirectCommandSignature.Get(), 1u, GpuFrame.mIndirectArgumentResource, IndirectArgumentOffset, nullptr, 0u);
-        }
+            std::size_t BatchCount{ 1ULL };
+            while (DrawRecordIndex + BatchCount < DrawRecordCount) {
+                const RenderContract::EnvironmentDrawRecord& NextDrawRecord{ Context.mRenderFrameData->mEnvironmentDrawRecords[DrawRecordIndex + BatchCount] };
+                if (NextDrawRecord.mMesh == nullptr || NextDrawRecord.mInstanceCount == 0u || NextDrawRecord.mCastsShadow == false || (NextDrawRecord.mShadowCascadeMask & ShadowCascadeBit) == 0u || NextDrawRecord.mMesh != DrawRecord.mMesh) {
+                    break;
+                }
 
-        std::array<D3D12_RESOURCE_BARRIER, 3> RestoreBarriers{};
-        RestoreBarriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        RestoreBarriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        RestoreBarriers[0].Transition.pResource = GpuFrame.mInstanceContextResource;
-        RestoreBarriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        RestoreBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-        RestoreBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-        RestoreBarriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        RestoreBarriers[1].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        RestoreBarriers[1].Transition.pResource = GpuFrame.mVisibleInstanceIndexResource;
-        RestoreBarriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        RestoreBarriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-        RestoreBarriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-        RestoreBarriers[2].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        RestoreBarriers[2].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        RestoreBarriers[2].Transition.pResource = GpuFrame.mIndirectArgumentResource;
-        RestoreBarriers[2].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        RestoreBarriers[2].Transition.StateBefore = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
-        RestoreBarriers[2].Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-        Context.mCommandList->ResourceBarrier(static_cast<UINT>(RestoreBarriers.size()), RestoreBarriers.data());
+                const RenderContract::IPipeline* NextPipeline{ IsEnvironmentBillboardRecord(NextDrawRecord) == true ? Context.mPipelineProvider->ResolveEnvironmentBillboardDepthPipeline() : Context.mPipelineProvider->ResolveEnvironmentObjectDepthPipeline() };
+                if (NextPipeline != Pipeline) {
+                    break;
+                }
+
+                BatchCount += 1ULL;
+            }
+
+            const std::uint64_t IndirectArgumentOffset{ sizeof(EnvironmentIndirectDrawCommand) * DrawRecordIndex };
+            Context.mCommandList->ExecuteIndirect(mDrawIndexedIndirectCommandSignature.Get(), static_cast<UINT>(BatchCount), GpuFrame.mIndirectArgumentResource, IndirectArgumentOffset, nullptr, 0u);
+            DrawRecordIndex += BatchCount;
+        }
+        Widget::PerformanceProvider::Get().EndPhaseProfile();
     }
 
     bool EnvironmentRuntime::CreateComputeRootSignature() {
@@ -1059,6 +1173,10 @@ namespace Game {
 
     bool EnvironmentRuntime::CreateComputePipelineState() {
         if (mDevice == nullptr || mComputeRootSignature == nullptr) {
+            return false;
+        }
+
+        if (CreateEnvironmentComputePipelineState(mDevice, mComputeRootSignature.Get(), "cs_6_6:InitializeIndirectCommandsCsMain", mIndirectCommandInitializePipelineState) == false) {
             return false;
         }
 
@@ -1261,6 +1379,15 @@ namespace Game {
         const std::uint32_t SafeCandidateContextCount{ std::max(CandidateContextCount, 1u) };
         const std::uint32_t SafeVisibleInstanceIndexCount{ std::max(VisibleInstanceIndexCount, 1u) };
         ID3D12Resource* PreviousInstanceContextBuffer{ FrameResource.mInstanceContextBuffer.Get() };
+        ID3D12Resource* PreviousSegmentContextBuffer{ FrameResource.mSegmentContextBuffer.Get() };
+        ID3D12Resource* PreviousDrawRecordBuffer{ FrameResource.mDrawRecordBuffer.Get() };
+        ID3D12Resource* PreviousPlacementConfigBuffer{ FrameResource.mPlacementConfigBuffer.Get() };
+        ID3D12Resource* PreviousPlacementRuleBuffer{ FrameResource.mPlacementRuleBuffer.Get() };
+        ID3D12Resource* PreviousPlacementDrawRecordBuffer{ FrameResource.mPlacementDrawRecordBuffer.Get() };
+        ID3D12Resource* PreviousPlacementDrawDispatchRecordBuffer{ FrameResource.mPlacementDrawDispatchRecordBuffer.Get() };
+        ID3D12Resource* PreviousPlacementCandidateRecordBuffer{ FrameResource.mPlacementCandidateRecordBuffer.Get() };
+        ID3D12Resource* PreviousPlacementCandidateDispatchRecordBuffer{ FrameResource.mPlacementCandidateDispatchRecordBuffer.Get() };
+        ID3D12Resource* PreviousPlacementSpacingRuleRecordBuffer{ FrameResource.mPlacementSpacingRuleRecordBuffer.Get() };
         ID3D12Resource* PreviousCandidateContextBuffer{ FrameResource.mCandidateContextBuffer.Get() };
         ID3D12Resource* PreviousVisibleInstanceIndexBuffer{ FrameResource.mVisibleInstanceIndexBuffer.Get() };
         ID3D12Resource* PreviousIndirectArgumentBuffer{ FrameResource.mIndirectArgumentBuffer.Get() };
@@ -1278,7 +1405,7 @@ namespace Game {
         Result = EnsureGpuDrivenBuffer(FrameResource.mPlacementSpacingRuleRecordBuffer, FrameResource.mPlacementSpacingRuleRecordBufferCapacityInBytes, sizeof(EnvironmentGpuPlacementSpacingRuleRecord) * static_cast<std::uint64_t>(SafePlacementSpacingRuleRecordCount), D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COMMON, L"EnvironmentRuntime.PlacementSpacingRuleRecordBuffer") && Result;
         Result = EnsureGpuDrivenBuffer(FrameResource.mCandidateContextBuffer, FrameResource.mCandidateContextBufferCapacityInBytes, sizeof(EnvironmentGpuPlacementCandidate) * static_cast<std::uint64_t>(SafeCandidateContextCount), D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON, L"EnvironmentRuntime.CandidateContextBuffer") && Result;
         Result = EnsureGpuDrivenBuffer(FrameResource.mVisibleInstanceIndexBuffer, FrameResource.mVisibleInstanceIndexBufferCapacityInBytes, sizeof(std::uint32_t) * static_cast<std::uint64_t>(SafeVisibleInstanceIndexCount), D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON, L"EnvironmentRuntime.VisibleInstanceIndexBuffer") && Result;
-        Result = EnsureGpuDrivenBuffer(FrameResource.mIndirectArgumentBuffer, FrameResource.mIndirectArgumentBufferCapacityInBytes, sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) * static_cast<std::uint64_t>(SafeDrawRecordCount), D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON, L"EnvironmentRuntime.IndirectArgumentBuffer") && Result;
+        Result = EnsureGpuDrivenBuffer(FrameResource.mIndirectArgumentBuffer, FrameResource.mIndirectArgumentBufferCapacityInBytes, sizeof(EnvironmentIndirectDrawCommand) * static_cast<std::uint64_t>(SafeDrawRecordCount), D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON, L"EnvironmentRuntime.IndirectCommandBuffer") && Result;
         if (FrameResource.mInstanceContextBuffer.Get() != PreviousInstanceContextBuffer) {
             FrameResource.mInstanceContextState = D3D12_RESOURCE_STATE_COMMON;
         }
@@ -1293,6 +1420,13 @@ namespace Game {
 
         if (FrameResource.mIndirectArgumentBuffer.Get() != PreviousIndirectArgumentBuffer) {
             FrameResource.mIndirectArgumentState = D3D12_RESOURCE_STATE_COMMON;
+        }
+
+        const bool IsAnyBufferRecreated{ FrameResource.mInstanceContextBuffer.Get() != PreviousInstanceContextBuffer || FrameResource.mSegmentContextBuffer.Get() != PreviousSegmentContextBuffer || FrameResource.mDrawRecordBuffer.Get() != PreviousDrawRecordBuffer || FrameResource.mPlacementConfigBuffer.Get() != PreviousPlacementConfigBuffer || FrameResource.mPlacementRuleBuffer.Get() != PreviousPlacementRuleBuffer || FrameResource.mPlacementDrawRecordBuffer.Get() != PreviousPlacementDrawRecordBuffer || FrameResource.mPlacementDrawDispatchRecordBuffer.Get() != PreviousPlacementDrawDispatchRecordBuffer || FrameResource.mPlacementCandidateRecordBuffer.Get() != PreviousPlacementCandidateRecordBuffer || FrameResource.mPlacementCandidateDispatchRecordBuffer.Get() != PreviousPlacementCandidateDispatchRecordBuffer || FrameResource.mPlacementSpacingRuleRecordBuffer.Get() != PreviousPlacementSpacingRuleRecordBuffer || FrameResource.mCandidateContextBuffer.Get() != PreviousCandidateContextBuffer || FrameResource.mVisibleInstanceIndexBuffer.Get() != PreviousVisibleInstanceIndexBuffer || FrameResource.mIndirectArgumentBuffer.Get() != PreviousIndirectArgumentBuffer };
+        if (IsAnyBufferRecreated == true) {
+            FrameResource.mUploadedDataHashes = {};
+            FrameResource.mSrvCaches = {};
+            FrameResource.mUavCaches = {};
         }
 
         return Result;
@@ -1340,7 +1474,6 @@ namespace Game {
         mGpuDrawRecords.clear();
         mGpuDrawRecords.resize(RenderData.mEnvironmentDrawRecords.size());
         mGpuIndirectArguments.clear();
-        mGpuIndirectArguments.resize(RenderData.mEnvironmentDrawRecords.size());
 
         std::uint32_t VisibleInstanceOffset{};
         for (std::size_t DrawRecordIndex{}; DrawRecordIndex < RenderData.mEnvironmentDrawRecords.size(); DrawRecordIndex += 1ULL) {
@@ -1353,18 +1486,18 @@ namespace Game {
             DestinationRecord.mFlags = SourceRecord.mFlags;
             DestinationRecord.mVisibleInstanceOffset = VisibleInstanceOffset;
             DestinationRecord.mGpuDrivenFlags = EnvironmentDrawRecordGpuDrivenFlag;
+            DestinationRecord.mIndexCountPerInstance = 0u;
+            DestinationRecord.mStartIndexLocation = 0u;
+            DestinationRecord.mBaseVertexLocation = 0;
             DestinationRecord.mPadding2 = 0u;
+            DestinationRecord.mPadding3 = 0u;
             const std::uint64_t InstanceEnd{ static_cast<std::uint64_t>(SourceRecord.mInstanceOffset) + static_cast<std::uint64_t>(SourceRecord.mInstanceCount) };
             mGpuInstanceContextCount = static_cast<std::uint32_t>(std::min<std::uint64_t>(std::max<std::uint64_t>(mGpuInstanceContextCount, InstanceEnd), std::numeric_limits<std::uint32_t>::max()));
 
-            D3D12_DRAW_INDEXED_ARGUMENTS& DrawArguments{ mGpuIndirectArguments[DrawRecordIndex] };
             if (SourceRecord.mMesh != nullptr && SourceRecord.mInstanceCount > 0u) {
                 const RenderContract::ModelSubMesh& SubMesh{ SourceRecord.mMesh->GetSubMesh(SourceRecord.mSubMesh) };
-                DrawArguments.IndexCountPerInstance = static_cast<UINT>(SubMesh.mIndexCount);
-                DrawArguments.InstanceCount = 0u;
-                DrawArguments.StartIndexLocation = static_cast<UINT>(SubMesh.mIndexOffset);
-                DrawArguments.BaseVertexLocation = 0;
-                DrawArguments.StartInstanceLocation = 0u;
+                DestinationRecord.mIndexCountPerInstance = static_cast<std::uint32_t>(SubMesh.mIndexCount);
+                DestinationRecord.mStartIndexLocation = static_cast<std::uint32_t>(SubMesh.mIndexOffset);
             }
 
             VisibleInstanceOffset += SourceRecord.mInstanceCount;
@@ -1374,74 +1507,41 @@ namespace Game {
     }
 
     RenderContract::Future EnvironmentRuntime::UploadGpuDrivenFrameData(EnvironmentGpuDrivenFrameResource& FrameResource) {
-        if (mCopyQueue == nullptr || FrameResource.mSegmentContextBuffer == nullptr || FrameResource.mDrawRecordBuffer == nullptr || FrameResource.mPlacementConfigBuffer == nullptr || FrameResource.mPlacementRuleBuffer == nullptr || FrameResource.mPlacementDrawRecordBuffer == nullptr || FrameResource.mPlacementDrawDispatchRecordBuffer == nullptr || FrameResource.mPlacementCandidateRecordBuffer == nullptr || FrameResource.mPlacementCandidateDispatchRecordBuffer == nullptr || FrameResource.mPlacementSpacingRuleRecordBuffer == nullptr || FrameResource.mIndirectArgumentBuffer == nullptr) {
+        if (mCopyQueue == nullptr || FrameResource.mSegmentContextBuffer == nullptr || FrameResource.mDrawRecordBuffer == nullptr || FrameResource.mPlacementConfigBuffer == nullptr || FrameResource.mPlacementRuleBuffer == nullptr || FrameResource.mPlacementDrawRecordBuffer == nullptr || FrameResource.mPlacementDrawDispatchRecordBuffer == nullptr || FrameResource.mPlacementCandidateRecordBuffer == nullptr || FrameResource.mPlacementCandidateDispatchRecordBuffer == nullptr || FrameResource.mPlacementSpacingRuleRecordBuffer == nullptr) {
             return RenderContract::Future{};
         }
 
         std::vector<Interface::CopyRequest> CopyRequests{};
-        CopyRequests.reserve(10ULL);
+        CopyRequests.reserve(9ULL);
 
-        Interface::CopyRequest SegmentContextCopyRequest{ Interface::CopyPriority::High };
-        SegmentContextCopyRequest.DestinationDefaultResource = FrameResource.mSegmentContextBuffer;
-        SegmentContextCopyRequest.DestinationOffset = 0u;
-        SegmentContextCopyRequest.SourceData = MakeVectorByteSpan(mGpuSegmentContexts);
-        CopyRequests.push_back(SegmentContextCopyRequest);
+        auto AppendCopyRequestIfChanged = [&FrameResource, &CopyRequests](EnvironmentGpuUploadHashIndex HashIndex, Microsoft::WRL::ComPtr<ID3D12Resource> DestinationResource, std::span<const std::byte> SourceData) {
+            if (SourceData.empty() == true || DestinationResource == nullptr) {
+                return;
+            }
 
-        Interface::CopyRequest DrawRecordCopyRequest{ Interface::CopyPriority::High };
-        DrawRecordCopyRequest.DestinationDefaultResource = FrameResource.mDrawRecordBuffer;
-        DrawRecordCopyRequest.DestinationOffset = 0u;
-        DrawRecordCopyRequest.SourceData = MakeVectorByteSpan(mGpuDrawRecords);
-        CopyRequests.push_back(DrawRecordCopyRequest);
+            const std::size_t HashSlot{ static_cast<std::size_t>(HashIndex) };
+            const std::uint64_t DataHash{ CalculateEnvironmentGpuDataHash(SourceData) };
+            if (FrameResource.mUploadedDataHashes[HashSlot] == DataHash) {
+                return;
+            }
 
-        Interface::CopyRequest PlacementConfigCopyRequest{ Interface::CopyPriority::High };
-        PlacementConfigCopyRequest.DestinationDefaultResource = FrameResource.mPlacementConfigBuffer;
-        PlacementConfigCopyRequest.DestinationOffset = 0u;
-        PlacementConfigCopyRequest.SourceData = MakeByteSpan(&mGpuPlacementFrameData.mConfig, sizeof(EnvironmentGpuPlacementConfig));
-        CopyRequests.push_back(PlacementConfigCopyRequest);
+            Interface::CopyRequest CopyRequest{ Interface::CopyPriority::High };
+            CopyRequest.DestinationDefaultResource = DestinationResource;
+            CopyRequest.DestinationOffset = 0u;
+            CopyRequest.SourceData = SourceData;
+            CopyRequests.push_back(CopyRequest);
+            FrameResource.mUploadedDataHashes[HashSlot] = DataHash;
+        };
 
-        Interface::CopyRequest PlacementRuleCopyRequest{ Interface::CopyPriority::High };
-        PlacementRuleCopyRequest.DestinationDefaultResource = FrameResource.mPlacementRuleBuffer;
-        PlacementRuleCopyRequest.DestinationOffset = 0u;
-        PlacementRuleCopyRequest.SourceData = MakeVectorByteSpan(mGpuPlacementFrameData.mRules);
-        CopyRequests.push_back(PlacementRuleCopyRequest);
-
-        Interface::CopyRequest PlacementDrawRecordCopyRequest{ Interface::CopyPriority::High };
-        PlacementDrawRecordCopyRequest.DestinationDefaultResource = FrameResource.mPlacementDrawRecordBuffer;
-        PlacementDrawRecordCopyRequest.DestinationOffset = 0u;
-        PlacementDrawRecordCopyRequest.SourceData = MakeVectorByteSpan(mGpuPlacementFrameData.mDrawRecords);
-        CopyRequests.push_back(PlacementDrawRecordCopyRequest);
-
-        Interface::CopyRequest PlacementDrawDispatchRecordCopyRequest{ Interface::CopyPriority::High };
-        PlacementDrawDispatchRecordCopyRequest.DestinationDefaultResource = FrameResource.mPlacementDrawDispatchRecordBuffer;
-        PlacementDrawDispatchRecordCopyRequest.DestinationOffset = 0u;
-        PlacementDrawDispatchRecordCopyRequest.SourceData = MakeVectorByteSpan(mGpuPlacementFrameData.mDrawDispatchRecords);
-        CopyRequests.push_back(PlacementDrawDispatchRecordCopyRequest);
-
-        Interface::CopyRequest PlacementCandidateRecordCopyRequest{ Interface::CopyPriority::High };
-        PlacementCandidateRecordCopyRequest.DestinationDefaultResource = FrameResource.mPlacementCandidateRecordBuffer;
-        PlacementCandidateRecordCopyRequest.DestinationOffset = 0u;
-        PlacementCandidateRecordCopyRequest.SourceData = MakeVectorByteSpan(mGpuPlacementFrameData.mCandidateRecords);
-        CopyRequests.push_back(PlacementCandidateRecordCopyRequest);
-
-        Interface::CopyRequest PlacementCandidateDispatchRecordCopyRequest{ Interface::CopyPriority::High };
-        PlacementCandidateDispatchRecordCopyRequest.DestinationDefaultResource = FrameResource.mPlacementCandidateDispatchRecordBuffer;
-        PlacementCandidateDispatchRecordCopyRequest.DestinationOffset = 0u;
-        PlacementCandidateDispatchRecordCopyRequest.SourceData = MakeVectorByteSpan(mGpuPlacementFrameData.mCandidateDispatchRecords);
-        CopyRequests.push_back(PlacementCandidateDispatchRecordCopyRequest);
-
-        if (mGpuPlacementFrameData.mSpacingRuleRecords.empty() == false) {
-            Interface::CopyRequest PlacementSpacingRuleRecordCopyRequest{ Interface::CopyPriority::High };
-            PlacementSpacingRuleRecordCopyRequest.DestinationDefaultResource = FrameResource.mPlacementSpacingRuleRecordBuffer;
-            PlacementSpacingRuleRecordCopyRequest.DestinationOffset = 0u;
-            PlacementSpacingRuleRecordCopyRequest.SourceData = MakeVectorByteSpan(mGpuPlacementFrameData.mSpacingRuleRecords);
-            CopyRequests.push_back(PlacementSpacingRuleRecordCopyRequest);
-        }
-
-        Interface::CopyRequest IndirectArgumentCopyRequest{ Interface::CopyPriority::High };
-        IndirectArgumentCopyRequest.DestinationDefaultResource = FrameResource.mIndirectArgumentBuffer;
-        IndirectArgumentCopyRequest.DestinationOffset = 0u;
-        IndirectArgumentCopyRequest.SourceData = MakeByteSpan(mGpuIndirectArguments.data(), sizeof(D3D12_DRAW_INDEXED_ARGUMENTS) * mGpuIndirectArguments.size());
-        CopyRequests.push_back(IndirectArgumentCopyRequest);
+        AppendCopyRequestIfChanged(EnvironmentGpuUploadHashIndex::SegmentContexts, FrameResource.mSegmentContextBuffer, MakeVectorByteSpan(mGpuSegmentContexts));
+        AppendCopyRequestIfChanged(EnvironmentGpuUploadHashIndex::DrawRecords, FrameResource.mDrawRecordBuffer, MakeVectorByteSpan(mGpuDrawRecords));
+        AppendCopyRequestIfChanged(EnvironmentGpuUploadHashIndex::PlacementConfig, FrameResource.mPlacementConfigBuffer, MakeByteSpan(&mGpuPlacementFrameData.mConfig, sizeof(EnvironmentGpuPlacementConfig)));
+        AppendCopyRequestIfChanged(EnvironmentGpuUploadHashIndex::PlacementRules, FrameResource.mPlacementRuleBuffer, MakeVectorByteSpan(mGpuPlacementFrameData.mRules));
+        AppendCopyRequestIfChanged(EnvironmentGpuUploadHashIndex::PlacementDrawRecords, FrameResource.mPlacementDrawRecordBuffer, MakeVectorByteSpan(mGpuPlacementFrameData.mDrawRecords));
+        AppendCopyRequestIfChanged(EnvironmentGpuUploadHashIndex::PlacementDrawDispatchRecords, FrameResource.mPlacementDrawDispatchRecordBuffer, MakeVectorByteSpan(mGpuPlacementFrameData.mDrawDispatchRecords));
+        AppendCopyRequestIfChanged(EnvironmentGpuUploadHashIndex::PlacementCandidateRecords, FrameResource.mPlacementCandidateRecordBuffer, MakeVectorByteSpan(mGpuPlacementFrameData.mCandidateRecords));
+        AppendCopyRequestIfChanged(EnvironmentGpuUploadHashIndex::PlacementCandidateDispatchRecords, FrameResource.mPlacementCandidateDispatchRecordBuffer, MakeVectorByteSpan(mGpuPlacementFrameData.mCandidateDispatchRecords));
+        AppendCopyRequestIfChanged(EnvironmentGpuUploadHashIndex::PlacementSpacingRuleRecords, FrameResource.mPlacementSpacingRuleRecordBuffer, MakeVectorByteSpan(mGpuPlacementFrameData.mSpacingRuleRecords));
 
         RenderContract::Future CopyFuture{ mCopyQueue->EnqueueCopyFuture(CopyRequests) };
         mCopyQueue->DispatchCopies();
@@ -1449,7 +1549,7 @@ namespace Game {
     }
 
     RenderContract::Future EnvironmentRuntime::DispatchGpuDrivenFrame(EnvironmentGpuDrivenFrameResource& FrameResource, const EnvironmentFrameInput& Input, const RenderContract::Future& CopyFuture, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCapacity, std::uint32_t CandidateRecordCount, std::uint32_t CandidateDispatchRecordCount, std::uint32_t DrawDispatchRecordCount, std::uint32_t SpacingRuleRecordCount) {
-        if (mComputeQueue == nullptr || mSrvHeap == nullptr || DrawRecordCount == 0u || CandidateRecordCount == 0u || CandidateDispatchRecordCount == 0u || DrawDispatchRecordCount == 0u || mGpuStatusUavIndex == InvalidDescriptorIndex || mCandidateGeneratePipelineState == nullptr || mCandidateClassifyPipelineState == nullptr || FrameResource.mInstanceContextSrvHandle.IsValid() == false || FrameResource.mInstanceContextUavHandle.IsValid() == false || FrameResource.mDrawRecordSrvHandle.IsValid() == false || FrameResource.mPlacementConfigSrvHandle.IsValid() == false || FrameResource.mPlacementRuleSrvHandle.IsValid() == false || FrameResource.mPlacementDrawRecordSrvHandle.IsValid() == false || FrameResource.mPlacementDrawDispatchRecordSrvHandle.IsValid() == false || FrameResource.mPlacementCandidateRecordSrvHandle.IsValid() == false || FrameResource.mPlacementCandidateDispatchRecordSrvHandle.IsValid() == false || FrameResource.mPlacementSpacingRuleRecordSrvHandle.IsValid() == false || FrameResource.mCandidateContextSrvHandle.IsValid() == false || FrameResource.mCandidateContextUavHandle.IsValid() == false || FrameResource.mIndirectArgumentUavHandle.IsValid() == false || FrameResource.mVisibleInstanceIndexUavHandle.IsValid() == false) {
+        if (mComputeQueue == nullptr || mSrvHeap == nullptr || DrawRecordCount == 0u || CandidateRecordCount == 0u || CandidateDispatchRecordCount == 0u || DrawDispatchRecordCount == 0u || mGpuStatusUavIndex == InvalidDescriptorIndex || mIndirectCommandInitializePipelineState == nullptr || mCandidateGeneratePipelineState == nullptr || mCandidateClassifyPipelineState == nullptr || FrameResource.mInstanceContextSrvHandle.IsValid() == false || FrameResource.mInstanceContextUavHandle.IsValid() == false || FrameResource.mDrawRecordSrvHandle.IsValid() == false || FrameResource.mPlacementConfigSrvHandle.IsValid() == false || FrameResource.mPlacementRuleSrvHandle.IsValid() == false || FrameResource.mPlacementDrawRecordSrvHandle.IsValid() == false || FrameResource.mPlacementDrawDispatchRecordSrvHandle.IsValid() == false || FrameResource.mPlacementCandidateRecordSrvHandle.IsValid() == false || FrameResource.mPlacementCandidateDispatchRecordSrvHandle.IsValid() == false || FrameResource.mPlacementSpacingRuleRecordSrvHandle.IsValid() == false || FrameResource.mCandidateContextSrvHandle.IsValid() == false || FrameResource.mCandidateContextUavHandle.IsValid() == false || FrameResource.mIndirectArgumentUavHandle.IsValid() == false || FrameResource.mVisibleInstanceIndexUavHandle.IsValid() == false) {
             return RenderContract::Future{};
         }
 
@@ -1464,8 +1564,34 @@ namespace Game {
         const EnvironmentGpuRootConstants RootConstants{ BuildEnvironmentGpuRootConstants(Input, mGpuStatusUavIndex, FrameResource.mInstanceContextSrvHandle.GetIndex(), FrameResource.mInstanceContextUavHandle.GetIndex(), FrameResource.mDrawRecordSrvHandle.GetIndex(), FrameResource.mPlacementConfigSrvHandle.GetIndex(), FrameResource.mPlacementRuleSrvHandle.GetIndex(), FrameResource.mPlacementDrawRecordSrvHandle.GetIndex(), FrameResource.mPlacementCandidateRecordSrvHandle.GetIndex(), FrameResource.mPlacementCandidateDispatchRecordSrvHandle.GetIndex(), FrameResource.mPlacementSpacingRuleRecordSrvHandle.GetIndex(), FrameResource.mPlacementDrawDispatchRecordSrvHandle.GetIndex(), FrameResource.mCandidateContextSrvHandle.GetIndex(), FrameResource.mCandidateContextUavHandle.GetIndex(), FrameResource.mIndirectArgumentUavHandle.GetIndex(), FrameResource.mVisibleInstanceIndexUavHandle.GetIndex(), DrawRecordCount, VisibleInstanceIndexCapacity, CandidateRecordCount, CandidateDispatchRecordCount, DrawDispatchRecordCount, SpacingRuleRecordCount) };
 
         const std::array<RenderContract::Future, 2> WaitFutures{ CopyFuture, Input.mTerrain.mUploadFuture };
+        Interface::ComputeQueueDispatchRequest InitializeRequest{};
+        InitializeRequest.WaitFuture = RenderContract::Future::Merge(WaitFutures);
+        InitializeRequest.RootSignature = mComputeRootSignature;
+        InitializeRequest.PipelineState = mIndirectCommandInitializePipelineState;
+        InitializeRequest.DescriptorHeaps = std::vector<ID3D12DescriptorHeap*>{ mSrvHeap->GetHeap() };
+        InitializeRequest.RecordCommands = [IndirectArgumentBuffer, RootConstants, IndirectArgumentStateBeforeDispatch](ID3D12GraphicsCommandList* CommandList) {
+            if (CommandList == nullptr) {
+                return;
+            }
+
+            if (IndirectArgumentBuffer != nullptr && IndirectArgumentStateBeforeDispatch != D3D12_RESOURCE_STATE_UNORDERED_ACCESS) {
+                D3D12_RESOURCE_BARRIER Barrier{};
+                Barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+                Barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+                Barrier.Transition.pResource = IndirectArgumentBuffer.Get();
+                Barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+                Barrier.Transition.StateBefore = IndirectArgumentStateBeforeDispatch;
+                Barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+                CommandList->ResourceBarrier(1u, &Barrier);
+            }
+
+            CommandList->SetComputeRoot32BitConstants(0, EnvironmentGpuRootConstantDwordCount, &RootConstants, 0);
+        };
+        InitializeRequest.ThreadGroupCountX = CalculateEnvironmentDispatchGroupCount(DrawRecordCount);
+        InitializeRequest.ThreadGroupCountY = 1u;
+        InitializeRequest.ThreadGroupCountZ = 1u;
+
         Interface::ComputeQueueDispatchRequest GenerateRequest{};
-        GenerateRequest.WaitFuture = RenderContract::Future::Merge(WaitFutures);
         GenerateRequest.RootSignature = mComputeRootSignature;
         GenerateRequest.PipelineState = mCandidateGeneratePipelineState;
         GenerateRequest.DescriptorHeaps = std::vector<ID3D12DescriptorHeap*>{ mSrvHeap->GetHeap() };
@@ -1495,12 +1621,12 @@ namespace Game {
         ClassifyRequest.RootSignature = mComputeRootSignature;
         ClassifyRequest.PipelineState = mCandidateClassifyPipelineState;
         ClassifyRequest.DescriptorHeaps = std::vector<ID3D12DescriptorHeap*>{ mSrvHeap->GetHeap() };
-        ClassifyRequest.RecordCommands = [InstanceContextBuffer, CandidateContextBuffer, VisibleInstanceIndexBuffer, IndirectArgumentBuffer, RootConstants, InstanceContextStateBeforeDispatch, VisibleInstanceIndexStateBeforeDispatch, IndirectArgumentStateBeforeDispatch](ID3D12GraphicsCommandList* CommandList) {
+        ClassifyRequest.RecordCommands = [InstanceContextBuffer, CandidateContextBuffer, VisibleInstanceIndexBuffer, IndirectArgumentBuffer, RootConstants, InstanceContextStateBeforeDispatch, VisibleInstanceIndexStateBeforeDispatch](ID3D12GraphicsCommandList* CommandList) {
             if (CommandList == nullptr) {
                 return;
             }
 
-            std::array<D3D12_RESOURCE_BARRIER, 4> Barriers{};
+            std::array<D3D12_RESOURCE_BARRIER, 5> Barriers{};
             std::uint32_t BarrierCount{};
             if (CandidateContextBuffer != nullptr) {
                 D3D12_RESOURCE_BARRIER& Barrier{ Barriers[BarrierCount] };
@@ -1535,14 +1661,11 @@ namespace Game {
                 BarrierCount += 1u;
             }
 
-            if (IndirectArgumentBuffer != nullptr && IndirectArgumentStateBeforeDispatch != D3D12_RESOURCE_STATE_UNORDERED_ACCESS) {
+            if (IndirectArgumentBuffer != nullptr) {
                 D3D12_RESOURCE_BARRIER& Barrier{ Barriers[BarrierCount] };
-                Barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+                Barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
                 Barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-                Barrier.Transition.pResource = IndirectArgumentBuffer.Get();
-                Barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-                Barrier.Transition.StateBefore = IndirectArgumentStateBeforeDispatch;
-                Barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+                Barrier.UAV.pResource = IndirectArgumentBuffer.Get();
                 BarrierCount += 1u;
             }
 
@@ -1556,7 +1679,7 @@ namespace Game {
         ClassifyRequest.ThreadGroupCountY = 1u;
         ClassifyRequest.ThreadGroupCountZ = 1u;
 
-        const std::array<Interface::ComputeQueueDispatchRequest, 2> DispatchRequests{ GenerateRequest, ClassifyRequest };
+        const std::array<Interface::ComputeQueueDispatchRequest, 3> DispatchRequests{ InitializeRequest, GenerateRequest, ClassifyRequest };
         RenderContract::Future GpuFuture{ mComputeQueue->EnqueueComputeFuture(std::span<const Interface::ComputeQueueDispatchRequest>{ DispatchRequests.data(), DispatchRequests.size() }) };
         mComputeQueue->DispatchComputes();
         FrameResource.mInstanceContextState = D3D12_RESOURCE_STATE_COMMON;
@@ -1609,53 +1732,32 @@ namespace Game {
         SrvDesc.Buffer.FirstElement = 0u;
         SrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 
-        SrvDesc.Buffer.NumElements = SafeInstanceContextCount;
-        SrvDesc.Buffer.StructureByteStride = sizeof(RenderContract::EnvironmentInstanceContext);
-        mDevice->CreateShaderResourceView(FrameResource.mInstanceContextBuffer.Get(), &SrvDesc, FrameResource.mInstanceContextSrvHandle.GetCPU());
+        auto CreateSrvIfChanged = [this, &FrameResource, &SrvDesc](EnvironmentGpuSrvCacheIndex CacheIndex, ID3D12Resource* Resource, D3D12_CPU_DESCRIPTOR_HANDLE Handle, std::uint32_t ElementCount, std::uint32_t Stride) {
+            EnvironmentGpuDrivenFrameResource::DescriptorCache& Cache{ FrameResource.mSrvCaches[static_cast<std::size_t>(CacheIndex)] };
+            if (IsEnvironmentGpuDescriptorCacheValid(Cache, Resource, ElementCount, Stride) == true) {
+                return;
+            }
 
-        SrvDesc.Buffer.NumElements = SafeSegmentContextCount;
-        SrvDesc.Buffer.StructureByteStride = sizeof(RenderContract::EnvironmentSegmentContext);
-        mDevice->CreateShaderResourceView(FrameResource.mSegmentContextBuffer.Get(), &SrvDesc, FrameResource.mSegmentContextSrvHandle.GetCPU());
+            SrvDesc.Buffer.NumElements = ElementCount;
+            SrvDesc.Buffer.StructureByteStride = Stride;
+            mDevice->CreateShaderResourceView(Resource, &SrvDesc, Handle);
+            Cache.mResource = Resource;
+            Cache.mElementCount = ElementCount;
+            Cache.mStride = Stride;
+        };
 
-        SrvDesc.Buffer.NumElements = SafeDrawRecordCount;
-        SrvDesc.Buffer.StructureByteStride = sizeof(RenderContract::EnvironmentDrawRecordGpu);
-        mDevice->CreateShaderResourceView(FrameResource.mDrawRecordBuffer.Get(), &SrvDesc, FrameResource.mDrawRecordSrvHandle.GetCPU());
-
-        SrvDesc.Buffer.NumElements = SafePlacementConfigCount;
-        SrvDesc.Buffer.StructureByteStride = sizeof(EnvironmentGpuPlacementConfig);
-        mDevice->CreateShaderResourceView(FrameResource.mPlacementConfigBuffer.Get(), &SrvDesc, FrameResource.mPlacementConfigSrvHandle.GetCPU());
-
-        SrvDesc.Buffer.NumElements = SafePlacementRuleCount;
-        SrvDesc.Buffer.StructureByteStride = sizeof(EnvironmentGpuPlacementRule);
-        mDevice->CreateShaderResourceView(FrameResource.mPlacementRuleBuffer.Get(), &SrvDesc, FrameResource.mPlacementRuleSrvHandle.GetCPU());
-
-        SrvDesc.Buffer.NumElements = SafePlacementDrawRecordCount;
-        SrvDesc.Buffer.StructureByteStride = sizeof(EnvironmentGpuPlacementDrawRecord);
-        mDevice->CreateShaderResourceView(FrameResource.mPlacementDrawRecordBuffer.Get(), &SrvDesc, FrameResource.mPlacementDrawRecordSrvHandle.GetCPU());
-
-        SrvDesc.Buffer.NumElements = SafePlacementDrawDispatchRecordCount;
-        SrvDesc.Buffer.StructureByteStride = sizeof(EnvironmentGpuPlacementDrawDispatchRecord);
-        mDevice->CreateShaderResourceView(FrameResource.mPlacementDrawDispatchRecordBuffer.Get(), &SrvDesc, FrameResource.mPlacementDrawDispatchRecordSrvHandle.GetCPU());
-
-        SrvDesc.Buffer.NumElements = SafePlacementCandidateRecordCount;
-        SrvDesc.Buffer.StructureByteStride = sizeof(EnvironmentGpuPlacementCandidateRecord);
-        mDevice->CreateShaderResourceView(FrameResource.mPlacementCandidateRecordBuffer.Get(), &SrvDesc, FrameResource.mPlacementCandidateRecordSrvHandle.GetCPU());
-
-        SrvDesc.Buffer.NumElements = SafePlacementCandidateDispatchRecordCount;
-        SrvDesc.Buffer.StructureByteStride = sizeof(EnvironmentGpuPlacementCandidateDispatchRecord);
-        mDevice->CreateShaderResourceView(FrameResource.mPlacementCandidateDispatchRecordBuffer.Get(), &SrvDesc, FrameResource.mPlacementCandidateDispatchRecordSrvHandle.GetCPU());
-
-        SrvDesc.Buffer.NumElements = SafePlacementSpacingRuleRecordCount;
-        SrvDesc.Buffer.StructureByteStride = sizeof(EnvironmentGpuPlacementSpacingRuleRecord);
-        mDevice->CreateShaderResourceView(FrameResource.mPlacementSpacingRuleRecordBuffer.Get(), &SrvDesc, FrameResource.mPlacementSpacingRuleRecordSrvHandle.GetCPU());
-
-        SrvDesc.Buffer.NumElements = SafeCandidateContextCount;
-        SrvDesc.Buffer.StructureByteStride = sizeof(EnvironmentGpuPlacementCandidate);
-        mDevice->CreateShaderResourceView(FrameResource.mCandidateContextBuffer.Get(), &SrvDesc, FrameResource.mCandidateContextSrvHandle.GetCPU());
-
-        SrvDesc.Buffer.NumElements = SafeVisibleInstanceIndexCount;
-        SrvDesc.Buffer.StructureByteStride = sizeof(std::uint32_t);
-        mDevice->CreateShaderResourceView(FrameResource.mVisibleInstanceIndexBuffer.Get(), &SrvDesc, FrameResource.mVisibleInstanceIndexSrvHandle.GetCPU());
+        CreateSrvIfChanged(EnvironmentGpuSrvCacheIndex::InstanceContext, FrameResource.mInstanceContextBuffer.Get(), FrameResource.mInstanceContextSrvHandle.GetCPU(), SafeInstanceContextCount, sizeof(RenderContract::EnvironmentInstanceContext));
+        CreateSrvIfChanged(EnvironmentGpuSrvCacheIndex::SegmentContext, FrameResource.mSegmentContextBuffer.Get(), FrameResource.mSegmentContextSrvHandle.GetCPU(), SafeSegmentContextCount, sizeof(RenderContract::EnvironmentSegmentContext));
+        CreateSrvIfChanged(EnvironmentGpuSrvCacheIndex::DrawRecord, FrameResource.mDrawRecordBuffer.Get(), FrameResource.mDrawRecordSrvHandle.GetCPU(), SafeDrawRecordCount, sizeof(RenderContract::EnvironmentDrawRecordGpu));
+        CreateSrvIfChanged(EnvironmentGpuSrvCacheIndex::PlacementConfig, FrameResource.mPlacementConfigBuffer.Get(), FrameResource.mPlacementConfigSrvHandle.GetCPU(), SafePlacementConfigCount, sizeof(EnvironmentGpuPlacementConfig));
+        CreateSrvIfChanged(EnvironmentGpuSrvCacheIndex::PlacementRule, FrameResource.mPlacementRuleBuffer.Get(), FrameResource.mPlacementRuleSrvHandle.GetCPU(), SafePlacementRuleCount, sizeof(EnvironmentGpuPlacementRule));
+        CreateSrvIfChanged(EnvironmentGpuSrvCacheIndex::PlacementDrawRecord, FrameResource.mPlacementDrawRecordBuffer.Get(), FrameResource.mPlacementDrawRecordSrvHandle.GetCPU(), SafePlacementDrawRecordCount, sizeof(EnvironmentGpuPlacementDrawRecord));
+        CreateSrvIfChanged(EnvironmentGpuSrvCacheIndex::PlacementDrawDispatchRecord, FrameResource.mPlacementDrawDispatchRecordBuffer.Get(), FrameResource.mPlacementDrawDispatchRecordSrvHandle.GetCPU(), SafePlacementDrawDispatchRecordCount, sizeof(EnvironmentGpuPlacementDrawDispatchRecord));
+        CreateSrvIfChanged(EnvironmentGpuSrvCacheIndex::PlacementCandidateRecord, FrameResource.mPlacementCandidateRecordBuffer.Get(), FrameResource.mPlacementCandidateRecordSrvHandle.GetCPU(), SafePlacementCandidateRecordCount, sizeof(EnvironmentGpuPlacementCandidateRecord));
+        CreateSrvIfChanged(EnvironmentGpuSrvCacheIndex::PlacementCandidateDispatchRecord, FrameResource.mPlacementCandidateDispatchRecordBuffer.Get(), FrameResource.mPlacementCandidateDispatchRecordSrvHandle.GetCPU(), SafePlacementCandidateDispatchRecordCount, sizeof(EnvironmentGpuPlacementCandidateDispatchRecord));
+        CreateSrvIfChanged(EnvironmentGpuSrvCacheIndex::PlacementSpacingRuleRecord, FrameResource.mPlacementSpacingRuleRecordBuffer.Get(), FrameResource.mPlacementSpacingRuleRecordSrvHandle.GetCPU(), SafePlacementSpacingRuleRecordCount, sizeof(EnvironmentGpuPlacementSpacingRuleRecord));
+        CreateSrvIfChanged(EnvironmentGpuSrvCacheIndex::CandidateContext, FrameResource.mCandidateContextBuffer.Get(), FrameResource.mCandidateContextSrvHandle.GetCPU(), SafeCandidateContextCount, sizeof(EnvironmentGpuPlacementCandidate));
+        CreateSrvIfChanged(EnvironmentGpuSrvCacheIndex::VisibleInstanceIndex, FrameResource.mVisibleInstanceIndexBuffer.Get(), FrameResource.mVisibleInstanceIndexSrvHandle.GetCPU(), SafeVisibleInstanceIndexCount, sizeof(std::uint32_t));
     }
 
     void EnvironmentRuntime::UpdateGpuDrivenUnorderedAccessViews(EnvironmentGpuDrivenFrameResource& FrameResource, std::uint32_t InstanceContextCount, std::uint32_t CandidateContextCount, std::uint32_t VisibleInstanceIndexCount, std::uint32_t IndirectArgumentCount) {
@@ -1670,25 +1772,29 @@ namespace Game {
         UavDesc.Buffer.CounterOffsetInBytes = 0u;
         UavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
 
-        UavDesc.Buffer.NumElements = std::max(InstanceContextCount, 1u);
-        UavDesc.Buffer.StructureByteStride = sizeof(RenderContract::EnvironmentInstanceContext);
-        mDevice->CreateUnorderedAccessView(FrameResource.mInstanceContextBuffer.Get(), nullptr, &UavDesc, FrameResource.mInstanceContextUavHandle.GetCPU());
+        auto CreateUavIfChanged = [this, &FrameResource, &UavDesc](EnvironmentGpuUavCacheIndex CacheIndex, ID3D12Resource* Resource, D3D12_CPU_DESCRIPTOR_HANDLE Handle, std::uint32_t ElementCount, std::uint32_t Stride) {
+            EnvironmentGpuDrivenFrameResource::DescriptorCache& Cache{ FrameResource.mUavCaches[static_cast<std::size_t>(CacheIndex)] };
+            if (IsEnvironmentGpuDescriptorCacheValid(Cache, Resource, ElementCount, Stride) == true) {
+                return;
+            }
 
-        UavDesc.Buffer.NumElements = std::max(CandidateContextCount, 1u);
-        UavDesc.Buffer.StructureByteStride = sizeof(EnvironmentGpuPlacementCandidate);
-        mDevice->CreateUnorderedAccessView(FrameResource.mCandidateContextBuffer.Get(), nullptr, &UavDesc, FrameResource.mCandidateContextUavHandle.GetCPU());
+            UavDesc.Buffer.NumElements = ElementCount;
+            UavDesc.Buffer.StructureByteStride = Stride;
+            mDevice->CreateUnorderedAccessView(Resource, nullptr, &UavDesc, Handle);
+            Cache.mResource = Resource;
+            Cache.mElementCount = ElementCount;
+            Cache.mStride = Stride;
+        };
 
-        UavDesc.Buffer.NumElements = std::max(VisibleInstanceIndexCount, 1u);
-        UavDesc.Buffer.StructureByteStride = sizeof(std::uint32_t);
-        mDevice->CreateUnorderedAccessView(FrameResource.mVisibleInstanceIndexBuffer.Get(), nullptr, &UavDesc, FrameResource.mVisibleInstanceIndexUavHandle.GetCPU());
-
-        UavDesc.Buffer.NumElements = std::max(IndirectArgumentCount, 1u);
-        UavDesc.Buffer.StructureByteStride = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
-        mDevice->CreateUnorderedAccessView(FrameResource.mIndirectArgumentBuffer.Get(), nullptr, &UavDesc, FrameResource.mIndirectArgumentUavHandle.GetCPU());
+        CreateUavIfChanged(EnvironmentGpuUavCacheIndex::InstanceContext, FrameResource.mInstanceContextBuffer.Get(), FrameResource.mInstanceContextUavHandle.GetCPU(), std::max(InstanceContextCount, 1u), sizeof(RenderContract::EnvironmentInstanceContext));
+        CreateUavIfChanged(EnvironmentGpuUavCacheIndex::CandidateContext, FrameResource.mCandidateContextBuffer.Get(), FrameResource.mCandidateContextUavHandle.GetCPU(), std::max(CandidateContextCount, 1u), sizeof(EnvironmentGpuPlacementCandidate));
+        CreateUavIfChanged(EnvironmentGpuUavCacheIndex::VisibleInstanceIndex, FrameResource.mVisibleInstanceIndexBuffer.Get(), FrameResource.mVisibleInstanceIndexUavHandle.GetCPU(), std::max(VisibleInstanceIndexCount, 1u), sizeof(std::uint32_t));
+        CreateUavIfChanged(EnvironmentGpuUavCacheIndex::IndirectCommand, FrameResource.mIndirectArgumentBuffer.Get(), FrameResource.mIndirectArgumentUavHandle.GetCPU(), std::max(IndirectArgumentCount, 1u), sizeof(EnvironmentIndirectDrawCommand));
     }
 
     void EnvironmentRuntime::ResetGpuResources() {
         mComputeRootSignature.Reset();
+        mIndirectCommandInitializePipelineState.Reset();
         mCandidateGeneratePipelineState.Reset();
         mCandidateClassifyPipelineState.Reset();
         mDrawIndexedIndirectCommandSignature.Reset();

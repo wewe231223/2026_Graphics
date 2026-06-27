@@ -14,6 +14,7 @@ Source=EnvironmentObjectShader.hlsl|Entry=PsMain|Profile=ps_6_6|Arguments=-O3
 Source=EnvironmentObjectShader.hlsl|Entry=PsMainDepth|Profile=ps_6_6|Arguments=-O3
 Source=EnvironmentObjectPrepareShader.hlsl|Entry=GenerateCandidatesCsMain|Profile=cs_6_6|Arguments=-O3
 Source=EnvironmentObjectPrepareShader.hlsl|Entry=ClassifyCandidatesCsMain|Profile=cs_6_6|Arguments=-O3
+Source=EnvironmentObjectPrepareShader.hlsl|Entry=InitializeIndirectCommandsCsMain|Profile=cs_6_6|Arguments=-O3
 
 Source=EnvironmentBillboardShader.hlsl|Entry=VsMain|Profile=vs_6_6|Arguments=-O3
 Source=EnvironmentBillboardShader.hlsl|Entry=GsMain|Profile=gs_6_6|Arguments=-O3

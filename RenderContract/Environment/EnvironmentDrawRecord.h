@@ -17,6 +17,7 @@ namespace RenderContract {
         std::uint32_t mSegmentContextIndex{};
         std::uint32_t mMaterialIndex{};
         std::uint32_t mFlags{};
+        std::uint32_t mShadowCascadeMask{ 0xffffffffu };
         bool mCastsShadow{ true };
     };
 }

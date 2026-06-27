@@ -110,6 +110,13 @@ namespace Game {
 
     struct EnvironmentGpuDrivenFrameResource final {
     public:
+        struct DescriptorCache final {
+        public:
+            ID3D12Resource* mResource{};
+            std::uint32_t mElementCount{};
+            std::uint32_t mStride{};
+        };
+
         Microsoft::WRL::ComPtr<ID3D12Resource> mInstanceContextBuffer{};
         Microsoft::WRL::ComPtr<ID3D12Resource> mSegmentContextBuffer{};
         Microsoft::WRL::ComPtr<ID3D12Resource> mDrawRecordBuffer{};
@@ -156,6 +163,9 @@ namespace Game {
         D3D12_RESOURCE_STATES mCandidateContextState{ D3D12_RESOURCE_STATE_COMMON };
         D3D12_RESOURCE_STATES mVisibleInstanceIndexState{ D3D12_RESOURCE_STATE_COMMON };
         D3D12_RESOURCE_STATES mIndirectArgumentState{ D3D12_RESOURCE_STATE_COMMON };
+        std::array<std::uint64_t, 10> mUploadedDataHashes{};
+        std::array<DescriptorCache, 13> mSrvCaches{};
+        std::array<DescriptorCache, 4> mUavCaches{};
     };
 
     class EnvironmentRuntime final : public RenderContract::IEnvironmentRenderRuntime {
@@ -191,7 +201,7 @@ namespace Game {
         bool CreateComputeRootSignature();
         bool CreateComputePipelineState();
         bool CreateGpuStatusBuffer();
-        bool EnsureDrawIndexedIndirectCommandSignature();
+        bool EnsureDrawIndexedIndirectCommandSignature(ID3D12RootSignature* RootSignature);
         std::vector<D3D12_VERTEX_BUFFER_VIEW> BuildVertexBufferViews(const RenderContract::IPipeline& Pipeline, const RenderContract::IModelNode& Mesh) const;
         const std::vector<D3D12_VERTEX_BUFFER_VIEW>& ResolveVertexBufferViews(const RenderContract::IPipeline& Pipeline, const RenderContract::IModelNode& Mesh);
         void RecordGBufferDirect(const RenderContract::EnvironmentGBufferRenderCommandContext& Context);
@@ -217,6 +227,7 @@ namespace Game {
         EnvironmentPhysicsAdapter* mPhysicsAdapter{};
         EnvironmentObjectRenderContext mRenderContext{};
         Microsoft::WRL::ComPtr<ID3D12RootSignature> mComputeRootSignature{};
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> mIndirectCommandInitializePipelineState{};
         Microsoft::WRL::ComPtr<ID3D12PipelineState> mCandidateGeneratePipelineState{};
         Microsoft::WRL::ComPtr<ID3D12PipelineState> mCandidateClassifyPipelineState{};
         Microsoft::WRL::ComPtr<ID3D12CommandSignature> mDrawIndexedIndirectCommandSignature{};

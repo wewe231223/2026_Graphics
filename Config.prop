@@ -1,10 +1,11 @@
 Windowed = true 
 Window_Width = 1920
 Window_Height = 1080
-Block_ImGui = false
+Block_ImGui = true
 Draw_DebugGeometry = false
+ShadowMapping_Enabled = true
 Use_PipelineScene = true
 EnvironmentObjects_Enabled = true
-EnvironmentObjects_GpuDrivenEnabled = true
+EnvironmentObjects_GpuDrivenEnabled = false
 PhysicsRuntime_Enabled = true
 RenderPhysicsDelaySeconds = 0.016667

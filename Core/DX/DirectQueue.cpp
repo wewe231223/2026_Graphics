@@ -254,7 +254,7 @@ namespace Core {
 
 			DrawCallResourceManager& DrawCallResources{ mDrawCallResourceManagers[CurrentIndex] };
 			EnsureShadowMapResources(Data.mShadowMappingParameter);
-			const std::uint32_t ShadowCascadeCount{ std::max<std::uint32_t>(1u, std::min<std::uint32_t>(Data.mShadowMappingParameter.mCascadeCount, mShadowCascadeCount)) };
+			const std::uint32_t ShadowCascadeCount{ std::min<std::uint32_t>(RenderContract::ResolveShadowCascadeCount(Data.mShadowMappingParameter), mShadowCascadeCount) };
 			for (std::uint32_t CascadeIndex{ 0 }; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1) {
 				TexPtr& ShadowDepthMap{ mShadowDepthMaps[CascadeIndex] };
 				if (ShadowDepthMap == nullptr) {
@@ -761,7 +761,21 @@ namespace Core {
 		}
 
 		void DirectQueue::EnsureShadowMapResources(const RenderContract::ShadowMappingParameter& ShadowMappingParameter) {
-			const uint32_t RequiredShadowCascadeCount{ std::max<uint32_t>(1u, std::min<uint32_t>(ShadowMappingParameter.mCascadeCount, RenderContract::ShadowCascadeMaxCount)) };
+			const uint32_t RequiredShadowCascadeCount{ RenderContract::ResolveShadowCascadeCount(ShadowMappingParameter) };
+			if (RequiredShadowCascadeCount == 0u) {
+				if (mShadowCascadeCount == 0u) {
+					return;
+				}
+
+				mShadowCascadeCount = 0u;
+				mShadowMapSizes = {};
+				for (TexPtr& ShadowDepthMap : mShadowDepthMaps) {
+					ShadowDepthMap.reset();
+				}
+
+				return;
+			}
+
 			std::array<uint32_t, RenderContract::ShadowCascadeMaxCount> RequiredShadowMapSizes{};
 			for (uint32_t ShadowCascadeIndex{ 0 }; ShadowCascadeIndex < RequiredShadowCascadeCount; ShadowCascadeIndex += 1) {
 				const float ShadowMapSizeFloat{ std::max(ShadowMappingParameter.mMinimumShadowMapSize, ShadowMappingParameter.mShadowMapSizes[ShadowCascadeIndex]) };

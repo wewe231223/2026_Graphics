@@ -27,7 +27,7 @@
                             },
                             "Alpha Cutoff": {
                                 "Kind": "Real",
-                                "Real": 0.5
+                                "Real": 0.99
                             },
                             "Base Color": {
                                 "Kind": "Vec4",
