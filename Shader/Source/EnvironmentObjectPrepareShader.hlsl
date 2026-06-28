@@ -40,7 +40,7 @@ struct EnvironmentGpuRootConstants
     uint mCellMetadataUavIndex;
     uint mAcceptedCandidateSrvIndex;
     uint mAcceptedCandidateUavIndex;
-    uint mFrustumPlanePadding0;
+    uint mCandidateDispatchRecordOffset;
     uint mFrustumPlanePadding1;
     float4 mFrustumPlanes[6];
 };
@@ -103,7 +103,7 @@ struct EnvironmentGpuPlacementRule
     uint LayerIndex;
     uint ExcludedLayerMask;
     uint InstancesPerCell;
-    uint Padding0;
+    uint PlacementMode;
 };
 
 struct EnvironmentGpuPlacementDrawRecord
@@ -840,8 +840,7 @@ void InitializeIndirectCommandsCsMain(uint3 DispatchThreadId : SV_DispatchThread
     IndirectCommandBuffer[DrawRecordIndex] = Command;
 }
 
-[numthreads(64, 1, 1)]
-void GenerateCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint3 GroupId : SV_GroupID, uint GroupIndex : SV_GroupIndex) {
+void GenerateCandidatesCore(uint3 DispatchThreadId, uint3 GroupId, uint GroupIndex) {
     RWStructuredBuffer<uint> StatusBuffer = ResourceDescriptorHeap[RootConstants.mStatusUavIndex];
     if (GroupId.x == 0u && GroupIndex == 0u) {
         StatusBuffer[0] = RootConstants.mFrameIndexLow;
@@ -858,11 +857,11 @@ void GenerateCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint
         StatusBuffer[11] = RootConstants.mSpacingRuleRecordCount;
     }
 
-    const uint CandidateDispatchRecordIndex = GroupId.x;
-    if (CandidateDispatchRecordIndex >= RootConstants.mCandidateDispatchRecordCount) {
+    if (GroupId.x >= RootConstants.mCandidateDispatchRecordCount) {
         return;
     }
 
+    const uint CandidateDispatchRecordIndex = RootConstants.mCandidateDispatchRecordOffset + GroupId.x;
     StructuredBuffer<float> HeightFieldBuffer = ResourceDescriptorHeap[RootConstants.mTerrainHeightSrvIndex];
     Texture2D<float4> Splat0Texture = ResourceDescriptorHeap[RootConstants.mTerrainSplatSrvIndex];
     Texture2D<float4> Splat1Texture = ResourceDescriptorHeap[RootConstants.mTerrainSplat1SrvIndex];
@@ -906,6 +905,16 @@ void GenerateCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint
     }
 
     StorePlacementCandidate(CandidateBuffer, AcceptedCandidateBuffer, CellMetadataBuffer, CandidateRecord, Rule, LocalIndex, Key, BuildGpuPlacementCandidate(Candidate, true));
+}
+
+[numthreads(64, 1, 1)]
+void GenerateDenseCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint3 GroupId : SV_GroupID, uint GroupIndex : SV_GroupIndex) {
+    GenerateCandidatesCore(DispatchThreadId, GroupId, GroupIndex);
+}
+
+[numthreads(64, 1, 1)]
+void GenerateSpacedCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint3 GroupId : SV_GroupID, uint GroupIndex : SV_GroupIndex) {
+    GenerateCandidatesCore(DispatchThreadId, GroupId, GroupIndex);
 }
 
 [numthreads(64, 1, 1)]

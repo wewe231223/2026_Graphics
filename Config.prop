@@ -6,6 +6,6 @@ Draw_DebugGeometry = false
 ShadowMapping_Enabled = true
 Use_PipelineScene = true
 EnvironmentObjects_Enabled = true
-EnvironmentObjects_GpuDrivenEnabled = false
+EnvironmentObjects_GpuDrivenEnabled = true
 PhysicsRuntime_Enabled = true
 RenderPhysicsDelaySeconds = 0.016667

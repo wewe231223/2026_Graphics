@@ -60,6 +60,8 @@ namespace {
     constexpr std::uint32_t EnvironmentGpuShadowCullCellChunkSize{ 2u };
     constexpr float EnvironmentGpuShadowCullVerticalExtent{ 4096.0f };
     constexpr std::uint32_t FullShadowCascadeMask{ 0xffffffffu };
+    constexpr std::uint32_t EnvironmentGpuPlacementModeDense{ 0u };
+    constexpr std::uint32_t EnvironmentGpuPlacementModeSpaced{ 1u };
 
     enum class FoliageUpdatePhase {
         Idle,
@@ -1790,7 +1792,7 @@ namespace {
         GpuRule.mLayerIndex = ResolveLayerIndex(Desc, BuildDesc);
         GpuRule.mExcludedLayerMask = BuildExcludedLayerMask(Desc, BuildDesc);
         GpuRule.mInstancesPerCell = Desc.mInstancesPerCell;
-        GpuRule.mPadding0 = 0u;
+        GpuRule.mPlacementMode = Desc.mMinimumSpacing > FoliageEpsilon ? EnvironmentGpuPlacementModeSpaced : EnvironmentGpuPlacementModeDense;
         return GpuRule;
     }
 
@@ -2056,6 +2058,8 @@ namespace {
         FrameData.mSpacingRuleRecords.clear();
         FrameData.mDrawRecords.clear();
         FrameData.mCandidateCount = 0u;
+        FrameData.mDenseCandidateDispatchRecordCount = 0u;
+        FrameData.mSpacedCandidateDispatchRecordCount = 0u;
     }
 
     bool IsGpuDrivenEnvironmentSegmentRenderable(const Game::EnvironmentObjectRenderSegment& Segment) {
@@ -2981,6 +2985,8 @@ namespace Game {
         std::vector<EnvironmentGpuPlacementDrawChunk>& DrawChunks{ mGpuPlacementDrawChunks };
         DrawChunks.clear();
 
+        std::vector<Game::EnvironmentGpuPlacementCandidateDispatchRecord> DenseCandidateDispatchRecords{};
+        std::vector<Game::EnvironmentGpuPlacementCandidateDispatchRecord> SpacedCandidateDispatchRecords{};
         std::uint32_t InstanceOffset{};
         std::uint32_t CandidateOffset{};
         std::uint32_t CellMetadataOffset{};
@@ -3017,7 +3023,8 @@ namespace Game {
             const Game::EnvironmentGpuPlacementCandidateRecord CandidateRecord{ BuildGpuPlacementCandidateRecord(0, 0, RuleCache.mCellCountX, RuleCache.mCellCountZ, RuleIndex, CandidateOffset, CandidateCount, CellMetadataOffset) };
             OutFrameData.mCandidateRecords.push_back(CandidateRecord);
             if (CandidateRadius > FoliageEpsilon) {
-                AppendGpuPlacementNewCellDispatchRecords(static_cast<std::uint32_t>(OutFrameData.mCandidateRecords.size() - 1ULL), GenerateMinimumCellX, GenerateMinimumCellZ, GenerateCellCountX, GenerateCellCountZ, RuleCache, OutFrameData.mCandidateDispatchRecords);
+                std::vector<Game::EnvironmentGpuPlacementCandidateDispatchRecord>& TargetDispatchRecords{ Rule.mMinimumSpacing > FoliageEpsilon ? SpacedCandidateDispatchRecords : DenseCandidateDispatchRecords };
+                AppendGpuPlacementNewCellDispatchRecords(static_cast<std::uint32_t>(OutFrameData.mCandidateRecords.size() - 1ULL), GenerateMinimumCellX, GenerateMinimumCellZ, GenerateCellCountX, GenerateCellCountZ, RuleCache, TargetDispatchRecords);
             }
 
             CandidateOffset = static_cast<std::uint32_t>(std::min<std::uint64_t>(static_cast<std::uint64_t>(CandidateOffset) + static_cast<std::uint64_t>(CandidateCount), std::numeric_limits<std::uint32_t>::max()));
@@ -3056,6 +3063,11 @@ namespace Game {
             }
         }
 
+        OutFrameData.mDenseCandidateDispatchRecordCount = static_cast<std::uint32_t>(std::min<std::size_t>(DenseCandidateDispatchRecords.size(), std::numeric_limits<std::uint32_t>::max()));
+        OutFrameData.mSpacedCandidateDispatchRecordCount = static_cast<std::uint32_t>(std::min<std::size_t>(SpacedCandidateDispatchRecords.size(), std::numeric_limits<std::uint32_t>::max()));
+        OutFrameData.mCandidateDispatchRecords.reserve(static_cast<std::size_t>(OutFrameData.mDenseCandidateDispatchRecordCount) + static_cast<std::size_t>(OutFrameData.mSpacedCandidateDispatchRecordCount));
+        OutFrameData.mCandidateDispatchRecords.insert(OutFrameData.mCandidateDispatchRecords.end(), DenseCandidateDispatchRecords.begin(), DenseCandidateDispatchRecords.begin() + OutFrameData.mDenseCandidateDispatchRecordCount);
+        OutFrameData.mCandidateDispatchRecords.insert(OutFrameData.mCandidateDispatchRecords.end(), SpacedCandidateDispatchRecords.begin(), SpacedCandidateDispatchRecords.begin() + OutFrameData.mSpacedCandidateDispatchRecordCount);
         OutFrameData.mCandidateCount = CandidateOffset;
         return OutFrameData.mRules.empty() == false && OutFrameData.mDrawRecords.empty() == false;
     }

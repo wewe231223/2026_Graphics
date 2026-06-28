@@ -47,7 +47,7 @@ namespace Game {
         std::uint32_t mLayerIndex{};
         std::uint32_t mExcludedLayerMask{};
         std::uint32_t mInstancesPerCell{};
-        std::uint32_t mPadding0{};
+        std::uint32_t mPlacementMode{};
     };
 
     struct alignas(16) EnvironmentGpuPlacementDrawRecord final {
@@ -148,5 +148,7 @@ namespace Game {
         std::vector<EnvironmentGpuPlacementSpacingRuleRecord> mSpacingRuleRecords{};
         std::vector<EnvironmentGpuPlacementDrawRecord> mDrawRecords{};
         std::uint32_t mCandidateCount{};
+        std::uint32_t mDenseCandidateDispatchRecordCount{};
+        std::uint32_t mSpacedCandidateDispatchRecordCount{};
     };
 }

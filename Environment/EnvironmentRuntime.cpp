@@ -103,7 +103,7 @@ namespace Game {
             std::uint32_t mCellMetadataUavIndex{};
             std::uint32_t mAcceptedCandidateSrvIndex{};
             std::uint32_t mAcceptedCandidateUavIndex{};
-            std::uint32_t mFrustumPlanePadding0{};
+            std::uint32_t mCandidateDispatchRecordOffset{};
             std::uint32_t mFrustumPlanePadding1{};
             std::array<std::uint32_t, 24> mFrustumPlanes{};
         };
@@ -536,6 +536,7 @@ namespace Game {
             Constants.mCandidateRecordCount = CandidateRecordCount;
             Constants.mPlacementCandidateDispatchRecordSrvIndex = PlacementCandidateDispatchRecordSrvIndex;
             Constants.mCandidateDispatchRecordCount = CandidateDispatchRecordCount;
+            Constants.mCandidateDispatchRecordOffset = 0u;
             Constants.mPlacementSpacingRuleRecordSrvIndex = PlacementSpacingRuleRecordSrvIndex;
             Constants.mSpacingRuleRecordCount = SpacingRuleRecordCount;
             Constants.mPlacementDrawDispatchRecordSrvIndex = PlacementDrawDispatchRecordSrvIndex;
@@ -575,7 +576,8 @@ namespace Game {
         mRenderContext{},
         mComputeRootSignature{},
         mIndirectCommandInitializePipelineState{},
-        mCandidateGeneratePipelineState{},
+        mDenseCandidateGeneratePipelineState{},
+        mSpacedCandidateGeneratePipelineState{},
         mCandidateClassifyPipelineState{},
         mDrawIndexedIndirectCommandSignature{},
         mGpuStatusBuffer{},
@@ -612,7 +614,8 @@ namespace Game {
         mRenderContext{ std::move(Other.mRenderContext) },
         mComputeRootSignature{ std::move(Other.mComputeRootSignature) },
         mIndirectCommandInitializePipelineState{ std::move(Other.mIndirectCommandInitializePipelineState) },
-        mCandidateGeneratePipelineState{ std::move(Other.mCandidateGeneratePipelineState) },
+        mDenseCandidateGeneratePipelineState{ std::move(Other.mDenseCandidateGeneratePipelineState) },
+        mSpacedCandidateGeneratePipelineState{ std::move(Other.mSpacedCandidateGeneratePipelineState) },
         mCandidateClassifyPipelineState{ std::move(Other.mCandidateClassifyPipelineState) },
         mDrawIndexedIndirectCommandSignature{ std::move(Other.mDrawIndexedIndirectCommandSignature) },
         mGpuStatusBuffer{ std::move(Other.mGpuStatusBuffer) },
@@ -641,6 +644,8 @@ namespace Game {
         Other.mComputeQueue = nullptr;
         Other.mPhysicsAdapter = nullptr;
         Other.mIndirectCommandInitializePipelineState.Reset();
+        Other.mDenseCandidateGeneratePipelineState.Reset();
+        Other.mSpacedCandidateGeneratePipelineState.Reset();
         Other.mDrawIndexedIndirectCommandSignature.Reset();
         Other.mVertexBufferViewCache.clear();
         Other.mGpuDrivenFrameResources = {};
@@ -668,7 +673,8 @@ namespace Game {
         mRenderContext = std::move(Other.mRenderContext);
         mComputeRootSignature = std::move(Other.mComputeRootSignature);
         mIndirectCommandInitializePipelineState = std::move(Other.mIndirectCommandInitializePipelineState);
-        mCandidateGeneratePipelineState = std::move(Other.mCandidateGeneratePipelineState);
+        mDenseCandidateGeneratePipelineState = std::move(Other.mDenseCandidateGeneratePipelineState);
+        mSpacedCandidateGeneratePipelineState = std::move(Other.mSpacedCandidateGeneratePipelineState);
         mCandidateClassifyPipelineState = std::move(Other.mCandidateClassifyPipelineState);
         mDrawIndexedIndirectCommandSignature = std::move(Other.mDrawIndexedIndirectCommandSignature);
         mGpuStatusBuffer = std::move(Other.mGpuStatusBuffer);
@@ -697,6 +703,8 @@ namespace Game {
         Other.mComputeQueue = nullptr;
         Other.mPhysicsAdapter = nullptr;
         Other.mIndirectCommandInitializePipelineState.Reset();
+        Other.mDenseCandidateGeneratePipelineState.Reset();
+        Other.mSpacedCandidateGeneratePipelineState.Reset();
         Other.mDrawIndexedIndirectCommandSignature.Reset();
         Other.mVertexBufferViewCache.clear();
         Other.mGpuDrivenFrameResources = {};
@@ -864,7 +872,7 @@ namespace Game {
         const RenderContract::Future CopyFuture{ RenderContract::Future::Merge(CopyFutures) };
         Widget::PerformanceProvider::Get().EndPhaseProfile();
         Widget::PerformanceProvider::Get().BeginPhaseProfile("EnvironmentGpuEnqueueCompute");
-        mLastGpuDispatchFuture = DispatchGpuDrivenFrame(FrameResource, Input, CopyFuture, DrawRecordCount, VisibleInstanceIndexCount, PlacementCandidateRecordCount, PlacementCandidateDispatchRecordCount, PlacementDrawDispatchRecordCount, PlacementSpacingRuleRecordCount);
+        mLastGpuDispatchFuture = DispatchGpuDrivenFrame(FrameResource, Input, CopyFuture, DrawRecordCount, VisibleInstanceIndexCount, PlacementCandidateRecordCount, PlacementCandidateDispatchRecordCount, mGpuPlacementFrameData.mDenseCandidateDispatchRecordCount, mGpuPlacementFrameData.mSpacedCandidateDispatchRecordCount, PlacementDrawDispatchRecordCount, PlacementSpacingRuleRecordCount);
         Widget::PerformanceProvider::Get().EndPhaseProfile();
         FillGpuDrivenFramePayload(FrameResource, RenderData, mLastGpuDispatchFuture);
         return mLastGpuDispatchFuture;
@@ -1397,7 +1405,11 @@ namespace Game {
             return false;
         }
 
-        if (CreateEnvironmentComputePipelineState(mDevice, mComputeRootSignature.Get(), "cs_6_6:GenerateCandidatesCsMain", mCandidateGeneratePipelineState) == false) {
+        if (CreateEnvironmentComputePipelineState(mDevice, mComputeRootSignature.Get(), "cs_6_6:GenerateDenseCandidatesCsMain", mDenseCandidateGeneratePipelineState) == false) {
+            return false;
+        }
+
+        if (CreateEnvironmentComputePipelineState(mDevice, mComputeRootSignature.Get(), "cs_6_6:GenerateSpacedCandidatesCsMain", mSpacedCandidateGeneratePipelineState) == false) {
             return false;
         }
 
@@ -1879,8 +1891,8 @@ namespace Game {
         return CopyFuture;
     }
 
-    RenderContract::Future EnvironmentRuntime::DispatchGpuDrivenFrame(EnvironmentGpuDrivenFrameResource& FrameResource, const EnvironmentFrameInput& Input, const RenderContract::Future& CopyFuture, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCapacity, std::uint32_t CandidateRecordCount, std::uint32_t CandidateDispatchRecordCount, std::uint32_t DrawDispatchRecordCount, std::uint32_t SpacingRuleRecordCount) {
-        if (mComputeQueue == nullptr || mSrvHeap == nullptr || DrawRecordCount == 0u || CandidateRecordCount == 0u || DrawDispatchRecordCount == 0u || mGpuStatusUavIndex == InvalidDescriptorIndex || mIndirectCommandInitializePipelineState == nullptr || mCandidateGeneratePipelineState == nullptr || mCandidateClassifyPipelineState == nullptr || FrameResource.mInstanceContextSrvHandle.IsValid() == false || FrameResource.mInstanceContextUavHandle.IsValid() == false || FrameResource.mDrawRecordSrvHandle.IsValid() == false || FrameResource.mPlacementConfigSrvHandle.IsValid() == false || FrameResource.mPlacementDrawRecordSrvHandle.IsValid() == false || FrameResource.mPlacementDrawDispatchRecordSrvHandle.IsValid() == false || FrameResource.mPlacementCandidateRecordSrvHandle.IsValid() == false || FrameResource.mPlacementCandidateDispatchRecordSrvHandle.IsValid() == false || FrameResource.mCandidateContextSrvHandle.IsValid() == false || FrameResource.mCandidateContextUavHandle.IsValid() == false || FrameResource.mIndirectArgumentUavHandle.IsValid() == false || FrameResource.mVisibleInstanceIndexUavHandle.IsValid() == false || mGpuPersistentResource.mSegmentContextSrvHandle.IsValid() == false || mGpuPersistentResource.mPlacementRuleSrvHandle.IsValid() == false || mGpuPersistentResource.mPlacementSpacingRuleRecordSrvHandle.IsValid() == false || mGpuPersistentResource.mCellMetadataSrvHandle.IsValid() == false || mGpuPersistentResource.mCellMetadataUavHandle.IsValid() == false || mGpuPersistentResource.mAcceptedCandidateSrvHandle.IsValid() == false || mGpuPersistentResource.mAcceptedCandidateUavHandle.IsValid() == false) {
+    RenderContract::Future EnvironmentRuntime::DispatchGpuDrivenFrame(EnvironmentGpuDrivenFrameResource& FrameResource, const EnvironmentFrameInput& Input, const RenderContract::Future& CopyFuture, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCapacity, std::uint32_t CandidateRecordCount, std::uint32_t CandidateDispatchRecordCount, std::uint32_t DenseCandidateDispatchRecordCount, std::uint32_t SpacedCandidateDispatchRecordCount, std::uint32_t DrawDispatchRecordCount, std::uint32_t SpacingRuleRecordCount) {
+        if (mComputeQueue == nullptr || mSrvHeap == nullptr || DrawRecordCount == 0u || CandidateRecordCount == 0u || DrawDispatchRecordCount == 0u || mGpuStatusUavIndex == InvalidDescriptorIndex || mIndirectCommandInitializePipelineState == nullptr || mDenseCandidateGeneratePipelineState == nullptr || mSpacedCandidateGeneratePipelineState == nullptr || mCandidateClassifyPipelineState == nullptr || FrameResource.mInstanceContextSrvHandle.IsValid() == false || FrameResource.mInstanceContextUavHandle.IsValid() == false || FrameResource.mDrawRecordSrvHandle.IsValid() == false || FrameResource.mPlacementConfigSrvHandle.IsValid() == false || FrameResource.mPlacementDrawRecordSrvHandle.IsValid() == false || FrameResource.mPlacementDrawDispatchRecordSrvHandle.IsValid() == false || FrameResource.mPlacementCandidateRecordSrvHandle.IsValid() == false || FrameResource.mPlacementCandidateDispatchRecordSrvHandle.IsValid() == false || FrameResource.mCandidateContextSrvHandle.IsValid() == false || FrameResource.mCandidateContextUavHandle.IsValid() == false || FrameResource.mIndirectArgumentUavHandle.IsValid() == false || FrameResource.mVisibleInstanceIndexUavHandle.IsValid() == false || mGpuPersistentResource.mSegmentContextSrvHandle.IsValid() == false || mGpuPersistentResource.mPlacementRuleSrvHandle.IsValid() == false || mGpuPersistentResource.mPlacementSpacingRuleRecordSrvHandle.IsValid() == false || mGpuPersistentResource.mCellMetadataSrvHandle.IsValid() == false || mGpuPersistentResource.mCellMetadataUavHandle.IsValid() == false || mGpuPersistentResource.mAcceptedCandidateSrvHandle.IsValid() == false || mGpuPersistentResource.mAcceptedCandidateUavHandle.IsValid() == false) {
             return RenderContract::Future{};
         }
 
@@ -1897,6 +1909,12 @@ namespace Game {
         const D3D12_RESOURCE_STATES CellMetadataStateBeforeDispatch{ mGpuPersistentResource.mCellMetadataState };
         const D3D12_RESOURCE_STATES AcceptedCandidateStateBeforeDispatch{ mGpuPersistentResource.mAcceptedCandidateState };
         const EnvironmentGpuRootConstants RootConstants{ BuildEnvironmentGpuRootConstants(Input, mGpuStatusUavIndex, FrameResource.mInstanceContextSrvHandle.GetIndex(), FrameResource.mInstanceContextUavHandle.GetIndex(), FrameResource.mDrawRecordSrvHandle.GetIndex(), FrameResource.mPlacementConfigSrvHandle.GetIndex(), mGpuPersistentResource.mPlacementRuleSrvHandle.GetIndex(), FrameResource.mPlacementDrawRecordSrvHandle.GetIndex(), FrameResource.mPlacementCandidateRecordSrvHandle.GetIndex(), FrameResource.mPlacementCandidateDispatchRecordSrvHandle.GetIndex(), mGpuPersistentResource.mPlacementSpacingRuleRecordSrvHandle.GetIndex(), FrameResource.mPlacementDrawDispatchRecordSrvHandle.GetIndex(), FrameResource.mCandidateContextSrvHandle.GetIndex(), FrameResource.mCandidateContextUavHandle.GetIndex(), FrameResource.mIndirectArgumentUavHandle.GetIndex(), FrameResource.mVisibleInstanceIndexUavHandle.GetIndex(), mGpuPersistentResource.mCellMetadataSrvHandle.GetIndex(), mGpuPersistentResource.mCellMetadataUavHandle.GetIndex(), mGpuPersistentResource.mAcceptedCandidateSrvHandle.GetIndex(), mGpuPersistentResource.mAcceptedCandidateUavHandle.GetIndex(), DrawRecordCount, VisibleInstanceIndexCapacity, CandidateRecordCount, CandidateDispatchRecordCount, DrawDispatchRecordCount, SpacingRuleRecordCount) };
+        EnvironmentGpuRootConstants DenseGenerateRootConstants{ RootConstants };
+        DenseGenerateRootConstants.mCandidateDispatchRecordCount = DenseCandidateDispatchRecordCount;
+        DenseGenerateRootConstants.mCandidateDispatchRecordOffset = 0u;
+        EnvironmentGpuRootConstants SpacedGenerateRootConstants{ RootConstants };
+        SpacedGenerateRootConstants.mCandidateDispatchRecordCount = SpacedCandidateDispatchRecordCount;
+        SpacedGenerateRootConstants.mCandidateDispatchRecordOffset = DenseCandidateDispatchRecordCount;
 
         const std::array<RenderContract::Future, 2> WaitFutures{ CopyFuture, Input.mTerrain.mUploadFuture };
         Interface::ComputeQueueDispatchRequest InitializeRequest{};
@@ -1926,11 +1944,11 @@ namespace Game {
         InitializeRequest.ThreadGroupCountY = 1u;
         InitializeRequest.ThreadGroupCountZ = 1u;
 
-        Interface::ComputeQueueDispatchRequest GenerateRequest{};
-        GenerateRequest.RootSignature = mComputeRootSignature;
-        GenerateRequest.PipelineState = mCandidateGeneratePipelineState;
-        GenerateRequest.DescriptorHeaps = std::vector<ID3D12DescriptorHeap*>{ mSrvHeap->GetHeap() };
-        GenerateRequest.RecordCommands = [CandidateContextBuffer, CellMetadataBuffer, AcceptedCandidateBuffer, RootConstants, CandidateContextStateBeforeDispatch, CellMetadataStateBeforeDispatch, AcceptedCandidateStateBeforeDispatch](ID3D12GraphicsCommandList* CommandList) {
+        Interface::ComputeQueueDispatchRequest DenseGenerateRequest{};
+        DenseGenerateRequest.RootSignature = mComputeRootSignature;
+        DenseGenerateRequest.PipelineState = mDenseCandidateGeneratePipelineState;
+        DenseGenerateRequest.DescriptorHeaps = std::vector<ID3D12DescriptorHeap*>{ mSrvHeap->GetHeap() };
+        DenseGenerateRequest.RecordCommands = [CandidateContextBuffer, CellMetadataBuffer, AcceptedCandidateBuffer, DenseGenerateRootConstants, CandidateContextStateBeforeDispatch, CellMetadataStateBeforeDispatch, AcceptedCandidateStateBeforeDispatch](ID3D12GraphicsCommandList* CommandList) {
             if (CommandList == nullptr) {
                 return;
             }
@@ -1974,11 +1992,56 @@ namespace Game {
                 CommandList->ResourceBarrier(BarrierCount, Barriers.data());
             }
 
-            CommandList->SetComputeRoot32BitConstants(0, EnvironmentGpuRootConstantDwordCount, &RootConstants, 0);
+            CommandList->SetComputeRoot32BitConstants(0, EnvironmentGpuRootConstantDwordCount, &DenseGenerateRootConstants, 0);
         };
-        GenerateRequest.ThreadGroupCountX = std::max(CandidateDispatchRecordCount, 1u);
-        GenerateRequest.ThreadGroupCountY = 1u;
-        GenerateRequest.ThreadGroupCountZ = 1u;
+        DenseGenerateRequest.ThreadGroupCountX = std::max(DenseCandidateDispatchRecordCount, 1u);
+        DenseGenerateRequest.ThreadGroupCountY = 1u;
+        DenseGenerateRequest.ThreadGroupCountZ = 1u;
+
+        Interface::ComputeQueueDispatchRequest SpacedGenerateRequest{};
+        SpacedGenerateRequest.RootSignature = mComputeRootSignature;
+        SpacedGenerateRequest.PipelineState = mSpacedCandidateGeneratePipelineState;
+        SpacedGenerateRequest.DescriptorHeaps = std::vector<ID3D12DescriptorHeap*>{ mSrvHeap->GetHeap() };
+        SpacedGenerateRequest.RecordCommands = [CandidateContextBuffer, CellMetadataBuffer, AcceptedCandidateBuffer, SpacedGenerateRootConstants](ID3D12GraphicsCommandList* CommandList) {
+            if (CommandList == nullptr) {
+                return;
+            }
+
+            std::array<D3D12_RESOURCE_BARRIER, 3> Barriers{};
+            std::uint32_t BarrierCount{};
+            if (CandidateContextBuffer != nullptr) {
+                D3D12_RESOURCE_BARRIER& Barrier{ Barriers[BarrierCount] };
+                Barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+                Barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+                Barrier.UAV.pResource = CandidateContextBuffer.Get();
+                BarrierCount += 1u;
+            }
+
+            if (CellMetadataBuffer != nullptr) {
+                D3D12_RESOURCE_BARRIER& Barrier{ Barriers[BarrierCount] };
+                Barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+                Barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+                Barrier.UAV.pResource = CellMetadataBuffer.Get();
+                BarrierCount += 1u;
+            }
+
+            if (AcceptedCandidateBuffer != nullptr) {
+                D3D12_RESOURCE_BARRIER& Barrier{ Barriers[BarrierCount] };
+                Barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+                Barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+                Barrier.UAV.pResource = AcceptedCandidateBuffer.Get();
+                BarrierCount += 1u;
+            }
+
+            if (BarrierCount > 0u) {
+                CommandList->ResourceBarrier(BarrierCount, Barriers.data());
+            }
+
+            CommandList->SetComputeRoot32BitConstants(0, EnvironmentGpuRootConstantDwordCount, &SpacedGenerateRootConstants, 0);
+        };
+        SpacedGenerateRequest.ThreadGroupCountX = std::max(SpacedCandidateDispatchRecordCount, 1u);
+        SpacedGenerateRequest.ThreadGroupCountY = 1u;
+        SpacedGenerateRequest.ThreadGroupCountZ = 1u;
 
         Interface::ComputeQueueDispatchRequest ClassifyRequest{};
         ClassifyRequest.RootSignature = mComputeRootSignature;
@@ -2053,7 +2116,7 @@ namespace Game {
         ClassifyRequest.ThreadGroupCountY = 1u;
         ClassifyRequest.ThreadGroupCountZ = 1u;
 
-        const std::array<Interface::ComputeQueueDispatchRequest, 3> DispatchRequests{ InitializeRequest, GenerateRequest, ClassifyRequest };
+        const std::array<Interface::ComputeQueueDispatchRequest, 4> DispatchRequests{ InitializeRequest, DenseGenerateRequest, SpacedGenerateRequest, ClassifyRequest };
         RenderContract::Future GpuFuture{ mComputeQueue->EnqueueComputeFuture(std::span<const Interface::ComputeQueueDispatchRequest>{ DispatchRequests.data(), DispatchRequests.size() }) };
         mComputeQueue->DispatchComputes();
         FrameResource.mInstanceContextState = D3D12_RESOURCE_STATE_COMMON;
@@ -2236,7 +2299,8 @@ namespace Game {
     void EnvironmentRuntime::ResetGpuResources() {
         mComputeRootSignature.Reset();
         mIndirectCommandInitializePipelineState.Reset();
-        mCandidateGeneratePipelineState.Reset();
+        mDenseCandidateGeneratePipelineState.Reset();
+        mSpacedCandidateGeneratePipelineState.Reset();
         mCandidateClassifyPipelineState.Reset();
         mDrawIndexedIndirectCommandSignature.Reset();
         mGpuStatusBuffer.Reset();
