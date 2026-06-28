@@ -36,8 +36,10 @@ struct EnvironmentGpuRootConstants
     uint mSpacingRuleRecordCount;
     uint mPlacementDrawDispatchRecordSrvIndex;
     uint mDrawDispatchRecordCount;
-    uint mPadding0;
-    uint mPadding1;
+    uint mCellMetadataSrvIndex;
+    uint mCellMetadataUavIndex;
+    uint mAcceptedCandidateSrvIndex;
+    uint mAcceptedCandidateUavIndex;
     float4 mFrustumPlanes[6];
 };
 
@@ -127,7 +129,7 @@ struct EnvironmentGpuPlacementCandidateRecord
     uint RuleIndex;
     uint CandidateOffset;
     uint CandidateCount;
-    uint Padding0;
+    uint CellMetadataOffset;
 };
 
 struct EnvironmentGpuPlacementCandidateDispatchRecord
@@ -162,6 +164,22 @@ struct EnvironmentGpuPlacementCandidate
     int CellZ;
     uint RuleIndex;
     uint InstanceIndex;
+};
+
+struct EnvironmentGpuPlacementCellMetadata
+{
+    int CellX;
+    int CellZ;
+    uint RuleIndex;
+    uint State;
+    uint CandidateOffset;
+    uint CandidateCount;
+    uint AcceptedCandidateOffset;
+    uint AcceptedCandidateCount;
+    uint LastTouchedFrameLow;
+    uint LastTouchedFrameHigh;
+    uint Padding0;
+    uint Padding1;
 };
 
 struct FoliageCandidateKey
@@ -583,6 +601,36 @@ EnvironmentGpuPlacementCandidate BuildInvalidGpuPlacementCandidate(FoliageCandid
     return GpuCandidate;
 }
 
+void StorePlacementCandidate(RWStructuredBuffer<EnvironmentGpuPlacementCandidate> CandidateBuffer, RWStructuredBuffer<EnvironmentGpuPlacementCandidate> AcceptedCandidateBuffer, RWStructuredBuffer<EnvironmentGpuPlacementCellMetadata> CellMetadataBuffer, EnvironmentGpuPlacementCandidateRecord CandidateRecord, EnvironmentGpuPlacementRule Rule, uint LocalIndex, FoliageCandidateKey Key, EnvironmentGpuPlacementCandidate GpuCandidate) {
+    const uint CandidateIndex = CandidateRecord.CandidateOffset + LocalIndex;
+    CandidateBuffer[CandidateIndex] = GpuCandidate;
+    AcceptedCandidateBuffer[CandidateIndex] = GpuCandidate;
+    if (Rule.InstancesPerCell == 0u || Key.InstanceIndex != 0u) {
+        return;
+    }
+
+    const uint CellLinearIndex = LocalIndex / Rule.InstancesPerCell;
+    const uint CellCandidateOffset = CellLinearIndex * Rule.InstancesPerCell;
+    if (CellCandidateOffset >= CandidateRecord.CandidateCount) {
+        return;
+    }
+
+    EnvironmentGpuPlacementCellMetadata CellMetadata;
+    CellMetadata.CellX = Key.CellX;
+    CellMetadata.CellZ = Key.CellZ;
+    CellMetadata.RuleIndex = CandidateRecord.RuleIndex;
+    CellMetadata.State = 1u;
+    CellMetadata.CandidateOffset = CandidateRecord.CandidateOffset + CellCandidateOffset;
+    CellMetadata.CandidateCount = min(Rule.InstancesPerCell, CandidateRecord.CandidateCount - CellCandidateOffset);
+    CellMetadata.AcceptedCandidateOffset = CellMetadata.CandidateOffset;
+    CellMetadata.AcceptedCandidateCount = CellMetadata.CandidateCount;
+    CellMetadata.LastTouchedFrameLow = RootConstants.mFrameIndexLow;
+    CellMetadata.LastTouchedFrameHigh = RootConstants.mFrameIndexHigh;
+    CellMetadata.Padding0 = 0u;
+    CellMetadata.Padding1 = 0u;
+    CellMetadataBuffer[CandidateRecord.CellMetadataOffset + CellLinearIndex] = CellMetadata;
+}
+
 bool PassesMinimumSpacing(StructuredBuffer<EnvironmentGpuPlacementCandidateRecord> CandidateRecordBuffer, StructuredBuffer<EnvironmentGpuPlacementCandidate> CandidateBuffer, StructuredBuffer<EnvironmentGpuPlacementRule> RuleBuffer, StructuredBuffer<EnvironmentGpuPlacementSpacingRuleRecord> SpacingRuleRecordBuffer, EnvironmentGpuPlacementConfig Config, EnvironmentGpuPlacementRule Rule, FoliageCandidate Candidate) {
     const float MinimumSpacing = Rule.ClusterForest.w;
     if (MinimumSpacing <= Config.DensityParameters.w || RootConstants.mSpacingRuleRecordCount == 0u) {
@@ -794,6 +842,8 @@ void GenerateCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint
     StructuredBuffer<EnvironmentGpuPlacementCandidateRecord> PlacementCandidateRecordBuffer = ResourceDescriptorHeap[RootConstants.mPlacementCandidateRecordSrvIndex];
     StructuredBuffer<EnvironmentGpuPlacementCandidateDispatchRecord> PlacementCandidateDispatchRecordBuffer = ResourceDescriptorHeap[RootConstants.mPlacementCandidateDispatchRecordSrvIndex];
     RWStructuredBuffer<EnvironmentGpuPlacementCandidate> CandidateBuffer = ResourceDescriptorHeap[RootConstants.mCandidateContextUavIndex];
+    RWStructuredBuffer<EnvironmentGpuPlacementCandidate> AcceptedCandidateBuffer = ResourceDescriptorHeap[RootConstants.mAcceptedCandidateUavIndex];
+    RWStructuredBuffer<EnvironmentGpuPlacementCellMetadata> CellMetadataBuffer = ResourceDescriptorHeap[RootConstants.mCellMetadataUavIndex];
 
     const EnvironmentGpuPlacementConfig Config = PlacementConfigBuffer[0];
     const EnvironmentGpuPlacementCandidateDispatchRecord CandidateDispatchRecord = PlacementCandidateDispatchRecordBuffer[CandidateDispatchRecordIndex];
@@ -811,17 +861,17 @@ void GenerateCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint
 
     const FoliageCandidateKey Key = BuildCandidateKey(CandidateRecord, Rule, LocalIndex);
     if (DoesCellIntersectRenderRadius(Config, Key.CellX, Key.CellZ) == false) {
-        CandidateBuffer[CandidateRecord.CandidateOffset + LocalIndex] = BuildInvalidGpuPlacementCandidate(Key);
+        StorePlacementCandidate(CandidateBuffer, AcceptedCandidateBuffer, CellMetadataBuffer, CandidateRecord, Rule, LocalIndex, Key, BuildInvalidGpuPlacementCandidate(Key));
         return;
     }
 
     FoliageCandidate Candidate;
     if (TryCreateBaseCandidate(HeightFieldBuffer, Splat0Texture, Splat1Texture, Config, Rule, Key, Candidate) == false) {
-        CandidateBuffer[CandidateRecord.CandidateOffset + LocalIndex] = BuildInvalidGpuPlacementCandidate(Key);
+        StorePlacementCandidate(CandidateBuffer, AcceptedCandidateBuffer, CellMetadataBuffer, CandidateRecord, Rule, LocalIndex, Key, BuildInvalidGpuPlacementCandidate(Key));
         return;
     }
 
-    CandidateBuffer[CandidateRecord.CandidateOffset + LocalIndex] = BuildGpuPlacementCandidate(Candidate, true);
+    StorePlacementCandidate(CandidateBuffer, AcceptedCandidateBuffer, CellMetadataBuffer, CandidateRecord, Rule, LocalIndex, Key, BuildGpuPlacementCandidate(Candidate, true));
 }
 
 [numthreads(64, 1, 1)]
@@ -838,7 +888,7 @@ void ClassifyCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint
     StructuredBuffer<EnvironmentGpuPlacementDrawDispatchRecord> PlacementDrawDispatchRecordBuffer = ResourceDescriptorHeap[RootConstants.mPlacementDrawDispatchRecordSrvIndex];
     StructuredBuffer<EnvironmentGpuPlacementCandidateRecord> PlacementCandidateRecordBuffer = ResourceDescriptorHeap[RootConstants.mPlacementCandidateRecordSrvIndex];
     StructuredBuffer<EnvironmentGpuPlacementSpacingRuleRecord> PlacementSpacingRuleRecordBuffer = ResourceDescriptorHeap[RootConstants.mPlacementSpacingRuleRecordSrvIndex];
-    StructuredBuffer<EnvironmentGpuPlacementCandidate> CandidateBuffer = ResourceDescriptorHeap[RootConstants.mCandidateContextSrvIndex];
+    StructuredBuffer<EnvironmentGpuPlacementCandidate> CandidateBuffer = ResourceDescriptorHeap[RootConstants.mAcceptedCandidateSrvIndex];
     RWStructuredBuffer<EnvironmentInstanceContextGpu> InstanceContextBuffer = ResourceDescriptorHeap[RootConstants.mInstanceContextUavIndex];
     RWStructuredBuffer<EnvironmentIndirectDrawCommand> IndirectCommandBuffer = ResourceDescriptorHeap[RootConstants.mIndirectArgumentUavIndex];
     RWStructuredBuffer<uint> VisibleInstanceIndexBuffer = ResourceDescriptorHeap[RootConstants.mVisibleInstanceIndexUavIndex];

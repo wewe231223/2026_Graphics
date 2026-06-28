@@ -75,7 +75,7 @@ namespace Game {
         std::uint32_t mRuleIndex{};
         std::uint32_t mCandidateOffset{};
         std::uint32_t mCandidateCount{};
-        std::uint32_t mPadding0{};
+        std::uint32_t mCellMetadataOffset{};
     };
 
     struct alignas(16) EnvironmentGpuPlacementCandidateDispatchRecord final {
@@ -112,6 +112,22 @@ namespace Game {
         std::uint32_t mInstanceIndex{};
     };
 
+    struct alignas(16) EnvironmentGpuPlacementCellMetadata final {
+    public:
+        std::int32_t mCellX{};
+        std::int32_t mCellZ{};
+        std::uint32_t mRuleIndex{};
+        std::uint32_t mState{};
+        std::uint32_t mCandidateOffset{};
+        std::uint32_t mCandidateCount{};
+        std::uint32_t mAcceptedCandidateOffset{};
+        std::uint32_t mAcceptedCandidateCount{};
+        std::uint32_t mLastTouchedFrameLow{};
+        std::uint32_t mLastTouchedFrameHigh{};
+        std::uint32_t mPadding0{};
+        std::uint32_t mPadding1{};
+    };
+
     static_assert(sizeof(EnvironmentGpuPlacementConfig) == 256u);
     static_assert(sizeof(EnvironmentGpuPlacementRule) == 80u);
     static_assert(sizeof(EnvironmentGpuPlacementDrawRecord) == 48u);
@@ -120,6 +136,7 @@ namespace Game {
     static_assert(sizeof(EnvironmentGpuPlacementDrawDispatchRecord) == 16u);
     static_assert(sizeof(EnvironmentGpuPlacementSpacingRuleRecord) == 16u);
     static_assert(sizeof(EnvironmentGpuPlacementCandidate) == 48u);
+    static_assert(sizeof(EnvironmentGpuPlacementCellMetadata) == 48u);
 
     struct EnvironmentGpuPlacementFrameData final {
     public:

@@ -1776,7 +1776,7 @@ namespace {
         return Chunks;
     }
 
-    Game::EnvironmentGpuPlacementCandidateRecord BuildGpuPlacementCandidateRecord(std::int32_t MinimumCellX, std::int32_t MinimumCellZ, std::uint32_t CellCountX, std::uint32_t CellCountZ, std::uint32_t RuleIndex, std::uint32_t CandidateOffset, std::uint32_t CandidateCount) {
+    Game::EnvironmentGpuPlacementCandidateRecord BuildGpuPlacementCandidateRecord(std::int32_t MinimumCellX, std::int32_t MinimumCellZ, std::uint32_t CellCountX, std::uint32_t CellCountZ, std::uint32_t RuleIndex, std::uint32_t CandidateOffset, std::uint32_t CandidateCount, std::uint32_t CellMetadataOffset) {
         Game::EnvironmentGpuPlacementCandidateRecord CandidateRecord{};
         CandidateRecord.mMinimumCellX = MinimumCellX;
         CandidateRecord.mMinimumCellZ = MinimumCellZ;
@@ -1785,7 +1785,7 @@ namespace {
         CandidateRecord.mRuleIndex = RuleIndex;
         CandidateRecord.mCandidateOffset = CandidateOffset;
         CandidateRecord.mCandidateCount = CandidateCount;
-        CandidateRecord.mPadding0 = 0u;
+        CandidateRecord.mCellMetadataOffset = CellMetadataOffset;
         return CandidateRecord;
     }
 
@@ -2683,9 +2683,10 @@ namespace Game {
 
         std::uint32_t InstanceOffset{};
         std::uint32_t CandidateOffset{};
+        std::uint32_t CellMetadataOffset{};
         for (std::uint32_t RuleIndex{}; RuleIndex < mRules.size(); RuleIndex += 1u) {
             if (RuleIndex >= mEnvironmentPrototypes.size()) {
-                OutFrameData.mCandidateRecords.push_back(BuildGpuPlacementCandidateRecord(0, 0, 0u, 0u, RuleIndex, CandidateOffset, 0u));
+                OutFrameData.mCandidateRecords.push_back(BuildGpuPlacementCandidateRecord(0, 0, 0u, 0u, RuleIndex, CandidateOffset, 0u, CellMetadataOffset));
                 continue;
             }
 
@@ -2707,10 +2708,11 @@ namespace Game {
             std::uint32_t CellCountX{};
             std::uint32_t CellCountZ{};
             const std::uint32_t CandidateCount{ CandidateRadius > FoliageEpsilon ? CalculateGpuPlacementCandidateCapacity(mConfig, FocusPosition, Rule, CandidateRadius, MinimumCellX, MinimumCellZ, CellCountX, CellCountZ) : 0u };
-            const Game::EnvironmentGpuPlacementCandidateRecord CandidateRecord{ BuildGpuPlacementCandidateRecord(MinimumCellX, MinimumCellZ, CellCountX, CellCountZ, RuleIndex, CandidateOffset, CandidateCount) };
+            const Game::EnvironmentGpuPlacementCandidateRecord CandidateRecord{ BuildGpuPlacementCandidateRecord(MinimumCellX, MinimumCellZ, CellCountX, CellCountZ, RuleIndex, CandidateOffset, CandidateCount, CellMetadataOffset) };
             OutFrameData.mCandidateRecords.push_back(CandidateRecord);
             AppendGpuPlacementCandidateDispatchRecords(static_cast<std::uint32_t>(OutFrameData.mCandidateRecords.size() - 1ULL), CandidateCount, OutFrameData.mCandidateDispatchRecords);
             CandidateOffset = static_cast<std::uint32_t>(std::min<std::uint64_t>(static_cast<std::uint64_t>(CandidateOffset) + static_cast<std::uint64_t>(CandidateCount), std::numeric_limits<std::uint32_t>::max()));
+            CellMetadataOffset = static_cast<std::uint32_t>(std::min<std::uint64_t>(static_cast<std::uint64_t>(CellMetadataOffset) + (static_cast<std::uint64_t>(CellCountX) * static_cast<std::uint64_t>(CellCountZ)), std::numeric_limits<std::uint32_t>::max()));
             if (CandidateCount == 0u) {
                 continue;
             }
