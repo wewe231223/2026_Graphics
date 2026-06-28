@@ -210,6 +210,77 @@ namespace Game {
             return DrawRecord.mPipeline != nullptr && DrawRecord.mPipeline->GetPrimitiveTopology() == D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
         }
 
+        RenderContract::EnvironmentGpuDrivenDrawBatch BuildEnvironmentGpuDrivenDrawBatch(const RenderContract::EnvironmentDrawRecord& DrawRecord, std::uint32_t DrawRecordOffset, std::uint32_t DrawRecordCount) {
+            RenderContract::EnvironmentGpuDrivenDrawBatch Batch{};
+            Batch.mPipeline = DrawRecord.mPipeline;
+            Batch.mMesh = DrawRecord.mMesh;
+            Batch.mDrawRecordOffset = DrawRecordOffset;
+            Batch.mDrawRecordCount = DrawRecordCount;
+            Batch.mShadowCascadeMask = DrawRecord.mShadowCascadeMask;
+            Batch.mCastsShadow = DrawRecord.mCastsShadow;
+            Batch.mBillboard = IsEnvironmentBillboardRecord(DrawRecord);
+            return Batch;
+        }
+
+        bool CanBatchEnvironmentGpuDrawRecords(const RenderContract::EnvironmentDrawRecord& Left, const RenderContract::EnvironmentDrawRecord& Right) {
+            const bool IsLeftBillboard{ IsEnvironmentBillboardRecord(Left) };
+            const bool IsRightBillboard{ IsEnvironmentBillboardRecord(Right) };
+            return Left.mMesh != nullptr && Left.mInstanceCount > 0u && Right.mMesh != nullptr && Right.mInstanceCount > 0u && Left.mMesh == Right.mMesh && Left.mSubMesh == Right.mSubMesh && IsLeftBillboard == IsRightBillboard && (IsLeftBillboard == false || Left.mPipeline == Right.mPipeline);
+        }
+
+        void BuildEnvironmentGpuDrivenGBufferDrawBatches(std::span<const RenderContract::EnvironmentDrawRecord> DrawRecords, std::vector<RenderContract::EnvironmentGpuDrivenDrawBatch>& OutBatches) {
+            OutBatches.clear();
+            std::size_t DrawRecordIndex{};
+            while (DrawRecordIndex < DrawRecords.size()) {
+                const RenderContract::EnvironmentDrawRecord& DrawRecord{ DrawRecords[DrawRecordIndex] };
+                if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u) {
+                    DrawRecordIndex += 1ULL;
+                    continue;
+                }
+
+                std::size_t BatchCount{ 1ULL };
+                while (DrawRecordIndex + BatchCount < DrawRecords.size() && CanBatchEnvironmentGpuDrawRecords(DrawRecord, DrawRecords[DrawRecordIndex + BatchCount]) == true) {
+                    BatchCount += 1ULL;
+                }
+
+                OutBatches.push_back(BuildEnvironmentGpuDrivenDrawBatch(DrawRecord, static_cast<std::uint32_t>(DrawRecordIndex), static_cast<std::uint32_t>(BatchCount)));
+                DrawRecordIndex += BatchCount;
+            }
+        }
+
+        void BuildEnvironmentGpuDrivenShadowDrawBatches(std::span<const RenderContract::EnvironmentDrawRecord> DrawRecords, const RenderContract::ShadowMappingParameter& ShadowMappingParameter, std::array<std::vector<RenderContract::EnvironmentGpuDrivenDrawBatch>, RenderContract::ShadowCascadeMaxCount>& OutBatches) {
+            for (std::vector<RenderContract::EnvironmentGpuDrivenDrawBatch>& Batches : OutBatches) {
+                Batches.clear();
+            }
+
+            const std::uint32_t ShadowCascadeCount{ RenderContract::ResolveShadowCascadeCount(ShadowMappingParameter) };
+            for (std::uint32_t CascadeIndex{}; CascadeIndex < ShadowCascadeCount; CascadeIndex += 1u) {
+                const std::uint32_t ShadowCascadeBit{ CascadeIndex < 32u ? 1u << CascadeIndex : 0u };
+                std::vector<RenderContract::EnvironmentGpuDrivenDrawBatch>& Batches{ OutBatches[CascadeIndex] };
+                std::size_t DrawRecordIndex{};
+                while (DrawRecordIndex < DrawRecords.size()) {
+                    const RenderContract::EnvironmentDrawRecord& DrawRecord{ DrawRecords[DrawRecordIndex] };
+                    if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mCastsShadow == false || (DrawRecord.mShadowCascadeMask & ShadowCascadeBit) == 0u) {
+                        DrawRecordIndex += 1ULL;
+                        continue;
+                    }
+
+                    std::size_t BatchCount{ 1ULL };
+                    while (DrawRecordIndex + BatchCount < DrawRecords.size()) {
+                        const RenderContract::EnvironmentDrawRecord& NextDrawRecord{ DrawRecords[DrawRecordIndex + BatchCount] };
+                        if (NextDrawRecord.mCastsShadow == false || (NextDrawRecord.mShadowCascadeMask & ShadowCascadeBit) == 0u || CanBatchEnvironmentGpuDrawRecords(DrawRecord, NextDrawRecord) == false) {
+                            break;
+                        }
+
+                        BatchCount += 1ULL;
+                    }
+
+                    Batches.push_back(BuildEnvironmentGpuDrivenDrawBatch(DrawRecord, static_cast<std::uint32_t>(DrawRecordIndex), static_cast<std::uint32_t>(BatchCount)));
+                    DrawRecordIndex += BatchCount;
+                }
+            }
+        }
+
         struct EnvironmentGpuDrawBuildItem final {
         public:
             RenderContract::EnvironmentDrawRecord mDrawRecord{};
@@ -734,12 +805,16 @@ namespace Game {
     }
 
     void EnvironmentRuntime::RecordGBuffer(const RenderContract::EnvironmentGBufferRenderCommandContext& Context) {
-        if (Context.mCommandList == nullptr || Context.mRenderFrameData == nullptr || Context.mRenderFrameData->mEnvironmentDrawRecords.empty() == true) {
+        if (Context.mCommandList == nullptr || Context.mRenderFrameData == nullptr) {
             return;
         }
 
         if (Context.mRenderFrameData->mEnvironmentGpuDrivenFrame.mEnabled == true) {
             RecordGBufferIndirect(Context);
+            return;
+        }
+
+        if (Context.mRenderFrameData->mEnvironmentDrawRecords.empty() == true) {
             return;
         }
 
@@ -974,7 +1049,7 @@ namespace Game {
         }
 
         const RenderContract::EnvironmentGpuDrivenFrameData& GpuFrame{ Context.mRenderFrameData->mEnvironmentGpuDrivenFrame };
-        if (GpuFrame.mEnabled == false || GpuFrame.mVisibleInstanceIndexResource == nullptr || GpuFrame.mIndirectArgumentResource == nullptr) {
+        if (GpuFrame.mEnabled == false || GpuFrame.mGBufferDrawBatches.empty() == true || GpuFrame.mVisibleInstanceIndexResource == nullptr || GpuFrame.mIndirectArgumentResource == nullptr) {
             return;
         }
 
@@ -1003,19 +1078,21 @@ namespace Game {
             Context.mCommandList->ResourceBarrier(static_cast<UINT>(Barriers.size()), Barriers.data());
         }
 
+        const RenderContract::IPipeline* ObjectPipeline{};
+        bool IsObjectPipelineResolved{};
         const RenderContract::IPipeline* ActivePipeline{ nullptr };
-        const std::size_t DrawRecordCount{ std::min<std::size_t>(Context.mRenderFrameData->mEnvironmentDrawRecords.size(), GpuFrame.mDrawRecordCount) };
-        std::size_t DrawRecordIndex{};
-        while (DrawRecordIndex < DrawRecordCount) {
-            const RenderContract::EnvironmentDrawRecord& DrawRecord{ Context.mRenderFrameData->mEnvironmentDrawRecords[DrawRecordIndex] };
-            if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u) {
-                DrawRecordIndex += 1ULL;
+        for (const RenderContract::EnvironmentGpuDrivenDrawBatch& Batch : GpuFrame.mGBufferDrawBatches) {
+            if (Batch.mMesh == nullptr || Batch.mDrawRecordCount == 0u || Batch.mDrawRecordOffset >= GpuFrame.mDrawRecordCount) {
                 continue;
             }
 
-            const RenderContract::IPipeline* Pipeline{ IsEnvironmentBillboardRecord(DrawRecord) == true ? DrawRecord.mPipeline : Context.mPipelineProvider->ResolveEnvironmentObjectPipeline() };
+            if (Batch.mBillboard == false && IsObjectPipelineResolved == false) {
+                ObjectPipeline = Context.mPipelineProvider->ResolveEnvironmentObjectPipeline();
+                IsObjectPipelineResolved = true;
+            }
+
+            const RenderContract::IPipeline* Pipeline{ Batch.mBillboard == true ? Batch.mPipeline : ObjectPipeline };
             if (Pipeline == nullptr || EnsureDrawIndexedIndirectCommandSignature(Pipeline->GetRootSignature()) == false) {
-                DrawRecordIndex += 1ULL;
                 continue;
             }
 
@@ -1026,7 +1103,7 @@ namespace Game {
             RootConstants.mModelContextSrvIndex = GpuFrame.mInstanceContextSrvIndex;
             RootConstants.mBonePaletteSrvIndex = GpuFrame.mSegmentContextSrvIndex;
             RootConstants.mDrawRecordSrvIndex = GpuFrame.mDrawRecordSrvIndex;
-            RootConstants.mDrawRecordBaseIndex = static_cast<std::uint32_t>(DrawRecordIndex);
+            RootConstants.mDrawRecordBaseIndex = Batch.mDrawRecordOffset;
             RootConstants.mMaterialSrvIndex = Context.mMaterialSrvIndex;
             RootConstants.mMaterialTextureTableSrvIndex = Context.mMaterialTextureTableSrvIndex;
             RootConstants.mShadowMappingParameterSrvIndex = InvalidDescriptorIndex;
@@ -1038,32 +1115,17 @@ namespace Game {
 
             Context.mCommandList->IASetPrimitiveTopology(Pipeline->GetPrimitiveTopology());
 
-            const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*Pipeline, *DrawRecord.mMesh) };
+            const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*Pipeline, *Batch.mMesh) };
             if (VertexBufferViews.empty() == false) {
                 Context.mCommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
             }
 
-            const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ DrawRecord.mMesh->GetIndexBufferView() };
+            const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ Batch.mMesh->GetIndexBufferView() };
             Context.mCommandList->IASetIndexBuffer(&IndexBufferView);
 
-            std::size_t BatchCount{ 1ULL };
-            while (DrawRecordIndex + BatchCount < DrawRecordCount) {
-                const RenderContract::EnvironmentDrawRecord& NextDrawRecord{ Context.mRenderFrameData->mEnvironmentDrawRecords[DrawRecordIndex + BatchCount] };
-                if (NextDrawRecord.mMesh == nullptr || NextDrawRecord.mInstanceCount == 0u || NextDrawRecord.mMesh != DrawRecord.mMesh) {
-                    break;
-                }
-
-                const RenderContract::IPipeline* NextPipeline{ IsEnvironmentBillboardRecord(NextDrawRecord) == true ? NextDrawRecord.mPipeline : Context.mPipelineProvider->ResolveEnvironmentObjectPipeline() };
-                if (NextPipeline != Pipeline) {
-                    break;
-                }
-
-                BatchCount += 1ULL;
-            }
-
-            const std::uint64_t IndirectArgumentOffset{ sizeof(EnvironmentIndirectDrawCommand) * DrawRecordIndex };
-            Context.mCommandList->ExecuteIndirect(mDrawIndexedIndirectCommandSignature.Get(), static_cast<UINT>(BatchCount), GpuFrame.mIndirectArgumentResource, IndirectArgumentOffset, nullptr, 0u);
-            DrawRecordIndex += BatchCount;
+            const std::uint32_t SafeDrawRecordCount{ std::min<std::uint32_t>(Batch.mDrawRecordCount, GpuFrame.mDrawRecordCount - Batch.mDrawRecordOffset) };
+            const std::uint64_t IndirectArgumentOffset{ sizeof(EnvironmentIndirectDrawCommand) * static_cast<std::uint64_t>(Batch.mDrawRecordOffset) };
+            Context.mCommandList->ExecuteIndirect(mDrawIndexedIndirectCommandSignature.Get(), SafeDrawRecordCount, GpuFrame.mIndirectArgumentResource, IndirectArgumentOffset, nullptr, 0u);
         }
 
         std::array<D3D12_RESOURCE_BARRIER, 3> RestoreBarriers{};
@@ -1123,34 +1185,48 @@ namespace Game {
             Context.mCommandList->ResourceBarrier(static_cast<UINT>(Barriers.size()), Barriers.data());
         }
 
-        const std::uint32_t ShadowCascadeBit{ Context.mShadowFrameGlobalsIndex < 32u ? 1u << Context.mShadowFrameGlobalsIndex : 0u };
+        if (Context.mShadowFrameGlobalsIndex >= GpuFrame.mShadowDrawBatches.size() || GpuFrame.mShadowDrawBatches[Context.mShadowFrameGlobalsIndex].empty() == true) {
+            Widget::PerformanceProvider::Get().EndPhaseProfile();
+            return;
+        }
+
+        const RenderContract::IPipeline* ObjectDepthPipeline{};
+        const RenderContract::IPipeline* BillboardDepthPipeline{};
+        bool IsObjectDepthPipelineResolved{};
+        bool IsBillboardDepthPipelineResolved{};
         const RenderContract::IPipeline* ActivePipeline{ nullptr };
-        const std::size_t DrawRecordCount{ std::min<std::size_t>(Context.mRenderFrameData->mEnvironmentDrawRecords.size(), GpuFrame.mDrawRecordCount) };
-        std::size_t DrawRecordIndex{};
-        while (DrawRecordIndex < DrawRecordCount) {
-            const RenderContract::EnvironmentDrawRecord& DrawRecord{ Context.mRenderFrameData->mEnvironmentDrawRecords[DrawRecordIndex] };
-            if (DrawRecord.mMesh == nullptr || DrawRecord.mInstanceCount == 0u || DrawRecord.mCastsShadow == false || (DrawRecord.mShadowCascadeMask & ShadowCascadeBit) == 0u) {
-                DrawRecordIndex += 1ULL;
+        if (Context.mDynamicDepthBiasCommandList != nullptr) {
+            Context.mDynamicDepthBiasCommandList->RSSetDepthBias(Context.mRasterDepthBias, Context.mRasterDepthBiasClamp, Context.mRasterSlopeScaledDepthBias);
+        }
+
+        for (const RenderContract::EnvironmentGpuDrivenDrawBatch& Batch : GpuFrame.mShadowDrawBatches[Context.mShadowFrameGlobalsIndex]) {
+            if (Batch.mMesh == nullptr || Batch.mDrawRecordCount == 0u || Batch.mDrawRecordOffset >= GpuFrame.mDrawRecordCount) {
                 continue;
             }
 
-            const RenderContract::IPipeline* Pipeline{ IsEnvironmentBillboardRecord(DrawRecord) == true ? Context.mPipelineProvider->ResolveEnvironmentBillboardDepthPipeline() : Context.mPipelineProvider->ResolveEnvironmentObjectDepthPipeline() };
+            if (Batch.mBillboard == true && IsBillboardDepthPipelineResolved == false) {
+                BillboardDepthPipeline = Context.mPipelineProvider->ResolveEnvironmentBillboardDepthPipeline();
+                IsBillboardDepthPipelineResolved = true;
+            }
+
+            if (Batch.mBillboard == false && IsObjectDepthPipelineResolved == false) {
+                ObjectDepthPipeline = Context.mPipelineProvider->ResolveEnvironmentObjectDepthPipeline();
+                IsObjectDepthPipelineResolved = true;
+            }
+
+            const RenderContract::IPipeline* Pipeline{ Batch.mBillboard == true ? BillboardDepthPipeline : ObjectDepthPipeline };
             if (Pipeline == nullptr || EnsureDrawIndexedIndirectCommandSignature(Pipeline->GetRootSignature()) == false) {
-                DrawRecordIndex += 1ULL;
                 continue;
             }
 
             ActivePipeline = Pipeline->Set(ActivePipeline, Context.mCommandList);
-            if (Context.mDynamicDepthBiasCommandList != nullptr) {
-                Context.mDynamicDepthBiasCommandList->RSSetDepthBias(Context.mRasterDepthBias, Context.mRasterDepthBiasClamp, Context.mRasterSlopeScaledDepthBias);
-            }
 
             DrawRootConstantsB1 RootConstants{};
             RootConstants.mFrameGlobalsSrvIndex = Context.mFrameGlobalsSrvIndex;
             RootConstants.mModelContextSrvIndex = GpuFrame.mInstanceContextSrvIndex;
             RootConstants.mBonePaletteSrvIndex = GpuFrame.mSegmentContextSrvIndex;
             RootConstants.mDrawRecordSrvIndex = GpuFrame.mDrawRecordSrvIndex;
-            RootConstants.mDrawRecordBaseIndex = static_cast<std::uint32_t>(DrawRecordIndex);
+            RootConstants.mDrawRecordBaseIndex = Batch.mDrawRecordOffset;
             RootConstants.mMaterialSrvIndex = Context.mMaterialSrvIndex;
             RootConstants.mMaterialTextureTableSrvIndex = Context.mMaterialTextureTableSrvIndex;
             RootConstants.mShadowMappingParameterSrvIndex = InvalidDescriptorIndex;
@@ -1162,32 +1238,17 @@ namespace Game {
 
             Context.mCommandList->IASetPrimitiveTopology(Pipeline->GetPrimitiveTopology());
 
-            const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*Pipeline, *DrawRecord.mMesh) };
+            const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VertexBufferViews{ ResolveVertexBufferViews(*Pipeline, *Batch.mMesh) };
             if (VertexBufferViews.empty() == false) {
                 Context.mCommandList->IASetVertexBuffers(0, static_cast<UINT>(VertexBufferViews.size()), VertexBufferViews.data());
             }
 
-            const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ DrawRecord.mMesh->GetIndexBufferView() };
+            const D3D12_INDEX_BUFFER_VIEW& IndexBufferView{ Batch.mMesh->GetIndexBufferView() };
             Context.mCommandList->IASetIndexBuffer(&IndexBufferView);
 
-            std::size_t BatchCount{ 1ULL };
-            while (DrawRecordIndex + BatchCount < DrawRecordCount) {
-                const RenderContract::EnvironmentDrawRecord& NextDrawRecord{ Context.mRenderFrameData->mEnvironmentDrawRecords[DrawRecordIndex + BatchCount] };
-                if (NextDrawRecord.mMesh == nullptr || NextDrawRecord.mInstanceCount == 0u || NextDrawRecord.mCastsShadow == false || (NextDrawRecord.mShadowCascadeMask & ShadowCascadeBit) == 0u || NextDrawRecord.mMesh != DrawRecord.mMesh) {
-                    break;
-                }
-
-                const RenderContract::IPipeline* NextPipeline{ IsEnvironmentBillboardRecord(NextDrawRecord) == true ? Context.mPipelineProvider->ResolveEnvironmentBillboardDepthPipeline() : Context.mPipelineProvider->ResolveEnvironmentObjectDepthPipeline() };
-                if (NextPipeline != Pipeline) {
-                    break;
-                }
-
-                BatchCount += 1ULL;
-            }
-
-            const std::uint64_t IndirectArgumentOffset{ sizeof(EnvironmentIndirectDrawCommand) * DrawRecordIndex };
-            Context.mCommandList->ExecuteIndirect(mDrawIndexedIndirectCommandSignature.Get(), static_cast<UINT>(BatchCount), GpuFrame.mIndirectArgumentResource, IndirectArgumentOffset, nullptr, 0u);
-            DrawRecordIndex += BatchCount;
+            const std::uint32_t SafeDrawRecordCount{ std::min<std::uint32_t>(Batch.mDrawRecordCount, GpuFrame.mDrawRecordCount - Batch.mDrawRecordOffset) };
+            const std::uint64_t IndirectArgumentOffset{ sizeof(EnvironmentIndirectDrawCommand) * static_cast<std::uint64_t>(Batch.mDrawRecordOffset) };
+            Context.mCommandList->ExecuteIndirect(mDrawIndexedIndirectCommandSignature.Get(), SafeDrawRecordCount, GpuFrame.mIndirectArgumentResource, IndirectArgumentOffset, nullptr, 0u);
         }
         Widget::PerformanceProvider::Get().EndPhaseProfile();
     }
@@ -1915,8 +1976,10 @@ namespace Game {
         Payload.mVisibleInstanceIndexSrvIndex = FrameResource.mVisibleInstanceIndexSrvHandle.GetIndex();
         Payload.mDrawRecordCount = static_cast<std::uint32_t>(mGpuDrawRecords.size());
         Payload.mInstanceContextCount = mGpuInstanceContextCount;
+        BuildEnvironmentGpuDrivenGBufferDrawBatches(std::span<const RenderContract::EnvironmentDrawRecord>{ RenderData.mEnvironmentDrawRecords.data(), RenderData.mEnvironmentDrawRecords.size() }, Payload.mGBufferDrawBatches);
+        BuildEnvironmentGpuDrivenShadowDrawBatches(std::span<const RenderContract::EnvironmentDrawRecord>{ RenderData.mEnvironmentDrawRecords.data(), RenderData.mEnvironmentDrawRecords.size() }, RenderData.mShadowMappingParameter, Payload.mShadowDrawBatches);
         Payload.mEnabled = GpuDispatchFuture.IsValid() == true && Payload.mInstanceContextResource != nullptr && Payload.mSegmentContextResource != nullptr && Payload.mDrawRecordResource != nullptr && Payload.mVisibleInstanceIndexResource != nullptr && Payload.mIndirectArgumentResource != nullptr;
-        RenderData.mEnvironmentGpuDrivenFrame = Payload;
+        RenderData.mEnvironmentGpuDrivenFrame = std::move(Payload);
     }
 
     void EnvironmentRuntime::UpdateGpuPersistentShaderResourceViews(EnvironmentGpuPersistentResource& PersistentResource, std::uint32_t SegmentContextCount, std::uint32_t PlacementRuleCount, std::uint32_t PlacementSpacingRuleRecordCount, std::uint32_t CellMetadataCount, std::uint32_t AcceptedCandidateCount) {
