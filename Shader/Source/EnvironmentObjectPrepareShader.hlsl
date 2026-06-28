@@ -32,8 +32,8 @@ struct EnvironmentGpuRootConstants
     uint mCandidateRecordCount;
     uint mPlacementCandidateDispatchRecordSrvIndex;
     uint mCandidateDispatchRecordCount;
-    uint mPlacementSpacingRuleRecordSrvIndex;
-    uint mSpacingRuleRecordCount;
+    uint mPlacementPointAtlasRecordSrvIndex;
+    uint mPlacementPointAtlasPointSrvIndex;
     uint mPlacementDrawDispatchRecordSrvIndex;
     uint mDrawDispatchRecordCount;
     uint mCellMetadataSrvIndex;
@@ -158,6 +158,19 @@ struct EnvironmentGpuPlacementSpacingRuleRecord
     uint Padding2;
 };
 
+struct EnvironmentGpuPlacementPointAtlasRecord
+{
+    uint PointOffset;
+    uint TilePointCount;
+    uint TileCount;
+    uint CellStrideRankThreshold;
+};
+
+struct EnvironmentGpuPlacementPointAtlasPoint
+{
+    float4 LocalPosition;
+};
+
 struct EnvironmentGpuPlacementCandidate
 {
     float4 PositionScale;
@@ -203,6 +216,8 @@ struct FoliageCandidate
 static const uint FoliageHashOffset = 2166136261u;
 static const uint FoliageHashPrime = 16777619u;
 static const uint EnvironmentComputeThreadGroupSize = 64u;
+static const uint EnvironmentPointAtlasStrideMask = 0x0000ffffu;
+static const uint EnvironmentPointAtlasRankShift = 16u;
 
 uint MixHash(uint Value) {
     Value ^= Value >> 16u;
@@ -232,6 +247,60 @@ uint BuildClusterHash(uint TerrainSeed, uint Salt, int GridX, int GridZ, uint Cl
 
 float HashToUnitFloat(uint Hash) {
     return (float)(Hash & 0x00ffffffu) * (1.0f / 16777215.0f);
+}
+
+uint DecodePointAtlasCellStride(EnvironmentGpuPlacementPointAtlasRecord Record) {
+    return max(Record.CellStrideRankThreshold & EnvironmentPointAtlasStrideMask, 1u);
+}
+
+float DecodePointAtlasRankThreshold(EnvironmentGpuPlacementPointAtlasRecord Record) {
+    return (float)((Record.CellStrideRankThreshold >> EnvironmentPointAtlasRankShift) & EnvironmentPointAtlasStrideMask) * (1.0f / 65535.0f);
+}
+
+float ResolveSpacedRuleSelectionWeight(EnvironmentGpuPlacementRule Rule) {
+    if (Rule.ClusterForest.w <= 0.0001f) {
+        return 0.0f;
+    }
+
+    return max(Rule.DensityCluster.x * Rule.DensityCluster.y, 0.0001f);
+}
+
+uint SelectSpacedRuleIndex(StructuredBuffer<EnvironmentGpuPlacementCandidateRecord> CandidateRecordBuffer, StructuredBuffer<EnvironmentGpuPlacementRule> RuleBuffer, float TypeSelector, uint InstanceIndexInCell) {
+    float TotalWeight = 0.0f;
+    [loop]
+    for (uint CandidateRecordIndex = 0u; CandidateRecordIndex < RootConstants.mCandidateRecordCount; CandidateRecordIndex += 1u) {
+        const EnvironmentGpuPlacementCandidateRecord CandidateRecord = CandidateRecordBuffer[CandidateRecordIndex];
+        const EnvironmentGpuPlacementRule Rule = RuleBuffer[CandidateRecord.RuleIndex];
+        if (InstanceIndexInCell >= Rule.InstancesPerCell) {
+            continue;
+        }
+
+        TotalWeight += ResolveSpacedRuleSelectionWeight(Rule);
+    }
+
+    if (TotalWeight <= 0.0f) {
+        return 0xffffffffu;
+    }
+
+    const float TargetWeight = saturate(TypeSelector) * TotalWeight;
+    float AccumulatedWeight = 0.0f;
+    uint SelectedRuleIndex = 0xffffffffu;
+    [loop]
+    for (uint CandidateRecordIndex = 0u; CandidateRecordIndex < RootConstants.mCandidateRecordCount; CandidateRecordIndex += 1u) {
+        const EnvironmentGpuPlacementCandidateRecord CandidateRecord = CandidateRecordBuffer[CandidateRecordIndex];
+        const EnvironmentGpuPlacementRule Rule = RuleBuffer[CandidateRecord.RuleIndex];
+        if (InstanceIndexInCell >= Rule.InstancesPerCell) {
+            continue;
+        }
+
+        AccumulatedWeight += ResolveSpacedRuleSelectionWeight(Rule);
+        if (TargetWeight <= AccumulatedWeight) {
+            SelectedRuleIndex = CandidateRecord.RuleIndex;
+            break;
+        }
+    }
+
+    return SelectedRuleIndex;
 }
 
 float SmoothStep01(float Value) {
@@ -539,32 +608,6 @@ bool TryCreateBaseCandidate(StructuredBuffer<float> HeightFieldBuffer, Texture2D
     return true;
 }
 
-bool IsCandidateKeyLess(FoliageCandidateKey Left, FoliageCandidateKey Right) {
-    if (Left.CellX != Right.CellX) {
-        return Left.CellX < Right.CellX;
-    }
-
-    if (Left.CellZ != Right.CellZ) {
-        return Left.CellZ < Right.CellZ;
-    }
-
-    if (Left.RuleIndex != Right.RuleIndex) {
-        return Left.RuleIndex < Right.RuleIndex;
-    }
-
-    return Left.InstanceIndex < Right.InstanceIndex;
-}
-
-bool AreCandidateKeysEqual(FoliageCandidateKey Left, FoliageCandidateKey Right) {
-    return Left.CellX == Right.CellX && Left.CellZ == Right.CellZ && Left.RuleIndex == Right.RuleIndex && Left.InstanceIndex == Right.InstanceIndex;
-}
-
-bool IsHigherPriorityCandidate(EnvironmentGpuPlacementConfig Config, FoliageCandidateKey CandidateKey, FoliageCandidateKey OtherKey) {
-    const uint CandidatePriority = BuildCandidateHash(Config.TerrainSeed, Config.SeedSalt, CandidateKey, Config.MinimumSpacingPriorityStream);
-    const uint OtherPriority = BuildCandidateHash(Config.TerrainSeed, Config.SeedSalt, OtherKey, Config.MinimumSpacingPriorityStream);
-    return OtherPriority < CandidatePriority || (OtherPriority == CandidatePriority && IsCandidateKeyLess(OtherKey, CandidateKey));
-}
-
 bool IsPlacementCandidateValid(EnvironmentGpuPlacementCandidate Candidate) {
     return Candidate.RotationValid.y > 0.5f;
 }
@@ -662,75 +705,6 @@ void StorePlacementCandidate(RWStructuredBuffer<EnvironmentGpuPlacementCandidate
     CellMetadata.Padding0 = 0u;
     CellMetadata.Padding1 = 0u;
     CellMetadataBuffer[CandidateRecord.CellMetadataOffset + CellLinearIndex] = CellMetadata;
-}
-
-bool PassesMinimumSpacing(StructuredBuffer<EnvironmentGpuPlacementCandidateRecord> CandidateRecordBuffer, StructuredBuffer<EnvironmentGpuPlacementCandidate> CandidateBuffer, StructuredBuffer<EnvironmentGpuPlacementRule> RuleBuffer, StructuredBuffer<EnvironmentGpuPlacementSpacingRuleRecord> SpacingRuleRecordBuffer, EnvironmentGpuPlacementConfig Config, EnvironmentGpuPlacementRule Rule, FoliageCandidate Candidate) {
-    const float MinimumSpacing = Rule.ClusterForest.w;
-    if (MinimumSpacing <= Config.DensityParameters.w || RootConstants.mSpacingRuleRecordCount == 0u) {
-        return true;
-    }
-
-    const int CellRadius = (int)Config.MinimumSpacingCellRadius;
-    const int MinimumCellX = Candidate.Key.CellX - CellRadius;
-    const int MaximumCellX = Candidate.Key.CellX + CellRadius;
-    const int MinimumCellZ = Candidate.Key.CellZ - CellRadius;
-    const int MaximumCellZ = Candidate.Key.CellZ + CellRadius;
-    [loop]
-    for (uint SpacingRuleRecordIndex = 0u; SpacingRuleRecordIndex < RootConstants.mSpacingRuleRecordCount; SpacingRuleRecordIndex += 1u) {
-        const uint RuleIndex = SpacingRuleRecordBuffer[SpacingRuleRecordIndex].RuleIndex;
-        if (RuleIndex >= RootConstants.mCandidateRecordCount) {
-            continue;
-        }
-
-        const EnvironmentGpuPlacementCandidateRecord CandidateRecord = CandidateRecordBuffer[RuleIndex];
-        if (CandidateRecord.CandidateCount == 0u || CandidateRecord.CellCountX == 0u || CandidateRecord.CellCountZ == 0u) {
-            continue;
-        }
-
-        const EnvironmentGpuPlacementRule OtherRule = RuleBuffer[RuleIndex];
-        const float OtherMinimumSpacing = OtherRule.ClusterForest.w;
-        if (OtherMinimumSpacing <= Config.DensityParameters.w) {
-            continue;
-        }
-
-        const float ResolvedMinimumSpacing = max(MinimumSpacing, OtherMinimumSpacing);
-        const float ResolvedMinimumSpacingSquared = ResolvedMinimumSpacing * ResolvedMinimumSpacing;
-        [loop]
-        for (int CellZ = MinimumCellZ; CellZ <= MaximumCellZ; CellZ += 1) {
-            [loop]
-            for (int CellX = MinimumCellX; CellX <= MaximumCellX; CellX += 1) {
-                const uint CandidateLocalBaseIndex = ResolveCandidateCellLocalBase(CandidateRecord, OtherRule, CellX, CellZ);
-                if (CandidateLocalBaseIndex >= CandidateRecord.CandidateCount) {
-                    continue;
-                }
-
-                const uint CellCandidateCount = min(OtherRule.InstancesPerCell, CandidateRecord.CandidateCount - CandidateLocalBaseIndex);
-                [loop]
-                for (uint InstanceIndex = 0u; InstanceIndex < CellCandidateCount; InstanceIndex += 1u) {
-                    const EnvironmentGpuPlacementCandidate OtherGpuCandidate = CandidateBuffer[CandidateRecord.CandidateOffset + CandidateLocalBaseIndex + InstanceIndex];
-                    if (IsPlacementCandidateValid(OtherGpuCandidate) == false) {
-                        continue;
-                    }
-
-                    const FoliageCandidate OtherCandidate = BuildFoliageCandidate(OtherGpuCandidate);
-                    if (OtherCandidate.Key.CellX != CellX || OtherCandidate.Key.CellZ != CellZ || OtherCandidate.Key.RuleIndex != RuleIndex) {
-                        continue;
-                    }
-
-                    if (AreCandidateKeysEqual(Candidate.Key, OtherCandidate.Key) || IsHigherPriorityCandidate(Config, Candidate.Key, OtherCandidate.Key) == false) {
-                        continue;
-                    }
-
-                    const float2 Delta = Candidate.Position.xz - OtherCandidate.Position.xz;
-                    if (dot(Delta, Delta) < ResolvedMinimumSpacingSquared) {
-                        return false;
-                    }
-                }
-            }
-        }
-    }
-
-    return true;
 }
 
 bool DoesCellIntersectRenderRadius(EnvironmentGpuPlacementConfig Config, int CellX, int CellZ) {
@@ -854,7 +828,7 @@ void GenerateCandidatesCore(uint3 DispatchThreadId, uint3 GroupId, uint GroupInd
         StatusBuffer[8] = RootConstants.mVisibleInstanceIndexCapacity;
         StatusBuffer[9] = RootConstants.mCandidateRecordCount;
         StatusBuffer[10] = RootConstants.mCandidateDispatchRecordCount;
-        StatusBuffer[11] = RootConstants.mSpacingRuleRecordCount;
+        StatusBuffer[11] = RootConstants.mPlacementPointAtlasPointSrvIndex;
     }
 
     if (GroupId.x >= RootConstants.mCandidateDispatchRecordCount) {
@@ -907,6 +881,119 @@ void GenerateCandidatesCore(uint3 DispatchThreadId, uint3 GroupId, uint GroupInd
     StorePlacementCandidate(CandidateBuffer, AcceptedCandidateBuffer, CellMetadataBuffer, CandidateRecord, Rule, LocalIndex, Key, BuildGpuPlacementCandidate(Candidate, true));
 }
 
+bool TryCreateAtlasCandidate(StructuredBuffer<float> HeightFieldBuffer, Texture2D<float4> Splat0Texture, Texture2D<float4> Splat1Texture, EnvironmentGpuPlacementConfig Config, EnvironmentGpuPlacementRule Rule, FoliageCandidateKey Key, float2 LocalPosition, out FoliageCandidate OutCandidate) {
+    const float CellSize = Config.DensityParameters.x;
+    const float WorldX = (((float)Key.CellX + LocalPosition.x) * CellSize);
+    const float WorldZ = (((float)Key.CellZ + LocalPosition.y) * CellSize);
+    const uint ClusterIndex = Key.RuleIndex;
+    const float ClusterFactor = SampleFoliageClusterFactor(Config, Rule, ClusterIndex, WorldX, WorldZ);
+    const float ForestFactor = ResolveRuleForestFactor(Config, Rule, WorldX, WorldZ);
+    const float SpawnChanceBase = Rule.DensityCluster.x * Config.DensityParameters.y * Rule.DensityCluster.y * ClusterFactor * ForestFactor;
+    const float RandomChance = HashToUnitFloat(BuildCandidateHash(Config.TerrainSeed, Config.SeedSalt, Key, Config.CandidateRandomChanceStream));
+    float WorldY = 0.0f;
+    float LayerWeight = 0.0f;
+    const bool HasTerrainSample = TrySampleTerrain(HeightFieldBuffer, Splat0Texture, Splat1Texture, Config, Rule, WorldX, WorldZ, WorldY, LayerWeight);
+    const float EffectiveSpawnChance = clamp(SpawnChanceBase * LayerWeight, 0.0f, 1.0f);
+    if (HasTerrainSample == false || LayerWeight < Rule.DensityCluster.z || EffectiveSpawnChance <= 0.0f || RandomChance > EffectiveSpawnChance) {
+        return false;
+    }
+
+    if (IsForestAreaWideEnough(HeightFieldBuffer, Splat0Texture, Splat1Texture, Config, Rule, WorldX, WorldZ) == false) {
+        return false;
+    }
+
+    const float RandomYaw = HashToUnitFloat(BuildCandidateHash(Config.TerrainSeed, Config.SeedSalt, Key, Config.CandidateRandomYawStream));
+    const float RandomScale = HashToUnitFloat(BuildCandidateHash(Config.TerrainSeed, Config.SeedSalt, Key, Config.CandidateRandomScaleStream));
+    OutCandidate.Key = Key;
+    OutCandidate.Position = float3(WorldX, WorldY + Rule.DensityCluster.w, WorldZ);
+    OutCandidate.YawRadians = lerp(Rule.ScaleYawOffset.z, Rule.ScaleYawOffset.w, RandomYaw);
+    OutCandidate.Scale = ResolveCandidateScale(Rule, LayerWeight, ClusterFactor, ForestFactor, RandomScale);
+    return true;
+}
+
+void MaterializeSpacedCandidatesCore(uint3 DispatchThreadId, uint3 GroupId, uint GroupIndex) {
+    if (GroupId.x >= RootConstants.mCandidateDispatchRecordCount) {
+        return;
+    }
+
+    const uint CandidateDispatchRecordIndex = RootConstants.mCandidateDispatchRecordOffset + GroupId.x;
+    StructuredBuffer<float> HeightFieldBuffer = ResourceDescriptorHeap[RootConstants.mTerrainHeightSrvIndex];
+    Texture2D<float4> Splat0Texture = ResourceDescriptorHeap[RootConstants.mTerrainSplatSrvIndex];
+    Texture2D<float4> Splat1Texture = ResourceDescriptorHeap[RootConstants.mTerrainSplat1SrvIndex];
+    StructuredBuffer<EnvironmentGpuPlacementConfig> PlacementConfigBuffer = ResourceDescriptorHeap[RootConstants.mPlacementConfigSrvIndex];
+    StructuredBuffer<EnvironmentGpuPlacementRule> PlacementRuleBuffer = ResourceDescriptorHeap[RootConstants.mPlacementRuleSrvIndex];
+    StructuredBuffer<EnvironmentGpuPlacementCandidateRecord> PlacementCandidateRecordBuffer = ResourceDescriptorHeap[RootConstants.mPlacementCandidateRecordSrvIndex];
+    StructuredBuffer<EnvironmentGpuPlacementCandidateDispatchRecord> PlacementCandidateDispatchRecordBuffer = ResourceDescriptorHeap[RootConstants.mPlacementCandidateDispatchRecordSrvIndex];
+    StructuredBuffer<EnvironmentGpuPlacementPointAtlasRecord> PointAtlasRecordBuffer = ResourceDescriptorHeap[RootConstants.mPlacementPointAtlasRecordSrvIndex];
+    StructuredBuffer<EnvironmentGpuPlacementPointAtlasPoint> PointAtlasPointBuffer = ResourceDescriptorHeap[RootConstants.mPlacementPointAtlasPointSrvIndex];
+    RWStructuredBuffer<EnvironmentGpuPlacementCandidate> CandidateBuffer = ResourceDescriptorHeap[RootConstants.mCandidateContextUavIndex];
+    RWStructuredBuffer<EnvironmentGpuPlacementCandidate> AcceptedCandidateBuffer = ResourceDescriptorHeap[RootConstants.mAcceptedCandidateUavIndex];
+    RWStructuredBuffer<EnvironmentGpuPlacementCellMetadata> CellMetadataBuffer = ResourceDescriptorHeap[RootConstants.mCellMetadataUavIndex];
+
+    const EnvironmentGpuPlacementConfig Config = PlacementConfigBuffer[0];
+    const EnvironmentGpuPlacementCandidateDispatchRecord CandidateDispatchRecord = PlacementCandidateDispatchRecordBuffer[CandidateDispatchRecordIndex];
+    if (CandidateDispatchRecord.CandidateRecordIndex >= RootConstants.mCandidateRecordCount) {
+        return;
+    }
+
+    const uint CandidateRecordIndex = CandidateDispatchRecord.CandidateRecordIndex;
+    const EnvironmentGpuPlacementCandidateRecord CandidateRecord = PlacementCandidateRecordBuffer[CandidateRecordIndex];
+    const EnvironmentGpuPlacementRule Rule = PlacementRuleBuffer[CandidateRecord.RuleIndex];
+    const uint InstanceIndexInCell = CandidateDispatchRecord.InstanceOffset + GroupIndex;
+    if (InstanceIndexInCell >= Rule.InstancesPerCell) {
+        return;
+    }
+
+    const uint LocalBaseIndex = ResolveCandidateCellLocalBase(CandidateRecord, Rule, CandidateDispatchRecord.CellX, CandidateDispatchRecord.CellZ);
+    if (LocalBaseIndex >= CandidateRecord.CandidateCount) {
+        return;
+    }
+
+    const uint LocalIndex = LocalBaseIndex + InstanceIndexInCell;
+    if (LocalIndex >= CandidateRecord.CandidateCount) {
+        return;
+    }
+
+    const FoliageCandidateKey Key = BuildCandidateKey(CandidateDispatchRecord.CellX, CandidateDispatchRecord.CellZ, CandidateRecord.RuleIndex, InstanceIndexInCell);
+    const EnvironmentGpuPlacementPointAtlasRecord AtlasRecord = PointAtlasRecordBuffer[CandidateRecord.RuleIndex];
+    const uint AtlasCellStride = DecodePointAtlasCellStride(AtlasRecord);
+    const float AtlasRankThreshold = DecodePointAtlasRankThreshold(AtlasRecord);
+    if (AtlasRecord.TilePointCount == 0u || AtlasRecord.TileCount == 0u || InstanceIndexInCell >= AtlasRecord.TilePointCount || AtlasRankThreshold <= 0.0f) {
+        StorePlacementCandidate(CandidateBuffer, AcceptedCandidateBuffer, CellMetadataBuffer, CandidateRecord, Rule, LocalIndex, Key, BuildInvalidGpuPlacementCandidate(Key));
+        return;
+    }
+
+    if (AtlasCellStride > 1u && (PositiveModuloInt(CandidateDispatchRecord.CellX, AtlasCellStride) != 0u || PositiveModuloInt(CandidateDispatchRecord.CellZ, AtlasCellStride) != 0u)) {
+        StorePlacementCandidate(CandidateBuffer, AcceptedCandidateBuffer, CellMetadataBuffer, CandidateRecord, Rule, LocalIndex, Key, BuildInvalidGpuPlacementCandidate(Key));
+        return;
+    }
+
+    uint TileHash = MixHash(Config.TerrainSeed ^ Config.SeedSalt ^ (CandidateRecord.RuleIndex * 0x85ebca6bu));
+    TileHash = MixHash(TileHash ^ (uint)CandidateDispatchRecord.CellX);
+    TileHash = MixHash(TileHash ^ ((uint)CandidateDispatchRecord.CellZ * 0x9e3779b9u));
+    const uint TileIndex = TileHash % AtlasRecord.TileCount;
+    const uint PointIndex = AtlasRecord.PointOffset + (TileIndex * AtlasRecord.TilePointCount) + InstanceIndexInCell;
+    const EnvironmentGpuPlacementPointAtlasPoint AtlasPoint = PointAtlasPointBuffer[PointIndex];
+    if (AtlasPoint.LocalPosition.w < 0.0f || AtlasPoint.LocalPosition.w > AtlasRankThreshold) {
+        StorePlacementCandidate(CandidateBuffer, AcceptedCandidateBuffer, CellMetadataBuffer, CandidateRecord, Rule, LocalIndex, Key, BuildInvalidGpuPlacementCandidate(Key));
+        return;
+    }
+
+    const uint SelectedRuleIndex = SelectSpacedRuleIndex(PlacementCandidateRecordBuffer, PlacementRuleBuffer, AtlasPoint.LocalPosition.z, InstanceIndexInCell);
+    if (SelectedRuleIndex != CandidateRecord.RuleIndex) {
+        StorePlacementCandidate(CandidateBuffer, AcceptedCandidateBuffer, CellMetadataBuffer, CandidateRecord, Rule, LocalIndex, Key, BuildInvalidGpuPlacementCandidate(Key));
+        return;
+    }
+
+    FoliageCandidate Candidate;
+    if (TryCreateAtlasCandidate(HeightFieldBuffer, Splat0Texture, Splat1Texture, Config, Rule, Key, AtlasPoint.LocalPosition.xy, Candidate) == false) {
+        StorePlacementCandidate(CandidateBuffer, AcceptedCandidateBuffer, CellMetadataBuffer, CandidateRecord, Rule, LocalIndex, Key, BuildInvalidGpuPlacementCandidate(Key));
+        return;
+    }
+
+    StorePlacementCandidate(CandidateBuffer, AcceptedCandidateBuffer, CellMetadataBuffer, CandidateRecord, Rule, LocalIndex, Key, BuildGpuPlacementCandidate(Candidate, true));
+}
+
 [numthreads(64, 1, 1)]
 void GenerateDenseCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint3 GroupId : SV_GroupID, uint GroupIndex : SV_GroupIndex) {
     GenerateCandidatesCore(DispatchThreadId, GroupId, GroupIndex);
@@ -914,7 +1001,7 @@ void GenerateDenseCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID,
 
 [numthreads(64, 1, 1)]
 void GenerateSpacedCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint3 GroupId : SV_GroupID, uint GroupIndex : SV_GroupIndex) {
-    GenerateCandidatesCore(DispatchThreadId, GroupId, GroupIndex);
+    MaterializeSpacedCandidatesCore(DispatchThreadId, GroupId, GroupIndex);
 }
 
 [numthreads(64, 1, 1)]
@@ -930,7 +1017,6 @@ void ClassifyCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint
     StructuredBuffer<EnvironmentGpuPlacementDrawRecord> PlacementDrawRecordBuffer = ResourceDescriptorHeap[RootConstants.mPlacementDrawRecordSrvIndex];
     StructuredBuffer<EnvironmentGpuPlacementDrawDispatchRecord> PlacementDrawDispatchRecordBuffer = ResourceDescriptorHeap[RootConstants.mPlacementDrawDispatchRecordSrvIndex];
     StructuredBuffer<EnvironmentGpuPlacementCandidateRecord> PlacementCandidateRecordBuffer = ResourceDescriptorHeap[RootConstants.mPlacementCandidateRecordSrvIndex];
-    StructuredBuffer<EnvironmentGpuPlacementSpacingRuleRecord> PlacementSpacingRuleRecordBuffer = ResourceDescriptorHeap[RootConstants.mPlacementSpacingRuleRecordSrvIndex];
     StructuredBuffer<EnvironmentGpuPlacementCandidate> CandidateBuffer = ResourceDescriptorHeap[RootConstants.mAcceptedCandidateSrvIndex];
     RWStructuredBuffer<EnvironmentInstanceContextGpu> InstanceContextBuffer = ResourceDescriptorHeap[RootConstants.mInstanceContextUavIndex];
     RWStructuredBuffer<EnvironmentIndirectDrawCommand> IndirectCommandBuffer = ResourceDescriptorHeap[RootConstants.mIndirectArgumentUavIndex];
@@ -963,7 +1049,7 @@ void ClassifyCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint
             const EnvironmentGpuPlacementCandidate GpuCandidate = CandidateBuffer[CandidateRecord.CandidateOffset + CandidateLocalIndex];
             if (IsPlacementCandidateValid(GpuCandidate) == true) {
                 const FoliageCandidate Candidate = BuildFoliageCandidate(GpuCandidate);
-                if (Candidate.Key.CellX == DrawDispatchRecord.CellX && Candidate.Key.CellZ == DrawDispatchRecord.CellZ && Candidate.Key.RuleIndex == CandidateRecord.RuleIndex && DoesCandidateMatchDrawLod(Config, PlacementDrawRecord, Candidate) == true && IsCandidateVisible(Config, PlacementDrawRecord, Candidate) == true && PassesMinimumSpacing(PlacementCandidateRecordBuffer, CandidateBuffer, PlacementRuleBuffer, PlacementSpacingRuleRecordBuffer, Config, Rule, Candidate) == true) {
+                if (Candidate.Key.CellX == DrawDispatchRecord.CellX && Candidate.Key.CellZ == DrawDispatchRecord.CellZ && Candidate.Key.RuleIndex == CandidateRecord.RuleIndex && DoesCandidateMatchDrawLod(Config, PlacementDrawRecord, Candidate) == true && IsCandidateVisible(Config, PlacementDrawRecord, Candidate) == true) {
                     InstanceIndex = DrawRecord.InstanceOffset + PlacementLocalIndex;
                     EnvironmentInstanceContextGpu InstanceContext;
                     InstanceContext.PositionScale = float4(Candidate.Position, Candidate.Scale);

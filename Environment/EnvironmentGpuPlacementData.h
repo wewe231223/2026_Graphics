@@ -102,6 +102,19 @@ namespace Game {
         std::uint32_t mPadding2{};
     };
 
+    struct alignas(16) EnvironmentGpuPlacementPointAtlasRecord final {
+    public:
+        std::uint32_t mPointOffset{};
+        std::uint32_t mTilePointCount{};
+        std::uint32_t mTileCount{};
+        std::uint32_t mCellStrideRankThreshold{};
+    };
+
+    struct alignas(16) EnvironmentGpuPlacementPointAtlasPoint final {
+    public:
+        DirectX::SimpleMath::Vector4 mLocalPosition{};
+    };
+
     struct alignas(16) EnvironmentGpuPlacementCandidate final {
     public:
         DirectX::SimpleMath::Vector4 mPositionScale{};
@@ -135,6 +148,8 @@ namespace Game {
     static_assert(sizeof(EnvironmentGpuPlacementCandidateDispatchRecord) == 16u);
     static_assert(sizeof(EnvironmentGpuPlacementDrawDispatchRecord) == 16u);
     static_assert(sizeof(EnvironmentGpuPlacementSpacingRuleRecord) == 16u);
+    static_assert(sizeof(EnvironmentGpuPlacementPointAtlasRecord) == 16u);
+    static_assert(sizeof(EnvironmentGpuPlacementPointAtlasPoint) == 16u);
     static_assert(sizeof(EnvironmentGpuPlacementCandidate) == 48u);
     static_assert(sizeof(EnvironmentGpuPlacementCellMetadata) == 48u);
 
@@ -146,6 +161,8 @@ namespace Game {
         std::vector<EnvironmentGpuPlacementCandidateDispatchRecord> mCandidateDispatchRecords{};
         std::vector<EnvironmentGpuPlacementDrawDispatchRecord> mDrawDispatchRecords{};
         std::vector<EnvironmentGpuPlacementSpacingRuleRecord> mSpacingRuleRecords{};
+        std::vector<EnvironmentGpuPlacementPointAtlasRecord> mPointAtlasRecords{};
+        std::vector<EnvironmentGpuPlacementPointAtlasPoint> mPointAtlasPoints{};
         std::vector<EnvironmentGpuPlacementDrawRecord> mDrawRecords{};
         std::uint32_t mCandidateCount{};
         std::uint32_t mDenseCandidateDispatchRecordCount{};

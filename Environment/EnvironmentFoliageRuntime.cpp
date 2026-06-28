@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 
+#include <stb_image.h>
+
 #ifdef min
 #undef min
 #endif
@@ -62,6 +64,10 @@ namespace {
     constexpr std::uint32_t FullShadowCascadeMask{ 0xffffffffu };
     constexpr std::uint32_t EnvironmentGpuPlacementModeDense{ 0u };
     constexpr std::uint32_t EnvironmentGpuPlacementModeSpaced{ 1u };
+    constexpr std::uint32_t EnvironmentGpuPlacementPointAtlasTileCount{ 64u };
+    constexpr std::uint32_t EnvironmentGpuPlacementPointAtlasTileAxisCount{ 8u };
+    constexpr std::uint32_t EnvironmentGpuPlacementPointAtlasPackedStrideMask{ 0x0000ffffu };
+    constexpr std::uint32_t EnvironmentGpuPlacementPointAtlasRankShift{ 16u };
 
     enum class FoliageUpdatePhase {
         Idle,
@@ -220,6 +226,8 @@ namespace {
     public:
         std::vector<Game::EnvironmentGpuPlacementRule> mRules{};
         std::vector<Game::EnvironmentGpuPlacementSpacingRuleRecord> mSpacingRuleRecords{};
+        std::vector<Game::EnvironmentGpuPlacementPointAtlasRecord> mPointAtlasRecords{};
+        std::vector<Game::EnvironmentGpuPlacementPointAtlasPoint> mPointAtlasPoints{};
         std::vector<float> mCandidateRadii{};
         std::vector<EnvironmentGpuPlacementRenderTemplateRange> mRenderTemplateRanges{};
         std::vector<EnvironmentGpuPlacementRenderTemplate> mRenderTemplates{};
@@ -247,6 +255,29 @@ namespace {
         std::vector<EnvironmentGpuPlacementRuleCache> mRules{};
         std::uint64_t mTerrainLayerHash{};
         bool mValid{};
+    };
+
+    struct EnvironmentGpuPlacementBlueNoisePixel final {
+    public:
+        float mR{};
+        float mG{};
+        float mB{};
+        float mA{};
+    };
+
+    struct EnvironmentGpuPlacementBlueNoiseTexture final {
+    public:
+        std::vector<EnvironmentGpuPlacementBlueNoisePixel> mPixels{};
+        std::uint32_t mWidth{};
+        std::uint32_t mHeight{};
+        bool mValid{};
+    };
+
+    struct EnvironmentGpuPlacementPointAtlasCandidate final {
+    public:
+        SimpleMath::Vector2 mLocalPosition{};
+        float mRank{};
+        float mTypeSelector{};
     };
 
     struct FoliageCandidateKey final {
@@ -1994,6 +2025,196 @@ namespace {
         return SpacingRuleRecord;
     }
 
+    EnvironmentGpuPlacementBlueNoiseTexture LoadGpuPlacementBlueNoiseTexture() {
+        const std::filesystem::path BlueNoisePath{ std::filesystem::path{ "Resources" } / "DefaultScene" / "BlueNoise.png" };
+        int Width{};
+        int Height{};
+        int ChannelCount{};
+        stbi_uc* ImageData{ stbi_load(BlueNoisePath.string().c_str(), &Width, &Height, &ChannelCount, 4) };
+        static_cast<void>(ChannelCount);
+        if (ImageData == nullptr || Width <= 0 || Height <= 0) {
+            if (ImageData != nullptr) {
+                stbi_image_free(ImageData);
+            }
+
+            return EnvironmentGpuPlacementBlueNoiseTexture{};
+        }
+
+        EnvironmentGpuPlacementBlueNoiseTexture Texture{};
+        Texture.mWidth = static_cast<std::uint32_t>(Width);
+        Texture.mHeight = static_cast<std::uint32_t>(Height);
+        Texture.mPixels.resize(static_cast<std::size_t>(Texture.mWidth) * static_cast<std::size_t>(Texture.mHeight));
+        for (std::uint32_t Y{}; Y < Texture.mHeight; Y += 1u) {
+            const stbi_uc* SourceRow{ ImageData + (static_cast<std::size_t>(Y) * static_cast<std::size_t>(Texture.mWidth) * 4ULL) };
+            for (std::uint32_t X{}; X < Texture.mWidth; X += 1u) {
+                const stbi_uc* SourcePixel{ SourceRow + (static_cast<std::size_t>(X) * 4ULL) };
+                EnvironmentGpuPlacementBlueNoisePixel& Pixel{ Texture.mPixels[(static_cast<std::size_t>(Y) * static_cast<std::size_t>(Texture.mWidth)) + static_cast<std::size_t>(X)] };
+                Pixel.mR = static_cast<float>(SourcePixel[0]) * (1.0f / 255.0f);
+                Pixel.mG = static_cast<float>(SourcePixel[1]) * (1.0f / 255.0f);
+                Pixel.mB = static_cast<float>(SourcePixel[2]) * (1.0f / 255.0f);
+                Pixel.mA = static_cast<float>(SourcePixel[3]) * (1.0f / 255.0f);
+            }
+        }
+
+        stbi_image_free(ImageData);
+        Texture.mValid = Texture.mPixels.empty() == false;
+        return Texture;
+    }
+
+    EnvironmentGpuPlacementBlueNoisePixel SampleGpuPlacementBlueNoisePixel(const EnvironmentGpuPlacementBlueNoiseTexture& Texture, std::uint32_t X, std::uint32_t Y) {
+        if (Texture.mValid == false || Texture.mWidth == 0u || Texture.mHeight == 0u) {
+            EnvironmentGpuPlacementBlueNoisePixel Pixel{};
+            const FoliageCandidateKey Key{ static_cast<std::int32_t>(X), static_cast<std::int32_t>(Y), 0u, 0u };
+            Pixel.mR = HashToUnitFloat(BuildCandidateHash(0u, 0u, Key, 11u));
+            Pixel.mG = HashToUnitFloat(BuildCandidateHash(0u, 0u, Key, 17u));
+            Pixel.mB = HashToUnitFloat(BuildCandidateHash(0u, 0u, Key, 23u));
+            Pixel.mA = HashToUnitFloat(BuildCandidateHash(0u, 0u, Key, 31u));
+            return Pixel;
+        }
+
+        const std::uint32_t WrappedX{ X % Texture.mWidth };
+        const std::uint32_t WrappedY{ Y % Texture.mHeight };
+        return Texture.mPixels[(static_cast<std::size_t>(WrappedY) * static_cast<std::size_t>(Texture.mWidth)) + static_cast<std::size_t>(WrappedX)];
+    }
+
+    std::uint32_t PackGpuPlacementPointAtlasStrideRankThreshold(std::uint32_t CellStride, float RankThreshold) {
+        const std::uint32_t PackedCellStride{ std::clamp(CellStride, 1u, EnvironmentGpuPlacementPointAtlasPackedStrideMask) };
+        const std::uint32_t PackedRankThreshold{ static_cast<std::uint32_t>(std::clamp(RankThreshold, 0.0f, 1.0f) * 65535.0f + 0.5f) };
+        return PackedCellStride | (PackedRankThreshold << EnvironmentGpuPlacementPointAtlasRankShift);
+    }
+
+    Game::EnvironmentGpuPlacementPointAtlasPoint BuildInvalidGpuPlacementPointAtlasPoint() {
+        Game::EnvironmentGpuPlacementPointAtlasPoint Point{};
+        Point.mLocalPosition = SimpleMath::Vector4{ 0.0f, 0.0f, 0.0f, -1.0f };
+        return Point;
+    }
+
+    Game::EnvironmentGpuPlacementPointAtlasPoint BuildGpuPlacementPointAtlasPoint(float LocalX, float LocalZ, float TypeSelector, float Rank) {
+        Game::EnvironmentGpuPlacementPointAtlasPoint Point{};
+        Point.mLocalPosition = SimpleMath::Vector4{ LocalX, LocalZ, TypeSelector, Rank };
+        return Point;
+    }
+
+    bool IsGpuPlacementAtlasPointAccepted(std::span<const SimpleMath::Vector2> Points, const SimpleMath::Vector2& Candidate, float MinimumSpacingNormalized) {
+        const float MinimumSpacingSquared{ MinimumSpacingNormalized * MinimumSpacingNormalized };
+        for (const SimpleMath::Vector2& Point : Points) {
+            const SimpleMath::Vector2 Delta{ Candidate - Point };
+            if (Delta.LengthSquared() < MinimumSpacingSquared) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    float CalculateMinimumSpacedRuleSpacing(std::span<const FoliageRuntimeRule> Rules) {
+        float MinimumSpacing{ std::numeric_limits<float>::max() };
+        for (const FoliageRuntimeRule& RuntimeRule : Rules) {
+            const float Spacing{ RuntimeRule.mDesc.mMinimumSpacing };
+            if (Spacing > FoliageEpsilon) {
+                MinimumSpacing = std::min(MinimumSpacing, Spacing);
+            }
+        }
+
+        return MinimumSpacing == std::numeric_limits<float>::max() ? 0.0f : MinimumSpacing;
+    }
+
+    std::uint32_t CalculateMaximumSpacedRuleInstancesPerCell(std::span<const FoliageRuntimeRule> Rules) {
+        std::uint32_t InstancesPerCell{ 1u };
+        for (const FoliageRuntimeRule& RuntimeRule : Rules) {
+            if (RuntimeRule.mDesc.mMinimumSpacing > FoliageEpsilon) {
+                InstancesPerCell = std::max(InstancesPerCell, RuntimeRule.mDesc.mInstancesPerCell);
+            }
+        }
+
+        return InstancesPerCell;
+    }
+
+    void BuildGpuPlacementCommonPointAtlas(const FoliagePlacementConfig& Config, std::span<const FoliageRuntimeRule> Rules, std::vector<Game::EnvironmentGpuPlacementPointAtlasRecord>& OutRecords, std::vector<Game::EnvironmentGpuPlacementPointAtlasPoint>& OutPoints) {
+        OutRecords.clear();
+        OutPoints.clear();
+        OutRecords.resize(Rules.size());
+        const float MinimumSpacedRuleSpacing{ CalculateMinimumSpacedRuleSpacing(Rules) };
+        if (MinimumSpacedRuleSpacing <= FoliageEpsilon) {
+            return;
+        }
+
+        const EnvironmentGpuPlacementBlueNoiseTexture BlueNoiseTexture{ LoadGpuPlacementBlueNoiseTexture() };
+        const std::uint32_t TilePointCount{ CalculateMaximumSpacedRuleInstancesPerCell(Rules) };
+        const float CellSize{ std::max(Config.mCellSize, FoliageEpsilon) };
+        const float MinimumSpacingNormalized{ MinimumSpacedRuleSpacing / CellSize };
+        const std::uint32_t PointOffset{ 0u };
+        for (std::uint32_t RuleIndex{}; RuleIndex < Rules.size(); RuleIndex += 1u) {
+            const FoliagePlacementRule& Rule{ Rules[RuleIndex].mDesc };
+            if (Rule.mMinimumSpacing <= FoliageEpsilon) {
+                continue;
+            }
+
+            const float RuleSpacingNormalized{ Rule.mMinimumSpacing / CellSize };
+            const std::uint32_t CellStride{ static_cast<std::uint32_t>(std::max(static_cast<std::int32_t>(std::ceil(RuleSpacingNormalized)), 1)) };
+            const float RankThreshold{ std::clamp((MinimumSpacedRuleSpacing * MinimumSpacedRuleSpacing) / std::max(Rule.mMinimumSpacing * Rule.mMinimumSpacing, FoliageEpsilon), 0.0f, 1.0f) };
+            Game::EnvironmentGpuPlacementPointAtlasRecord& Record{ OutRecords[RuleIndex] };
+            Record.mPointOffset = PointOffset;
+            Record.mTilePointCount = TilePointCount;
+            Record.mTileCount = EnvironmentGpuPlacementPointAtlasTileCount;
+            Record.mCellStrideRankThreshold = PackGpuPlacementPointAtlasStrideRankThreshold(CellStride, RankThreshold);
+        }
+
+        const std::uint32_t TileSourceWidth{ std::max(BlueNoiseTexture.mValid == true ? BlueNoiseTexture.mWidth / EnvironmentGpuPlacementPointAtlasTileAxisCount : 64u, 1u) };
+        const std::uint32_t TileSourceHeight{ std::max(BlueNoiseTexture.mValid == true ? BlueNoiseTexture.mHeight / EnvironmentGpuPlacementPointAtlasTileAxisCount : 64u, 1u) };
+        OutPoints.reserve(static_cast<std::size_t>(EnvironmentGpuPlacementPointAtlasTileCount) * static_cast<std::size_t>(TilePointCount));
+        for (std::uint32_t TileIndex{}; TileIndex < EnvironmentGpuPlacementPointAtlasTileCount; TileIndex += 1u) {
+            const std::uint32_t TileX{ TileIndex % EnvironmentGpuPlacementPointAtlasTileAxisCount };
+            const std::uint32_t TileY{ TileIndex / EnvironmentGpuPlacementPointAtlasTileAxisCount };
+            std::vector<EnvironmentGpuPlacementPointAtlasCandidate> Candidates{};
+            Candidates.reserve(static_cast<std::size_t>(TileSourceWidth) * static_cast<std::size_t>(TileSourceHeight));
+            for (std::uint32_t LocalY{}; LocalY < TileSourceHeight; LocalY += 1u) {
+                for (std::uint32_t LocalX{}; LocalX < TileSourceWidth; LocalX += 1u) {
+                    const std::uint32_t SampleX{ (TileX * TileSourceWidth) + LocalX };
+                    const std::uint32_t SampleY{ (TileY * TileSourceHeight) + LocalY };
+                    const EnvironmentGpuPlacementBlueNoisePixel Pixel{ SampleGpuPlacementBlueNoisePixel(BlueNoiseTexture, SampleX, SampleY) };
+                    EnvironmentGpuPlacementPointAtlasCandidate Candidate{};
+                    Candidate.mLocalPosition = SimpleMath::Vector2{ (static_cast<float>(LocalX) + Pixel.mG) / static_cast<float>(TileSourceWidth), (static_cast<float>(LocalY) + Pixel.mB) / static_cast<float>(TileSourceHeight) };
+                    Candidate.mRank = Pixel.mR;
+                    Candidate.mTypeSelector = Pixel.mA;
+                    Candidates.push_back(Candidate);
+                }
+            }
+
+            std::sort(Candidates.begin(), Candidates.end(), [](const EnvironmentGpuPlacementPointAtlasCandidate& Left, const EnvironmentGpuPlacementPointAtlasCandidate& Right) {
+                return Left.mRank < Right.mRank;
+            });
+
+            std::vector<SimpleMath::Vector2> AcceptedPoints{};
+            AcceptedPoints.reserve(TilePointCount);
+            std::vector<Game::EnvironmentGpuPlacementPointAtlasPoint> TilePoints{};
+            TilePoints.reserve(TilePointCount);
+            const float BorderMargin{ std::clamp(MinimumSpacingNormalized * 0.5f, 0.0f, 0.45f) };
+            for (const EnvironmentGpuPlacementPointAtlasCandidate& Candidate : Candidates) {
+                if (TilePoints.size() >= TilePointCount) {
+                    break;
+                }
+
+                const SimpleMath::Vector2 ClampedPoint{ std::clamp(Candidate.mLocalPosition.x, BorderMargin, 1.0f - BorderMargin), std::clamp(Candidate.mLocalPosition.y, BorderMargin, 1.0f - BorderMargin) };
+                if (IsGpuPlacementAtlasPointAccepted(std::span<const SimpleMath::Vector2>{ AcceptedPoints.data(), AcceptedPoints.size() }, ClampedPoint, MinimumSpacingNormalized) == false) {
+                    continue;
+                }
+
+                AcceptedPoints.push_back(ClampedPoint);
+                TilePoints.push_back(BuildGpuPlacementPointAtlasPoint(ClampedPoint.x, ClampedPoint.y, Candidate.mTypeSelector, Candidate.mRank));
+            }
+
+            for (const Game::EnvironmentGpuPlacementPointAtlasPoint& Point : TilePoints) {
+                OutPoints.push_back(Point);
+            }
+
+            while (TilePoints.size() < TilePointCount) {
+                OutPoints.push_back(BuildInvalidGpuPlacementPointAtlasPoint());
+                TilePoints.push_back(BuildInvalidGpuPlacementPointAtlasPoint());
+            }
+        }
+    }
+
     Game::EnvironmentGpuPlacementDrawRecord BuildGpuPlacementDrawRecord(const Game::EnvironmentGpuPlacementCandidateRecord& CandidateRecord, std::uint32_t CandidateRecordIndex, const EnvironmentGpuPlacementDrawChunk& Chunk, std::uint32_t LodIndex, float MinimumDistance, float MaximumDistance, float CullingCenterYOffset, float CullingRadius) {
         Game::EnvironmentGpuPlacementDrawRecord DrawRecord{};
         DrawRecord.mMinimumCellX = Chunk.mMinimumCellX;
@@ -2056,6 +2277,8 @@ namespace {
         FrameData.mCandidateDispatchRecords.clear();
         FrameData.mDrawDispatchRecords.clear();
         FrameData.mSpacingRuleRecords.clear();
+        FrameData.mPointAtlasRecords.clear();
+        FrameData.mPointAtlasPoints.clear();
         FrameData.mDrawRecords.clear();
         FrameData.mCandidateCount = 0u;
         FrameData.mDenseCandidateDispatchRecordCount = 0u;
@@ -2916,6 +3139,7 @@ namespace Game {
         StaticData.mTerrainLayerHash = TerrainLayerHash;
         StaticData.mRules.reserve(mRules.size());
         StaticData.mSpacingRuleRecords.reserve(mRules.size());
+        StaticData.mPointAtlasRecords.reserve(mRules.size());
         StaticData.mCandidateRadii.resize(mRules.size(), 0.0f);
         StaticData.mRenderTemplateRanges.resize(mRules.size());
 
@@ -2956,6 +3180,7 @@ namespace Game {
             }
         }
 
+        BuildGpuPlacementCommonPointAtlas(mConfig, std::span<const FoliageRuntimeRule>{ mRules.data(), mRules.size() }, StaticData.mPointAtlasRecords, StaticData.mPointAtlasPoints);
         StaticData.mValid = StaticData.mRules.empty() == false && StaticData.mRenderTemplates.empty() == false;
         mGpuPlacementStaticRenderData = std::move(StaticData);
         return mGpuPlacementStaticRenderData.mValid;
@@ -2971,6 +3196,8 @@ namespace Game {
         OutFrameData.mConfig = BuildGpuPlacementConfig(mConfig, FocusPosition, mRules);
         OutFrameData.mRules = StaticData.mRules;
         OutFrameData.mSpacingRuleRecords = StaticData.mSpacingRuleRecords;
+        OutFrameData.mPointAtlasRecords = StaticData.mPointAtlasRecords;
+        OutFrameData.mPointAtlasPoints = StaticData.mPointAtlasPoints;
         OutFrameData.mCandidateRecords.reserve(mRules.size());
         OutFrameData.mDrawRecords.reserve(StaticData.mRenderTemplates.size());
         if (mGpuPlacementCandidateCache.mValid == false || mGpuPlacementCandidateCache.mTerrainLayerHash != StaticData.mTerrainLayerHash || mGpuPlacementCandidateCache.mRules.size() != mRules.size()) {
