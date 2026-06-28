@@ -40,6 +40,8 @@ struct EnvironmentGpuRootConstants
     uint mCellMetadataUavIndex;
     uint mAcceptedCandidateSrvIndex;
     uint mAcceptedCandidateUavIndex;
+    uint mFrustumPlanePadding0;
+    uint mFrustumPlanePadding1;
     float4 mFrustumPlanes[6];
 };
 
@@ -116,8 +118,8 @@ struct EnvironmentGpuPlacementDrawRecord
     float MaximumDistance;
     uint CandidateOffset;
     uint CandidateCount;
-    uint Padding0;
-    uint Padding1;
+    uint CullingCenterYOffsetBits;
+    uint CullingRadiusBits;
 };
 
 struct EnvironmentGpuPlacementCandidateRecord
@@ -135,17 +137,17 @@ struct EnvironmentGpuPlacementCandidateRecord
 struct EnvironmentGpuPlacementCandidateDispatchRecord
 {
     uint CandidateRecordIndex;
-    uint LocalCandidateOffset;
-    uint CandidateCount;
-    uint Padding0;
+    int CellX;
+    int CellZ;
+    uint InstanceOffset;
 };
 
 struct EnvironmentGpuPlacementDrawDispatchRecord
 {
     uint DrawRecordIndex;
-    uint LocalCandidateOffset;
-    uint CandidateCount;
-    uint Padding0;
+    int CellX;
+    int CellZ;
+    uint InstanceOffset;
 };
 
 struct EnvironmentGpuPlacementSpacingRuleRecord
@@ -567,6 +569,36 @@ bool IsPlacementCandidateValid(EnvironmentGpuPlacementCandidate Candidate) {
     return Candidate.RotationValid.y > 0.5f;
 }
 
+uint PositiveModuloInt(int Value, uint Modulo) {
+    if (Modulo == 0u) {
+        return 0u;
+    }
+
+    const int SignedModulo = (int)Modulo;
+    int Remainder = Value % SignedModulo;
+    if (Remainder < 0) {
+        Remainder += SignedModulo;
+    }
+
+    return (uint)Remainder;
+}
+
+uint ResolveCandidateCellLocalBase(EnvironmentGpuPlacementCandidateRecord CandidateRecord, EnvironmentGpuPlacementRule Rule, int CellX, int CellZ) {
+    if (CandidateRecord.CellCountX == 0u || CandidateRecord.CellCountZ == 0u || Rule.InstancesPerCell == 0u) {
+        return 0xffffffffu;
+    }
+
+    const uint SlotX = PositiveModuloInt(CellX, CandidateRecord.CellCountX);
+    const uint SlotZ = PositiveModuloInt(CellZ, CandidateRecord.CellCountZ);
+    const uint CellLinearIndex = (SlotZ * CandidateRecord.CellCountX) + SlotX;
+    const uint CandidateLocalBaseIndex = CellLinearIndex * Rule.InstancesPerCell;
+    if (CandidateLocalBaseIndex >= CandidateRecord.CandidateCount) {
+        return 0xffffffffu;
+    }
+
+    return CandidateLocalBaseIndex;
+}
+
 FoliageCandidate BuildFoliageCandidate(EnvironmentGpuPlacementCandidate SourceCandidate) {
     FoliageCandidate Candidate;
     Candidate.Key.CellX = SourceCandidate.CellX;
@@ -609,11 +641,12 @@ void StorePlacementCandidate(RWStructuredBuffer<EnvironmentGpuPlacementCandidate
         return;
     }
 
-    const uint CellLinearIndex = LocalIndex / Rule.InstancesPerCell;
-    const uint CellCandidateOffset = CellLinearIndex * Rule.InstancesPerCell;
+    const uint CellCandidateOffset = ResolveCandidateCellLocalBase(CandidateRecord, Rule, Key.CellX, Key.CellZ);
     if (CellCandidateOffset >= CandidateRecord.CandidateCount) {
         return;
     }
+
+    const uint CellLinearIndex = CellCandidateOffset / Rule.InstancesPerCell;
 
     EnvironmentGpuPlacementCellMetadata CellMetadata;
     CellMetadata.CellX = Key.CellX;
@@ -660,25 +693,13 @@ bool PassesMinimumSpacing(StructuredBuffer<EnvironmentGpuPlacementCandidateRecor
             continue;
         }
 
-        const int OtherMaximumCellX = CandidateRecord.MinimumCellX + (int)CandidateRecord.CellCountX - 1;
-        const int OtherMaximumCellZ = CandidateRecord.MinimumCellZ + (int)CandidateRecord.CellCountZ - 1;
-        const int ClippedMinimumCellX = max(MinimumCellX, CandidateRecord.MinimumCellX);
-        const int ClippedMaximumCellX = min(MaximumCellX, OtherMaximumCellX);
-        const int ClippedMinimumCellZ = max(MinimumCellZ, CandidateRecord.MinimumCellZ);
-        const int ClippedMaximumCellZ = min(MaximumCellZ, OtherMaximumCellZ);
-        if (ClippedMinimumCellX > ClippedMaximumCellX || ClippedMinimumCellZ > ClippedMaximumCellZ) {
-            continue;
-        }
-
         const float ResolvedMinimumSpacing = max(MinimumSpacing, OtherMinimumSpacing);
         const float ResolvedMinimumSpacingSquared = ResolvedMinimumSpacing * ResolvedMinimumSpacing;
         [loop]
-        for (int CellZ = ClippedMinimumCellZ; CellZ <= ClippedMaximumCellZ; CellZ += 1) {
-            const uint CellOffsetZ = (uint)(CellZ - CandidateRecord.MinimumCellZ);
+        for (int CellZ = MinimumCellZ; CellZ <= MaximumCellZ; CellZ += 1) {
             [loop]
-            for (int CellX = ClippedMinimumCellX; CellX <= ClippedMaximumCellX; CellX += 1) {
-                const uint CellOffsetX = (uint)(CellX - CandidateRecord.MinimumCellX);
-                const uint CandidateLocalBaseIndex = ((CellOffsetZ * CandidateRecord.CellCountX) + CellOffsetX) * OtherRule.InstancesPerCell;
+            for (int CellX = MinimumCellX; CellX <= MaximumCellX; CellX += 1) {
+                const uint CandidateLocalBaseIndex = ResolveCandidateCellLocalBase(CandidateRecord, OtherRule, CellX, CellZ);
                 if (CandidateLocalBaseIndex >= CandidateRecord.CandidateCount) {
                     continue;
                 }
@@ -692,6 +713,10 @@ bool PassesMinimumSpacing(StructuredBuffer<EnvironmentGpuPlacementCandidateRecor
                     }
 
                     const FoliageCandidate OtherCandidate = BuildFoliageCandidate(OtherGpuCandidate);
+                    if (OtherCandidate.Key.CellX != CellX || OtherCandidate.Key.CellZ != CellZ || OtherCandidate.Key.RuleIndex != RuleIndex) {
+                        continue;
+                    }
+
                     if (AreCandidateKeysEqual(Candidate.Key, OtherCandidate.Key) || IsHigherPriorityCandidate(Config, Candidate.Key, OtherCandidate.Key) == false) {
                         continue;
                     }
@@ -733,18 +758,22 @@ bool DoesCandidateMatchDrawLod(EnvironmentGpuPlacementConfig Config, Environment
     return DistanceSquared > MinimumDistanceSquared && DistanceSquared <= MaximumDistanceSquared;
 }
 
-bool IsCandidateVisible(EnvironmentGpuPlacementConfig Config, FoliageCandidate Candidate) {
+bool IsCandidateVisible(EnvironmentGpuPlacementConfig Config, EnvironmentGpuPlacementDrawRecord PlacementDrawRecord, FoliageCandidate Candidate) {
+    const float Scale = max(Candidate.Scale, 1.0f);
+    const float LocalRadius = max(asfloat(PlacementDrawRecord.CullingRadiusBits), asfloat(RootConstants.mCullingRadius));
+    const float Radius = LocalRadius * Scale;
     const float2 Delta = Candidate.Position.xz - Config.FocusPositionRenderRadius.xz;
     const float DistanceSquared = dot(Delta, Delta);
     const float MaximumDistance = min(asfloat(RootConstants.mMaximumDrawDistance), Config.FocusPositionRenderRadius.w);
-    if (DistanceSquared > MaximumDistance * MaximumDistance) {
+    const float MaximumCullingDistance = MaximumDistance + Radius;
+    if (DistanceSquared > MaximumCullingDistance * MaximumCullingDistance) {
         return false;
     }
 
-    const float Radius = asfloat(RootConstants.mCullingRadius) * max(Candidate.Scale, 1.0f);
+    const float3 CullingCenter = Candidate.Position + float3(0.0f, asfloat(PlacementDrawRecord.CullingCenterYOffsetBits) * Candidate.Scale, 0.0f);
     [unroll]
     for (uint PlaneIndex = 0u; PlaneIndex < 6u; PlaneIndex += 1u) {
-        const float PlaneDistance = dot(RootConstants.mFrustumPlanes[PlaneIndex].xyz, Candidate.Position) + RootConstants.mFrustumPlanes[PlaneIndex].w;
+        const float PlaneDistance = dot(RootConstants.mFrustumPlanes[PlaneIndex].xyz, CullingCenter) + RootConstants.mFrustumPlanes[PlaneIndex].w;
         if (PlaneDistance < -Radius) {
             return false;
         }
@@ -753,41 +782,41 @@ bool IsCandidateVisible(EnvironmentGpuPlacementConfig Config, FoliageCandidate C
     return true;
 }
 
-FoliageCandidateKey BuildCandidateKey(EnvironmentGpuPlacementCandidateRecord CandidateRecord, EnvironmentGpuPlacementRule Rule, uint LocalIndex) {
-    const uint CellLinearIndex = LocalIndex / Rule.InstancesPerCell;
+FoliageCandidateKey BuildCandidateKey(int CellX, int CellZ, uint RuleIndex, uint InstanceIndex) {
     FoliageCandidateKey Key;
-    Key.CellX = CandidateRecord.MinimumCellX + (int)(CellLinearIndex % CandidateRecord.CellCountX);
-    Key.CellZ = CandidateRecord.MinimumCellZ + (int)(CellLinearIndex / CandidateRecord.CellCountX);
-    Key.RuleIndex = CandidateRecord.RuleIndex;
-    Key.InstanceIndex = LocalIndex % Rule.InstancesPerCell;
+    Key.CellX = CellX;
+    Key.CellZ = CellZ;
+    Key.RuleIndex = RuleIndex;
+    Key.InstanceIndex = InstanceIndex;
     return Key;
 }
 
-bool TryResolvePlacementCandidateLocalIndex(EnvironmentGpuPlacementCandidateRecord CandidateRecord, EnvironmentGpuPlacementDrawRecord PlacementDrawRecord, EnvironmentGpuPlacementRule Rule, uint PlacementLocalIndex, out uint CandidateLocalIndex) {
+bool TryResolvePlacementCandidateLocalIndex(EnvironmentGpuPlacementCandidateRecord CandidateRecord, EnvironmentGpuPlacementDrawRecord PlacementDrawRecord, EnvironmentGpuPlacementRule Rule, int CellX, int CellZ, uint InstanceIndexInCell, out uint CandidateLocalIndex, out uint PlacementLocalIndex) {
     CandidateLocalIndex = 0u;
+    PlacementLocalIndex = 0u;
     if (Rule.InstancesPerCell == 0u || CandidateRecord.CellCountX == 0u || CandidateRecord.CellCountZ == 0u || PlacementDrawRecord.CellCountX == 0u || PlacementDrawRecord.CellCountZ == 0u) {
         return false;
     }
 
-    const uint InstanceIndexInCell = PlacementLocalIndex % Rule.InstancesPerCell;
-    const uint PlacementCellLinearIndex = PlacementLocalIndex / Rule.InstancesPerCell;
-    const uint PlacementCellCount = PlacementDrawRecord.CellCountX * PlacementDrawRecord.CellCountZ;
-    if (PlacementCellLinearIndex >= PlacementCellCount) {
+    const int PlacementMaximumCellX = PlacementDrawRecord.MinimumCellX + (int)PlacementDrawRecord.CellCountX;
+    const int PlacementMaximumCellZ = PlacementDrawRecord.MinimumCellZ + (int)PlacementDrawRecord.CellCountZ;
+    if (CellX < PlacementDrawRecord.MinimumCellX || CellX >= PlacementMaximumCellX || CellZ < PlacementDrawRecord.MinimumCellZ || CellZ >= PlacementMaximumCellZ || InstanceIndexInCell >= Rule.InstancesPerCell) {
         return false;
     }
 
-    const int CellX = PlacementDrawRecord.MinimumCellX + (int)(PlacementCellLinearIndex % PlacementDrawRecord.CellCountX);
-    const int CellZ = PlacementDrawRecord.MinimumCellZ + (int)(PlacementCellLinearIndex / PlacementDrawRecord.CellCountX);
-    const int CandidateMaximumCellX = CandidateRecord.MinimumCellX + (int)CandidateRecord.CellCountX;
-    const int CandidateMaximumCellZ = CandidateRecord.MinimumCellZ + (int)CandidateRecord.CellCountZ;
-    if (CellX < CandidateRecord.MinimumCellX || CellX >= CandidateMaximumCellX || CellZ < CandidateRecord.MinimumCellZ || CellZ >= CandidateMaximumCellZ) {
+    const uint PlacementCellOffsetX = (uint)(CellX - PlacementDrawRecord.MinimumCellX);
+    const uint PlacementCellOffsetZ = (uint)(CellZ - PlacementDrawRecord.MinimumCellZ);
+    PlacementLocalIndex = (((PlacementCellOffsetZ * PlacementDrawRecord.CellCountX) + PlacementCellOffsetX) * Rule.InstancesPerCell) + InstanceIndexInCell;
+    if (PlacementLocalIndex >= PlacementDrawRecord.CandidateCount) {
         return false;
     }
 
-    const uint CandidateCellOffsetX = (uint)(CellX - CandidateRecord.MinimumCellX);
-    const uint CandidateCellOffsetZ = (uint)(CellZ - CandidateRecord.MinimumCellZ);
-    const uint CandidateCellLinearIndex = (CandidateCellOffsetZ * CandidateRecord.CellCountX) + CandidateCellOffsetX;
-    CandidateLocalIndex = (CandidateCellLinearIndex * Rule.InstancesPerCell) + InstanceIndexInCell;
+    const uint CandidateLocalBaseIndex = ResolveCandidateCellLocalBase(CandidateRecord, Rule, CellX, CellZ);
+    if (CandidateLocalBaseIndex >= CandidateRecord.CandidateCount) {
+        return false;
+    }
+
+    CandidateLocalIndex = CandidateLocalBaseIndex + InstanceIndexInCell;
     return CandidateLocalIndex < CandidateRecord.CandidateCount;
 }
 
@@ -847,24 +876,29 @@ void GenerateCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint
 
     const EnvironmentGpuPlacementConfig Config = PlacementConfigBuffer[0];
     const EnvironmentGpuPlacementCandidateDispatchRecord CandidateDispatchRecord = PlacementCandidateDispatchRecordBuffer[CandidateDispatchRecordIndex];
-    if (CandidateDispatchRecord.CandidateRecordIndex >= RootConstants.mCandidateRecordCount || GroupIndex >= CandidateDispatchRecord.CandidateCount) {
+    if (CandidateDispatchRecord.CandidateRecordIndex >= RootConstants.mCandidateRecordCount) {
         return;
     }
 
     const uint CandidateRecordIndex = CandidateDispatchRecord.CandidateRecordIndex;
     const EnvironmentGpuPlacementCandidateRecord CandidateRecord = PlacementCandidateRecordBuffer[CandidateRecordIndex];
     const EnvironmentGpuPlacementRule Rule = PlacementRuleBuffer[CandidateRecord.RuleIndex];
-    const uint LocalIndex = CandidateDispatchRecord.LocalCandidateOffset + GroupIndex;
+    const uint InstanceIndexInCell = CandidateDispatchRecord.InstanceOffset + GroupIndex;
+    if (InstanceIndexInCell >= Rule.InstancesPerCell) {
+        return;
+    }
+
+    const uint LocalBaseIndex = ResolveCandidateCellLocalBase(CandidateRecord, Rule, CandidateDispatchRecord.CellX, CandidateDispatchRecord.CellZ);
+    if (LocalBaseIndex >= CandidateRecord.CandidateCount) {
+        return;
+    }
+
+    const uint LocalIndex = LocalBaseIndex + InstanceIndexInCell;
     if (LocalIndex >= CandidateRecord.CandidateCount) {
         return;
     }
 
-    const FoliageCandidateKey Key = BuildCandidateKey(CandidateRecord, Rule, LocalIndex);
-    if (DoesCellIntersectRenderRadius(Config, Key.CellX, Key.CellZ) == false) {
-        StorePlacementCandidate(CandidateBuffer, AcceptedCandidateBuffer, CellMetadataBuffer, CandidateRecord, Rule, LocalIndex, Key, BuildInvalidGpuPlacementCandidate(Key));
-        return;
-    }
-
+    const FoliageCandidateKey Key = BuildCandidateKey(CandidateDispatchRecord.CellX, CandidateDispatchRecord.CellZ, CandidateRecord.RuleIndex, InstanceIndexInCell);
     FoliageCandidate Candidate;
     if (TryCreateBaseCandidate(HeightFieldBuffer, Splat0Texture, Splat1Texture, Config, Rule, Key, Candidate) == false) {
         StorePlacementCandidate(CandidateBuffer, AcceptedCandidateBuffer, CellMetadataBuffer, CandidateRecord, Rule, LocalIndex, Key, BuildInvalidGpuPlacementCandidate(Key));
@@ -902,24 +936,26 @@ void ClassifyCandidatesCsMain(uint3 DispatchThreadId : SV_DispatchThreadID, uint
     const EnvironmentGpuPlacementConfig Config = PlacementConfigBuffer[0];
     const EnvironmentDrawRecordGpu DrawRecord = DrawRecordBuffer[DrawRecordIndex];
     const EnvironmentGpuPlacementDrawRecord PlacementDrawRecord = PlacementDrawRecordBuffer[DrawRecordIndex];
-    if (PlacementDrawRecord.RuleIndex >= RootConstants.mCandidateRecordCount) {
+    const uint CandidateRecordIndex = PlacementDrawRecord.CandidateOffset;
+    if (CandidateRecordIndex >= RootConstants.mCandidateRecordCount) {
         return;
     }
 
-    const EnvironmentGpuPlacementCandidateRecord CandidateRecord = PlacementCandidateRecordBuffer[PlacementDrawRecord.RuleIndex];
-    const EnvironmentGpuPlacementRule Rule = PlacementRuleBuffer[PlacementDrawRecord.RuleIndex];
-    const uint LocalIndex = DrawDispatchRecord.LocalCandidateOffset + GroupIndex;
+    const EnvironmentGpuPlacementCandidateRecord CandidateRecord = PlacementCandidateRecordBuffer[CandidateRecordIndex];
+    const EnvironmentGpuPlacementRule Rule = PlacementRuleBuffer[CandidateRecord.RuleIndex];
     uint VisibleFlag = 0u;
     uint InstanceIndex = 0u;
 
-    if (GroupIndex < DrawDispatchRecord.CandidateCount && LocalIndex < DrawRecord.InstanceCount && LocalIndex < PlacementDrawRecord.CandidateCount) {
+    const uint InstanceIndexInCell = DrawDispatchRecord.InstanceOffset + GroupIndex;
+    if (InstanceIndexInCell < Rule.InstancesPerCell) {
         uint CandidateLocalIndex = 0u;
-        if (TryResolvePlacementCandidateLocalIndex(CandidateRecord, PlacementDrawRecord, Rule, LocalIndex, CandidateLocalIndex) == true) {
+        uint PlacementLocalIndex = 0u;
+        if (TryResolvePlacementCandidateLocalIndex(CandidateRecord, PlacementDrawRecord, Rule, DrawDispatchRecord.CellX, DrawDispatchRecord.CellZ, InstanceIndexInCell, CandidateLocalIndex, PlacementLocalIndex) == true && PlacementLocalIndex < DrawRecord.InstanceCount) {
             const EnvironmentGpuPlacementCandidate GpuCandidate = CandidateBuffer[CandidateRecord.CandidateOffset + CandidateLocalIndex];
             if (IsPlacementCandidateValid(GpuCandidate) == true) {
                 const FoliageCandidate Candidate = BuildFoliageCandidate(GpuCandidate);
-                if (DoesCandidateMatchDrawLod(Config, PlacementDrawRecord, Candidate) == true && IsCandidateVisible(Config, Candidate) == true && PassesMinimumSpacing(PlacementCandidateRecordBuffer, CandidateBuffer, PlacementRuleBuffer, PlacementSpacingRuleRecordBuffer, Config, Rule, Candidate) == true) {
-                    InstanceIndex = DrawRecord.InstanceOffset + LocalIndex;
+                if (Candidate.Key.CellX == DrawDispatchRecord.CellX && Candidate.Key.CellZ == DrawDispatchRecord.CellZ && Candidate.Key.RuleIndex == CandidateRecord.RuleIndex && DoesCandidateMatchDrawLod(Config, PlacementDrawRecord, Candidate) == true && IsCandidateVisible(Config, PlacementDrawRecord, Candidate) == true && PassesMinimumSpacing(PlacementCandidateRecordBuffer, CandidateBuffer, PlacementRuleBuffer, PlacementSpacingRuleRecordBuffer, Config, Rule, Candidate) == true) {
+                    InstanceIndex = DrawRecord.InstanceOffset + PlacementLocalIndex;
                     EnvironmentInstanceContextGpu InstanceContext;
                     InstanceContext.PositionScale = float4(Candidate.Position, Candidate.Scale);
                     InstanceContext.RotationVariation = float4(Candidate.YawRadians, (float)Candidate.Key.InstanceIndex, 0.0f, 0.0f);

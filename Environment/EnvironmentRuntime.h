@@ -277,6 +277,7 @@ namespace Game {
         std::array<EnvironmentGpuDrivenFrameResource, Constants::FrameCount<std::size_t>> mGpuDrivenFrameResources{};
         std::uint32_t mGpuInstanceContextCount{};
         std::uint32_t mGpuStatusUavIndex{ 0xffffffffu };
+        std::uint32_t mLastGpuPrepareFailureMask{};
         bool mInitialized{};
         bool mGpuDrivenEnabled{};
         bool mGpuResourcesInitialized{};

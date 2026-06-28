@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -9,6 +10,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <span>
@@ -188,6 +190,63 @@ namespace {
         std::uint32_t mShadowCascadeMask{};
     };
 
+    struct EnvironmentGpuPlacementRenderTemplate final {
+    public:
+        RenderContract::EnvironmentSegmentContext mSegmentContext{};
+        const RenderContract::IPipeline* mPipeline{};
+        const RenderContract::IModelNode* mMesh{};
+        SimpleMath::Vector3 mCullingCenterOffset{};
+        std::uint32_t mRuleIndex{};
+        std::uint32_t mLodIndex{};
+        std::uint32_t mSubMeshIndex{};
+        std::uint32_t mMaterialIndex{};
+        std::uint32_t mFlags{};
+        std::uint32_t mShadowCascadeMask{ FullShadowCascadeMask };
+        float mCullingRadius{ 1.0f };
+        float mMinimumDistance{};
+        float mMaximumDistance{ std::numeric_limits<float>::max() };
+        bool mCastsShadow{ true };
+    };
+
+    struct EnvironmentGpuPlacementRenderTemplateRange final {
+    public:
+        std::uint32_t mOffset{};
+        std::uint32_t mCount{};
+    };
+
+    struct EnvironmentGpuPlacementStaticRenderData final {
+    public:
+        std::vector<Game::EnvironmentGpuPlacementRule> mRules{};
+        std::vector<Game::EnvironmentGpuPlacementSpacingRuleRecord> mSpacingRuleRecords{};
+        std::vector<float> mCandidateRadii{};
+        std::vector<EnvironmentGpuPlacementRenderTemplateRange> mRenderTemplateRanges{};
+        std::vector<EnvironmentGpuPlacementRenderTemplate> mRenderTemplates{};
+        std::uint64_t mTerrainLayerHash{};
+        bool mValid{};
+    };
+
+    struct EnvironmentGpuPlacementCachedCell final {
+    public:
+        std::int32_t mCellX{};
+        std::int32_t mCellZ{};
+        bool mValid{};
+    };
+
+    struct EnvironmentGpuPlacementRuleCache final {
+    public:
+        std::vector<EnvironmentGpuPlacementCachedCell> mCells{};
+        std::uint32_t mCellCountX{};
+        std::uint32_t mCellCountZ{};
+        std::uint32_t mInstancesPerCell{};
+    };
+
+    struct EnvironmentGpuPlacementCandidateCache final {
+    public:
+        std::vector<EnvironmentGpuPlacementRuleCache> mRules{};
+        std::uint64_t mTerrainLayerHash{};
+        bool mValid{};
+    };
+
     struct FoliageCandidateKey final {
     public:
         std::int32_t mCellX{ 0 };
@@ -270,6 +329,7 @@ namespace {
     public:
         Game::EnvironmentObjectCell mCell{};
         std::vector<FoliageCandidate> mCandidates{};
+        bool mHasRenderCell{};
     };
 
     struct TerrainSamplingContext final {
@@ -1671,6 +1731,27 @@ namespace {
         return Mask;
     }
 
+    std::uint64_t CombineGpuPlacementHash(std::uint64_t Hash, std::uint64_t Value) {
+        return Hash ^ (Value + 0x9e3779b97f4a7c15ULL + (Hash << 6ULL) + (Hash >> 2ULL));
+    }
+
+    std::uint64_t HashGpuPlacementString(const std::string& Value) {
+        return static_cast<std::uint64_t>(std::hash<std::string>{}(Value));
+    }
+
+    std::uint64_t HashGpuPlacementTerrainLayerDesc(const Terrain::TerrainBuildDesc& BuildDesc) {
+        const Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapDesc& SplatMapDesc{ BuildDesc.mProceduralHeightFieldDesc.mSplatMapDesc };
+        std::uint64_t Hash{ 1469598103934665603ULL };
+        Hash = CombineGpuPlacementHash(Hash, static_cast<std::uint64_t>(BuildDesc.mHeightSourceType));
+        Hash = CombineGpuPlacementHash(Hash, static_cast<std::uint64_t>(SplatMapDesc.mFallbackLayerIndex));
+        Hash = CombineGpuPlacementHash(Hash, static_cast<std::uint64_t>(SplatMapDesc.mLayers.size()));
+        for (const Terrain::TerrainProceduralHeightFieldDesc::TerrainSplatMapLayerDesc& LayerDesc : SplatMapDesc.mLayers) {
+            Hash = CombineGpuPlacementHash(Hash, HashGpuPlacementString(LayerDesc.mName));
+        }
+
+        return Hash;
+    }
+
     Game::EnvironmentGpuPlacementConfig BuildGpuPlacementConfig(const FoliagePlacementConfig& Config, const SimpleMath::Vector3& FocusPosition, const std::vector<FoliageRuntimeRule>& Rules) {
         Game::EnvironmentGpuPlacementConfig GpuConfig{};
         GpuConfig.mFocusPositionRenderRadius = SimpleMath::Vector4{ FocusPosition.x, FocusPosition.y, FocusPosition.z, Config.mRenderRadius };
@@ -1713,6 +1794,31 @@ namespace {
         return GpuRule;
     }
 
+    RenderContract::EnvironmentSegmentContext BuildGpuDrivenEnvironmentSegmentContext(const Game::EnvironmentObjectRenderSegment& Segment);
+
+    EnvironmentGpuPlacementRenderTemplate BuildGpuPlacementRenderTemplate(const Game::EnvironmentObjectRenderSegment& Segment, const Game::EnvironmentObjectLod& Lod, std::uint32_t RuleIndex, std::uint32_t LodIndex, float MinimumDistance, float MaximumDistance) {
+        EnvironmentGpuPlacementRenderTemplate Template{};
+        Template.mSegmentContext = BuildGpuDrivenEnvironmentSegmentContext(Segment);
+        Template.mPipeline = Segment.mPipeline;
+        Template.mMesh = Segment.mMesh;
+        if (Lod.mHasLocalBoundingBox == true) {
+            const DirectX::BoundingOrientedBox& BoundingBox{ Lod.mLocalBoundingBox };
+            Template.mCullingCenterOffset = SimpleMath::Vector3{ BoundingBox.Center.x, BoundingBox.Center.y, BoundingBox.Center.z };
+            const float HorizontalCenterOffset{ SimpleMath::Vector2{ BoundingBox.Center.x, BoundingBox.Center.z }.Length() };
+            Template.mCullingRadius = std::max(HorizontalCenterOffset + SimpleMath::Vector3{ BoundingBox.Extents.x, BoundingBox.Extents.y, BoundingBox.Extents.z }.Length(), FoliageEpsilon);
+        }
+        Template.mRuleIndex = RuleIndex;
+        Template.mLodIndex = LodIndex;
+        Template.mSubMeshIndex = Segment.mSubMeshIndex;
+        Template.mMaterialIndex = Segment.mMaterialIndex;
+        Template.mFlags = Segment.mFlags;
+        Template.mShadowCascadeMask = Segment.mShadowCascadeMask;
+        Template.mMinimumDistance = MinimumDistance;
+        Template.mMaximumDistance = MaximumDistance;
+        Template.mCastsShadow = Segment.mCastsShadow;
+        return Template;
+    }
+
     std::uint32_t CalculateGpuPlacementCandidateCapacity(const FoliagePlacementConfig& Config, const SimpleMath::Vector3& FocusPosition, const FoliagePlacementRule& Rule, float CandidateRadius, std::int32_t& OutMinimumCellX, std::int32_t& OutMinimumCellZ, std::uint32_t& OutCellCountX, std::uint32_t& OutCellCountZ) {
         const float Radius{ std::clamp(CandidateRadius, 1.0f, std::max(Config.mRenderRadius, 1.0f)) };
         const float CellSize{ std::max(Config.mCellSize, FoliageEpsilon) };
@@ -1726,6 +1832,96 @@ namespace {
         OutCellCountZ = static_cast<std::uint32_t>(std::max(MaximumCellZ - MinimumCellZ + 1, 1));
         const std::uint64_t Capacity{ static_cast<std::uint64_t>(OutCellCountX) * static_cast<std::uint64_t>(OutCellCountZ) * static_cast<std::uint64_t>(std::max(Rule.mInstancesPerCell, 1u)) };
         return static_cast<std::uint32_t>(std::min<std::uint64_t>(Capacity, std::numeric_limits<std::uint32_t>::max()));
+    }
+
+    void CalculateGpuPlacementCellRange(const FoliagePlacementConfig& Config, const SimpleMath::Vector3& FocusPosition, float RadiusValue, std::int32_t& OutMinimumCellX, std::int32_t& OutMinimumCellZ, std::uint32_t& OutCellCountX, std::uint32_t& OutCellCountZ) {
+        const float Radius{ std::max(RadiusValue, 1.0f) };
+        const float CellSize{ std::max(Config.mCellSize, FoliageEpsilon) };
+        const std::int32_t CenterCellX{ static_cast<std::int32_t>(std::floor(FocusPosition.x / CellSize)) };
+        const std::int32_t CenterCellZ{ static_cast<std::int32_t>(std::floor(FocusPosition.z / CellSize)) };
+        const std::int32_t CellRadius{ std::max(static_cast<std::int32_t>(std::ceil(Radius / CellSize)), 0) };
+        OutMinimumCellX = CenterCellX - CellRadius;
+        OutMinimumCellZ = CenterCellZ - CellRadius;
+        OutCellCountX = static_cast<std::uint32_t>((CellRadius * 2) + 1);
+        OutCellCountZ = static_cast<std::uint32_t>((CellRadius * 2) + 1);
+    }
+
+    std::uint32_t CalculateGpuPlacementCandidateCapacity(std::uint32_t CellCountX, std::uint32_t CellCountZ, std::uint32_t InstancesPerCell) {
+        const std::uint64_t Capacity{ static_cast<std::uint64_t>(CellCountX) * static_cast<std::uint64_t>(CellCountZ) * static_cast<std::uint64_t>(std::max(InstancesPerCell, 1u)) };
+        return static_cast<std::uint32_t>(std::min<std::uint64_t>(Capacity, std::numeric_limits<std::uint32_t>::max()));
+    }
+
+    std::uint32_t PositiveModulo(std::int32_t Value, std::uint32_t Modulo) {
+        if (Modulo == 0u) {
+            return 0u;
+        }
+
+        const std::int64_t WideModulo{ static_cast<std::int64_t>(Modulo) };
+        std::int64_t Remainder{ static_cast<std::int64_t>(Value) % WideModulo };
+        if (Remainder < 0) {
+            Remainder += WideModulo;
+        }
+
+        return static_cast<std::uint32_t>(Remainder);
+    }
+
+    std::size_t ResolveGpuPlacementRuleCacheCellIndex(const EnvironmentGpuPlacementRuleCache& RuleCache, std::int32_t CellX, std::int32_t CellZ) {
+        if (RuleCache.mCellCountX == 0u || RuleCache.mCellCountZ == 0u) {
+            return std::numeric_limits<std::size_t>::max();
+        }
+
+        const std::uint32_t SlotX{ PositiveModulo(CellX, RuleCache.mCellCountX) };
+        const std::uint32_t SlotZ{ PositiveModulo(CellZ, RuleCache.mCellCountZ) };
+        return static_cast<std::size_t>((static_cast<std::uint64_t>(SlotZ) * static_cast<std::uint64_t>(RuleCache.mCellCountX)) + static_cast<std::uint64_t>(SlotX));
+    }
+
+    void EnsureGpuPlacementRuleCache(EnvironmentGpuPlacementRuleCache& RuleCache, std::uint32_t CellCountX, std::uint32_t CellCountZ, std::uint32_t InstancesPerCell) {
+        const std::uint32_t SafeCellCountX{ std::max(CellCountX, 1u) };
+        const std::uint32_t SafeCellCountZ{ std::max(CellCountZ, 1u) };
+        const std::uint32_t SafeInstancesPerCell{ std::max(InstancesPerCell, 1u) };
+        if (RuleCache.mCellCountX == SafeCellCountX && RuleCache.mCellCountZ == SafeCellCountZ && RuleCache.mInstancesPerCell == SafeInstancesPerCell && RuleCache.mCells.size() == static_cast<std::size_t>(SafeCellCountX) * static_cast<std::size_t>(SafeCellCountZ)) {
+            return;
+        }
+
+        RuleCache.mCellCountX = SafeCellCountX;
+        RuleCache.mCellCountZ = SafeCellCountZ;
+        RuleCache.mInstancesPerCell = SafeInstancesPerCell;
+        RuleCache.mCells.clear();
+        RuleCache.mCells.resize(static_cast<std::size_t>(SafeCellCountX) * static_cast<std::size_t>(SafeCellCountZ));
+    }
+
+    void AppendGpuPlacementCandidateDispatchRecord(std::uint32_t CandidateRecordIndex, std::int32_t CellX, std::int32_t CellZ, std::uint32_t InstanceOffset, std::vector<Game::EnvironmentGpuPlacementCandidateDispatchRecord>& OutDispatchRecords) {
+        Game::EnvironmentGpuPlacementCandidateDispatchRecord DispatchRecord{};
+        DispatchRecord.mCandidateRecordIndex = CandidateRecordIndex;
+        DispatchRecord.mCellX = CellX;
+        DispatchRecord.mCellZ = CellZ;
+        DispatchRecord.mInstanceOffset = InstanceOffset;
+        OutDispatchRecords.push_back(DispatchRecord);
+    }
+
+    void AppendGpuPlacementNewCellDispatchRecords(std::uint32_t CandidateRecordIndex, std::int32_t MinimumCellX, std::int32_t MinimumCellZ, std::uint32_t CellCountX, std::uint32_t CellCountZ, EnvironmentGpuPlacementRuleCache& RuleCache, std::vector<Game::EnvironmentGpuPlacementCandidateDispatchRecord>& OutDispatchRecords) {
+        for (std::uint32_t CellOffsetZ{}; CellOffsetZ < CellCountZ; CellOffsetZ += 1u) {
+            const std::int32_t CellZ{ MinimumCellZ + static_cast<std::int32_t>(CellOffsetZ) };
+            for (std::uint32_t CellOffsetX{}; CellOffsetX < CellCountX; CellOffsetX += 1u) {
+                const std::int32_t CellX{ MinimumCellX + static_cast<std::int32_t>(CellOffsetX) };
+                const std::size_t SlotIndex{ ResolveGpuPlacementRuleCacheCellIndex(RuleCache, CellX, CellZ) };
+                if (SlotIndex >= RuleCache.mCells.size()) {
+                    continue;
+                }
+
+                EnvironmentGpuPlacementCachedCell& CachedCell{ RuleCache.mCells[SlotIndex] };
+                if (CachedCell.mValid == true && CachedCell.mCellX == CellX && CachedCell.mCellZ == CellZ) {
+                    continue;
+                }
+
+                CachedCell.mCellX = CellX;
+                CachedCell.mCellZ = CellZ;
+                CachedCell.mValid = true;
+                for (std::uint32_t InstanceOffset{}; InstanceOffset < RuleCache.mInstancesPerCell; InstanceOffset += EnvironmentGpuPlacementDispatchThreadGroupSize) {
+                    AppendGpuPlacementCandidateDispatchRecord(CandidateRecordIndex, CellX, CellZ, InstanceOffset, OutDispatchRecords);
+                }
+            }
+        }
     }
 
     std::uint32_t CalculateGpuPlacementChunkCandidateCount(const FoliagePlacementRule& Rule, std::uint32_t CellCountX, std::uint32_t CellCountZ) {
@@ -1746,16 +1942,16 @@ namespace {
         return WorldBoundingBox;
     }
 
-    std::vector<EnvironmentGpuPlacementDrawChunk> BuildGpuPlacementDrawChunks(const FoliagePlacementConfig& Config, const SimpleMath::Vector3& FocusPosition, const FoliagePlacementRule& Rule, const Game::EnvironmentGpuPlacementCandidateRecord& CandidateRecord, const std::array<DirectX::BoundingOrientedBox, RenderContract::ShadowCascadeMaxCount>& ShadowCullingBoxes, std::uint32_t ShadowCascadeCount) {
-        std::vector<EnvironmentGpuPlacementDrawChunk> Chunks{};
+    void BuildGpuPlacementDrawChunks(const FoliagePlacementConfig& Config, const SimpleMath::Vector3& FocusPosition, const FoliagePlacementRule& Rule, const Game::EnvironmentGpuPlacementCandidateRecord& CandidateRecord, const std::array<DirectX::BoundingOrientedBox, RenderContract::ShadowCascadeMaxCount>& ShadowCullingBoxes, std::uint32_t ShadowCascadeCount, std::vector<EnvironmentGpuPlacementDrawChunk>& OutChunks) {
+        OutChunks.clear();
         if (CandidateRecord.mCandidateCount == 0u || CandidateRecord.mCellCountX == 0u || CandidateRecord.mCellCountZ == 0u) {
-            return Chunks;
+            return;
         }
 
         const std::uint32_t ChunkCellCount{ std::max(EnvironmentGpuShadowCullCellChunkSize, 1u) };
         const std::uint64_t ChunkCountX{ (static_cast<std::uint64_t>(CandidateRecord.mCellCountX) + static_cast<std::uint64_t>(ChunkCellCount) - 1ULL) / static_cast<std::uint64_t>(ChunkCellCount) };
         const std::uint64_t ChunkCountZ{ (static_cast<std::uint64_t>(CandidateRecord.mCellCountZ) + static_cast<std::uint64_t>(ChunkCellCount) - 1ULL) / static_cast<std::uint64_t>(ChunkCellCount) };
-        Chunks.reserve(static_cast<std::size_t>(std::min<std::uint64_t>(ChunkCountX * ChunkCountZ, static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max()))));
+        OutChunks.reserve(static_cast<std::size_t>(std::min<std::uint64_t>(ChunkCountX * ChunkCountZ, static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max()))));
 
         for (std::uint32_t CellOffsetZ{}; CellOffsetZ < CandidateRecord.mCellCountZ; CellOffsetZ += ChunkCellCount) {
             const std::uint32_t CurrentChunkCellCountZ{ std::min(ChunkCellCount, CandidateRecord.mCellCountZ - CellOffsetZ) };
@@ -1769,11 +1965,9 @@ namespace {
                 Chunk.mCandidateCount = CalculateGpuPlacementChunkCandidateCount(Rule, CurrentChunkCellCountX, CurrentChunkCellCountZ);
                 const DirectX::BoundingOrientedBox WorldBoundingBox{ BuildGpuPlacementChunkWorldBoundingBox(Config, FocusPosition, Chunk.mMinimumCellX, Chunk.mMinimumCellZ, CurrentChunkCellCountX, CurrentChunkCellCountZ) };
                 Chunk.mShadowCascadeMask = BuildGpuPlacementChunkShadowCascadeMask(WorldBoundingBox, ShadowCullingBoxes, ShadowCascadeCount);
-                Chunks.push_back(Chunk);
+                OutChunks.push_back(Chunk);
             }
         }
-
-        return Chunks;
     }
 
     Game::EnvironmentGpuPlacementCandidateRecord BuildGpuPlacementCandidateRecord(std::int32_t MinimumCellX, std::int32_t MinimumCellZ, std::uint32_t CellCountX, std::uint32_t CellCountZ, std::uint32_t RuleIndex, std::uint32_t CandidateOffset, std::uint32_t CandidateCount, std::uint32_t CellMetadataOffset) {
@@ -1789,15 +1983,6 @@ namespace {
         return CandidateRecord;
     }
 
-    Game::EnvironmentGpuPlacementCandidateDispatchRecord BuildGpuPlacementCandidateDispatchRecord(std::uint32_t CandidateRecordIndex, std::uint32_t LocalCandidateOffset, std::uint32_t CandidateCount) {
-        Game::EnvironmentGpuPlacementCandidateDispatchRecord DispatchRecord{};
-        DispatchRecord.mCandidateRecordIndex = CandidateRecordIndex;
-        DispatchRecord.mLocalCandidateOffset = LocalCandidateOffset;
-        DispatchRecord.mCandidateCount = CandidateCount;
-        DispatchRecord.mPadding0 = 0u;
-        return DispatchRecord;
-    }
-
     Game::EnvironmentGpuPlacementSpacingRuleRecord BuildGpuPlacementSpacingRuleRecord(std::uint32_t RuleIndex) {
         Game::EnvironmentGpuPlacementSpacingRuleRecord SpacingRuleRecord{};
         SpacingRuleRecord.mRuleIndex = RuleIndex;
@@ -1807,15 +1992,7 @@ namespace {
         return SpacingRuleRecord;
     }
 
-    void AppendGpuPlacementCandidateDispatchRecords(std::uint32_t CandidateRecordIndex, std::uint32_t CandidateCount, std::vector<Game::EnvironmentGpuPlacementCandidateDispatchRecord>& OutDispatchRecords) {
-        for (std::uint32_t LocalCandidateOffset{}; LocalCandidateOffset < CandidateCount; LocalCandidateOffset += EnvironmentGpuPlacementDispatchThreadGroupSize) {
-            const std::uint32_t RemainingCandidateCount{ CandidateCount - LocalCandidateOffset };
-            const std::uint32_t DispatchCandidateCount{ std::min(RemainingCandidateCount, EnvironmentGpuPlacementDispatchThreadGroupSize) };
-            OutDispatchRecords.push_back(BuildGpuPlacementCandidateDispatchRecord(CandidateRecordIndex, LocalCandidateOffset, DispatchCandidateCount));
-        }
-    }
-
-    Game::EnvironmentGpuPlacementDrawRecord BuildGpuPlacementDrawRecord(const Game::EnvironmentGpuPlacementCandidateRecord& CandidateRecord, const EnvironmentGpuPlacementDrawChunk& Chunk, std::uint32_t LodIndex, float MinimumDistance, float MaximumDistance) {
+    Game::EnvironmentGpuPlacementDrawRecord BuildGpuPlacementDrawRecord(const Game::EnvironmentGpuPlacementCandidateRecord& CandidateRecord, std::uint32_t CandidateRecordIndex, const EnvironmentGpuPlacementDrawChunk& Chunk, std::uint32_t LodIndex, float MinimumDistance, float MaximumDistance, float CullingCenterYOffset, float CullingRadius) {
         Game::EnvironmentGpuPlacementDrawRecord DrawRecord{};
         DrawRecord.mMinimumCellX = Chunk.mMinimumCellX;
         DrawRecord.mMinimumCellZ = Chunk.mMinimumCellZ;
@@ -1825,10 +2002,10 @@ namespace {
         DrawRecord.mLodIndex = LodIndex;
         DrawRecord.mMinimumDistance = MinimumDistance;
         DrawRecord.mMaximumDistance = MaximumDistance;
-        DrawRecord.mCandidateOffset = CandidateRecord.mCandidateOffset;
+        DrawRecord.mCandidateOffset = CandidateRecordIndex;
         DrawRecord.mCandidateCount = Chunk.mCandidateCount;
-        DrawRecord.mPadding0 = 0u;
-        DrawRecord.mPadding1 = 0u;
+        DrawRecord.mCullingCenterYOffsetBits = std::bit_cast<std::uint32_t>(CullingCenterYOffset);
+        DrawRecord.mCullingRadiusBits = std::bit_cast<std::uint32_t>(CullingRadius);
         return DrawRecord;
     }
 
@@ -1852,6 +2029,33 @@ namespace {
         DrawRecord.mShadowCascadeMask = Segment.mShadowCascadeMask & ShadowCascadeMask;
         DrawRecord.mCastsShadow = Segment.mCastsShadow == true && DrawRecord.mShadowCascadeMask != 0u;
         return DrawRecord;
+    }
+
+    RenderContract::EnvironmentDrawRecord BuildGpuDrivenEnvironmentDrawRecord(const EnvironmentGpuPlacementRenderTemplate& Template, std::uint32_t SegmentContextIndex, std::uint32_t InstanceOffset, std::uint32_t InstanceCount, std::uint32_t ShadowCascadeMask) {
+        RenderContract::EnvironmentDrawRecord DrawRecord{};
+        DrawRecord.mPipeline = Template.mPipeline;
+        DrawRecord.mMesh = Template.mMesh;
+        DrawRecord.mSubMesh = Template.mSubMeshIndex;
+        DrawRecord.mPass = 0u;
+        DrawRecord.mInstanceOffset = InstanceOffset;
+        DrawRecord.mInstanceCount = InstanceCount;
+        DrawRecord.mSegmentContextIndex = SegmentContextIndex;
+        DrawRecord.mMaterialIndex = Template.mMaterialIndex;
+        DrawRecord.mFlags = Template.mFlags;
+        DrawRecord.mShadowCascadeMask = Template.mShadowCascadeMask & ShadowCascadeMask;
+        DrawRecord.mCastsShadow = Template.mCastsShadow == true && DrawRecord.mShadowCascadeMask != 0u;
+        return DrawRecord;
+    }
+
+    void ClearGpuPlacementFrameData(Game::EnvironmentGpuPlacementFrameData& FrameData) {
+        FrameData.mConfig = Game::EnvironmentGpuPlacementConfig{};
+        FrameData.mRules.clear();
+        FrameData.mCandidateRecords.clear();
+        FrameData.mCandidateDispatchRecords.clear();
+        FrameData.mDrawDispatchRecords.clear();
+        FrameData.mSpacingRuleRecords.clear();
+        FrameData.mDrawRecords.clear();
+        FrameData.mCandidateCount = 0u;
     }
 
     bool IsGpuDrivenEnvironmentSegmentRenderable(const Game::EnvironmentObjectRenderSegment& Segment) {
@@ -2123,13 +2327,14 @@ namespace Game {
         void RebuildSlotLookupBatch(Arche::World& World, FrameContext& Ctx);
         void BuildEnvironmentPrototypes(AssetRegistry& AssetRegistryValue, const std::vector<RegisteredMaterialGroup>& MaterialGroups);
         EnvironmentObjectCell BuildEnvironmentObjectCell(const EnvironmentObjectCellKey& CellKey, std::span<const FoliageCandidate> Candidates, std::uint64_t FrameIndex) const;
-        GeneratedFoliageCell GenerateEnvironmentObjectCell(const TerrainSamplingContext& TerrainContext, const EnvironmentObjectCellKey& CellKey, std::uint64_t FrameIndex) const;
+        GeneratedFoliageCell GenerateEnvironmentObjectCell(const TerrainSamplingContext& TerrainContext, const EnvironmentObjectCellKey& CellKey, std::uint64_t FrameIndex, bool BuildRenderCell) const;
         void RemoveUnloadedEnvironmentObjectCells(FrameContext& Ctx);
         void RefreshVisibleEnvironmentObjectCells(FrameContext& Ctx);
         void BuildLoadedCollisionCandidates();
         void AppendEnvironmentRenderData(Arche::World& World, FrameContext& Ctx);
         std::vector<std::uint32_t> ResolveEnvironmentPrototypeLodLevels(const EnvironmentObjectRenderPacket& Packet) const;
         bool TryCreateCandidate(const TerrainSamplingContext& TerrainContext, std::uint32_t RuleIndex, std::int32_t CellX, std::int32_t CellZ, std::uint32_t InstanceIndex, FoliageCandidate& OutCandidate) const;
+        bool EnsureGpuPlacementStaticRenderData() const;
         std::size_t FindReusableSlot(std::uint32_t RuleIndex) const;
         bool CreateSlot(Arche::World& World, FrameContext& Ctx, std::uint32_t RuleIndex, std::size_t& OutSlotIndex);
 
@@ -2148,6 +2353,9 @@ namespace Game {
         std::vector<FoliageCandidate> mUpdateCandidates{};
         std::unordered_map<FoliageCandidateKey, std::size_t, FoliageCandidateKeyHasher> mUpdateSlotByKey{};
         Terrain::TerrainBuildDesc mLastTerrainBuildDesc{};
+        mutable EnvironmentGpuPlacementStaticRenderData mGpuPlacementStaticRenderData{};
+        mutable EnvironmentGpuPlacementCandidateCache mGpuPlacementCandidateCache{};
+        mutable std::vector<EnvironmentGpuPlacementDrawChunk> mGpuPlacementDrawChunks{};
         SimpleMath::Vector3 mCurrentFocusPosition{ SimpleMath::Vector3::Zero };
         FoliageUpdatePhase mUpdatePhase{ FoliageUpdatePhase::Idle };
         std::size_t mUpdateCellKeyIndex{};
@@ -2176,6 +2384,9 @@ namespace Game {
         mUpdateCandidates{},
         mUpdateSlotByKey{},
         mLastTerrainBuildDesc{},
+        mGpuPlacementStaticRenderData{},
+        mGpuPlacementCandidateCache{},
+        mGpuPlacementDrawChunks{},
         mCurrentFocusPosition{ SimpleMath::Vector3::Zero },
         mUpdatePhase{ FoliageUpdatePhase::Idle },
         mUpdateCellKeyIndex{},
@@ -2207,6 +2418,9 @@ namespace Game {
         mUpdateCandidates{},
         mUpdateSlotByKey{},
         mLastTerrainBuildDesc{},
+        mGpuPlacementStaticRenderData{},
+        mGpuPlacementCandidateCache{},
+        mGpuPlacementDrawChunks{},
         mCurrentFocusPosition{ SimpleMath::Vector3::Zero },
         mUpdatePhase{ FoliageUpdatePhase::Idle },
         mUpdateCellKeyIndex{},
@@ -2239,6 +2453,9 @@ namespace Game {
         mUpdateCandidates.clear();
         mUpdateSlotByKey.clear();
         mLastTerrainBuildDesc = Terrain::TerrainBuildDesc{};
+        mGpuPlacementStaticRenderData = EnvironmentGpuPlacementStaticRenderData{};
+        mGpuPlacementCandidateCache = EnvironmentGpuPlacementCandidateCache{};
+        mGpuPlacementDrawChunks.clear();
         mCurrentFocusPosition = SimpleMath::Vector3::Zero;
         mUpdatePhase = FoliageUpdatePhase::Idle;
         mUpdateCellKeyIndex = 0ULL;
@@ -2268,6 +2485,9 @@ namespace Game {
         mUpdateCandidates{ std::move(Other.mUpdateCandidates) },
         mUpdateSlotByKey{ std::move(Other.mUpdateSlotByKey) },
         mLastTerrainBuildDesc{ Other.mLastTerrainBuildDesc },
+        mGpuPlacementStaticRenderData{ std::move(Other.mGpuPlacementStaticRenderData) },
+        mGpuPlacementCandidateCache{ std::move(Other.mGpuPlacementCandidateCache) },
+        mGpuPlacementDrawChunks{ std::move(Other.mGpuPlacementDrawChunks) },
         mCurrentFocusPosition{ Other.mCurrentFocusPosition },
         mUpdatePhase{ Other.mUpdatePhase },
         mUpdateCellKeyIndex{ Other.mUpdateCellKeyIndex },
@@ -2285,6 +2505,9 @@ namespace Game {
         Other.mUpdateCandidateIndex = 0ULL;
         Other.mUpdateSlotIndex = 0ULL;
         Other.mLastTerrainBuildDesc = Terrain::TerrainBuildDesc{};
+        Other.mGpuPlacementStaticRenderData = EnvironmentGpuPlacementStaticRenderData{};
+        Other.mGpuPlacementCandidateCache = EnvironmentGpuPlacementCandidateCache{};
+        Other.mGpuPlacementDrawChunks.clear();
         Other.mInitialized = false;
         Other.mValid = false;
         Other.mHasUpdatedOnce = false;
@@ -2312,6 +2535,9 @@ namespace Game {
         mUpdateCandidates = std::move(Other.mUpdateCandidates);
         mUpdateSlotByKey = std::move(Other.mUpdateSlotByKey);
         mLastTerrainBuildDesc = Other.mLastTerrainBuildDesc;
+        mGpuPlacementStaticRenderData = std::move(Other.mGpuPlacementStaticRenderData);
+        mGpuPlacementCandidateCache = std::move(Other.mGpuPlacementCandidateCache);
+        mGpuPlacementDrawChunks = std::move(Other.mGpuPlacementDrawChunks);
         mCurrentFocusPosition = Other.mCurrentFocusPosition;
         mUpdatePhase = Other.mUpdatePhase;
         mUpdateCellKeyIndex = Other.mUpdateCellKeyIndex;
@@ -2329,6 +2555,9 @@ namespace Game {
         Other.mUpdateCandidateIndex = 0ULL;
         Other.mUpdateSlotIndex = 0ULL;
         Other.mLastTerrainBuildDesc = Terrain::TerrainBuildDesc{};
+        Other.mGpuPlacementStaticRenderData = EnvironmentGpuPlacementStaticRenderData{};
+        Other.mGpuPlacementCandidateCache = EnvironmentGpuPlacementCandidateCache{};
+        Other.mGpuPlacementDrawChunks.clear();
         Other.mInitialized = false;
         Other.mValid = false;
         Other.mHasUpdatedOnce = false;
@@ -2484,7 +2713,7 @@ namespace Game {
         return Cell;
     }
 
-    GeneratedFoliageCell EnvironmentFoliageRuntime::Impl::GenerateEnvironmentObjectCell(const TerrainSamplingContext& TerrainContext, const EnvironmentObjectCellKey& CellKey, std::uint64_t FrameIndex) const {
+    GeneratedFoliageCell EnvironmentFoliageRuntime::Impl::GenerateEnvironmentObjectCell(const TerrainSamplingContext& TerrainContext, const EnvironmentObjectCellKey& CellKey, std::uint64_t FrameIndex, bool BuildRenderCell) const {
         std::vector<FoliageCandidate> WindowCandidates{};
         const std::int32_t SpacingCellRadius{ CalculateMinimumSpacingCellRadius(mRules, mConfig) };
         const std::int32_t MinimumCellX{ CellKey.mX - SpacingCellRadius };
@@ -2519,10 +2748,18 @@ namespace Game {
                 continue;
             }
 
+            if (BuildRenderCell == false && (Candidate.mKey.mRuleIndex >= mRules.size() || mRules[Candidate.mKey.mRuleIndex].mDesc.mCollisionActorEnabled == false)) {
+                continue;
+            }
+
             GeneratedCell.mCandidates.push_back(Candidate);
         }
 
-        GeneratedCell.mCell = BuildEnvironmentObjectCell(CellKey, GeneratedCell.mCandidates, FrameIndex);
+        if (BuildRenderCell == true) {
+            GeneratedCell.mCell = BuildEnvironmentObjectCell(CellKey, GeneratedCell.mCandidates, FrameIndex);
+            GeneratedCell.mHasRenderCell = true;
+        }
+
         return GeneratedCell;
     }
 
@@ -2661,89 +2898,160 @@ namespace Game {
         }
     }
 
-    bool EnvironmentFoliageRuntime::Impl::BuildGpuDrivenRenderData(const SimpleMath::Vector3& FocusPosition, RenderContract::RenderFrameData& RenderData, Game::EnvironmentGpuPlacementFrameData& OutFrameData) const {
+    bool EnvironmentFoliageRuntime::Impl::EnsureGpuPlacementStaticRenderData() const {
         if (mValid == false || mRules.empty() == true || mEnvironmentPrototypes.empty() == true || mHasLastTerrainBuildDesc == false) {
             return false;
         }
 
-        OutFrameData = Game::EnvironmentGpuPlacementFrameData{};
-        OutFrameData.mConfig = BuildGpuPlacementConfig(mConfig, FocusPosition, mRules);
-        OutFrameData.mRules.reserve(mRules.size());
-        OutFrameData.mCandidateRecords.reserve(mRules.size());
-        OutFrameData.mCandidateDispatchRecords.reserve(mRules.size());
-        OutFrameData.mSpacingRuleRecords.reserve(mRules.size());
-        const std::uint32_t ShadowCascadeCount{ RenderContract::ResolveShadowCascadeCount(RenderData.mShadowMappingParameter) };
-        const std::array<DirectX::BoundingOrientedBox, RenderContract::ShadowCascadeMaxCount> ShadowCullingBoxes{ RenderContract::BuildShadowCullingBoxes(RenderData.mShadowMappingParameter) };
-        for (const FoliageRuntimeRule& Rule : mRules) {
-            OutFrameData.mRules.push_back(BuildGpuPlacementRule(Rule, mLastTerrainBuildDesc));
-            if (Rule.mDesc.mMinimumSpacing > FoliageEpsilon) {
-                OutFrameData.mSpacingRuleRecords.push_back(BuildGpuPlacementSpacingRuleRecord(static_cast<std::uint32_t>(OutFrameData.mRules.size() - 1ULL)));
-            }
+        const std::uint64_t TerrainLayerHash{ HashGpuPlacementTerrainLayerDesc(mLastTerrainBuildDesc) };
+        if (mGpuPlacementStaticRenderData.mValid == true && mGpuPlacementStaticRenderData.mTerrainLayerHash == TerrainLayerHash) {
+            return true;
         }
 
-        std::uint32_t InstanceOffset{};
-        std::uint32_t CandidateOffset{};
-        std::uint32_t CellMetadataOffset{};
+        EnvironmentGpuPlacementStaticRenderData StaticData{};
+        StaticData.mTerrainLayerHash = TerrainLayerHash;
+        StaticData.mRules.reserve(mRules.size());
+        StaticData.mSpacingRuleRecords.reserve(mRules.size());
+        StaticData.mCandidateRadii.resize(mRules.size(), 0.0f);
+        StaticData.mRenderTemplateRanges.resize(mRules.size());
+
         for (std::uint32_t RuleIndex{}; RuleIndex < mRules.size(); RuleIndex += 1u) {
+            const FoliageRuntimeRule& RuntimeRule{ mRules[RuleIndex] };
+            const FoliagePlacementRule& Rule{ RuntimeRule.mDesc };
+            StaticData.mRules.push_back(BuildGpuPlacementRule(RuntimeRule, mLastTerrainBuildDesc));
+            if (Rule.mMinimumSpacing > FoliageEpsilon) {
+                StaticData.mSpacingRuleRecords.push_back(BuildGpuPlacementSpacingRuleRecord(static_cast<std::uint32_t>(StaticData.mRules.size() - 1ULL)));
+            }
+
             if (RuleIndex >= mEnvironmentPrototypes.size()) {
-                OutFrameData.mCandidateRecords.push_back(BuildGpuPlacementCandidateRecord(0, 0, 0u, 0u, RuleIndex, CandidateOffset, 0u, CellMetadataOffset));
                 continue;
             }
 
-            const FoliagePlacementRule& Rule{ mRules[RuleIndex].mDesc };
             const EnvironmentObjectPrototype& Prototype{ mEnvironmentPrototypes[RuleIndex] };
-            float CandidateRadius{};
+            EnvironmentGpuPlacementRenderTemplateRange& TemplateRange{ StaticData.mRenderTemplateRanges[RuleIndex] };
+            TemplateRange.mOffset = static_cast<std::uint32_t>(StaticData.mRenderTemplates.size());
             for (std::uint32_t LodIndex{}; LodIndex < Prototype.mLods.size(); LodIndex += 1u) {
                 const EnvironmentObjectLod& Lod{ Prototype.mLods[LodIndex] };
                 if (IsGpuDrivenEnvironmentLodRenderable(Lod) == false) {
                     continue;
                 }
 
-                const float MaximumDistance{ LodIndex >= Rule.mLods.size() ? std::numeric_limits<float>::max() : Rule.mLods[LodIndex].mMaximumDistance };
-                CandidateRadius = std::max(CandidateRadius, ResolveGpuPlacementCandidateRadius(mConfig, Rule, MaximumDistance));
-            }
-
-            std::int32_t MinimumCellX{};
-            std::int32_t MinimumCellZ{};
-            std::uint32_t CellCountX{};
-            std::uint32_t CellCountZ{};
-            const std::uint32_t CandidateCount{ CandidateRadius > FoliageEpsilon ? CalculateGpuPlacementCandidateCapacity(mConfig, FocusPosition, Rule, CandidateRadius, MinimumCellX, MinimumCellZ, CellCountX, CellCountZ) : 0u };
-            const Game::EnvironmentGpuPlacementCandidateRecord CandidateRecord{ BuildGpuPlacementCandidateRecord(MinimumCellX, MinimumCellZ, CellCountX, CellCountZ, RuleIndex, CandidateOffset, CandidateCount, CellMetadataOffset) };
-            OutFrameData.mCandidateRecords.push_back(CandidateRecord);
-            AppendGpuPlacementCandidateDispatchRecords(static_cast<std::uint32_t>(OutFrameData.mCandidateRecords.size() - 1ULL), CandidateCount, OutFrameData.mCandidateDispatchRecords);
-            CandidateOffset = static_cast<std::uint32_t>(std::min<std::uint64_t>(static_cast<std::uint64_t>(CandidateOffset) + static_cast<std::uint64_t>(CandidateCount), std::numeric_limits<std::uint32_t>::max()));
-            CellMetadataOffset = static_cast<std::uint32_t>(std::min<std::uint64_t>(static_cast<std::uint64_t>(CellMetadataOffset) + (static_cast<std::uint64_t>(CellCountX) * static_cast<std::uint64_t>(CellCountZ)), std::numeric_limits<std::uint32_t>::max()));
-            if (CandidateCount == 0u) {
-                continue;
-            }
-
-            const std::vector<EnvironmentGpuPlacementDrawChunk> DrawChunks{ BuildGpuPlacementDrawChunks(mConfig, FocusPosition, Rule, CandidateRecord, ShadowCullingBoxes, ShadowCascadeCount) };
-            if (DrawChunks.empty() == true) {
-                continue;
-            }
-
-            for (std::uint32_t LodIndex{}; LodIndex < Prototype.mLods.size(); LodIndex += 1u) {
-                const EnvironmentObjectLod& Lod{ Prototype.mLods[LodIndex] };
                 const float MinimumDistance{ LodIndex == 0u || LodIndex - 1u >= Rule.mLods.size() ? 0.0f : Rule.mLods[LodIndex - 1u].mMaximumDistance };
                 const float MaximumDistance{ LodIndex >= Rule.mLods.size() ? std::numeric_limits<float>::max() : Rule.mLods[LodIndex].mMaximumDistance };
+                StaticData.mCandidateRadii[RuleIndex] = std::max(StaticData.mCandidateRadii[RuleIndex], ResolveGpuPlacementCandidateRadius(mConfig, Rule, MaximumDistance));
                 for (const EnvironmentObjectPart& Part : Lod.mParts) {
                     for (const EnvironmentObjectRenderSegment& Segment : Part.mSegments) {
                         if (IsGpuDrivenEnvironmentSegmentRenderable(Segment) == false) {
                             continue;
                         }
 
-                        const std::uint32_t SegmentContextIndex{ static_cast<std::uint32_t>(RenderData.mEnvironmentSegmentContexts.size()) };
-                        RenderData.mEnvironmentSegmentContexts.push_back(BuildGpuDrivenEnvironmentSegmentContext(Segment));
-                        for (const EnvironmentGpuPlacementDrawChunk& DrawChunk : DrawChunks) {
-                            if (DrawChunk.mCandidateCount == 0u) {
-                                continue;
-                            }
-
-                            RenderData.mEnvironmentDrawRecords.push_back(BuildGpuDrivenEnvironmentDrawRecord(Segment, SegmentContextIndex, InstanceOffset, DrawChunk.mCandidateCount, DrawChunk.mShadowCascadeMask));
-                            OutFrameData.mDrawRecords.push_back(BuildGpuPlacementDrawRecord(CandidateRecord, DrawChunk, LodIndex, MinimumDistance, MaximumDistance));
-                            InstanceOffset = static_cast<std::uint32_t>(std::min<std::uint64_t>(static_cast<std::uint64_t>(InstanceOffset) + static_cast<std::uint64_t>(DrawChunk.mCandidateCount), std::numeric_limits<std::uint32_t>::max()));
-                        }
+                        StaticData.mRenderTemplates.push_back(BuildGpuPlacementRenderTemplate(Segment, Lod, RuleIndex, LodIndex, MinimumDistance, MaximumDistance));
+                        TemplateRange.mCount += 1u;
                     }
+                }
+            }
+        }
+
+        StaticData.mValid = StaticData.mRules.empty() == false && StaticData.mRenderTemplates.empty() == false;
+        mGpuPlacementStaticRenderData = std::move(StaticData);
+        return mGpuPlacementStaticRenderData.mValid;
+    }
+
+    bool EnvironmentFoliageRuntime::Impl::BuildGpuDrivenRenderData(const SimpleMath::Vector3& FocusPosition, RenderContract::RenderFrameData& RenderData, Game::EnvironmentGpuPlacementFrameData& OutFrameData) const {
+        if (EnsureGpuPlacementStaticRenderData() == false) {
+            return false;
+        }
+
+        const EnvironmentGpuPlacementStaticRenderData& StaticData{ mGpuPlacementStaticRenderData };
+        ClearGpuPlacementFrameData(OutFrameData);
+        OutFrameData.mConfig = BuildGpuPlacementConfig(mConfig, FocusPosition, mRules);
+        OutFrameData.mRules = StaticData.mRules;
+        OutFrameData.mSpacingRuleRecords = StaticData.mSpacingRuleRecords;
+        OutFrameData.mCandidateRecords.reserve(mRules.size());
+        OutFrameData.mDrawRecords.reserve(StaticData.mRenderTemplates.size());
+        if (mGpuPlacementCandidateCache.mValid == false || mGpuPlacementCandidateCache.mTerrainLayerHash != StaticData.mTerrainLayerHash || mGpuPlacementCandidateCache.mRules.size() != mRules.size()) {
+            mGpuPlacementCandidateCache = EnvironmentGpuPlacementCandidateCache{};
+            mGpuPlacementCandidateCache.mTerrainLayerHash = StaticData.mTerrainLayerHash;
+            mGpuPlacementCandidateCache.mRules.resize(mRules.size());
+            mGpuPlacementCandidateCache.mValid = true;
+        }
+
+        const std::uint32_t ShadowCascadeCount{ RenderContract::ResolveShadowCascadeCount(RenderData.mShadowMappingParameter) };
+        const std::array<DirectX::BoundingOrientedBox, RenderContract::ShadowCascadeMaxCount> ShadowCullingBoxes{ RenderContract::BuildShadowCullingBoxes(RenderData.mShadowMappingParameter) };
+        std::vector<EnvironmentGpuPlacementDrawChunk>& DrawChunks{ mGpuPlacementDrawChunks };
+        DrawChunks.clear();
+
+        std::uint32_t InstanceOffset{};
+        std::uint32_t CandidateOffset{};
+        std::uint32_t CellMetadataOffset{};
+        const std::int32_t SpacingCellRadius{ std::max(CalculateMinimumSpacingCellRadius(mRules, mConfig), 0) };
+        const float SpacingRadiusMargin{ static_cast<float>(SpacingCellRadius) * std::max(mConfig.mCellSize, FoliageEpsilon) };
+        for (std::uint32_t RuleIndex{}; RuleIndex < mRules.size(); RuleIndex += 1u) {
+            if (RuleIndex >= StaticData.mCandidateRadii.size() || RuleIndex >= StaticData.mRenderTemplateRanges.size()) {
+                OutFrameData.mCandidateRecords.push_back(BuildGpuPlacementCandidateRecord(0, 0, 0u, 0u, RuleIndex, CandidateOffset, 0u, CellMetadataOffset));
+                continue;
+            }
+
+            const FoliagePlacementRule& Rule{ mRules[RuleIndex].mDesc };
+            const float CandidateRadius{ StaticData.mCandidateRadii[RuleIndex] };
+            std::int32_t DrawMinimumCellX{};
+            std::int32_t DrawMinimumCellZ{};
+            std::uint32_t DrawCellCountX{};
+            std::uint32_t DrawCellCountZ{};
+            if (CandidateRadius > FoliageEpsilon) {
+                CalculateGpuPlacementCellRange(mConfig, FocusPosition, std::clamp(CandidateRadius, 1.0f, std::max(mConfig.mRenderRadius, 1.0f)), DrawMinimumCellX, DrawMinimumCellZ, DrawCellCountX, DrawCellCountZ);
+            }
+
+            std::int32_t GenerateMinimumCellX{};
+            std::int32_t GenerateMinimumCellZ{};
+            std::uint32_t GenerateCellCountX{};
+            std::uint32_t GenerateCellCountZ{};
+            if (CandidateRadius > FoliageEpsilon) {
+                CalculateGpuPlacementCellRange(mConfig, FocusPosition, std::clamp(CandidateRadius + SpacingRadiusMargin, 1.0f, std::max(mConfig.mRenderRadius + SpacingRadiusMargin, 1.0f)), GenerateMinimumCellX, GenerateMinimumCellZ, GenerateCellCountX, GenerateCellCountZ);
+            }
+
+            EnvironmentGpuPlacementRuleCache& RuleCache{ mGpuPlacementCandidateCache.mRules[RuleIndex] };
+            EnsureGpuPlacementRuleCache(RuleCache, GenerateCellCountX, GenerateCellCountZ, Rule.mInstancesPerCell);
+            const std::uint32_t CandidateCount{ CandidateRadius > FoliageEpsilon ? CalculateGpuPlacementCandidateCapacity(RuleCache.mCellCountX, RuleCache.mCellCountZ, RuleCache.mInstancesPerCell) : 0u };
+            const std::uint32_t CellMetadataCount{ CandidateRadius > FoliageEpsilon ? static_cast<std::uint32_t>(std::min<std::uint64_t>(static_cast<std::uint64_t>(RuleCache.mCellCountX) * static_cast<std::uint64_t>(RuleCache.mCellCountZ), static_cast<std::uint64_t>(std::numeric_limits<std::uint32_t>::max()))) : 0u };
+            const Game::EnvironmentGpuPlacementCandidateRecord CandidateRecord{ BuildGpuPlacementCandidateRecord(0, 0, RuleCache.mCellCountX, RuleCache.mCellCountZ, RuleIndex, CandidateOffset, CandidateCount, CellMetadataOffset) };
+            OutFrameData.mCandidateRecords.push_back(CandidateRecord);
+            if (CandidateRadius > FoliageEpsilon) {
+                AppendGpuPlacementNewCellDispatchRecords(static_cast<std::uint32_t>(OutFrameData.mCandidateRecords.size() - 1ULL), GenerateMinimumCellX, GenerateMinimumCellZ, GenerateCellCountX, GenerateCellCountZ, RuleCache, OutFrameData.mCandidateDispatchRecords);
+            }
+
+            CandidateOffset = static_cast<std::uint32_t>(std::min<std::uint64_t>(static_cast<std::uint64_t>(CandidateOffset) + static_cast<std::uint64_t>(CandidateCount), std::numeric_limits<std::uint32_t>::max()));
+            CellMetadataOffset = static_cast<std::uint32_t>(std::min<std::uint64_t>(static_cast<std::uint64_t>(CellMetadataOffset) + static_cast<std::uint64_t>(CellMetadataCount), std::numeric_limits<std::uint32_t>::max()));
+            if (CandidateCount == 0u || DrawCellCountX == 0u || DrawCellCountZ == 0u) {
+                continue;
+            }
+
+            const Game::EnvironmentGpuPlacementCandidateRecord DrawCandidateRecord{ BuildGpuPlacementCandidateRecord(DrawMinimumCellX, DrawMinimumCellZ, DrawCellCountX, DrawCellCountZ, RuleIndex, CandidateRecord.mCandidateOffset, CalculateGpuPlacementCandidateCapacity(DrawCellCountX, DrawCellCountZ, Rule.mInstancesPerCell), CandidateRecord.mCellMetadataOffset) };
+            BuildGpuPlacementDrawChunks(mConfig, FocusPosition, Rule, DrawCandidateRecord, ShadowCullingBoxes, ShadowCascadeCount, DrawChunks);
+            if (DrawChunks.empty() == true) {
+                continue;
+            }
+
+            const EnvironmentGpuPlacementRenderTemplateRange& TemplateRange{ StaticData.mRenderTemplateRanges[RuleIndex] };
+            const std::uint32_t TemplateEnd{ static_cast<std::uint32_t>(std::min<std::uint64_t>(static_cast<std::uint64_t>(TemplateRange.mOffset) + static_cast<std::uint64_t>(TemplateRange.mCount), static_cast<std::uint64_t>(StaticData.mRenderTemplates.size()))) };
+            const std::uint32_t TemplateCount{ TemplateEnd - TemplateRange.mOffset };
+            const std::uint64_t AdditionalDrawRecordCount{ static_cast<std::uint64_t>(TemplateCount) * static_cast<std::uint64_t>(DrawChunks.size()) };
+            const std::size_t SafeAdditionalDrawRecordCount{ static_cast<std::size_t>(std::min<std::uint64_t>(AdditionalDrawRecordCount, static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max() - OutFrameData.mDrawRecords.size()))) };
+            RenderData.mEnvironmentDrawRecords.reserve(RenderData.mEnvironmentDrawRecords.size() + SafeAdditionalDrawRecordCount);
+            OutFrameData.mDrawRecords.reserve(OutFrameData.mDrawRecords.size() + SafeAdditionalDrawRecordCount);
+            RenderData.mEnvironmentSegmentContexts.reserve(RenderData.mEnvironmentSegmentContexts.size() + TemplateCount);
+            for (std::uint32_t TemplateIndex{ TemplateRange.mOffset }; TemplateIndex < TemplateEnd; TemplateIndex += 1u) {
+                const EnvironmentGpuPlacementRenderTemplate& Template{ StaticData.mRenderTemplates[TemplateIndex] };
+                const std::uint32_t SegmentContextIndex{ static_cast<std::uint32_t>(RenderData.mEnvironmentSegmentContexts.size()) };
+                RenderData.mEnvironmentSegmentContexts.push_back(Template.mSegmentContext);
+                for (const EnvironmentGpuPlacementDrawChunk& DrawChunk : DrawChunks) {
+                    if (DrawChunk.mCandidateCount == 0u) {
+                        continue;
+                    }
+
+                    RenderData.mEnvironmentDrawRecords.push_back(BuildGpuDrivenEnvironmentDrawRecord(Template, SegmentContextIndex, InstanceOffset, DrawChunk.mCandidateCount, DrawChunk.mShadowCascadeMask));
+                    OutFrameData.mDrawRecords.push_back(BuildGpuPlacementDrawRecord(CandidateRecord, RuleIndex, DrawChunk, Template.mLodIndex, Template.mMinimumDistance, Template.mMaximumDistance, Template.mCullingCenterOffset.y, Template.mCullingRadius));
+                    InstanceOffset = static_cast<std::uint32_t>(std::min<std::uint64_t>(static_cast<std::uint64_t>(InstanceOffset) + static_cast<std::uint64_t>(DrawChunk.mCandidateCount), std::numeric_limits<std::uint32_t>::max()));
                 }
             }
         }
@@ -2757,7 +3065,15 @@ namespace Game {
             return;
         }
 
+        const bool WasGpuDrivenRenderEnabled{ mGpuDrivenRenderEnabled };
         mGpuDrivenRenderEnabled = IsGpuDrivenRenderEnabled;
+        if (WasGpuDrivenRenderEnabled != mGpuDrivenRenderEnabled) {
+            mPendingEnvironmentCellKeys.clear();
+            mUpdateCandidates.clear();
+            mUpdateSlotByKey.clear();
+            mUpdatePhase = FoliageUpdatePhase::Idle;
+            mUpdateTimer = mConfig.mUpdateInterval;
+        }
 
         SimpleMath::Vector3 FocusPosition{};
         const bool HasFocusPosition{ TryResolveFocusPosition(World, FocusPosition) };
@@ -2827,11 +3143,19 @@ namespace Game {
         const float UpdateRadius{ mGpuDrivenRenderEnabled == true ? mConfig.mPhysicsRadius : mConfig.mRenderRadius };
         mDesiredEnvironmentCellKeys = BuildEnvironmentCellKeysInRadius(FocusPosition, mConfig, UpdateRadius);
         RemoveUnloadedEnvironmentObjectCells(Ctx);
-        RefreshVisibleEnvironmentObjectCells(Ctx);
+        if (mGpuDrivenRenderEnabled == true) {
+            mEnvironmentRenderContext.Clear();
+            mVisibleEnvironmentCellKeys.clear();
+        }
+        else {
+            RefreshVisibleEnvironmentObjectCells(Ctx);
+        }
+
         mPendingEnvironmentCellKeys.clear();
         mPendingEnvironmentCellKeys.reserve(mDesiredEnvironmentCellKeys.size());
         for (const EnvironmentObjectCellKey& CellKey : mDesiredEnvironmentCellKeys) {
-            if (mGeneratedEnvironmentCells.find(CellKey) != mGeneratedEnvironmentCells.end()) {
+            const std::unordered_map<EnvironmentObjectCellKey, GeneratedFoliageCell, EnvironmentObjectCellKeyHasher>::const_iterator FoundCellIterator{ mGeneratedEnvironmentCells.find(CellKey) };
+            if (FoundCellIterator != mGeneratedEnvironmentCells.end() && (mGpuDrivenRenderEnabled == true || FoundCellIterator->second.mHasRenderCell == true)) {
                 continue;
             }
 
@@ -2864,7 +3188,7 @@ namespace Game {
         std::uint32_t ProcessedCellCount{};
         while (mUpdateCellKeyIndex < mPendingEnvironmentCellKeys.size() && ProcessedCellCount < mConfig.mUpdateCellBatchSize) {
             const EnvironmentObjectCellKey CellKey{ mPendingEnvironmentCellKeys[mUpdateCellKeyIndex] };
-            GeneratedFoliageCell GeneratedCell{ GenerateEnvironmentObjectCell(TerrainContext, CellKey, Ctx.RenderData.mFrameGlobals.mFrameIndex) };
+            GeneratedFoliageCell GeneratedCell{ GenerateEnvironmentObjectCell(TerrainContext, CellKey, Ctx.RenderData.mFrameGlobals.mFrameIndex, mGpuDrivenRenderEnabled == false) };
             mGeneratedEnvironmentCells.insert_or_assign(CellKey, std::move(GeneratedCell));
             mUpdateCellKeyIndex += 1ULL;
             ProcessedCellCount += 1u;
@@ -2874,7 +3198,10 @@ namespace Game {
             return;
         }
 
-        RefreshVisibleEnvironmentObjectCells(Ctx);
+        if (mGpuDrivenRenderEnabled == false) {
+            RefreshVisibleEnvironmentObjectCells(Ctx);
+        }
+
         BuildLoadedCollisionCandidates();
         mUpdateCandidateIndex = 0ULL;
         mUpdatePhase = FoliageUpdatePhase::ApplyCandidates;

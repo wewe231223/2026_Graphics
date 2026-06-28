@@ -826,6 +826,9 @@ namespace Game {
                 return;
             }
 
+            mFrameContext.MaterialGroups = &mAssetRegistry.GetMaterialGroups();
+            mFrameContext.AssetRegistryResource = &mAssetRegistry;
+            mEnvironmentRuntime.Tick(mWorld, mFrameContext, 0.0f);
             const EnvironmentFrameInput EnvironmentInput{ BuildEnvironmentFrameInput() };
             mEnvironmentRuntime.Tick(EnvironmentInput, mFrameContext.RenderData);
         }

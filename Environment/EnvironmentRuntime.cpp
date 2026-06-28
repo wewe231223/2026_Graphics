@@ -10,6 +10,7 @@
 #include <limits>
 #include <map>
 #include <span>
+#include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -23,13 +24,28 @@
 
 namespace Game {
     namespace {
-        constexpr std::uint32_t EnvironmentGpuRootConstantDwordCount{ 62u };
+        constexpr std::uint32_t EnvironmentGpuRootConstantDwordCount{ 64u };
         constexpr std::uint32_t EnvironmentGpuStatusDwordCount{ 16u };
         constexpr std::uint32_t EnvironmentComputeThreadGroupSize{ 64u };
         constexpr std::uint32_t EnvironmentDrawRecordGpuDrivenFlag{ 0x1u };
         constexpr std::uint32_t InvalidDescriptorIndex{ 0xffffffffu };
         constexpr float EnvironmentGpuCullRadius{ 18.0f };
         constexpr float EnvironmentGpuMaxDrawDistance{ 1000.0f };
+        constexpr std::uint32_t EnvironmentGpuPrepareFailureInitialized{ 1u << 0u };
+        constexpr std::uint32_t EnvironmentGpuPrepareFailureEnabled{ 1u << 1u };
+        constexpr std::uint32_t EnvironmentGpuPrepareFailureResources{ 1u << 2u };
+        constexpr std::uint32_t EnvironmentGpuPrepareFailureCopyQueue{ 1u << 3u };
+        constexpr std::uint32_t EnvironmentGpuPrepareFailureComputeQueue{ 1u << 4u };
+        constexpr std::uint32_t EnvironmentGpuPrepareFailureDrawRecords{ 1u << 5u };
+        constexpr std::uint32_t EnvironmentGpuPrepareFailurePlacementDrawRecords{ 1u << 6u };
+        constexpr std::uint32_t EnvironmentGpuPrepareFailureRules{ 1u << 7u };
+        constexpr std::uint32_t EnvironmentGpuPrepareFailureCandidateRecords{ 1u << 8u };
+        constexpr std::uint32_t EnvironmentGpuPrepareFailureCandidateDispatchRecords{ 1u << 9u };
+        constexpr std::uint32_t EnvironmentGpuPrepareFailureCandidateCount{ 1u << 10u };
+        constexpr std::uint32_t EnvironmentGpuPrepareFailureTerrainHeight{ 1u << 11u };
+        constexpr std::uint32_t EnvironmentGpuPrepareFailureTerrainSplat0{ 1u << 12u };
+        constexpr std::uint32_t EnvironmentGpuPrepareFailureTerrainSplat1{ 1u << 13u };
+        constexpr std::uint32_t EnvironmentGpuPrepareFailureFoliageRuntime{ 1u << 14u };
 
         struct DrawRootConstantsB1 final {
         public:
@@ -87,6 +103,8 @@ namespace Game {
             std::uint32_t mCellMetadataUavIndex{};
             std::uint32_t mAcceptedCandidateSrvIndex{};
             std::uint32_t mAcceptedCandidateUavIndex{};
+            std::uint32_t mFrustumPlanePadding0{};
+            std::uint32_t mFrustumPlanePadding1{};
             std::array<std::uint32_t, 24> mFrustumPlanes{};
         };
 
@@ -226,6 +244,49 @@ namespace Game {
             const bool IsLeftBillboard{ IsEnvironmentBillboardRecord(Left) };
             const bool IsRightBillboard{ IsEnvironmentBillboardRecord(Right) };
             return Left.mMesh != nullptr && Left.mInstanceCount > 0u && Right.mMesh != nullptr && Right.mInstanceCount > 0u && Left.mMesh == Right.mMesh && Left.mSubMesh == Right.mSubMesh && IsLeftBillboard == IsRightBillboard && (IsLeftBillboard == false || Left.mPipeline == Right.mPipeline);
+        }
+
+        void AppendEnvironmentGpuPrepareFailureText(std::string& Message, std::uint32_t FailureMask, std::uint32_t FailureFlag, const char* Text) {
+            if ((FailureMask & FailureFlag) == 0u) {
+                return;
+            }
+
+            if (Message.empty() == false) {
+                Message += ", ";
+            }
+
+            Message += Text;
+        }
+
+        std::string BuildEnvironmentGpuPrepareFailureText(std::uint32_t FailureMask) {
+            std::string Message{};
+            AppendEnvironmentGpuPrepareFailureText(Message, FailureMask, EnvironmentGpuPrepareFailureInitialized, "RuntimeNotInitialized");
+            AppendEnvironmentGpuPrepareFailureText(Message, FailureMask, EnvironmentGpuPrepareFailureEnabled, "GpuDrivenDisabled");
+            AppendEnvironmentGpuPrepareFailureText(Message, FailureMask, EnvironmentGpuPrepareFailureResources, "GpuResourcesNotInitialized");
+            AppendEnvironmentGpuPrepareFailureText(Message, FailureMask, EnvironmentGpuPrepareFailureCopyQueue, "MissingCopyQueue");
+            AppendEnvironmentGpuPrepareFailureText(Message, FailureMask, EnvironmentGpuPrepareFailureComputeQueue, "MissingComputeQueue");
+            AppendEnvironmentGpuPrepareFailureText(Message, FailureMask, EnvironmentGpuPrepareFailureDrawRecords, "EmptyDrawRecords");
+            AppendEnvironmentGpuPrepareFailureText(Message, FailureMask, EnvironmentGpuPrepareFailurePlacementDrawRecords, "EmptyPlacementDrawRecords");
+            AppendEnvironmentGpuPrepareFailureText(Message, FailureMask, EnvironmentGpuPrepareFailureRules, "EmptyRules");
+            AppendEnvironmentGpuPrepareFailureText(Message, FailureMask, EnvironmentGpuPrepareFailureCandidateRecords, "EmptyCandidateRecords");
+            AppendEnvironmentGpuPrepareFailureText(Message, FailureMask, EnvironmentGpuPrepareFailureCandidateDispatchRecords, "EmptyCandidateDispatchRecords");
+            AppendEnvironmentGpuPrepareFailureText(Message, FailureMask, EnvironmentGpuPrepareFailureCandidateCount, "ZeroCandidateCount");
+            AppendEnvironmentGpuPrepareFailureText(Message, FailureMask, EnvironmentGpuPrepareFailureTerrainHeight, "InvalidTerrainHeightSrv");
+            AppendEnvironmentGpuPrepareFailureText(Message, FailureMask, EnvironmentGpuPrepareFailureTerrainSplat0, "InvalidTerrainSplat0Srv");
+            AppendEnvironmentGpuPrepareFailureText(Message, FailureMask, EnvironmentGpuPrepareFailureTerrainSplat1, "InvalidTerrainSplat1Srv");
+            AppendEnvironmentGpuPrepareFailureText(Message, FailureMask, EnvironmentGpuPrepareFailureFoliageRuntime, "MissingFoliageRuntime");
+            return Message;
+        }
+
+        void ClearEnvironmentGpuPlacementFrameData(EnvironmentGpuPlacementFrameData& FrameData) {
+            FrameData.mConfig = EnvironmentGpuPlacementConfig{};
+            FrameData.mRules.clear();
+            FrameData.mCandidateRecords.clear();
+            FrameData.mCandidateDispatchRecords.clear();
+            FrameData.mDrawDispatchRecords.clear();
+            FrameData.mSpacingRuleRecords.clear();
+            FrameData.mDrawRecords.clear();
+            FrameData.mCandidateCount = 0u;
         }
 
         void BuildEnvironmentGpuDrivenGBufferDrawBatches(std::span<const RenderContract::EnvironmentDrawRecord> DrawRecords, std::vector<RenderContract::EnvironmentGpuDrivenDrawBatch>& OutBatches) {
@@ -394,12 +455,12 @@ namespace Game {
             return (ItemCount + EnvironmentComputeThreadGroupSize - 1u) / EnvironmentComputeThreadGroupSize;
         }
 
-        EnvironmentGpuPlacementDrawDispatchRecord BuildGpuPlacementDrawDispatchRecord(std::uint32_t DrawRecordIndex, std::uint32_t LocalCandidateOffset, std::uint32_t CandidateCount) {
+        EnvironmentGpuPlacementDrawDispatchRecord BuildGpuPlacementDrawDispatchRecord(std::uint32_t DrawRecordIndex, std::int32_t CellX, std::int32_t CellZ, std::uint32_t InstanceOffset) {
             EnvironmentGpuPlacementDrawDispatchRecord DispatchRecord{};
             DispatchRecord.mDrawRecordIndex = DrawRecordIndex;
-            DispatchRecord.mLocalCandidateOffset = LocalCandidateOffset;
-            DispatchRecord.mCandidateCount = CandidateCount;
-            DispatchRecord.mPadding0 = 0u;
+            DispatchRecord.mCellX = CellX;
+            DispatchRecord.mCellZ = CellZ;
+            DispatchRecord.mInstanceOffset = InstanceOffset;
             return DispatchRecord;
         }
 
@@ -408,12 +469,22 @@ namespace Game {
             const std::uint32_t DrawRecordCount{ static_cast<std::uint32_t>(std::min<std::size_t>(DrawRecords.size(), std::numeric_limits<std::uint32_t>::max())) };
             for (std::uint32_t DrawRecordIndex{}; DrawRecordIndex < DrawRecordCount; DrawRecordIndex += 1u) {
                 const EnvironmentGpuPlacementDrawRecord& DrawRecord{ DrawRecords[DrawRecordIndex] };
-                std::uint32_t LocalCandidateOffset{};
-                while (LocalCandidateOffset < DrawRecord.mCandidateCount) {
-                    const std::uint32_t RemainingCandidateCount{ DrawRecord.mCandidateCount - LocalCandidateOffset };
-                    const std::uint32_t DispatchCandidateCount{ std::min(RemainingCandidateCount, EnvironmentComputeThreadGroupSize) };
-                    OutDispatchRecords.push_back(BuildGpuPlacementDrawDispatchRecord(DrawRecordIndex, LocalCandidateOffset, DispatchCandidateCount));
-                    LocalCandidateOffset += DispatchCandidateCount;
+                if (DrawRecord.mCellCountX == 0u || DrawRecord.mCellCountZ == 0u || DrawRecord.mCandidateCount == 0u) {
+                    continue;
+                }
+
+                const std::uint64_t CellCount{ static_cast<std::uint64_t>(DrawRecord.mCellCountX) * static_cast<std::uint64_t>(DrawRecord.mCellCountZ) };
+                if (CellCount == 0ULL) {
+                    continue;
+                }
+
+                const std::uint32_t CandidateCountPerCell{ static_cast<std::uint32_t>(std::max<std::uint64_t>(static_cast<std::uint64_t>(DrawRecord.mCandidateCount) / CellCount, 1ULL)) };
+                for (std::uint32_t CellOffsetZ{}; CellOffsetZ < DrawRecord.mCellCountZ; CellOffsetZ += 1u) {
+                    for (std::uint32_t CellOffsetX{}; CellOffsetX < DrawRecord.mCellCountX; CellOffsetX += 1u) {
+                        for (std::uint32_t InstanceOffset{}; InstanceOffset < CandidateCountPerCell; InstanceOffset += EnvironmentComputeThreadGroupSize) {
+                            OutDispatchRecords.push_back(BuildGpuPlacementDrawDispatchRecord(DrawRecordIndex, DrawRecord.mMinimumCellX + static_cast<std::int32_t>(CellOffsetX), DrawRecord.mMinimumCellZ + static_cast<std::int32_t>(CellOffsetZ), InstanceOffset));
+                        }
+                    }
                 }
             }
         }
@@ -522,6 +593,7 @@ namespace Game {
         mGpuDrivenFrameResources{},
         mGpuInstanceContextCount{},
         mGpuStatusUavIndex{ InvalidDescriptorIndex },
+        mLastGpuPrepareFailureMask{},
         mInitialized{},
         mGpuDrivenEnabled{},
         mGpuResourcesInitialized{} {
@@ -558,6 +630,7 @@ namespace Game {
         mGpuDrivenFrameResources{ std::move(Other.mGpuDrivenFrameResources) },
         mGpuInstanceContextCount{ Other.mGpuInstanceContextCount },
         mGpuStatusUavIndex{ Other.mGpuStatusUavIndex },
+        mLastGpuPrepareFailureMask{ Other.mLastGpuPrepareFailureMask },
         mInitialized{ Other.mInitialized },
         mGpuDrivenEnabled{ Other.mGpuDrivenEnabled },
         mGpuResourcesInitialized{ Other.mGpuResourcesInitialized } {
@@ -575,6 +648,7 @@ namespace Game {
         Other.mGpuPersistentResource = EnvironmentGpuPersistentResource{};
         Other.mGpuInstanceContextCount = 0u;
         Other.mGpuStatusUavIndex = InvalidDescriptorIndex;
+        Other.mLastGpuPrepareFailureMask = 0u;
         Other.mInitialized = false;
         Other.mGpuDrivenEnabled = false;
         Other.mGpuResourcesInitialized = false;
@@ -612,6 +686,7 @@ namespace Game {
         mGpuDrivenFrameResources = std::move(Other.mGpuDrivenFrameResources);
         mGpuInstanceContextCount = Other.mGpuInstanceContextCount;
         mGpuStatusUavIndex = Other.mGpuStatusUavIndex;
+        mLastGpuPrepareFailureMask = Other.mLastGpuPrepareFailureMask;
         mInitialized = Other.mInitialized;
         mGpuDrivenEnabled = Other.mGpuDrivenEnabled;
         mGpuResourcesInitialized = Other.mGpuResourcesInitialized;
@@ -629,6 +704,7 @@ namespace Game {
         Other.mGpuPersistentResource = EnvironmentGpuPersistentResource{};
         Other.mGpuInstanceContextCount = 0u;
         Other.mGpuStatusUavIndex = InvalidDescriptorIndex;
+        Other.mLastGpuPrepareFailureMask = 0u;
         Other.mInitialized = false;
         Other.mGpuDrivenEnabled = false;
         Other.mGpuResourcesInitialized = false;
@@ -708,18 +784,40 @@ namespace Game {
         RenderData.mEnvironmentInstanceContexts.clear();
         RenderData.mEnvironmentSegmentContexts.clear();
         RenderData.mEnvironmentDrawRecords.clear();
-        mGpuPlacementFrameData = EnvironmentGpuPlacementFrameData{};
+        ClearEnvironmentGpuPlacementFrameData(mGpuPlacementFrameData);
         if (mFoliageRuntime != nullptr) {
             Widget::PerformanceProvider::Get().BeginPhaseProfile("EnvironmentGpuBuildRenderData");
             mFoliageRuntime->BuildGpuDrivenRenderData(Input.mFocusPosition, RenderData, mGpuPlacementFrameData);
             Widget::PerformanceProvider::Get().EndPhaseProfile();
         }
 
-        if (mInitialized == false || mGpuDrivenEnabled == false || mGpuResourcesInitialized == false || mCopyQueue == nullptr || mComputeQueue == nullptr || RenderData.mEnvironmentDrawRecords.empty() == true || mGpuPlacementFrameData.mDrawRecords.empty() == true || mGpuPlacementFrameData.mRules.empty() == true || mGpuPlacementFrameData.mCandidateRecords.empty() == true || mGpuPlacementFrameData.mCandidateDispatchRecords.empty() == true || mGpuPlacementFrameData.mCandidateCount == 0u || Input.mTerrain.mHeightSrvIndex == InvalidDescriptorIndex || Input.mTerrain.mSplatSrvIndex == InvalidDescriptorIndex || Input.mTerrain.mSplat1SrvIndex == InvalidDescriptorIndex) {
+        std::uint32_t FailureMask{};
+        FailureMask |= mInitialized == false ? EnvironmentGpuPrepareFailureInitialized : 0u;
+        FailureMask |= mGpuDrivenEnabled == false ? EnvironmentGpuPrepareFailureEnabled : 0u;
+        FailureMask |= mGpuResourcesInitialized == false ? EnvironmentGpuPrepareFailureResources : 0u;
+        FailureMask |= mCopyQueue == nullptr ? EnvironmentGpuPrepareFailureCopyQueue : 0u;
+        FailureMask |= mComputeQueue == nullptr ? EnvironmentGpuPrepareFailureComputeQueue : 0u;
+        FailureMask |= mFoliageRuntime == nullptr ? EnvironmentGpuPrepareFailureFoliageRuntime : 0u;
+        FailureMask |= RenderData.mEnvironmentDrawRecords.empty() == true ? EnvironmentGpuPrepareFailureDrawRecords : 0u;
+        FailureMask |= mGpuPlacementFrameData.mDrawRecords.empty() == true ? EnvironmentGpuPrepareFailurePlacementDrawRecords : 0u;
+        FailureMask |= mGpuPlacementFrameData.mRules.empty() == true ? EnvironmentGpuPrepareFailureRules : 0u;
+        FailureMask |= mGpuPlacementFrameData.mCandidateRecords.empty() == true ? EnvironmentGpuPrepareFailureCandidateRecords : 0u;
+        FailureMask |= mGpuPlacementFrameData.mCandidateCount == 0u ? EnvironmentGpuPrepareFailureCandidateCount : 0u;
+        FailureMask |= Input.mTerrain.mHeightSrvIndex == InvalidDescriptorIndex ? EnvironmentGpuPrepareFailureTerrainHeight : 0u;
+        FailureMask |= Input.mTerrain.mSplatSrvIndex == InvalidDescriptorIndex ? EnvironmentGpuPrepareFailureTerrainSplat0 : 0u;
+        FailureMask |= Input.mTerrain.mSplat1SrvIndex == InvalidDescriptorIndex ? EnvironmentGpuPrepareFailureTerrainSplat1 : 0u;
+        if (FailureMask != 0u) {
+            if (mLastGpuPrepareFailureMask != FailureMask) {
+                const std::string FailureText{ BuildEnvironmentGpuPrepareFailureText(FailureMask) };
+                ErrorHandler::report("EnvironmentRuntime", FailureText, ErrorHandler::Level::Warning);
+                mLastGpuPrepareFailureMask = FailureMask;
+            }
+
             mLastGpuDispatchFuture = RenderContract::Future{};
             return mLastGpuDispatchFuture;
         }
 
+        mLastGpuPrepareFailureMask = 0u;
         std::uint32_t VisibleInstanceIndexCount{};
         Widget::PerformanceProvider::Get().BeginPhaseProfile("EnvironmentGpuBuildFrameData");
         BuildGpuDrivenFrameData(Input, RenderData, VisibleInstanceIndexCount);
@@ -1643,9 +1741,14 @@ namespace Game {
             DrawBuildItems.push_back(std::move(Item));
         }
 
-        std::sort(DrawBuildItems.begin(), DrawBuildItems.end(), [](const EnvironmentGpuDrawBuildItem& Left, const EnvironmentGpuDrawBuildItem& Right) {
+        const bool NeedDrawBuildItemSort{ std::is_sorted(DrawBuildItems.begin(), DrawBuildItems.end(), [](const EnvironmentGpuDrawBuildItem& Left, const EnvironmentGpuDrawBuildItem& Right) {
             return CompareEnvironmentDrawRecordByPso(Left.mDrawRecord, Right.mDrawRecord);
-        });
+        }) == false };
+        if (NeedDrawBuildItemSort == true) {
+            std::sort(DrawBuildItems.begin(), DrawBuildItems.end(), [](const EnvironmentGpuDrawBuildItem& Left, const EnvironmentGpuDrawBuildItem& Right) {
+                return CompareEnvironmentDrawRecordByPso(Left.mDrawRecord, Right.mDrawRecord);
+            });
+        }
 
         RenderData.mEnvironmentDrawRecords.clear();
         RenderData.mEnvironmentDrawRecords.reserve(DrawBuildItems.size());
@@ -1777,7 +1880,7 @@ namespace Game {
     }
 
     RenderContract::Future EnvironmentRuntime::DispatchGpuDrivenFrame(EnvironmentGpuDrivenFrameResource& FrameResource, const EnvironmentFrameInput& Input, const RenderContract::Future& CopyFuture, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCapacity, std::uint32_t CandidateRecordCount, std::uint32_t CandidateDispatchRecordCount, std::uint32_t DrawDispatchRecordCount, std::uint32_t SpacingRuleRecordCount) {
-        if (mComputeQueue == nullptr || mSrvHeap == nullptr || DrawRecordCount == 0u || CandidateRecordCount == 0u || CandidateDispatchRecordCount == 0u || DrawDispatchRecordCount == 0u || mGpuStatusUavIndex == InvalidDescriptorIndex || mIndirectCommandInitializePipelineState == nullptr || mCandidateGeneratePipelineState == nullptr || mCandidateClassifyPipelineState == nullptr || FrameResource.mInstanceContextSrvHandle.IsValid() == false || FrameResource.mInstanceContextUavHandle.IsValid() == false || FrameResource.mDrawRecordSrvHandle.IsValid() == false || FrameResource.mPlacementConfigSrvHandle.IsValid() == false || FrameResource.mPlacementDrawRecordSrvHandle.IsValid() == false || FrameResource.mPlacementDrawDispatchRecordSrvHandle.IsValid() == false || FrameResource.mPlacementCandidateRecordSrvHandle.IsValid() == false || FrameResource.mPlacementCandidateDispatchRecordSrvHandle.IsValid() == false || FrameResource.mCandidateContextSrvHandle.IsValid() == false || FrameResource.mCandidateContextUavHandle.IsValid() == false || FrameResource.mIndirectArgumentUavHandle.IsValid() == false || FrameResource.mVisibleInstanceIndexUavHandle.IsValid() == false || mGpuPersistentResource.mSegmentContextSrvHandle.IsValid() == false || mGpuPersistentResource.mPlacementRuleSrvHandle.IsValid() == false || mGpuPersistentResource.mPlacementSpacingRuleRecordSrvHandle.IsValid() == false || mGpuPersistentResource.mCellMetadataSrvHandle.IsValid() == false || mGpuPersistentResource.mCellMetadataUavHandle.IsValid() == false || mGpuPersistentResource.mAcceptedCandidateSrvHandle.IsValid() == false || mGpuPersistentResource.mAcceptedCandidateUavHandle.IsValid() == false) {
+        if (mComputeQueue == nullptr || mSrvHeap == nullptr || DrawRecordCount == 0u || CandidateRecordCount == 0u || DrawDispatchRecordCount == 0u || mGpuStatusUavIndex == InvalidDescriptorIndex || mIndirectCommandInitializePipelineState == nullptr || mCandidateGeneratePipelineState == nullptr || mCandidateClassifyPipelineState == nullptr || FrameResource.mInstanceContextSrvHandle.IsValid() == false || FrameResource.mInstanceContextUavHandle.IsValid() == false || FrameResource.mDrawRecordSrvHandle.IsValid() == false || FrameResource.mPlacementConfigSrvHandle.IsValid() == false || FrameResource.mPlacementDrawRecordSrvHandle.IsValid() == false || FrameResource.mPlacementDrawDispatchRecordSrvHandle.IsValid() == false || FrameResource.mPlacementCandidateRecordSrvHandle.IsValid() == false || FrameResource.mPlacementCandidateDispatchRecordSrvHandle.IsValid() == false || FrameResource.mCandidateContextSrvHandle.IsValid() == false || FrameResource.mCandidateContextUavHandle.IsValid() == false || FrameResource.mIndirectArgumentUavHandle.IsValid() == false || FrameResource.mVisibleInstanceIndexUavHandle.IsValid() == false || mGpuPersistentResource.mSegmentContextSrvHandle.IsValid() == false || mGpuPersistentResource.mPlacementRuleSrvHandle.IsValid() == false || mGpuPersistentResource.mPlacementSpacingRuleRecordSrvHandle.IsValid() == false || mGpuPersistentResource.mCellMetadataSrvHandle.IsValid() == false || mGpuPersistentResource.mCellMetadataUavHandle.IsValid() == false || mGpuPersistentResource.mAcceptedCandidateSrvHandle.IsValid() == false || mGpuPersistentResource.mAcceptedCandidateUavHandle.IsValid() == false) {
             return RenderContract::Future{};
         }
 
@@ -1873,7 +1976,7 @@ namespace Game {
 
             CommandList->SetComputeRoot32BitConstants(0, EnvironmentGpuRootConstantDwordCount, &RootConstants, 0);
         };
-        GenerateRequest.ThreadGroupCountX = CandidateDispatchRecordCount;
+        GenerateRequest.ThreadGroupCountX = std::max(CandidateDispatchRecordCount, 1u);
         GenerateRequest.ThreadGroupCountY = 1u;
         GenerateRequest.ThreadGroupCountZ = 1u;
 

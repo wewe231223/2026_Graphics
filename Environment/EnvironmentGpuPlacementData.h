@@ -62,8 +62,8 @@ namespace Game {
         float mMaximumDistance{};
         std::uint32_t mCandidateOffset{};
         std::uint32_t mCandidateCount{};
-        std::uint32_t mPadding0{};
-        std::uint32_t mPadding1{};
+        std::uint32_t mCullingCenterYOffsetBits{};
+        std::uint32_t mCullingRadiusBits{};
     };
 
     struct alignas(16) EnvironmentGpuPlacementCandidateRecord final {
@@ -81,17 +81,17 @@ namespace Game {
     struct alignas(16) EnvironmentGpuPlacementCandidateDispatchRecord final {
     public:
         std::uint32_t mCandidateRecordIndex{};
-        std::uint32_t mLocalCandidateOffset{};
-        std::uint32_t mCandidateCount{};
-        std::uint32_t mPadding0{};
+        std::int32_t mCellX{};
+        std::int32_t mCellZ{};
+        std::uint32_t mInstanceOffset{};
     };
 
     struct alignas(16) EnvironmentGpuPlacementDrawDispatchRecord final {
     public:
         std::uint32_t mDrawRecordIndex{};
-        std::uint32_t mLocalCandidateOffset{};
-        std::uint32_t mCandidateCount{};
-        std::uint32_t mPadding0{};
+        std::int32_t mCellX{};
+        std::int32_t mCellZ{};
+        std::uint32_t mInstanceOffset{};
     };
 
     struct alignas(16) EnvironmentGpuPlacementSpacingRuleRecord final {
