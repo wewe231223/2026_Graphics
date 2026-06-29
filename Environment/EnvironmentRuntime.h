@@ -247,7 +247,7 @@ namespace Game {
         void BuildGpuDrivenFrameData(const EnvironmentFrameInput& Input, RenderContract::RenderFrameData& RenderData, std::uint32_t& OutVisibleInstanceIndexCount);
         RenderContract::Future UploadGpuPersistentData(EnvironmentGpuPersistentResource& PersistentResource);
         RenderContract::Future UploadGpuDrivenFrameData(EnvironmentGpuDrivenFrameResource& FrameResource);
-        RenderContract::Future DispatchGpuDrivenFrame(EnvironmentGpuDrivenFrameResource& FrameResource, const EnvironmentFrameInput& Input, const RenderContract::Future& CopyFuture, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCapacity, std::uint32_t CandidateRecordCount, std::uint32_t CandidateDispatchRecordCount, std::uint32_t DenseCandidateDispatchRecordCount, std::uint32_t SpacedCandidateDispatchRecordCount, std::uint32_t DrawDispatchRecordCount, std::uint32_t SpacingRuleRecordCount);
+        RenderContract::Future DispatchGpuDrivenFrame(EnvironmentGpuDrivenFrameResource& FrameResource, const EnvironmentFrameInput& Input, const RenderContract::Future& CopyFuture, std::uint32_t DrawRecordCount, std::uint32_t VisibleInstanceIndexCapacity, std::uint32_t CandidateRecordCount, std::uint32_t CandidateDispatchRecordCount, std::uint32_t DenseCandidateDispatchRecordCount, std::uint32_t SpacedCandidateDispatchRecordCount, std::uint32_t DrawDispatchRecordCount, std::uint32_t CandidateContextCount);
         void FillGpuDrivenFramePayload(EnvironmentGpuDrivenFrameResource& FrameResource, RenderContract::RenderFrameData& RenderData, const RenderContract::Future& GpuDispatchFuture);
         void UpdateGpuPersistentShaderResourceViews(EnvironmentGpuPersistentResource& PersistentResource, std::uint32_t SegmentContextCount, std::uint32_t PlacementRuleCount, std::uint32_t PlacementSpacingRuleRecordCount, std::uint32_t CellMetadataCount, std::uint32_t AcceptedCandidateCount);
         void UpdateGpuPersistentUnorderedAccessViews(EnvironmentGpuPersistentResource& PersistentResource, std::uint32_t CellMetadataCount, std::uint32_t AcceptedCandidateCount);
@@ -268,6 +268,7 @@ namespace Game {
         Microsoft::WRL::ComPtr<ID3D12PipelineState> mDenseCandidateGeneratePipelineState{};
         Microsoft::WRL::ComPtr<ID3D12PipelineState> mSpacedCandidateGeneratePipelineState{};
         Microsoft::WRL::ComPtr<ID3D12PipelineState> mCandidateClassifyPipelineState{};
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> mDrawBucketFinalizePipelineState{};
         Microsoft::WRL::ComPtr<ID3D12CommandSignature> mDrawIndexedIndirectCommandSignature{};
         Microsoft::WRL::ComPtr<ID3D12Resource> mGpuStatusBuffer{};
         Core::DX::DescriptorHandle mGpuStatusUavHandle{};
