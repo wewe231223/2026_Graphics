@@ -18,6 +18,9 @@
     <ClCompile Include="EnvironmentObjectTypes.cpp">
       <Filter>Environment</Filter>
     </ClCompile>
+    <ClCompile Include="EnvironmentRenderBucket.cpp">
+      <Filter>Environment</Filter>
+    </ClCompile>
     <ClCompile Include="EnvironmentRuntime.cpp">
       <Filter>Runtime</Filter>
     </ClCompile>
@@ -36,6 +39,9 @@
       <Filter>Environment</Filter>
     </ClInclude>
     <ClInclude Include="EnvironmentObjectTypes.h">
+      <Filter>Environment</Filter>
+    </ClInclude>
+    <ClInclude Include="EnvironmentRenderBucket.h">
       <Filter>Environment</Filter>
     </ClInclude>
     <ClInclude Include="EnvironmentRuntime.h">

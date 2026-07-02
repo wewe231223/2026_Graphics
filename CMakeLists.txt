@@ -217,6 +217,7 @@ add_library(Environment STATIC
     Environment/EnvironmentObjectRenderContext.cpp
     Environment/EnvironmentObjectRenderDataBuilder.cpp
     Environment/EnvironmentObjectTypes.cpp
+    Environment/EnvironmentRenderBucket.cpp
     Environment/EnvironmentFoliageRuntime.cpp
     Environment/EnvironmentRuntime.cpp
 )

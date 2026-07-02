@@ -22,6 +22,7 @@
     <ClCompile Include="EnvironmentObjectRenderContext.cpp" />
     <ClCompile Include="EnvironmentObjectRenderDataBuilder.cpp" />
     <ClCompile Include="EnvironmentObjectTypes.cpp" />
+    <ClCompile Include="EnvironmentRenderBucket.cpp" />
     <ClCompile Include="EnvironmentFoliageRuntime.cpp" />
     <ClCompile Include="EnvironmentRuntime.cpp" />
   </ItemGroup>
@@ -30,6 +31,7 @@
     <ClInclude Include="EnvironmentObjectRenderContext.h" />
     <ClInclude Include="EnvironmentObjectRenderDataBuilder.h" />
     <ClInclude Include="EnvironmentObjectTypes.h" />
+    <ClInclude Include="EnvironmentRenderBucket.h" />
     <ClInclude Include="EnvironmentFoliageRuntime.h" />
     <ClInclude Include="EnvironmentRuntime.h" />
   </ItemGroup>
